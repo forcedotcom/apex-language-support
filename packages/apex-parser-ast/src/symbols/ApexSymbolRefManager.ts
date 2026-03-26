@@ -233,6 +233,7 @@ interface BatchProcessingResult {
  */
 export class ApexSymbolRefManager {
   private static instance: ApexSymbolRefManager | null = null;
+  private static readonly INTERNAL_KEY_SEP = '\x1f';
 
   private readonly logger = getLogger();
 
@@ -674,6 +675,34 @@ export class ApexSymbolRefManager {
     return true;
   }
 
+  private makeInternalKey(...parts: Array<string | number>): string {
+    return parts
+      .map((part) => String(part))
+      .join(ApexSymbolRefManager.INTERNAL_KEY_SEP);
+  }
+
+  private makeRetryKey(
+    taskType: DeferredProcessingTask['taskType'],
+    symbolName: string,
+  ): string {
+    return this.makeInternalKey(taskType, symbolName);
+  }
+
+  private makeSourceCounterKey(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+  ): string {
+    return this.makeInternalKey(sourceFileUri, sourceSymbolId);
+  }
+
+  private makeRefKey(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+    refIndex: number,
+  ): string {
+    return this.makeInternalKey(sourceFileUri, sourceSymbolId, refIndex);
+  }
+
   // Counter for generating unique refKeys within each source symbol
   private refIndexCounters: CaseInsensitiveHashMap<number> =
     new CaseInsensitiveHashMap();
@@ -686,10 +715,10 @@ export class ApexSymbolRefManager {
     sourceFileUri: string,
     sourceSymbolId: string,
   ): string {
-    const counterKey = `${sourceFileUri}:${sourceSymbolId}`;
+    const counterKey = this.makeSourceCounterKey(sourceFileUri, sourceSymbolId);
     const currentIndex = this.refIndexCounters.get(counterKey) || 0;
     this.refIndexCounters.set(counterKey, currentIndex + 1);
-    return `${sourceFileUri}:${sourceSymbolId}:${currentIndex}`;
+    return this.makeRefKey(sourceFileUri, sourceSymbolId, currentIndex);
   }
 
   /**
@@ -699,7 +728,7 @@ export class ApexSymbolRefManager {
     sourceFileUri: string,
     sourceSymbolId: string,
   ): void {
-    const counterKey = `${sourceFileUri}:${sourceSymbolId}`;
+    const counterKey = this.makeSourceCounterKey(sourceFileUri, sourceSymbolId);
     this.refIndexCounters.delete(counterKey);
   }
 
@@ -820,7 +849,6 @@ export class ApexSymbolRefManager {
     }
 
     this.refStore.delete(refKey);
-    this.resetRefIndexCounter(entry.sourceFileUri, entry.sourceSymbolId);
   }
 
   /**
@@ -958,11 +986,12 @@ export class ApexSymbolRefManager {
    * Re-queue a failed task with incremented retry count, or move to dead letters if max retries exceeded
    */
   private requeueTask(task: DeferredProcessingTask, reason: string): void {
+    const taskKey = this.makeRetryKey(task.taskType, task.symbolName);
     // If MAX_RETRY_ATTEMPTS is 0, disable all retries
     if (this.MAX_RETRY_ATTEMPTS === 0) {
       // Don't requeue - retries are disabled
-      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
-      this.pendingRetrySymbols.delete(`${task.taskType}:${task.symbolName}`);
+      this.failedReferences.set(taskKey, task);
+      this.pendingRetrySymbols.delete(taskKey);
       this.logger.info(
         () =>
           'Deferred reference task retries disabled (maxRetryAttempts=0): ' +
@@ -974,9 +1003,9 @@ export class ApexSymbolRefManager {
 
     if (task.retryCount >= this.MAX_RETRY_ATTEMPTS) {
       // Move to dead letter tracking
-      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
+      this.failedReferences.set(taskKey, task);
       // Clear pending retry tracking
-      this.pendingRetrySymbols.delete(task.symbolName);
+      this.pendingRetrySymbols.delete(taskKey);
       this.logger.warn(
         () =>
           `Deferred reference task exceeded max retries: ${task.symbolName} ` +
@@ -987,7 +1016,7 @@ export class ApexSymbolRefManager {
 
     // Prevent duplicate retry scheduling for the same symbol
     // This avoids exponential explosion when queue is at capacity
-    const retryKey = `${task.taskType}:${task.symbolName}`;
+    const retryKey = taskKey;
     if (this.pendingRetrySymbols.has(retryKey)) {
       // Already have a pending retry for this symbol, skip to avoid duplicate retries
       this.logger.debug(
@@ -2973,330 +3002,6 @@ export class ApexSymbolRefManager {
       ),
     );
   }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private processDeferredReferencesBatchEffect_OLD(
-    symbolName: string,
-  ): Effect.Effect<BatchProcessingResult, never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const deferred = self.deferredReferences.get(symbolName);
-      if (!deferred || deferred.length === 0) {
-        return { needsRetry: false, reason: 'success' };
-      }
-
-      // Find the target symbol by name
-      const targetSymbols = self.findSymbolByName(symbolName);
-      if (targetSymbols.length === 0) {
-        // Target symbol not found - re-queue for retry
-        return { needsRetry: true, reason: 'target_not_found' };
-      }
-
-      // Use the first symbol with this name
-      const targetSymbol = targetSymbols[0];
-      const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-      // Process in batches to avoid blocking
-      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, deferred.length);
-      const totalDeferred = deferred.length;
-      const batchStartTime = Date.now();
-
-      // Log batch start
-      self.logger.info(
-        () =>
-          `[DEFERRED] Starting batch processing for symbol: ${symbolName}, ` +
-          `total deferred: ${totalDeferred}, batch size: ${batchSize}`,
-      );
-
-      const processed: typeof deferred = [];
-      let hasFailures = false;
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (let i = 0; i < batchSize; i++) {
-        const ref = deferred[i];
-        if (!ref) continue;
-
-        // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
-        if (!ref.sourceSymbol.fileUri) {
-          // Find source symbol to get fileUri
-          const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
-          if (sourceSymbols.length > 0) {
-            ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
-          }
-        }
-
-        // Find the source symbol in the graph
-        const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
-
-        // If fileUri is undefined, match any symbol with the same name
-        // Otherwise, require exact fileUri match
-        const sourceSymbolInGraph = ref.sourceSymbol.fileUri
-          ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
-          : sourceSymbols[0]; // Take the first symbol with matching name
-
-        if (!sourceSymbolInGraph) {
-          // Source symbol not found - keep for retry later when source symbol is added
-          const pending =
-            self.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
-          pending.push({
-            targetSymbolName: symbolName,
-            referenceType: ref.referenceType,
-            location: ref.location,
-            context: ref.context,
-          });
-          self.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
-
-          self.logger.info(
-            () =>
-              'Source symbol not found for deferred reference: ' +
-              `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
-              `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
-              `target=${symbolName}, ` +
-              `refType=${String(ref.referenceType)}` +
-              (ref.context?.methodName
-                ? `, method=${ref.context.methodName}`
-                : '') +
-              ', will retry when source symbol is added',
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        const sourceId = self.getSymbolId(
-          sourceSymbolInGraph,
-          sourceSymbolInGraph.fileUri,
-        );
-
-        // Create reference entry and add to indexes
-        self.createAndAddReference(
-          sourceSymbolInGraph.fileUri,
-          sourceId,
-          targetSymbol.fileUri,
-          targetId,
-          ref.referenceType,
-          ref.location,
-          ref.context,
-        );
-
-        self.memoryStats.totalEdges++;
-        processed.push(ref);
-        successCount++;
-
-        // Yield every 3 items to allow other tasks to run
-        if ((i + 1) % 3 === 0) {
-          yield* Effect.yieldNow();
-        }
-      }
-
-      // Remove processed references
-      const remaining = deferred.slice(batchSize);
-      const batchDuration = Date.now() - batchStartTime;
-
-      // Update metrics
-      self.deferredProcessingMetrics.totalBatchesProcessed++;
-      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
-      self.deferredProcessingMetrics.totalSuccessCount += successCount;
-      self.deferredProcessingMetrics.totalFailureCount += failureCount;
-      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
-      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
-
-      // Track queue depth periodically and log summaries
-      const now = Date.now();
-      const currentMetrics = yield* metrics().pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      );
-      if (currentMetrics) {
-        const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
-        self.deferredProcessingMetrics.queueDepthHistory.push({
-          timestamp: now,
-          depth: lowQueueSize,
-        });
-        // Keep only last 100 entries
-        if (self.deferredProcessingMetrics.queueDepthHistory.length > 100) {
-          self.deferredProcessingMetrics.queueDepthHistory.shift();
-        }
-      }
-
-      // Log periodic summary every 50 batches or every 5 seconds
-      const timeSinceLastLog =
-        now - self.deferredProcessingMetrics.lastMetricsLogTime;
-      if (
-        self.deferredProcessingMetrics.totalBatchesProcessed % 50 === 0 ||
-        timeSinceLastLog >= 5000
-      ) {
-        yield* self
-          .logDeferredProcessingSummary()
-          .pipe(Effect.catchAll(() => Effect.void));
-        self.deferredProcessingMetrics.lastMetricsLogTime = now;
-      }
-
-      // Log batch completion
-      self.logger.info(
-        () =>
-          `[DEFERRED] Completed batch processing for symbol: ${symbolName}, ` +
-          `processed: ${processed.length}/${batchSize}, ` +
-          `success: ${successCount}, failures: ${failureCount}, ` +
-          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
-      );
-
-      if (remaining.length > 0) {
-        self.deferredReferences.set(symbolName, remaining);
-        return {
-          needsRetry: true,
-          reason: 'partial_processing',
-          remainingCount: remaining.length,
-        };
-      } else {
-        self.deferredReferences.delete(symbolName);
-      }
-
-      return {
-        needsRetry: hasFailures,
-        reason: hasFailures ? 'source_not_found' : 'success',
-      };
-    });
-  }
-
-  /**
-   * Process deferred references for a symbol in batches with retry tracking
-   * Returns result indicating if retry is needed and why
-   * @deprecated Use processDeferredReferencesBatchEffect for Effect-based processing with yielding
-   */
-  private processDeferredReferencesBatch(
-    symbolName: string,
-  ): BatchProcessingResult {
-    const deferred = this.deferredReferences.get(symbolName);
-    if (!deferred || deferred.length === 0) {
-      return { needsRetry: false, reason: 'success' };
-    }
-
-    // Find the target symbol by name
-    const targetSymbols = this.findSymbolByName(symbolName);
-    if (targetSymbols.length === 0) {
-      // Target symbol not found - re-queue for retry
-      return { needsRetry: true, reason: 'target_not_found' };
-    }
-
-    // Use the first symbol with this name
-    const targetSymbol = targetSymbols[0];
-    const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-    // Process in batches to avoid blocking
-    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, deferred.length);
-    const processed: typeof deferred = [];
-    let hasFailures = false;
-
-    for (let i = 0; i < batchSize; i++) {
-      const ref = deferred[i];
-      if (!ref) continue;
-
-      // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
-      if (!ref.sourceSymbol.fileUri) {
-        // Find source symbol to get fileUri
-        const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
-        if (sourceSymbols.length > 0) {
-          ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
-        }
-      }
-
-      // Find the source symbol in the graph
-      const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
-
-      // If fileUri is undefined, match any symbol with the same name
-      // Otherwise, require exact fileUri match
-      const sourceSymbolInGraph = ref.sourceSymbol.fileUri
-        ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
-        : sourceSymbols[0]; // Take the first symbol with matching name
-
-      if (!sourceSymbolInGraph) {
-        // Source symbol not found - keep for retry later when source symbol is added
-        const pending =
-          this.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
-        pending.push({
-          targetSymbolName: symbolName,
-          referenceType: ref.referenceType,
-          location: ref.location,
-          context: ref.context,
-        });
-        this.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
-
-        this.logger.info(
-          () =>
-            'Source symbol not found for deferred reference: ' +
-            `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
-            `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
-            `target=${symbolName}, ` +
-            `refType=${String(ref.referenceType)}` +
-            (ref.context?.methodName
-              ? `, method=${ref.context.methodName}`
-              : '') +
-            ', will retry when source symbol is added',
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      const sourceId = this.getSymbolId(
-        sourceSymbolInGraph,
-        sourceSymbolInGraph.fileUri,
-      );
-
-      // Create reference entry and add to indexes
-      this.createAndAddReference(
-        sourceSymbolInGraph.fileUri,
-        sourceId,
-        targetSymbol.fileUri,
-        targetId,
-        ref.referenceType,
-        ref.location,
-        ref.context,
-      );
-
-      this.memoryStats.totalEdges++;
-      processed.push(ref);
-    }
-
-    // Remove processed references
-    const remaining = deferred.filter((ref) => !processed.includes(ref));
-    if (remaining.length === 0) {
-      this.deferredReferences.delete(symbolName);
-      return { needsRetry: false, reason: 'success' };
-    } else {
-      // Update with remaining references
-      this.deferredReferences.set(symbolName, remaining);
-      return {
-        needsRetry: true,
-        reason: hasFailures
-          ? 'source_not_found_or_edge_failed'
-          : 'batch_incomplete',
-        remainingCount: remaining.length,
-      };
-    }
-  }
-
-  /**
-   * Process deferred references for a symbol (legacy method, kept for backward compatibility)
-   * @deprecated Use processDeferredReferencesBatch instead
-   */
-  private processDeferredReferences(symbolName: string): void {
-    const result = this.processDeferredReferencesBatch(symbolName);
-    if (result.needsRetry && result.remainingCount === undefined) {
-      // If it needs retry but no remaining count, it means target not found
-      // This is handled by the queue system now
-      this.logger.debug(
-        () =>
-          `Deferred reference processing queued for retry: ${symbolName} (${result.reason})`,
-      );
-    }
-  }
-
   /**
    * Retry pending deferred references when source symbol is added (Effect-based)
    * Returns result indicating if retry is needed and why
@@ -3318,232 +3023,6 @@ export class ApexSymbolRefManager {
       ),
     );
   }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private retryPendingDeferredReferencesBatchEffect_OLD(
-    symbolName: string,
-  ): Effect.Effect<BatchProcessingResult, never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const pending = self.pendingDeferredReferences.get(symbolName);
-      if (!pending || pending.length === 0) {
-        return { needsRetry: false, reason: 'success' };
-      }
-
-      // Find the source symbol
-      const sourceSymbols = self.findSymbolByName(symbolName);
-      if (sourceSymbols.length === 0) {
-        // Source symbol not found - re-queue for retry
-        return { needsRetry: true, reason: 'source_not_found' };
-      }
-
-      const sourceSymbol = sourceSymbols[0];
-      const sourceId = self.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
-
-      // Process in batches to avoid blocking
-      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, pending.length);
-      const totalPending = pending.length;
-      const batchStartTime = Date.now();
-
-      // Log batch start
-      self.logger.info(
-        () =>
-          `[DEFERRED] Starting retry batch processing for symbol: ${symbolName}, ` +
-          `total pending: ${totalPending}, batch size: ${batchSize}`,
-      );
-
-      const processed: typeof pending = [];
-      let hasFailures = false;
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (let i = 0; i < batchSize; i++) {
-        const ref = pending[i];
-        if (!ref) continue;
-
-        // Find the target symbol by name
-        const targetSymbols = self.findSymbolByName(ref.targetSymbolName);
-        if (targetSymbols.length === 0) {
-          // Target symbol still not found - keep for later retry
-          self.logger.debug(
-            () =>
-              `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
-              'will retry when target symbol is added',
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        const targetSymbol = targetSymbols[0];
-        const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-        // Create reference entry and add to indexes
-        self.createAndAddReference(
-          sourceSymbol.fileUri,
-          sourceId,
-          targetSymbol.fileUri,
-          targetId,
-          ref.referenceType,
-          ref.location,
-          ref.context,
-        );
-
-        self.memoryStats.totalEdges++;
-        processed.push(ref);
-        successCount++;
-
-        // Yield every 10 items to allow other tasks to run
-        if ((i + 1) % 10 === 0) {
-          yield* Effect.yieldNow();
-        }
-      }
-
-      // Remove processed references
-      const remaining = pending.filter((ref) => !processed.includes(ref));
-      const batchDuration = Date.now() - batchStartTime;
-
-      // Update metrics
-      self.deferredProcessingMetrics.totalBatchesProcessed++;
-      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
-      self.deferredProcessingMetrics.totalSuccessCount += successCount;
-      self.deferredProcessingMetrics.totalFailureCount += failureCount;
-      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
-      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
-
-      // Log batch completion
-      self.logger.info(
-        () =>
-          `[DEFERRED] Completed retry batch processing for symbol: ${symbolName}, ` +
-          `processed: ${processed.length}/${batchSize}, ` +
-          `success: ${successCount}, failures: ${failureCount}, ` +
-          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
-      );
-
-      if (remaining.length === 0) {
-        self.pendingDeferredReferences.delete(symbolName);
-        return { needsRetry: false, reason: 'success' };
-      } else {
-        // Update with remaining references
-        self.pendingDeferredReferences.set(symbolName, remaining);
-        return {
-          needsRetry: true,
-          reason: hasFailures
-            ? 'target_not_found_or_edge_failed'
-            : 'batch_incomplete',
-          remainingCount: remaining.length,
-        };
-      }
-    });
-  }
-
-  /**
-   * Retry pending deferred references when source symbol is added (batch version)
-   * Returns result indicating if retry is needed and why
-   * @deprecated Use retryPendingDeferredReferencesBatchEffect for Effect-based processing with yielding
-   */
-  private retryPendingDeferredReferencesBatch(
-    symbolName: string,
-  ): BatchProcessingResult {
-    const pending = this.pendingDeferredReferences.get(symbolName);
-    if (!pending || pending.length === 0) {
-      return { needsRetry: false, reason: 'success' };
-    }
-
-    // Find the source symbol
-    const sourceSymbols = this.findSymbolByName(symbolName);
-    if (sourceSymbols.length === 0) {
-      // Source symbol not found - re-queue for retry
-      return { needsRetry: true, reason: 'source_not_found' };
-    }
-
-    const sourceSymbol = sourceSymbols[0];
-    const sourceId = this.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
-
-    // Process in batches to avoid blocking
-    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, pending.length);
-    const processed: typeof pending = [];
-    let hasFailures = false;
-
-    for (let i = 0; i < batchSize; i++) {
-      const ref = pending[i];
-      if (!ref) continue;
-
-      // Find the target symbol by name
-      const targetSymbols = this.findSymbolByName(ref.targetSymbolName);
-      if (targetSymbols.length === 0) {
-        // Target symbol still not found - keep for later retry
-        this.logger.debug(
-          () =>
-            `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
-            'will retry when target symbol is added',
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      const targetSymbol = targetSymbols[0];
-      const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-      // Create reference entry and add to indexes
-      this.createAndAddReference(
-        sourceSymbol.fileUri,
-        sourceId,
-        targetSymbol.fileUri,
-        targetId,
-        ref.referenceType,
-        ref.location,
-        ref.context,
-      );
-
-      this.memoryStats.totalEdges++;
-      processed.push(ref);
-
-      this.logger.debug(
-        () =>
-          `Retried pending deferred reference: ${symbolName} -> ${ref.targetSymbolName}`,
-      );
-    }
-
-    // Remove processed references
-    const remaining = pending.filter((ref) => !processed.includes(ref));
-    if (remaining.length === 0) {
-      this.pendingDeferredReferences.delete(symbolName);
-      return { needsRetry: false, reason: 'success' };
-    } else {
-      // Update with remaining references
-      this.pendingDeferredReferences.set(symbolName, remaining);
-      return {
-        needsRetry: true,
-        reason: hasFailures
-          ? 'target_not_found_or_edge_failed'
-          : 'batch_incomplete',
-        remainingCount: remaining.length,
-      };
-    }
-  }
-
-  /**
-   * Retry pending deferred references when source symbol is added (legacy method)
-   * @deprecated Use retryPendingDeferredReferencesBatch instead
-   */
-  private retryPendingDeferredReferences(sourceSymbol: ApexSymbol): void {
-    const result = this.retryPendingDeferredReferencesBatch(sourceSymbol.name);
-    if (result.needsRetry && result.remainingCount === undefined) {
-      // If it needs retry but no remaining count, it means source not found
-      // This is handled by the queue system now
-      this.logger.debug(
-        () =>
-          `Pending deferred reference retry queued: ${sourceSymbol.name} (${result.reason})`,
-      );
-    }
-  }
-
   /**
    * Calculate impact score for dependency analysis
    */
@@ -3704,66 +3183,5 @@ export class ApexSymbolRefManager {
     return logDeferredProcessingSummary().pipe(
       Effect.provide(this.deferredProcessorLayer),
     );
-  }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private logDeferredProcessingSummary_OLD(): Effect.Effect<
-    void,
-    never,
-    never
-  > {
-    const self = this;
-    return Effect.gen(function* () {
-      const deferredMetrics = self.deferredProcessingMetrics;
-      const avgBatchDuration =
-        deferredMetrics.totalBatchesProcessed > 0
-          ? deferredMetrics.totalBatchDuration /
-            deferredMetrics.totalBatchesProcessed
-          : 0;
-      const itemsPerSecond =
-        deferredMetrics.totalBatchDuration > 0
-          ? (deferredMetrics.totalItemsProcessed /
-              deferredMetrics.totalBatchDuration) *
-            1000
-          : 0;
-      const successRate =
-        deferredMetrics.totalItemsProcessed > 0
-          ? (deferredMetrics.totalSuccessCount /
-              deferredMetrics.totalItemsProcessed) *
-            100
-          : 0;
-
-      // Get current queue metrics
-      let currentQueueSize = 0;
-      let currentQueueUtilization = 0;
-      let activeTasks = 0;
-      try {
-        const queueMetrics = yield* metrics();
-        currentQueueSize = queueMetrics.queueSizes[Priority.Low] || 0;
-        currentQueueUtilization =
-          queueMetrics.queueUtilization?.[Priority.Low] || 0;
-        activeTasks = queueMetrics.activeTasks?.[Priority.Low] || 0;
-      } catch (_error) {
-        // Metrics not available, use defaults
-      }
-
-      self.logger.info(
-        () =>
-          '[DEFERRED] Processing Summary: ' +
-          `batches=${deferredMetrics.totalBatchesProcessed}, ` +
-          `items=${deferredMetrics.totalItemsProcessed}, ` +
-          `success=${deferredMetrics.totalSuccessCount}, ` +
-          `failures=${deferredMetrics.totalFailureCount}, ` +
-          `avgBatchDuration=${avgBatchDuration.toFixed(1)}ms, ` +
-          `itemsPerSecond=${itemsPerSecond.toFixed(1)}, ` +
-          `successRate=${successRate.toFixed(1)}%, ` +
-          `queueSize=${currentQueueSize}, ` +
-          `queueUtilization=${currentQueueUtilization.toFixed(1)}%, ` +
-          `activeTasks=${activeTasks}`,
-      );
-    }).pipe(Effect.catchAll(() => Effect.void));
   }
 }

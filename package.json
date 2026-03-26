@@ -281,7 +281,7 @@
       ]
     },
     "lint:fix": {
-      "command": "prettier --write \"packages/**/*.ts\"",
+      "command": "prettier --write \"packages/**/*.ts\" --log-level warn",
       "dependencies": [
         "compile",
         "typecheck",

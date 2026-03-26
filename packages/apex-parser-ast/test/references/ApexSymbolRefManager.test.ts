@@ -758,6 +758,113 @@ describe('ApexSymbolRefManager', () => {
       const references = graph.findReferencesTo(classSymbol);
       expect(references).toHaveLength(1); // Should only have one reference
     });
+
+    it('should use internal separator for generated ref keys', async () => {
+      const sourceCode = `
+        public class SourceClass {
+          public void myMethod() {
+          }
+        }
+      `;
+      const targetCode = `
+        public class TargetClass {
+        }
+      `;
+      await compileAndAddToManager(sourceCode, 'file:///test/SourceClass.cls');
+      await compileAndAddToManager(targetCode, 'file:///test/TargetClass.cls');
+
+      const sourceSymbol = graph.lookupSymbolByName('myMethod')[0];
+      const targetSymbol = graph.lookupSymbolByName('TargetClass')[0];
+      expect(sourceSymbol).toBeDefined();
+      expect(targetSymbol).toBeDefined();
+
+      graph.addReference(
+        sourceSymbol,
+        targetSymbol,
+        ReferenceType.METHOD_CALL,
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 5,
+            endLine: 3,
+            endColumn: 12,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 5,
+            endLine: 3,
+            endColumn: 12,
+          },
+        },
+      );
+
+      const refKeys = Array.from(graph.getRefStore().keys());
+      expect(refKeys).toHaveLength(1);
+      expect(refKeys[0]).toContain('\x1f');
+    });
+
+    it('should keep ref key counters monotonic after single reference removal', async () => {
+      const sourceCode = `
+        public class SourceClass {
+          public void myMethod() {
+          }
+        }
+      `;
+      const targetACode = 'public class TargetA {}';
+      const targetBCode = 'public class TargetB {}';
+      const targetCCode = 'public class TargetC {}';
+      await compileAndAddToManager(sourceCode, 'file:///test/SourceClass.cls');
+      await compileAndAddToManager(targetACode, 'file:///test/TargetA.cls');
+      await compileAndAddToManager(targetBCode, 'file:///test/TargetB.cls');
+      await compileAndAddToManager(targetCCode, 'file:///test/TargetC.cls');
+
+      const sourceSymbol = graph.lookupSymbolByName('myMethod')[0];
+      const targetA = graph.lookupSymbolByName('TargetA')[0];
+      const targetB = graph.lookupSymbolByName('TargetB')[0];
+      const targetC = graph.lookupSymbolByName('TargetC')[0];
+
+      graph.addReference(sourceSymbol, targetA, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 5 },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 5,
+        },
+      });
+      graph.addReference(sourceSymbol, targetB, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 4, startColumn: 1, endLine: 4, endColumn: 5 },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 1,
+          endLine: 4,
+          endColumn: 5,
+        },
+      });
+
+      const beforeKeys = Array.from(graph.getRefStore().keys());
+      expect(beforeKeys).toHaveLength(2);
+      const removedKey = beforeKeys[0];
+      (
+        graph as unknown as {
+          removeReferenceKey: (refKey: string) => void;
+        }
+      ).removeReferenceKey(removedKey);
+
+      graph.addReference(sourceSymbol, targetC, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 5, startColumn: 1, endLine: 5, endColumn: 5 },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 1,
+          endLine: 5,
+          endColumn: 5,
+        },
+      });
+
+      const afterKeys = Array.from(graph.getRefStore().keys());
+      expect(afterKeys).toHaveLength(2);
+      expect(afterKeys).not.toContain(removedKey);
+    });
   });
 
   describe('Dependency Analysis', () => {
