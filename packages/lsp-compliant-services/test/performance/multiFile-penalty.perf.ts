@@ -183,8 +183,14 @@ describe('Multi-File Penalty Benchmarks', () => {
   afterEach(async () => {
     await cleanupTestResources();
   });
+  beforeAll(() => {
+    jest.setTimeout(1000 * 60 * 10);
+  });
 
-  jest.setTimeout(1000 * 60 * 10);
+  afterAll(async () => {
+    jest.setTimeout(5000);
+    await cleanupTestResources();
+  });
 
   // Benchmark each file individually
   testFiles.forEach((fileData, index) => {

@@ -158,9 +158,7 @@ export class StandardLibrarySerializer {
       // Find symbols that belong to this type (by parentId or scope)
       if (this.isChildOf(child, symbol, symbolTable)) {
         if (child.kind === 'method' || child.kind === 'constructor') {
-          methods.push(
-            this.convertMethodSymbol(child as MethodSymbol, symbolTable),
-          );
+          methods.push(this.convertMethodSymbol(child as MethodSymbol));
         } else if (child.kind === 'field') {
           fields.push(this.convertVariableSymbol(child as VariableSymbol));
         } else if (child.kind === 'property') {
@@ -231,40 +229,13 @@ export class StandardLibrarySerializer {
   /**
    * Convert a MethodSymbol to protobuf format
    */
-  private convertMethodSymbol(
-    symbol: MethodSymbol,
-    symbolTable: SymbolTable,
-  ): ProtoMethodSymbol {
+  private convertMethodSymbol(symbol: MethodSymbol): ProtoMethodSymbol {
     const parameters: ProtoParameterSymbol[] = [];
 
     // Get parameters from the method symbol
     if (symbol.parameters) {
       for (const param of symbol.parameters) {
         parameters.push(this.convertParameterSymbol(param));
-      }
-    }
-
-    // Normalize parentId to match actual block ID format
-    // If parentId has format ...:class:ClassName:block:blockName, normalize to ...:block:blockName
-    let normalizedParentId = symbol.parentId || '';
-    if (
-      normalizedParentId &&
-      normalizedParentId.includes(':class:') &&
-      normalizedParentId.includes(':block:')
-    ) {
-      const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
-      if (match) {
-        const normalized = `${match[1]}:block:${match[2]}`;
-        // Verify the normalized block exists
-        const allSymbols = symbolTable.getAllSymbols();
-        const blockExists = allSymbols.some(
-          (s) =>
-            s.kind === 'block' &&
-            (s.id === normalized || s.id.endsWith(`:block:${match[2]}`)),
-        );
-        if (blockExists) {
-          normalizedParentId = normalized;
-        }
       }
     }
 
@@ -277,7 +248,7 @@ export class StandardLibrarySerializer {
       location: this.convertLocation(symbol.location),
       modifiers: this.convertModifiers(symbol.modifiers),
       annotations: this.convertAnnotations(symbol.annotations || []),
-      parentId: normalizedParentId,
+      parentId: symbol.parentId || '',
       hasBody: symbol.hasBody ?? true, // Default true for backward compatibility
       fqn: symbol.fqn || '',
       fileUri: symbol.fileUri || '',
@@ -373,7 +344,7 @@ export class StandardLibrarySerializer {
   }
 
   /**
-   * Convert TypeInfo to protobuf TypeReference
+   * Convert TypeInfo to protobuf TypeReference.
    */
   private convertTypeReference(typeInfo?: TypeInfo): ProtoTypeReference {
     if (!typeInfo) {
@@ -383,7 +354,6 @@ export class StandardLibrarySerializer {
         isArray: false,
         isCollection: false,
         isPrimitive: true,
-        isBuiltIn: true,
       });
     }
 
@@ -400,7 +370,6 @@ export class StandardLibrarySerializer {
       isArray: typeInfo.isArray,
       isCollection: typeInfo.isCollection,
       isPrimitive: typeInfo.isPrimitive,
-      isBuiltIn: typeInfo.isBuiltIn || false,
       typeParameters,
       keyType: typeInfo.keyType
         ? this.convertTypeReference(typeInfo.keyType)
@@ -426,7 +395,6 @@ export class StandardLibrarySerializer {
       isTransient: modifiers.isTransient,
       isTestMethod: modifiers.isTestMethod,
       isWebService: modifiers.isWebService,
-      isBuiltIn: modifiers.isBuiltIn,
     });
   }
 

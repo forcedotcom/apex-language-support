@@ -101,8 +101,8 @@ export function generateStartupSummary(
   const mafStatus = maf.enabled ? 'enabled' : 'disabled';
   summary.push(`    - Missing Artifact Finder: ${mafStatus}`);
 
-  // Document schemes
-  const builtInSchemes = [
+  // LSP document URI schemes (defaults + optional extras)
+  const defaultDocumentSchemes = [
     'file',
     'apexlib',
     'vscode-test-web',
@@ -115,8 +115,8 @@ export function generateStartupSummary(
     ) ?? [];
   const allSchemes =
     extraSchemes.length > 0
-      ? [...new Set([...builtInSchemes, ...extraSchemes])]
-      : builtInSchemes;
+      ? [...new Set([...defaultDocumentSchemes, ...extraSchemes])]
+      : defaultDocumentSchemes;
   summary.push(`  Document schemes: ${allSchemes.join(', ')}`);
 
   // Performance
@@ -398,7 +398,7 @@ export function generateCapabilitiesSummary(
     lines.push('    - Missing Artifact:  enabled');
   }
 
-  const builtInSchemes = [
+  const defaultDocumentSchemes = [
     'file',
     'apexlib',
     'vscode-test-web',
@@ -407,8 +407,8 @@ export function generateCapabilitiesSummary(
   ];
   const allSchemes =
     additionalSchemes && additionalSchemes.length > 0
-      ? [...new Set([...builtInSchemes, ...additionalSchemes])]
-      : builtInSchemes;
+      ? [...new Set([...defaultDocumentSchemes, ...additionalSchemes])]
+      : defaultDocumentSchemes;
   lines.push(`  Document schemes: ${allSchemes.join(', ')}`);
 
   return lines.join('\n');

@@ -17,7 +17,7 @@
  * - Single type lookup: Sub-millisecond (O(1))
  * - Memory overhead: ~100KB vs ~50MB for full symbol graph pre-loading
  *
- * Extracted from: SymbolGraphPrePopulation.performance.test.ts (lines 414-536)
+ * Extracted from: symbolRefManager-prepopulation.perf.ts (lines 414-536)
  */
 
 import Benchmark from 'benchmark';
@@ -65,9 +65,8 @@ describe('GlobalTypeRegistry Benchmarks', () => {
         ...benchmarkSettings,
         fn: async (deferred: any) => {
           try {
-            // Reinitialize to measure cache load time
-            const freshLoader = ResourceLoader.getInstance();
-            await freshLoader.initialize();
+            // Reinitialize the same singleton to avoid per-iteration state growth.
+            await resourceLoader.initialize();
             deferred.resolve();
           } catch (err) {
             console.error('Error in initialization benchmark:', err);

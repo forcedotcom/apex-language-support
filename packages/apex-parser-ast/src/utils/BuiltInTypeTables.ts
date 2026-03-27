@@ -8,21 +8,20 @@
 
 import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
 import { BuiltInTypeTables } from '../namespace/NamespaceUtils';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { createApexLibUri } from '../types/ProtocolHandler';
+import { generateSymbolId } from '../types/UriBasedIdGenerator';
 
 /**
- * Built-in type tables for Apex
- * Maps to Java TypeInfoTables
+ * Scalar keyword types (void, null) not backed by real .cls sources.
+ * URIs use the same apexlib scheme as StandardApexLibrary; paths are
+ * conventional (System/{name}) for stable IDs and graph edges.
  */
 export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   private static instance: BuiltInTypeTablesImpl;
-  private readonly logger = getLogger();
 
-  // Type tables - only for types that aren't real classes
-  // Wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
-  // are now in StandardApexLibrary/System/ and resolved via ResourceLoader
-  // System and Schema types are also in StandardApexLibrary and resolved via ResourceLoader
-  // SObject types are resolved via the symbol graph / findMissingArtifact endpoint
+  // Only types that are not real classes in the ZIP
+  // Wrapper types (String, Integer, etc.) and collections (List, Set, Map, …)
+  // resolve via ResourceLoader; System/Schema types resolve via ResourceLoader
   readonly scalarTypes: Map<string, ApexSymbol>;
 
   private constructor() {
@@ -40,8 +39,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Create scalar type symbols (void, null)
-   * These aren't real classes, so they need synthetic symbols
+   * Scalar keywords void and null — synthetic symbols with apexlib URIs
    */
   private createScalarTypes(): Map<string, ApexSymbol> {
     const types = new Map<string, ApexSymbol>();
@@ -49,27 +47,22 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
     const scalarTypeNames = ['void', 'null'];
 
     scalarTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(
-        name,
-        SymbolKind.Class,
-        'BUILT_IN',
-      );
+      const symbol = this.createScalarKeywordSymbol(name, SymbolKind.Class);
       types.set(name.toLowerCase(), symbol);
     });
 
     return types;
   }
 
-  /**
-   * Create a built-in symbol
-   */
-  private createBuiltInSymbol(
+  private createScalarKeywordSymbol(
     name: string,
     kind: SymbolKind,
-    namespace: string,
   ): ApexSymbol {
+    const namespace = 'System';
+    const fileUri = createApexLibUri(`${namespace}/${name}`);
+    const id = generateSymbolId(name, fileUri);
     return {
-      id: `built-in-${namespace}-${name}`,
+      id,
       name,
       kind,
       namespace,
@@ -88,11 +81,11 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
         },
       },
       key: {
-        path: ['built-in', namespace, name],
-        prefix: 'built-in',
+        path: ['stdlib', namespace, name],
+        prefix: 'stdlib',
         name: name,
       },
-      fileUri: 'built-in://apex',
+      fileUri,
       parentId: null,
       _isLoaded: true,
       modifiers: {
@@ -111,24 +104,21 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Find a type in built-in tables.
-   * Note: Only scalar types (void, null) are synthetic. Wrapper types,
-   * collection types (List, Set, Map), System types, Schema types, and
-   * SObject types are all resolved via ResourceLoader or the symbol graph.
+   * Find a scalar keyword type (void, null)
    */
   findType(lowerCaseName: string): ApexSymbol | null {
     return this.scalarTypes.get(lowerCaseName) ?? null;
   }
 
   /**
-   * Get all built-in types
+   * Get all scalar keyword types
    */
   getAllTypes(): ApexSymbol[] {
     return Array.from(this.scalarTypes.values());
   }
 
   /**
-   * Get statistics about built-in types
+   * Get statistics about scalar keyword types
    */
   getStats(): {
     totalTypes: number;
@@ -141,14 +131,14 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Check if a type is built-in
+   * True if name is a scalar keyword (void, null)
    */
-  isBuiltInType(name: string): boolean {
+  isScalarKeywordName(name: string): boolean {
     return this.findType(name.toLowerCase()) !== null;
   }
 
   /**
-   * Get built-in type by category
+   * Get scalar keyword types by category
    */
   getTypesByCategory(category: 'scalar'): ApexSymbol[] {
     if (category === 'scalar') {

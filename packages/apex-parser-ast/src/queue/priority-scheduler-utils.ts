@@ -1028,7 +1028,6 @@ export function initialize(config?: {
               `[QUEUE] Enqueued ${requestType} (id: ${queuedItem.id}) with priority ${priorityNameDisplay}, ` +
               `queue size: ${queueSize}/${capacity}`,
           );
-
           // Notify callback immediately after enqueueing to capture queue growth
           // This ensures we capture transient queue sizes before tasks complete
           // Note: Callback is already deferred via setImmediate in LCSAdapter to avoid blocking

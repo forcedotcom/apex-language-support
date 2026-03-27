@@ -19,6 +19,7 @@ import {
   isChainedSymbolReference,
   isBlockSymbol,
 } from '../../utils/symbolNarrowing';
+import { isStandardLibraryTypeInfo } from '../../types/typeInfo';
 
 /**
  * Service that resolves symbol references to their definitions.
@@ -582,7 +583,7 @@ export class ApexReferenceResolver {
         if (
           variableType &&
           lastNode.context === ReferenceContext.METHOD_CALL &&
-          !variableType.isBuiltIn
+          !isStandardLibraryTypeInfo(variableType)
         ) {
           const typeName = variableType.name;
           const typeSymbol = allSymbols.find(

@@ -233,9 +233,15 @@ export class PrerequisiteOrchestrationService {
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
 
-        // After cross-file resolution, check for unresolved types and trigger artifact loading
-        // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
-        await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+        // Avoid blocking diagnostics on missing-artifact loading.
+        // Diagnostics validators already support on-demand artifact loading via callback,
+        // and doing blocking artifact resolution here can starve latency-sensitive
+        // requests like hover during initial workspace churn.
+        if (requestType !== 'diagnostics') {
+          // After cross-file resolution, check for unresolved types and trigger artifact loading
+          // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
+          await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+        }
       }
     } else {
       // Async execution (fire-and-forget)
@@ -333,7 +339,6 @@ export class PrerequisiteOrchestrationService {
       nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
-
     // Load missing artifacts (single batch request)
     let loadedTypeNames: string[] = [];
     try {
@@ -346,7 +351,6 @@ export class PrerequisiteOrchestrationService {
         mode: 'background', // Use background mode - don't open files in editor
         timeoutMsHint: 2000,
       });
-
       if (result === 'resolved') {
         loadedTypeNames = missingTypes;
       }
