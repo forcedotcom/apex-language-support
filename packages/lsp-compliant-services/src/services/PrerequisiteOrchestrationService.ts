@@ -43,6 +43,21 @@ import {
 } from './MissingArtifactResolutionService';
 
 let activeAsyncHoverEnrichments = 0;
+const coordinatedRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>([
+  'file-open-single',
+  'documentOpen',
+  'diagnostics',
+  'definition',
+  'signatureHelp',
+  'references',
+  'rename',
+]);
+
+const observabilityRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>(['definition', 'signatureHelp', 'references', 'rename']);
 
 const pickHighestDetailLevel = (
   a: DetailLevel | null,
@@ -232,9 +247,7 @@ export class PrerequisiteOrchestrationService {
     }
 
     const shouldCoordinatePrerequisites =
-      requestType === 'file-open-single' ||
-      requestType === 'documentOpen' ||
-      requestType === 'diagnostics';
+      coordinatedRequestTypes.has(requestType);
 
     if (
       shouldCoordinatePrerequisites &&
@@ -253,15 +266,35 @@ export class PrerequisiteOrchestrationService {
       };
       const alreadySatisfied = this.inFlightRegistry.isSatisfied(requestSpec);
       if (alreadySatisfied) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq satisfied-cache-hit type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+          );
+        }
         return;
       }
       const acquireResult = this.inFlightRegistry.acquireOrJoin(requestSpec);
 
       if (acquireResult.joined) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq joined type=${requestType} uri=${fileUri} ` +
+              `version=${cachedVersion} upgraded=${acquireResult.upgraded}`,
+          );
+        }
         if (requirements.executionMode === 'blocking') {
           await acquireResult.promise;
         }
         return;
+      }
+
+      if (observabilityRequestTypes.has(requestType)) {
+        this.logger.debug(
+          () =>
+            `[REQ-HARDEN] prereq started-new type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+        );
       }
 
       const coordinatedRunner = this.runCoordinatedPrerequisites(
@@ -396,6 +429,7 @@ export class PrerequisiteOrchestrationService {
     },
   ): Promise<void> {
     let lastObservedRevision = -1;
+    const runStartedAt = Date.now();
 
     while (true) {
       const entry = this.inFlightRegistry.get(key);
@@ -449,6 +483,12 @@ export class PrerequisiteOrchestrationService {
           await Effect.runPromise(
             getDiagnosticRefreshService().signalEnrichmentComplete(),
           ).catch(() => {});
+        }
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq complete type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+          );
         }
         return;
       }

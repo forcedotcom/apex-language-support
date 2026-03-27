@@ -128,17 +128,24 @@ export class ServiceFactory {
    * Create signature help processing service
    */
   createSignatureHelpService(): SignatureHelpProcessingService {
-    return new SignatureHelpProcessingService(
+    const service = new SignatureHelpProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
    * Create rename processing service
    */
   createRenameService(): RenameProcessingService {
-    return new RenameProcessingService(this.dependencies.logger);
+    const service = new RenameProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**

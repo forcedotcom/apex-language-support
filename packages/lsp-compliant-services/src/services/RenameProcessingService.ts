@@ -8,6 +8,12 @@
 
 import { RenameParams, WorkspaceEdit } from 'vscode-languageserver-protocol';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Interface for rename processing functionality
@@ -26,9 +32,26 @@ export interface IRenameProcessor {
  */
 export class RenameProcessingService implements IRenameProcessor {
   private readonly logger: LoggerInterface;
+  private readonly symbolManager: ISymbolManager;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
+    this.symbolManager =
+      symbolManager ||
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  public setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -42,6 +65,20 @@ export class RenameProcessingService implements IRenameProcessor {
     this.logger.debug(
       () => `Processing rename request for: ${params.textDocument.uri}`,
     );
+
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'rename',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for rename ${params.textDocument.uri}: ${error}`,
+        );
+      }
+    }
 
     try {
       // TODO: Implement rename functionality
