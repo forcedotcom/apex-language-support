@@ -13,7 +13,7 @@ import {
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
@@ -21,51 +21,42 @@ jest.mock('../../src/storage/ApexStorageManager');
 describe('DocumentChangeProcessingService', () => {
   let service: DocumentChangeProcessingService;
   let logger: ReturnType<typeof getLogger>;
-  let symbolManager: ApexSymbolManager;
-  let mockStorage: any;
+  let mockDocumentProcessingService: jest.Mocked<
+    Pick<DocumentProcessingService, 'processDocumentOpenInternal'>
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     logger = getLogger();
-    symbolManager = new ApexSymbolManager();
 
-    mockStorage = {
-      setDocument: jest.fn(),
-      getDocument: jest.fn(),
-      deleteDocument: jest.fn(),
-      getAllDocuments: jest.fn(),
+    mockDocumentProcessingService = {
+      processDocumentOpenInternal: jest.fn().mockResolvedValue([]),
     };
 
-    const {
-      ApexStorageManager,
-    } = require('../../src/storage/ApexStorageManager');
-    ApexStorageManager.getInstance.mockReturnValue({
-      getStorage: jest.fn(() => mockStorage),
-    });
-
-    service = new DocumentChangeProcessingService(logger, symbolManager);
+    service = new DocumentChangeProcessingService(
+      logger,
+      mockDocumentProcessingService as unknown as DocumentProcessingService,
+    );
   });
 
   describe('constructor', () => {
-    it('should create service with provided logger and symbol manager', () => {
+    it('should create service with provided logger and document processing service', () => {
       expect(service).toBeDefined();
       expect(service).toBeInstanceOf(DocumentChangeProcessingService);
     });
 
-    it('should create service with default symbol manager when not provided', () => {
-      const serviceWithoutSymbolManager = new DocumentChangeProcessingService(
-        logger,
-      );
-      expect(serviceWithoutSymbolManager).toBeDefined();
-      expect(serviceWithoutSymbolManager).toBeInstanceOf(
+    it('should create service with default document processing service when not provided', () => {
+      const serviceWithDefault = new DocumentChangeProcessingService(logger);
+      expect(serviceWithDefault).toBeDefined();
+      expect(serviceWithDefault).toBeInstanceOf(
         DocumentChangeProcessingService,
       );
     });
   });
 
   describe('processDocumentChange', () => {
-    it('should process document change event successfully', async () => {
+    it('should delegate to shared tier-1 pipeline', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///test.cls',
@@ -83,10 +74,9 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        event.document.uri,
-        event.document,
-      );
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledWith(event);
     });
 
     it('should handle processing errors gracefully', async () => {
@@ -102,7 +92,9 @@ describe('DocumentChangeProcessingService', () => {
         },
       };
 
-      mockStorage.setDocument.mockRejectedValue(new Error('Storage error'));
+      mockDocumentProcessingService.processDocumentOpenInternal.mockRejectedValue(
+        new Error('Processing error'),
+      );
 
       service.processDocumentChange(event);
 
@@ -110,28 +102,9 @@ describe('DocumentChangeProcessingService', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Error should be handled gracefully (service uses fire-and-forget pattern)
-      expect(mockStorage.setDocument).toHaveBeenCalled();
-    });
-
-    it('should log document processing completion', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.cls',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
-          lineCount: 1,
-        },
-      };
-
-      service.processDocumentChange(event);
-
-      // Wait for async operations to complete
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      expect(mockStorage.setDocument).toHaveBeenCalled();
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalled();
     });
 
     it('should handle empty content changes', async () => {
@@ -152,10 +125,9 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        event.document.uri,
-        event.document,
-      );
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledWith(event);
     });
 
     it('should handle large document changes', async () => {
@@ -177,10 +149,9 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        event.document.uri,
-        event.document,
-      );
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledWith(event);
     });
   });
 
@@ -197,13 +168,10 @@ describe('DocumentChangeProcessingService', () => {
   });
 
   describe('error scenarios', () => {
-    it('should handle storage manager errors', async () => {
-      const {
-        ApexStorageManager,
-      } = require('../../src/storage/ApexStorageManager');
-      ApexStorageManager.getInstance.mockImplementation(() => {
-        throw new Error('Storage manager not available');
-      });
+    it('should handle pipeline errors gracefully', async () => {
+      mockDocumentProcessingService.processDocumentOpenInternal.mockRejectedValue(
+        new Error('Pipeline not available'),
+      );
 
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
@@ -223,7 +191,6 @@ describe('DocumentChangeProcessingService', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Error should be handled gracefully (service uses fire-and-forget pattern)
-      // The service will attempt to process but handle the error internally
     });
 
     it('should handle invalid document URIs', async () => {
@@ -244,7 +211,9 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(mockStorage.setDocument).toHaveBeenCalledWith('', event.document);
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledWith(event);
     });
   });
 
@@ -270,10 +239,12 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(mockStorage.setDocument).toHaveBeenCalledTimes(10);
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledTimes(10);
     });
 
-    it('should suppress diagnostics for standard Apex library URIs', async () => {
+    it('should process standard Apex library URIs', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'apexlib://resources/StandardApexLibrary/System/System.cls',
@@ -286,36 +257,12 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // Document should still be stored even for standard library URIs
-      expect(mockStorage.setDocument).toHaveBeenCalled();
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalled();
     });
 
-    it('should suppress diagnostics for various standard Apex library URIs', async () => {
-      const standardApexUris = [
-        'apexlib://resources/StandardApexLibrary/Database/Database.cls',
-        'apexlib://resources/StandardApexLibrary/Schema/Schema.cls',
-        'apexlib://resources/StandardApexLibrary/System/Assert.cls',
-        'apexlib://resources/StandardApexLibrary/System/Debug.cls',
-      ];
-
-      for (const uri of standardApexUris) {
-        const event: TextDocumentChangeEvent<TextDocument> = {
-          document: {
-            uri,
-            getText: () => 'global class TestClass { }',
-          } as TextDocument,
-        };
-
-        service.processDocumentChange(event);
-
-        // Wait for async operations to complete
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
-        expect(mockStorage.setDocument).toHaveBeenCalled();
-      }
-    });
-
-    it('should not suppress diagnostics for user code URIs', async () => {
+    it('should process user code URIs', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///Users/test/MyClass.cls',
@@ -328,11 +275,9 @@ describe('DocumentChangeProcessingService', () => {
       // Wait for async operations to complete
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // Since it's fire-and-forget, just verify the method was called
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        event.document.uri,
-        event.document,
-      );
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).toHaveBeenCalledWith(event);
     });
   });
 });

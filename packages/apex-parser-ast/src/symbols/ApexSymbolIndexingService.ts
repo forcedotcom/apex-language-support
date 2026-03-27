@@ -338,6 +338,7 @@ export class ApexSymbolIndexingService {
         yield* self.symbolManager.addSymbolTable(
           task.symbolTable,
           task.fileUri,
+          task.documentVersion,
         );
 
         const symbolsAfter = self.symbolManager.findSymbolsInFile(task.fileUri);

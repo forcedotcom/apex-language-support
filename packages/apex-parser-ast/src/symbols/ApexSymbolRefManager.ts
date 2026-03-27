@@ -300,6 +300,12 @@ export class ApexSymbolRefManager {
     new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
+  /**
+   * Maps file URIs to their last-known document version.
+   * Used by registerSymbolTable to decide replace vs merge semantics.
+   */
+  private fileVersions: CaseInsensitiveHashMap<number> =
+    new CaseInsensitiveHashMap();
   private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
     new CaseInsensitiveHashMap();
   private symbolToFiles: CaseInsensitiveHashMap<string[]> =
@@ -2268,7 +2274,11 @@ export class ApexSymbolRefManager {
   registerSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
-    options?: { mergeReferences?: boolean },
+    options?: {
+      mergeReferences?: boolean;
+      documentVersion?: number;
+      hasErrors?: boolean;
+    },
   ): void {
     // Normalize URI the same way getSymbolId() does to ensure consistency
     // This ensures SymbolTable lookup in getSymbol() will succeed
@@ -2281,17 +2291,49 @@ export class ApexSymbolRefManager {
       return;
     }
 
+    const newVersion = options?.documentVersion;
+
     this.logger.debug(
       () =>
         `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
         `(original: ${fileUri}, ` +
-        `symbolCount: ${symbolTable.getAllSymbols().length})`,
+        `symbolCount: ${symbolTable.getAllSymbols().length}, ` +
+        `documentVersion: ${newVersion ?? 'unknown'})`,
     );
 
-    // If replacing an existing SymbolTable, preserve both symbols and references from the old one
-    // This is important for workspace batch processing which may replace SymbolTables
-    // that were created during initial file open with full symbols/references already collected
-    // with SymbolTables that only have public API symbols (from VisibilitySymbolListener)
+    // Determine replace vs merge semantics based on document version
+    // Replace: newVersion > storedVersion → new parse is authoritative, don't preserve old symbols
+    // Merge: same/unknown version → keep existing merge behavior for multipass enrichment
+    const storedVersion = this.fileVersions.get(normalizedUri);
+    const isNewerVersion =
+      newVersion !== undefined &&
+      storedVersion !== undefined &&
+      newVersion > storedVersion;
+
+    // Parser-error safeguard: avoid destructive replacement when new parse is incomplete
+    // Case 1: Zero symbols from new parse but existing table has some → parse failed completely
+    // Case 2: Parse has errors AND produced fewer symbols than before → mid-file error truncated output
+    // In both cases, fall back to merge to avoid data loss
+    const newSymbolCount = symbolTable.getAllSymbols().length;
+    const existingSymbolCount = existing ? existing.getAllSymbols().length : 0;
+    const isIncompleteParse =
+      isNewerVersion &&
+      (newSymbolCount === 0 ||
+        (options?.hasErrors && newSymbolCount < existingSymbolCount)) &&
+      existingSymbolCount > 0;
+
+    const useReplace = isNewerVersion && !isIncompleteParse;
+
+    if (isIncompleteParse) {
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Incomplete parse detected for ${normalizedUri}: ` +
+          `new symbols: ${newSymbolCount}, existing symbols: ${existingSymbolCount}. ` +
+          'Falling back to merge to preserve valid symbols.',
+      );
+    }
+
+    // If replacing an existing SymbolTable, decide whether to preserve old symbols
     if (existing && existing !== symbolTable) {
       const existingReferences = existing.getAllReferences();
       const newReferences = symbolTable.getAllReferences();
@@ -2302,7 +2344,8 @@ export class ApexSymbolRefManager {
         () =>
           `[registerSymbolTable] Replacing existing SymbolTable for ${normalizedUri}: ` +
           `existing symbols: ${existingSymbols.length}, new symbols: ${newSymbols.length}, ` +
-          `existing references: ${existingReferences.length}, new references: ${newReferences.length}`,
+          `existing references: ${existingReferences.length}, new references: ${newReferences.length}, ` +
+          `mode: ${useReplace ? 'replace' : 'merge'}`,
       );
 
       // Log symbol names for debugging
@@ -2315,64 +2358,72 @@ export class ApexSymbolRefManager {
           `[registerSymbolTable] New symbols: ${newSymbols.map((s) => `${s.name}(${s.kind})`).join(', ')}`,
       );
 
-      // Preserve symbols from the old SymbolTable that aren't in the new one
-      // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
-      // The addSymbol method will handle detail level enrichment automatically
-      let symbolsPreserved = 0;
-      const newSymbolKeys = new Set(newSymbols.map((s) => keyToString(s.key)));
-      for (const symbol of existingSymbols) {
-        const symbolKey = keyToString(symbol.key);
-        if (!newSymbolKeys.has(symbolKey)) {
-          // Symbol doesn't exist in new SymbolTable - preserve it
-          // Use addSymbol which handles detail level enrichment
-          symbolTable.addSymbol(symbol);
-          symbolsPreserved++;
-        } else {
-          // Symbol exists in both - only merge if enrichment is needed
-          // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
-          // BUT: If both symbols are the same detail level, skip to avoid duplicates!
-          const existingInNew = newSymbols.find(
-            (s) => keyToString(s.key) === symbolKey,
-          );
-          if (existingInNew) {
-            // Check if enrichment is needed (new symbol has higher detail level)
-            const detailLevelOrder: Record<string, number> = {
-              'public-api': 1,
-              protected: 2,
-              private: 3,
-              full: 4,
-            };
-            const existingLevel =
-              detailLevelOrder[existingInNew._detailLevel || ''] || 0;
-            const newLevel = detailLevelOrder[symbol._detailLevel || ''] || 0;
-            const needsEnrichment = newLevel > existingLevel;
-
-            if (needsEnrichment) {
-              // Different detail levels and new is higher - let addSymbol handle enrichment
-              symbolTable.addSymbol(symbol);
-            }
-            // Otherwise skip to avoid duplicates (same detail level or new is not higher)
-          } else {
-            // Should not happen - symbolKey matched but symbol not found
-            this.logger.warn(
-              () =>
-                '[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols',
-            );
-          }
-        }
-      }
-      if (symbolsPreserved > 0) {
+      if (useReplace) {
+        // REPLACE MODE: New version is newer — treat new parse as authoritative.
+        // Do NOT preserve old symbols that are missing from the new table.
+        // This prevents parser artifacts (unknownClass, partial names) from accumulating.
         this.logger.debug(
           () =>
-            `[registerSymbolTable] Preserved ${symbolsPreserved} symbols from existing SymbolTable`,
+            `[registerSymbolTable] Replace mode: version ${newVersion} > ${storedVersion}, ` +
+            `discarding ${existingSymbols.length - newSymbols.length} symbols not in new parse`,
         );
+      } else {
+        // MERGE MODE: Same/unknown version or enrichment scenario.
+        // Preserve symbols from old SymbolTable that aren't in the new one.
+        // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
+        let symbolsPreserved = 0;
+        const newSymbolKeys = new Set(
+          newSymbols.map((s) => keyToString(s.key)),
+        );
+        for (const symbol of existingSymbols) {
+          const symbolKey = keyToString(symbol.key);
+          if (!newSymbolKeys.has(symbolKey)) {
+            // Symbol doesn't exist in new SymbolTable - preserve it
+            symbolTable.addSymbol(symbol);
+            symbolsPreserved++;
+          } else {
+            // Symbol exists in both - only merge if enrichment is needed
+            const existingInNew = newSymbols.find(
+              (s) => keyToString(s.key) === symbolKey,
+            );
+            if (existingInNew) {
+              const detailLevelOrder: Record<string, number> = {
+                'public-api': 1,
+                protected: 2,
+                private: 3,
+                full: 4,
+              };
+              const existingLevel =
+                detailLevelOrder[existingInNew._detailLevel || ''] || 0;
+              const newLevel = detailLevelOrder[symbol._detailLevel || ''] || 0;
+              const needsEnrichment = newLevel > existingLevel;
+
+              if (needsEnrichment) {
+                symbolTable.addSymbol(symbol);
+              }
+            } else {
+              this.logger.warn(
+                () =>
+                  '[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols',
+              );
+            }
+          }
+        }
+        if (symbolsPreserved > 0) {
+          this.logger.debug(
+            () =>
+              `[registerSymbolTable] Preserved ${symbolsPreserved} symbols from existing SymbolTable`,
+          );
+        }
       }
 
       // Preserve references from the old SymbolTable
       // If the new SymbolTable has no references but the old one does, merge them
       // This ensures hover/definition requests work even if workspace batch processing
       // creates a new SymbolTable without references (e.g., if collectReferences wasn't set)
-      const shouldMergeReferences = options?.mergeReferences ?? true;
+      const shouldMergeReferences =
+        (options?.mergeReferences ?? true) &&
+        (!useReplace || newReferences.length === 0);
       if (
         shouldMergeReferences &&
         existingReferences.length > 0 &&
@@ -2382,7 +2433,6 @@ export class ApexSymbolRefManager {
           () =>
             `[registerSymbolTable] Merging ${existingReferences.length} references from existing SymbolTable`,
         );
-        // Add all references from the old SymbolTable to the new one
         for (const ref of existingReferences) {
           symbolTable.addTypeReference(ref);
         }
@@ -2424,8 +2474,12 @@ export class ApexSymbolRefManager {
     }
 
     // Use normalized URI for registration to match what getSymbol() will look up
-    // This allows replacing placeholders created by ensureSymbolTableForFile()
     this.fileToSymbolTable.set(normalizedUri, symbolTable);
+
+    // Update stored version when a version is provided
+    if (newVersion !== undefined) {
+      this.fileVersions.set(normalizedUri, newVersion);
+    }
 
     // Verify registration succeeded
     const registered = this.fileToSymbolTable.get(normalizedUri);

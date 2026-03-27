@@ -370,10 +370,14 @@ describe('DocumentProcessingService - Batch Processing', () => {
       expect(symbolManager.addSymbolTable).toHaveBeenCalledWith(
         mockSymbolTable1,
         'file:///test1.cls',
+        1,
+        false,
       );
       expect(symbolManager.addSymbolTable).toHaveBeenCalledWith(
         mockSymbolTable2,
         'file:///test2.cls',
+        1,
+        false,
       );
 
       // Cross-file references are resolved on-demand, not during file open
