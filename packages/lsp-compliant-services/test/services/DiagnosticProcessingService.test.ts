@@ -29,6 +29,7 @@ import {
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
+import { cleanupTestResources } from '../helpers/test-cleanup';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
@@ -45,6 +46,10 @@ describe('DiagnosticProcessingService', () => {
     (ResourceLoader as any).instance = null;
     const loader = ResourceLoader.getInstance();
     await loader.initialize();
+  });
+
+  afterAll(async () => {
+    await cleanupTestResources();
   });
 
   beforeEach(async () => {

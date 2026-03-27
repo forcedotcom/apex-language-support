@@ -16,6 +16,7 @@ import {
   isProtobufCacheAvailable,
 } from '../../src/cache/stdlib-cache-loader';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
+import { resetResourceLoader } from '../helpers/testHelpers';
 import type { MethodSymbol, VariableSymbol } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
@@ -39,6 +40,10 @@ describe('Protobuf vs ZIP equivalence', () => {
   beforeEach(() => {
     // Clear caches before each test
     StandardLibraryCacheLoader.clearCache();
+  });
+
+  afterEach(() => {
+    resetResourceLoader();
   });
 
   describe('when protobuf cache is available', () => {

@@ -486,6 +486,31 @@ export class HoverProcessingService implements IHoverProcessor {
       // This enriches layer by layer (public-api -> protected -> private -> full)
       // with resolution attempts between each layer
       if (references && references.length > 0) {
+        // Restore original hover UX: when initial symbol lookup misses, immediately
+        // return a "searching" hover and do artifact lookup in background.
+        const earlySettings = ApexSettingsManager.getInstance().getSettings();
+        if (earlySettings?.apex?.findMissingArtifact?.enabled) {
+          // Check if this is a variable reference - skip missing artifact resolution
+          const variableRef =
+            references.find(
+              (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+            ) ||
+            references.find(
+              (ref) =>
+                ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
+            );
+
+          if (!variableRef) {
+            this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+              params.textDocument.uri,
+              params.position,
+              'hover',
+            );
+
+            return await this.createSearchingHover(params);
+          }
+        }
+
         this.logger.debug(
           () =>
             '[HOVER] TypeReference exists but no symbol found. ' +

@@ -108,7 +108,7 @@ const createMockCompilationContext = (): CompilationContext => ({
 
 const createMockSymbolProvider = (): jest.Mocked<SymbolProvider> => ({
   find: jest.fn(),
-  findBuiltInType: jest.fn(),
+  findScalarKeywordType: jest.fn(),
   findSObjectType: jest.fn(),
   findExternalType: jest.fn(),
 });
@@ -142,7 +142,9 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findBuiltInType.mockReturnValue(mockResolvedSymbol);
+      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+        mockResolvedSymbol,
+      );
 
       service.resolveDeferredReferences(
         symbolTable,
@@ -164,7 +166,7 @@ describe('NamespaceResolutionService', () => {
       const compilationContext = createMockCompilationContext();
 
       // Mock no resolution found
-      mockSymbolProvider.findBuiltInType.mockReturnValue(null);
+      mockSymbolProvider.findScalarKeywordType.mockReturnValue(null);
 
       service.resolveDeferredReferences(
         symbolTable,
@@ -292,7 +294,9 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findBuiltInType.mockReturnValue(mockResolvedSymbol);
+      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+        mockResolvedSymbol,
+      );
 
       service.resolveDeferredReferences(
         symbolTable,
@@ -434,7 +438,9 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findBuiltInType.mockReturnValue(mockResolvedSymbol);
+      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+        mockResolvedSymbol,
+      );
 
       service.resolveDeferredReferences(
         symbolTable,
@@ -482,7 +488,9 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findBuiltInType.mockReturnValue(mockResolvedSymbol);
+      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+        mockResolvedSymbol,
+      );
 
       const startTime = performance.now();
 

@@ -1,7 +1,7 @@
 {
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
-  "private": true,
+  
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
@@ -31,6 +31,10 @@
     "lint:fix": "wireit",
     "knip": "knip",
     "knip:fix": "knip --fix",
+    "check:dupes": "jscpd",
+    "check:dupes:strict": "jscpd --threshold 0",
+    "check:dupes:parser-ast": "jscpd packages/apex-parser-ast/src --config .jscpd.json --output ./jscpd-report-parser-ast --threshold 10",
+    "check:dupes:parser-ast:strict": "jscpd packages/apex-parser-ast/src --config .jscpd.json --output ./jscpd-report-parser-ast --threshold 0",
     "compile": "wireit",
     "prepare": "husky",
     "commit": "git-cz",
@@ -96,6 +100,7 @@
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
     "jest": "^30.3.0",
+    "jscpd": "^4.0.5",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.0.1",
     "playwright": "^1.58.2",
@@ -276,7 +281,7 @@
       ]
     },
     "lint:fix": {
-      "command": "prettier --write \"packages/**/*.ts\"",
+      "command": "prettier --write \"packages/**/*.ts\" --log-level warn",
       "dependencies": [
         "compile",
         "typecheck",

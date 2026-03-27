@@ -33,7 +33,7 @@ public class Foo {
 }
 `;
 
-  it('VisibilitySymbolListener should produce inner class ID with root prefix (class:Foo:block:Foo:class:FooB)', () => {
+  it('VisibilitySymbolListener should produce inner class ID with stable format (fileUri#Foo.FooB)', () => {
     const table = new SymbolTable();
     const listener = new VisibilitySymbolListener('public-api', table);
     listener.setCurrentFileUri(fileUri);
@@ -57,12 +57,12 @@ public class Foo {
     expect(fooSymbol).toBeDefined();
     expect(fooBSymbol).toBeDefined();
 
-    // Inner class FooB must have ID format: fileUri:class:Foo:block:Foo:class:FooB
-    // (root prefix ensures consistency with ApexSymbolCollectorListener)
-    expect(fooBSymbol!.id).toContain('class:Foo');
-    expect(fooBSymbol!.id).toContain('block:Foo');
-    expect(fooBSymbol!.id).toContain('class:FooB');
-    expect(fooBSymbol!.id).toMatch(/class:Foo:block:Foo:class:FooB$/);
+    // Inner class FooB must have stable ID format: fileUri#Foo.FooB
+    // Uses # separator and dot-qualified names
+    expect(fooBSymbol!.id).toContain('#');
+    expect(fooBSymbol!.id).toContain('Foo');
+    expect(fooBSymbol!.id).toContain('FooB');
+    expect(fooBSymbol!.id).toMatch(/#Foo\..*FooB/);
   });
 
   it('ApexSymbolCollectorListener should produce same inner class ID format', () => {
@@ -86,9 +86,10 @@ public class Foo {
     const fooBSymbol = typeSymbols.find((s) => s.name === 'FooB');
     expect(fooBSymbol).toBeDefined();
 
-    expect(fooBSymbol!.id).toContain('class:Foo');
-    expect(fooBSymbol!.id).toContain('block:Foo');
-    expect(fooBSymbol!.id).toContain('class:FooB');
+    // Stable format with # separator and dot-qualified names
+    expect(fooBSymbol!.id).toContain('#');
+    expect(fooBSymbol!.id).toContain('Foo');
+    expect(fooBSymbol!.id).toContain('FooB');
   });
 
   it('both listeners should produce identical FooB symbol IDs for same file', () => {
@@ -129,9 +130,11 @@ public class Foo {
   });
 
   it('registerSymbolTable merge (full then public-api) should produce single FooB in merged table', () => {
-    const { ApexSymbolGraph } = require('../../src/symbols/ApexSymbolGraph');
+    const {
+      ApexSymbolRefManager,
+    } = require('../../src/symbols/ApexSymbolRefManager');
 
-    const graph = new ApexSymbolGraph();
+    const graph = new ApexSymbolRefManager();
 
     // First: compile with full (ApexSymbolCollectorListener)
     const table1 = new SymbolTable();
@@ -182,7 +185,7 @@ public class Foo {
 `;
     const apexTopLevelOnlyUri = 'file:///test/Foo.cls';
 
-    it('VisibilitySymbolListener should produce top-level class ID format class:Foo (not class:Foo:class:Foo)', () => {
+    it('VisibilitySymbolListener should produce top-level class ID format #Foo (not duplicated)', () => {
       const table = new SymbolTable();
       const listener = new VisibilitySymbolListener('public-api', table);
       listener.setCurrentFileUri(apexTopLevelOnlyUri);
@@ -205,9 +208,9 @@ public class Foo {
         );
 
       expect(fooSymbols.length).toBe(1);
-      // Top-level class must have ID format: fileUri:class:Foo (NOT fileUri:class:Foo:class:Foo)
-      expect(fooSymbols[0].id).toMatch(/class:Foo$/);
-      expect(fooSymbols[0].id).not.toMatch(/class:Foo:class:Foo/);
+      // Top-level class must have stable ID format: fileUri#Foo (NOT fileUri#Foo.Foo or with redundant parts)
+      expect(fooSymbols[0].id).toMatch(/#Foo$/);
+      expect(fooSymbols[0].id).not.toMatch(/#Foo\.Foo/);
     });
 
     it('ApexSymbolCollectorListener should produce same top-level class ID format', () => {
@@ -233,8 +236,8 @@ public class Foo {
         );
 
       expect(fooSymbols.length).toBe(1);
-      expect(fooSymbols[0].id).toMatch(/class:Foo$/);
-      expect(fooSymbols[0].id).not.toMatch(/class:Foo:class:Foo/);
+      expect(fooSymbols[0].id).toMatch(/#Foo$/);
+      expect(fooSymbols[0].id).not.toMatch(/#Foo\.Foo/);
     });
 
     it('both listeners should produce identical top-level Foo class IDs', () => {
@@ -280,9 +283,11 @@ public class Foo {
     });
 
     it('registerSymbolTable merge should produce single Foo class symbol (no duplicates)', () => {
-      const { ApexSymbolGraph } = require('../../src/symbols/ApexSymbolGraph');
+      const {
+        ApexSymbolRefManager,
+      } = require('../../src/symbols/ApexSymbolRefManager');
 
-      const graph = new ApexSymbolGraph();
+      const graph = new ApexSymbolRefManager();
 
       const table1 = new SymbolTable();
       const listener1 = new ApexSymbolCollectorListener(table1, 'full');

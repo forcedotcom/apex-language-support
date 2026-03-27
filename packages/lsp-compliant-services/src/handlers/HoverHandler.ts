@@ -9,7 +9,6 @@
 import { HoverParams, Hover } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { dispatch } from '../utils/handlerUtil';
 import { IHoverProcessor } from '../services/HoverProcessingService';
 import { LSPQueueManager } from '../queue';
 
@@ -36,7 +35,8 @@ export class HoverHandler {
       () => `Processing hover request: ${params.textDocument.uri}`,
     );
     try {
-      // Use the LSP queue system for immediate processing
+      // Use the LSP queue system for hover; diagnostics instrumentation will
+      // identify why fiber handoff can stall under load.
       return await this.queueManager.submitHoverRequest(params);
     } catch (error) {
       const errorText = String(error);
@@ -66,12 +66,7 @@ export class HoverHandler {
         return null;
       }
 
-      // Fallback to direct processing if queue fails
-      this.logger.debug(() => 'Falling back to direct hover processing');
-      return await dispatch(
-        this.hoverProcessor.processHover(params),
-        'Error processing hover request',
-      );
+      return null;
     }
   }
 

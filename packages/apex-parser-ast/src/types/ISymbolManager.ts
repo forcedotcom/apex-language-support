@@ -15,7 +15,7 @@ import {
   ReferenceResult,
   DependencyAnalysis,
   ReferenceType,
-} from '../symbols/ApexSymbolGraph';
+} from '../symbols/ApexSymbolRefManager';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
 import { SymbolReference } from '../types/symbolReference';

@@ -7,6 +7,12 @@
  */
 
 import { ResourceLoader } from '../../src/utils/resourceLoader';
+import { Effect } from 'effect';
+import {
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+} from '../../src/services/GlobalTypeRegistryService';
+import { SchedulerInitializationService } from '../../src/scheduler/SchedulerInitializationService';
 
 /**
  * Initialize ResourceLoader for testing.
@@ -30,4 +36,11 @@ export async function initializeResourceLoaderForTests(): Promise<ResourceLoader
  */
 export function resetResourceLoader(): void {
   ResourceLoader.resetInstance();
+  Effect.runSync(
+    Effect.gen(function* () {
+      const registry = yield* GlobalTypeRegistry;
+      yield* registry.clear();
+    }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+  );
+  SchedulerInitializationService.resetInstance();
 }

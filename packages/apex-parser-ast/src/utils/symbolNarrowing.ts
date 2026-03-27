@@ -87,17 +87,7 @@ export const isPropertySymbol = (
   symbol: ApexSymbol | undefined | null,
 ): symbol is VariableSymbol => !!symbol && symbol.kind === SymbolKind.Property;
 
-/**
- * Type predicate to check if a symbol is in the TypeSymbol family (Class, Interface, Enum, or Trigger)
- */
-export const inTypeSymbolGroup = (
-  symbol: ApexSymbol | undefined | null,
-): symbol is TypeSymbol =>
-  !!symbol &&
-  (symbol.kind === SymbolKind.Class ||
-    symbol.kind === SymbolKind.Enum ||
-    symbol.kind === SymbolKind.Interface ||
-    symbol.kind === SymbolKind.Trigger);
+export { inTypeSymbolGroup } from '../types/symbol';
 
 /**
  * Type predicate to check if a symbol is a VariableSymbol

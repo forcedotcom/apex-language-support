@@ -744,7 +744,8 @@
     "typecheck": {
       "command": "tsc -p test/tsconfig.json --noEmit",
       "dependencies": [
-        "compile"
+        "compile",
+        "../lsp-compliant-services:typecheck"
       ],
       "files": [
         "src/**/*.ts",

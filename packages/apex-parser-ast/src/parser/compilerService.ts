@@ -502,7 +502,7 @@ export class CompilerService {
   private createSymbolProvider(): any {
     return {
       find: (referencingType: any, fullName: string) => null,
-      findBuiltInType: (name: string) => null,
+      findScalarKeywordType: (_name: string) => null,
       findSObjectType: (name: string) => null,
       findUserType: (name: string, namespace?: string) => null,
       findExternalType: (name: string, packageName: string) => null,

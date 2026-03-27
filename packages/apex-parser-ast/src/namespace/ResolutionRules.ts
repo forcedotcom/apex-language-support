@@ -36,7 +36,7 @@ export const NamedScalarOrVoid: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    return symbols.findBuiltInType(name);
+    return symbols.findScalarKeywordType(name);
   },
 };
 
@@ -85,19 +85,14 @@ export const BuiltInSystemSchema: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    const currentNamespace = context.compilationContext.namespace?.toString?.();
-    if (currentNamespace) {
-      const scopedSymbol = symbols.findBuiltInType(
-        `${currentNamespace}.${name}`,
-      );
-      if (scopedSymbol) {
-        return scopedSymbol;
-      }
-    }
-    for (const namespace of getImplicitNamespaceOrder(context.referenceType)) {
-      const symbol = symbols.findBuiltInType(`${namespace}.${name}`);
-      if (symbol) return symbol;
-    }
+
+    // Check System types
+    const systemType = symbols.findScalarKeywordType(`System.${name}`);
+    if (systemType) return systemType;
+
+    // Check Schema types
+    const schemaType = symbols.findScalarKeywordType(`Schema.${name}`);
+    if (schemaType) return schemaType;
 
     return null;
   },
@@ -286,8 +281,15 @@ export const BuiltInNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const [firstPart, secondPart] = context.adjustedNameParts;
-    const fullName = `${firstPart}.${secondPart}`;
-    return symbols.findBuiltInType(fullName);
+    const firstPartLower = firstPart.toLowerCase();
+
+    // Check if first part is a built-in namespace
+    if (firstPartLower === 'system' || firstPartLower === 'schema') {
+      const fullName = `${firstPart}.${secondPart}`;
+      return symbols.findScalarKeywordType(fullName);
+    }
+
+    return null;
   },
 };
 

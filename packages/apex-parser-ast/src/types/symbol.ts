@@ -14,7 +14,7 @@ import {
   createTypeWithNamespace,
 } from '../namespace/NamespaceUtils';
 import { SymbolReference, ReferenceContext } from './symbolReference';
-import { generateSymbolId } from './UriBasedIdGenerator';
+import { generateSymbolId, type ParameterInfo } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 
@@ -202,7 +202,24 @@ export class SymbolFactory {
     annotations?: Annotation[],
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind, location);
+    // Extract parameters from typeData if provided
+    const parameters = typeData?.parameters;
+
+    // For stable IDs, only pass prefix for disambiguation edge cases (not for normal type/method symbols)
+    // Type symbols (Class, Interface, Enum) don't need prefix - qualified name is sufficient
+    const needsPrefix =
+      kind === SymbolKind.Block || kind === SymbolKind.Variable;
+    const prefix = needsPrefix ? kind : undefined;
+
+    const id = this.generateId(
+      name,
+      fileUri,
+      scopePath,
+      prefix,
+      location,
+      parameters,
+      namespace,
+    );
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     // For top-level symbols, this gives us the full FQN immediately.
@@ -319,7 +336,9 @@ export class SymbolFactory {
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
    * @param prefix Optional symbol prefix/kind for uniqueness
-   * @param location Optional symbol location for including line numbers in ID
+   * @param location Optional symbol location for including line numbers in ID (deprecated for stable IDs)
+   * @param parameters Optional parameters for method/constructor signatures
+   * @param namespace Optional namespace for top-level types
    * @returns URI-based symbol ID
    */
   static generateId(
@@ -328,13 +347,32 @@ export class SymbolFactory {
     scopePath?: string[],
     prefix?: string,
     location?: SymbolLocation,
+    parameters?: ParameterInfo[],
+    namespace?: string | Namespace | null,
   ): string {
     // Use the new unified URI-based ID generator
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
     // NOTE: Option 2A - IDs remain stable (no line numbers) to preserve cross-file reference stability
     // Duplicates are handled via union type (ApexSymbol | ApexSymbol[]) in symbolMap
     // Do NOT include line numbers - keep IDs stable
-    return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
+
+    // Convert Namespace object to string if needed
+    const namespaceStr =
+      namespace && typeof namespace === 'object' && 'toString' in namespace
+        ? namespace.toString()
+        : typeof namespace === 'string'
+          ? namespace
+          : undefined;
+
+    return generateSymbolId(
+      name,
+      fileUri,
+      scopePath,
+      undefined, // lineNumber (deprecated)
+      prefix,
+      parameters,
+      namespaceStr,
+    );
   }
 
   /**
@@ -509,6 +547,21 @@ export interface TypeSymbol extends ApexSymbol {
   interfaces: string[];
   /** Annotations for this type */
   annotations?: Annotation[];
+}
+
+/**
+ * Type predicate: symbol is a class, interface, enum, or trigger
+ */
+export function inTypeSymbolGroup(
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol {
+  return (
+    !!symbol &&
+    (symbol.kind === SymbolKind.Class ||
+      symbol.kind === SymbolKind.Enum ||
+      symbol.kind === SymbolKind.Interface ||
+      symbol.kind === SymbolKind.Trigger)
+  );
 }
 
 /**
@@ -1301,14 +1354,7 @@ export class SymbolTable {
         semanticSymbol = this.findSymbolInScope(currentScopeId, name);
         if (semanticSymbol) {
           // Verify it's the right kind
-          if (
-            !(
-              semanticSymbol.kind === SymbolKind.Class ||
-              semanticSymbol.kind === SymbolKind.Interface ||
-              semanticSymbol.kind === SymbolKind.Enum ||
-              semanticSymbol.kind === SymbolKind.Trigger
-            )
-          ) {
+          if (!inTypeSymbolGroup(semanticSymbol)) {
             semanticSymbol = undefined;
           }
         }
@@ -1320,10 +1366,7 @@ export class SymbolTable {
             if (
               s.name === name &&
               s.kind !== SymbolKind.Block &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger)
+              inTypeSymbolGroup(s)
             ) {
               semanticSymbol = s;
               break;

@@ -171,6 +171,7 @@ export interface DependencyAnalysis {
 
 /**
  * Lightweight node for graph storage - only contains references
+ * @deprecated Replaced by index-based reference tracking
  */
 export interface ReferenceNode {
   symbolId: string;
@@ -178,6 +179,31 @@ export interface ReferenceNode {
   lastUpdated: number;
   referenceCount: number;
   nodeId: number;
+}
+
+/**
+ * Entry in the reference store with all metadata needed for reference lookups
+ */
+export interface RefStoreEntry {
+  /** Source file URI where the reference originates */
+  sourceFileUri: string;
+  /** Stable ID of the source symbol making the reference */
+  sourceSymbolId: string;
+  /** Target file URI being referenced */
+  targetFileUri: string;
+  /** Stable ID of the target symbol being referenced */
+  targetSymbolId: string;
+  /** Type of reference (method call, field access, etc.) */
+  referenceType: EnumValue<typeof ReferenceType>;
+  /** Location of the reference in source code */
+  location: SymbolLocation;
+  /** Additional context for the reference */
+  context?: {
+    methodName?: string;
+    parameterIndex?: number;
+    isStatic?: boolean;
+    namespace?: string;
+  };
 }
 
 /**
@@ -202,35 +228,39 @@ interface BatchProcessingResult {
 }
 
 /**
- * OPTIMIZED: ApexSymbolGraph with SymbolTable as primary storage
+ * OPTIMIZED: ApexSymbolRefManager with SymbolTable as primary storage
  * Eliminates duplicate symbol storage and delegates to SymbolTable
  */
-export class ApexSymbolGraph {
-  private static instance: ApexSymbolGraph | null = null;
+export class ApexSymbolRefManager {
+  private static instance: ApexSymbolRefManager | null = null;
+  private static readonly INTERNAL_KEY_SEP = '\x1f';
 
   private readonly logger = getLogger();
 
-  // OPTIMIZED: Only store references, not full symbols
-  private referenceGraph: DirectedGraph<ReferenceNode, ReferenceEdge> =
-    new DirectedGraph();
+  // OPTIMIZED: Index-based reference tracking (replaces DirectedGraph)
+  // reverseIndex: Who references this symbol? (for findReferencesTo)
+  private reverseIndex: CaseInsensitiveHashMap<Set<string>> =
+    new CaseInsensitiveHashMap();
 
-  // OPTIMIZED: Track symbol existence only
-  private symbolIds: Set<string> = new Set();
+  // forwardIndex: What refs originate from this file? (for file cleanup)
+  private forwardIndex: CaseInsensitiveHashMap<Set<string>> =
+    new CaseInsensitiveHashMap();
 
-  // Symbol to vertex mapping for efficient lookups
-  private symbolToVertex: HashMap<string, DirectedVertex<ReferenceNode>> =
-    new HashMap();
+  // refStore: Full reference details keyed by refKey
+  private refStore: CaseInsensitiveHashMap<RefStoreEntry> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: Indexes for fast lookups (delegate to SymbolTable for actual data)
   // These maps provide O(1) lookup performance for common symbol operations
 
   /**
    * Maps symbol ID to file uri for quick file location lookups
-   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls#MyClass.MyClass$class")
    * Value: File uri (e.g., "file:///path/MyClass.cls")
    * Used by: File-based operations, symbol removal, dependency analysis
    */
-  private symbolFileMap: HashMap<string, string> = new HashMap();
+  private symbolFileMap: CaseInsensitiveHashMap<string> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps symbol names to arrays of symbol IDs for name-based lookups
@@ -247,7 +277,8 @@ export class ApexSymbolGraph {
    * Value: Array of symbol IDs in that file
    * Used by: getSymbolsInFile(), file-based symbol enumeration, file removal
    */
-  private fileIndex: HashMap<string, string[]> = new HashMap();
+  private fileIndex: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
@@ -260,15 +291,19 @@ export class ApexSymbolGraph {
 
   /**
    * Maps symbol IDs to symbol objects for O(1) lookups
-   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls#MyClass.MyClass$class")
    * Value: ApexSymbol object
    * Used by: getParent() helper, optimized parent resolution
    */
   private symbolIdIndex: HashMap<string, ApexSymbol> = new HashMap();
+  private symbolQualifiedIndex: CaseInsensitiveHashMap<ApexSymbol> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
-  private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
-  private symbolToFiles: HashMap<string, string[]> = new HashMap();
+  private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
+    new CaseInsensitiveHashMap();
+  private symbolToFiles: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: Simple cache for frequently accessed symbols (case-insensitive for Apex)
   private symbolCache: CaseInsensitiveHashMap<ApexSymbol[]> =
@@ -340,7 +375,8 @@ export class ApexSymbolGraph {
   private MAX_QUEUE_FULL_RETRY_DELAY_MS = 30000; // Cap queue-full retry delay at 30 seconds
   private CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
   private CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
-  private failedReferences: Map<string, DeferredProcessingTask> = new Map();
+  private failedReferences: CaseInsensitiveHashMap<DeferredProcessingTask> =
+    new CaseInsensitiveHashMap();
   private activeRetryFibers: Set<Fiber.RuntimeFiber<void, Error>> = new Set();
   // Track symbols with pending retries to prevent duplicate retry scheduling
   private pendingRetrySymbols: Set<string> = new Set();
@@ -404,9 +440,16 @@ export class ApexSymbolGraph {
     // Note: We'll create the layer after serviceImpl is defined to avoid circular reference
     const self = this;
     const serviceImpl: DeferredReferenceProcessorService.Impl = {
-      addEdge: (sourceId, targetId, weight, edge) =>
-        self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
-      getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+      addEdge: (sourceId, targetId, weight, edge) => {
+        throw new Error(
+          'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
+        );
+      },
+      getVertex: (symbolId) => {
+        throw new Error(
+          'Graph-based getVertex removed. Vertices no longer exist.',
+        );
+      },
       findSymbolByName: (name) => self.findSymbolByName(name),
       getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
       deferredReferences: self.deferredReferencesRef,
@@ -464,9 +507,16 @@ export class ApexSymbolGraph {
       // so we need to update the service implementation
       const self = this;
       const serviceImpl: DeferredReferenceProcessorService.Impl = {
-        addEdge: (sourceId, targetId, weight, edge) =>
-          self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
-        getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+        addEdge: (sourceId, targetId, weight, edge) => {
+          throw new Error(
+            'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
+          );
+        },
+        getVertex: (symbolId) => {
+          throw new Error(
+            'Graph-based getVertex removed. Vertices no longer exist.',
+          );
+        },
         findSymbolByName: (name) => self.findSymbolByName(name),
         getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
         deferredReferences: self.deferredReferencesRef,
@@ -510,9 +560,16 @@ export class ApexSymbolGraph {
       // Update the service's yieldTimeThresholdMs by recreating the layer
       const self = this;
       const serviceImpl: DeferredReferenceProcessorService.Impl = {
-        addEdge: (sourceId, targetId, weight, edge) =>
-          self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
-        getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+        addEdge: (sourceId, targetId, weight, edge) => {
+          throw new Error(
+            'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
+          );
+        },
+        getVertex: (symbolId) => {
+          throw new Error(
+            'Graph-based getVertex removed. Vertices no longer exist.',
+          );
+        },
         findSymbolByName: (name) => self.findSymbolByName(name),
         getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
         deferredReferences: self.deferredReferencesRef,
@@ -620,22 +677,258 @@ export class ApexSymbolGraph {
     return true;
   }
 
+  private makeInternalKey(...parts: Array<string | number>): string {
+    return parts
+      .map((part) => String(part))
+      .join(ApexSymbolRefManager.INTERNAL_KEY_SEP);
+  }
+
+  private makeRetryKey(
+    taskType: DeferredProcessingTask['taskType'],
+    symbolName: string,
+  ): string {
+    return this.makeInternalKey(taskType, symbolName);
+  }
+
+  private makeSourceCounterKey(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+  ): string {
+    return this.makeInternalKey(sourceFileUri, sourceSymbolId);
+  }
+
+  private makeRefKey(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+    refIndex: number,
+  ): string {
+    return this.makeInternalKey(sourceFileUri, sourceSymbolId, refIndex);
+  }
+
   /**
-   * Get the singleton instance of ApexSymbolGraph
+   * Build an artifact-qualified symbol key for index lookups.
+   * This prevents collisions when identical symbol IDs exist across artifacts.
    */
-  static getInstance(): ApexSymbolGraph {
+  private makeQualifiedSymbolKey(fileUri: string, symbolId: string): string {
+    return this.makeInternalKey(extractFilePathFromUri(fileUri), symbolId);
+  }
+
+  // Counter for generating unique refKeys within each source symbol
+  private refIndexCounters: CaseInsensitiveHashMap<number> =
+    new CaseInsensitiveHashMap();
+
+  /**
+   * Generate a unique refKey for a reference
+   * Format: {sourceFileUri}:{sourceStableId}:{refIndex}
+   */
+  private generateRefKey(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+  ): string {
+    const counterKey = this.makeSourceCounterKey(sourceFileUri, sourceSymbolId);
+    const currentIndex = this.refIndexCounters.get(counterKey) || 0;
+    this.refIndexCounters.set(counterKey, currentIndex + 1);
+    return this.makeRefKey(sourceFileUri, sourceSymbolId, currentIndex);
+  }
+
+  /**
+   * Reset refIndex counter for a source symbol (when symbol is replaced)
+   */
+  private resetRefIndexCounter(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+  ): void {
+    const counterKey = this.makeSourceCounterKey(sourceFileUri, sourceSymbolId);
+    this.refIndexCounters.delete(counterKey);
+  }
+
+  /**
+   * Add a reference to the indexes
+   */
+  private addReferenceToIndexes(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+    targetSymbolId: string,
+    entry: RefStoreEntry,
+  ): boolean {
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      entry.targetFileUri,
+      targetSymbolId,
+    );
+
+    // Check if reference already exists (prevent duplicates)
+    // A duplicate is defined as same source, target, type, and location
+    const existingRefKeys = this.reverseIndex.get(targetIndexKey);
+    if (existingRefKeys) {
+      for (const existingRefKey of existingRefKeys) {
+        const existingEntry = this.refStore.get(existingRefKey);
+        if (
+          existingEntry &&
+          existingEntry.sourceSymbolId === sourceSymbolId &&
+          existingEntry.targetSymbolId === targetSymbolId &&
+          existingEntry.referenceType === entry.referenceType &&
+          existingEntry.location.identifierRange.startLine ===
+            entry.location.identifierRange.startLine &&
+          existingEntry.location.identifierRange.startColumn ===
+            entry.location.identifierRange.startColumn
+        ) {
+          // Duplicate found, skip adding
+          return false;
+        }
+      }
+    }
+
+    const refKey = this.generateRefKey(sourceFileUri, sourceSymbolId);
+
+    // Add to reverse index (for findReferencesTo)
+    if (!this.reverseIndex.has(targetIndexKey)) {
+      this.reverseIndex.set(targetIndexKey, new Set());
+    }
+    this.reverseIndex.get(targetIndexKey)!.add(refKey);
+
+    // Add to forward index (for file cleanup)
+    if (!this.forwardIndex.has(sourceFileUri)) {
+      this.forwardIndex.set(sourceFileUri, new Set());
+    }
+    this.forwardIndex.get(sourceFileUri)!.add(refKey);
+
+    // Store full reference details
+    this.refStore.set(refKey, entry);
+    return true;
+  }
+
+  /**
+   * Helper method to create a RefStoreEntry and add it to indexes
+   */
+  private createAndAddReference(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+    targetFileUri: string,
+    targetSymbolId: string,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: SymbolLocation,
+    context?: {
+      methodName?: string;
+      parameterIndex?: number;
+      isStatic?: boolean;
+      namespace?: string;
+    },
+  ): boolean {
+    const refEntry: RefStoreEntry = {
+      sourceFileUri,
+      sourceSymbolId,
+      targetFileUri,
+      targetSymbolId,
+      referenceType,
+      location,
+      context: context
+        ? {
+            methodName: context.methodName,
+            parameterIndex: context.parameterIndex
+              ? toUint16(context.parameterIndex)
+              : undefined,
+            isStatic: context.isStatic,
+            namespace: context.namespace,
+          }
+        : undefined,
+    };
+
+    return this.addReferenceToIndexes(
+      sourceFileUri,
+      sourceSymbolId,
+      targetSymbolId,
+      refEntry,
+    );
+  }
+
+  private removeReferenceKey(refKey: string): void {
+    const entry = this.refStore.get(refKey);
+    if (!entry) {
+      return;
+    }
+
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      entry.targetFileUri,
+      entry.targetSymbolId,
+    );
+    const reverseSet = this.reverseIndex.get(targetIndexKey);
+    if (reverseSet) {
+      reverseSet.delete(refKey);
+      if (reverseSet.size === 0) {
+        this.reverseIndex.delete(targetIndexKey);
+      }
+    }
+
+    const forwardSet = this.forwardIndex.get(entry.sourceFileUri);
+    if (forwardSet) {
+      forwardSet.delete(refKey);
+      if (forwardSet.size === 0) {
+        this.forwardIndex.delete(entry.sourceFileUri);
+      }
+    }
+
+    this.refStore.delete(refKey);
+  }
+
+  /**
+   * Remove all references from a file (used during file replacement)
+   */
+  private removeReferencesFromFile(fileUri: string): void {
+    const refKeys = this.forwardIndex.get(fileUri);
+    if (!refKeys) {
+      return;
+    }
+
+    for (const refKey of [...refKeys]) {
+      this.removeReferenceKey(refKey);
+    }
+  }
+
+  private removeIncomingReferencesToSymbols(
+    symbolIds: Set<string>,
+    fileUri: string,
+  ): void {
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    for (const symbolId of symbolIds) {
+      const reverseIndexKey = this.makeQualifiedSymbolKey(
+        normalizedFileUri,
+        symbolId,
+      );
+      const refKeys = this.reverseIndex.get(reverseIndexKey);
+      if (!refKeys) {
+        continue;
+      }
+      for (const refKey of [...refKeys]) {
+        this.removeReferenceKey(refKey);
+      }
+    }
+  }
+
+  clearReferenceStateForFile(fileUri: string): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
+
+    this.removeReferencesFromFile(normalizedUri);
+    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
+    this.memoryStats.totalEdges = this.refStore.size;
+  }
+
+  /**
+   * Get the singleton instance of ApexSymbolRefManager
+   */
+  static getInstance(): ApexSymbolRefManager {
     if (!this.instance) {
       throw new Error(
-        'ApexSymbolGraph instance not set. Call setInstance() first.',
+        'ApexSymbolRefManager instance not set. Call setInstance() first.',
       );
     }
     return this.instance;
   }
 
   /**
-   * Set the singleton instance of ApexSymbolGraph
+   * Set the singleton instance of ApexSymbolRefManager
    */
-  static setInstance(graph: ApexSymbolGraph): void {
+  static setInstance(graph: ApexSymbolRefManager): void {
     this.instance = graph;
   }
 
@@ -720,11 +1013,12 @@ export class ApexSymbolGraph {
    * Re-queue a failed task with incremented retry count, or move to dead letters if max retries exceeded
    */
   private requeueTask(task: DeferredProcessingTask, reason: string): void {
+    const taskKey = this.makeRetryKey(task.taskType, task.symbolName);
     // If MAX_RETRY_ATTEMPTS is 0, disable all retries
     if (this.MAX_RETRY_ATTEMPTS === 0) {
       // Don't requeue - retries are disabled
-      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
-      this.pendingRetrySymbols.delete(`${task.taskType}:${task.symbolName}`);
+      this.failedReferences.set(taskKey, task);
+      this.pendingRetrySymbols.delete(taskKey);
       this.logger.info(
         () =>
           'Deferred reference task retries disabled (maxRetryAttempts=0): ' +
@@ -736,9 +1030,9 @@ export class ApexSymbolGraph {
 
     if (task.retryCount >= this.MAX_RETRY_ATTEMPTS) {
       // Move to dead letter tracking
-      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
+      this.failedReferences.set(taskKey, task);
       // Clear pending retry tracking
-      this.pendingRetrySymbols.delete(task.symbolName);
+      this.pendingRetrySymbols.delete(taskKey);
       this.logger.warn(
         () =>
           `Deferred reference task exceeded max retries: ${task.symbolName} ` +
@@ -749,7 +1043,7 @@ export class ApexSymbolGraph {
 
     // Prevent duplicate retry scheduling for the same symbol
     // This avoids exponential explosion when queue is at capacity
-    const retryKey = `${task.taskType}:${task.symbolName}`;
+    const retryKey = taskKey;
     if (this.pendingRetrySymbols.has(retryKey)) {
       // Already have a pending retry for this symbol, skip to avoid duplicate retries
       this.logger.debug(
@@ -982,14 +1276,15 @@ export class ApexSymbolGraph {
     // Add the symbol to the SymbolTable (handles duplicates via union type)
     targetSymbolTable.addSymbol(symbol);
 
-    // Track symbolId (duplicates will have same symbolId, but that's okay)
-    // symbolIds Set tracks which IDs have been seen, not individual symbol instances
-    const isNewSymbolId = !this.symbolIds.has(symbolId);
+    const isNewSymbolId = !this.symbolIdIndex.has(symbolId);
+    // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
     if (isNewSymbolId) {
-      this.symbolIds.add(symbolId);
-      // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
       this.symbolIdIndex.set(symbolId, symbol);
     }
+    this.symbolQualifiedIndex.set(
+      this.makeQualifiedSymbolKey(normalizedFileUri, symbolId),
+      symbol,
+    );
 
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
@@ -1060,48 +1355,9 @@ export class ApexSymbolGraph {
       this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
-    // OPTIMIZED: Only add vertex to graph for new symbols (not duplicates/enrichments)
-    // This prevents thousands of "Failed to add vertex" warnings when symbols are re-processed
+    // Update memory statistics for new symbols
     if (isNewSymbolId) {
-      const referenceNode: ReferenceNode = {
-        symbolId,
-        fileUri: fileUri,
-        lastUpdated: Date.now(),
-        referenceCount: 0,
-        nodeId: this.memoryStats.totalVertices + 1,
-      };
-
-      // Add vertex to graph
-      const vertexAdded = this.referenceGraph.addVertex(
-        symbolId,
-        referenceNode,
-      );
-      if (!vertexAdded) {
-        this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
-        return;
-      }
-
-      // Get the vertex from the graph
-      const vertex = this.referenceGraph.getVertex(symbolId);
-      if (!vertex) {
-        this.logger.warn(
-          () => `Vertex not found in graph after adding: ${symbolId}`,
-        );
-        return;
-      }
-
-      this.symbolToVertex.set(symbolId, vertex);
-
-      // Update memory statistics
       this.memoryStats.totalSymbols++;
-      this.memoryStats.totalVertices++;
-    } else {
-      // Symbol already exists - vertex should already be in graph
-      // Verify the vertex exists and update symbolToVertex mapping if needed
-      const existingVertex = this.referenceGraph.getVertex(symbolId);
-      if (existingVertex && !this.symbolToVertex.has(symbolId)) {
-        this.symbolToVertex.set(symbolId, existingVertex);
-      }
     }
 
     // Invalidate cache for this symbol name (cache might become stale)
@@ -1180,35 +1436,50 @@ export class ApexSymbolGraph {
       return symbol;
     }
 
-    // Fallback to SymbolTable delegation for backward compatibility
-    const parsed = parseSymbolId(symbolId);
-    const symbolName = parsed.name;
-    // Normalize URI to ensure consistent lookup (matches how SymbolTables are registered)
-    const normalizedUri = extractFilePathFromUri(parsed.uri);
+    // Fallback to SymbolTable delegation for backward compatibility.
+    // Prefer exact ID matches to avoid returning similarly named block symbols.
+    const normalizedUri = extractFilePathFromUri(symbolId);
     const symbolTable = this.fileToSymbolTable.get(normalizedUri);
     if (!symbolTable) {
       return null;
     }
 
-    // Get all symbols from the SymbolTable and find by name
-    const matchingSymbol = symbolTable.findSymbolWith(
-      (s) => s.name === symbolName,
-    );
+    // Try exact lookup by ID first (covers unifiedId and synchronized symbol.id)
+    const directById = symbolTable.getSymbolById(symbolId);
+    if (directById) {
+      this.symbolIdIndex.set(symbolId, directById);
+      return directById;
+    }
+
+    // Then try exhaustive exact matching in case legacy IDs are present in symbolArray
+    const allSymbols = symbolTable.getAllSymbols();
+    const exactMatch =
+      allSymbols.find((s) => s.id === symbolId) ||
+      allSymbols.find((s) => s.key?.unifiedId === symbolId);
+    if (exactMatch) {
+      this.symbolIdIndex.set(symbolId, exactMatch);
+      return exactMatch;
+    }
+
+    // Last-resort compatibility fallback for older callers that may use non-canonical IDs.
+    // Parse the name and prefer non-block symbols with matching name.
+    let symbolName: string | null = null;
+    try {
+      const parsed = parseSymbolId(symbolId);
+      symbolName = parsed.name;
+    } catch (_error) {
+      symbolName = null;
+    }
+    if (!symbolName) {
+      return null;
+    }
+    const matchingSymbol =
+      allSymbols.find((s) => s.name === symbolName && !isBlockSymbol(s)) ||
+      allSymbols.find((s) => s.name === symbolName);
 
     if (matchingSymbol) {
-      // Always create a deep copy to avoid mutating the original symbol
-      const symbolCopy = {
-        ...matchingSymbol,
-        fileUri: normalizedUri,
-        location: {
-          ...matchingSymbol.location,
-          symbolRange: { ...matchingSymbol.location.symbolRange },
-          identifierRange: { ...matchingSymbol.location.identifierRange },
-        },
-      };
-      // Cache in symbolIdIndex for future lookups
-      this.symbolIdIndex.set(symbolId, symbolCopy);
-      return symbolCopy;
+      this.symbolIdIndex.set(symbolId, matchingSymbol);
+      return matchingSymbol;
     }
 
     return null;
@@ -1408,6 +1679,34 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Resolve symbol by artifact-qualified identity first, then by global ID.
+   */
+  private getSymbolByIdAndFile(
+    symbolId: string,
+    fileUri: string,
+  ): ApexSymbol | null {
+    const qualifiedKey = this.makeQualifiedSymbolKey(fileUri, symbolId);
+    const symbol = this.symbolQualifiedIndex.get(qualifiedKey);
+    if (symbol) {
+      return symbol;
+    }
+    return this.getSymbol(symbolId);
+  }
+
+  private findSymbolInFileByName(
+    fileUri: string,
+    symbolName: string,
+  ): ApexSymbol | null {
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    const symbolsInFile = this.getSymbolsInFile(normalizedFileUri);
+    return (
+      symbolsInFile.find(
+        (symbol) => symbol.name === symbolName && !isBlockSymbol(symbol),
+      ) || null
+    );
+  }
+
+  /**
    * OPTIMIZED: Add reference between symbols using IDs only
    */
   addReference(
@@ -1422,70 +1721,67 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
-    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
-    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+    // Enforce source artifact invariant and normalize URI for stable matching.
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping addReference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    sourceSymbol.fileUri = extractFilePathFromUri(sourceSymbol.fileUri);
+
+    // Don't create reference edges to block targets (they're structural, not semantic).
+    if (isBlockSymbol(targetSymbol)) {
       return;
     }
 
-    // Find the actual symbols in the graph by name and file path
-    const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
-    const targetSymbols = this.findSymbolByName(targetSymbol.name);
+    // If source is a block symbol, resolve to nearest enclosing non-block declaration.
+    let normalizedSourceSymbol = sourceSymbol;
+    if (isBlockSymbol(sourceSymbol)) {
+      const containingSymbol = this.findContainingSymbolForBlock(
+        sourceSymbol,
+        sourceSymbol.fileUri,
+      );
+      if (!containingSymbol) {
+        this.logger.debug(
+          () =>
+            `Skipping reference with block source ${sourceSymbol.name} (no containing declaration found)`,
+        );
+        return;
+      }
+      normalizedSourceSymbol = containingSymbol;
+    }
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const sourceSymbolInGraph = sourceSymbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
-      : sourceSymbols[0]; // Take the first symbol with matching name
-
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSourceSymbol.fileUri,
+      normalizedSourceSymbol.name,
+    );
     const targetSymbolInGraph = targetSymbol.fileUri
-      ? targetSymbols.find((s) => s.fileUri === targetSymbol.fileUri)
-      : targetSymbols[0]; // Take the first symbol with matching name
+      ? this.findSymbolInFileByName(targetSymbol.fileUri, targetSymbol.name)
+      : null;
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference
-      // But first, if sourceSymbol is a block, find the containing method/class
-      let actualSourceSymbol = sourceSymbol;
-      if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
-        const containingSymbol = this.findContainingSymbolForBlock(
-          sourceSymbol,
-          sourceSymbol.fileUri,
-        );
-        if (containingSymbol) {
-          actualSourceSymbol = containingSymbol;
-          this.logger.debug(
-            () =>
-              `Replacing block symbol ${sourceSymbol.name} with containing symbol ` +
-              `${containingSymbol.name} (kind=${containingSymbol.kind}) for deferred reference`,
-          );
-        } else {
-          // If we can't find a containing symbol, skip this reference
-          // Block symbols shouldn't be used as source symbols
-          this.logger.debug(
-            () =>
-              `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
-              '(no containing method/class found)',
-          );
-          return;
-        }
-      }
-
       // Use symbol name as key since we don't know the exact fileUri
       this.addDeferredReference(
-        actualSourceSymbol,
+        normalizedSourceSymbol,
         targetSymbol.name,
         referenceType,
         location,
         context,
       );
 
-      // For built-in types, create a virtual symbol and add the reference immediately
+      // Scalar keywords (void, null) use apexlib URIs but are not loaded as graph vertices;
+      // create a virtual symbol and add the reference immediately
       if (
         targetSymbol.fileUri &&
-        targetSymbol.fileUri.startsWith('built-in://')
+        targetSymbol.fileUri.startsWith('apexlib://') &&
+        (targetSymbol.name === 'void' || targetSymbol.name === 'null')
       ) {
-        this.createVirtualSymbolForBuiltInType(
+        this.createVirtualSymbolForStdlibScalarKeyword(
           targetSymbol,
-          sourceSymbol,
+          normalizedSourceSymbol,
           referenceType,
           location,
           context,
@@ -1503,50 +1799,20 @@ export class ApexSymbolGraph {
       targetSymbolInGraph.fileUri,
     );
 
-    // Check if reference already exists
-    const existingEdge = this.referenceGraph.getEdge(sourceId, targetId);
-    if (existingEdge) {
-      return;
+    // Create reference entry and add to indexes
+    if (
+      this.createAndAddReference(
+        sourceSymbolInGraph.fileUri,
+        sourceId,
+        targetSymbolInGraph.fileUri,
+        targetId,
+        referenceType,
+        location,
+        context,
+      )
+    ) {
+      this.memoryStats.totalEdges++;
     }
-
-    // Create optimized reference edge
-    const referenceEdge: ReferenceEdge = {
-      type: referenceType,
-      sourceFileUri: sourceSymbolInGraph.fileUri,
-      targetFileUri: targetSymbolInGraph.fileUri,
-      context: context
-        ? {
-            methodName: context.methodName,
-            parameterIndex: context.parameterIndex
-              ? toUint16(context.parameterIndex)
-              : undefined,
-            isStatic: context.isStatic,
-            namespace: context.namespace,
-          }
-        : undefined,
-    };
-
-    // Add edge to graph
-    const edgeAdded = this.referenceGraph.addEdge(
-      sourceId,
-      targetId,
-      1,
-      referenceEdge,
-    );
-    if (!edgeAdded) {
-      this.logger.warn(
-        () => `Failed to add reference edge: ${sourceId} -> ${targetId}`,
-      );
-      return;
-    }
-
-    // Update reference count
-    const targetVertex = this.symbolToVertex.get(targetId);
-    if (targetVertex && targetVertex.value) {
-      targetVertex.value.referenceCount++;
-    }
-
-    this.memoryStats.totalEdges++;
   }
 
   /**
@@ -1555,14 +1821,19 @@ export class ApexSymbolGraph {
    * an async context or using the async variant if available.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
-    // Find the actual symbol in the graph by name and file path
-    const targetSymbols = this.findSymbolByName(symbol.name);
+    if (!symbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `findReferencesTo requires fileUri for symbol ${symbol.name}; returning empty`,
+      );
+      return [];
+    }
+    const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const targetSymbolInGraph = symbol.fileUri
-      ? targetSymbols.find((s) => s.fileUri === symbol.fileUri)
-      : targetSymbols[0]; // Take the first symbol with matching name
+    const targetSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSymbolFileUri,
+      symbol.name,
+    );
 
     if (!targetSymbolInGraph) {
       return [];
@@ -1574,37 +1845,36 @@ export class ApexSymbolGraph {
     );
     const results: ReferenceResult[] = [];
 
-    // Get incoming edges from the graph
-    const vertex = this.symbolToVertex.get(targetId);
-    if (!vertex) {
+    // Get refKeys from reverse index
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      targetSymbolInGraph.fileUri,
+      targetId,
+    );
+    const refKeys = this.reverseIndex.get(targetIndexKey);
+    if (!refKeys) {
       return results;
     }
-    const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
 
-    for (const edge of incomingEdges) {
-      if (!edge.value) continue;
+    // Map refKeys to ReferenceResult objects
+    for (const refKey of refKeys) {
+      const entry = this.refStore.get(refKey);
+      if (!entry) continue;
 
-      const sourceSymbol = this.getSymbol(String(edge.src));
+      const sourceSymbol = this.getSymbolByIdAndFile(
+        entry.sourceSymbolId,
+        entry.sourceFileUri,
+      );
       if (!sourceSymbol) {
         continue;
       }
 
       const referenceResult: ReferenceResult = {
-        symbolId: String(edge.src),
+        symbolId: entry.sourceSymbolId,
         symbol: sourceSymbol,
-        fileUri: sourceSymbol.fileUri,
-        referenceType: edge.value.type,
-        location: sourceSymbol.location,
-        context: edge.value.context
-          ? {
-              methodName: edge.value.context.methodName,
-              parameterIndex: edge.value.context.parameterIndex
-                ? Number(edge.value.context.parameterIndex)
-                : undefined,
-              isStatic: edge.value.context.isStatic,
-              namespace: edge.value.context.namespace,
-            }
-          : undefined,
+        fileUri: entry.sourceFileUri,
+        referenceType: entry.referenceType,
+        location: entry.location,
+        context: entry.context,
       };
 
       results.push(referenceResult);
@@ -1619,14 +1889,19 @@ export class ApexSymbolGraph {
    * an async context or using the async variant if available.
    */
   findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
-    // Find the actual symbol in the graph by name and file path
-    const sourceSymbols = this.findSymbolByName(symbol.name);
+    if (!symbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `findReferencesFrom requires fileUri for symbol ${symbol.name}; returning empty`,
+      );
+      return [];
+    }
+    const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const sourceSymbolInGraph = symbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === symbol.fileUri)
-      : sourceSymbols[0]; // Take the first symbol with matching name
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSymbolFileUri,
+      symbol.name,
+    );
 
     if (!sourceSymbolInGraph) {
       return [];
@@ -1638,37 +1913,34 @@ export class ApexSymbolGraph {
     );
     const results: ReferenceResult[] = [];
 
-    // Get outgoing edges from the graph
-    const vertex = this.symbolToVertex.get(sourceId);
-    if (!vertex) {
+    // Get all refKeys for this file from forward index
+    const fileRefKeys = this.forwardIndex.get(sourceSymbolInGraph.fileUri);
+    if (!fileRefKeys) {
       return results;
     }
-    const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
 
-    for (const edge of outgoingEdges) {
-      if (!edge.value) continue;
+    // Filter refKeys that match the source symbol
+    for (const refKey of fileRefKeys) {
+      const entry = this.refStore.get(refKey);
+      if (!entry || entry.sourceSymbolId !== sourceId) {
+        continue;
+      }
 
-      const targetSymbol = this.getSymbol(String(edge.dest));
+      const targetSymbol = this.getSymbolByIdAndFile(
+        entry.targetSymbolId,
+        entry.targetFileUri,
+      );
       if (!targetSymbol) {
         continue;
       }
 
       const referenceResult: ReferenceResult = {
-        symbolId: String(edge.dest),
+        symbolId: entry.targetSymbolId,
         symbol: targetSymbol,
-        fileUri: targetSymbol.fileUri,
-        referenceType: edge.value.type,
-        location: targetSymbol.location,
-        context: edge.value.context
-          ? {
-              methodName: edge.value.context.methodName,
-              parameterIndex: edge.value.context.parameterIndex
-                ? Number(edge.value.context.parameterIndex)
-                : undefined,
-              isStatic: edge.value.context.isStatic,
-              namespace: edge.value.context.namespace,
-            }
-          : undefined,
+        fileUri: entry.targetFileUri,
+        referenceType: entry.referenceType,
+        location: entry.location,
+        context: entry.context,
       };
 
       results.push(referenceResult);
@@ -1685,12 +1957,12 @@ export class ApexSymbolGraph {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
 
-    // Get all vertices from the symbolToVertex map
-    const vertices = Array.from(this.symbolToVertex.keys());
+    // Get all symbol IDs from the symbol ID index
+    const symbolIds = Array.from(this.symbolIdIndex.keys());
 
-    for (const vertexKey of vertices) {
-      if (!visited.has(vertexKey)) {
-        this.detectCyclesDFS(vertexKey, visited, recursionStack, [], cycles);
+    for (const symbolId of symbolIds) {
+      if (!visited.has(symbolId)) {
+        this.detectCyclesDFS(symbolId, visited, recursionStack, [], cycles);
       }
     }
 
@@ -1707,7 +1979,7 @@ export class ApexSymbolGraph {
     const recursionStack = new Set<string>();
 
     // Start DFS from the specific symbol
-    if (this.symbolToVertex.has(symbolId)) {
+    if (this.symbolIdIndex.has(symbolId)) {
       this.detectCyclesDFS(symbolId, visited, recursionStack, [], cycles);
     }
 
@@ -1719,41 +1991,56 @@ export class ApexSymbolGraph {
    * Helper method for cycle detection using DFS
    */
   private detectCyclesDFS(
-    vertexKey: string,
+    symbolId: string,
     visited: Set<string>,
     recursionStack: Set<string>,
     currentPath: string[],
     cycles: string[][],
   ): void {
-    visited.add(vertexKey);
-    recursionStack.add(vertexKey);
-    currentPath.push(vertexKey);
+    visited.add(symbolId);
+    recursionStack.add(symbolId);
+    currentPath.push(symbolId);
 
-    // Get outgoing edges from this vertex
-    const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertexKey);
+    // Get symbol's file URI to find its outgoing references
+    const symbolInGraph = this.getSymbol(symbolId);
+    if (!symbolInGraph) {
+      recursionStack.delete(symbolId);
+      currentPath.pop();
+      return;
+    }
 
-    for (const edge of outgoingEdges) {
-      const neighborKey = String(edge.dest);
+    // Get all refKeys for this file from forward index
+    const fileRefKeys = this.forwardIndex.get(symbolInGraph.fileUri);
+    if (fileRefKeys) {
+      // Filter to references from this specific symbol
+      for (const refKey of fileRefKeys) {
+        const entry = this.refStore.get(refKey);
+        if (!entry || entry.sourceSymbolId !== symbolId) {
+          continue;
+        }
 
-      if (!visited.has(neighborKey)) {
-        this.detectCyclesDFS(
-          neighborKey,
-          visited,
-          recursionStack,
-          currentPath,
-          cycles,
-        );
-      } else if (recursionStack.has(neighborKey)) {
-        // Found a cycle
-        const cycleStartIndex = currentPath.indexOf(neighborKey);
-        if (cycleStartIndex !== -1) {
-          const cycle = currentPath.slice(cycleStartIndex);
-          cycles.push([...cycle]);
+        const neighborId = entry.targetSymbolId;
+
+        if (!visited.has(neighborId)) {
+          this.detectCyclesDFS(
+            neighborId,
+            visited,
+            recursionStack,
+            currentPath,
+            cycles,
+          );
+        } else if (recursionStack.has(neighborId)) {
+          // Found a cycle
+          const cycleStartIndex = currentPath.indexOf(neighborId);
+          if (cycleStartIndex !== -1) {
+            const cycle = currentPath.slice(cycleStartIndex);
+            cycles.push([...cycle]);
+          }
         }
       }
     }
 
-    recursionStack.delete(vertexKey);
+    recursionStack.delete(symbolId);
     currentPath.pop();
   }
 
@@ -1803,7 +2090,8 @@ export class ApexSymbolGraph {
    */
   getStats() {
     return {
-      totalSymbols: this.memoryStats.totalSymbols,
+      // Derive from authoritative index to avoid drift/negative counts.
+      totalSymbols: this.symbolIdIndex.size,
       totalFiles: this.fileIndex.size, // Count actual files, not just SymbolTables
       totalReferences: this.memoryStats.totalEdges,
       circularDependencies: this.detectCircularDependencies().length,
@@ -1977,7 +2265,11 @@ export class ApexSymbolGraph {
    * Register SymbolTable for a file
    * Ensures URI is normalized consistently with getSymbolId() to avoid lookup mismatches
    */
-  registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
+  registerSymbolTable(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: { mergeReferences?: boolean },
+  ): void {
     // Normalize URI the same way getSymbolId() does to ensure consistency
     // This ensures SymbolTable lookup in getSymbol() will succeed
     const normalizedUri = extractFilePathFromUri(fileUri);
@@ -2080,7 +2372,12 @@ export class ApexSymbolGraph {
       // If the new SymbolTable has no references but the old one does, merge them
       // This ensures hover/definition requests work even if workspace batch processing
       // creates a new SymbolTable without references (e.g., if collectReferences wasn't set)
-      if (existingReferences.length > 0 && newReferences.length === 0) {
+      const shouldMergeReferences = options?.mergeReferences ?? true;
+      if (
+        shouldMergeReferences &&
+        existingReferences.length > 0 &&
+        newReferences.length === 0
+      ) {
         this.logger.debug(
           () =>
             `[registerSymbolTable] Merging ${existingReferences.length} references from existing SymbolTable`,
@@ -2089,7 +2386,11 @@ export class ApexSymbolGraph {
         for (const ref of existingReferences) {
           symbolTable.addTypeReference(ref);
         }
-      } else if (existingReferences.length > 0 && newReferences.length > 0) {
+      } else if (
+        shouldMergeReferences &&
+        existingReferences.length > 0 &&
+        newReferences.length > 0
+      ) {
         // Both have references - merge unique ones (avoid duplicates)
         const newRefSet = new Set(
           newReferences.map(
@@ -2312,14 +2613,17 @@ export class ApexSymbolGraph {
     // Shutdown deferred worker and queue before clearing
     this.shutdownDeferredWorker();
 
-    this.referenceGraph.clear();
-    this.symbolIds.clear();
-    this.symbolToVertex.clear();
+    // Clear indexes
+    this.reverseIndex.clear();
+    this.forwardIndex.clear();
+    this.refStore.clear();
+    this.refIndexCounters.clear();
     this.symbolFileMap.clear();
     this.nameIndex.clear();
     this.fileIndex.clear();
     this.fqnIndex.clear();
     this.symbolIdIndex.clear();
+    this.symbolQualifiedIndex.clear();
     this.deferredReferences.clear();
     this.pendingDeferredReferences.clear();
 
@@ -2421,21 +2725,30 @@ export class ApexSymbolGraph {
   removeFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
+    const symbolIdSet = new Set(symbolIds);
+
+    // Remove all references from/to symbols in this file
+    this.removeReferencesFromFile(normalizedUri);
+    this.removeIncomingReferencesToSymbols(symbolIdSet, normalizedUri);
 
     for (const symbolId of symbolIds) {
-      // Remove from graph
-      const vertex = this.symbolToVertex.get(symbolId);
-      if (vertex) {
-        this.referenceGraph.deleteVertex(vertex);
-        this.memoryStats.totalVertices--;
-      }
-
       // Remove from indexes
       this.symbolFileMap.delete(symbolId);
-      this.fqnIndex.delete(symbolId);
-      this.symbolIds.delete(symbolId);
-      this.symbolToVertex.delete(symbolId);
       this.symbolIdIndex.delete(symbolId);
+      this.symbolQualifiedIndex.delete(
+        this.makeQualifiedSymbolKey(normalizedUri, symbolId),
+      );
+
+      // Remove symbolId from every FQN bucket (fqnIndex is keyed by FQN, not symbolId)
+      for (const [fqn, ids] of this.fqnIndex.entries()) {
+        if (!ids) continue;
+        const filteredIds = ids.filter((id) => id !== symbolId);
+        if (filteredIds.length === 0) {
+          this.fqnIndex.delete(fqn);
+        } else if (filteredIds.length !== ids.length) {
+          this.fqnIndex.set(fqn, filteredIds);
+        }
+      }
 
       // Update name index
       for (const [name, ids] of this.nameIndex.entries()) {
@@ -2456,7 +2769,9 @@ export class ApexSymbolGraph {
     // Remove SymbolTable reference (use normalized URI)
     this.fileToSymbolTable.delete(normalizedUri);
 
-    this.memoryStats.totalSymbols -= symbolIds.length;
+    // Re-sync from authoritative source to prevent negative totals/drift.
+    this.memoryStats.totalSymbols = this.symbolIdIndex.size;
+    this.memoryStats.totalEdges = this.refStore.size;
   }
 
   /**
@@ -2488,7 +2803,7 @@ export class ApexSymbolGraph {
   private findSymbolId(symbol: ApexSymbol): string | null {
     const fileUri = symbol.fileUri || 'unknown';
     const symbolId = this.getSymbolId(symbol, fileUri);
-    return this.symbolIds.has(symbolId) ? symbolId : null;
+    return this.symbolIdIndex.has(symbolId) ? symbolId : null;
   }
 
   /**
@@ -2506,6 +2821,13 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping deferred reference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
     const existing = this.deferredReferences.get(targetSymbolName) || [];
     existing.push({
       sourceSymbol,
@@ -2533,10 +2855,9 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Create a virtual symbol for built-in types and add the reference immediately
-   * TODO: remove once all apex classes are converted to use file uris
+   * Create a virtual symbol for stdlib scalar keywords (void, null) and add the reference immediately.
    */
-  private createVirtualSymbolForBuiltInType(
+  private createVirtualSymbolForStdlibScalarKeyword(
     targetSymbol: ApexSymbol,
     sourceSymbol: ApexSymbol,
     referenceType: EnumValue<typeof ReferenceType>,
@@ -2548,11 +2869,13 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
-    // Create a virtual symbol ID for the built-in type
-    const virtualSymbolId = `built-in://apex:${targetSymbol.name}`;
+    const virtualSymbolId = generateSymbolId(
+      targetSymbol.name,
+      targetSymbol.fileUri!,
+    );
 
     // Check if we already have this virtual symbol
-    if (this.symbolIds.has(virtualSymbolId)) {
+    if (this.symbolIdIndex.has(virtualSymbolId)) {
       // Symbol already exists, just add the reference
       this.addReferenceToGraph(
         sourceSymbol,
@@ -2573,8 +2896,12 @@ export class ApexSymbolGraph {
     };
 
     // Add the virtual symbol to the graph
-    this.symbolIds.add(virtualSymbolId);
+    this.symbolIdIndex.set(virtualSymbolId, virtualSymbol);
     this.symbolFileMap.set(virtualSymbolId, virtualSymbol.fileUri);
+    this.symbolQualifiedIndex.set(
+      this.makeQualifiedSymbolKey(virtualSymbol.fileUri, virtualSymbolId),
+      virtualSymbol,
+    );
 
     // Add to name index
     const existingNames = this.nameIndex.get(virtualSymbol.name) || [];
@@ -2592,31 +2919,10 @@ export class ApexSymbolGraph {
       }
     }
 
-    // Create a lightweight node for the graph
-    const referenceNode: ReferenceNode = {
-      symbolId: virtualSymbolId,
-      fileUri: virtualSymbol.fileUri,
-      lastUpdated: Date.now(),
-      referenceCount: 0,
-      nodeId: this.memoryStats.totalVertices + 1,
-    };
+    // Update memory statistics
+    this.memoryStats.totalSymbols++;
 
-    // Add vertex to graph
-    const vertexAdded = this.referenceGraph.addVertex(
-      virtualSymbolId,
-      referenceNode,
-    );
-    if (!vertexAdded) {
-      return;
-    }
-
-    // Get the vertex from the graph
-    const vertex = this.referenceGraph.getVertex(virtualSymbolId);
-    if (vertex) {
-      this.symbolToVertex.set(virtualSymbolId, vertex);
-    }
-
-    // Now add the reference to the graph
+    // Now add the reference
     this.addReferenceToGraph(
       sourceSymbol,
       targetSymbol,
@@ -2628,7 +2934,7 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Add a reference to the graph between two symbols
+   * Add a reference to the indexes between two symbols
    */
   private addReferenceToGraph(
     sourceSymbol: ApexSymbol,
@@ -2643,16 +2949,25 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
-    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
+    // Don't create reference entries for scope symbols (they're structural, not semantic)
     if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
       return;
     }
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping addReferenceToGraph for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    const normalizedSourceFileUri = extractFilePathFromUri(
+      sourceSymbol.fileUri,
+    );
 
-    // Find the source symbol in the graph
-    const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
-    const sourceSymbolInGraph = sourceSymbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
-      : sourceSymbols[0];
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSourceFileUri,
+      sourceSymbol.name,
+    );
 
     if (!sourceSymbolInGraph) {
       return;
@@ -2662,38 +2977,32 @@ export class ApexSymbolGraph {
       sourceSymbolInGraph,
       sourceSymbolInGraph.fileUri,
     );
-    // Check if reference already exists
-    const existingEdge = this.referenceGraph.getEdge(sourceId, targetSymbolId);
-    if (existingEdge) {
-      return;
-    }
 
-    // Create optimized reference edge
-    const referenceEdge: ReferenceEdge = {
-      type: referenceType,
+    // Create reference store entry
+    const refEntry: RefStoreEntry = {
       sourceFileUri: sourceSymbolInGraph.fileUri,
+      sourceSymbolId: sourceId,
       targetFileUri: targetSymbol.fileUri,
+      targetSymbolId: targetSymbolId,
+      referenceType: referenceType,
+      location: location,
       context: context
         ? {
             methodName: context.methodName,
-            parameterIndex: context.parameterIndex
-              ? toUint16(context.parameterIndex)
-              : undefined,
+            parameterIndex: context.parameterIndex,
             isStatic: context.isStatic,
             namespace: context.namespace,
           }
         : undefined,
     };
 
-    // Add edge to graph
-    const edgeAdded = this.referenceGraph.addEdge(
+    // Add to indexes
+    this.addReferenceToIndexes(
+      sourceSymbolInGraph.fileUri,
       sourceId,
       targetSymbolId,
-      1,
-      referenceEdge,
+      refEntry,
     );
-    if (!edgeAdded) {
-    }
   }
 
   /**
@@ -2712,9 +3021,18 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping enqueueDeferredReference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    sourceSymbol.fileUri = extractFilePathFromUri(sourceSymbol.fileUri);
+
     // If sourceSymbol is a block, find the containing method/class
     let actualSourceSymbol = sourceSymbol;
-    if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
+    if (isBlockSymbol(sourceSymbol)) {
       const containingSymbol = this.findContainingSymbolForBlock(
         sourceSymbol,
         sourceSymbol.fileUri,
@@ -2791,389 +3109,6 @@ export class ApexSymbolGraph {
       ),
     );
   }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private processDeferredReferencesBatchEffect_OLD(
-    symbolName: string,
-  ): Effect.Effect<BatchProcessingResult, never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const deferred = self.deferredReferences.get(symbolName);
-      if (!deferred || deferred.length === 0) {
-        return { needsRetry: false, reason: 'success' };
-      }
-
-      // Find the target symbol by name
-      const targetSymbols = self.findSymbolByName(symbolName);
-      if (targetSymbols.length === 0) {
-        // Target symbol not found - re-queue for retry
-        return { needsRetry: true, reason: 'target_not_found' };
-      }
-
-      // Use the first symbol with this name
-      const targetSymbol = targetSymbols[0];
-      const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-      // Process in batches to avoid blocking
-      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, deferred.length);
-      const totalDeferred = deferred.length;
-      const batchStartTime = Date.now();
-
-      // Log batch start
-      self.logger.info(
-        () =>
-          `[DEFERRED] Starting batch processing for symbol: ${symbolName}, ` +
-          `total deferred: ${totalDeferred}, batch size: ${batchSize}`,
-      );
-
-      const processed: typeof deferred = [];
-      let hasFailures = false;
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (let i = 0; i < batchSize; i++) {
-        const ref = deferred[i];
-        if (!ref) continue;
-
-        // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
-        if (!ref.sourceSymbol.fileUri) {
-          // Find source symbol to get fileUri
-          const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
-          if (sourceSymbols.length > 0) {
-            ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
-          }
-        }
-
-        // Find the source symbol in the graph
-        const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
-
-        // If fileUri is undefined, match any symbol with the same name
-        // Otherwise, require exact fileUri match
-        const sourceSymbolInGraph = ref.sourceSymbol.fileUri
-          ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
-          : sourceSymbols[0]; // Take the first symbol with matching name
-
-        if (!sourceSymbolInGraph) {
-          // Source symbol not found - keep for retry later when source symbol is added
-          const pending =
-            self.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
-          pending.push({
-            targetSymbolName: symbolName,
-            referenceType: ref.referenceType,
-            location: ref.location,
-            context: ref.context,
-          });
-          self.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
-
-          self.logger.info(
-            () =>
-              'Source symbol not found for deferred reference: ' +
-              `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
-              `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
-              `target=${symbolName}, ` +
-              `refType=${String(ref.referenceType)}` +
-              (ref.context?.methodName
-                ? `, method=${ref.context.methodName}`
-                : '') +
-              ', will retry when source symbol is added',
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        const sourceId = self.getSymbolId(
-          sourceSymbolInGraph,
-          sourceSymbolInGraph.fileUri,
-        );
-
-        // Create optimized reference edge
-        const referenceEdge: ReferenceEdge = {
-          type: ref.referenceType,
-          sourceFileUri: sourceSymbolInGraph.fileUri,
-          targetFileUri: targetSymbol.fileUri,
-          context: ref.context
-            ? {
-                methodName: ref.context.methodName,
-                parameterIndex: ref.context.parameterIndex
-                  ? toUint16(ref.context.parameterIndex)
-                  : undefined,
-                isStatic: ref.context.isStatic,
-                namespace: ref.context.namespace,
-              }
-            : undefined,
-        };
-
-        // Add edge to graph
-        const edgeAdded = self.referenceGraph.addEdge(
-          sourceId,
-          targetId,
-          1,
-          referenceEdge,
-        );
-        if (!edgeAdded) {
-          self.logger.debug(
-            () =>
-              `Failed to add deferred reference edge: ${sourceId} -> ${targetId}`,
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        // Update reference count
-        const targetVertex = self.symbolToVertex.get(targetId);
-        if (targetVertex && targetVertex.value) {
-          targetVertex.value.referenceCount++;
-        }
-
-        self.memoryStats.totalEdges++;
-        processed.push(ref);
-        successCount++;
-
-        // Yield every 3 items to allow other tasks to run
-        if ((i + 1) % 3 === 0) {
-          yield* Effect.yieldNow();
-        }
-      }
-
-      // Remove processed references
-      const remaining = deferred.slice(batchSize);
-      const batchDuration = Date.now() - batchStartTime;
-
-      // Update metrics
-      self.deferredProcessingMetrics.totalBatchesProcessed++;
-      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
-      self.deferredProcessingMetrics.totalSuccessCount += successCount;
-      self.deferredProcessingMetrics.totalFailureCount += failureCount;
-      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
-      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
-
-      // Track queue depth periodically and log summaries
-      const now = Date.now();
-      const currentMetrics = yield* metrics().pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      );
-      if (currentMetrics) {
-        const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
-        self.deferredProcessingMetrics.queueDepthHistory.push({
-          timestamp: now,
-          depth: lowQueueSize,
-        });
-        // Keep only last 100 entries
-        if (self.deferredProcessingMetrics.queueDepthHistory.length > 100) {
-          self.deferredProcessingMetrics.queueDepthHistory.shift();
-        }
-      }
-
-      // Log periodic summary every 50 batches or every 5 seconds
-      const timeSinceLastLog =
-        now - self.deferredProcessingMetrics.lastMetricsLogTime;
-      if (
-        self.deferredProcessingMetrics.totalBatchesProcessed % 50 === 0 ||
-        timeSinceLastLog >= 5000
-      ) {
-        yield* self
-          .logDeferredProcessingSummary()
-          .pipe(Effect.catchAll(() => Effect.void));
-        self.deferredProcessingMetrics.lastMetricsLogTime = now;
-      }
-
-      // Log batch completion
-      self.logger.info(
-        () =>
-          `[DEFERRED] Completed batch processing for symbol: ${symbolName}, ` +
-          `processed: ${processed.length}/${batchSize}, ` +
-          `success: ${successCount}, failures: ${failureCount}, ` +
-          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
-      );
-
-      if (remaining.length > 0) {
-        self.deferredReferences.set(symbolName, remaining);
-        return {
-          needsRetry: true,
-          reason: 'partial_processing',
-          remainingCount: remaining.length,
-        };
-      } else {
-        self.deferredReferences.delete(symbolName);
-      }
-
-      return {
-        needsRetry: hasFailures,
-        reason: hasFailures ? 'source_not_found' : 'success',
-      };
-    });
-  }
-
-  /**
-   * Process deferred references for a symbol in batches with retry tracking
-   * Returns result indicating if retry is needed and why
-   * @deprecated Use processDeferredReferencesBatchEffect for Effect-based processing with yielding
-   */
-  private processDeferredReferencesBatch(
-    symbolName: string,
-  ): BatchProcessingResult {
-    const deferred = this.deferredReferences.get(symbolName);
-    if (!deferred || deferred.length === 0) {
-      return { needsRetry: false, reason: 'success' };
-    }
-
-    // Find the target symbol by name
-    const targetSymbols = this.findSymbolByName(symbolName);
-    if (targetSymbols.length === 0) {
-      // Target symbol not found - re-queue for retry
-      return { needsRetry: true, reason: 'target_not_found' };
-    }
-
-    // Use the first symbol with this name
-    const targetSymbol = targetSymbols[0];
-    const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-    // Process in batches to avoid blocking
-    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, deferred.length);
-    const processed: typeof deferred = [];
-    let hasFailures = false;
-
-    for (let i = 0; i < batchSize; i++) {
-      const ref = deferred[i];
-      if (!ref) continue;
-
-      // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
-      if (!ref.sourceSymbol.fileUri) {
-        // Find source symbol to get fileUri
-        const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
-        if (sourceSymbols.length > 0) {
-          ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
-        }
-      }
-
-      // Find the source symbol in the graph
-      const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
-
-      // If fileUri is undefined, match any symbol with the same name
-      // Otherwise, require exact fileUri match
-      const sourceSymbolInGraph = ref.sourceSymbol.fileUri
-        ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
-        : sourceSymbols[0]; // Take the first symbol with matching name
-
-      if (!sourceSymbolInGraph) {
-        // Source symbol not found - keep for retry later when source symbol is added
-        const pending =
-          this.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
-        pending.push({
-          targetSymbolName: symbolName,
-          referenceType: ref.referenceType,
-          location: ref.location,
-          context: ref.context,
-        });
-        this.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
-
-        this.logger.info(
-          () =>
-            'Source symbol not found for deferred reference: ' +
-            `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
-            `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
-            `target=${symbolName}, ` +
-            `refType=${String(ref.referenceType)}` +
-            (ref.context?.methodName
-              ? `, method=${ref.context.methodName}`
-              : '') +
-            ', will retry when source symbol is added',
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      const sourceId = this.getSymbolId(
-        sourceSymbolInGraph,
-        sourceSymbolInGraph.fileUri,
-      );
-
-      // Create optimized reference edge
-      const referenceEdge: ReferenceEdge = {
-        type: ref.referenceType,
-        sourceFileUri: sourceSymbolInGraph.fileUri,
-        targetFileUri: targetSymbol.fileUri,
-        context: ref.context
-          ? {
-              methodName: ref.context.methodName,
-              parameterIndex: ref.context.parameterIndex
-                ? toUint16(ref.context.parameterIndex)
-                : undefined,
-              isStatic: ref.context.isStatic,
-              namespace: ref.context.namespace,
-            }
-          : undefined,
-      };
-
-      // Add edge to graph
-      const edgeAdded = this.referenceGraph.addEdge(
-        sourceId,
-        targetId,
-        1,
-        referenceEdge,
-      );
-      if (!edgeAdded) {
-        this.logger.warn(
-          () =>
-            `Failed to add deferred reference edge: ${sourceId} -> ${targetId}`,
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      // Update reference count
-      const targetVertex = this.symbolToVertex.get(targetId);
-      if (targetVertex && targetVertex.value) {
-        targetVertex.value.referenceCount++;
-      }
-
-      this.memoryStats.totalEdges++;
-      processed.push(ref);
-    }
-
-    // Remove processed references
-    const remaining = deferred.filter((ref) => !processed.includes(ref));
-    if (remaining.length === 0) {
-      this.deferredReferences.delete(symbolName);
-      return { needsRetry: false, reason: 'success' };
-    } else {
-      // Update with remaining references
-      this.deferredReferences.set(symbolName, remaining);
-      return {
-        needsRetry: true,
-        reason: hasFailures
-          ? 'source_not_found_or_edge_failed'
-          : 'batch_incomplete',
-        remainingCount: remaining.length,
-      };
-    }
-  }
-
-  /**
-   * Process deferred references for a symbol (legacy method, kept for backward compatibility)
-   * @deprecated Use processDeferredReferencesBatch instead
-   */
-  private processDeferredReferences(symbolName: string): void {
-    const result = this.processDeferredReferencesBatch(symbolName);
-    if (result.needsRetry && result.remainingCount === undefined) {
-      // If it needs retry but no remaining count, it means target not found
-      // This is handled by the queue system now
-      this.logger.debug(
-        () =>
-          `Deferred reference processing queued for retry: ${symbolName} (${result.reason})`,
-      );
-    }
-  }
-
   /**
    * Retry pending deferred references when source symbol is added (Effect-based)
    * Returns result indicating if retry is needed and why
@@ -3195,291 +3130,6 @@ export class ApexSymbolGraph {
       ),
     );
   }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private retryPendingDeferredReferencesBatchEffect_OLD(
-    symbolName: string,
-  ): Effect.Effect<BatchProcessingResult, never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const pending = self.pendingDeferredReferences.get(symbolName);
-      if (!pending || pending.length === 0) {
-        return { needsRetry: false, reason: 'success' };
-      }
-
-      // Find the source symbol
-      const sourceSymbols = self.findSymbolByName(symbolName);
-      if (sourceSymbols.length === 0) {
-        // Source symbol not found - re-queue for retry
-        return { needsRetry: true, reason: 'source_not_found' };
-      }
-
-      const sourceSymbol = sourceSymbols[0];
-      const sourceId = self.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
-
-      // Process in batches to avoid blocking
-      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, pending.length);
-      const totalPending = pending.length;
-      const batchStartTime = Date.now();
-
-      // Log batch start
-      self.logger.info(
-        () =>
-          `[DEFERRED] Starting retry batch processing for symbol: ${symbolName}, ` +
-          `total pending: ${totalPending}, batch size: ${batchSize}`,
-      );
-
-      const processed: typeof pending = [];
-      let hasFailures = false;
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (let i = 0; i < batchSize; i++) {
-        const ref = pending[i];
-        if (!ref) continue;
-
-        // Find the target symbol by name
-        const targetSymbols = self.findSymbolByName(ref.targetSymbolName);
-        if (targetSymbols.length === 0) {
-          // Target symbol still not found - keep for later retry
-          self.logger.debug(
-            () =>
-              `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
-              'will retry when target symbol is added',
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        const targetSymbol = targetSymbols[0];
-        const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-        // Create optimized reference edge
-        const referenceEdge: ReferenceEdge = {
-          type: ref.referenceType,
-          sourceFileUri: sourceSymbol.fileUri,
-          targetFileUri: targetSymbol.fileUri,
-          context: ref.context
-            ? {
-                methodName: ref.context.methodName,
-                parameterIndex: ref.context.parameterIndex
-                  ? toUint16(ref.context.parameterIndex)
-                  : undefined,
-                isStatic: ref.context.isStatic,
-                namespace: ref.context.namespace,
-              }
-            : undefined,
-        };
-
-        // Add edge to graph
-        const edgeAdded = self.referenceGraph.addEdge(
-          sourceId,
-          targetId,
-          1,
-          referenceEdge,
-        );
-        if (!edgeAdded) {
-          self.logger.debug(
-            () =>
-              `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
-          );
-          processed.push(ref);
-          hasFailures = true;
-          failureCount++;
-          continue;
-        }
-
-        // Update reference count
-        const targetVertex = self.symbolToVertex.get(targetId);
-        if (targetVertex && targetVertex.value) {
-          targetVertex.value.referenceCount++;
-        }
-
-        self.memoryStats.totalEdges++;
-        processed.push(ref);
-        successCount++;
-
-        // Yield every 10 items to allow other tasks to run
-        if ((i + 1) % 10 === 0) {
-          yield* Effect.yieldNow();
-        }
-      }
-
-      // Remove processed references
-      const remaining = pending.filter((ref) => !processed.includes(ref));
-      const batchDuration = Date.now() - batchStartTime;
-
-      // Update metrics
-      self.deferredProcessingMetrics.totalBatchesProcessed++;
-      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
-      self.deferredProcessingMetrics.totalSuccessCount += successCount;
-      self.deferredProcessingMetrics.totalFailureCount += failureCount;
-      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
-      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
-
-      // Log batch completion
-      self.logger.info(
-        () =>
-          `[DEFERRED] Completed retry batch processing for symbol: ${symbolName}, ` +
-          `processed: ${processed.length}/${batchSize}, ` +
-          `success: ${successCount}, failures: ${failureCount}, ` +
-          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
-      );
-
-      if (remaining.length === 0) {
-        self.pendingDeferredReferences.delete(symbolName);
-        return { needsRetry: false, reason: 'success' };
-      } else {
-        // Update with remaining references
-        self.pendingDeferredReferences.set(symbolName, remaining);
-        return {
-          needsRetry: true,
-          reason: hasFailures
-            ? 'target_not_found_or_edge_failed'
-            : 'batch_incomplete',
-          remainingCount: remaining.length,
-        };
-      }
-    });
-  }
-
-  /**
-   * Retry pending deferred references when source symbol is added (batch version)
-   * Returns result indicating if retry is needed and why
-   * @deprecated Use retryPendingDeferredReferencesBatchEffect for Effect-based processing with yielding
-   */
-  private retryPendingDeferredReferencesBatch(
-    symbolName: string,
-  ): BatchProcessingResult {
-    const pending = this.pendingDeferredReferences.get(symbolName);
-    if (!pending || pending.length === 0) {
-      return { needsRetry: false, reason: 'success' };
-    }
-
-    // Find the source symbol
-    const sourceSymbols = this.findSymbolByName(symbolName);
-    if (sourceSymbols.length === 0) {
-      // Source symbol not found - re-queue for retry
-      return { needsRetry: true, reason: 'source_not_found' };
-    }
-
-    const sourceSymbol = sourceSymbols[0];
-    const sourceId = this.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
-
-    // Process in batches to avoid blocking
-    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, pending.length);
-    const processed: typeof pending = [];
-    let hasFailures = false;
-
-    for (let i = 0; i < batchSize; i++) {
-      const ref = pending[i];
-      if (!ref) continue;
-
-      // Find the target symbol by name
-      const targetSymbols = this.findSymbolByName(ref.targetSymbolName);
-      if (targetSymbols.length === 0) {
-        // Target symbol still not found - keep for later retry
-        this.logger.debug(
-          () =>
-            `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
-            'will retry when target symbol is added',
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      const targetSymbol = targetSymbols[0];
-      const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
-
-      // Create optimized reference edge
-      const referenceEdge: ReferenceEdge = {
-        type: ref.referenceType,
-        sourceFileUri: sourceSymbol.fileUri,
-        targetFileUri: targetSymbol.fileUri,
-        context: ref.context
-          ? {
-              methodName: ref.context.methodName,
-              parameterIndex: ref.context.parameterIndex
-                ? toUint16(ref.context.parameterIndex)
-                : undefined,
-              isStatic: ref.context.isStatic,
-              namespace: ref.context.namespace,
-            }
-          : undefined,
-      };
-
-      // Add edge to graph
-      const edgeAdded = this.referenceGraph.addEdge(
-        sourceId,
-        targetId,
-        1,
-        referenceEdge,
-      );
-      if (!edgeAdded) {
-        this.logger.warn(
-          () =>
-            `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
-        );
-        processed.push(ref);
-        hasFailures = true;
-        continue;
-      }
-
-      // Update reference count
-      const targetVertex = this.symbolToVertex.get(targetId);
-      if (targetVertex && targetVertex.value) {
-        targetVertex.value.referenceCount++;
-      }
-
-      this.memoryStats.totalEdges++;
-      processed.push(ref);
-
-      this.logger.debug(
-        () =>
-          `Retried pending deferred reference: ${symbolName} -> ${ref.targetSymbolName}`,
-      );
-    }
-
-    // Remove processed references
-    const remaining = pending.filter((ref) => !processed.includes(ref));
-    if (remaining.length === 0) {
-      this.pendingDeferredReferences.delete(symbolName);
-      return { needsRetry: false, reason: 'success' };
-    } else {
-      // Update with remaining references
-      this.pendingDeferredReferences.set(symbolName, remaining);
-      return {
-        needsRetry: true,
-        reason: hasFailures
-          ? 'target_not_found_or_edge_failed'
-          : 'batch_incomplete',
-        remainingCount: remaining.length,
-      };
-    }
-  }
-
-  /**
-   * Retry pending deferred references when source symbol is added (legacy method)
-   * @deprecated Use retryPendingDeferredReferencesBatch instead
-   */
-  private retryPendingDeferredReferences(sourceSymbol: ApexSymbol): void {
-    const result = this.retryPendingDeferredReferencesBatch(sourceSymbol.name);
-    if (result.needsRetry && result.remainingCount === undefined) {
-      // If it needs retry but no remaining count, it means source not found
-      // This is handled by the queue system now
-      this.logger.debug(
-        () =>
-          `Pending deferred reference retry queued: ${sourceSymbol.name} (${result.reason})`,
-      );
-    }
-  }
-
   /**
    * Calculate impact score for dependency analysis
    */
@@ -3565,15 +3215,58 @@ export class ApexSymbolGraph {
    * Public accessor methods for graph data extraction functions
    */
   public getSymbolIds(): Set<string> {
-    return this.symbolIds;
+    return new Set(this.symbolIdIndex.keys());
   }
 
+  public findFilesForSymbolName(name: string): string[] {
+    const symbolIds = this.nameIndex.get(name) || [];
+    const files = new Set<string>();
+    for (const symbolId of symbolIds) {
+      const fileUri = this.symbolFileMap.get(symbolId);
+      if (fileUri) {
+        files.add(fileUri);
+      }
+    }
+    return Array.from(files);
+  }
+
+  /**
+   * @deprecated Graph-based accessors removed. Use getRefStore/getReverseIndex/getForwardIndex instead.
+   */
   public getSymbolToVertex(): HashMap<string, DirectedVertex<ReferenceNode>> {
-    return this.symbolToVertex;
+    throw new Error(
+      'Graph-based access removed. Use index-based methods instead.',
+    );
   }
 
+  /**
+   * @deprecated Graph-based accessors removed. Use getRefStore/getReverseIndex/getForwardIndex instead.
+   */
   public getReferenceGraph(): DirectedGraph<ReferenceNode, ReferenceEdge> {
-    return this.referenceGraph;
+    throw new Error(
+      'Graph-based access removed. Use index-based methods instead.',
+    );
+  }
+
+  /**
+   * Get the reference store (maps refKey -> RefStoreEntry)
+   */
+  public getRefStore(): CaseInsensitiveHashMap<RefStoreEntry> {
+    return this.refStore;
+  }
+
+  /**
+   * Get the reverse index (maps targetSymbolId -> Set<refKey>)
+   */
+  public getReverseIndex(): CaseInsensitiveHashMap<Set<string>> {
+    return this.reverseIndex;
+  }
+
+  /**
+   * Get the forward index (maps sourceFileUri -> Set<refKey>)
+   */
+  public getForwardIndex(): CaseInsensitiveHashMap<Set<string>> {
+    return this.forwardIndex;
   }
 
   public getFileToSymbolTable(): HashMap<string, SymbolTable> {
@@ -3597,66 +3290,5 @@ export class ApexSymbolGraph {
     return logDeferredProcessingSummary().pipe(
       Effect.provide(this.deferredProcessorLayer),
     );
-  }
-
-  /**
-   * Legacy implementation - kept for reference
-   * @deprecated
-   */
-  private logDeferredProcessingSummary_OLD(): Effect.Effect<
-    void,
-    never,
-    never
-  > {
-    const self = this;
-    return Effect.gen(function* () {
-      const deferredMetrics = self.deferredProcessingMetrics;
-      const avgBatchDuration =
-        deferredMetrics.totalBatchesProcessed > 0
-          ? deferredMetrics.totalBatchDuration /
-            deferredMetrics.totalBatchesProcessed
-          : 0;
-      const itemsPerSecond =
-        deferredMetrics.totalBatchDuration > 0
-          ? (deferredMetrics.totalItemsProcessed /
-              deferredMetrics.totalBatchDuration) *
-            1000
-          : 0;
-      const successRate =
-        deferredMetrics.totalItemsProcessed > 0
-          ? (deferredMetrics.totalSuccessCount /
-              deferredMetrics.totalItemsProcessed) *
-            100
-          : 0;
-
-      // Get current queue metrics
-      let currentQueueSize = 0;
-      let currentQueueUtilization = 0;
-      let activeTasks = 0;
-      try {
-        const queueMetrics = yield* metrics();
-        currentQueueSize = queueMetrics.queueSizes[Priority.Low] || 0;
-        currentQueueUtilization =
-          queueMetrics.queueUtilization?.[Priority.Low] || 0;
-        activeTasks = queueMetrics.activeTasks?.[Priority.Low] || 0;
-      } catch (_error) {
-        // Metrics not available, use defaults
-      }
-
-      self.logger.info(
-        () =>
-          '[DEFERRED] Processing Summary: ' +
-          `batches=${deferredMetrics.totalBatchesProcessed}, ` +
-          `items=${deferredMetrics.totalItemsProcessed}, ` +
-          `success=${deferredMetrics.totalSuccessCount}, ` +
-          `failures=${deferredMetrics.totalFailureCount}, ` +
-          `avgBatchDuration=${avgBatchDuration.toFixed(1)}ms, ` +
-          `itemsPerSecond=${itemsPerSecond.toFixed(1)}, ` +
-          `successRate=${successRate.toFixed(1)}%, ` +
-          `queueSize=${currentQueueSize}, ` +
-          `queueUtilization=${currentQueueUtilization.toFixed(1)}%, ` +
-          `activeTasks=${activeTasks}`,
-      );
-    }).pipe(Effect.catchAll(() => Effect.void));
   }
 }

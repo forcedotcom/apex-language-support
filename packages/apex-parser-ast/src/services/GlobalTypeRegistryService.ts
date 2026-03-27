@@ -349,6 +349,7 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
     Effect.sync(() => {
       this.fqnIndex.clear();
       this.nameIndex.clear();
+      this.fileIndex.clear();
       this.stats = {
         totalTypes: 0,
         stdlibTypes: 0,
