@@ -26,6 +26,7 @@ import type {
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 import { Effect } from 'effect';
 import type { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import type { SymbolProvider } from '../namespace/NamespaceUtils';
 
 /**
  * Context for symbol resolution
@@ -63,7 +64,7 @@ export interface SymbolResolutionResult {
  * Interface defining the contract for symbol managers
  * This allows for both production and test implementations
  */
-export interface ISymbolManager {
+export interface ISymbolManager extends SymbolProvider {
   /**
    * Add a symbol to the manager
    */
