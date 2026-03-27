@@ -294,6 +294,8 @@ export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
+  let hoverSequence = 0;
+  const inFlightSupersede = new Map<number, () => void>();
   return {
     documentSelector: getDocumentSelectorsFromSettings(
       'all',
@@ -308,8 +310,256 @@ export const createClientOptions = (
       closed: () => handleClientClosed(),
     },
     middleware: {
-      provideHover: async (document, position, token, next) =>
-        next(document, position, token),
+      provideHover: async (document, position, token, next) => {
+        const requestSeq = ++hoverSequence;
+        for (const [seq, resolveSupersede] of inFlightSupersede.entries()) {
+          if (seq < requestSeq) {
+            resolveSupersede();
+            inFlightSupersede.delete(seq);
+          }
+        }
+        const startedAt = Date.now();
+        token.onCancellationRequested(() => {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H19',
+                location: 'server-config.ts:provideHover:cancel',
+                message: 'client provideHover cancellation requested',
+                data: {
+                  uri: document.uri.toString(),
+                  elapsedMs: Date.now() - startedAt,
+                  line: position.line,
+                  char: position.character,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+        });
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': '0aca23',
+            },
+            body: JSON.stringify({
+              sessionId: '0aca23',
+              runId: 'hover-regression',
+              hypothesisId: 'H10',
+              location: 'server-config.ts:provideHover:entry',
+              message: 'client provideHover entry',
+              data: {
+                uri: document.uri.toString(),
+                line: position.line,
+                char: position.character,
+                cancelledAtEntry: token.isCancellationRequested,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+        try {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H18',
+                location: 'server-config.ts:provideHover:before-next',
+                message: 'client provideHover invoking next',
+                data: {
+                  uri: document.uri.toString(),
+                  elapsedMs: Date.now() - startedAt,
+                  line: position.line,
+                  char: position.character,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          const nextPromise = Promise.resolve(next(document, position, token));
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H18',
+                location: 'server-config.ts:provideHover:after-next',
+                message: 'client provideHover next returned promise',
+                data: {
+                  uri: document.uri.toString(),
+                  elapsedMs: Date.now() - startedAt,
+                  line: position.line,
+                  char: position.character,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          const cancellationPromise = new Promise<null>((resolve) => {
+            if (token.isCancellationRequested) {
+              resolve(null);
+              return;
+            }
+            token.onCancellationRequested(() => resolve(null));
+          });
+          const supersedePromise = new Promise<null>((resolve) => {
+            inFlightSupersede.set(requestSeq, () => resolve(null));
+          });
+          const result = await Promise.race([
+            nextPromise,
+            cancellationPromise,
+            supersedePromise,
+          ]);
+          inFlightSupersede.delete(requestSeq);
+          if (result === null && token.isCancellationRequested) {
+            void nextPromise.catch(() => {});
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': '0aca23',
+                },
+                body: JSON.stringify({
+                  sessionId: '0aca23',
+                  runId: 'hover-regression',
+                  hypothesisId: 'H20',
+                  location: 'server-config.ts:provideHover:cancel-shortcircuit',
+                  message: 'client provideHover returned early on cancellation',
+                  data: {
+                    uri: document.uri.toString(),
+                    durationMs: Date.now() - startedAt,
+                    line: position.line,
+                    char: position.character,
+                  },
+                  timestamp: Date.now(),
+                }),
+              },
+            ).catch(() => {});
+            // #endregion
+          }
+          if (result === null && !token.isCancellationRequested) {
+            void nextPromise.catch(() => {});
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': '0aca23',
+                },
+                body: JSON.stringify({
+                  sessionId: '0aca23',
+                  runId: 'hover-regression',
+                  hypothesisId: 'H21',
+                  location: 'server-config.ts:provideHover:superseded',
+                  message: 'client provideHover superseded by newer request',
+                  data: {
+                    uri: document.uri.toString(),
+                    durationMs: Date.now() - startedAt,
+                    line: position.line,
+                    char: position.character,
+                    requestSeq,
+                    latestHoverSequence: hoverSequence,
+                  },
+                  timestamp: Date.now(),
+                }),
+              },
+            ).catch(() => {});
+            // #endregion
+          }
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H10',
+                location: 'server-config.ts:provideHover:exit',
+                message: 'client provideHover resolved',
+                data: {
+                  uri: document.uri.toString(),
+                  durationMs: Date.now() - startedAt,
+                  hasResult: !!result,
+                  cancelledAtExit: token.isCancellationRequested,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          return result;
+        } catch (error) {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H10',
+                location: 'server-config.ts:provideHover:error',
+                message: 'client provideHover failed',
+                data: {
+                  uri: document.uri.toString(),
+                  durationMs: Date.now() - startedAt,
+                  error: String(error),
+                  cancelledOnError: token.isCancellationRequested,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          throw error;
+        }
+      },
     },
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],

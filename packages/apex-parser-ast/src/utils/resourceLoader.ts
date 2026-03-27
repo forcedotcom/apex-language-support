@@ -754,10 +754,12 @@ export class ResourceLoader {
       program.pipe(Effect.provide(GlobalTypeRegistryLive)),
     );
 
-    this.logger.alwaysLog(
-      () =>
-        `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
-    );
+    const logMessage = `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`;
+    if (process.env.NODE_ENV === 'test') {
+      this.logger.debug(() => logMessage);
+    } else {
+      this.logger.alwaysLog(() => logMessage);
+    }
   }
 
   /**

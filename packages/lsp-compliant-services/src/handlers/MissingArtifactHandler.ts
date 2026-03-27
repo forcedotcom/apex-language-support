@@ -110,7 +110,10 @@ export class MissingArtifactHandler {
         'findMissingArtifact',
         params,
         {
-          priority: Priority.High,
+          priority:
+            params.origin?.requestKind === 'definition'
+              ? Priority.High
+              : Priority.Normal,
           timeout: params.timeoutMsHint || 2000,
         },
       );

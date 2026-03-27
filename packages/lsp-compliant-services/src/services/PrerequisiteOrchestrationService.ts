@@ -40,6 +40,8 @@ import {
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
 
+let activeAsyncHoverEnrichments = 0;
+
 /** Map SymbolReference to IdentifierSpec with typeReference, searchHints, qualifier */
 function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
   const typeRef: TypeReference = {
@@ -202,6 +204,38 @@ export class PrerequisiteOrchestrationService {
       requirements.requiresCrossFileResolution &&
       !hasCrossFileResolution(symbolTable);
 
+    if (requestType === 'hover') {
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '0aca23',
+          },
+          body: JSON.stringify({
+            sessionId: '0aca23',
+            runId: 'hover-regression',
+            hypothesisId: 'H3',
+            location: 'PrerequisiteOrchestrationService.ts:207',
+            message: 'hover prerequisites computed',
+            data: {
+              fileUri,
+              executionMode: requirements.executionMode,
+              requiredDetailLevel: requirements.requiredDetailLevel,
+              needsEnrichment,
+              needsCrossFileResolution,
+              workspaceLoading: isWorkspaceLoading(),
+              workspaceLoaded: isWorkspaceLoaded(),
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+    }
+
     // Handle missing artifact resolution configuration
     // The actual resolution will be handled by services themselves,
     // but we log that it may be needed
@@ -252,6 +286,34 @@ export class PrerequisiteOrchestrationService {
         // results and don't need a re-pull signal.
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
+        if (requestType === 'hover') {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-regression',
+                hypothesisId: 'H6',
+                location: 'PrerequisiteOrchestrationService.ts:260',
+                message: 'schedule async enrichment for hover',
+                data: {
+                  fileUri,
+                  requiredDetailLevel: requirements.requiredDetailLevel,
+                  activeAsyncHoverEnrichments,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          activeAsyncHoverEnrichments++;
+        }
 
         this.layerEnrichmentService
           .enrichFiles(
@@ -260,6 +322,33 @@ export class PrerequisiteOrchestrationService {
             'same-file',
           )
           .then(() => {
+            if (requestType === 'hover') {
+              activeAsyncHoverEnrichments = Math.max(
+                0,
+                activeAsyncHoverEnrichments - 1,
+              );
+              // #region agent log
+              fetch(
+                'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': '0aca23',
+                  },
+                  body: JSON.stringify({
+                    sessionId: '0aca23',
+                    runId: 'hover-regression',
+                    hypothesisId: 'H6',
+                    location: 'PrerequisiteOrchestrationService.ts:283',
+                    message: 'async enrichment complete for hover',
+                    data: { fileUri, activeAsyncHoverEnrichments },
+                    timestamp: Date.now(),
+                  }),
+                },
+              ).catch(() => {});
+              // #endregion
+            }
             if (shouldSignalRefresh) {
               Effect.runPromise(
                 getDiagnosticRefreshService().signalEnrichmentComplete(),
@@ -267,6 +356,37 @@ export class PrerequisiteOrchestrationService {
             }
           })
           .catch((error: unknown) => {
+            if (requestType === 'hover') {
+              activeAsyncHoverEnrichments = Math.max(
+                0,
+                activeAsyncHoverEnrichments - 1,
+              );
+              // #region agent log
+              fetch(
+                'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': '0aca23',
+                  },
+                  body: JSON.stringify({
+                    sessionId: '0aca23',
+                    runId: 'hover-regression',
+                    hypothesisId: 'H6',
+                    location: 'PrerequisiteOrchestrationService.ts:307',
+                    message: 'async enrichment failed for hover',
+                    data: {
+                      fileUri,
+                      activeAsyncHoverEnrichments,
+                      error: String(error),
+                    },
+                    timestamp: Date.now(),
+                  }),
+                },
+              ).catch(() => {});
+              // #endregion
+            }
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
             );
@@ -339,10 +459,10 @@ export class PrerequisiteOrchestrationService {
       nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
-    // Load missing artifacts (single batch request)
-    let loadedTypeNames: string[] = [];
+    // Load missing artifacts in true background mode (fire-and-forget).
+    // Do not block hover/references on artifact resolution during startup churn.
     try {
-      const result = await this.artifactResolutionService.resolveBlocking({
+      await this.artifactResolutionService.resolveInBackground({
         identifiers: identifierSpecs,
         origin: {
           uri: fileUri,
@@ -351,42 +471,10 @@ export class PrerequisiteOrchestrationService {
         mode: 'background', // Use background mode - don't open files in editor
         timeoutMsHint: 2000,
       });
-      if (result === 'resolved') {
-        loadedTypeNames = missingTypes;
-      }
     } catch (error: unknown) {
       this.logger.debug(
         () =>
           `Error loading artifacts for types [${missingTypes.join(', ')}]: ${error}`,
-      );
-    }
-
-    // Re-run cross-file resolution after artifacts are loaded
-    if (loadedTypeNames.length > 0) {
-      // Wait for opened files to be indexed (didOpen processing is async).
-      // Without this barrier, we re-run cross-file resolution before the client's
-      // opened documents are processed, so types remain unresolved.
-      // TODO: Replace polling loop with event-driven approach. SymbolManager should
-      // expose a waitForSymbol(name): Promise<void> backed by an event emitter,
-      // so callers can await directly. The current loop calls findSymbolByName()
-      // (O(n)) for every type on every poll iteration, which is expensive when
-      // multiple types are being loaded concurrently.
-      const pollMs =
-        ApexSettingsManager.getInstance().getSettings().apex.findMissingArtifact
-          ?.indexingBarrierPollMs ?? 100;
-      const maxWaitMs = 500;
-      const start = Date.now();
-      while (Date.now() - start < maxWaitMs) {
-        const allIndexed = loadedTypeNames.every((name) => {
-          const symbols = this.symbolManager.findSymbolByName(name);
-          return symbols.length > 0;
-        });
-        if (allIndexed) break;
-        await new Promise((r) => setTimeout(r, pollMs));
-      }
-
-      await Effect.runPromise(
-        this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
       );
     }
   }

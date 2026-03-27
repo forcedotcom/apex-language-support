@@ -86,6 +86,29 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   async resolveBlocking(
     params: FindMissingArtifactParams,
   ): Promise<BlockingResult> {
+    // #region agent log
+    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '0aca23',
+      },
+      body: JSON.stringify({
+        sessionId: '0aca23',
+        runId: 'hover-regression',
+        hypothesisId: 'H14',
+        location: 'MissingArtifactResolutionService.ts:resolveBlocking:entry',
+        message: 'resolveBlocking called',
+        data: {
+          requestKind: params.origin?.requestKind ?? 'unknown',
+          mode: params.mode,
+          identifierCount: params.identifiers.length,
+          timeoutMsHint: params.timeoutMsHint ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const names = params.identifiers.map((s) => s.name).join(', ');
     const normalizedNames = Array.from(
       new Set(
@@ -118,6 +141,32 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       now - recentTimeout <
         EnhancedMissingArtifactResolutionService.BLOCKING_TIMEOUT_COOLDOWN_MS
     ) {
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '0aca23',
+          },
+          body: JSON.stringify({
+            sessionId: '0aca23',
+            runId: 'hover-regression',
+            hypothesisId: 'H15',
+            location:
+              'MissingArtifactResolutionService.ts:resolveBlocking:cooldown',
+            message: 'blocking request short-circuited by timeout cooldown',
+            data: {
+              requestKind: params.origin?.requestKind ?? 'unknown',
+              key,
+              ageMs: now - recentTimeout,
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
       return 'timeout';
     }
     this.logger.debug(
@@ -135,12 +184,45 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
 
     const requestPromise = (async (): Promise<BlockingResult> => {
       try {
-        // Use the queue system for blocking resolution with HIGH priority
+        // Priority tuning: keep definition responsive, but avoid starving hover/startup
+        // with high-priority artifact loads during workspace churn.
+        const requestKind = params.origin?.requestKind ?? 'unknown';
+        const priority =
+          requestKind === 'definition' ? Priority.High : Priority.Normal;
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': '0aca23',
+            },
+            body: JSON.stringify({
+              sessionId: '0aca23',
+              runId: 'hover-regression',
+              hypothesisId: 'H16',
+              location:
+                'MissingArtifactResolutionService.ts:resolveBlocking:submit',
+              message: 'blocking request submitted to queue',
+              data: {
+                requestKind,
+                priority,
+                identifiers: params.identifiers
+                  .map((id) => id.name)
+                  .slice(0, 5),
+                identifierCount: params.identifiers.length,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
         const result = await this.getQueueManager().submitRequest(
           'findMissingArtifact',
           params,
           {
-            priority: Priority.High,
+            priority,
             timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
           },
         );
@@ -189,6 +271,27 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
    * Sends request directly to client for background processing
    */
   async resolveInBackground(params: FindMissingArtifactParams): Promise<void> {
+    // #region agent log
+    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '0aca23',
+      },
+      body: JSON.stringify({
+        sessionId: '0aca23',
+        runId: 'hover-regression',
+        hypothesisId: 'H17',
+        location: 'MissingArtifactResolutionService.ts:resolveInBackground',
+        message: 'resolveInBackground called',
+        data: {
+          requestKind: params.origin?.requestKind ?? 'unknown',
+          identifierCount: params.identifiers.length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
       () => `Starting background resolution for identifiers: ${names}`,
