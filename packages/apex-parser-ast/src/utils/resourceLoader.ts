@@ -1127,6 +1127,20 @@ export class ResourceLoader {
   }
 
   /**
+   * Synchronous stdlib SymbolTable lookup from already-loaded protobuf cache.
+   * Does not perform any async I/O; returns null when cache is unavailable/missing.
+   */
+  public getSymbolTableSync(className: string): SymbolTable | null {
+    if (
+      this.standardLibrarySymbolDataLoaded &&
+      this.standardLibrarySymbolData
+    ) {
+      return this.getSymbolTableFromCache(className);
+    }
+    return null;
+  }
+
+  /**
    * Get symbol table for a class from the standard library symbol data cache.
    * This is an alias for getSymbolTable() for backward compatibility.
    *

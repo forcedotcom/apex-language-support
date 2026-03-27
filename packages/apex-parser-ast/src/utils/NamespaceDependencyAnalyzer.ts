@@ -16,6 +16,7 @@ import {
   type VariableSymbol,
 } from '../types/symbol';
 import type { TypeInfo } from '../types/typeInfo';
+import { getFoundationNamespaceOrder } from '../namespace/NamespaceResolutionPolicy';
 
 /**
  * Namespace dependency information
@@ -126,7 +127,7 @@ export class NamespaceDependencyAnalyzer {
 
     if (!sorted) {
       // Circular dependency detected - fall back to foundation-first
-      const FOUNDATION = ['System', 'Database', 'Schema'];
+      const FOUNDATION = getFoundationNamespaceOrder();
       const all = [...dependencies.keys()];
       return [
         ...all.filter((ns) => FOUNDATION.includes(ns)),

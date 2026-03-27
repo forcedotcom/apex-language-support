@@ -74,6 +74,11 @@ import {
   type CompilationContext,
   Namespaces,
 } from '../namespace/NamespaceUtils';
+import {
+  getImplicitQualifiedCandidates,
+  getImplicitNamespaceOrder,
+  isPrimaryImplicitNamespace,
+} from '../namespace/NamespaceResolutionPolicy';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
@@ -3005,19 +3010,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         ? ns
                         : (ns.getGlobal?.() ?? ns.toString?.() ?? '')
                       : '';
-                  if (nsStr) {
-                    const namespaceFqn = `${nsStr}.${qualifier}`;
-                    if (!self.findSymbolByFQN(namespaceFqn)) {
+                  const fqnCandidates = getImplicitQualifiedCandidates(
+                    qualifier,
+                    nsStr || null,
+                  );
+                  for (const fqn of fqnCandidates) {
+                    if (!self.findSymbolByFQN(fqn)) {
                       yield* Effect.promise(() =>
-                        self.resolveStandardApexClass(namespaceFqn),
+                        self.resolveStandardApexClass(fqn),
                       );
                     }
-                  }
-                  const systemFqn = `System.${qualifier}`;
-                  if (!self.findSymbolByFQN(systemFqn)) {
-                    yield* Effect.promise(() =>
-                      self.resolveStandardApexClass(systemFqn),
-                    );
                   }
                   const compilationContext: CompilationContext = {
                     namespace: ns,
@@ -5781,6 +5783,49 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbol = this.findSymbolByFQN(fullName);
     if (symbol) return symbol;
 
+    // Namespace-aware fallback: resolve "Namespace.Type" by type name + namespace.
+    if (fullName.includes('.')) {
+      const [namespace, typeName] = fullName.split('.', 2);
+      const byName = this.findSymbolByName(typeName);
+      const namespaceCandidates = byName.filter((candidate) => {
+        const candidateNamespace =
+          typeof candidate.namespace === 'string'
+            ? candidate.namespace
+            : (candidate.namespace?.toString?.() ?? '');
+        return candidateNamespace.toLowerCase() === namespace.toLowerCase();
+      });
+      const namespaceTypeMatch = namespaceCandidates.find(
+        (candidate) =>
+          candidate.kind === SymbolKind.Class ||
+          candidate.kind === SymbolKind.Interface ||
+          candidate.kind === SymbolKind.Enum ||
+          candidate.kind === SymbolKind.Trigger,
+      );
+      if (namespaceTypeMatch) {
+        return namespaceTypeMatch;
+      }
+      if (namespaceCandidates.length > 0) {
+        return namespaceCandidates[0];
+      }
+
+      // Last sync fallback: hydrate from stdlib protobuf cache in-memory.
+      if (this.resourceLoader?.isStdApexNamespace(namespace)) {
+        const stdlibTable = this.resourceLoader.getSymbolTableSync(
+          `${namespace}/${typeName}.cls`,
+        );
+        const classSymbol = stdlibTable
+          ?.getAllSymbols()
+          .find(
+            (candidate) =>
+              candidate.kind === SymbolKind.Class &&
+              candidate.name.toLowerCase() === typeName.toLowerCase(),
+          );
+        if (classSymbol) {
+          return classSymbol;
+        }
+      }
+    }
+
     // Try to find by name
     const symbols = this.findSymbolByName(fullName);
     return symbols.length > 0 ? symbols[0] : null;
@@ -5805,8 +5850,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Find type in standard namespaces other than System and Schema.
-   * Used by BuiltInMethodNamespace after FileBaseSystemNamespace/FileBaseSchemaNamespace.
+   * Find type in standard namespaces, excluding policy-prioritized implicit namespaces.
+   * Used by BuiltInMethodNamespace after implicit namespace attempts.
    */
   findInAnyStandardNamespace(
     name: string,
@@ -5815,11 +5860,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (!this.resourceLoader) return null;
     const namespaces = this.resourceLoader.findNamespaceForClass(name);
     if (!namespaces || namespaces.size === 0) return null;
+    const namespaceOrder: string[] = [];
+    const seen = new Set<string>();
+    const push = (ns: string): void => {
+      const key = ns.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      namespaceOrder.push(ns);
+    };
+
+    for (const policyNs of getImplicitNamespaceOrder()) {
+      for (const candidate of namespaces) {
+        if (candidate.toLowerCase() === policyNs.toLowerCase()) {
+          push(candidate);
+        }
+      }
+    }
+
     for (const ns of namespaces) {
-      const lower = ns.toLowerCase();
-      if (lower === 'system' || lower === 'schema') continue;
+      if (!isPrimaryImplicitNamespace(ns)) {
+        push(ns);
+      }
+    }
+
+    for (const ns of namespaceOrder) {
       const symbol = this.find(referencingType, `${ns}.${name}`);
-      if (symbol) return symbol;
+      if (symbol) {
+        return symbol;
+      }
     }
     return null;
   }
@@ -9737,10 +9805,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // If not found in graph, try to resolve via ResourceLoader
     if (this.resourceLoader) {
-      // Try "Object" first, then "System.Object"
-      let standardClass = await this.resolveStandardApexClass('Object');
-      if (!standardClass) {
-        standardClass = await this.resolveStandardApexClass('System.Object');
+      let standardClass: ApexSymbol | null =
+        await this.resolveStandardApexClass('Object');
+      for (const candidate of getImplicitQualifiedCandidates('Object')) {
+        if (standardClass) break;
+        standardClass = await this.resolveStandardApexClass(candidate);
+        if (standardClass) {
+          break;
+        }
       }
 
       if (standardClass && standardClass.kind === SymbolKind.Class) {
