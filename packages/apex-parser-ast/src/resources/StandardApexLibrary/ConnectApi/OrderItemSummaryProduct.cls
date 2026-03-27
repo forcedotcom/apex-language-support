@@ -1,16 +1,41 @@
+/**
+ * Product item mapped to the order item summary.
+ */
 global class OrderItemSummaryProduct {
-	global Boolean canViewProduct;
-	global String errorCode;
-	global String errorMessage;
-	global Map<String,ConnectApi.RecordField> fields;
-	global ConnectApi.ProductMedia media;
-	global ConnectApi.ProductAttributeSetSummary productAttributes;
-	global String productId;
-	global OrderItemSummaryProduct() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the context user can view the product ( true ) or not ( false ).
+   */
+  global Boolean canViewProduct;
+
+  /**
+   * Error code for the product with errors.
+   */
+  global String errorCode;
+
+  /**
+   * Error message for the product with errors.
+   */
+  global String errorMessage;
+
+  /**
+   * Map of the product fields queried.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * Associated product media.
+   */
+  global ConnectApi.ProductMedia media;
+
+  /**
+   * Summary of the product attributes.
+   */
+  global ConnectApi.ProductAttributeSetSummary productAttributes;
+
+  /**
+   * ID of the product.
+   */
+  global String productId;
 
 }

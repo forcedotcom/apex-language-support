@@ -1,11 +1,16 @@
+/**
+ * A URL to a file preview.
+ */
 global class FilePreviewUrl {
-	global Integer pageNumber;
-	global String previewUrl;
-	global FilePreviewUrl() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Preview page number starting from zero, or null for PDF files.
+   */
+  global Integer pageNumber;
+
+  /**
+   * File preview URL.
+   */
+  global String previewUrl;
 
 }

@@ -1,13 +1,26 @@
+/**
+ * Target that a managed content space folder is shared with.
+ */
 global class MCSFolderShare {
-	global Boolean canUserUnshare;
-	global ConnectApi.MCSFolderShareStatus shareStatus;
-	global String targetId;
-	global String targetLabel;
-	global MCSFolderShare() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the user has permission to unshare with the target space ( true ) or not ( false ). Content Manager or higher role in the target workspace has permission to unshare.
+   */
+  global Boolean canUserUnshare;
+
+  /**
+   * Status of sharing a managed content space folder. Values are: PendingShare PendingUnshare Shared
+   */
+  global ConnectApi.MCSFolderShareStatus shareStatus;
+
+  /**
+   * ID of the share target.
+   */
+  global String targetId;
+
+  /**
+   * Label of the share target.
+   */
+  global String targetLabel;
 
 }

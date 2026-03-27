@@ -1,12 +1,24 @@
+/**
+ * Represents information about an error that occurred during a DML operation when using a Database method.
+ */
 global class Error {
-	global List<String> fields;
-	global String message;
-	global System.StatusCode statuscode;
-	global Boolean equals(Object obj) { }
-	global List<String> getFields() { }
-	global String getMessage() { }
-	global System.StatusCode getStatusCode() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Returns an array of one or more field names. Identifies which fields in the object, if any, affected the error condition.
+   * @return String[]
+   */
+  public String[] getFields() {}
+
+  /**
+   * Returns the error message text.
+   * @return String
+   */
+  public String getMessage() {}
+
+  /**
+   * Returns a code that characterizes the error.
+   * @return StatusCode
+   */
+  public StatusCode getStatusCode() {}
 
 }

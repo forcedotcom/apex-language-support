@@ -1,13 +1,26 @@
+/**
+ * Chatter like information.
+ */
 global class ChatterLike {
-	global String id;
-	global ConnectApi.Reference likedItem;
-	global String url;
-	global ConnectApi.UserSummary user;
-	global ChatterLike() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Like’s 18-character ID
+   */
+  global String id;
+
+  /**
+   * A reference to the liked comment or feed element.
+   */
+  global ConnectApi.Reference likedItem;
+
+  /**
+   * Like’s Connect REST API URL
+   */
+  global String url;
+
+  /**
+   * Like’s creator
+   */
+  global ConnectApi.UserSummary user;
 
 }

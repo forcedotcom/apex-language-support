@@ -1,4 +1,12 @@
+/**
+ * The class that implements this interface can be scheduled to run at different intervals.
+ */
 global interface Schedulable {
-	void execute(System.SchedulableContext param0);
+
+  /**
+   * Executes the scheduled Apex job.
+   * @param context Contains the job ID.
+   */
+  void execute(SchedulableContext context);
 
 }

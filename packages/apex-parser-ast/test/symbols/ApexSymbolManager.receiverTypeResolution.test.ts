@@ -316,7 +316,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     // The chained expression reference contains all the chain nodes
     const target = chainHead;
     expect(target).toBeDefined();
-    expect(target?.name).toBe('System.Url.getOrgDomainUrl.toExternalForm');
+    expect(target?.name).toBe('System.URL.getOrgDomainUrl.toExternalForm');
 
     // Try to resolve the symbol at the toExternalForm position using the chained expression reference
     // The chained expression reference will use position-based detection to find the specific step

@@ -1,11 +1,21 @@
+/**
+ * Order by parameter for object search.
+ */
 global class SearchOrderBy {
-	global String field;
-	global ConnectApi.SearchOrder order;
-	global ConnectApi.SearchNullsOrder orderNulls;
-	global SearchOrderBy() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Field to sort the results by.
+   */
+  global String field;
+
+  /**
+   * Order direction. Values are: Ascending Descending Default value is Ascending .
+   */
+  global ConnectApi.SearchOrder order;
+
+  /**
+   * Null value order. Values are: Firsts —Null values are sorted first. Lasts —Null values are sorted last. Default value is Firsts .
+   */
+  global ConnectApi.OrderNulls orderNulls;
 
 }

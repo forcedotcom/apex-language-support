@@ -1,10 +1,11 @@
+/**
+ * The merge fields for an object.
+ */
 global class EmailMergeFieldCollectionInfo {
-	global List<String> mergeFields;
-	global EmailMergeFieldCollectionInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of merge fields for a single object.
+   */
+  global List < String > mergeFields;
 
 }

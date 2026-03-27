@@ -1,0 +1,602 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`Empty stub snapshot — known stubs with no members matches the accepted list of empty stubs across all namespaces 1`] = `
+[
+  {
+    "className": "AuthProviderPluginException",
+    "namespace": "Auth",
+  },
+  {
+    "className": "ConnectedAppPluginException",
+    "namespace": "Auth",
+  },
+  {
+    "className": "DiscoveryCustomErrorException",
+    "namespace": "Auth",
+  },
+  {
+    "className": "LoginDiscoveryException",
+    "namespace": "Auth",
+  },
+  {
+    "className": "VerificationException",
+    "namespace": "Auth",
+  },
+  {
+    "className": "CacheBuilderExecutionException",
+    "namespace": "Cache",
+  },
+  {
+    "className": "InvalidCacheBuilderException",
+    "namespace": "Cache",
+  },
+  {
+    "className": "InvalidParamException",
+    "namespace": "Cache",
+  },
+  {
+    "className": "ItemSizeLimitExceededException",
+    "namespace": "Cache",
+  },
+  {
+    "className": "OrgPartition",
+    "namespace": "Cache",
+  },
+  {
+    "className": "PlatformCacheInvalidOperationException",
+    "namespace": "Cache",
+  },
+  {
+    "className": "SessionPartition",
+    "namespace": "Cache",
+  },
+  {
+    "className": "CanvasRenderException",
+    "namespace": "Canvas",
+  },
+  {
+    "className": "GatewayResponse",
+    "namespace": "CommercePayments",
+  },
+  {
+    "className": "ZipException",
+    "namespace": "Compression",
+  },
+  {
+    "className": "AbstractList",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "AbstractManagedContentChannelRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "Address",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ApprovalAttachment",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ApprovalPostTemplateField",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "AsyncOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "AuthReversalGatewayResponse",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "BasePaymentMethodRequest",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "BatchInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "BinaryInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "BlankRecordField",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "BookmarkSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CaptureGatewayResponse",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CartItemWithoutPrice",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CartShippingAddressInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CartStatusEnum",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CdpCalculatedInsightStandardActionResponseRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CdpIdentityResolutionConfigurationType",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ChangeOrdersInvoiceOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CommerceSearchConnectFamily",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CompanyVerifySummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ConnectApiException",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ContentHubItemTypeSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CurrencyRecordField",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "DataConnectorInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "DownVoteSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "EnsureFundsAsyncOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "EnsureRefundsAsyncOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedBody",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedElementCapability",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedElementCapabilityInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedEntityNotAvailableSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedEntityReadSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedItemAttachment",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FeedItemAttachmentInput",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FieldChangeNameSegment",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FieldChangeSegment",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FileSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FulfillmentOrderCancelLineItemsOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "FulfillmentOrderInvoiceInputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "GenericBundleCapability",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "GenericFeedElement",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "Icon",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ManagedContentDeliveryDocumentSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ManagedSocialAccount",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "MessageBody",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "MuteSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "NotFoundException",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "OauthProviderInfo",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "PickTicket",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "PicklistRecordField",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "ProductsListOutputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RateLimitException",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RecordField",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RefundGatewayResponse",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RefundRequest",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RefundSequenceItemInputRepresentation",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RegisterGuestBuyer",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RepositoryFileDetail",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RepositoryFileSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RepositoryFolderDetail",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "RepositoryFolderSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "SaleGatewayResponse",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "SmartDataDiscovery",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "TextSegment",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "UnauthenticatedUser",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "UpVoteSummary",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "UserMissionActivity",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "UserOauthInfo",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "DataSourceException",
+    "namespace": "DataSource",
+  },
+  {
+    "className": "OAuthTokenExpiredException",
+    "namespace": "DataSource",
+  },
+  {
+    "className": "GetAppointmentCandidatesInput",
+    "namespace": "LxScheduler",
+  },
+  {
+    "className": "GetAppointmentSlotsInput",
+    "namespace": "LxScheduler",
+  },
+  {
+    "className": "SkillRequirement",
+    "namespace": "LxScheduler",
+  },
+  {
+    "className": "WorkType",
+    "namespace": "LxScheduler",
+  },
+  {
+    "className": "ValidationResult",
+    "namespace": "Pref_center",
+  },
+  {
+    "className": "FeatureNotSupportedException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "InstanceAccessException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "InvalidFilterException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "InvalidReportMetadataException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "InvalidSnapshotDateException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "MetadataException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "ReportRunException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "UnsupportedOperationException",
+    "namespace": "Reports",
+  },
+  {
+    "className": "AbstractTiming",
+    "namespace": "RichMessaging",
+  },
+  {
+    "className": "ProcessFormHandler",
+    "namespace": "RichMessaging",
+  },
+  {
+    "className": "SOAPType",
+    "namespace": "Schema",
+  },
+  {
+    "className": "ExternalUserCreateException",
+    "namespace": "Site",
+  },
+  {
+    "className": "AssertException",
+    "namespace": "System",
+  },
+  {
+    "className": "AsyncException",
+    "namespace": "System",
+  },
+  {
+    "className": "AuraException",
+    "namespace": "System",
+  },
+  {
+    "className": "AuraHandledException",
+    "namespace": "System",
+  },
+  {
+    "className": "BigObjectException",
+    "namespace": "System",
+  },
+  {
+    "className": "CallbackStatus",
+    "namespace": "System",
+  },
+  {
+    "className": "CalloutException",
+    "namespace": "System",
+  },
+  {
+    "className": "Cases",
+    "namespace": "System",
+  },
+  {
+    "className": "DataWeaveScriptException",
+    "namespace": "System",
+  },
+  {
+    "className": "DmlException",
+    "namespace": "System",
+  },
+  {
+    "className": "DuplicateMessageException",
+    "namespace": "System",
+  },
+  {
+    "className": "EmailException",
+    "namespace": "System",
+  },
+  {
+    "className": "EmailMessages",
+    "namespace": "System",
+  },
+  {
+    "className": "ExternalObjectException",
+    "namespace": "System",
+  },
+  {
+    "className": "ExternalServiceTest",
+    "namespace": "System",
+  },
+  {
+    "className": "FatalCursorException",
+    "namespace": "System",
+  },
+  {
+    "className": "FinalException",
+    "namespace": "System",
+  },
+  {
+    "className": "FlowException",
+    "namespace": "System",
+  },
+  {
+    "className": "HandledException",
+    "namespace": "System",
+  },
+  {
+    "className": "IllegalArgumentException",
+    "namespace": "System",
+  },
+  {
+    "className": "InvalidParameterValueException",
+    "namespace": "System",
+  },
+  {
+    "className": "JSONException",
+    "namespace": "System",
+  },
+  {
+    "className": "JSONToken",
+    "namespace": "System",
+  },
+  {
+    "className": "LimitException",
+    "namespace": "System",
+  },
+  {
+    "className": "ListException",
+    "namespace": "System",
+  },
+  {
+    "className": "MathException",
+    "namespace": "System",
+  },
+  {
+    "className": "NoAccessException",
+    "namespace": "System",
+  },
+  {
+    "className": "NoDataFoundException",
+    "namespace": "System",
+  },
+  {
+    "className": "NoSuchElementException",
+    "namespace": "System",
+  },
+  {
+    "className": "NullPointerException",
+    "namespace": "System",
+  },
+  {
+    "className": "QueryException",
+    "namespace": "System",
+  },
+  {
+    "className": "SObjectException",
+    "namespace": "System",
+  },
+  {
+    "className": "SearchException",
+    "namespace": "System",
+  },
+  {
+    "className": "SecurityException",
+    "namespace": "System",
+  },
+  {
+    "className": "SerializationException",
+    "namespace": "System",
+  },
+  {
+    "className": "StringException",
+    "namespace": "System",
+  },
+  {
+    "className": "TransientCursorException",
+    "namespace": "System",
+  },
+  {
+    "className": "Trigger",
+    "namespace": "System",
+  },
+  {
+    "className": "TriggerOperation",
+    "namespace": "System",
+  },
+  {
+    "className": "TypeException",
+    "namespace": "System",
+  },
+  {
+    "className": "UnexpectedException",
+    "namespace": "System",
+  },
+  {
+    "className": "VisualforceException",
+    "namespace": "System",
+  },
+  {
+    "className": "XmlException",
+    "namespace": "System",
+  },
+  {
+    "className": "AsyncCondition",
+    "namespace": "TxnSecurity",
+  },
+  {
+    "className": "ToastLink",
+    "namespace": "flowuiruntime",
+  },
+  {
+    "className": "FSCCashFlowUtil",
+    "namespace": "fsccashflow",
+  },
+]
+`;

@@ -1,6 +1,0 @@
-global enum ConsentStatus {
-DOUBLEOPTIN,
-OPTIN,
-OPTINPENDING,
-OPTOUT
-}

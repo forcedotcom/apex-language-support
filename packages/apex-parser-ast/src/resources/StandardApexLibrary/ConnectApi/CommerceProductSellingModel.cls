@@ -1,10 +1,11 @@
+/**
+ * Product selling model information.
+ */
 global class CommerceProductSellingModel {
-	global Boolean isSubscriptionProduct;
-	global CommerceProductSellingModel() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Indicates whether the product selling model is a subscription product or not.
+   */
+  global Boolean isSubscriptionProduct;
 
 }

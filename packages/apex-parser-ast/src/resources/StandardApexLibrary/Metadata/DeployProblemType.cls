@@ -1,5 +1,8 @@
+/**
+ * Describes the problem type for an unsuccessful component deploy.
+ */
 global enum DeployProblemType {
-ERROR,
-INFO,
-WARNING
+  Error,
+  Info,
+  Warning
 }

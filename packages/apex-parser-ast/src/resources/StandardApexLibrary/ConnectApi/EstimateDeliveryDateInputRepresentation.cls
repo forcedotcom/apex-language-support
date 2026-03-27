@@ -1,12 +1,26 @@
+/**
+ * Delivery date estimation information.
+ */
 global class EstimateDeliveryDateInputRepresentation {
-	global ConnectApi.DeliveryAddressInputRepresentation deliveryAddress;
-	global List<String> locations;
-	global List<ConnectApi.DeliveryEstimationProductInputRepresentation> products;
-	global ConnectApi.ShippingCarrierInputRepresentation shippingCarrier;
-	global EstimateDeliveryDateInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Delivery address.
+   */
+  global ConnectApi.DeliveryAddressInputRepresentation deliveryAddress;
+
+  /**
+   * List of location external references.
+   */
+  global String locations;
+
+  /**
+   * List of products included in delivery estimation.
+   */
+  global ConnectApi.DeliveryEstimationProductInputRepresentation products;
+
+  /**
+   * Shipping carrier used to deliver the order.
+   */
+  global ConnectApi.ShippingCarrierInputRepresentation shippingCarrier;
 
 }

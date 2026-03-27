@@ -1,13 +1,31 @@
+/**
+ * External credential principal input.
+ */
 global class ExternalCredentialPrincipalInput {
-	global String id;
-	global List<ConnectApi.ExternalCredentialParameterInput> parameters;
-	global String principalName;
-	global ConnectApi.CredentialPrincipalType principalType;
-	global Integer sequenceNumber;
-	global ExternalCredentialPrincipalInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the principal external credential parameter.
+   */
+  global String id;
+
+  /**
+   * List of external credential parameters.
+   */
+  global List < ConnectApi.ExternalCredentialParameterInput > parameters;
+
+  /**
+   * Principal name.
+   */
+  global String principalName;
+
+  /**
+   * Type of credential principal. Values are: AwsStsPrincipal NamedPrincipal PerUserPrincipal
+   */
+  global ConnectApi.CredentialPrincipalType principalType;
+
+  /**
+   * Sequence number.
+   */
+  global Integer sequenceNumber;
 
 }

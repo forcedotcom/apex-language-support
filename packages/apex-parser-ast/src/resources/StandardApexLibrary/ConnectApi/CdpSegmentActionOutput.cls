@@ -1,16 +1,41 @@
-global class CdpSegmentActionOutput {
-	global String errorCode;
-	global String errorMessage;
-	global String jobId;
-	global String partitionId;
-	global String publishStatus;
-	global String segmentApiName;
-	global String segmentId;
-	global CdpSegmentActionOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Segment action.
+ */
+global class CdpSegmentActionOutput extends ConnectApi.CdpActionResponse {
+
+  /**
+   * Error code associated with the action, if any.
+   */
+  global String errorCode;
+
+  /**
+   * Error message associated with the action, if any.
+   */
+  global String errorMessage;
+
+  /**
+   * Job ID for the publish job.
+   */
+  global String jobId;
+
+  /**
+   * ID of the partition.
+   */
+  global String partitionId;
+
+  /**
+   * Publish status of the segment.
+   */
+  global String publishStatus;
+
+  /**
+   * API name of the segment.
+   */
+  global String segmentApiName;
+
+  /**
+   * ID of the segment.
+   */
+  global String segmentId;
 
 }

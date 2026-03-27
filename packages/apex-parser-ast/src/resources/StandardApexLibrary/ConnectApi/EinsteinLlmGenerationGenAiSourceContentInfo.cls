@@ -1,12 +1,21 @@
+/**
+ * Values from a source that is cited in a generated response.
+ */
 global class EinsteinLlmGenerationGenAiSourceContentInfo {
-	global String content;
-	global String fieldName;
-	global String objectName;
-	global EinsteinLlmGenerationGenAiSourceContentInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Text from the source that is cited in the generated response.
+   */
+  global String content;
+
+  /**
+   * API name of the field that is cited in the generated response, such as Opportunity.Amount .
+   */
+  global String fieldName;
+
+  /**
+   * API name of the object that is cited in the generated response, such as Opportunity .
+   */
+  global String objectName;
 
 }

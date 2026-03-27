@@ -1,10 +1,11 @@
+/**
+ * User's out-of-office message.
+ */
 global class OutOfOffice {
-	global String message;
-	global OutOfOffice() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Out-of-office message for the user.
+   */
+  global String message;
 
 }

@@ -1,12 +1,21 @@
+/**
+ * Represents an activation target subject output.
+ */
 global class ActivationTargetSubject {
-	global String developerName;
-	global String masterLabel;
-	global ConnectApi.QueryPathConfigList queryPathConfig;
-	global ActivationTargetSubject() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Developer name of the activation target subject.
+   */
+  global String developerName;
+
+  /**
+   * Master label of the activation target subject.
+   */
+  global String masterLabel;
+
+  /**
+   * Query path for the activation target.
+   */
+  global List < ConnectApi.QueryPathConfigList > queryPathConfigListRepresentation;
 
 }

@@ -1,6 +1,14 @@
+/**
+ * Contains a list of evaluated conditions for a report notification.
+ */
 global class ThresholdInformation {
-	global ThresholdInformation(List<reports.EvaluatedCondition> evaluatedConditions) { }
-	global Object clone() { }
-	global List<reports.EvaluatedCondition> getEvaluatedConditions() { }
+
+  public ThresholdInformation(List<Reports.EvaluatedCondition> evaluatedConditions) {}
+
+  /**
+   * Returns a list of evaluated conditions for a report notification.
+   * @return List<Reports.EvaluatedCondition>
+   */
+  public List<Reports.EvaluatedCondition> getEvaluatedConditions() {}
 
 }

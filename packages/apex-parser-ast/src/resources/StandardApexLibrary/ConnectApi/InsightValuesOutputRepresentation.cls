@@ -1,13 +1,26 @@
+/**
+ * Insight value details for a business objective, or goal.
+ */
 global class InsightValuesOutputRepresentation {
-	global String contextId;
-	global String name;
-	global Double previousValue;
-	global Double value;
-	global InsightValuesOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Salesforce record ID of the record that the insight is based on.
+   */
+  global String contextId;
+
+  /**
+   * Name of the Salesforce record that the insight is based on.
+   */
+  global String name;
+
+  /**
+   * Value of the insight for the previous timeframe based on the key performance indicator.
+   */
+  global Double previousValue;
+
+  /**
+   * Value of the insight for the current timeframe based on the key performance indicator.
+   */
+  global Double value;
 
 }

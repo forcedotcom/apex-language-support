@@ -1,11 +1,21 @@
+/**
+ * Represents the DMO filter limit input.
+ */
 global class DmoFilterLimitInput {
-	global String attributeName;
-	global Integer maxNumberOfValues;
-	global ConnectApi.FilterSortOrder order;
-	global DmoFilterLimitInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the attribute.
+   */
+  global String attributeName;
+
+  /**
+   * Max number of values to return.
+   */
+  global Integer maxNumberOfValues;
+
+  /**
+   * The sort order for filtering. FilterSortOrderAsc FilterSortOrderDesc
+   */
+  global FilterSortOrderEnum order;
 
 }

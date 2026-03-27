@@ -1,12 +1,30 @@
+/**
+ * The ProcessRequest class is the parent class for the ProcessSubmitRequest and ProcessWorkitemRequest classes. Use the ProcessRequest class to write generic Apex that can process objects from either class.
+ */
 global class ProcessRequest {
-	global String comments;
-	global List<Id> nextapproverids;
-	global Boolean equals(Object obj) { }
-	global String getComments() { }
-	global List<Id> getNextApproverIds() { }
-	global Integer hashCode() { }
-	global void setComments(String param0) { }
-	global void setNextApproverIds(List<Id> param0) { }
-	global String toString() { }
+
+  /**
+   * Returns the comments that have been added previously to the approval request.
+   * @return String
+   */
+  public String getComments() {}
+
+  /**
+   * Returns the list of user IDs of user specified as approvers.
+   * @return ID[]
+   */
+  public ID[] getNextApproverIds() {}
+
+  /**
+   * Sets the comments to be added to the approval request.
+   * @param comments 
+   */
+  public void setComments(String comments) {}
+
+  /**
+   * If the next step in your approval process is another Apex approval process, you specify exactly one user ID as the next approver. If not, you cannot specify a user ID and this method must be null . This method sets the ActorId field of the associated ProcessInstanceWorkItem.
+   * @param nextApproverIds Must be a single-entry list.
+   */
+  public void setNextApproverIds(ID[] nextApproverIds) {}
 
 }

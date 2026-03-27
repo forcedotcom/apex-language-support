@@ -1,9 +1,6 @@
-global class RepositoryFolderDetail {
-	global RepositoryFolderDetail() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A detailed description of a repository folder.
+ */
+global class RepositoryFolderDetail extends ConnectApi.AbstractRepositoryFolder {
 
 }

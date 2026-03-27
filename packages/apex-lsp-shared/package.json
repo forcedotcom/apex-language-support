@@ -129,6 +129,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

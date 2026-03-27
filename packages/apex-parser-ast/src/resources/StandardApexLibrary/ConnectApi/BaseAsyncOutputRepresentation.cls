@@ -1,9 +1,11 @@
-global class BaseAsyncOutputRepresentation {
-	global String backgroundOperationId;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Base Order Management async output class.
+ */
+global class BaseAsyncOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * ID of the background operation.
+   */
+  global String backgroundOperationId;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Order delivery group summary lookup output.
+ */
 global class OrderDeliveryGroupSummaryLookupOutput {
-	global String currencyIsoCode;
-	global ConnectApi.OrderDeliveryMethodLookupOutput deliveryMethod;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String id;
-	global List<ConnectApi.OrderItemSummaryLookupOutput> lineItems;
-	global OrderDeliveryGroupSummaryLookupOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the order delivery group summary record.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Delivery method associated with order the delivery group summary.
+   */
+  global ConnectApi.OrderDeliveryMethodLookupOutput deliveryMethod;
+
+  /**
+   * Map of requested order delivery group summary fields.
+   */
+  global Map < String , ConnectApi.RecordField ConnectApi.RecordField > fields;
+
+  /**
+   * ID of the order delivery group summary.
+   */
+  global String id;
+
+  /**
+   * Line items associated with the order delivery group summary.
+   */
+  global List < ConnectApi.OrderSummaryLookupOutput > lineItems;
 
 }

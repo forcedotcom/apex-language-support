@@ -1,11 +1,16 @@
-global class UserMission {
-	global String missionName;
-	global Integer missionThreshold;
-	global UserMission() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Mission details for a user.
+ */
+global class UserMission extends ConnectApi.AbstractUserMissionActivity {
+
+  /**
+   * Name of the mission.
+   */
+  global String missionName;
+
+  /**
+   * Threshold of the mission. When a user reaches this activity count, the mission is achieved.
+   */
+  global Integer missionThreshold;
 
 }

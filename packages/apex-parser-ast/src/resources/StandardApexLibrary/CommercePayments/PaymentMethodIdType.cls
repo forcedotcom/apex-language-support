@@ -1,4 +1,7 @@
+/**
+ * Specifies the ID of the payment method type.
+ */
 global enum PaymentMethodIdType {
-CARDPAYMENTMETHOD,
-SAVEDPAYMENTMETHOD
+  CardPaymentMethod,
+  SavedPaymentMethod
 }

@@ -1,12 +1,21 @@
+/**
+ * Details of the recommended actions for a business objective, or goal.
+ */
 global class BusObjRecommendationsOutputRepresentation {
-	global Integer active;
-	global Integer complete;
-	global Integer total;
-	global BusObjRecommendationsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Count of active recommended actions.
+   */
+  global Integer active;
+
+  /**
+   * Count of completed recommended actions.
+   */
+  global Integer complete;
+
+  /**
+   * Count of total recommended actions, including both completed and active.
+   */
+  global Integer total;
 
 }

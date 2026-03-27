@@ -1,9 +1,13 @@
+/**
+ * Represents an object used to pass data from an Apex RESTful Web service method to an HTTP response.
+ */
 global class RestResponse {
-	global Map<String,String> headers;
-	global Blob responseBody;
-	global Integer statusCode;
-	global RestResponse() { }
-	global void addHeader(String name, String value) { }
-	global Object clone() { }
+
+  /**
+   * Adds a header to the response header map.
+   * @param name 
+   * @param value 
+   */
+  public void addHeader(String name, String value) {}
 
 }

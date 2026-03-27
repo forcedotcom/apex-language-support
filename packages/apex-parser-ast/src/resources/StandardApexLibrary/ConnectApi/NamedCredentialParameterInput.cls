@@ -1,13 +1,31 @@
+/**
+ * Named credential parameter input.
+ */
 global class NamedCredentialParameterInput {
-	global String id;
-	global String parameterDescription;
-	global String parameterName;
-	global ConnectApi.NamedCredentialParameterType parameterType;
-	global String parameterValue;
-	global NamedCredentialParameterInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the parameter.
+   */
+  global String id;
+
+  /**
+   * Description of the parameter.
+   */
+  global String parameterDescription;
+
+  /**
+   * Name of the parameter.
+   */
+  global String parameterName;
+
+  /**
+   * Type of named credential parameter. Values are: AllowedManagedPackageNamespaces ClientCertificate ConnectionStatus
+   */
+  global ConnectApi.NamedCredentialParameterType parameterType;
+
+  /**
+   * Value of the parameter.
+   */
+  global String parameterValue;
 
 }

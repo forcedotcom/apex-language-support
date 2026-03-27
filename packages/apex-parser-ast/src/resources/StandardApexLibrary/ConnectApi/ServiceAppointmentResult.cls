@@ -1,12 +1,21 @@
+/**
+ * Contains result of the service appointment.
+ */
 global class ServiceAppointmentResult {
-	global List<String> assignedResourceIds;
-	global String parentRecordId;
-	global String serviceAppointmentId;
-	global ServiceAppointmentResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The IDs of the assigned resources.
+   */
+  global List < String > assignedResourceIds;
+
+  /**
+   * The ID of the parent record.
+   */
+  global String parentRecordId;
+
+  /**
+   * The ID of the service appointment record.
+   */
+  global String serviceAppointmentId;
 
 }

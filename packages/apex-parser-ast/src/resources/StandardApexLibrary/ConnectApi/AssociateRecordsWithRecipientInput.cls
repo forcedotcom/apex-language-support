@@ -1,10 +1,16 @@
+/**
+ * Records associated with the survey invitation.
+ */
 global class AssociateRecordsWithRecipientInput {
-	global List<String> associateRecordIds;
-	global String recipientId;
-	global AssociateRecordsWithRecipientInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the associated records.
+   */
+  global List < String > associateRecordIds;
+
+  /**
+   * Participant ID with whose invitation the record should be associated.
+   */
+  global String recipientId;
 
 }

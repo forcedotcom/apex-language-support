@@ -1,9 +1,14 @@
+/**
+ * Contains static methods to expose extension-related context information.
+ */
 global class ExtensionInfo {
-	global ExtensionInfo() { }
-	global Object clone() { }
-	global static Double getClientApiVersion() { }
-	global static String getCustomParameterField(String fieldName) { }
-	global static String getLocaleString() { }
-	global static Boolean isCustomParametersAvailable() { }
+
+  public static Double getClientApiVersion() {}
+
+  public static String getCustomParameterField(String fieldName) {}
+
+  public static String getLocaleString() {}
+
+  public static Boolean isCustomParametersAvailable() {}
 
 }

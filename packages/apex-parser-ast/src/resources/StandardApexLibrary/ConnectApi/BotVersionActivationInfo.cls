@@ -1,12 +1,21 @@
+/**
+ * Success or failure information of the bot version activation.
+ */
 global class BotVersionActivationInfo {
-	global Boolean isActivated;
-	global List<String> messages;
-	global Boolean success;
-	global BotVersionActivationInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Indicates whether the bot is active or not.
+   */
+  global Boolean isActivated;
+
+  /**
+   * Failure messages.
+   */
+  global List < String > messages;
+
+  /**
+   * Indicates whether the activation was successful or not.
+   */
+  global Boolean success;
 
 }

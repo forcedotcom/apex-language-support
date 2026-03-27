@@ -1,13 +1,26 @@
+/**
+ * Insight details for a business objective, or goal.
+ */
 global class InsightsOutputRepresentation {
-	global String dashboardUrl;
-	global String insightSummaryText;
-	global String name;
-	global List<ConnectApi.InsightValuesOutputRepresentation> values;
-	global InsightsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the dashboard where the insight can be viewed.
+   */
+  global String dashboardUrl;
+
+  /**
+   * A localized, human-readable summary of the insight value's performance, including the change from the previous value.
+   */
+  global String insightSummaryText;
+
+  /**
+   * Name of the insight.
+   */
+  global String name;
+
+  /**
+   * List of insight categories.
+   */
+  global List < ConnectApi.InsightsValuesOutputRepresentation > values;
 
 }

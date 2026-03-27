@@ -1,13 +1,12 @@
+/**
+ * This class represents a pagination cursor that can traverse a SOQL query result set. It contains methods that fetch rows by page. It also contains a method that returns the total number of rows in the result set.
+ */
 global class PaginationCursor {
-	global Object clone() { }
-	global Integer fetchDeleted(Integer start, Integer pageSize) { }
-	global Database.CursorFetchResult fetchPage(Integer start, Integer pageSize) { }
-	global Integer getNumRecords() { }
-global enum DeleteFilter {
-DELETED_ROWS_ONLY,
-NO_DELETED_ROWS,
-NO_DELETED_SHARING_ROWS,
-NO_FILTER
-}
+
+  public Integer fetchDeleted(Integer start, Integer pageSize) {}
+
+  public Database.CursorFetchResult fetchPage(Integer start, Integer pageSize) {}
+
+  public Integer getNumRecords() {}
 
 }

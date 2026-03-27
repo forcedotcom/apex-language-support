@@ -1,24 +1,35 @@
+/**
+ * Use the Version methods to get the version of a first-generation managed package (1GP) or a migrated second-generation managed package (2GP), and to compare package versions.
+ */
 global class Version {
-	global Version(Integer major, Integer minor, Integer patch) { }
-	global Version(Integer major, Integer minor) { }
-	/**
-	 * Compares this version against the one given
-	 */
-	global Integer compareTo(System.Version other) { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	/**
-	 * Return the major version number
-	 */
-	global Integer major() { }
-	/**
-	 * Return the minor version number
-	 */
-	global Integer minor() { }
-	/**
-	 * Return the patch number
-	 */
-	global Integer patch() { }
-	global String toString() { }
+
+  public Version(Integer major, Integer minor) {}
+
+  public Version(Integer major, Integer minor, Integer patch) {}
+
+  /**
+   * Compares the current version with the specified version.
+   * @param version 
+   * @return Integer
+   */
+  public Integer compareTo(System.Version version) {}
+
+  /**
+   * Returns the major package version of the of the calling code.
+   * @return Integer
+   */
+  public Integer major() {}
+
+  /**
+   * Returns the minor package version of the calling code.
+   * @return Integer
+   */
+  public Integer minor() {}
+
+  /**
+   * Returns the patch package version of the calling code or null if there is no patch version.
+   * @return Integer
+   */
+  public Integer patch() {}
 
 }

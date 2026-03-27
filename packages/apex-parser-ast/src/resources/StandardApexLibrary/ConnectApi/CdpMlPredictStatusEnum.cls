@@ -1,4 +1,4 @@
 global enum CdpMlPredictStatusEnum {
-ERROR,
-SUCCESS
+  Error,
+  Success
 }

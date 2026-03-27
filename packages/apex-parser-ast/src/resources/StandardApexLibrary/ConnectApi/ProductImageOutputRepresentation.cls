@@ -1,14 +1,31 @@
+/**
+ * Details about a product image.
+ */
 global class ProductImageOutputRepresentation {
-	global String alternateText;
-	global String mediaType;
-	global String thumbnailUrl;
-	global String title;
-	global String url;
-	global ProductImageOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Alternate text for accessibility.
+   */
+  global String alternateText;
+
+  /**
+   * Media type.
+   */
+  global String mediaType;
+
+  /**
+   * URL of the thumbnail version of the product image.
+   */
+  global String thumbnailUrl;
+
+  /**
+   * Title.
+   */
+  global String title;
+
+  /**
+   * URL of the product image.
+   */
+  global String url;
 
 }

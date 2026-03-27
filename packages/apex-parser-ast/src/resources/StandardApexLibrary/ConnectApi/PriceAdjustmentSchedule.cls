@@ -1,13 +1,16 @@
+/**
+ * Price adjustment schedule.
+ */
 global class PriceAdjustmentSchedule {
-	global ConnectApi.PriceAdjustmentScheduleAdjustmentMethod adjustmentMethod;
-	global String id;
-	global List<ConnectApi.PriceAdjustmentTier> priceAdjustmentTiers;
-	global ConnectApi.PriceAdjustmentScheduleType scheduleType;
-	global PriceAdjustmentSchedule() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the price adjustment schedule.
+   */
+  global String id;
+
+  /**
+   * List of price adjustment tiers.
+   */
+  global List < ConnectApi.PriceAdjustmentTier > priceAdjustmentTiers;
 
 }

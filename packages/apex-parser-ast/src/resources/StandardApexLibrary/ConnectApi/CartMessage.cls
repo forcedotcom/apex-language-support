@@ -1,15 +1,36 @@
+/**
+ * Cart message.
+ */
 global class CartMessage {
-	global String message;
-	global String messageId;
-	global String relatedEntityId;
-	global ConnectApi.CartMessageSeverity severity;
-	global String type;
-	global Boolean visible;
-	global CartMessage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Cart message.
+   */
+  global String message;
+
+  /**
+   * ID of the object supplying the message.
+   */
+  global String messageId;
+
+  /**
+   * ID of the entity, for example, cart, cart item, or cart tax, associated with the message.
+   */
+  global String relatedEntityId;
+
+  /**
+   * Severity of cart message. Values are: Error Info Warning
+   */
+  global ConnectApi.CartMessageSeverity severity;
+
+  /**
+   * Type of message. Standard values include Inventory , Taxes , Pricing , Shipping , Entitlement , SystemError , and Other .
+   */
+  global String type;
+
+  /**
+   * Specifies whether the message is visible ( true ) or dismissed ( false ).
+   */
+  global Boolean visible;
 
 }

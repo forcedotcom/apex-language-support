@@ -1,10 +1,16 @@
+/**
+ * Input representation for information when party identification is used in an identity resolution ruleset's match rule criterion.
+ */
 global class CdpIdentityResolutionMatchCriterionPartyIdentificationInfo {
-	global String partyName;
-	global String partyType;
-	global CdpIdentityResolutionMatchCriterionPartyIdentificationInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Party identification name.
+   */
+  global String partyName;
+
+  /**
+   * Party identification type.
+   */
+  global String partyType;
 
 }

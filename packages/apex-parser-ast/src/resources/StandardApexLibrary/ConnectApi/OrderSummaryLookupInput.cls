@@ -1,10 +1,16 @@
+/**
+ * Order summary lookup input.
+ */
 global class OrderSummaryLookupInput {
-	global String orderSummaryIdOrRefNumber;
-	global ConnectApi.OrderSummaryVerificationInput verification;
-	global OrderSummaryLookupInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Either the order summary ID or reference number value.
+   */
+  global String orderSummaryIdOrRefNumber;
+
+  /**
+   * Verification attributes for guest shoppers.
+   */
+  global ConnectApi.OrderSummaryVerificationInput verification;
 
 }

@@ -1,5 +1,5 @@
 global enum ExternalCredentialPrincipalAccessType {
-PERMISSIONSET,
-PERMISSIONSETGROUP,
-PROFILE
+  PermissionSet,
+  PermissionSetGroup,
+  Profile
 }

@@ -1,9 +1,0 @@
-global enum DmoAggregatedStatus {
-CREATING,
-DELETING,
-ERROR,
-INACTIVE,
-PROCESSING,
-READY,
-UPDATING
-}

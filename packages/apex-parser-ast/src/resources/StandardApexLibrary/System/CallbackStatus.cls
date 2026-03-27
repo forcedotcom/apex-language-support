@@ -1,6 +1,5 @@
+/**
+ * Specifies the status of asynchronous requests to an external system.
+ */
 global enum CallbackStatus {
-CANCELLED,
-COMPLETED,
-PENDING,
-TIMED_OUT
 }

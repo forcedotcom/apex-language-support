@@ -1,15 +1,36 @@
+/**
+ * Information about the conversation application definition.
+ */
 global class ConversationApplicationDefinitionDetailRespresentation {
-	global ConnectApi.BotInfoRepresentation botInfo;
-	global String errorMessage;
-	global ConnectApi.ConversationApplicationIntegrationType integrationApplication;
-	global String integrationName;
-	global Boolean isSuccess;
-	global String runtimeUrl;
-	global ConversationApplicationDefinitionDetailRespresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Basic information of the bot associated with this conversation application.
+   */
+  global ConnectApi.BotInfoRepresentation botInfo;
+
+  /**
+   * Error message for the failed get operation.
+   */
+  global String errorMessage;
+
+  /**
+   * Conversation application integration types. Values are: Api Slack
+   */
+  global ConnectApi.ConversationApplicationIntegrationType integrationApplication;
+
+  /**
+   * Name of the conversation application.
+   */
+  global String integrationName;
+
+  /**
+   * Success indicator of the get operation.
+   */
+  global Boolean isSuccess;
+
+  /**
+   * Base URL of the bot runtime API.
+   */
+  global String runtimeUrl;
 
 }

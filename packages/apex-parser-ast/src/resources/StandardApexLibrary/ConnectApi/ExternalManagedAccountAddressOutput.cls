@@ -1,17 +1,46 @@
+/**
+ * Default shipping address for an externally managed account.
+ */
 global class ExternalManagedAccountAddressOutput {
-	global String city;
-	global String country;
-	global String geolocationAccuracy;
-	global String latitude;
-	global String longitude;
-	global String state;
-	global String street;
-	global String zip;
-	global ExternalManagedAccountAddressOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * City of the external managed account record.
+   */
+  global String city;
+
+  /**
+   * Country of the external managed account record.
+   */
+  global String country;
+
+  /**
+   * Geolocation accuracy of the external managed account record.
+   */
+  global String geolocationAccuracy;
+
+  /**
+   * Latitude of the external managed account record.
+   */
+  global String latitude;
+
+  /**
+   * Longitude of the external managed account record.
+   */
+  global String longitude;
+
+  /**
+   * State of the external managed account record.
+   */
+  global String state;
+
+  /**
+   * Street of the external managed account record.
+   */
+  global String street;
+
+  /**
+   * Postal code of the external managed account record.
+   */
+  global String zip;
 
 }

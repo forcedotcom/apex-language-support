@@ -1,15 +1,36 @@
+/**
+ * Represents the attribute filter output.
+ */
 global class AttributeFilter {
-	global String attributeId;
-	global String attributeName;
-	global ConnectApi.FilterDateUnit dateUnits;
-	global String operator;
-	global ConnectApi.FilterOperatorDataType type;
-	global ConnectApi.FilterValues value;
-	global AttributeFilter() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the attribute.
+   */
+  global String attributeId;
+
+  /**
+   * Name of the attribute.
+   */
+  global String attributeName;
+
+  /**
+   * Date units for the attribute.
+   */
+  global Datetime dateUnits;
+
+  /**
+   * Operator for the attribute.
+   */
+  global String operator;
+
+  /**
+   * Type of attribute. FilterOperatorDataTypeBoolean FilterOperatorDataTypeDate FilterOperatorDataTypeDateOnly FilterOperatorDataTypeExactlyRelativeDate FilterOperatorDataTypeNumber FilterOperatorDataTypeRelateToNowDate FilterOperatorDataTypeText
+   */
+  global FilterOperatorDataTypeEnum type;
+
+  /**
+   * Values for the attribute.
+   */
+  global List < String > values;
 
 }

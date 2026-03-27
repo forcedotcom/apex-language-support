@@ -1,11 +1,16 @@
+/**
+ * The results of requesting a flow approval status.
+ */
 global class FlowApprovalProcessCollection {
-	global List<ConnectApi.FlowApprovalProcess> flowApprovalProcesses;
-	global String relatedRecordId;
-	global FlowApprovalProcessCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of flow approval processes retrieved with the specified process names and related record ID.
+   */
+  global List < ConnectApi.FlowApprovalProcess > flowApprovalProcesses;
+
+  /**
+   * The ID of the related record associated with the approval submission.
+   */
+  global String relatedRecordId;
 
 }

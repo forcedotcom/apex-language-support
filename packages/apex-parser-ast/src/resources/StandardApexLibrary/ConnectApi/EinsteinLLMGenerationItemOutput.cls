@@ -1,15 +1,31 @@
+/**
+ * Generated response from the LLM provider.
+ */
 global class EinsteinLLMGenerationItemOutput {
-	global ConnectApi.EinsteinLlmGenerationContentQualityOutput contentQualityRepresentation;
-	global String parameters;
-	global String responseId;
-	global ConnectApi.EinsteinLlmGenerationSafetyScoreOutput safetyScoreRepresentation;
-	global Object structuredResponse;
-	global String text;
-	global EinsteinLLMGenerationItemOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the generated response contains toxic language (true) or not (false) .
+   */
+  global ConnectApi.EinsteinLlmGenerationsContentQuality contentQualityRepresentation;
+
+  /**
+   * Parameter values for the LLM provider.
+   */
+  global String parameters;
+
+  /**
+   * ID of the generated response.
+   */
+  global String responseId;
+
+  /**
+   * Safety score information related to the generated response.
+   */
+  global ConnectApi.EinsteinLlmGenerationSafetyScoreOutput safetyScoreRepresentation;
+
+  /**
+   * Text of generated response.
+   */
+  global String text;
 
 }

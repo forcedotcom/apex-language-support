@@ -1,11 +1,21 @@
-global class BundleCapability {
-	global ConnectApi.BundleType bundleType;
-	global ConnectApi.FeedElementPage page;
-	global Integer totalElements;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it has a container of feed elements called a bundle .
+ */
+global class BundleCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Defines this feed element's bundle type. The bundle type determines what additional information appears in the bundle.
+   */
+  global ConnectApi.BundleType bundleType;
+
+  /**
+   * A collection of feed elements.
+   */
+  global ConnectApi.FeedElementPage page;
+
+  /**
+   * The total number of feed elements that this bundle aggregates.
+   */
+  global Integer totalElements;
 
 }

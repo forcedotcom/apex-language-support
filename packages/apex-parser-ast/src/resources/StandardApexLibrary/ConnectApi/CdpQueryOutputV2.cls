@@ -1,18 +1,46 @@
+/**
+ * Query output for the V2 API.
+ */
 global class CdpQueryOutputV2 {
-	global List<ConnectApi.CdpQueryV2Row> data;
-	global String dataspace;
-	global Boolean done;
-	global String endTime;
-	global Map<String,ConnectApi.CdpQueryMetadataItem> metadata;
-	global String nextBatchId;
-	global String queryId;
-	global Integer rowCount;
-	global String startTime;
-	global CdpQueryOutputV2() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Result data set.
+   */
+  global List < ConnectApi.CdpQueryV2Row > (in version 55.0 and later) List <Object> (version 54.0 only) data;
+
+  /**
+   * Specifies whether the query is done ( true ) or not ( false ).
+   */
+  global Boolean done;
+
+  /**
+   * Query end time.
+   */
+  global String endTime;
+
+  /**
+   * Result metadata set.
+   */
+  global Map < String , ConnectApi.CdpQueryMetadataItem > (version 55.0 and later) Map < String , Object> (version 54.0 only) metadata;
+
+  /**
+   * Next batch ID. Use this property as the nextBatchId parameter in the nextBatchAnsiSqlV2(nextBatchId) method to get the next batch of data.
+   */
+  global String nextBatchId;
+
+  /**
+   * Query ID.
+   */
+  global String queryId;
+
+  /**
+   * Number of rows in the result data set.
+   */
+  global Integer rowCount;
+
+  /**
+   * Query start time.
+   */
+  global String startTime;
 
 }

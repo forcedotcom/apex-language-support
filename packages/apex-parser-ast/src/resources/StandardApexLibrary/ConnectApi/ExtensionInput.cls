@@ -1,12 +1,26 @@
+/**
+ * An extension.
+ */
 global class ExtensionInput {
-	global ConnectApi.AlternativeInput alternativeRepresentation;
-	global String extensionId;
-	global String payload;
-	global String payloadVersion;
-	global ExtensionInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Alternative representation of the extension.
+   */
+  global ConnectApi.AlternativeInput alternativeRepresentation;
+
+  /**
+   * ID of the extension.
+   */
+  global String extensionId;
+
+  /**
+   * Payload associated with the extension.
+   */
+  global String payload;
+
+  /**
+   * Payload version that identifies the structure of the payload associated with the extension.
+   */
+  global String payloadVersion;
 
 }

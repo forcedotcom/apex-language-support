@@ -1,17 +1,46 @@
+/**
+ * Calculated insight dimension.
+ */
 global class CdpCalculatedInsightDimension {
-	global String apiName;
-	global String creationType;
-	global ConnectApi.CdpCalculatedInsightDataSource dataSource;
-	global String dataType;
-	global String dateGranularity;
-	global String displayName;
-	global String fieldRole;
-	global String formula;
-	global CdpCalculatedInsightDimension() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API name of the dimension.
+   */
+  global String apiName;
+
+  /**
+   * Creation type of the dimension.
+   */
+  global String creationType;
+
+  /**
+   * Data source of the dimension.
+   */
+  global ConnectApi.CdpCalculatedInsightDataSource dataSource;
+
+  /**
+   * Data type of the dimension.
+   */
+  global String dataType;
+
+  /**
+   * Date granularity of the dimension.
+   */
+  global String dateGranularity;
+
+  /**
+   * Display name of the dimension.
+   */
+  global String displayName;
+
+  /**
+   * Field role of the dimension.
+   */
+  global String fieldRole;
+
+  /**
+   * Formula of the dimension.
+   */
+  global String formula;
 
 }

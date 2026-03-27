@@ -1,6 +1,6 @@
 global enum CdpMlModelPredictionTypeEnum {
-BINARYCLASSIFICATION,
-GENERIC,
-MULTICLASSCLASSIFICATION,
-REGRESSION
+  BinaryClassification,
+  Generic,
+  MulticlassClassification,
+  Regression
 }

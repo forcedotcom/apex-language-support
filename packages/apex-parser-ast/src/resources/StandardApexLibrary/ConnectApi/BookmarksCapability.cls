@@ -1,10 +1,11 @@
-global class BookmarksCapability {
-	global Boolean isBookmarkedByCurrentUser;
-	global BookmarksCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, the context user can bookmark it.
+ */
+global class BookmarksCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Indicates whether the feed element has been bookmarked by the context user ( true ) or not ( false ).
+   */
+  global Boolean isBookmarkedByCurrentUser;
 
 }

@@ -1,12 +1,21 @@
+/**
+ * Summary of a product attribute set.
+ */
 global class ProductAttributeSetSummary {
-	global String apiName;
-	global List<ConnectApi.ProductAttributeSummary> attributes;
-	global String label;
-	global ProductAttributeSetSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API name of the attribute set.
+   */
+  global String apiName;
+
+  /**
+   * List of attributes in the attribute set.
+   */
+  global List < ConnectApi.ProductAttributeSummary > attributes;
+
+  /**
+   * Display label of the attribute set.
+   */
+  global String label;
 
 }

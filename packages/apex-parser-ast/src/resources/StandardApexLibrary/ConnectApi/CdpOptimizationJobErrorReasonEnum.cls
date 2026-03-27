@@ -1,7 +1,0 @@
-global enum CdpOptimizationJobErrorReasonEnum {
-INVALIDSCHEMA,
-NODATA,
-NOSOLUTION,
-TIMEOUT,
-UNKNOWNERROR
-}

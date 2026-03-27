@@ -1,17 +1,46 @@
+/**
+ * Managed content delivery document collection.
+ */
 global class ManagedContentDeliveryDocumentCollection {
-	global ConnectApi.ManagedContentChannelSummary channelInfo;
-	global ConnectApi.ManagedContentDeliveryChannelSummaryRepresentation channelSummary;
-	global List<ConnectApi.AbstractManagedContentDeliveryDocument> contents;
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global Map<String,ConnectApi.AbstractManagedContentReference> references;
-	global List<ConnectApi.AbstractManagedContentReference> referencesList;
-	global ManagedContentDeliveryDocumentCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Information about the managed content channel.
+   */
+  global ConnectApi.ManagedContentChannelSummary channelInfo;
+
+  /**
+   * Summary information about the managed content delivery channel.
+   */
+  global ConnectApi.ManagedContentDeliveryChannelSummaryRepresentation channelSummary;
+
+  /**
+   * List of managed content delivery documents.
+   */
+  global List < ConnectApi.AbstractManagedContentDeliveryDocument > contents;
+
+  /**
+   * URL to the current page of managed content records.
+   */
+  global String currentPageUrl;
+
+  /**
+   * URL to the next page of managed content records.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page of managed content records.
+   */
+  global String previousPageUrl;
+
+  /**
+   * Map of references with contentKey as the key.
+   */
+  global Map < String , ConnectApi.AbstractManagedContentReference > references;
+
+  /**
+   * List of references.
+   */
+  global List < ConnectApi.AbstractManagedContentReference > referencesList;
 
 }

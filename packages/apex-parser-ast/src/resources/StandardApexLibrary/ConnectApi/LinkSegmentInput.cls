@@ -1,9 +1,11 @@
-global class LinkSegmentInput {
-	global String url;
-	global LinkSegmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Include a link segment in a feed item or comment.
+ */
+global class LinkSegmentInput extends ConnectApi.MessageSegmentInput {
+
+  /**
+   * URL to be used for the link
+   */
+  global String url;
 
 }

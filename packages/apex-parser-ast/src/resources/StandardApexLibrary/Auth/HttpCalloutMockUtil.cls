@@ -1,6 +1,8 @@
+/**
+ * Contains a method to send fake HTTP callouts for classes in the Auth namespace.
+ */
 global class HttpCalloutMockUtil {
-	global HttpCalloutMockUtil() { }
-	global Object clone() { }
-	global static void setHttpMock(System.HttpCalloutMock mock) { }
+
+  public static void setHttpMock(System.HttpCalloutMock mock) {}
 
 }

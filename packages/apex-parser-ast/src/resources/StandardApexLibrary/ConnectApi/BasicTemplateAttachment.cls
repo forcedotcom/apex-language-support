@@ -1,15 +1,31 @@
-global class BasicTemplateAttachment {
-	global String description;
-	global ConnectApi.Icon icon;
-	global String linkRecordId;
-	global String linkUrl;
-	global String subtype;
-	global String title;
-	global BasicTemplateAttachment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Attachments in feed items with type BasicTemplate .
+ */
+global class BasicTemplateAttachment extends ConnectApi.FeedItemAttachment {
+
+  /**
+   * An optional description with a 500 character limit.
+   */
+  global String description;
+
+  /**
+   * An optional icon.
+   */
+  global ConnectApi.Icon icon;
+
+  /**
+   * If linkURL refers to a Salesforce record, linkRecordId contains the ID of the record.
+   */
+  global String linkRecordId;
+
+  /**
+   * An optional URL to a detail page if there is more content that can’t be displayed inline. Do not specify linkUrl unless you specify a title .
+   */
+  global String linkUrl;
+
+  /**
+   * An optional title to the detail page. If linkUrl is specified, the title links to linkUrl .
+   */
+  global String title;
 
 }

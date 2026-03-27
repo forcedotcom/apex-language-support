@@ -1,11 +1,16 @@
+/**
+ * Error returned from an attempt to create an Omnichannel Inventory reservation.
+ */
 global class OCICreateReservationErrorOutputRepresentation {
-	global String errorCode;
-	global String message;
-	global OCICreateReservationErrorOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The error code.
+   */
+  global String errorCode;
+
+  /**
+   * Details of the error, if available.
+   */
+  global String message;
 
 }

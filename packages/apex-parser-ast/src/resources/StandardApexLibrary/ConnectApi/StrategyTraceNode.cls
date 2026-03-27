@@ -1,17 +1,46 @@
+/**
+ * A trace node for a recommendation strategy execution.
+ */
 global class StrategyTraceNode {
-	global Integer inputCount;
-	global List<String> messages;
-	global String nodeName;
-	global Long nodeTime;
-	global String nodeType;
-	global Integer outputCount;
-	global List<String> outputs;
-	global Long totalTime;
-	global StrategyTraceNode() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Number of items put into the node.
+   */
+  global Integer inputCount;
+
+  /**
+   * Messages that occurred during node execution.
+   */
+  global List < String > messages;
+
+  /**
+   * Name of the node.
+   */
+  global String nodeName;
+
+  /**
+   * Time spent processing inside the node.
+   */
+  global Long nodeTime;
+
+  /**
+   * Type of node.
+   */
+  global String nodeType;
+
+  /**
+   * Number of items returned from the node.
+   */
+  global Integer outputCount;
+
+  /**
+   * Recommendations that are returned from the node.
+   */
+  global List < String > outputs;
+
+  /**
+   * Total time spent processing.
+   */
+  global Long totalTime;
 
 }

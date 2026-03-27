@@ -1,10 +1,16 @@
+/**
+ * A recommended action of recommendation strategy.
+ */
 global class AbstractNBAAction {
-	global List<ConnectApi.NBAActionParameter> parameters;
-	global ConnectApi.NBAActionType type;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of parameters to pass to the action.
+   */
+  global List < ConnectApi.NBAActionParameter > parameters;
+
+  /**
+   * Type of action. Values are: Flow —Automated process tool with multiple subtypes.
+   */
+  global ConnectApi.NBAActionType type;
 
 }

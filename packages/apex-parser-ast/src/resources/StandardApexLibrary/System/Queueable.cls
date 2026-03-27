@@ -1,4 +1,12 @@
+/**
+ * Enables the asynchronous execution of Apex jobs that can be monitored.
+ */
 global interface Queueable {
-	void execute(System.QueueableContext param0);
+
+  /**
+   * Executes the queueable job.
+   * @param context Contains the job ID.
+   */
+  void execute(QueueableContext context);
 
 }

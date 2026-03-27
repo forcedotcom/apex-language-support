@@ -1,12 +1,26 @@
+/**
+ * Input representation for replacing a managed content variant.
+ */
 global class ManagedContentVariantUpdateInput {
-	global String apiName;
-	global ConnectApi.ManagedContentBodyInput contentBody;
-	global String title;
-	global String urlName;
-	global ManagedContentVariantUpdateInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API name of the managed content variant.
+   */
+  global String apiName;
+
+  /**
+   * Body of the managed content variant.
+   */
+  global ConnectApi.ManagedContentBodyInput contentBody;
+
+  /**
+   * Title of the managed content variant.
+   */
+  global String title;
+
+  /**
+   * URL name of the managed content variant within the org.
+   */
+  global String urlName;
 
 }

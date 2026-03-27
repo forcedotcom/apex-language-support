@@ -1,20 +1,41 @@
+/**
+ * Input representation for creating an identity resolution ruleset.
+ */
 global class CdpIdentityResolutionConfigInput {
-	global ConnectApi.CdpIdentityResolutionConfigurationType configurationType;
-	global String dataSpaceName;
-	global String description;
-	global Boolean doesRunAutomatically;
-	global Boolean isCaseSensitive;
-	global Boolean isLimitedToSingleHousehold;
-	global String label;
-	global List<ConnectApi.CdpIdentityResolutionMatchRule> matchRules;
-	global List<ConnectApi.CdpIdentityResolutionReconciliationRule> reconciliationRules;
-	global String rulesetId;
-	global String secondaryDmo;
-	global String sourceIrDevName;
-	global CdpIdentityResolutionConfigInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Source object for an identity resolution ruleset. Values are: Account Individual
+   */
+  global ConnectApi.CdpIdentityResolutionConfigurationType configurationType;
+
+  /**
+   * Description of the identity resolution ruleset.
+   */
+  global String description;
+
+  /**
+   * Specifies whether automatic job run scheduling is enabled for the ruleset ( true ) or not ( false ). If unspecified, defaults to false .
+   */
+  global Boolean doesRunAutomatically;
+
+  /**
+   * User friendly name of the identity resolution ruleset.
+   */
+  global String label;
+
+  /**
+   * List of match rules for the identity resolution ruleset.
+   */
+  global List < ConnectApi.CdpIdentityResolutionMatchRule > matchRules;
+
+  /**
+   * List of reconciliation rules for the identity resolution ruleset.
+   */
+  global List < ConnectApi.CdpIdentityResolutionReconciliationRule > reconciliationRules;
+
+  /**
+   * Extended ID of the ruleset used to differentiate between rulesets created for comparison. The ruleset ID must be unique and can't be longer than 4 characters.
+   */
+  global String rulesetId;
 
 }

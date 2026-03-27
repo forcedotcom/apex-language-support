@@ -1,10 +1,11 @@
+/**
+ * Entitlements for a product.
+ */
 global class ProductEntitlement {
-	global Boolean canViewPrice;
-	global ProductEntitlement() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the product's price can be viewed ( true ) or not ( false ).
+   */
+  global Boolean canViewPrice;
 
 }

@@ -1,11 +1,21 @@
+/**
+ * Managed content reference.
+ */
 global class AbstractManagedContentReference {
-	global String contentKey;
-	global String managedContentId;
-	global String resourceUrl;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Unique identifier for the managed content reference.
+   */
+  global String contentKey;
+
+  /**
+   * ID of the managed content reference.
+   */
+  global String managedContentId;
+
+  /**
+   * URL to the single content delivery resource.
+   */
+  global String resourceUrl;
 
 }

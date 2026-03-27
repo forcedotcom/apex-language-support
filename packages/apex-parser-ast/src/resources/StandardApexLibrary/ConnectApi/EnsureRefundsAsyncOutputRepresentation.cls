@@ -1,9 +1,6 @@
-global class EnsureRefundsAsyncOutputRepresentation {
-	global EnsureRefundsAsyncOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * ID of the asynchronous background operation. This output only includes the operation ID, regardless of whether a call is made to an external payment gateway. It doesn’t include any errors from the operation.
+ */
+global class EnsureRefundsAsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
 
 }

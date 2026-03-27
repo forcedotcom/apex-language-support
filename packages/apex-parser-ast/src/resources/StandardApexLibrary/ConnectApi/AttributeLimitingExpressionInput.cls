@@ -1,13 +1,31 @@
+/**
+ * Represents the limiting expression input for an activation.
+ */
 global class AttributeLimitingExpressionInput {
-	global String attributeName;
-	global String entityName;
-	global ConnectApi.FilterSortOrder order;
-	global List<ConnectApi.QueryPathInputConfig> queryPathConfig;
-	global String type;
-	global AttributeLimitingExpressionInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the attribute.
+   */
+  global String attributeName;
+
+  /**
+   * Name of the entity.
+   */
+  global String entityName;
+
+  /**
+   * The sort order for filtering. FilterSortOrderAsc FilterSortOrderDesc
+   */
+  global FilterSortOrderEnum order;
+
+  /**
+   * Query path configuration input.
+   */
+  global List < ConnectApi.QueryPathInputConfig > queryPathConfig;
+
+  /**
+   * Type of attribute.
+   */
+  global String type;
 
 }

@@ -1,4 +1,8 @@
+/**
+ * Creates customer and partner users during the Headless Registration Flow.
+ */
 global interface HeadlessSelfRegistrationHandler {
-	User createUser(Id param0, Auth.UserData param1, String param2, String param3, String param4);
+
+  User createUser(Id profileId, Auth.UserData data, String customUserDataMap, String experienceId, String password);
 
 }

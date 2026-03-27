@@ -1,20 +1,36 @@
+/**
+ * Order item summary lookup output.
+ */
 global class OrderItemSummaryLookupOutput {
-	global ConnectApi.OrderItemSummaryAdjustmentAggregates adjustmentAggregates;
-	global List<ConnectApi.OrderSummaryAdjustment> adjustments;
-	global List<ConnectApi.OrderItemSummaryLookupOutput> associatedLineItems;
-	global String currencyIsoCode;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String id;
-	global ConnectApi.ProductClass itemClass;
-	global List<ConnectApi.ProcessExceptionOutput> processExceptions;
-	global ConnectApi.OrderSummaryProductLookupOutput product;
-	global ConnectApi.ProductSellingModel productSellingModel;
-	global String type;
-	global OrderItemSummaryLookupOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Adjustment aggregates for the order item summary.
+   */
+  global ConnectApi.OrderItemSummaryAdjustmentAggregates adjustmentAggregates;
+
+  /**
+   * Adjustments associated with the order item summary.
+   */
+  global List < ConnectApi.OrderSummaryAdjustment > adjustments;
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the order item summary record.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Map of requested order item summary fields.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * ID of the order item summary.
+   */
+  global String id;
+
+  /**
+   * Details of the product associated with order item summary.
+   */
+  global ConnectApi.OrderSummaryProductLookupOutput product;
 
 }

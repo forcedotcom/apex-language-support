@@ -1,12 +1,21 @@
+/**
+ * List of wishlist summaries and the displayed list for the context user.
+ */
 global class WishlistsSummary {
-	global ConnectApi.Wishlist displayedList;
-	global List<ConnectApi.WishlistSummary> summaries;
-	global Integer wishlistCount;
-	global WishlistsSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Oldest wishlist displayed for the context user.
+   */
+  global ConnectApi.Wishlist displayedList;
+
+  /**
+   * Summary of wishlists belonging to the context user.
+   */
+  global List < ConnectApi.WishlistSummary > summaries;
+
+  /**
+   * Total number of wishlists belonging to the context user.
+   */
+  global Integer wishlistCount;
 
 }

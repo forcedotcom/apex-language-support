@@ -1,11 +1,26 @@
+/**
+ * A Chatter, custom, or static recommendation.
+ */
 global class AbstractRecommendation {
-	global ConnectApi.RecommendationExplanation explanation;
-	global ConnectApi.RecommendationType recommendationType;
-	global String url;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The Chatter, custom, or static recommendation explanation.
+   */
+  global ConnectApi.RecommendationExplanation explanation;
+
+  /**
+   * A platform action group instance with state appropriate for the context user.
+   */
+  global ConnectApi.PlatformActionGroup platformActionGroup;
+
+  /**
+   * Specifies the type of record being recommended.
+   */
+  global ConnectApi.RecommendationType recommendationType;
+
+  /**
+   * URL for the Chatter, custom, or static recommendation.
+   */
+  global String url;
 
 }

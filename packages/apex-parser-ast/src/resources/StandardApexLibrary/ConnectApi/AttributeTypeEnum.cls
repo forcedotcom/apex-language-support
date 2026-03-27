@@ -1,7 +1,0 @@
-global enum AttributeTypeEnum {
-CALCULATEDINSIGHTS,
-CONTEXTUAL,
-DIRECT,
-RELATED,
-SEGMENT
-}

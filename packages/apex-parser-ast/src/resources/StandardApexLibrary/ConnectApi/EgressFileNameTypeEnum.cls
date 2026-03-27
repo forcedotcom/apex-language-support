@@ -1,4 +1,4 @@
 global enum EgressFileNameTypeEnum {
-CUSTOM,
-PREDETERMINED
+  Custom,
+  Predetermined
 }

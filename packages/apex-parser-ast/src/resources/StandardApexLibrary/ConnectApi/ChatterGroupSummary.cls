@@ -1,10 +1,11 @@
-global class ChatterGroupSummary {
-	global Integer fileCount;
-	global ChatterGroupSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Chatter group summary.
+ */
+global class ChatterGroupSummary extends ConnectApi.ChatterGroup {
+
+  /**
+   * The number of files posted to the group.
+   */
+  global Integer fileCount;
 
 }
