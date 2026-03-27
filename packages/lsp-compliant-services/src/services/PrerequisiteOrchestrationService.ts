@@ -29,16 +29,44 @@ import {
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
 import { getDocumentStateCache } from './DocumentStateCache';
+import type { DetailLevel } from './DocumentStateCache';
 import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   getLayerOrderIndex,
   hasCrossFileResolution,
 } from './PrerequisiteHelpers';
+import { getInFlightPrerequisiteRegistry } from './InFlightPrerequisiteRegistry';
 import {
   createMissingArtifactResolutionService,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
+
+let activeAsyncHoverEnrichments = 0;
+const coordinatedRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>([
+  'file-open-single',
+  'documentOpen',
+  'diagnostics',
+  'definition',
+  'signatureHelp',
+  'references',
+  'rename',
+]);
+
+const observabilityRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>(['definition', 'signatureHelp', 'references', 'rename']);
+
+const pickHighestDetailLevel = (
+  a: DetailLevel | null,
+  b: DetailLevel | null,
+): DetailLevel | null => {
+  if (!a) return b;
+  if (!b) return a;
+  return getLayerOrderIndex(a) >= getLayerOrderIndex(b) ? a : b;
+};
 
 /** Map SymbolReference to IdentifierSpec with typeReference, searchHints, qualifier */
 function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
@@ -124,6 +152,7 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private readonly inFlightRegistry = getInFlightPrerequisiteRegistry();
 
   constructor(
     private logger: LoggerInterface,
@@ -175,8 +204,12 @@ export class PrerequisiteOrchestrationService {
     }
 
     // Get current state
-    const currentDetailLevel =
-      this.symbolManager.getDetailLevelForFile(fileUri);
+    const cacheDetailLevel =
+      getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+    const currentDetailLevel = pickHighestDetailLevel(
+      this.symbolManager.getDetailLevelForFile(fileUri),
+      cacheDetailLevel,
+    );
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
 
     // Determine what needs to be done.
@@ -211,6 +244,82 @@ export class PrerequisiteOrchestrationService {
         () =>
           `Missing artifact resolution may be needed for ${requestType} (mode: ${config.mode})`,
       );
+    }
+
+    const shouldCoordinatePrerequisites =
+      coordinatedRequestTypes.has(requestType);
+
+    if (
+      shouldCoordinatePrerequisites &&
+      (needsEnrichment || needsCrossFileResolution)
+    ) {
+      const cachedVersion =
+        getDocumentStateCache().getCurrentState(fileUri)?.documentVersion ?? -1;
+      this.inFlightRegistry.evictStaleForUri(fileUri, cachedVersion);
+
+      const requestSpec = {
+        fileUri,
+        documentVersion: cachedVersion,
+        targetDetailLevel: (requirements.requiredDetailLevel ??
+          null) as DetailLevel | null,
+        needsCrossFileResolution,
+      };
+      const alreadySatisfied = this.inFlightRegistry.isSatisfied(requestSpec);
+      if (alreadySatisfied) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq satisfied-cache-hit type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+          );
+        }
+        return;
+      }
+      const acquireResult = this.inFlightRegistry.acquireOrJoin(requestSpec);
+
+      if (acquireResult.joined) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq joined type=${requestType} uri=${fileUri} ` +
+              `version=${cachedVersion} upgraded=${acquireResult.upgraded}`,
+          );
+        }
+        if (requirements.executionMode === 'blocking') {
+          await acquireResult.promise;
+        }
+        return;
+      }
+
+      if (observabilityRequestTypes.has(requestType)) {
+        this.logger.debug(
+          () =>
+            `[REQ-HARDEN] prereq started-new type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+        );
+      }
+
+      const coordinatedRunner = this.runCoordinatedPrerequisites(
+        acquireResult.key,
+        fileUri,
+        requestType,
+        options,
+      )
+        .then(() => this.inFlightRegistry.complete(acquireResult.key))
+        .catch((error) => {
+          this.inFlightRegistry.fail(acquireResult.key, error);
+          throw error;
+        });
+
+      if (requirements.executionMode === 'blocking') {
+        await coordinatedRunner;
+      } else {
+        void coordinatedRunner.catch((error: unknown) => {
+          this.logger.debug(
+            () =>
+              `Coordinated async prerequisites failed for ${fileUri}: ${error}`,
+          );
+        });
+      }
+      return;
     }
 
     // Execute prerequisites
@@ -252,6 +361,9 @@ export class PrerequisiteOrchestrationService {
         // results and don't need a re-pull signal.
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
+        if (requestType === 'hover') {
+          activeAsyncHoverEnrichments++;
+        }
 
         this.layerEnrichmentService
           .enrichFiles(
@@ -260,6 +372,12 @@ export class PrerequisiteOrchestrationService {
             'same-file',
           )
           .then(() => {
+            if (requestType === 'hover') {
+              activeAsyncHoverEnrichments = Math.max(
+                0,
+                activeAsyncHoverEnrichments - 1,
+              );
+            }
             if (shouldSignalRefresh) {
               Effect.runPromise(
                 getDiagnosticRefreshService().signalEnrichmentComplete(),
@@ -267,6 +385,12 @@ export class PrerequisiteOrchestrationService {
             }
           })
           .catch((error: unknown) => {
+            if (requestType === 'hover') {
+              activeAsyncHoverEnrichments = Math.max(
+                0,
+                activeAsyncHoverEnrichments - 1,
+              );
+            }
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
             );
@@ -292,6 +416,88 @@ export class PrerequisiteOrchestrationService {
             );
           });
       }
+    }
+  }
+
+  private async runCoordinatedPrerequisites(
+    key: string,
+    fileUri: string,
+    requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+    options?: {
+      workDoneToken?: ProgressToken | SharedProgressToken;
+      skipIfUnavailable?: boolean;
+    },
+  ): Promise<void> {
+    let lastObservedRevision = -1;
+    const runStartedAt = Date.now();
+
+    while (true) {
+      const entry = this.inFlightRegistry.get(key);
+      if (!entry) {
+        return;
+      }
+
+      const revision = entry.revision;
+      const cacheDetailLevel =
+        getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+      const currentDetailLevel = pickHighestDetailLevel(
+        this.symbolManager.getDetailLevelForFile(fileUri) ?? null,
+        cacheDetailLevel,
+      );
+      const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+      const needsEnrichment =
+        !!entry.targetDetailLevel &&
+        (!currentDetailLevel ||
+          getLayerOrderIndex(currentDetailLevel) <
+            getLayerOrderIndex(entry.targetDetailLevel));
+      const needsCrossFileResolution =
+        entry.needsCrossFileResolution && !hasCrossFileResolution(symbolTable);
+
+      if (needsEnrichment && entry.targetDetailLevel) {
+        await this.layerEnrichmentService.enrichFiles(
+          [fileUri],
+          entry.targetDetailLevel,
+          'same-file',
+          options?.workDoneToken,
+        );
+      }
+
+      if (needsCrossFileResolution) {
+        await Effect.runPromise(
+          this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+        );
+        if (requestType !== 'diagnostics') {
+          await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+        }
+      }
+
+      const latestEntry = this.inFlightRegistry.get(key);
+      if (!latestEntry) {
+        return;
+      }
+
+      if (latestEntry.revision === revision) {
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+        if (shouldSignalRefresh) {
+          await Effect.runPromise(
+            getDiagnosticRefreshService().signalEnrichmentComplete(),
+          ).catch(() => {});
+        }
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq complete type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+          );
+        }
+        return;
+      }
+
+      if (latestEntry.revision === lastObservedRevision) {
+        return;
+      }
+
+      lastObservedRevision = latestEntry.revision;
     }
   }
 
@@ -339,10 +545,10 @@ export class PrerequisiteOrchestrationService {
       nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
-    // Load missing artifacts (single batch request)
-    let loadedTypeNames: string[] = [];
+    // Load missing artifacts in true background mode (fire-and-forget).
+    // Do not block hover/references on artifact resolution during startup churn.
     try {
-      const result = await this.artifactResolutionService.resolveBlocking({
+      await this.artifactResolutionService.resolveInBackground({
         identifiers: identifierSpecs,
         origin: {
           uri: fileUri,
@@ -351,42 +557,10 @@ export class PrerequisiteOrchestrationService {
         mode: 'background', // Use background mode - don't open files in editor
         timeoutMsHint: 2000,
       });
-      if (result === 'resolved') {
-        loadedTypeNames = missingTypes;
-      }
     } catch (error: unknown) {
       this.logger.debug(
         () =>
           `Error loading artifacts for types [${missingTypes.join(', ')}]: ${error}`,
-      );
-    }
-
-    // Re-run cross-file resolution after artifacts are loaded
-    if (loadedTypeNames.length > 0) {
-      // Wait for opened files to be indexed (didOpen processing is async).
-      // Without this barrier, we re-run cross-file resolution before the client's
-      // opened documents are processed, so types remain unresolved.
-      // TODO: Replace polling loop with event-driven approach. SymbolManager should
-      // expose a waitForSymbol(name): Promise<void> backed by an event emitter,
-      // so callers can await directly. The current loop calls findSymbolByName()
-      // (O(n)) for every type on every poll iteration, which is expensive when
-      // multiple types are being loaded concurrently.
-      const pollMs =
-        ApexSettingsManager.getInstance().getSettings().apex.findMissingArtifact
-          ?.indexingBarrierPollMs ?? 100;
-      const maxWaitMs = 500;
-      const start = Date.now();
-      while (Date.now() - start < maxWaitMs) {
-        const allIndexed = loadedTypeNames.every((name) => {
-          const symbols = this.symbolManager.findSymbolByName(name);
-          return symbols.length > 0;
-        });
-        if (allIndexed) break;
-        await new Promise((r) => setTimeout(r, pollMs));
-      }
-
-      await Effect.runPromise(
-        this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
       );
     }
   }

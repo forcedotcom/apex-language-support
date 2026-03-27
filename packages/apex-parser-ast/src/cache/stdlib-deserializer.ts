@@ -51,10 +51,12 @@ import { TypeInfo } from '../types/typeInfo';
  * Result of deserialization
  */
 export interface DeserializationResult {
-  /** Map of file URI to SymbolTable */
+  /** Hydrated map of file URI to SymbolTable (lazy-populated) */
   symbolTables: Map<string, SymbolTable>;
   /** Flat list of all type symbols for quick access */
   allTypes: TypeSymbol[];
+  /** Lightweight index with enough data to hydrate one table on demand */
+  typeIndex: Map<string, StdlibTypeIndexEntry>;
   /** Metadata about the cache */
   metadata: {
     generatedAt: string;
@@ -62,6 +64,21 @@ export interface DeserializationResult {
     namespaceCount: number;
     typeCount: number;
   };
+  /** Hydrate/get one symbol table by file URI */
+  getOrCreateSymbolTable: (fileUri: string) => SymbolTable | undefined;
+  /** Check if a symbol table is present in stdlib index */
+  hasSymbolTable: (fileUri: string) => boolean;
+  /** Get all file URIs available in stdlib index */
+  getAllFileUris: () => string[];
+  /** Materialize all symbol tables (compatibility path) */
+  hydrateAllSymbolTables: () => Map<string, SymbolTable>;
+}
+
+export interface StdlibTypeIndexEntry {
+  fileUri: string;
+  namespace: string;
+  className: string;
+  protoType: ProtoTypeSymbol;
 }
 
 /**
@@ -81,16 +98,19 @@ export class StandardLibraryDeserializer {
    */
   deserialize(proto: StandardLibrary): DeserializationResult {
     const symbolTables = new Map<string, SymbolTable>();
+    const typeIndex = new Map<string, StdlibTypeIndexEntry>();
     const allTypes: TypeSymbol[] = [];
     let typeCount = 0;
 
     for (const namespace of proto.namespaces) {
       for (const protoType of namespace.types) {
-        const symbolTable = this.createSymbolTableForType(
+        const className = protoType.name;
+        typeIndex.set(protoType.fileUri, {
+          fileUri: protoType.fileUri,
+          namespace: namespace.name,
+          className,
           protoType,
-          namespace.name,
-        );
-        symbolTables.set(protoType.fileUri, symbolTable);
+        });
 
         // Also add to allTypes for quick access
         const typeSymbol = this.convertTypeSymbol(
@@ -103,14 +123,43 @@ export class StandardLibraryDeserializer {
       }
     }
 
+    const getOrCreateSymbolTable = (
+      fileUri: string,
+    ): SymbolTable | undefined => {
+      const hydrated = symbolTables.get(fileUri);
+      if (hydrated) {
+        return hydrated;
+      }
+      const entry = typeIndex.get(fileUri);
+      if (!entry) {
+        return undefined;
+      }
+      const symbolTable = this.createSymbolTableForType(
+        entry.protoType,
+        entry.namespace,
+      );
+      symbolTables.set(fileUri, symbolTable);
+      return symbolTable;
+    };
+
     return {
       symbolTables,
       allTypes,
+      typeIndex,
       metadata: {
         generatedAt: proto.generatedAt,
         sourceChecksum: proto.sourceChecksum,
         namespaceCount: proto.namespaces.length,
         typeCount,
+      },
+      getOrCreateSymbolTable,
+      hasSymbolTable: (fileUri: string): boolean => typeIndex.has(fileUri),
+      getAllFileUris: (): string[] => Array.from(typeIndex.keys()),
+      hydrateAllSymbolTables: (): Map<string, SymbolTable> => {
+        for (const fileUri of typeIndex.keys()) {
+          getOrCreateSymbolTable(fileUri);
+        }
+        return symbolTables;
       },
     };
   }

@@ -294,6 +294,8 @@ export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
+  let hoverSequence = 0;
+  const inFlightSupersede = new Map<number, () => void>();
   return {
     documentSelector: getDocumentSelectorsFromSettings(
       'all',
@@ -308,8 +310,43 @@ export const createClientOptions = (
       closed: () => handleClientClosed(),
     },
     middleware: {
-      provideHover: async (document, position, token, next) =>
-        next(document, position, token),
+      provideHover: async (document, position, token, next) => {
+        const requestSeq = ++hoverSequence;
+        for (const [seq, resolveSupersede] of inFlightSupersede.entries()) {
+          if (seq < requestSeq) {
+            resolveSupersede();
+            inFlightSupersede.delete(seq);
+          }
+        }
+        try {
+          const nextPromise = Promise.resolve(next(document, position, token));
+          const cancellationPromise = new Promise<null>((resolve) => {
+            if (token.isCancellationRequested) {
+              resolve(null);
+              return;
+            }
+            token.onCancellationRequested(() => resolve(null));
+          });
+          const supersedePromise = new Promise<null>((resolve) => {
+            inFlightSupersede.set(requestSeq, () => resolve(null));
+          });
+          const result = await Promise.race([
+            nextPromise,
+            cancellationPromise,
+            supersedePromise,
+          ]);
+          inFlightSupersede.delete(requestSeq);
+          if (result === null && token.isCancellationRequested) {
+            void nextPromise.catch(() => {});
+          }
+          if (result === null && !token.isCancellationRequested) {
+            void nextPromise.catch(() => {});
+          }
+          return result;
+        } catch (error) {
+          throw error;
+        }
+      },
     },
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],

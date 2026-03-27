@@ -95,7 +95,8 @@ export function getPrerequisitesForLspRequestType(
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // Definitions may be cross-file
         executionMode: 'blocking',
-        skipDuringWorkspaceLoad: true,
+        // Keep definition strict: do not skip prerequisites during workspace load.
+        skipDuringWorkspaceLoad: false,
         missingArtifactResolution: {
           enabled: true, // Definition should attempt missing artifact resolution
           mode: 'blocking', // Block for definition (user expects result)
@@ -146,7 +147,8 @@ export function getPrerequisitesForLspRequestType(
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // May need cross-file for method signatures
         executionMode: 'blocking',
-        skipDuringWorkspaceLoad: true,
+        // Keep signature help strict: do not skip prerequisites during workspace load.
+        skipDuringWorkspaceLoad: false,
       };
 
     case 'codeAction':
