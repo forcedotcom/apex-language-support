@@ -9,6 +9,25 @@
 import type { ApexLanguageServerSettings } from '../server/ApexLanguageServerSettings';
 import type { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
 
+const DEFAULT_DOCUMENT_SCHEMES = [
+  'file',
+  'apexlib',
+  'vscode-test-web',
+  'memfs',
+  'reefs',
+];
+
+function status(enabled: boolean): string {
+  return enabled ? 'enabled' : 'disabled';
+}
+
+function buildDocumentSchemes(additionalSchemes?: string[]): string[] {
+  if (!additionalSchemes || additionalSchemes.length === 0) {
+    return DEFAULT_DOCUMENT_SCHEMES;
+  }
+  return [...new Set([...DEFAULT_DOCUMENT_SCHEMES, ...additionalSchemes])];
+}
+
 /**
  * Generate startup configuration summary for alwaysLog
  * Displays key configuration settings that are always visible regardless of log level
@@ -56,7 +75,7 @@ export function generateStartupSummary(
 
   // Comment collection
   const cc = settings.apex.commentCollection;
-  const ccStatus = cc.enableCommentCollection ? 'enabled' : 'disabled';
+  const ccStatus = status(cc.enableCommentCollection);
   const ccDetail = cc.associateCommentsWithSymbols
     ? ' (associate with symbols)'
     : '';
@@ -65,7 +84,7 @@ export function generateStartupSummary(
   // Load workspace
   const lw = settings.apex.loadWorkspace;
   if (lw) {
-    const lwStatus = lw.enabled ? 'enabled' : 'disabled';
+    const lwStatus = status(lw.enabled);
     summary.push(
       `    - Load Workspace: ${lwStatus}, concurrency=${lw.maxConcurrency}`,
     );
@@ -74,7 +93,7 @@ export function generateStartupSummary(
   // Symbol graph
   const sg = settings.apex.symbolGraph;
   if (sg !== undefined) {
-    const sgStatus = sg.enabled ? 'enabled' : 'disabled';
+    const sgStatus = status(sg.enabled);
     const sgNamespaces =
       sg.preloadNamespaces.length > 0
         ? ` [${sg.preloadNamespaces.join(', ')}]`
@@ -98,25 +117,15 @@ export function generateStartupSummary(
 
   // Missing artifact finder
   const maf = settings.apex.findMissingArtifact;
-  const mafStatus = maf.enabled ? 'enabled' : 'disabled';
+  const mafStatus = status(maf.enabled);
   summary.push(`    - Missing Artifact Finder: ${mafStatus}`);
 
   // LSP document URI schemes (defaults + optional extras)
-  const defaultDocumentSchemes = [
-    'file',
-    'apexlib',
-    'vscode-test-web',
-    'memfs',
-    'reefs',
-  ];
   const extraSchemes =
     settings.apex.environment?.additionalDocumentSchemes?.map(
       (s) => s.scheme,
     ) ?? [];
-  const allSchemes =
-    extraSchemes.length > 0
-      ? [...new Set([...defaultDocumentSchemes, ...extraSchemes])]
-      : defaultDocumentSchemes;
+  const allSchemes = buildDocumentSchemes(extraSchemes);
   summary.push(`  Document schemes: ${allSchemes.join(', ')}`);
 
   // Performance
@@ -197,12 +206,8 @@ export function generateChangeSummary(
   const currCC = current.apex.commentCollection;
 
   if (prevCC.enableCommentCollection !== currCC.enableCommentCollection) {
-    const prevCCEnabled = prevCC.enableCommentCollection
-      ? 'enabled'
-      : 'disabled';
-    const currCCEnabled = currCC.enableCommentCollection
-      ? 'enabled'
-      : 'disabled';
+    const prevCCEnabled = status(prevCC.enableCommentCollection);
+    const currCCEnabled = status(currCC.enableCommentCollection);
     changes.push(`  Comment Collection: ${prevCCEnabled} → ${currCCEnabled}`);
   }
 
@@ -221,7 +226,7 @@ export function generateChangeSummary(
   if (prevLW && currLW) {
     if (prevLW.enabled !== currLW.enabled) {
       changes.push(
-        `  Load Workspace: ${prevLW.enabled ? 'enabled' : 'disabled'} → ${currLW.enabled ? 'enabled' : 'disabled'}`,
+        `  Load Workspace: ${status(prevLW.enabled)} → ${status(currLW.enabled)}`,
       );
     }
 
@@ -238,7 +243,7 @@ export function generateChangeSummary(
 
   if (prevSG?.enabled !== currSG?.enabled) {
     changes.push(
-      `  Symbol Graph: ${prevSG?.enabled ? 'enabled' : 'disabled'} → ${currSG?.enabled ? 'enabled' : 'disabled'}`,
+      `  Symbol Graph: ${status(Boolean(prevSG?.enabled))} → ${status(Boolean(currSG?.enabled))}`,
     );
   }
 
@@ -296,8 +301,8 @@ export function generateChangeSummary(
   const currMAF = current.apex.findMissingArtifact;
 
   if (prevMAF && currMAF && prevMAF.enabled !== currMAF.enabled) {
-    const prevMAFEnabled = prevMAF.enabled ? 'enabled' : 'disabled';
-    const currMAFEnabled = currMAF.enabled ? 'enabled' : 'disabled';
+    const prevMAFEnabled = status(prevMAF.enabled);
+    const currMAFEnabled = status(currMAF.enabled);
     changes.push(
       `  Missing Artifact Finder: ${prevMAFEnabled} → ${currMAFEnabled}`,
     );
@@ -349,29 +354,28 @@ export function generateCapabilitiesSummary(
   const lines: string[] = ['Apex Language Server capabilities'];
 
   const on = (v: unknown) => v !== undefined && v !== false;
-  const flag = (b: boolean) => (b ? 'enabled' : 'disabled');
 
   lines.push('  Language features:');
   lines.push(
-    `    - Completion:        ${flag(on(capabilities.completionProvider))}`,
+    `    - Completion:        ${status(on(capabilities.completionProvider))}`,
   );
   lines.push(
-    `    - Hover:             ${flag(on(capabilities.hoverProvider))}`,
+    `    - Hover:             ${status(on(capabilities.hoverProvider))}`,
   );
   lines.push(
-    `    - Definition:        ${flag(on(capabilities.definitionProvider))}`,
+    `    - Definition:        ${status(on(capabilities.definitionProvider))}`,
   );
   lines.push(
-    `    - Implementation:    ${flag(on(capabilities.implementationProvider))}`,
+    `    - Implementation:    ${status(on(capabilities.implementationProvider))}`,
   );
   lines.push(
-    `    - Document Symbols:  ${flag(on(capabilities.documentSymbolProvider))}`,
+    `    - Document Symbols:  ${status(on(capabilities.documentSymbolProvider))}`,
   );
   lines.push(
-    `    - Folding Ranges:    ${flag(on(capabilities.foldingRangeProvider))}`,
+    `    - Folding Ranges:    ${status(on(capabilities.foldingRangeProvider))}`,
   );
   lines.push(
-    `    - Code Lens:         ${flag(on(capabilities.codeLensProvider))}`,
+    `    - Code Lens:         ${status(on(capabilities.codeLensProvider))}`,
   );
 
   const pushDiag = on(
@@ -398,17 +402,7 @@ export function generateCapabilitiesSummary(
     lines.push('    - Missing Artifact:  enabled');
   }
 
-  const defaultDocumentSchemes = [
-    'file',
-    'apexlib',
-    'vscode-test-web',
-    'memfs',
-    'reefs',
-  ];
-  const allSchemes =
-    additionalSchemes && additionalSchemes.length > 0
-      ? [...new Set([...defaultDocumentSchemes, ...additionalSchemes])]
-      : defaultDocumentSchemes;
+  const allSchemes = buildDocumentSchemes(additionalSchemes);
   lines.push(`  Document schemes: ${allSchemes.join(', ')}`);
 
   return lines.join('\n');

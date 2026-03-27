@@ -3046,7 +3046,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     compilationContext,
                     ReferenceTypeEnum.METHOD,
                     IdentifierContext.NONE,
-                    self as unknown as SymbolProvider,
+                    self,
                   );
                   if (
                     resolutionResult.isResolved &&
@@ -5753,6 +5753,56 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   findExternalType(name: string, packageName: string): ApexSymbol | null {
     const symbols = this.findSymbolByName(name);
     return symbols.find((s) => s.namespace === packageName) || null;
+  }
+
+  findInDefaultNamespaceOrder(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    for (const namespaceName of namespaces) {
+      const symbol = this.findInExplicitNamespace(
+        namespaceName,
+        name,
+        referencingType,
+      );
+      if (symbol) return symbol;
+    }
+    return null;
+  }
+
+  findInImplicitFileNamespaceSlot(
+    name: string,
+    slot: number,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    const namespaceName = namespaces[slot];
+    if (!namespaceName) return null;
+    return this.findInExplicitNamespace(namespaceName, name, referencingType);
+  }
+
+  findInExplicitNamespace(
+    namespaceName: string,
+    typeName: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const normalizedNamespace = namespaceName.toLowerCase();
+    const fqn = `${normalizedNamespace}.${typeName}`;
+    return (
+      this.find(referencingType, fqn) ?? this.findScalarKeywordType(fqn) ?? null
+    );
+  }
+
+  isBuiltInNamespace(namespaceName: string): boolean {
+    if (!namespaceName) return false;
+    if (this.resourceLoader?.isStdApexNamespace(namespaceName)) return true;
+    const normalized = namespaceName.toLowerCase();
+    return normalized === 'system' || normalized === 'schema';
+  }
+
+  isSObjectContainerNamespace(namespaceName: string): boolean {
+    return namespaceName.toLowerCase() === 'schema';
   }
 
   /**
