@@ -108,15 +108,15 @@ module.exports = async () => {
           // Ignore errors - module might not be available
         }
 
-        // Clean up ApexSymbolGraph singleton
-        // ApexSymbolGraph may have background workers (daemon fibers) that need to be shut down
+        // Clean up ApexSymbolRefManager singleton
+        // ApexSymbolRefManager may have background workers (daemon fibers) that need to be shut down
         // Daemon fibers created with Effect.forkDaemon don't get cleaned up automatically
         // when scopes close, so we must explicitly call clear() which interrupts them
         try {
-          const { ApexSymbolGraph } = require('@salesforce/apex-lsp-parser-ast');
-          if (ApexSymbolGraph) {
+          const { ApexSymbolRefManager } = require('@salesforce/apex-lsp-parser-ast');
+          if (ApexSymbolRefManager) {
             // Get the current instance and clear it (which shuts down workers and interrupts daemon fibers)
-            const instance = ApexSymbolGraph.getInstance();
+            const instance = ApexSymbolRefManager.getInstance();
             if (instance && typeof instance.clear === 'function') {
               instance.clear();
               // Give daemon fiber interruptions time to complete
@@ -124,8 +124,8 @@ module.exports = async () => {
               await new Promise((resolve) => setTimeout(resolve, 100));
             }
             // Reset the singleton instance
-            if (typeof ApexSymbolGraph.setInstance === 'function') {
-              ApexSymbolGraph.setInstance(null);
+            if (typeof ApexSymbolRefManager.setInstance === 'function') {
+              ApexSymbolRefManager.setInstance(null);
             }
           }
         } catch (_error) {

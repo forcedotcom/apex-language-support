@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import {
   SymbolTable,
   SymbolKind,
@@ -15,19 +15,19 @@ import {
   SymbolFactory,
 } from '../../src/types/symbol';
 
-describe('ApexSymbolGraph Duplicate Handling', () => {
-  let symbolGraph: ApexSymbolGraph;
+describe('ApexSymbolRefManager Duplicate Handling', () => {
+  let symbolRefManager: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
-    ApexSymbolGraph.setInstance(symbolGraph);
+    symbolRefManager = new ApexSymbolRefManager();
+    ApexSymbolRefManager.setInstance(symbolRefManager);
     symbolTable = new SymbolTable();
     symbolTable.setFileUri('file:///test/TestClass.cls');
   });
 
   afterEach(() => {
-    symbolGraph.clear();
+    symbolRefManager.clear();
   });
 
   const createLocation = (
@@ -96,8 +96,16 @@ describe('ApexSymbolGraph Duplicate Handling', () => {
       symbolTable.addSymbol(method2);
 
       // Add to graph - both should be added even though they have same symbolId
-      symbolGraph.addSymbol(method1, 'file:///test/TestClass.cls', symbolTable);
-      symbolGraph.addSymbol(method2, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        method1,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
+      symbolRefManager.addSymbol(
+        method2,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       // Verify both symbols are in SymbolTable (core duplicate functionality)
       const allMethods = symbolTable.getAllSymbolsById(method1.key.unifiedId!);
@@ -107,7 +115,7 @@ describe('ApexSymbolGraph Duplicate Handling', () => {
 
       // Verify graph can retrieve symbols from SymbolTable
       // Both methods have same symbolId, so getSymbol() returns first match
-      const retrievedSymbol = symbolGraph.getSymbol(method1.id);
+      const retrievedSymbol = symbolRefManager.getSymbol(method1.id);
       expect(retrievedSymbol).toBeDefined();
       expect(retrievedSymbol?.name).toBe('doWork');
     });

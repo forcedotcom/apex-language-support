@@ -370,7 +370,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       const references = symbolManager.getAllReferencesInFile(fileUri);
 
       // Trailing dots may be captured for completion, but should not trigger resolution
-      // The validation in resolveBuiltInType should prevent ResourceLoader calls
+      // The validation in resolveStandardLibraryType should prevent ResourceLoader calls
       const trailingDotRefs = references.filter((r) => r.name.endsWith('.'));
       // If captured, they should not be resolved (resolvedSymbolId should be undefined)
       trailingDotRefs.forEach((ref) => {
@@ -418,7 +418,7 @@ describe('ApexSymbolManager Reference Processing', () => {
   });
 
   describe('ChainedSymbolReference Built-in Type Resolution', () => {
-    it('should resolve System.URL using chain nodes when passed to resolveBuiltInType', async () => {
+    it('should resolve System.Url using chain nodes when passed to resolveStandardLibraryType', async () => {
       const sourceCode = `
         public class TestClass {
           public System.URL myUrl;
@@ -453,13 +453,13 @@ describe('ApexSymbolManager Reference Processing', () => {
       expect(systemUrlRef.chainNodes[1].name).toBe('URL');
 
       // Verify that the reference can be resolved using getSymbolAtPosition
-      // This will use resolveBuiltInType internally, which should leverage the chain nodes
+      // This will use resolveStandardLibraryType internally, which should leverage the chain nodes
       const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
         line: systemUrlRef.location.identifierRange.startLine,
         character: systemUrlRef.location.identifierRange.startColumn,
       });
       // Symbol might be null for type declarations, but the resolution should not throw
-      // The important thing is that resolveBuiltInType was called with the TypeReference
+      // The important thing is that resolveStandardLibraryType was called with the TypeReference
       expect(systemUrlRef.chainNodes).toBeDefined();
       expect(systemUrlRef.chainNodes.length).toBe(2);
     });
@@ -529,7 +529,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Verify simple TypeReference can still be resolved
       const stringRef = stringRefs[0];
-      // Test that getSymbolAtPosition works (this uses resolveBuiltInType internally)
+      // Test that getSymbolAtPosition works (this uses resolveStandardLibraryType internally)
       const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
         line: stringRef.location.identifierRange.startLine,
         character: stringRef.location.identifierRange.startColumn,
@@ -568,7 +568,7 @@ describe('ApexSymbolManager Reference Processing', () => {
           isChainedSymbolReference(ref) &&
           ref.name.includes('System.EncodingUtil'),
       );
-      // Should have chained references, but resolveBuiltInType should handle them correctly
+      // Should have chained references, but resolveStandardLibraryType should handle them correctly
       expect(references.length).toBeGreaterThan(0);
     });
   });

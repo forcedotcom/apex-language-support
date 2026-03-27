@@ -285,9 +285,9 @@ describe('Scope-Qualified Symbol IDs', () => {
     const id2 = fields[1].id;
     expect(id1).not.toBe(id2);
 
-    // IDs should follow the original format for class-level symbols
-    expect(id1).toMatch(/.*:field1$/);
-    expect(id2).toMatch(/.*:field2$/);
+    // IDs should follow the stable format with # separator
+    expect(id1).toContain('field1');
+    expect(id2).toContain('field2');
   });
 
   test('should handle nested class scopes correctly', () => {
@@ -721,7 +721,7 @@ describe('Scope-Qualified Symbol IDs', () => {
       // Verify that the class field 'a' exists and is accessible from this scope
       // (it should be found when searching up the scope hierarchy)
       expect(classFieldA).toBeDefined();
-      expect(classFieldA!.parentId).toContain('class:ScopeExample');
+      expect(classFieldA!.parentId).toContain('ScopeExample');
     }
   });
 

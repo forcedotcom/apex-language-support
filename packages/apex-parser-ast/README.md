@@ -130,44 +130,38 @@ The system distinguishes between **semantic symbols** (the actual code entities)
 **Example:**
 
 ```typescript
-// Class declaration creates two symbols:
-// 1. ClassSymbol: id = "file:///MyClass.cls:class:MyClass"
-// 2. ClassBlockSymbol: id = "file:///MyClass.cls:class:MyClass:block1", parentId = ClassSymbol.id
+// Class declaration creates two symbols (stable, URI + # + qualified name + optional $prefix):
+// 1. ClassSymbol: id = "file:///MyClass.cls#MyClass.MyClass$class"
+// 2. ClassBlockSymbol: id = "file:///MyClass.cls#MyClass.block1$block", parentId = ClassSymbol.id
 
 // Method declaration creates two symbols:
-// 1. MethodSymbol: id = "file:///MyClass.cls:class:MyClass:block1:method:myMethod", parentId = ClassBlockSymbol.id
-// 2. MethodBlockSymbol: id = "file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2", parentId = MethodSymbol.id
+// 1. MethodSymbol: id = "file:///MyClass.cls#MyClass.block1.myMethod$method", parentId = ClassBlockSymbol.id
+// 2. MethodBlockSymbol: id = "file:///MyClass.cls#MyClass.block1.myMethod.block2$block", parentId = MethodSymbol.id
 ```
 
 #### 5. Symbol ID Generation
 
-Symbol IDs use a URI-based format that includes scope path information:
-
-**Format:** `fileUri:scopePath:prefix:name`
+Symbol IDs use a stable URI-based format: `{fileUri}#{qualifiedName}{optionalSignature}{optional$prefix}`.
 
 **Components:**
 
 - `fileUri`: The file containing the symbol (e.g., `file:///path/MyClass.cls`)
-- `scopePath`: Colon-separated path from root to current scope (e.g., `class:MyClass:block1`)
-- `prefix`: Symbol kind or scope type (e.g., `class`, `method`, `block`)
-- `name`: Symbol name (e.g., `myMethod`)
+- `qualifiedName`: Dot-separated scope path (e.g., `MyClass.Inner.myMethod`)
+- Optional signature fragment for overloads: `#(Type1,Type2)`
+- Optional `$prefix` for disambiguation (e.g., `$class`, `$method`, `$block`)
 
 **Examples:**
 
 ```
-Class:        file:///MyClass.cls:class:MyClass
-Class Block: file:///MyClass.cls:class:MyClass:block1
-Method:      file:///MyClass.cls:class:MyClass:block1:method:myMethod
-Method Block: file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2
-Variable:    file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2:variable:x
+Class:         file:///MyClass.cls#MyClass.MyClass$class
+Class block:   file:///MyClass.cls#MyClass.block1$block
+Method:        file:///MyClass.cls#MyClass.block1.myMethod$method
+Method block:  file:///MyClass.cls#MyClass.block1.myMethod.block2$block
 ```
 
-**Scope Path Construction:**
+**Scope path construction:**
 
-- Includes root symbol's prefix and name (e.g., `class:MyClass`)
-- Includes intermediate block names (e.g., `block1`, `block2`)
-- Uses colons as separators for consistency
-- Method blocks append directly to method symbol's path
+- Qualified names are built in dot form from scope path and symbol name; `generateSymbolId` / `generateUnifiedId` produce the `#` fragment.
 
 #### 6. SymbolTable Integration
 
@@ -1139,21 +1133,25 @@ The `GlobalTypeRegistry` provides O(1) type lookup for standard library types, e
 
 The Standard Apex Library is located in `src/resources/StandardApexLibrary/` and contains all standard Apex classes organized by namespace. The library is packaged into a ZIP file during the build process for efficient distribution.
 
-**⚠️ CRITICAL WARNING: DO NOT REMOVE BUILTIN CLASSES**
+**⚠️ CRITICAL WARNING: DO NOT REMOVE STDLIB FOUNDATION CLASSES**
 
-The following 5 classes are **hand-crafted builtin classes** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. These override the StandardApexLibrary versions because they include methods not fully documented in the public API reference:
+The following 15 classes are **essential build inputs** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. They are part of the standard Apex library artifact and **MUST NOT BE REMOVED**:
 
-- `Blob.cls` - Hand-crafted: append(), subBlob(), toHexString(), valueOf(String, encoding)
-- `DateTime.cls` - Temporarily retained until added to StandardApexLibrary
-- `Integer.cls` - Hand-crafted: decimalValue(), doubleValue(), longValue()
-- `Long.cls` - Hand-crafted: decimalValue(), doubleValue()
-- `Object.cls` - Hand-crafted: equals(), hashCode(), toString() (minimal in docs)
-
-**Other builtin classes:**
-
-The following 10 classes are sourced from `StandardApexLibrary/System/` (generated from public API docs) and should NOT be in `builtins/`:
-
-- `Boolean.cls`, `Date.cls`, `Decimal.cls`, `Double.cls`, `Id.cls`, `List.cls`, `Map.cls`, `Set.cls`, `String.cls`, `Time.cls`
+- `Blob.cls` - Blob primitive type wrapper
+- `Boolean.cls` - Boolean primitive type wrapper
+- `Date.cls` - Date primitive type wrapper (contains instance methods)
+- `DateTime.cls` - DateTime primitive type wrapper
+- `Decimal.cls` - Decimal primitive type wrapper
+- `Double.cls` - Double primitive type wrapper
+- `Id.cls` - Id primitive type wrapper
+- `Integer.cls` - Integer primitive type wrapper
+- `List.cls` - List collection type
+- `Long.cls` - Long primitive type wrapper
+- `Map.cls` - Map collection type
+- `Object.cls` - Object base type
+- `Set.cls` - Set collection type
+- `String.cls` - String primitive type wrapper
+- `Time.cls` - Time primitive type wrapper (contains instance methods)
 
 **Why these classes are critical:**
 
@@ -1166,10 +1164,10 @@ The following 10 classes are sourced from `StandardApexLibrary/System/` (generat
 1. **Adding new classes**: Add new standard Apex classes to the appropriate namespace folder in `StandardApexLibrary/`
 2. **Updating existing classes**: Update class stubs as needed, but preserve the structure and essential methods
 3. **Removing classes**: Only remove classes that are confirmed deprecated by Salesforce and have been removed from the platform
-4. **Never remove the builtin classes listed above** - they are required for the language server to function correctly
+4. **Never remove the foundational classes listed above** - they are required for the language server to function correctly
 5. **ZIP generation**: After making changes, run `npm run build` to regenerate the ZIP file using `scripts/generate-zip.mjs`
    - The build script automatically merges `builtins/` into `StandardApexLibrary/System/` in the ZIP
-   - Builtin classes should only be edited in `builtins/`, not in `StandardApexLibrary/System/`
+   - Edit these source stubs only in `builtins/`, not in `StandardApexLibrary/System/`
 
 **Source File Structure:**
 

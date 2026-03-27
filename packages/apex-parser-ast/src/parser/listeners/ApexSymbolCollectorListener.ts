@@ -88,6 +88,7 @@ import {
   createCollectionTypeInfo,
   createMapTypeInfo,
 } from '../../utils/TypeInfoFactory';
+import { applyModifierKeyword } from '../utils/applyModifierKeyword';
 import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 import {
   SymbolReferenceFactory,
@@ -95,6 +96,7 @@ import {
   EnhancedSymbolReference,
 } from '../../types/symbolReference';
 import type { SymbolReference } from '../../types/symbolReference';
+import { type ParameterInfo } from '../../types/UriBasedIdGenerator';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -128,6 +130,7 @@ import { localizeTyped } from '../../i18n/messageInstance';
 import { ErrorCodes } from '../../generated/ErrorCodes';
 import {
   hasIdMethod,
+  inTypeSymbolGroup,
   isEnumSymbol,
   isMethodSymbol,
   isClassSymbol,
@@ -351,14 +354,7 @@ export class ApexSymbolCollectorListener
           // Block's parentId points to the class/interface/enum/trigger symbol
           const typeSymbol = this.symbolTable
             .getAllSymbols()
-            .find(
-              (s) =>
-                s.id === owner.parentId &&
-                (s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger),
-            );
+            .find((s) => s.id === owner.parentId && inTypeSymbolGroup(s));
           if (typeSymbol) return typeSymbol as TypeSymbol;
         }
       }
@@ -469,14 +465,7 @@ export class ApexSymbolCollectorListener
       );
       if (semanticSymbol) {
         // Verify it's the right kind
-        if (
-          !(
-            semanticSymbol.kind === SymbolKind.Class ||
-            semanticSymbol.kind === SymbolKind.Interface ||
-            semanticSymbol.kind === SymbolKind.Enum ||
-            semanticSymbol.kind === SymbolKind.Trigger
-          )
-        ) {
+        if (!inTypeSymbolGroup(semanticSymbol)) {
           semanticSymbol = undefined;
         }
       }
@@ -489,10 +478,7 @@ export class ApexSymbolCollectorListener
           if (
             s.name === searchName &&
             s.kind !== SymbolKind.Block &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger)
+            inTypeSymbolGroup(s)
           ) {
             semanticSymbol = s;
             break;
@@ -536,7 +522,7 @@ export class ApexSymbolCollectorListener
   ): string[] {
     // Extract method path from method symbol's ID
     // Method symbol ID format: fileUri:scopePath:prefix:name
-    // e.g., 'file:///test/TestClass.cls:class:MyClass:block_1:method:myMethod'
+    // e.g., stable URI-based unified IDs (file URI + # + qualified name + optional $prefix)
     const methodIdStr = methodSymbol.id;
     const fileUriEnd = methodIdStr.indexOf(':', methodIdStr.indexOf('://') + 3);
     // Extract method path from method symbol's ID
@@ -692,13 +678,7 @@ export class ApexSymbolCollectorListener
       visited.add(current.id);
 
       // If this symbol is a root (parentId === null) and is a type, return it
-      if (
-        current.parentId === null &&
-        (current.kind === SymbolKind.Class ||
-          current.kind === SymbolKind.Interface ||
-          current.kind === SymbolKind.Enum ||
-          current.kind === SymbolKind.Trigger)
-      ) {
+      if (current.parentId === null && inTypeSymbolGroup(current)) {
         return current;
       }
 
@@ -997,7 +977,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Apply the modifier to the current modifiers
-      this.applyModifier(this.currentModifiers, modifier);
+      applyModifierKeyword(this.currentModifiers, modifier);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error processing modifier: ${errorMessage}`, ctx);
@@ -1489,12 +1469,16 @@ export class ApexSymbolCollectorListener
         this.shouldProcessSymbol(modifiers.visibility);
 
       if (shouldCollect) {
+        // Extract parameter info for stable ID generation
+        const parameterInfo = this.extractParameterInfoFromContext(ctx);
+
         // Create a new method symbol
         const methodSymbol = this.createMethodSymbol(
           ctx,
           name,
           modifiers,
           returnType,
+          parameterInfo,
         );
 
         // Check if method has a body block
@@ -1678,6 +1662,9 @@ export class ApexSymbolCollectorListener
         this.shouldProcessSymbol(modifiers.visibility);
 
       if (shouldCollect) {
+        // Extract parameter info for stable ID generation
+        const parameterInfo = this.extractParameterInfoFromContext(ctx);
+
         // Create constructor symbol using dedicated createConstructorSymbol method
         // The getIdentifierLocation method will automatically handle qualified names
         // and extract the proper identifier location from the parser structure
@@ -1685,6 +1672,7 @@ export class ApexSymbolCollectorListener
           ctx,
           name,
           modifiers,
+          parameterInfo,
         );
 
         // CRITICAL: Ensure constructor's parentId points to the class block (for uniform FQN hierarchy)
@@ -5616,50 +5604,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Apply a modifier to the modifiers object
-   */
-  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
-    switch (modifier.toLowerCase()) {
-      case 'public':
-        modifiers.visibility = SymbolVisibility.Public;
-        break;
-      case 'private':
-        modifiers.visibility = SymbolVisibility.Private;
-        break;
-      case 'protected':
-        modifiers.visibility = SymbolVisibility.Protected;
-        break;
-      case 'global':
-        modifiers.visibility = SymbolVisibility.Global;
-        break;
-      case 'static':
-        modifiers.isStatic = true;
-        break;
-      case 'final':
-        modifiers.isFinal = true;
-        break;
-      case 'abstract':
-        modifiers.isAbstract = true;
-        break;
-      case 'virtual':
-        modifiers.isVirtual = true;
-        break;
-      case 'override':
-        modifiers.isOverride = true;
-        break;
-      case 'transient':
-        modifiers.isTransient = true;
-        break;
-      case 'testmethod':
-        modifiers.isTestMethod = true;
-        break;
-      case 'webservice':
-        modifiers.isWebService = true;
-        break;
-    }
-  }
-
-  /**
    * Extract text from a parser context
    */
   private getTextFromContext(ctx: any): string {
@@ -5777,14 +5721,7 @@ export class ApexSymbolCollectorListener
       // Block's parentId points to the class symbol
       const classSymbol = this.symbolTable
         .getAllSymbols()
-        .find(
-          (s) =>
-            s.id === parent.parentId &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger),
-        );
+        .find((s) => s.id === parent.parentId && inTypeSymbolGroup(s));
       return classSymbol !== null && classSymbol !== undefined;
     }
 
@@ -6480,9 +6417,6 @@ export class ApexSymbolCollectorListener
     }
 
     // Get current scope path for unique symbol ID
-    // Include root symbol's prefix and name in scopePath to match class ID format
-    // Class ID: fileUri:class:MyClass
-    // Child symbols should include: class:MyClass in their scopePath
     const baseScopePath = this.symbolTable.getCurrentScopePath(
       this.getCurrentScopeSymbol(),
     );
@@ -6495,11 +6429,33 @@ export class ApexSymbolCollectorListener
       rootSymbol &&
       !(isTopLevel && rootSymbol.name === name && rootSymbol.kind === kind)
     ) {
-      // Include the root symbol's prefix (kind) and name to match the class ID format
-      // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
-      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      const rootPrefix = rootSymbol.kind;
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
     }
+
+    // Clean scope path: remove symbol kinds and duplicate names for stable IDs
+    const cleanScopePath = scopePath.filter((part, index) => {
+      // Remove symbol kind markers
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      // Remove duplicate adjacent names
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
     // For inner types, use class block as parent (consistent with methods/constructors/fields)
     const classBlock = this.getCurrentScopeSymbol();
     const parentId =
@@ -6519,7 +6475,7 @@ export class ApexSymbolCollectorListener
       undefined, // No typeData needed - interfaces are set directly on TypeSymbol
       namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),
-      scopePath, // Pass scope path for unique ID generation
+      cleanScopePath, // Pass cleaned scope path for stable ID generation
     ) as TypeSymbol;
 
     // Parent key removed - use parentId for parent resolution
@@ -6568,11 +6524,44 @@ export class ApexSymbolCollectorListener
     return null;
   }
 
+  /**
+   * Convert VariableSymbol array (parameters) to ParameterInfo array for stable ID generation
+   */
+  private convertToParameterInfo(
+    parameters: VariableSymbol[],
+  ): ParameterInfo[] {
+    return parameters.map((param) => ({
+      type: param.type?.name || 'Object',
+      name: param.name,
+    }));
+  }
+
+  /**
+   * Extract parameter info directly from method/constructor context for stable ID generation
+   */
+  private extractParameterInfoFromContext(
+    ctx: MethodDeclarationContext | ConstructorDeclarationContext,
+  ): ParameterInfo[] {
+    const formalParams =
+      ctx.formalParameters()?.formalParameterList()?.formalParameter() || [];
+
+    return formalParams.map((param) => {
+      const typeRef = param.typeRef();
+      const typeName = typeRef ? this.getTextFromContext(typeRef) : 'Object';
+      const paramName = param.id()?.text || 'param';
+      return {
+        type: typeName,
+        name: paramName,
+      };
+    });
+  }
+
   private createMethodSymbol(
     ctx: ParserRuleContext,
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
+    parameters: ParameterInfo[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -6583,20 +6572,39 @@ export class ApexSymbolCollectorListener
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
     // Get current scope path for unique symbol ID
-    // Include root symbol's prefix and name in scopePath to match class ID format
-    // Class ID: fileUri:class:MyClass
-    // Method ID should be: fileUri:class:MyClass:block1:method:myMethod
     const baseScopePath = this.symbolTable.getCurrentScopePath(
       this.getCurrentScopeSymbol(),
     );
     const rootSymbol = this.findRootSymbol(this.getCurrentScopeSymbol());
     let scopePath: string[] = baseScopePath;
     if (rootSymbol) {
-      // Include the root symbol's prefix (kind) and name to match the class ID format
-      // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
-      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      const rootPrefix = rootSymbol.kind;
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
     }
+
+    // Clean scope path: remove symbol kinds and duplicate names for stable IDs
+    // Filter out implementation details like 'class', 'block', 'method' and duplicate adjacent names
+    const cleanScopePath = scopePath.filter((part, index) => {
+      // Remove symbol kind markers
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      // Remove duplicate adjacent names (e.g., ['MyClass', 'MyClass'] -> ['MyClass'])
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
 
     // Convert @isTest annotation to isTestMethod modifier
     const annotations = this.getCurrentAnnotations();
@@ -6616,6 +6624,7 @@ export class ApexSymbolCollectorListener
       methodParentId = parent.id;
     }
 
+    // Pass parameters for stable ID generation
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -6623,10 +6632,10 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       methodParentId,
-      undefined, // No typeData needed - returnType and parameters are set directly on MethodSymbol
+      parameters.length > 0 ? { parameters } : undefined, // Pass parameters through typeData
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
-      scopePath, // Pass scope path for unique ID generation
+      cleanScopePath, // Pass cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     // Initialize the parameters array for MethodSymbol interface
@@ -6794,6 +6803,7 @@ export class ApexSymbolCollectorListener
     ctx: ParserRuleContext,
     name: string,
     modifiers: SymbolModifiers,
+    parameters: ParameterInfo[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -6804,9 +6814,38 @@ export class ApexSymbolCollectorListener
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
     // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath(
+    const baseScopePath = this.symbolTable.getCurrentScopePath(
       this.getCurrentScopeSymbol(),
     );
+    const rootSymbol = this.findRootSymbol(this.getCurrentScopeSymbol());
+    let scopePath: string[] = baseScopePath;
+    if (rootSymbol) {
+      const rootPrefix = rootSymbol.kind;
+      scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    }
+
+    // Clean scope path: remove symbol kinds and duplicate names for stable IDs
+    const cleanScopePath = scopePath.filter((part, index) => {
+      // Remove symbol kind markers
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      // Remove duplicate adjacent names
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
 
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -6815,10 +6854,10 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       parent?.id || null,
-      undefined, // No typeData needed - returnType and parameters are set directly on MethodSymbol
+      parameters.length > 0 ? { parameters } : undefined, // Pass parameters through typeData
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
-      scopePath, // Pass scope path for unique ID generation
+      cleanScopePath, // Pass cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     // Initialize the parameters array for MethodSymbol interface

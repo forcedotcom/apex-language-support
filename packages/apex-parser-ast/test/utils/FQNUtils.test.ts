@@ -9,7 +9,7 @@
 import {
   calculateFQN,
   extractNamespace,
-  isBuiltInFQN,
+  isStandardLibraryFQN,
   getNamespaceFromFQN,
   isGlobalSymbol,
   isBlockScope,
@@ -763,20 +763,20 @@ describe('FQN Utilities', () => {
     });
   });
 
-  describe('isBuiltInFQN', () => {
+  describe('isStandardLibraryFQN', () => {
     it('should identify built-in namespace types', () => {
-      expect(isBuiltInFQN('System.String')).toBe(true);
-      expect(isBuiltInFQN('Database.QueryLocator')).toBe(true);
+      expect(isStandardLibraryFQN('System.String')).toBe(true);
+      expect(isStandardLibraryFQN('Database.QueryLocator')).toBe(true);
     });
 
     it('should identify standalone built-in namespaces', () => {
-      expect(isBuiltInFQN('System')).toBe(true);
-      expect(isBuiltInFQN('Database')).toBe(true);
+      expect(isStandardLibraryFQN('System')).toBe(true);
+      expect(isStandardLibraryFQN('Database')).toBe(true);
     });
 
     it('should return false for custom namespaces', () => {
-      expect(isBuiltInFQN('MyNamespace.MyClass')).toBe(false);
-      expect(isBuiltInFQN('Custom.Type')).toBe(false);
+      expect(isStandardLibraryFQN('MyNamespace.MyClass')).toBe(false);
+      expect(isStandardLibraryFQN('Custom.Type')).toBe(false);
     });
   });
 

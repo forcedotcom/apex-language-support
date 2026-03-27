@@ -485,7 +485,6 @@ export class LSPQueueManager {
             `execution=${executionTime}ms)`,
         );
       }
-
       if (result._tag === 'Failure') {
         // Extract the error from the Effect failure cause
         // The cause should be a Fail cause containing our Error

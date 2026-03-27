@@ -25,7 +25,7 @@ import type {
   ReferenceEdge,
   ReferenceType,
   ReferenceNode,
-} from './ApexSymbolGraph';
+} from './ApexSymbolRefManager';
 
 /**
  * Deferred reference structure

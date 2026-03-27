@@ -36,6 +36,23 @@ const {
 const execAsync = promisify(exec);
 
 /**
+ * Maps `.vscode-version` content to @vscode/test-web download options.
+ * getBuild() uses `quality = options.quality || options.version` and only
+ * downloads **stable** when that value is the literal string `'stable'`.
+ * A semver like `1.108.0` is not `'stable'`, so the harness would otherwise
+ * fetch **latest Insider** (not that release). Semver pins here mean "match
+ * stable channel" unless you also pass a 40-char `commit`.
+ * @param {string} vsCodeVersion from readLocalVSCodeVersion()
+ * @returns {{ quality: 'stable' } | { version: string }}
+ */
+function resolveVscodeWebBuildOptions(vsCodeVersion) {
+  if (vsCodeVersion === 'stable' || /^\d+\.\d+\.\d+$/.test(vsCodeVersion)) {
+    return { quality: 'stable' };
+  }
+  return { version: vsCodeVersion };
+}
+
+/**
  * Creates a test Apex class with @isTest annotations for testing CodeLens functionality
  * @param {string} workspacePath Path to the test workspace
  */
@@ -741,6 +758,7 @@ async function runWebExtensionTests() {
     console.log(`📂 Workspace path: ${workspacePath}`);
 
     const vsCodeVersion = readLocalVSCodeVersion();
+    const vscodeWebBuildOptions = resolveVscodeWebBuildOptions(vsCodeVersion);
 
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
@@ -798,7 +816,7 @@ async function runWebExtensionTests() {
       // No extensionTestsPath - just test extension loading and activation
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',
-      version: vsCodeVersion,
+      ...vscodeWebBuildOptions,
       waitForDebugger: process.argv.includes('--debug'),
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging

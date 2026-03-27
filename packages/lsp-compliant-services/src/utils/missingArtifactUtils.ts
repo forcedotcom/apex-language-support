@@ -25,6 +25,7 @@ export class MissingArtifactUtils {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private missingArtifactService?: MissingArtifactResolutionService;
+  private static recentBackgroundRequests = new Map<string, number>();
 
   constructor(
     logger: LoggerInterface,
@@ -115,6 +116,9 @@ export class MissingArtifactUtils {
       const identifierName = reference.qualifier
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
+      const dedupeKey = `${requestKind}|${uri}|${identifierName}`;
+      const now = Date.now();
+      MissingArtifactUtils.recentBackgroundRequests.set(dedupeKey, now);
       service.resolveInBackground({
         identifiers: [
           {

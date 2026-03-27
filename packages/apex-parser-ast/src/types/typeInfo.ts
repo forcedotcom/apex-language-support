@@ -24,7 +24,10 @@ export interface TypeInfo {
   /** If this is a primitive type (Integer, String, Boolean, etc.) */
   isPrimitive: boolean;
 
-  /** If this is a built-in Apex type (List, Set, Map, String, Integer, System.*, etc.) */
+  /**
+   * True for types that come from the standard Apex library (primitives, collections, System types).
+   * Prefer {@link isStandardLibraryTypeInfo} when you need resolvedSymbol / apexlib URIs.
+   */
   isBuiltIn?: boolean;
 
   /** The namespace if applicable */
@@ -158,6 +161,14 @@ export function createMapType(
 /**
  * Helper function to build type string with generics
  */
+/** True if the type is standard library (legacy isBuiltIn flag or resolved apexlib symbol). */
+export function isStandardLibraryTypeInfo(type: TypeInfo | undefined): boolean {
+  if (!type) return false;
+  if (type.isBuiltIn) return true;
+  const sym = type.resolvedSymbol as { fileUri?: string } | undefined;
+  return !!sym?.fileUri?.startsWith('apexlib://');
+}
+
 function buildTypeString(
   baseName: string,
   typeParameters: TypeInfo[] = [],

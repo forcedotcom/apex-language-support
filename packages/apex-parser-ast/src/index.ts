@@ -80,7 +80,7 @@ export * from './symbols/ApexSymbolProcessingManager';
 export * from './symbols/resolution/types';
 
 // Export reference graph and types
-export * from './symbols/ApexSymbolGraph';
+export * from './symbols/ApexSymbolRefManager';
 
 // Export background processing components
 export * from './symbols/ApexSymbolIndexingService';
