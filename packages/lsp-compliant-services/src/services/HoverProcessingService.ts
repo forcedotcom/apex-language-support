@@ -37,10 +37,7 @@ import {
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
-import {
-  isWorkspaceLoaded,
-  isWorkspaceLoading,
-} from './WorkspaceLoadCoordinator';
+import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 import {
@@ -122,32 +119,6 @@ export class HoverProcessingService implements IHoverProcessor {
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
     const hoverStartTime = Date.now();
-    let referencesCount = 0;
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H4',
-        location: 'HoverProcessingService.ts:123',
-        message: 'processHover start',
-        data: {
-          uri: params.textDocument.uri,
-          line: params.position.line,
-          char: params.position.character,
-          hasPrereqService: !!this.prerequisiteOrchestrationService,
-          workspaceLoading: isWorkspaceLoading(),
-          workspaceLoaded: isWorkspaceLoaded(),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     this.logger.debug(
       () =>
         `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
@@ -181,32 +152,6 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-      referencesCount = references?.length ?? 0;
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H4',
-            location: 'HoverProcessingService.ts:156',
-            message: 'references lookup complete',
-            data: {
-              uri: params.textDocument.uri,
-              referencesCount: references?.length ?? 0,
-              referencesTime,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
@@ -230,30 +175,6 @@ export class HoverProcessingService implements IHoverProcessor {
               [],
               parserPosition,
             );
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': '0aca23',
-                },
-                body: JSON.stringify({
-                  sessionId: '0aca23',
-                  runId: 'hover-regression',
-                  hypothesisId: 'H8',
-                  location: 'HoverProcessingService.ts:178',
-                  message: 'return successful hover from declaration-path',
-                  data: {
-                    uri: params.textDocument.uri,
-                    symbol: symbolAtPosition.name,
-                  },
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
             return hover;
           }
         }
@@ -580,27 +501,6 @@ export class HoverProcessingService implements IHoverProcessor {
             );
 
           if (!variableRef) {
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': '0aca23',
-                },
-                body: JSON.stringify({
-                  sessionId: '0aca23',
-                  runId: 'hover-regression',
-                  hypothesisId: 'H5',
-                  location: 'HoverProcessingService.ts:507',
-                  message: 'early searching-hover branch',
-                  data: { uri: params.textDocument.uri },
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
             this.missingArtifactUtils.tryResolveMissingArtifactBackground(
               params.textDocument.uri,
               params.position,
@@ -608,27 +508,6 @@ export class HoverProcessingService implements IHoverProcessor {
             );
 
             const searchingHover = await this.createSearchingHover(params);
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': '0aca23',
-                },
-                body: JSON.stringify({
-                  sessionId: '0aca23',
-                  runId: 'hover-regression',
-                  hypothesisId: 'H8',
-                  location: 'HoverProcessingService.ts:537',
-                  message: 'return searching hover from early branch',
-                  data: { uri: params.textDocument.uri },
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
             return searchingHover;
           }
         }
@@ -857,27 +736,6 @@ export class HoverProcessingService implements IHoverProcessor {
           );
 
           const searchingHover = await this.createSearchingHover(params);
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': '0aca23',
-              },
-              body: JSON.stringify({
-                sessionId: '0aca23',
-                runId: 'hover-regression',
-                hypothesisId: 'H8',
-                location: 'HoverProcessingService.ts:767',
-                message: 'return searching hover after enrichment miss',
-                data: { uri: params.textDocument.uri },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
           return searchingHover;
         }
 
@@ -991,32 +849,6 @@ export class HoverProcessingService implements IHoverProcessor {
           `[HOVER-DIAG] Error processing hover after ${totalTime}ms: ${error}`,
       );
       return null;
-    } finally {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H7',
-            location: 'HoverProcessingService.ts:852',
-            message: 'processHover end',
-            data: {
-              uri: params.textDocument.uri,
-              totalTime: Date.now() - hoverStartTime,
-              referencesCount,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
     }
   }
 
@@ -1066,28 +898,6 @@ export class HoverProcessingService implements IHoverProcessor {
     references?: any[],
     position?: { line: number; character: number },
   ): Promise<Hover> {
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H9',
-        location: 'HoverProcessingService.ts:createHoverInformation',
-        message: 'createHoverInformation called',
-        data: {
-          fileUri: symbol.fileUri ?? null,
-          name: symbol.name,
-          kind: symbol.kind,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     const content: string[] = [];
 
     // Construct display FQN (semantic hierarchy without block symbols) with original casing preserved
@@ -1255,28 +1065,6 @@ export class HoverProcessingService implements IHoverProcessor {
    * Create a hover that shows the user we're searching for a missing artifact
    */
   private async createSearchingHover(params: HoverParams): Promise<Hover> {
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H9',
-        location: 'HoverProcessingService.ts:createSearchingHover',
-        message: 'createSearchingHover called',
-        data: {
-          uri: params.textDocument.uri,
-          line: params.position.line,
-          char: params.position.character,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     const content: string[] = [];
 
     // Extract the symbol name from the text at the hover position

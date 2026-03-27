@@ -213,25 +213,6 @@ export class LCSAdapter {
    * - Lazy loading: classes are loaded on-demand from protobuf cache
    */
   private async initializeResourceLoader(): Promise<void> {
-    const startedAt = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H11',
-        location: 'LCSAdapter.ts:initializeResourceLoader:start',
-        message: 'resource loader init start',
-        data: { workspaceRootUri: this.workspaceRootUri ?? null },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     try {
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
 
@@ -239,57 +220,9 @@ export class LCSAdapter {
 
       // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H11',
-            location: 'LCSAdapter.ts:initializeResourceLoader:done',
-            message: 'resource loader init done',
-            data: {
-              durationMs: Date.now() - startedAt,
-              stdlibLoaded: resourceLoader.isStandardLibrarySymbolDataLoaded(),
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
 
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H11',
-            location: 'LCSAdapter.ts:initializeResourceLoader:error',
-            message: 'resource loader init failed',
-            data: {
-              durationMs: Date.now() - startedAt,
-              error: String(error),
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
       this.handleResourceLoaderError(error);
     }
   }
@@ -314,25 +247,6 @@ export class LCSAdapter {
    * Special handling: "*" loads all available namespaces.
    */
   private async prePopulateSymbolGraph(): Promise<void> {
-    const startedAt = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H12',
-        location: 'LCSAdapter.ts:prePopulateSymbolGraph:start',
-        message: 'symbol graph prepopulation start',
-        data: {},
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     try {
       const settings = ApexSettingsManager.getInstance().getSettings();
       const symbolGraphSettings = settings.apex.symbolGraph;
@@ -340,54 +254,12 @@ export class LCSAdapter {
       // Check if feature is enabled
       if (!symbolGraphSettings?.enabled) {
         this.logger.debug('Symbol graph pre-population disabled');
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '0aca23',
-            },
-            body: JSON.stringify({
-              sessionId: '0aca23',
-              runId: 'hover-regression',
-              hypothesisId: 'H12',
-              location: 'LCSAdapter.ts:prePopulateSymbolGraph:disabled',
-              message: 'symbol graph prepopulation skipped disabled',
-              data: { durationMs: Date.now() - startedAt },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         return;
       }
 
       let namespacesToLoad = symbolGraphSettings.preloadNamespaces || [];
       if (namespacesToLoad.length === 0) {
         this.logger.debug('No namespaces configured for pre-population');
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '0aca23',
-            },
-            body: JSON.stringify({
-              sessionId: '0aca23',
-              runId: 'hover-regression',
-              hypothesisId: 'H12',
-              location: 'LCSAdapter.ts:prePopulateSymbolGraph:noNamespaces',
-              message: 'symbol graph prepopulation skipped no namespaces',
-              data: { durationMs: Date.now() - startedAt },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         return;
       }
 
@@ -453,54 +325,7 @@ export class LCSAdapter {
         `✅ Symbol graph pre-populated: ${loadedClasses}/${totalClasses} classes ` +
           `from ${namespacesToLoad.length} namespaces in ${duration.toFixed(2)}ms`,
       );
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H12',
-            location: 'LCSAdapter.ts:prePopulateSymbolGraph:done',
-            message: 'symbol graph prepopulation done',
-            data: {
-              durationMs: Date.now() - startedAt,
-              loadedClasses,
-              totalClasses,
-              namespacesCount: namespacesToLoad.length,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
     } catch (error) {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H12',
-            location: 'LCSAdapter.ts:prePopulateSymbolGraph:error',
-            message: 'symbol graph prepopulation failed',
-            data: { durationMs: Date.now() - startedAt, error: String(error) },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
       this.logger.error(
         () => `Symbol graph pre-population failed: ${formattedError(error)}`,
       );

@@ -29,18 +29,29 @@ import {
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
 import { getDocumentStateCache } from './DocumentStateCache';
+import type { DetailLevel } from './DocumentStateCache';
 import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   getLayerOrderIndex,
   hasCrossFileResolution,
 } from './PrerequisiteHelpers';
+import { getInFlightPrerequisiteRegistry } from './InFlightPrerequisiteRegistry';
 import {
   createMissingArtifactResolutionService,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
 
 let activeAsyncHoverEnrichments = 0;
+
+const pickHighestDetailLevel = (
+  a: DetailLevel | null,
+  b: DetailLevel | null,
+): DetailLevel | null => {
+  if (!a) return b;
+  if (!b) return a;
+  return getLayerOrderIndex(a) >= getLayerOrderIndex(b) ? a : b;
+};
 
 /** Map SymbolReference to IdentifierSpec with typeReference, searchHints, qualifier */
 function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
@@ -126,6 +137,7 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private readonly inFlightRegistry = getInFlightPrerequisiteRegistry();
 
   constructor(
     private logger: LoggerInterface,
@@ -177,8 +189,12 @@ export class PrerequisiteOrchestrationService {
     }
 
     // Get current state
-    const currentDetailLevel =
-      this.symbolManager.getDetailLevelForFile(fileUri);
+    const cacheDetailLevel =
+      getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+    const currentDetailLevel = pickHighestDetailLevel(
+      this.symbolManager.getDetailLevelForFile(fileUri),
+      cacheDetailLevel,
+    );
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
 
     // Determine what needs to be done.
@@ -204,38 +220,6 @@ export class PrerequisiteOrchestrationService {
       requirements.requiresCrossFileResolution &&
       !hasCrossFileResolution(symbolTable);
 
-    if (requestType === 'hover') {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H3',
-            location: 'PrerequisiteOrchestrationService.ts:207',
-            message: 'hover prerequisites computed',
-            data: {
-              fileUri,
-              executionMode: requirements.executionMode,
-              requiredDetailLevel: requirements.requiredDetailLevel,
-              needsEnrichment,
-              needsCrossFileResolution,
-              workspaceLoading: isWorkspaceLoading(),
-              workspaceLoaded: isWorkspaceLoaded(),
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-    }
-
     // Handle missing artifact resolution configuration
     // The actual resolution will be handled by services themselves,
     // but we log that it may be needed
@@ -245,6 +229,64 @@ export class PrerequisiteOrchestrationService {
         () =>
           `Missing artifact resolution may be needed for ${requestType} (mode: ${config.mode})`,
       );
+    }
+
+    const shouldCoordinatePrerequisites =
+      requestType === 'file-open-single' ||
+      requestType === 'documentOpen' ||
+      requestType === 'diagnostics';
+
+    if (
+      shouldCoordinatePrerequisites &&
+      (needsEnrichment || needsCrossFileResolution)
+    ) {
+      const cachedVersion =
+        getDocumentStateCache().getCurrentState(fileUri)?.documentVersion ?? -1;
+      this.inFlightRegistry.evictStaleForUri(fileUri, cachedVersion);
+
+      const requestSpec = {
+        fileUri,
+        documentVersion: cachedVersion,
+        targetDetailLevel: (requirements.requiredDetailLevel ??
+          null) as DetailLevel | null,
+        needsCrossFileResolution,
+      };
+      const alreadySatisfied = this.inFlightRegistry.isSatisfied(requestSpec);
+      if (alreadySatisfied) {
+        return;
+      }
+      const acquireResult = this.inFlightRegistry.acquireOrJoin(requestSpec);
+
+      if (acquireResult.joined) {
+        if (requirements.executionMode === 'blocking') {
+          await acquireResult.promise;
+        }
+        return;
+      }
+
+      const coordinatedRunner = this.runCoordinatedPrerequisites(
+        acquireResult.key,
+        fileUri,
+        requestType,
+        options,
+      )
+        .then(() => this.inFlightRegistry.complete(acquireResult.key))
+        .catch((error) => {
+          this.inFlightRegistry.fail(acquireResult.key, error);
+          throw error;
+        });
+
+      if (requirements.executionMode === 'blocking') {
+        await coordinatedRunner;
+      } else {
+        void coordinatedRunner.catch((error: unknown) => {
+          this.logger.debug(
+            () =>
+              `Coordinated async prerequisites failed for ${fileUri}: ${error}`,
+          );
+        });
+      }
+      return;
     }
 
     // Execute prerequisites
@@ -287,31 +329,6 @@ export class PrerequisiteOrchestrationService {
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
         if (requestType === 'hover') {
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': '0aca23',
-              },
-              body: JSON.stringify({
-                sessionId: '0aca23',
-                runId: 'hover-regression',
-                hypothesisId: 'H6',
-                location: 'PrerequisiteOrchestrationService.ts:260',
-                message: 'schedule async enrichment for hover',
-                data: {
-                  fileUri,
-                  requiredDetailLevel: requirements.requiredDetailLevel,
-                  activeAsyncHoverEnrichments,
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
           activeAsyncHoverEnrichments++;
         }
 
@@ -327,27 +344,6 @@ export class PrerequisiteOrchestrationService {
                 0,
                 activeAsyncHoverEnrichments - 1,
               );
-              // #region agent log
-              fetch(
-                'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': '0aca23',
-                  },
-                  body: JSON.stringify({
-                    sessionId: '0aca23',
-                    runId: 'hover-regression',
-                    hypothesisId: 'H6',
-                    location: 'PrerequisiteOrchestrationService.ts:283',
-                    message: 'async enrichment complete for hover',
-                    data: { fileUri, activeAsyncHoverEnrichments },
-                    timestamp: Date.now(),
-                  }),
-                },
-              ).catch(() => {});
-              // #endregion
             }
             if (shouldSignalRefresh) {
               Effect.runPromise(
@@ -361,31 +357,6 @@ export class PrerequisiteOrchestrationService {
                 0,
                 activeAsyncHoverEnrichments - 1,
               );
-              // #region agent log
-              fetch(
-                'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': '0aca23',
-                  },
-                  body: JSON.stringify({
-                    sessionId: '0aca23',
-                    runId: 'hover-regression',
-                    hypothesisId: 'H6',
-                    location: 'PrerequisiteOrchestrationService.ts:307',
-                    message: 'async enrichment failed for hover',
-                    data: {
-                      fileUri,
-                      activeAsyncHoverEnrichments,
-                      error: String(error),
-                    },
-                    timestamp: Date.now(),
-                  }),
-                },
-              ).catch(() => {});
-              // #endregion
             }
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
@@ -412,6 +383,81 @@ export class PrerequisiteOrchestrationService {
             );
           });
       }
+    }
+  }
+
+  private async runCoordinatedPrerequisites(
+    key: string,
+    fileUri: string,
+    requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+    options?: {
+      workDoneToken?: ProgressToken | SharedProgressToken;
+      skipIfUnavailable?: boolean;
+    },
+  ): Promise<void> {
+    let lastObservedRevision = -1;
+
+    while (true) {
+      const entry = this.inFlightRegistry.get(key);
+      if (!entry) {
+        return;
+      }
+
+      const revision = entry.revision;
+      const cacheDetailLevel =
+        getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+      const currentDetailLevel = pickHighestDetailLevel(
+        this.symbolManager.getDetailLevelForFile(fileUri) ?? null,
+        cacheDetailLevel,
+      );
+      const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+      const needsEnrichment =
+        !!entry.targetDetailLevel &&
+        (!currentDetailLevel ||
+          getLayerOrderIndex(currentDetailLevel) <
+            getLayerOrderIndex(entry.targetDetailLevel));
+      const needsCrossFileResolution =
+        entry.needsCrossFileResolution && !hasCrossFileResolution(symbolTable);
+
+      if (needsEnrichment && entry.targetDetailLevel) {
+        await this.layerEnrichmentService.enrichFiles(
+          [fileUri],
+          entry.targetDetailLevel,
+          'same-file',
+          options?.workDoneToken,
+        );
+      }
+
+      if (needsCrossFileResolution) {
+        await Effect.runPromise(
+          this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+        );
+        if (requestType !== 'diagnostics') {
+          await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+        }
+      }
+
+      const latestEntry = this.inFlightRegistry.get(key);
+      if (!latestEntry) {
+        return;
+      }
+
+      if (latestEntry.revision === revision) {
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+        if (shouldSignalRefresh) {
+          await Effect.runPromise(
+            getDiagnosticRefreshService().signalEnrichmentComplete(),
+          ).catch(() => {});
+        }
+        return;
+      }
+
+      if (latestEntry.revision === lastObservedRevision) {
+        return;
+      }
+
+      lastObservedRevision = latestEntry.revision;
     }
   }
 

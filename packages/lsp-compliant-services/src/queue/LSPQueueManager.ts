@@ -404,30 +404,6 @@ export class LSPQueueManager {
     }
 
     const submitStartTime = Date.now();
-    const isHover = type === 'hover';
-    if (isHover) {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-regression',
-            hypothesisId: 'H1',
-            location: 'LSPQueueManager.ts:410',
-            message: 'queue submit start',
-            data: { type, priority: options.priority ?? null },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-    }
 
     try {
       // Ensure scheduler is initialized
@@ -508,36 +484,6 @@ export class LSPQueueManager {
             `queue=${queueWaitTime}ms, fiber=${fiberWaitTime}ms, ` +
             `execution=${executionTime}ms)`,
         );
-      }
-      if (isHover) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '0aca23',
-            },
-            body: JSON.stringify({
-              sessionId: '0aca23',
-              runId: 'hover-regression',
-              hypothesisId: 'H1',
-              location: 'LSPQueueManager.ts:490',
-              message: 'queue submit end',
-              data: {
-                type,
-                totalTime,
-                queueWaitTime,
-                executionTime,
-                initTime,
-                createTime,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
       }
       if (result._tag === 'Failure') {
         // Extract the error from the Effect failure cause

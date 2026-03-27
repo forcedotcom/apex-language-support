@@ -31,28 +31,6 @@ export class HoverHandler {
    * @returns Hover information for the requested position
    */
   public async handleHover(params: HoverParams): Promise<Hover | null> {
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-regression',
-        hypothesisId: 'H1',
-        location: 'HoverHandler.ts:34',
-        message: 'hover handler entry',
-        data: {
-          uri: params.textDocument.uri,
-          line: params.position.line,
-          char: params.position.character,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     this.logger.debug(
       () => `Processing hover request: ${params.textDocument.uri}`,
     );
@@ -73,27 +51,6 @@ export class HoverHandler {
       // When the queued hover times out, avoid re-running hover directly.
       // A direct fallback can trigger a second heavy resolution pass and exceed UX budgets.
       if (isTimeout) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '0aca23',
-            },
-            body: JSON.stringify({
-              sessionId: '0aca23',
-              runId: 'hover-regression',
-              hypothesisId: 'H2',
-              location: 'HoverHandler.ts:56',
-              message: 'hover queue timeout branch',
-              data: { uri: params.textDocument.uri, error: errorText },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         void this.hoverProcessor
           .scheduleTimeoutFollowup(params)
           .catch((followupError) => {

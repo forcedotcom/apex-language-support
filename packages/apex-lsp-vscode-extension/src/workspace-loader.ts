@@ -382,28 +382,6 @@ export async function loadWorkspaceForServer(
           );
 
           // Trigger processing of all stored batches
-          const processStart = Date.now();
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': '0aca23',
-              },
-              body: JSON.stringify({
-                sessionId: '0aca23',
-                runId: 'hover-regression',
-                hypothesisId: 'H13',
-                location: 'workspace-loader.ts:processWorkspaceBatches:start',
-                message: 'client sent processWorkspaceBatches',
-                data: { totalBatches },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
           const processResult = yield* _(
             Effect.tryPromise({
               try: () =>
@@ -416,33 +394,6 @@ export async function loadWorkspaceForServer(
                 ),
             }),
           );
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': '0aca23',
-              },
-              body: JSON.stringify({
-                sessionId: '0aca23',
-                runId: 'hover-regression',
-                hypothesisId: 'H13',
-                location: 'workspace-loader.ts:processWorkspaceBatches:end',
-                message: 'client processWorkspaceBatches resolved',
-                data: {
-                  durationMs: Date.now() - processStart,
-                  success: !!processResult.success,
-                  error: processResult.success
-                    ? null
-                    : (processResult.error ?? null),
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
 
           if (!processResult.success) {
             logToOutputChannel(
