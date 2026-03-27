@@ -86,6 +86,10 @@ export class ResourceLoader {
   private standardLibrarySymbolDataLoaded = false; // Track if standard library symbol data was loaded
   private standardLibrarySymbolData: DeserializationResult | null = null; // Cached standard library symbol data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
+  private classToFileUriIndex: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // className -> fileUri
+  private namespaceClassToFileUriIndex: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // namespace/className -> fileUri
 
   private constructor() {
     this.logger.debug(() => '🚀 ResourceLoader constructor called');
@@ -108,6 +112,8 @@ export class ResourceLoader {
     this.namespaceIndex = new CaseInsensitivePathMap<string>();
     this.classNameToNamespace = new CaseInsensitivePathMap<Set<string>>();
     this.namespaces = new Map<string, CIS[]>();
+    this.classToFileUriIndex = new CaseInsensitivePathMap<string>();
+    this.namespaceClassToFileUriIndex = new CaseInsensitivePathMap<string>();
     this.totalSize = 0;
   }
 
@@ -446,10 +452,10 @@ export class ResourceLoader {
     }
 
     this.logger.debug(
-      'Computing namespace dependency order from standard library symbol data...',
+      'Computing namespace dependency order from stdlib index (no eager hydration)...',
     );
-    const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
-      this.standardLibrarySymbolData.hydrateAllSymbolTables(),
+    const deps = NamespaceDependencyAnalyzer.analyzeFromFileUris(
+      this.standardLibrarySymbolData.getAllFileUris(),
     );
 
     this.logger.debug(`Analyzed ${deps.size} namespaces for dependencies`);
@@ -677,6 +683,13 @@ export class ResourceLoader {
         } else {
           this.classNameToNamespace.set(className, new Set([namespace]));
         }
+
+        // Add O(1) stdlib symbol-table lookup indexes
+        this.classToFileUriIndex.set(className, fileUri);
+        this.namespaceClassToFileUriIndex.set(
+          `${namespace}/${className}`,
+          fileUri,
+        );
       }
     }
 
@@ -877,7 +890,7 @@ export class ResourceLoader {
     // - "String" -> "apexlib://resources/StandardApexLibrary/System/String.cls"
 
     // Normalize the class name
-    let searchUri: string | null = null;
+    let searchUri: string | undefined;
     const normalizedClassName = className.replace(/\.cls$/i, '');
 
     // Check if it includes a namespace
@@ -885,15 +898,12 @@ export class ResourceLoader {
     if (pathParts.length >= 2) {
       const namespace = pathParts[0];
       const classNameOnly = pathParts[pathParts.length - 1];
-      searchUri = `apexlib://resources/StandardApexLibrary/${namespace}/${classNameOnly}.cls`;
+      searchUri = this.namespaceClassToFileUriIndex.get(
+        `${namespace}/${classNameOnly}`,
+      );
     } else {
-      // Try to find by class name only - check all namespaces
-      for (const uri of this.standardLibrarySymbolData.getAllFileUris()) {
-        if (uri.endsWith(`/${normalizedClassName}`)) {
-          searchUri = uri;
-          break;
-        }
-      }
+      // O(1) lookup by class name for unqualified references
+      searchUri = this.classToFileUriIndex.get(normalizedClassName);
     }
 
     if (!searchUri) {
@@ -1039,6 +1049,8 @@ export class ResourceLoader {
     this.decodedContentCache.clear();
     this.namespaceIndex.clear();
     this.classNameToNamespace.clear();
+    this.classToFileUriIndex.clear();
+    this.namespaceClassToFileUriIndex.clear();
     this.namespaces.clear();
     this.initialized = false;
 

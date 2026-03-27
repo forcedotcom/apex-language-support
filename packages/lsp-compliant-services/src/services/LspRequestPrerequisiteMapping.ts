@@ -71,7 +71,7 @@ export function getPrerequisitesForLspRequestType(
         requiredDetailLevel: 'full', // Need full type info for hover
         requiresReferences: true,
         requiresReferenceResolution: true,
-        requiresCrossFileResolution: true, // May need cross-file types
+        requiresCrossFileResolution: false, // Keep hover fast; follow-up handles misses
         executionMode: 'blocking', // Block for accurate hover info
         skipDuringWorkspaceLoad: true,
         missingArtifactResolution: {

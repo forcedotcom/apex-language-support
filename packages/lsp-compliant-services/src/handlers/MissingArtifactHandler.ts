@@ -83,28 +83,6 @@ export class MissingArtifactHandler {
   private async processBlockingRequest(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-lookup-v1',
-        hypothesisId: 'H5',
-        location: 'MissingArtifactHandler.ts:processBlockingRequest:entry',
-        message: 'Missing artifact blocking path entry',
-        data: {
-          names: params.identifiers.map((s) => s.name),
-          hasConnection: !!this.connection,
-          timeoutMsHint: params.timeoutMsHint ?? null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     try {
       // If we have a connection, send the request directly to the client
       const names = params.identifiers.map((s) => s.name).join(', ');

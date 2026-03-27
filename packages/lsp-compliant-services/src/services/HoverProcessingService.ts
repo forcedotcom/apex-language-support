@@ -56,6 +56,7 @@ export interface IHoverProcessor {
    * @returns Hover information for the requested position
    */
   processHover(params: HoverParams): Promise<Hover | null>;
+  scheduleTimeoutFollowup(params: HoverParams): Promise<void>;
 }
 
 /**
@@ -118,28 +119,6 @@ export class HoverProcessingService implements IHoverProcessor {
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
     const hoverStartTime = Date.now();
-    // #region agent log
-    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '0aca23',
-      },
-      body: JSON.stringify({
-        sessionId: '0aca23',
-        runId: 'hover-lookup-v1',
-        hypothesisId: 'H3',
-        location: 'HoverProcessingService.ts:processHover:entry',
-        message: 'Hover processor entry',
-        data: {
-          uri: params.textDocument.uri,
-          line: params.position.line,
-          character: params.position.character,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     this.logger.debug(
       () =>
         `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
@@ -173,59 +152,10 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '0aca23',
-          },
-          body: JSON.stringify({
-            sessionId: '0aca23',
-            runId: 'hover-lookup-v1',
-            hypothesisId: 'H3',
-            location: 'HoverProcessingService.ts:processHover:references',
-            message: 'Hover references lookup result',
-            data: {
-              uri: params.textDocument.uri,
-              referencesTime,
-              refCount: references?.length ?? 0,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
       if (!references || references.length === 0) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '0aca23',
-            },
-            body: JSON.stringify({
-              sessionId: '0aca23',
-              runId: 'hover-lookup-v1',
-              hypothesisId: 'H4',
-              location: 'HoverProcessingService.ts:processHover:noReferences',
-              message: 'Hover no references branch',
-              data: {
-                uri: params.textDocument.uri,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         const symbolAtPosition = await this.symbolManager.getSymbolAtPosition(
           params.textDocument.uri,
           parserPosition,
@@ -894,6 +824,19 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       return null;
     }
+  }
+
+  public async scheduleTimeoutFollowup(params: HoverParams): Promise<void> {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    if (!settings?.apex?.findMissingArtifact?.enabled) {
+      return;
+    }
+
+    this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+      params.textDocument.uri,
+      params.position,
+      'hover',
+    );
   }
 
   /**

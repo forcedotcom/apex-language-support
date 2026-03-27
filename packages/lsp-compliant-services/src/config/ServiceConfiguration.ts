@@ -27,7 +27,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
     priority: Priority.Immediate,
-    timeout: 100,
+    timeout: 200,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },

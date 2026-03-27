@@ -32,6 +32,29 @@ export interface NamespaceDependencies {
  */
 export class NamespaceDependencyAnalyzer {
   /**
+   * Analyze namespace presence/count from file URIs only (no SymbolTable hydration).
+   * This is a fast fallback used when dependency extraction would require eager hydration.
+   */
+  static analyzeFromFileUris(
+    fileUris: string[],
+  ): Map<string, NamespaceDependencies> {
+    const deps = new Map<string, NamespaceDependencies>();
+    for (const uri of fileUris) {
+      const namespace = this.extractNamespace(uri);
+      if (!namespace) continue;
+      if (!deps.has(namespace)) {
+        deps.set(namespace, {
+          namespace,
+          dependsOn: new Set(),
+          classCount: 0,
+        });
+      }
+      deps.get(namespace)!.classCount++;
+    }
+    return deps;
+  }
+
+  /**
    * Analyze all symbol tables to build namespace dependency graph
    * @param symbolTables Map from protobuf deserialization (URI -> SymbolTable)
    * @returns Namespace dependencies

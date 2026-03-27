@@ -51,6 +51,14 @@ export class HoverHandler {
       // When the queued hover times out, avoid re-running hover directly.
       // A direct fallback can trigger a second heavy resolution pass and exceed UX budgets.
       if (isTimeout) {
+        void this.hoverProcessor
+          .scheduleTimeoutFollowup(params)
+          .catch((followupError) => {
+            this.logger.debug(
+              () =>
+                `Failed to schedule hover timeout follow-up for ${params.textDocument.uri}: ${followupError}`,
+            );
+          });
         this.logger.debug(
           () =>
             `Skipping direct hover fallback after timeout for ${params.textDocument.uri}`,
