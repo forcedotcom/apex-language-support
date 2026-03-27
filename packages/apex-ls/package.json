@@ -174,7 +174,7 @@
   },
   "devDependencies": {
     "@salesforce/esbuild-presets": "^0.1.0",
-    "@types/node": "^20.19.4",
+    "@types/node": "^25.5.0",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
