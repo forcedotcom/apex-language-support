@@ -39,10 +39,24 @@ export class HoverHandler {
       // Use the LSP queue system for immediate processing
       return await this.queueManager.submitHoverRequest(params);
     } catch (error) {
+      const errorText = String(error);
+      const isTimeout =
+        errorText.includes('TimeoutException') ||
+        errorText.includes('timed out');
       this.logger.error(
         () =>
           `Error processing hover request for ${params.textDocument.uri}: ${error}`,
       );
+
+      // When the queued hover times out, avoid re-running hover directly.
+      // A direct fallback can trigger a second heavy resolution pass and exceed UX budgets.
+      if (isTimeout) {
+        this.logger.debug(
+          () =>
+            `Skipping direct hover fallback after timeout for ${params.textDocument.uri}`,
+        );
+        return null;
+      }
 
       // Fallback to direct processing if queue fails
       this.logger.debug(() => 'Falling back to direct hover processing');

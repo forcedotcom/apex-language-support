@@ -399,6 +399,28 @@ export class LSPQueueManager {
       errorCallback?: (error: Error) => void;
     } = {},
   ): Promise<T> {
+    // #region agent log
+    fetch('http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '0aca23',
+      },
+      body: JSON.stringify({
+        sessionId: '0aca23',
+        runId: 'hover-lookup-v1',
+        hypothesisId: 'H2',
+        location: 'LSPQueueManager.ts:submitRequest:entry',
+        message: 'Queue submit entry',
+        data: {
+          type,
+          requestedPriority: options.priority ?? null,
+          requestedTimeout: options.timeout ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (this.isShutdown) {
       throw new Error('LSP Queue Manager is shutdown');
     }
@@ -485,6 +507,35 @@ export class LSPQueueManager {
             `execution=${executionTime}ms)`,
         );
       }
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '0aca23',
+          },
+          body: JSON.stringify({
+            sessionId: '0aca23',
+            runId: 'hover-lookup-v1',
+            hypothesisId: 'H2',
+            location: 'LSPQueueManager.ts:submitRequest:timing',
+            message: 'Queue submit timing',
+            data: {
+              type,
+              totalTime,
+              initTime,
+              createTime,
+              queueWaitTime,
+              fiberWaitTime,
+              executionTime,
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
 
       if (result._tag === 'Failure') {
         // Extract the error from the Effect failure cause
@@ -525,6 +576,31 @@ export class LSPQueueManager {
       return result.value;
     } catch (error) {
       const totalTime = Date.now() - submitStartTime;
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '0aca23',
+          },
+          body: JSON.stringify({
+            sessionId: '0aca23',
+            runId: 'hover-lookup-v1',
+            hypothesisId: 'H2',
+            location: 'LSPQueueManager.ts:submitRequest:error',
+            message: 'Queue submit failed',
+            data: {
+              type,
+              totalTime,
+              error: String(error),
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
       this.logger.error(
         () =>
           `[QUEUE-DIAG] Failed to submit ${type} request after ${totalTime}ms: ${error}`,

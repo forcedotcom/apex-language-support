@@ -53,7 +53,12 @@ describe('Protobuf vs ZIP equivalence', () => {
       expect(result.success).toBe(true);
       expect(result.loadMethod).toBe('protobuf');
       expect(result.data).toBeDefined();
-      expect(result.data!.symbolTables.size).toBeGreaterThan(0);
+      expect(result.data!.typeIndex.size).toBeGreaterThan(0);
+      expect(result.data!.symbolTables.size).toBe(0);
+      // Full hydration path should materialize all indexed tables.
+      expect(result.data!.hydrateAllSymbolTables().size).toBe(
+        result.data!.typeIndex.size,
+      );
     });
 
     it('produces non-empty namespace structure', async () => {
@@ -105,7 +110,7 @@ describe('Protobuf vs ZIP equivalence', () => {
         'apexlib://resources/StandardApexLibrary/System/Set.cls',
       ];
       for (const genericUri of genericTypes) {
-        expect(result.data!.symbolTables.has(genericUri)).toBe(true);
+        expect(result.data!.hasSymbolTable(genericUri)).toBe(true);
       }
     });
 
@@ -159,7 +164,11 @@ describe('Protobuf vs ZIP equivalence', () => {
       const result = await loader.load();
 
       // Get a random symbol table and verify it contains its type
-      for (const [_uri, symbolTable] of result.data!.symbolTables) {
+      for (const fileUri of result.data!.getAllFileUris()) {
+        const symbolTable = result.data!.getOrCreateSymbolTable(fileUri);
+        if (!symbolTable) {
+          continue;
+        }
         const symbols = symbolTable.getAllSymbols();
         expect(symbols.length).toBeGreaterThan(0);
 
@@ -186,7 +195,11 @@ describe('Protobuf vs ZIP equivalence', () => {
       let methodsChecked = 0;
       const maxMethodsToCheck = 20;
 
-      for (const [_uri, symbolTable] of result.data!.symbolTables) {
+      for (const fileUri of result.data!.getAllFileUris()) {
+        const symbolTable = result.data!.getOrCreateSymbolTable(fileUri);
+        if (!symbolTable) {
+          continue;
+        }
         const symbols = symbolTable.getAllSymbols();
 
         for (const symbol of symbols) {
@@ -215,7 +228,11 @@ describe('Protobuf vs ZIP equivalence', () => {
       let paramsChecked = 0;
       const maxParamsToCheck = 20;
 
-      for (const [_uri, symbolTable] of result.data!.symbolTables) {
+      for (const fileUri of result.data!.getAllFileUris()) {
+        const symbolTable = result.data!.getOrCreateSymbolTable(fileUri);
+        if (!symbolTable) {
+          continue;
+        }
         const symbols = symbolTable.getAllSymbols();
 
         for (const symbol of symbols) {
@@ -246,7 +263,11 @@ describe('Protobuf vs ZIP equivalence', () => {
       let fieldsChecked = 0;
       const maxFieldsToCheck = 20;
 
-      for (const [_uri, symbolTable] of result.data!.symbolTables) {
+      for (const fileUri of result.data!.getAllFileUris()) {
+        const symbolTable = result.data!.getOrCreateSymbolTable(fileUri);
+        if (!symbolTable) {
+          continue;
+        }
         const symbols = symbolTable.getAllSymbols();
 
         for (const symbol of symbols) {

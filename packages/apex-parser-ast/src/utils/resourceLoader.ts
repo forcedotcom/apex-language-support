@@ -449,7 +449,7 @@ export class ResourceLoader {
       'Computing namespace dependency order from standard library symbol data...',
     );
     const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
-      this.standardLibrarySymbolData.symbolTables,
+      this.standardLibrarySymbolData.hydrateAllSymbolTables(),
     );
 
     this.logger.debug(`Analyzed ${deps.size} namespaces for dependencies`);
@@ -644,7 +644,7 @@ export class ResourceLoader {
     data: DeserializationResult,
   ): Promise<void> {
     // Populate namespace index from cached data
-    for (const [fileUri, _symbolTable] of data.symbolTables) {
+    for (const fileUri of data.getAllFileUris()) {
       // Extract namespace from file URI (format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls)
       const match = fileUri.match(
         /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
@@ -888,8 +888,7 @@ export class ResourceLoader {
       searchUri = `apexlib://resources/StandardApexLibrary/${namespace}/${classNameOnly}.cls`;
     } else {
       // Try to find by class name only - check all namespaces
-      for (const [uri, _symbolTable] of this.standardLibrarySymbolData
-        .symbolTables) {
+      for (const uri of this.standardLibrarySymbolData.getAllFileUris()) {
         if (uri.endsWith(`/${normalizedClassName}`)) {
           searchUri = uri;
           break;
@@ -902,7 +901,7 @@ export class ResourceLoader {
     }
 
     const symbolTable =
-      this.standardLibrarySymbolData!.symbolTables.get(searchUri);
+      this.standardLibrarySymbolData!.getOrCreateSymbolTable(searchUri);
     if (!symbolTable) {
       return null;
     }
@@ -925,7 +924,7 @@ export class ResourceLoader {
       return new Map();
     }
 
-    return this.standardLibrarySymbolData.symbolTables;
+    return this.standardLibrarySymbolData.hydrateAllSymbolTables();
   }
 
   /**
@@ -953,7 +952,7 @@ export class ResourceLoader {
   } {
     const totalFiles = this.fileIndex.size;
     const symbolTablesLoaded = this.standardLibrarySymbolData
-      ? this.standardLibrarySymbolData.symbolTables.size
+      ? this.standardLibrarySymbolData.typeIndex.size
       : 0;
 
     return {
@@ -1215,7 +1214,7 @@ export class ResourceLoader {
     if (!this.standardLibrarySymbolData) {
       return [];
     }
-    return Array.from(this.standardLibrarySymbolData.symbolTables.keys());
+    return this.standardLibrarySymbolData.getAllFileUris();
   }
 
   /**

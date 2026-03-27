@@ -1975,6 +1975,31 @@ export class LCSAdapter {
     this.connection.onHover(
       async (params: HoverParams): Promise<Hover | null> => {
         const requestStartTime = Date.now();
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': '0aca23',
+            },
+            body: JSON.stringify({
+              sessionId: '0aca23',
+              runId: 'hover-lookup-v1',
+              hypothesisId: 'H1',
+              location: 'LCSAdapter.ts:onHover:entry',
+              message: 'Hover request entry',
+              data: {
+                uri: params.textDocument.uri,
+                line: params.position.line,
+                character: params.position.character,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
         this.logger.debug(
           `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
             ` at ${params.position.line}:${params.position.character} ` +
@@ -1993,6 +2018,32 @@ export class LCSAdapter {
           );
           const totalTime = Date.now() - requestStartTime;
           const dispatchTime = Date.now() - dispatchStartTime;
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-lookup-v1',
+                hypothesisId: 'H1',
+                location: 'LCSAdapter.ts:onHover:exit',
+                message: 'Hover request exit',
+                data: {
+                  uri: params.textDocument.uri,
+                  totalTime,
+                  dispatchTime,
+                  hasResult: !!result,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
           this.logger.debug(
             '✅ [LCSAdapter] Hover request completed: ' +
               `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
@@ -2001,6 +2052,31 @@ export class LCSAdapter {
           return result;
         } catch (error) {
           const totalTime = Date.now() - requestStartTime;
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7417/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '0aca23',
+              },
+              body: JSON.stringify({
+                sessionId: '0aca23',
+                runId: 'hover-lookup-v1',
+                hypothesisId: 'H1',
+                location: 'LCSAdapter.ts:onHover:error',
+                message: 'Hover request failed',
+                data: {
+                  uri: params.textDocument.uri,
+                  totalTime,
+                  error: String(error),
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
           this.logger.error(
             `Error processing hover after ${totalTime}ms: ${error}`,
           );
