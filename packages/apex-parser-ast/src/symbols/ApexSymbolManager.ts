@@ -1766,7 +1766,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Register SymbolTable once for the entire file before processing symbols
       // This avoids redundant registration calls for each symbol
       // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
-      // Pass documentVersion to enable version-aware replace vs merge semantics
       self.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
         mergeReferences: false,
         documentVersion,

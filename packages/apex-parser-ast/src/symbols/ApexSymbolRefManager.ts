@@ -306,7 +306,6 @@ export class ApexSymbolRefManager {
    */
   private fileVersions: CaseInsensitiveHashMap<number> =
     new CaseInsensitiveHashMap();
-
   private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
     new CaseInsensitiveHashMap();
   private symbolToFiles: CaseInsensitiveHashMap<string[]> =
@@ -2418,9 +2417,13 @@ export class ApexSymbolRefManager {
         }
       }
 
-      // Reference merging: only in merge mode or when new table has no references
+      // Preserve references from the old SymbolTable
+      // If the new SymbolTable has no references but the old one does, merge them
+      // This ensures hover/definition requests work even if workspace batch processing
+      // creates a new SymbolTable without references (e.g., if collectReferences wasn't set)
       const shouldMergeReferences =
-        !useReplace && (options?.mergeReferences ?? true);
+        (options?.mergeReferences ?? true) &&
+        (!useReplace || newReferences.length === 0);
       if (
         shouldMergeReferences &&
         existingReferences.length > 0 &&
