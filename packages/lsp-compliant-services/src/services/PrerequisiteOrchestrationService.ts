@@ -533,6 +533,7 @@ export class PrerequisiteOrchestrationService {
   private async handleMissingArtifactsAfterCrossFileResolution(
     fileUri: string,
     requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+    forceBlocking = false,
   ): Promise<void> {
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
@@ -572,7 +573,7 @@ export class PrerequisiteOrchestrationService {
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
     const isStrictBlockingRequest =
-      strictBlockingArtifactRequestTypes.has(requestType);
+      forceBlocking || strictBlockingArtifactRequestTypes.has(requestType);
 
     try {
       if (isStrictBlockingRequest) {
@@ -625,5 +626,17 @@ export class PrerequisiteOrchestrationService {
           `Error loading artifacts for types [${missingTypes.join(', ')}]: ${error}`,
       );
     }
+  }
+
+  /**
+   * Escalate prerequisites for definition only when initial resolution misses.
+   * Runs blocking missing-artifact resolution and re-resolves cross-file references.
+   */
+  public async runDefinitionOnDemandStrictness(fileUri: string): Promise<void> {
+    await this.handleMissingArtifactsAfterCrossFileResolution(
+      fileUri,
+      'definition',
+      true,
+    );
   }
 }

@@ -69,7 +69,7 @@ describe('PrerequisiteOrchestrationService', () => {
     });
   });
 
-  it('blocks strict requests until artifact load and post-load re-resolution complete', async () => {
+  it('blocks strict non-definition requests until artifact load and post-load re-resolution complete', async () => {
     const unresolvedRef = {
       name: 'CustomType',
       resolvedSymbolId: undefined,
@@ -112,7 +112,7 @@ describe('PrerequisiteOrchestrationService', () => {
       layerEnrichmentService as never,
     );
 
-    await service.runPrerequisitesForLspRequestType('definition', uri);
+    await service.runPrerequisitesForLspRequestType('references', uri);
 
     expect(mockMissingArtifactService.resolveBlocking).toHaveBeenCalledTimes(1);
     expect(
@@ -121,5 +121,59 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(
       symbolManager.resolveCrossFileReferencesForFile,
     ).toHaveBeenCalledTimes(2);
+  });
+
+  it('supports on-demand strict definition escalation after initial miss', async () => {
+    const unresolvedRef = {
+      name: 'CustomType',
+      resolvedSymbolId: undefined,
+      context: ReferenceContext.TYPE_DECLARATION,
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+      },
+    };
+    const symbolTable = {
+      getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
+    };
+    const symbolManager = {
+      getDetailLevelForFile: jest.fn().mockReturnValue('full'),
+      getSymbolTableForFile: jest.fn().mockReturnValue(symbolTable),
+      resolveCrossFileReferencesForFile: jest
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: jest.fn().mockReturnValue(false),
+      findSymbolByName: jest.fn().mockReturnValue([{ name: 'CustomType' }]),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: jest.fn().mockResolvedValue(undefined),
+    };
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue('resolved');
+
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    await service.runDefinitionOnDemandStrictness(uri);
+
+    expect(mockMissingArtifactService.resolveBlocking).toHaveBeenCalledTimes(1);
+    expect(
+      mockMissingArtifactService.resolveInBackground,
+    ).not.toHaveBeenCalled();
+    expect(
+      symbolManager.resolveCrossFileReferencesForFile,
+    ).toHaveBeenCalledTimes(1);
   });
 });

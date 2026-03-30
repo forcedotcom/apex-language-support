@@ -224,25 +224,51 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           );
         });
 
+        // On-demand strictness: only escalate to blocking artifact prerequisites
+        // after an initial definition miss.
+        if (this.prerequisiteOrchestrationService) {
+          try {
+            await this.prerequisiteOrchestrationService.runDefinitionOnDemandStrictness(
+              params.textDocument.uri,
+            );
+            symbol = await this.symbolManager.getSymbolAtPosition(
+              params.textDocument.uri,
+              parserPosition,
+              'precise',
+            );
+          } catch (error) {
+            this.logger.debug(
+              () =>
+                `On-demand definition escalation failed for ${params.textDocument.uri}: ${error}`,
+            );
+          }
+        }
+
+        if (symbol) {
+          wasResolvedFromMissingArtifact = true;
+        }
+
         // For goto definition, use blocking resolution for missing artifacts
         // This provides immediate response as the user expects a new tab to be opened
-        const resolutionResult =
-          await this.missingArtifactUtils.tryResolveMissingArtifactBlocking(
-            params.textDocument.uri,
-            params.position,
-            'definition',
-          );
-        // If blocking resolution succeeded, retry symbol lookup
-        if (resolutionResult === 'resolved') {
-          this.logger.debug(
-            () => 'Missing artifact resolved, retrying symbol lookup',
-          );
-          symbol = await this.symbolManager.getSymbolAtPosition(
-            params.textDocument.uri,
-            parserPosition,
-            'precise',
-          );
-          wasResolvedFromMissingArtifact = true;
+        if (!symbol) {
+          const resolutionResult =
+            await this.missingArtifactUtils.tryResolveMissingArtifactBlocking(
+              params.textDocument.uri,
+              params.position,
+              'definition',
+            );
+          // If blocking resolution succeeded, retry symbol lookup
+          if (resolutionResult === 'resolved') {
+            this.logger.debug(
+              () => 'Missing artifact resolved, retrying symbol lookup',
+            );
+            symbol = await this.symbolManager.getSymbolAtPosition(
+              params.textDocument.uri,
+              parserPosition,
+              'precise',
+            );
+            wasResolvedFromMissingArtifact = true;
+          }
         }
 
         // If still no symbol found after resolution attempt, try chained ref fallback
