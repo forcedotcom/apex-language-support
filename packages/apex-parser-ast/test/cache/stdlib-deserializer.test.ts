@@ -678,5 +678,50 @@ describe('StandardLibraryDeserializer', () => {
       expect(sameTable).toBe(stringTable);
       expect(result.symbolTables.size).toBe(1);
     });
+
+    it('hydrates all tables once and keeps table instances stable', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'hydrate-all',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-1',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+              TypeSymbol.create({
+                id: 'type-2',
+                name: 'Integer',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Integer',
+                fileUri: 'apex://stdlib/System/Integer',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const firstHydration = result.hydrateAllSymbolTables();
+      const secondHydration = result.hydrateAllSymbolTables();
+
+      expect(firstHydration.size).toBe(2);
+      expect(secondHydration.size).toBe(2);
+      expect(secondHydration.get('apex://stdlib/System/String')).toBe(
+        firstHydration.get('apex://stdlib/System/String'),
+      );
+      expect(secondHydration.get('apex://stdlib/System/Integer')).toBe(
+        firstHydration.get('apex://stdlib/System/Integer'),
+      );
+    });
   });
 });

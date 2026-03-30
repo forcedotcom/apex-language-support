@@ -160,6 +160,56 @@ describe('StandardLibraryDeserializer', () => {
       expect(stringType).toBeDefined();
       expect(stringType!.kind).toBe(SymbolKind.Class);
     });
+
+    it('hydrateAllSymbolTables is idempotent for cached deserialization result', () => {
+      const deserializer = new StandardLibraryDeserializer();
+      const {
+        StandardLibrary,
+        TypeKind,
+        Visibility,
+      } = require('../../src/generated/apex-stdlib');
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'hydrate-all-test',
+        namespaces: [
+          {
+            name: 'System',
+            types: [
+              {
+                id: 'test-string-id',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                parentId: '',
+                superClass: '',
+                interfaces: [],
+                annotations: [],
+                methods: [],
+                fields: [],
+                properties: [],
+                innerTypes: [],
+                enumValues: [],
+                modifiers: {
+                  visibility: Visibility.PUBLIC,
+                  isBuiltIn: true,
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const first = result.hydrateAllSymbolTables();
+      const second = result.hydrateAllSymbolTables();
+
+      expect(first.size).toBe(1);
+      expect(second.size).toBe(1);
+      expect(second.get('apex://stdlib/System/String')).toBe(
+        first.get('apex://stdlib/System/String'),
+      );
+    });
   });
 });
 

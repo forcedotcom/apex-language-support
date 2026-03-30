@@ -6263,8 +6263,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
           return null;
         }
-        // Ensure all symbols from loaded stdlib table are available for resolution.
-        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
         // Find the class symbol from the loaded symbol table
         const symbols = symbolTable.getAllSymbols();
         // Try to find by name first (case-insensitive for Apex)

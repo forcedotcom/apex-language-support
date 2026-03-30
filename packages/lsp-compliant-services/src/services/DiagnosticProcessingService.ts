@@ -1043,10 +1043,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    * Create a callback for loading missing artifacts during validation
    *
    * This callback is passed to validators via ValidationOptions and allows
-   * them to trigger artifact loading using the existing MissingArtifactResolutionService.
+   * them to enqueue artifact loading using the existing MissingArtifactResolutionService.
+   * The callback is intentionally non-blocking and always returns an empty array.
    *
    * @param contextFile - The file URI that triggered validation (for context)
-   * @returns Callback function that loads artifacts and returns loaded file URIs
+   * @returns Callback function that queues background loads and returns []
    */
   private createLoadArtifactCallback(
     contextFile: string,

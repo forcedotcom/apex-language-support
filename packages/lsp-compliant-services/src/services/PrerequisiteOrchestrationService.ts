@@ -59,6 +59,22 @@ const observabilityRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
 >(['definition', 'signatureHelp', 'references', 'rename']);
 
+const strictBlockingArtifactRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>(['definition', 'signatureHelp', 'references', 'rename']);
+
+const toArtifactRequestKind = (
+  requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+): 'definition' | 'signatureHelp' | 'references' => {
+  if (requestType === 'definition') {
+    return 'definition';
+  }
+  if (requestType === 'signatureHelp') {
+    return 'signatureHelp';
+  }
+  return 'references';
+};
+
 const pickHighestDetailLevel = (
   a: DetailLevel | null,
   b: DetailLevel | null,
@@ -349,7 +365,10 @@ export class PrerequisiteOrchestrationService {
         if (requestType !== 'diagnostics') {
           // After cross-file resolution, check for unresolved types and trigger artifact loading
           // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
-          await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+          await this.handleMissingArtifactsAfterCrossFileResolution(
+            fileUri,
+            requestType,
+          );
         }
       }
     } else {
@@ -407,7 +426,10 @@ export class PrerequisiteOrchestrationService {
           .then(() =>
             // After cross-file resolution, check for unresolved types and trigger artifact loading
             // This ensures that missing artifacts are loaded even in async mode
-            this.handleMissingArtifactsAfterCrossFileResolution(fileUri),
+            this.handleMissingArtifactsAfterCrossFileResolution(
+              fileUri,
+              requestType,
+            ),
           )
           .catch((error: unknown) => {
             this.logger.debug(
@@ -467,7 +489,10 @@ export class PrerequisiteOrchestrationService {
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
         if (requestType !== 'diagnostics') {
-          await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+          await this.handleMissingArtifactsAfterCrossFileResolution(
+            fileUri,
+            requestType,
+          );
         }
       }
 
@@ -507,6 +532,7 @@ export class PrerequisiteOrchestrationService {
    */
   private async handleMissingArtifactsAfterCrossFileResolution(
     fileUri: string,
+    requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
   ): Promise<void> {
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
@@ -545,18 +571,54 @@ export class PrerequisiteOrchestrationService {
       nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
-    // Load missing artifacts in true background mode (fire-and-forget).
-    // Do not block hover/references on artifact resolution during startup churn.
+    const isStrictBlockingRequest =
+      strictBlockingArtifactRequestTypes.has(requestType);
+
     try {
-      await this.artifactResolutionService.resolveInBackground({
-        identifiers: identifierSpecs,
-        origin: {
-          uri: fileUri,
-          requestKind: 'references',
-        },
-        mode: 'background', // Use background mode - don't open files in editor
-        timeoutMsHint: 2000,
-      });
+      if (isStrictBlockingRequest) {
+        const blockingResult =
+          await this.artifactResolutionService.resolveBlocking({
+            identifiers: identifierSpecs,
+            origin: {
+              uri: fileUri,
+              requestKind: toArtifactRequestKind(requestType),
+            },
+            mode: 'blocking',
+            timeoutMsHint: 2000,
+          });
+        if (blockingResult === 'resolved') {
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const pollMs =
+            settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
+          const maxWaitMs = 500;
+          const start = Date.now();
+          while (Date.now() - start < maxWaitMs) {
+            const allIndexed = missingTypes.every((name) => {
+              const symbols = this.symbolManager.findSymbolByName(name);
+              return symbols.length > 0;
+            });
+            if (allIndexed) {
+              break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+          }
+
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+          );
+        }
+      } else {
+        // Keep non-strict paths backgrounded to avoid startup contention.
+        await this.artifactResolutionService.resolveInBackground({
+          identifiers: identifierSpecs,
+          origin: {
+            uri: fileUri,
+            requestKind: 'references',
+          },
+          mode: 'background', // Use background mode - don't open files in editor
+          timeoutMsHint: 2000,
+        });
+      }
     } catch (error: unknown) {
       this.logger.debug(
         () =>
