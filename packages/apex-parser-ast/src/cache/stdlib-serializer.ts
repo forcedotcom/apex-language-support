@@ -72,6 +72,13 @@ export class StandardLibrarySerializer {
       const types: ProtoTypeSymbol[] = [];
 
       for (const [_fileUri, symbolTable] of ns.symbolTables) {
+        symbolTable.setMetadata({
+          fileUri: symbolTable.getFileUri(),
+          documentVersion: 1,
+          provenance: 'immutable-stdlib',
+          hasErrors: false,
+          parseCompleteness: 'complete',
+        });
         const typeSymbols = this.extractTypeSymbols(symbolTable, ns.name);
         types.push(...typeSymbols);
       }

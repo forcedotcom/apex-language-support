@@ -123,7 +123,13 @@ export class StandardLibraryDeserializer {
     namespace: string,
   ): SymbolTable {
     const symbolTable = new SymbolTable();
-    symbolTable.setFileUri(protoType.fileUri);
+    symbolTable.setMetadata({
+      fileUri: protoType.fileUri,
+      documentVersion: 1,
+      provenance: 'immutable-stdlib',
+      hasErrors: false,
+      parseCompleteness: 'complete',
+    });
 
     // Add the main type symbol
     const typeSymbol = this.convertTypeSymbol(protoType, null, namespace);

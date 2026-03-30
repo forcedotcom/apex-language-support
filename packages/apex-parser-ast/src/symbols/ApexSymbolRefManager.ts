@@ -48,6 +48,7 @@ import {
   SymbolLocation,
   SymbolKind,
   keyToString,
+  type SymbolTableProvenance,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -167,6 +168,23 @@ export interface DependencyAnalysis {
   dependents: ApexSymbol[];
   impactScore: number;
   circularDependencies: string[][];
+}
+
+export type SymbolTableRegistrationDecision =
+  | 'accepted-replace'
+  | 'accepted-merge'
+  | 'accepted-fallback-merge'
+  | 'rejected-stale'
+  | 'noop-same-instance';
+
+export interface SymbolTableRegistrationResult {
+  decision: SymbolTableRegistrationDecision;
+  fileUri: string;
+  canonicalTable: SymbolTable;
+  incomingVersion?: number;
+  storedVersion?: number;
+  provenance: SymbolTableProvenance;
+  reason?: string;
 }
 
 /**
@@ -300,12 +318,6 @@ export class ApexSymbolRefManager {
     new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
-  /**
-   * Maps file URIs to their last-known document version.
-   * Used by registerSymbolTable to decide replace vs merge semantics.
-   */
-  private fileVersions: CaseInsensitiveHashMap<number> =
-    new CaseInsensitiveHashMap();
   private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
     new CaseInsensitiveHashMap();
   private symbolToFiles: CaseInsensitiveHashMap<string[]> =
@@ -2276,10 +2288,10 @@ export class ApexSymbolRefManager {
     fileUri: string,
     options?: {
       mergeReferences?: boolean;
-      documentVersion?: number;
       hasErrors?: boolean;
+      hasHardIncompleteParse?: boolean;
     },
-  ): void {
+  ): SymbolTableRegistrationResult {
     // Normalize URI the same way getSymbolId() does to ensure consistency
     // This ensures SymbolTable lookup in getSymbol() will succeed
     const normalizedUri = extractFilePathFromUri(fileUri);
@@ -2288,39 +2300,76 @@ export class ApexSymbolRefManager {
     const existing = this.fileToSymbolTable.get(normalizedUri);
     if (existing === symbolTable) {
       // Same instance already registered, skip redundant registration
-      return;
+      const sameInstanceMetadata = existing.getMetadata();
+      return {
+        decision: 'noop-same-instance',
+        fileUri: normalizedUri,
+        canonicalTable: existing,
+        incomingVersion: sameInstanceMetadata.documentVersion,
+        storedVersion: sameInstanceMetadata.documentVersion,
+        provenance: sameInstanceMetadata.provenance,
+      };
     }
 
-    const newVersion = options?.documentVersion;
+    const incomingMetadata = symbolTable.getMetadata();
+    const incomingVersion = incomingMetadata.documentVersion;
+    const provenance = incomingMetadata.provenance ?? 'mutable-document';
+    const storedVersion = existing?.getMetadata().documentVersion;
 
     this.logger.debug(
       () =>
         `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
         `(original: ${fileUri}, ` +
         `symbolCount: ${symbolTable.getAllSymbols().length}, ` +
-        `documentVersion: ${newVersion ?? 'unknown'})`,
+        `documentVersion: ${incomingVersion}, ` +
+        `provenance: ${provenance})`,
     );
 
-    // Determine replace vs merge semantics based on document version
-    // Replace: newVersion > storedVersion → new parse is authoritative, don't preserve old symbols
-    // Merge: same/unknown version → keep existing merge behavior for multipass enrichment
-    const storedVersion = this.fileVersions.get(normalizedUri);
-    const isNewerVersion =
-      newVersion !== undefined &&
-      storedVersion !== undefined &&
-      newVersion > storedVersion;
+    // Keep metadata normalized at registration boundary.
+    symbolTable.setMetadata({
+      fileUri: normalizedUri,
+      provenance,
+    });
 
-    // Parser-error safeguard: avoid destructive replacement when new parse is incomplete
-    // Case 1: Zero symbols from new parse but existing table has some → parse failed completely
-    // Case 2: Parse has errors AND produced fewer symbols than before → mid-file error truncated output
-    // In both cases, fall back to merge to avoid data loss
+    const isMutableDocument = provenance === 'mutable-document';
+    if (
+      isMutableDocument &&
+      incomingVersion !== undefined &&
+      storedVersion !== undefined &&
+      incomingVersion < storedVersion
+    ) {
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Rejecting stale registration for ${normalizedUri}: ` +
+          `incomingVersion=${incomingVersion} < storedVersion=${storedVersion}`,
+      );
+      return {
+        decision: 'rejected-stale',
+        fileUri: normalizedUri,
+        canonicalTable: existing ?? symbolTable,
+        incomingVersion,
+        storedVersion,
+        provenance,
+        reason: 'incoming version older than stored version',
+      };
+    }
+
+    const isNewerVersion =
+      incomingVersion !== undefined &&
+      (storedVersion === undefined || incomingVersion > storedVersion);
+
+    // Parser-error safeguard: only fallback when we have hard incomplete signals.
     const newSymbolCount = symbolTable.getAllSymbols().length;
     const existingSymbolCount = existing ? existing.getAllSymbols().length : 0;
+    const hasHardIncompleteSignal =
+      options?.hasHardIncompleteParse === true ||
+      incomingMetadata.parseCompleteness === 'incomplete' ||
+      (!!options?.hasErrors &&
+        existingSymbolCount > 0 &&
+        newSymbolCount === 0 &&
+        isMutableDocument);
     const isIncompleteParse =
-      isNewerVersion &&
-      (newSymbolCount === 0 ||
-        (options?.hasErrors && newSymbolCount < existingSymbolCount)) &&
-      existingSymbolCount > 0;
+      isNewerVersion && hasHardIncompleteSignal && existingSymbolCount > 0;
 
     const useReplace = isNewerVersion && !isIncompleteParse;
 
@@ -2328,7 +2377,8 @@ export class ApexSymbolRefManager {
       this.logger.debug(
         () =>
           `[registerSymbolTable] Incomplete parse detected for ${normalizedUri}: ` +
-          `new symbols: ${newSymbolCount}, existing symbols: ${existingSymbolCount}. ` +
+          `new symbols: ${newSymbolCount}, existing symbols: ${existingSymbolCount}, ` +
+          `parseCompleteness=${incomingMetadata.parseCompleteness}. ` +
           'Falling back to merge to preserve valid symbols.',
       );
     }
@@ -2364,7 +2414,7 @@ export class ApexSymbolRefManager {
         // This prevents parser artifacts (unknownClass, partial names) from accumulating.
         this.logger.debug(
           () =>
-            `[registerSymbolTable] Replace mode: version ${newVersion} > ${storedVersion}, ` +
+            `[registerSymbolTable] Replace mode: version ${incomingVersion} > ${storedVersion}, ` +
             `discarding ${existingSymbols.length - newSymbols.length} symbols not in new parse`,
         );
       } else {
@@ -2476,11 +2526,6 @@ export class ApexSymbolRefManager {
     // Use normalized URI for registration to match what getSymbol() will look up
     this.fileToSymbolTable.set(normalizedUri, symbolTable);
 
-    // Update stored version when a version is provided
-    if (newVersion !== undefined) {
-      this.fileVersions.set(normalizedUri, newVersion);
-    }
-
     // Verify registration succeeded
     const registered = this.fileToSymbolTable.get(normalizedUri);
     if (!registered) {
@@ -2488,6 +2533,18 @@ export class ApexSymbolRefManager {
         () =>
           `[registerSymbolTable] Failed to register SymbolTable for URI: ${normalizedUri}`,
       );
+      return {
+        decision: useReplace
+          ? 'accepted-replace'
+          : isIncompleteParse
+            ? 'accepted-fallback-merge'
+            : 'accepted-merge',
+        fileUri: normalizedUri,
+        canonicalTable: symbolTable,
+        incomingVersion,
+        storedVersion,
+        provenance,
+      };
     } else {
       const finalRefCount = registered.getAllReferences().length;
       this.logger.debug(
@@ -2495,6 +2552,18 @@ export class ApexSymbolRefManager {
           `[registerSymbolTable] Successfully registered SymbolTable for URI: ${normalizedUri} ` +
           `(references: ${finalRefCount})`,
       );
+      return {
+        decision: useReplace
+          ? 'accepted-replace'
+          : isIncompleteParse
+            ? 'accepted-fallback-merge'
+            : 'accepted-merge',
+        fileUri: normalizedUri,
+        canonicalTable: registered,
+        incomingVersion,
+        storedVersion,
+        provenance,
+      };
     }
   }
 
@@ -2506,6 +2575,10 @@ export class ApexSymbolRefManager {
     const normalizedUri = extractFilePathFromUri(fileUri);
     if (!this.fileToSymbolTable.has(normalizedUri)) {
       const symbolTable = new SymbolTable();
+      symbolTable.setMetadata({
+        fileUri: normalizedUri,
+        provenance: 'mutable-document',
+      });
       this.fileToSymbolTable.set(normalizedUri, symbolTable);
       this.logger.debug(
         () =>
