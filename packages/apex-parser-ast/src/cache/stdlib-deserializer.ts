@@ -126,7 +126,6 @@ export class StandardLibraryDeserializer {
     symbolTable.setMetadata({
       fileUri: protoType.fileUri,
       documentVersion: 1,
-      provenance: 'immutable-stdlib',
       hasErrors: false,
       parseCompleteness: 'complete',
     });

@@ -56,7 +56,6 @@ describe('ApexSymbolRefManager Version-Aware Replace Semantics', () => {
     table.setMetadata({
       fileUri: testFileUri,
       documentVersion: metadata.version ?? 1,
-      provenance: 'mutable-document',
       hasErrors: metadata.hasErrors ?? false,
       parseCompleteness: 'complete',
     });
@@ -165,7 +164,6 @@ describe('ApexSymbolRefManager Version-Aware Replace Semantics', () => {
       emptyTable.setMetadata({
         fileUri: testFileUri,
         documentVersion: 2,
-        provenance: 'mutable-document',
         hasErrors: true,
         parseCompleteness: 'incomplete',
       });

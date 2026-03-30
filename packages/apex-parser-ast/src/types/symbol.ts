@@ -808,11 +808,6 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
   return key.unifiedId;
 };
 
-export type SymbolTableProvenance =
-  | 'mutable-document'
-  | 'immutable-stdlib'
-  | 'bootstrap';
-
 export type SymbolTableParseCompleteness =
   | 'complete'
   | 'incomplete'
@@ -821,7 +816,6 @@ export type SymbolTableParseCompleteness =
 export interface SymbolTableMetadata {
   fileUri: string;
   documentVersion: number;
-  provenance: SymbolTableProvenance;
   hasErrors?: boolean;
   parseCompleteness: SymbolTableParseCompleteness;
 }
@@ -845,7 +839,6 @@ export class SymbolTable {
   private metadata: SymbolTableMetadata = {
     fileUri: 'unknown',
     documentVersion: 1,
-    provenance: 'mutable-document',
     parseCompleteness: 'unknown',
   };
 

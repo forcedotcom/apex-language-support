@@ -337,7 +337,6 @@ export class ApexSymbolIndexingService {
         task.symbolTable.setMetadata({
           fileUri: task.fileUri,
           documentVersion: task.documentVersion,
-          provenance: task.symbolTable.getMetadata().provenance,
         });
 
         // Process symbols with yielding

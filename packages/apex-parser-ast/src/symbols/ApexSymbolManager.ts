@@ -376,7 +376,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         tempSymbolTable = new SymbolTable();
         tempSymbolTable.setMetadata({
           fileUri: properUri,
-          provenance: 'mutable-document',
         });
         // Register the SymbolTable with the graph immediately
         this.symbolRefManager.registerSymbolTable(tempSymbolTable, properUri);
@@ -1763,16 +1762,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const existingMetadata = symbolTable.getMetadata();
       const metadataUpdate: {
         fileUri: string;
-        provenance: typeof existingMetadata.provenance;
         documentVersion: number;
         hasErrors?: boolean;
       } = {
         fileUri: normalizedUri,
-        provenance:
-          existingMetadata.provenance ??
-          (isStandardApexUri(normalizedUri)
-            ? 'immutable-stdlib'
-            : 'mutable-document'),
         documentVersion:
           documentVersion ?? existingMetadata.documentVersion ?? 1,
       };

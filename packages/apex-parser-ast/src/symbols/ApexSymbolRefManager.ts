@@ -48,7 +48,6 @@ import {
   SymbolLocation,
   SymbolKind,
   keyToString,
-  type SymbolTableProvenance,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -183,7 +182,6 @@ export interface SymbolTableRegistrationResult {
   canonicalTable: SymbolTable;
   incomingVersion?: number;
   storedVersion?: number;
-  provenance: SymbolTableProvenance;
   reason?: string;
 }
 
@@ -2307,13 +2305,11 @@ export class ApexSymbolRefManager {
         canonicalTable: existing,
         incomingVersion: sameInstanceMetadata.documentVersion,
         storedVersion: sameInstanceMetadata.documentVersion,
-        provenance: sameInstanceMetadata.provenance,
       };
     }
 
     const incomingMetadata = symbolTable.getMetadata();
     const incomingVersion = incomingMetadata.documentVersion;
-    const provenance = incomingMetadata.provenance ?? 'mutable-document';
     const storedVersion = existing?.getMetadata().documentVersion;
 
     this.logger.debug(
@@ -2321,19 +2317,15 @@ export class ApexSymbolRefManager {
         `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
         `(original: ${fileUri}, ` +
         `symbolCount: ${symbolTable.getAllSymbols().length}, ` +
-        `documentVersion: ${incomingVersion}, ` +
-        `provenance: ${provenance})`,
+        `documentVersion: ${incomingVersion})`,
     );
 
     // Keep metadata normalized at registration boundary.
     symbolTable.setMetadata({
       fileUri: normalizedUri,
-      provenance,
     });
 
-    const isMutableDocument = provenance === 'mutable-document';
     if (
-      isMutableDocument &&
       incomingVersion !== undefined &&
       storedVersion !== undefined &&
       incomingVersion < storedVersion
@@ -2349,7 +2341,6 @@ export class ApexSymbolRefManager {
         canonicalTable: existing ?? symbolTable,
         incomingVersion,
         storedVersion,
-        provenance,
         reason: 'incoming version older than stored version',
       };
     }
@@ -2364,10 +2355,7 @@ export class ApexSymbolRefManager {
     const hasHardIncompleteSignal =
       options?.hasHardIncompleteParse === true ||
       incomingMetadata.parseCompleteness === 'incomplete' ||
-      (!!options?.hasErrors &&
-        existingSymbolCount > 0 &&
-        newSymbolCount === 0 &&
-        isMutableDocument);
+      (!!options?.hasErrors && existingSymbolCount > 0 && newSymbolCount === 0);
     const isIncompleteParse =
       isNewerVersion && hasHardIncompleteSignal && existingSymbolCount > 0;
 
@@ -2543,7 +2531,6 @@ export class ApexSymbolRefManager {
         canonicalTable: symbolTable,
         incomingVersion,
         storedVersion,
-        provenance,
       };
     } else {
       const finalRefCount = registered.getAllReferences().length;
@@ -2562,7 +2549,6 @@ export class ApexSymbolRefManager {
         canonicalTable: registered,
         incomingVersion,
         storedVersion,
-        provenance,
       };
     }
   }
@@ -2577,7 +2563,6 @@ export class ApexSymbolRefManager {
       const symbolTable = new SymbolTable();
       symbolTable.setMetadata({
         fileUri: normalizedUri,
-        provenance: 'mutable-document',
       });
       this.fileToSymbolTable.set(normalizedUri, symbolTable);
       this.logger.debug(

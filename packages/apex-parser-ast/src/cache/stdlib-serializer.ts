@@ -75,7 +75,6 @@ export class StandardLibrarySerializer {
         symbolTable.setMetadata({
           fileUri: symbolTable.getFileUri(),
           documentVersion: 1,
-          provenance: 'immutable-stdlib',
           hasErrors: false,
           parseCompleteness: 'complete',
         });
