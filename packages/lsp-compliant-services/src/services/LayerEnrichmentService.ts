@@ -360,7 +360,12 @@ export class LayerEnrichmentService {
 
           if (result?.result) {
             // Update symbol table in manager
-            yield* self.symbolManager.addSymbolTable(result.result!, uri);
+            yield* self.symbolManager.addSymbolTable(
+              result.result!,
+              uri,
+              version,
+              result.errors.length > 0,
+            );
 
             // Update cache with new detail level
             const currentCache = cache.get(uri, version);

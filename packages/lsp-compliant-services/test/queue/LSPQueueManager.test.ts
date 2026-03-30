@@ -138,6 +138,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       clear: jest.fn(),
       removeFile: jest.fn(),
       addSymbolTable: jest.fn(),
+      registerSymbolTableForFile: jest.fn(),
       getSymbolTableForFile: jest.fn(),
       optimizeMemory: jest.fn(),
       createResolutionContext: jest.fn(),

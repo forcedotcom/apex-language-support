@@ -531,7 +531,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
       if (existingSymbols.length === 0 && table) {
         await Effect.runPromise(
-          this.symbolManager.addSymbolTable(table, document.uri),
+          this.symbolManager.addSymbolTable(
+            table,
+            document.uri,
+            document.version,
+            hasSyntaxErrors,
+          ),
         );
         this.logger.debug(
           () =>

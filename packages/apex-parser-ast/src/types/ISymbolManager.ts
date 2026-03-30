@@ -15,6 +15,7 @@ import {
   ReferenceResult,
   DependencyAnalysis,
   ReferenceType,
+  SymbolTableRegistrationResult,
 } from '../symbols/ApexSymbolRefManager';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
@@ -198,7 +199,21 @@ export interface ISymbolManager extends SymbolProvider {
     symbolTable: SymbolTable,
     fileUri: string,
     documentVersion?: number,
+    hasErrors?: boolean,
   ): Effect.Effect<void, never, never>;
+
+  /**
+   * Register a SymbolTable as the canonical table for a file and
+   * return explicit adjudication outcome.
+   */
+  registerSymbolTableForFile(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: {
+      mergeReferences?: boolean;
+      hasErrors?: boolean;
+    },
+  ): Effect.Effect<SymbolTableRegistrationResult, never, never>;
 
   /**
    * Get SymbolTable for a file
