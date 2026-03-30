@@ -6,7 +6,7 @@ on:
       node-version:
         description: 'Node.js version to use'
         required: false
-        default: '20.x'
+        default: '22.x'
         type: string
       branch:
         description: 'Branch to package from'
@@ -37,7 +37,7 @@ on:
       node-version:
         description: 'Node.js version to use'
         required: false
-        default: '20.x'
+        default: '22.x'
         type: string
       branch:
         description: 'Branch to package from'
@@ -72,10 +72,10 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.head_ref || github.ref }}
 
-      - name: Setup Node.js ${{ inputs.node-version || '20.x' }}
+      - name: Setup Node.js ${{ inputs.node-version || '22.x' }}
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ inputs.node-version || '20.x' }}
+          node-version: ${{ inputs.node-version || '22.x' }}
 
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
