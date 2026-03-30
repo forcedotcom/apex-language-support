@@ -61,7 +61,7 @@ const observabilityRequestTypes = new Set<
 
 const strictBlockingArtifactRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
->(['definition', 'signatureHelp', 'references', 'rename']);
+>(['signatureHelp', 'references', 'rename']);
 
 const toArtifactRequestKind = (
   requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
