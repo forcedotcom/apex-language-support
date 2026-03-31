@@ -14,6 +14,10 @@ import { Effect } from 'effect';
 import { PrerequisiteOrchestrationService } from '../../src/services/PrerequisiteOrchestrationService';
 import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 import { reset as resetWorkspaceLoadState } from '../../src/services/WorkspaceLoadCoordinator';
+import {
+  getInFlightPrerequisiteRegistry,
+  resetInFlightPrerequisiteRegistry,
+} from '../../src/services/InFlightPrerequisiteRegistry';
 
 const mockMissingArtifactService = {
   resolveBlocking: jest.fn(),
@@ -40,6 +44,7 @@ describe('PrerequisiteOrchestrationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetWorkspaceLoadState();
+    resetInFlightPrerequisiteRegistry();
     getDocumentStateCache().clear();
     ApexSettingsManager.resetInstance();
     const settings = ApexSettingsManager.getInstance();
@@ -175,5 +180,93 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(
       symbolManager.resolveCrossFileReferencesForFile,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates concurrent prerequisite requests for the same file and version', async () => {
+    getDocumentStateCache().set(uri, {
+      documentVersion: 1,
+      timestamp: Date.now(),
+      documentLength: 10,
+      symbolsIndexed: true,
+      detailLevel: 'private',
+      enrichmentFailed: false,
+    });
+
+    const symbolManager = {
+      getDetailLevelForFile: jest.fn().mockReturnValue(null),
+      getSymbolTableForFile: jest.fn().mockReturnValue({
+        getAllReferences: jest.fn().mockReturnValue([]),
+      }),
+      resolveCrossFileReferencesForFile: jest
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: jest.fn().mockReturnValue(false),
+      findSymbolByName: jest.fn().mockReturnValue([]),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    await Promise.all([
+      service.runPrerequisitesForLspRequestType('definition', uri),
+      service.runPrerequisitesForLspRequestType('definition', uri),
+    ]);
+
+    expect(layerEnrichmentService.enrichFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-runs coordinated loop when revision is upgraded mid-execution', async () => {
+    const registry = getInFlightPrerequisiteRegistry();
+    getDocumentStateCache().set(uri, {
+      documentVersion: 1,
+      timestamp: Date.now(),
+      documentLength: 10,
+      symbolsIndexed: true,
+      detailLevel: 'private',
+      enrichmentFailed: false,
+    });
+
+    let enrichCallCount = 0;
+    const symbolManager = {
+      getDetailLevelForFile: jest.fn().mockReturnValue('private'),
+      getSymbolTableForFile: jest.fn().mockReturnValue({
+        getAllReferences: jest.fn().mockReturnValue([]),
+      }),
+      resolveCrossFileReferencesForFile: jest
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: jest.fn().mockReturnValue(false),
+      findSymbolByName: jest.fn().mockReturnValue([]),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: jest.fn().mockImplementation(async () => {
+        enrichCallCount++;
+        if (enrichCallCount === 1) {
+          const entry = Array.from(
+            (registry as any).entries.values(),
+          )[0] as any;
+          if (entry) {
+            entry.needsCrossFileResolution = true;
+            entry.revision += 1;
+          }
+        }
+      }),
+    };
+
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    await service.runPrerequisitesForLspRequestType('definition', uri);
+
+    expect(enrichCallCount).toBeGreaterThanOrEqual(2);
   });
 });
