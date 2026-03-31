@@ -318,31 +318,27 @@ export const createClientOptions = (
             inFlightSupersede.delete(seq);
           }
         }
-        try {
-          const nextPromise = Promise.resolve(next(document, position, token));
-          const cancellationPromise = new Promise<null>((resolve) => {
-            if (token.isCancellationRequested) {
-              resolve(null);
-              return;
-            }
-            token.onCancellationRequested(() => resolve(null));
-          });
-          const supersedePromise = new Promise<null>((resolve) => {
-            inFlightSupersede.set(requestSeq, () => resolve(null));
-          });
-          const result = await Promise.race([
-            nextPromise,
-            cancellationPromise,
-            supersedePromise,
-          ]);
-          inFlightSupersede.delete(requestSeq);
-          if (result === null) {
-            void nextPromise.catch(() => {});
+        const nextPromise = Promise.resolve(next(document, position, token));
+        const cancellationPromise = new Promise<null>((resolve) => {
+          if (token.isCancellationRequested) {
+            resolve(null);
+            return;
           }
-          return result;
-        } catch (error) {
-          throw error;
+          token.onCancellationRequested(() => resolve(null));
+        });
+        const supersedePromise = new Promise<null>((resolve) => {
+          inFlightSupersede.set(requestSeq, () => resolve(null));
+        });
+        const result = await Promise.race([
+          nextPromise,
+          cancellationPromise,
+          supersedePromise,
+        ]);
+        inFlightSupersede.delete(requestSeq);
+        if (result === null) {
+          void nextPromise.catch(() => {});
         }
+        return result;
       },
     },
     initializationOptions,
