@@ -16,11 +16,7 @@ import {
   createTypeWithNamespace,
   Namespaces,
 } from './NamespaceUtils';
-import {
-  getImplicitQualifiedCandidates,
-  getImplicitNamespaceOrder,
-  isPrimaryImplicitNamespace,
-} from './NamespaceResolutionPolicy';
+import { isPrimaryImplicitNamespace } from './NamespaceResolutionPolicy';
 
 /**
  * NamedScalarOrVoid rule
@@ -85,16 +81,10 @@ export const BuiltInSystemSchema: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-
-    // Check System types
-    const systemType = symbols.findScalarKeywordType(`System.${name}`);
-    if (systemType) return systemType;
-
-    // Check Schema types
-    const schemaType = symbols.findScalarKeywordType(`Schema.${name}`);
-    if (schemaType) return schemaType;
-
-    return null;
+    return symbols.findInDefaultNamespaceOrder(
+      name,
+      context.compilationContext.referencingType,
+    );
   },
 };
 
@@ -136,35 +126,24 @@ export const FileBaseSystemNamespace: ResolutionRule = {
         ? context.compilationContext.referencingType.namespace
         : context.compilationContext.referencingType?.namespace?.toString?.()) ||
       context.compilationContext.namespace?.toString?.();
-    const primaryNamespace = getImplicitNamespaceOrder(
-      context.referenceType,
-    )[0];
-    if (!primaryNamespace) return null;
-
-    const shouldPrioritizeCurrentNamespace =
+    const shouldTryCurrentNamespaceFirst =
       !!currentNamespace &&
       !isPrimaryImplicitNamespace(currentNamespace) &&
       context.referenceType === 'METHOD';
-
-    const candidates = shouldPrioritizeCurrentNamespace
-      ? [`${currentNamespace}.${name}`]
-      : getImplicitQualifiedCandidates(name, currentNamespace).filter(
-          (fqn) =>
-            fqn
-              .toLowerCase()
-              .startsWith(`${currentNamespace?.toLowerCase()}.`) ||
-            fqn.toLowerCase().startsWith(`${primaryNamespace.toLowerCase()}.`),
-        );
-    for (const candidate of candidates) {
-      const found = symbols.find(
+    if (shouldTryCurrentNamespaceFirst) {
+      const found = symbols.findInExplicitNamespace(
+        currentNamespace,
+        name,
         context.compilationContext.referencingType,
-        candidate,
       );
-      if (found) {
-        return found;
-      }
+      if (found) return found;
     }
-    return null;
+
+    return symbols.findInImplicitFileNamespaceSlot(
+      name,
+      0,
+      context.compilationContext.referencingType,
+    );
   },
 };
 
@@ -183,11 +162,10 @@ export const FileBaseSchemaNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    const namespace = getImplicitNamespaceOrder(context.referenceType)[1];
-    if (!namespace) return null;
-    return symbols.find(
+    return symbols.findInImplicitFileNamespaceSlot(
+      name,
+      1,
       context.compilationContext.referencingType,
-      `${namespace}.${name}`,
     );
   },
 };
@@ -281,15 +259,12 @@ export const BuiltInNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const [firstPart, secondPart] = context.adjustedNameParts;
-    const firstPartLower = firstPart.toLowerCase();
-
-    // Check if first part is a built-in namespace
-    if (firstPartLower === 'system' || firstPartLower === 'schema') {
-      const fullName = `${firstPart}.${secondPart}`;
-      return symbols.findScalarKeywordType(fullName);
-    }
-
-    return null;
+    if (!symbols.isBuiltInNamespace(firstPart)) return null;
+    return symbols.findInExplicitNamespace(
+      firstPart,
+      secondPart,
+      context.compilationContext.referencingType,
+    );
   },
 };
 
@@ -301,15 +276,13 @@ export const SchemaSObject: ResolutionRule = {
   name: 'SchemaSObject',
   priority: 6,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
-    context.adjustedNameParts.length === 2 &&
-    isPrimaryImplicitNamespace(context.adjustedNameParts[0]) &&
-    context.adjustedNameParts[0] ===
-      getImplicitNamespaceOrder(context.referenceType)[1]?.toLowerCase(),
+    context.adjustedNameParts.length === 2,
   resolve: (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
-    const [, secondPart] = context.adjustedNameParts;
+    const [firstPart, secondPart] = context.adjustedNameParts;
+    if (!symbols.isSObjectContainerNamespace(firstPart)) return null;
     return symbols.findSObjectType(secondPart);
   },
 };

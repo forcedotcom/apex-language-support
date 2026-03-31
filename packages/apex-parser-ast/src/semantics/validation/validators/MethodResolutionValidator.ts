@@ -329,7 +329,7 @@ export const MethodResolutionValidator: Validator = {
                 compilationContext,
                 ReferenceTypeEnum.METHOD,
                 IdentifierContext.NONE,
-                symbolManager as unknown as SymbolProvider,
+                symbolManager,
               );
               if (
                 resolutionResult.isResolved &&
@@ -413,7 +413,7 @@ export const MethodResolutionValidator: Validator = {
                   compilationContext,
                   ReferenceTypeEnum.METHOD,
                   IdentifierContext.NONE,
-                  symbolManager as unknown as SymbolProvider,
+                  symbolManager,
                 );
                 if (
                   resolutionResult.isResolved &&

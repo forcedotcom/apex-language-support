@@ -328,7 +328,7 @@ export class StandardLibraryCacheLoader {
    * Validate the deserialization result
    */
   private validateResult(result: DeserializationResult): boolean {
-    // Check metadata is present (version is intentionally not required)
+    // Check metadata is present
     if (!result.metadata.sourceChecksum) {
       this.logger.warn('Protobuf cache missing checksum');
       return false;

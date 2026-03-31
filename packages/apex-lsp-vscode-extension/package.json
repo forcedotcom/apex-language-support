@@ -711,7 +711,7 @@
       "clean": "if-file-deleted",
       "dependencies": [
         "precompile",
-        "../apex-parser-ast:precompile"
+        "../apex-parser-ast:compile:tsc"
       ],
       "output": [
         "out/**/*.js",

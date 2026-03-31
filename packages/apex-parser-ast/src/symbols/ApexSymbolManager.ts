@@ -57,6 +57,7 @@ import {
   ReferenceType,
   ReferenceResult,
   DependencyAnalysis,
+  type SymbolTableRegistrationResult,
 } from './ApexSymbolRefManager';
 import {
   ISymbolManager,
@@ -381,6 +382,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       tempSymbolTable = this.symbolRefManager.getSymbolTableForFile(properUri);
       if (!tempSymbolTable) {
         tempSymbolTable = new SymbolTable();
+        tempSymbolTable.setMetadata({
+          fileUri: properUri,
+        });
         // Register the SymbolTable with the graph immediately
         this.symbolRefManager.registerSymbolTable(tempSymbolTable, properUri);
       }
@@ -1749,6 +1753,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
+    documentVersion?: number,
+    hasErrors?: boolean,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
@@ -1761,24 +1767,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
-      const existingSymbolTable =
-        self.symbolRefManager.getSymbolTableForFile(normalizedUri);
-      if (existingSymbolTable) {
-        // Replacement mode for an already indexed file: keep symbol enrichment semantics,
-        // but rebuild this file's reference edges from fresh parse output.
+      const existingMetadata = symbolTable.getMetadata();
+      const metadataUpdate: {
+        fileUri: string;
+        documentVersion: number;
+        hasErrors?: boolean;
+      } = {
+        fileUri: normalizedUri,
+        documentVersion:
+          documentVersion ?? existingMetadata.documentVersion ?? 1,
+      };
+      if (hasErrors !== undefined) {
+        metadataUpdate.hasErrors = hasErrors;
+      }
+      symbolTable.setMetadata(metadataUpdate);
+
+      const registration = yield* self.registerSymbolTableForFile(
+        symbolTable,
+        normalizedUri,
+        {
+          mergeReferences: false,
+          hasErrors,
+        },
+      );
+
+      if (registration.decision === 'rejected-stale') {
+        self.logger.debug(
+          () =>
+            `[addSymbolTable] Ignoring stale symbol table for ${normalizedUri} ` +
+            `(incoming=${registration.incomingVersion ?? 'unknown'}, ` +
+            `stored=${registration.storedVersion ?? 'unknown'})`,
+        );
+        return;
+      }
+
+      if (registration.decision !== 'noop-same-instance') {
+        // Rebuild per-file reference edges from the canonical table selected by registration.
         self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
       }
 
-      // Register SymbolTable once for the entire file before processing symbols
-      // This avoids redundant registration calls for each symbol
-      // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
-      self.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
-        mergeReferences: false,
-      });
-
-      // After registerSymbolTable, get the final symbol table (may have been merged)
-      const finalSymbolTable =
-        self.symbolRefManager.getSymbolTableForFile(normalizedUri);
+      // After registration, get the canonical symbol table (may have been merged)
+      const finalSymbolTable = registration.canonicalTable;
       if (!finalSymbolTable) {
         self.logger.warn(
           () =>
@@ -1845,7 +1874,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
       yield* self.processSameFileReferencesToGraphEffect(
-        symbolTable,
+        finalSymbolTable,
         normalizedUri,
       );
 
@@ -1928,6 +1957,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
     });
+  }
+
+  registerSymbolTableForFile(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: {
+      mergeReferences?: boolean;
+      hasErrors?: boolean;
+    },
+  ): Effect.Effect<SymbolTableRegistrationResult, never, never> {
+    const normalizedUri = extractFilePathFromUri(createFileUri(fileUri));
+    return Effect.sync(() =>
+      this.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
+        mergeReferences: options?.mergeReferences,
+        hasErrors: options?.hasErrors,
+      }),
+    );
   }
 
   /**
@@ -3048,7 +3094,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     compilationContext,
                     ReferenceTypeEnum.METHOD,
                     IdentifierContext.NONE,
-                    self as unknown as SymbolProvider,
+                    self,
                   );
                   if (
                     resolutionResult.isResolved &&
@@ -5821,6 +5867,56 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   findExternalType(name: string, packageName: string): ApexSymbol | null {
     const symbols = this.findSymbolByName(name);
     return symbols.find((s) => s.namespace === packageName) || null;
+  }
+
+  findInDefaultNamespaceOrder(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    for (const namespaceName of namespaces) {
+      const symbol = this.findInExplicitNamespace(
+        namespaceName,
+        name,
+        referencingType,
+      );
+      if (symbol) return symbol;
+    }
+    return null;
+  }
+
+  findInImplicitFileNamespaceSlot(
+    name: string,
+    slot: number,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    const namespaceName = namespaces[slot];
+    if (!namespaceName) return null;
+    return this.findInExplicitNamespace(namespaceName, name, referencingType);
+  }
+
+  findInExplicitNamespace(
+    namespaceName: string,
+    typeName: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const normalizedNamespace = namespaceName.toLowerCase();
+    const fqn = `${normalizedNamespace}.${typeName}`;
+    return (
+      this.find(referencingType, fqn) ?? this.findScalarKeywordType(fqn) ?? null
+    );
+  }
+
+  isBuiltInNamespace(namespaceName: string): boolean {
+    if (!namespaceName) return false;
+    if (this.resourceLoader?.isStdApexNamespace(namespaceName)) return true;
+    const normalized = namespaceName.toLowerCase();
+    return normalized === 'system' || normalized === 'schema';
+  }
+
+  isSObjectContainerNamespace(namespaceName: string): boolean {
+    return namespaceName.toLowerCase() === 'schema';
   }
 
   /**
