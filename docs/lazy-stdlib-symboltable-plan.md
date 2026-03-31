@@ -6,15 +6,15 @@ Shift stdlib loading from eager full `SymbolTable` instantiation to **index-firs
 
 ## Current Hot Path
 
-- `ResourceLoader.initialize()` eagerly loads protobuf cache and stores full symbol table payload in memory via [resourceLoader.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/utils/resourceLoader.ts).
-- `StandardLibraryDeserializer` currently creates a `SymbolTable` per stdlib type and calls `symbolTable.addSymbol(...)` repeatedly in [stdlib-deserializer.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/cache/stdlib-deserializer.ts).
-- `SymbolTable.addSymbol()` emits high-volume debug logs for top-level classes in [symbol.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/types/symbol.ts).
+- `ResourceLoader.initialize()` eagerly loads protobuf cache and stores full symbol table payload in memory via [resourceLoader.ts](../packages/apex-parser-ast/src/utils/resourceLoader.ts).
+- `StandardLibraryDeserializer` currently creates a `SymbolTable` per stdlib type and calls `symbolTable.addSymbol(...)` repeatedly in [stdlib-deserializer.ts](../packages/apex-parser-ast/src/cache/stdlib-deserializer.ts).
+- `SymbolTable.addSymbol()` emits high-volume debug logs for top-level classes in [symbol.ts](../packages/apex-parser-ast/src/types/symbol.ts).
 
 ## Proposed Design
 
 ### 1) Introduce a lightweight stdlib index model
 
-- Add a cache data shape in [stdlib-cache-loader.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/cache/stdlib-cache-loader.ts) and/or [stdlib-deserializer.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/cache/stdlib-deserializer.ts) that stores:
+- Add a cache data shape in [stdlib-cache-loader.ts](../packages/apex-parser-ast/src/cache/stdlib-cache-loader.ts) and/or [stdlib-deserializer.ts](../packages/apex-parser-ast/src/cache/stdlib-deserializer.ts) that stores:
   - `fileUri`
   - namespace/class-name mappings
   - enough proto payload (or reference) to reconstruct one table later
@@ -22,7 +22,7 @@ Shift stdlib loading from eager full `SymbolTable` instantiation to **index-firs
 
 ### 2) Keep eager metadata/index population
 
-- Preserve eager setup in [resourceLoader.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/utils/resourceLoader.ts):
+- Preserve eager setup in [resourceLoader.ts](../packages/apex-parser-ast/src/utils/resourceLoader.ts):
   - `namespaceIndex`
   - `classNameToNamespace`
   - `fileIndex`
@@ -31,9 +31,9 @@ Shift stdlib loading from eager full `SymbolTable` instantiation to **index-firs
 
 ### 3) Add on-demand SymbolTable materialization API
 
-- Implement lazy hydration at the retrieval boundary in [resourceLoader.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/utils/resourceLoader.ts):
+- Implement lazy hydration at the retrieval boundary in [resourceLoader.ts](../packages/apex-parser-ast/src/utils/resourceLoader.ts):
   - `getSymbolTableFromCache(...)` / `getSymbolTable(...)` should hydrate from indexed proto data only when requested.
-- Reuse conversion logic from [stdlib-deserializer.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/src/cache/stdlib-deserializer.ts) to avoid behavior drift.
+- Reuse conversion logic from [stdlib-deserializer.ts](../packages/apex-parser-ast/src/cache/stdlib-deserializer.ts) to avoid behavior drift.
 
 ### 4) Define no-eviction lifecycle for hydrated/promoted tables
 
@@ -51,9 +51,9 @@ Shift stdlib loading from eager full `SymbolTable` instantiation to **index-firs
 ## Verification
 
 - Add/adjust tests in:
-  - [stdlib-deserializer.test.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/test/cache/stdlib-deserializer.test.ts) (index correctness + per-type hydration parity)
-  - [NamespaceResolutionService.test.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/test/namespace/NamespaceResolutionService.test.ts) (no resolution regression)
-  - [NamespaceResolution.integration.test.ts](/Users/peter.hale/git/apex-language-support/packages/apex-parser-ast/test/integration/NamespaceResolution.integration.test.ts) (end-to-end behavior unchanged)
+  - [stdlib-deserializer.test.ts](../packages/apex-parser-ast/test/cache/stdlib-deserializer.test.ts) (index correctness + per-type hydration parity)
+  - [NamespaceResolutionService.test.ts](../packages/apex-parser-ast/test/namespace/NamespaceResolutionService.test.ts) (no resolution regression)
+  - [NamespaceResolution.integration.test.ts](../packages/apex-parser-ast/test/integration/NamespaceResolution.integration.test.ts) (end-to-end behavior unchanged)
 - Add performance assertion(s): startup load path should avoid full table construction and reduce init time/log count.
 - Run:
   - `npm run compile --workspace=packages/apex-parser-ast`
