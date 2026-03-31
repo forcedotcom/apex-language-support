@@ -182,9 +182,17 @@ test.describe('Apex Go-to-Definition', () => {
       await apexEditor.openFile('ApexClassExample.cls');
     });
 
-    await test.step('Position cursor on constructor call', async () => {
-      // Navigate from this(...) call in default constructor to overloaded constructor.
-      await apexEditor.positionCursorOnWord("this('default-instance')");
+    await test.step('Verify source file context and position cursor on constructor call', async () => {
+      // Force a deterministic cursor position in the known fixture file instead of
+      // relying on Find widget text search, which can be flaky under CI load.
+      await apexEditor.goToPosition(1, 1);
+      const sourceViewport = await apexEditor.getContent();
+      expect(sourceViewport).toMatch(
+        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
+      );
+
+      // In ApexClassExample.cls this(...) is at line 14.
+      await apexEditor.goToPosition(14, 9);
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -192,9 +200,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to constructor', async () => {
-      const content = await apexEditor.findAndGetViewportContent(
-        'public ApexClassExample(String instanceId)',
-      );
+      const content = await apexEditor.getContent();
       expect(content).toMatch(
         /public\s+ApexClassExample\s*\(\s*String\s+instanceId\s*\)/,
       );
