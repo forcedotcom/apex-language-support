@@ -315,7 +315,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "SmartDataDiscovery",
+    "className": "Smartdatadiscovery",
     "namespace": "ConnectApi",
   },
   {
@@ -407,7 +407,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "RichMessaging",
   },
   {
-    "className": "SOAPType",
+    "className": "SoapType",
     "namespace": "Schema",
   },
   {
