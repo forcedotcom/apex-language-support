@@ -336,10 +336,7 @@ export const createClientOptions = (
             supersedePromise,
           ]);
           inFlightSupersede.delete(requestSeq);
-          if (result === null && token.isCancellationRequested) {
-            void nextPromise.catch(() => {});
-          }
-          if (result === null && !token.isCancellationRequested) {
+          if (result === null) {
             void nextPromise.catch(() => {});
           }
           return result;
