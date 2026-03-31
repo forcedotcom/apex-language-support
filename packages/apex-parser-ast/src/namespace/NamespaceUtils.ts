@@ -219,6 +219,39 @@ export interface SymbolProvider {
   findScalarKeywordType(name: string): ApexSymbol | null;
   findSObjectType(name: string): ApexSymbol | null;
   findExternalType(name: string, packageName: string): ApexSymbol | null;
+  /**
+   * Resolve an unqualified name using provider-defined default namespace order.
+   * Rules delegate ordering details (e.g. System/Schema) to the provider.
+   */
+  findInDefaultNamespaceOrder(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Resolve an unqualified name in provider-defined implicit file namespaces by slot.
+   * Slot 0 is highest precedence, slot 1 is next, etc.
+   */
+  findInImplicitFileNamespaceSlot(
+    name: string,
+    slot: number,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Resolve a type by explicit namespace and unqualified type name.
+   */
+  findInExplicitNamespace(
+    namespaceName: string,
+    typeName: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Whether the namespace token is a known built-in namespace alias.
+   */
+  isBuiltInNamespace(namespaceName: string): boolean;
+  /**
+   * Whether the namespace token should be treated as an SObject container namespace.
+   */
+  isSObjectContainerNamespace(namespaceName: string): boolean;
 }
 
 /**

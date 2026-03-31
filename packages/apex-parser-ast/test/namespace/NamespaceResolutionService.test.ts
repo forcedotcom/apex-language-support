@@ -111,6 +111,11 @@ const createMockSymbolProvider = (): jest.Mocked<SymbolProvider> => ({
   findScalarKeywordType: jest.fn(),
   findSObjectType: jest.fn(),
   findExternalType: jest.fn(),
+  findInDefaultNamespaceOrder: jest.fn(),
+  findInImplicitFileNamespaceSlot: jest.fn(),
+  findInExplicitNamespace: jest.fn(),
+  isBuiltInNamespace: jest.fn(),
+  isSObjectContainerNamespace: jest.fn(),
 });
 
 describe('NamespaceResolutionService', () => {
@@ -142,7 +147,8 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+      mockSymbolProvider.isBuiltInNamespace.mockReturnValue(true);
+      mockSymbolProvider.findInExplicitNamespace.mockReturnValue(
         mockResolvedSymbol,
       );
 
@@ -438,7 +444,8 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+      mockSymbolProvider.isBuiltInNamespace.mockReturnValue(true);
+      mockSymbolProvider.findInExplicitNamespace.mockReturnValue(
         mockResolvedSymbol,
       );
 

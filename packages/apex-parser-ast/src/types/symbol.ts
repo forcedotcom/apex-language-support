@@ -808,6 +808,18 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
   return key.unifiedId;
 };
 
+export type SymbolTableParseCompleteness =
+  | 'complete'
+  | 'incomplete'
+  | 'unknown';
+
+export interface SymbolTableMetadata {
+  fileUri: string;
+  documentVersion: number;
+  hasErrors?: boolean;
+  parseCompleteness: SymbolTableParseCompleteness;
+}
+
 /**
  * Symbol table representing all symbols in a source file.
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
@@ -824,6 +836,11 @@ export class SymbolTable {
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
   private symbolArray: ApexSymbol[] = [];
   private fileUri: string = 'unknown';
+  private metadata: SymbolTableMetadata = {
+    fileUri: 'unknown',
+    documentVersion: 1,
+    parseCompleteness: 'unknown',
+  };
 
   /**
    * Creates a new symbol table.
@@ -841,6 +858,7 @@ export class SymbolTable {
    */
   setFileUri(fileUri: string): void {
     this.fileUri = fileUri;
+    this.metadata.fileUri = fileUri;
   }
 
   /**
@@ -849,6 +867,23 @@ export class SymbolTable {
    */
   getFileUri(): string {
     return this.fileUri;
+  }
+
+  setMetadata(metadata: Partial<SymbolTableMetadata>): void {
+    this.metadata = {
+      ...this.metadata,
+      ...metadata,
+      fileUri: metadata.fileUri ?? this.metadata.fileUri ?? this.fileUri,
+      documentVersion:
+        metadata.documentVersion ?? this.metadata.documentVersion,
+    };
+    if (this.metadata.fileUri !== this.fileUri) {
+      this.fileUri = this.metadata.fileUri;
+    }
+  }
+
+  getMetadata(): SymbolTableMetadata {
+    return { ...this.metadata, fileUri: this.fileUri };
   }
 
   /**

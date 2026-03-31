@@ -40,7 +40,6 @@ import {
   ReferenceTypeEnum,
   IdentifierContext,
   type CompilationContext,
-  type SymbolProvider,
   Namespaces,
 } from '../../../namespace/NamespaceUtils';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../constants/constants';
@@ -327,7 +326,7 @@ export const MethodResolutionValidator: Validator = {
                 compilationContext,
                 ReferenceTypeEnum.METHOD,
                 IdentifierContext.NONE,
-                symbolManager as unknown as SymbolProvider,
+                symbolManager,
               );
               if (
                 resolutionResult.isResolved &&
@@ -373,7 +372,7 @@ export const MethodResolutionValidator: Validator = {
                   compilationContext,
                   ReferenceTypeEnum.METHOD,
                   IdentifierContext.NONE,
-                  symbolManager as unknown as SymbolProvider,
+                  symbolManager,
                 );
                 if (
                   resolutionResult.isResolved &&
