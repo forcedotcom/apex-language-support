@@ -282,6 +282,47 @@ describe('DocumentCloseProcessingService', () => {
     });
   });
 
+  describe('cache invalidation', () => {
+    it('should invalidate document state cache on close', async () => {
+      const {
+        getDocumentStateCache,
+      } = require('../../src/services/DocumentStateCache');
+      const cache = getDocumentStateCache();
+      const testUri = 'file:///cachetest.cls';
+
+      // Populate the cache first
+      cache.merge(testUri, {
+        diagnostics: [],
+        documentVersion: 1,
+        documentLength: 100,
+        symbolsIndexed: false,
+      });
+
+      // Verify cache entry exists
+      expect(cache.get(testUri, 1)).not.toBeNull();
+
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: testUri,
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'public class CacheTest {}',
+          positionAt: jest.fn(),
+          offsetAt: jest.fn(),
+          lineCount: 1,
+        },
+      };
+
+      service.processDocumentClose(event);
+
+      // Allow the fire-and-forget async processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Cache should be invalidated after close
+      expect(cache.get(testUri, 1)).toBeNull();
+    });
+  });
+
   describe('performance considerations', () => {
     it('should handle rapid successive closes', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {

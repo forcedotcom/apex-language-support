@@ -103,7 +103,7 @@ export class ApexSymbolProcessingManager {
           'ApexSymbolProcessingManager not initialized, processing synchronously',
       );
       // Fallback to synchronous processing
-      this.symbolManager.addSymbolTable(symbolTable, fileUri);
+      this.symbolManager.addSymbolTable(symbolTable, fileUri, documentVersion);
       return 'sync_fallback';
     }
 

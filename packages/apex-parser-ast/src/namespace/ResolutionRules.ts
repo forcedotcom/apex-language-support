@@ -80,16 +80,10 @@ export const BuiltInSystemSchema: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-
-    // Check System types
-    const systemType = symbols.findScalarKeywordType(`System.${name}`);
-    if (systemType) return systemType;
-
-    // Check Schema types
-    const schemaType = symbols.findScalarKeywordType(`Schema.${name}`);
-    if (schemaType) return schemaType;
-
-    return null;
+    return symbols.findInDefaultNamespaceOrder(
+      name,
+      context.compilationContext.referencingType,
+    );
   },
 };
 
@@ -126,9 +120,10 @@ export const FileBaseSystemNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    return symbols.find(
+    return symbols.findInImplicitFileNamespaceSlot(
+      name,
+      0,
       context.compilationContext.referencingType,
-      `System.${name}`,
     );
   },
 };
@@ -148,9 +143,10 @@ export const FileBaseSchemaNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    return symbols.find(
+    return symbols.findInImplicitFileNamespaceSlot(
+      name,
+      1,
       context.compilationContext.referencingType,
-      `Schema.${name}`,
     );
   },
 };
@@ -244,14 +240,12 @@ export const BuiltInNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const [firstPart, secondPart] = context.adjustedNameParts;
-
-    // Check if first part is a built-in namespace
-    if (firstPart === 'system' || firstPart === 'schema') {
-      const fullName = `${firstPart}.${secondPart}`;
-      return symbols.findScalarKeywordType(fullName);
-    }
-
-    return null;
+    if (!symbols.isBuiltInNamespace(firstPart)) return null;
+    return symbols.findInExplicitNamespace(
+      firstPart,
+      secondPart,
+      context.compilationContext.referencingType,
+    );
   },
 };
 
@@ -263,13 +257,13 @@ export const SchemaSObject: ResolutionRule = {
   name: 'SchemaSObject',
   priority: 6,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
-    context.adjustedNameParts.length === 2 &&
-    context.adjustedNameParts[0] === 'schema',
+    context.adjustedNameParts.length === 2,
   resolve: (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
-    const [, secondPart] = context.adjustedNameParts;
+    const [firstPart, secondPart] = context.adjustedNameParts;
+    if (!symbols.isSObjectContainerNamespace(firstPart)) return null;
     return symbols.findSObjectType(secondPart);
   },
 };
