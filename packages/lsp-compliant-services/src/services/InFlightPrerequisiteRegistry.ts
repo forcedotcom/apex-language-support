@@ -182,3 +182,7 @@ export const getInFlightPrerequisiteRegistry =
     }
     return inFlightRegistry;
   };
+
+export const resetInFlightPrerequisiteRegistry = (): void => {
+  inFlightRegistry = null;
+};
