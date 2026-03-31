@@ -42,7 +42,6 @@ import {
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
 
-let activeAsyncHoverEnrichments = 0;
 const coordinatedRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
 >([
@@ -380,10 +379,6 @@ export class PrerequisiteOrchestrationService {
         // results and don't need a re-pull signal.
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
-        if (requestType === 'hover') {
-          activeAsyncHoverEnrichments++;
-        }
-
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
@@ -391,12 +386,6 @@ export class PrerequisiteOrchestrationService {
             'same-file',
           )
           .then(() => {
-            if (requestType === 'hover') {
-              activeAsyncHoverEnrichments = Math.max(
-                0,
-                activeAsyncHoverEnrichments - 1,
-              );
-            }
             if (shouldSignalRefresh) {
               Effect.runPromise(
                 getDiagnosticRefreshService().signalEnrichmentComplete(),
@@ -404,12 +393,6 @@ export class PrerequisiteOrchestrationService {
             }
           })
           .catch((error: unknown) => {
-            if (requestType === 'hover') {
-              activeAsyncHoverEnrichments = Math.max(
-                0,
-                activeAsyncHoverEnrichments - 1,
-              );
-            }
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
             );
