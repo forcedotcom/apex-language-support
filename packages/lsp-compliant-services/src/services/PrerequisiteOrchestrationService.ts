@@ -433,10 +433,13 @@ export class PrerequisiteOrchestrationService {
       skipIfUnavailable?: boolean;
     },
   ): Promise<void> {
+    const MAX_REVISION_ITERATIONS = 10;
     let lastObservedRevision = -1;
+    let iterations = 0;
     const runStartedAt = Date.now();
 
-    while (true) {
+    while (iterations < MAX_REVISION_ITERATIONS) {
+      iterations++;
       const entry = this.inFlightRegistry.get(key);
       if (!entry) {
         return;
@@ -507,6 +510,11 @@ export class PrerequisiteOrchestrationService {
 
       lastObservedRevision = latestEntry.revision;
     }
+
+    this.logger.warn(
+      `[REQ-HARDEN] coordinated prerequisite loop hit max iterations (${MAX_REVISION_ITERATIONS}) ` +
+        `for type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+    );
   }
 
   /**
