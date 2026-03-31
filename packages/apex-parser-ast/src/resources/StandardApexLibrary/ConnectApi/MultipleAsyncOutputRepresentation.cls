@@ -1,10 +1,11 @@
-global class MultipleAsyncOutputRepresentation {
-	global List<ConnectApi.AsyncOutputRepresentation> asyncOutputs;
-	global MultipleAsyncOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * IDs of the asynchronous background operations. This output only includes the operation IDs, regardless of whether calls are made to an external payment gateway. It doesn’t include any errors from the operations.
+ */
+global class MultipleAsyncOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * List of IDs of background operations.
+   */
+  global List < ConnectApi.AsyncOutputRepresentation > asyncOutputs;
 
 }

@@ -1,9 +1,11 @@
+/**
+ * Update a user’s About Me information.
+ */
 global class UserInput {
-	global String aboutMe;
-	global UserInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The aboutMe property of a ConnectApi.UserDetail output object. This property populates the About Me section of the user profile, which is visible to all members of an Experience Cloud site or org.
+   */
+  global String aboutMe;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Adjustment for a cart delivery method in a promotion.
+ */
 global class PromotionCartDeliveryMethodAdjustment {
-	global ConnectApi.AdjustmentType adjustmentType;
-	global String adjustmentValue;
-	global String baseAmount;
-	global String priceAdjustmentCauseId;
-	global Integer priority;
-	global PromotionCartDeliveryMethodAdjustment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of price adjustment. Valid values are: AdjustmentAmount —The adjustment is a fixed amount. AdjustmentPercentage —The adjustment is a percentage.
+   */
+  global String adjustmentType;
+
+  /**
+   * Price value of the adjustment.
+   */
+  global String adjustmentValue;
+
+  /**
+   * Price value of the adjustment.
+   */
+  global String baseAmount;
+
+  /**
+   * ID of the related promotion.
+   */
+  global String priceAdjustmentCauseId;
+
+  /**
+   * Where in the sequence of adjustments this adjustment was applied.
+   */
+  global Integer priority;
 
 }

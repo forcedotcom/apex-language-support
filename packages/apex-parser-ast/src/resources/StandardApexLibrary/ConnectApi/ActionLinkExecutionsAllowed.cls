@@ -1,5 +1,8 @@
 global enum ActionLinkExecutionsAllowed {
-ONCE,
-ONCEPERUSER,
-UNLIMITED
+  Once,
+  OncePerUser,
+  Unlimited,
+  actionType,
+  Api,
+  ApiAsync
 }

@@ -1,10 +1,11 @@
+/**
+ * Represents a collection of all data spaces that a user is assigned to.
+ */
 global class DataSpaceCollectionRepresentation {
-	global List<ConnectApi.DataSpaceInfoRepresentation> dataSpaces;
-	global DataSpaceCollectionRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of all data spaces.
+   */
+  global List < ConnectApi.DataSpaceInfoRepresentation > dataSpaces;
 
 }

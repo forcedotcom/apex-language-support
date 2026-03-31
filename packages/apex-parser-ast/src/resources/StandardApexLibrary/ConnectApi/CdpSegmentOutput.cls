@@ -1,43 +1,111 @@
+/**
+ * Segment.
+ */
 global class CdpSegmentOutput {
-	global String apiName;
-	global ConnectApi.CdpUser createdBy;
-	global Datetime createdDate;
-	global String dataSpace;
-	global String description;
-	global String developerName;
-	global String displayName;
-	global String excludeCriteria;
-	global String groupSortLimitFilterCriteria;
-	global String includeCriteria;
-	global ConnectApi.CdpSegmentDbtPipeline includeDbt;
-	global ConnectApi.CdpUser lastModifiedBy;
-	global Datetime lastModifiedDate;
-	global Datetime lastPublishedEndDateTime;
-	global Long lastSegmentMemberCount;
-	global ConnectApi.CdpSegmentLookalike lookalikeCriteria;
-	global String lookbackPeriod;
-	global String marketSegmentDefinitionId;
-	global String marketSegmentId;
-	global String nextPublishDateTime;
-	global List<ConnectApi.Parameter> parameters;
-	global String publishInterval;
-	global String publishScheduleEndDate;
-	global String publishScheduleEndDateTime;
-	global ConnectApi.ScheduleOutput publishScheduleInfo;
-	global String publishScheduleStartDateTime;
-	global String publishStatus;
-	global ConnectApi.CdpSegmentMembershipTableOutput segmentMembershipDmo;
-	global String segmentMembershipTable;
-	global String segmentOnApiName;
-	global String segmentOnDataGraph;
-	global String segmentOnId;
-	global String segmentStatus;
-	global String segmentType;
-	global CdpSegmentOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API name of the segment.
+   */
+  global String apiName;
+
+  /**
+   * Data space of the segment.
+   */
+  global String dataSpace;
+
+  /**
+   * Segment description.
+   */
+  global String description;
+
+  /**
+   * Segment developer name.
+   */
+  global String developerName;
+
+  /**
+   * Segment display name.
+   */
+  global String displayName;
+
+  /**
+   * Segment exclude criteria.
+   */
+  global String excludeCriteria;
+
+  /**
+   * Segment include criteria.
+   */
+  global String includeCriteria;
+
+  /**
+   * Segment dbt pipeline.
+   */
+  global ConnectApi.CdpSegmentDbtPipeline includeDbt;
+
+  /**
+   * ID of the market segment definition.
+   */
+  global String marketSegmentDefinitionId;
+
+  /**
+   * ID of the market segment.
+   */
+  global String marketSegmentId;
+
+  /**
+   * Date and time of the next segment publish.
+   */
+  global String nextPublishDateTime;
+
+  /**
+   * Segment publish interval.
+   */
+  global String publishInterval;
+
+  /**
+   * Publish schedule end date.
+   */
+  global String publishScheduleEndDate;
+
+  /**
+   * Publish schedule start date time.
+   */
+  global String publishScheduleStartDateTime;
+
+  /**
+   * Segment publish status.
+   */
+  global String publishStatus;
+
+  /**
+   * Segment membership tables.
+   */
+  global ConnectApi.CdpSegmentMembershipTableOutput segmentMembershipDmo;
+
+  /**
+   * Name of the segment membership table.
+   */
+  global String segmentMembershipTable;
+
+  /**
+   * API name of the SegmentOn entity.
+   */
+  global String segmentOnApiName;
+
+  /**
+   * ID of the DMO segment.
+   */
+  global String segmentOnId;
+
+  /**
+   * Segment status.
+   */
+  global String segmentStatus;
+
+  /**
+   * Type of segment.
+   */
+  global String segmentType;
 
 }

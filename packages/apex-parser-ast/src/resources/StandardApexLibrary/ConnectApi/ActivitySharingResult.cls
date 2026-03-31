@@ -1,10 +1,11 @@
+/**
+ * The results of sharing a captured email or event.
+ */
 global class ActivitySharingResult {
-	global Boolean success;
-	global ActivitySharingResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Whether the share operation succeeded or not.
+   */
+  global Boolean success;
 
 }

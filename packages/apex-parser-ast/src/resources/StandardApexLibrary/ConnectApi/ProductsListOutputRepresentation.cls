@@ -1,10 +1,11 @@
+/**
+ * Output representation of products with product data along with expand details.
+ */
 global class ProductsListOutputRepresentation {
-	global List<ConnectApi.ProductOutputRepresentation> products;
-	global ProductsListOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The product’s identifier.
+   */
+  global List ConnectApi.ProductOutputRepresentation <> product;
 
 }

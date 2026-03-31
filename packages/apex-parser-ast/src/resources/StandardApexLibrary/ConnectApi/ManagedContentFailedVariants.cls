@@ -1,12 +1,21 @@
+/**
+ * Information about failed cloned managed content variants if cloning was partially successful.
+ */
 global class ManagedContentFailedVariants {
-	global String errorMessage;
-	global String language;
-	global String sourceManagedContentVariantId;
-	global ManagedContentFailedVariants() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error message for the failure.
+   */
+  global String errorMessage;
+
+  /**
+   * Language of the failed translated variant.
+   */
+  global String language;
+
+  /**
+   * ID of the managed content variant that failed to clone.
+   */
+  global String sourceManagedContentVariantId;
 
 }

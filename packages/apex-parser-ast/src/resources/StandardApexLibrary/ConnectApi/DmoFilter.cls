@@ -1,17 +1,46 @@
+/**
+ * Represents a DMO filter output.
+ */
 global class DmoFilter {
-	global ConnectApi.BaseComparison entityFilter;
-	global String entityFilterType;
-	global String entityName;
-	global ConnectApi.DmoFilterLimit filterLimit;
-	global ConnectApi.BaseComparison inheritedFilter;
-	global String inheritedFilterType;
-	global ConnectApi.QueryPathConfigList queryPathConfigForActivateOnToContainer;
-	global ConnectApi.QueryPathConfigList queryPathConfigFromContainerToEntity;
-	global DmoFilter() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Filter for the entity.
+   */
+  global ConnectApi.BaseComparison entityFilter;
+
+  /**
+   * Type of DMO filter.
+   */
+  global String entityFilterType;
+
+  /**
+   * Entity name of the DMO filter.
+   */
+  global String entityName;
+
+  /**
+   * Limit for the DMO filter.
+   */
+  global ConnectApi.DmoFilterLimit filterLimit;
+
+  /**
+   * Inherited filter.
+   */
+  global ConnectApi.BaseComparison inheritedFilter;
+
+  /**
+   * Type of inherited filter.
+   */
+  global String inheritedFilterType;
+
+  /**
+   * Path from the activation to the container.
+   */
+  global List < ConnectApi.QueryPathConfigList > pathFromActivateOnToContainer;
+
+  /**
+   * Path from the container to the entity.
+   */
+  global List < ConnectApi.QueryPathConfigList > pathFromContainerToEntity;
 
 }

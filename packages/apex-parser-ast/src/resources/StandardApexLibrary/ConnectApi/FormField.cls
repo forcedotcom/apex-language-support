@@ -1,11 +1,16 @@
+/**
+ * Marketing integration form field.
+ */
 global class FormField {
-	global String name;
-	global ConnectApi.FormFieldType type;
-	global FormField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the marketing integration form field.
+   */
+  global String name;
+
+  /**
+   * Type of marketing integration form field. Values are: Boolean Date EmailAddress Number Text
+   */
+  global ConnectApi.FormFieldType type;
 
 }

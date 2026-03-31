@@ -1,4 +1,5 @@
 global enum SortOrderEnum {
-ASCENDING,
-DESCENDING
+  Ascending,
+  Descending,
+  MostRecentlyViewed
 }

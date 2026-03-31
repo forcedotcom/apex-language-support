@@ -1,11 +1,16 @@
-global class FieldChangeValueSegment {
-	global String url;
-	global ConnectApi.FieldChangeValueType valueType;
-	global FieldChangeValueSegment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Field change value segment.
+ */
+global class FieldChangeValueSegment extends ConnectApi.MessageSegment {
+
+  /**
+   * Value type of a field change. NewValue —A new value OldValue —An old value
+   */
+  global ConnectApi.FieldChangeValueType Enum valueType;
+
+  /**
+   * URL value if the field change is to a URL field (such as a web address)
+   */
+  global String url;
 
 }

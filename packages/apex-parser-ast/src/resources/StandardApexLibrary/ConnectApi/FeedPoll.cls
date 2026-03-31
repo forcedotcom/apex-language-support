@@ -1,12 +1,21 @@
-global class FeedPoll {
-	global List<ConnectApi.FeedPollChoice> choices;
-	global String myChoiceId;
-	global Integer totalVoteCount;
-	global FeedPoll() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Attachment of ConnectApi.FeedItem objects where the type property is PollPost .
+ */
+global class FeedPoll extends ConnectApi.FeedItemAttachment {
+
+  /**
+   * List of choices for poll.
+   */
+  global List < ConnectApi.FeedPollChoice > choices;
+
+  /**
+   * ID of the poll choice that the context user has voted for in this poll. Returns null if the context user hasn’t voted.
+   */
+  global String myChoiceId;
+
+  /**
+   * Total number of votes cast on the feed poll item.
+   */
+  global Integer totalVoteCount;
 
 }

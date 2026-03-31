@@ -1,16 +1,21 @@
+/**
+ * Child product related to a parent product.
+ */
 global class ProductChild {
-	global ConnectApi.ProductComponentGroup componentGroup;
-	global String defaultQuantity;
-	global Boolean isDefault;
-	global Boolean isEntitled;
-	global Boolean isPriceIncludedInParent;
-	global Boolean isRequired;
-	global ConnectApi.ProductDetail productInfo;
-	global ProductChild() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Default quantity of child products to be ordered.
+   */
+  global String defaultQuantity;
+
+  /**
+   * Specifies whether the child product can be viewed on the product detail page ( true ) or not ( false ).
+   */
+  global Boolean isEntitled;
+
+  /**
+   * Product details of the child product.
+   */
+  global ConnectApi.ProductDetail productInfo;
 
 }

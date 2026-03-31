@@ -65,6 +65,7 @@
     { "path": "./packages/apex-ls" },
     { "path": "./packages/apex-lsp-testbed" },
     { "path": "./packages/apex-lsp-vscode-extension" },
-    { "path": "./packages/esbuild-presets" }
+    { "path": "./packages/esbuild-presets" },
+    { "path": "./packages/apex-stubs-generator" }
   ]
 }

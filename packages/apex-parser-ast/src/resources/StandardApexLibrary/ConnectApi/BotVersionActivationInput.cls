@@ -1,9 +1,11 @@
+/**
+ * Activation status of the bot version.
+ */
 global class BotVersionActivationInput {
-	global ConnectApi.BotVersionActivationStatus status;
-	global BotVersionActivationInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Activation status of the bot version. Values are: Active Inactive Activation status must be specified in the status or postBody parameter.
+   */
+  global ConnectApi.BotVersionActivationStatus status;
 
 }

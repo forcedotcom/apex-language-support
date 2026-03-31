@@ -831,7 +831,7 @@ export class SymbolReferenceFactory {
 
   /**
    * Create a return type reference for method declarations
-   * This handles return types like "System.Url" in method signatures
+   * This handles return types like "System.URL" in method signatures
    */
   static createReturnTypeReference(
     typeName: string,

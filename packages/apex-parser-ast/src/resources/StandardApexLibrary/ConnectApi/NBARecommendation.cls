@@ -1,19 +1,56 @@
+/**
+ * A recommendation returned by a recommendation strategy.
+ */
 global class NBARecommendation {
-	global String acceptanceLabel;
-	global String aiModel;
-	global String description;
-	global String externalId;
-	global String imageUrl;
-	global String recommendationMode;
-	global Double recommendationScore;
-	global String rejectionLabel;
-	global ConnectApi.AbstractNBATarget target;
-	global ConnectApi.AbstractNBAAction targetAction;
-	global NBARecommendation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Reserved for future use.
+   */
+  global String aiModel;
+
+  /**
+   * Text indicating user acceptance of the recommendation.
+   */
+  global String acceptanceLabel;
+
+  /**
+   * Description of the recommendation.
+   */
+  global String description;
+
+  /**
+   * External ID of the recommendation. This ID doesn’t need to be a Salesforce 18-character ID. For example, it can be a product number from an external system.
+   */
+  global String externalId;
+
+  /**
+   * URL to the asset file to display.
+   */
+  global String imageUrl;
+
+  /**
+   * Reserved for future use.
+   */
+  global String recommendationMode;
+
+  /**
+   * Reserved for future use.
+   */
+  global Double recommendationScore;
+
+  /**
+   * Text indicating user rejection of the recommendation.
+   */
+  global String rejectionLabel;
+
+  /**
+   * Target to act on.
+   */
+  global ConnectApi.AbstractNBATarget target;
+
+  /**
+   * Action to recommend.
+   */
+  global ConnectApi.AbstractNBAAction targetAction;
 
 }

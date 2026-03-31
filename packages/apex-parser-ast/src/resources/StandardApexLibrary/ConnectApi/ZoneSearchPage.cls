@@ -1,14 +1,31 @@
+/**
+ * Page of zone search results.
+ */
 global class ZoneSearchPage {
-	global String currentPageToken;
-	global String currentPageUrl;
-	global List<ConnectApi.ZoneSearchResult> items;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global ZoneSearchPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Token identifying the current page.
+   */
+  global String currentPageToken;
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * List of search results.
+   */
+  global List < ConnectApi.ZoneSearchResult > items;
+
+  /**
+   * Token identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageToken;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
 
 }

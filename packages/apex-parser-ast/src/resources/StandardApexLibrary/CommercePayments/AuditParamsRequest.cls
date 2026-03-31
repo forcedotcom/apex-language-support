@@ -1,12 +1,16 @@
+/**
+ * AuditParamsRequest is used for audit parameters in a transaction request. This is an abstract request class that is extended by the BaseRequest class.
+ */
 global class AuditParamsRequest {
-	global String email;
-	global String ipAddress;
-	global String macAddress;
-	global String phone;
-	global AuditParamsRequest(String email, String ipAddress, String macAddress, String phone) { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  global AuditParamsRequest(String email, String macAddress, String ipAddress, String phone) {}
+
+  global String email;
+
+  global String ipAddress;
+
+  global String macAddress;
+
+  global String phone;
 
 }

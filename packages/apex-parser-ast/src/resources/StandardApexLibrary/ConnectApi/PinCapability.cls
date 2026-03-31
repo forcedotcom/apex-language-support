@@ -1,11 +1,16 @@
-global class PinCapability {
-	global Boolean isPinnableByMe;
-	global Boolean isPinned;
-	global PinCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, users who have permission can pin it to a feed.
+ */
+global class PinCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Specifies whether the context user can pin or unpin the entity to the feed ( true ) or not ( false ).
+   */
+  global Boolean isPinnableByMe;
+
+  /**
+   * Specifies whether the entity is pinned ( true ) or not pinned ( false ) to the feed.
+   */
+  global Boolean isPinned;
 
 }

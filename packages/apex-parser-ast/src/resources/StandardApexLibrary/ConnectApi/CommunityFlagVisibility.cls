@@ -1,4 +1,4 @@
 global enum CommunityFlagVisibility {
-MODERATORSONLY,
-SELFANDMODERATORS
+  ModeratorsOnly,
+  SelfAndModerators
 }

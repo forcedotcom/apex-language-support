@@ -1,10 +1,11 @@
-global class DistinctValueSearchFacet {
-	global List<ConnectApi.DistinctFacetValue> values;
-	global DistinctValueSearchFacet() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Facet with distinct values in product search results.
+ */
+global class DistinctValueSearchFacet extends ConnectApi.SearchFacet {
+
+  /**
+   * Values of the facet found in the search result. Sorted by display name in alphabetical order.
+   */
+  global List < ConnectApi.DistinctFacetValue > values;
 
 }

@@ -1,10 +1,16 @@
+/**
+ * A business objective, or goal, and insights associated with it.
+ */
 global class BusinessObjectivesInputRepresentation {
-	global String businessObjectiveId;
-	global ConnectApi.BusObjInsightsInputRepresentation insightSummary;
-	global BusinessObjectivesInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the business objective.
+   */
+  global String businessObjectiveId;
+
+  /**
+   * A summary of insights about the business objective.
+   */
+  global ConnectApi.BusObjInsightsInputRepresentation insightSummary;
 
 }

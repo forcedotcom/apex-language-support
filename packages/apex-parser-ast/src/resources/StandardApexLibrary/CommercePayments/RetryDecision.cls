@@ -1,4 +1,7 @@
+/**
+ * Specifies the retry decision.
+ */
 global enum RetryDecision {
-NONRETRIABLE,
-RETRIABLE
+  NonRetriable,
+  Retriable
 }

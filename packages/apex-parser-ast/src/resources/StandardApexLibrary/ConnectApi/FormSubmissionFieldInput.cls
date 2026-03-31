@@ -1,10 +1,16 @@
+/**
+ * Marketing integration form field submission.
+ */
 global class FormSubmissionFieldInput {
-	global String name;
-	global String value;
-	global FormSubmissionFieldInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the marketing integration form field.
+   */
+  global String name;
+
+  /**
+   * Value of the marketing integration form field.
+   */
+  global String value;
 
 }

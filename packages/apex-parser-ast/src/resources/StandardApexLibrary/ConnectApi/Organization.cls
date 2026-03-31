@@ -1,5 +1,8 @@
+/**
+ * Access information about an org.
+ */
 global class Organization {
-	global Object clone() { }
-	global static ConnectApi.OrganizationSettings getSettings() { }
+
+  public static ConnectApi.OrganizationSettings getSettings() {}
 
 }

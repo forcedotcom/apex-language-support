@@ -1,9 +1,11 @@
-global class BaseInvoiceOutputRepresentation {
-	global String invoiceId;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Base Order Management Invoice output class.
+ */
+global class BaseInvoiceOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * ID of the created invoice.
+   */
+  global String invoiceId;
 
 }

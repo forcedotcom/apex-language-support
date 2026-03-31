@@ -1,12 +1,21 @@
+/**
+ * A container for all capabilities that can be included with a comment.
+ */
 global class CommentCapabilitiesInput {
-	global ConnectApi.ContentCapabilityInput content;
-	global ConnectApi.ExtensionsCapabilityInput extensions;
-	global ConnectApi.FeedEntityShareCapabilityInput feedEntityShare;
-	global ConnectApi.RecordCapabilityInput record;
-	global CommentCapabilitiesInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Content to attach to the comment.
+   */
+  global ConnectApi.ContentCapabilityInput content;
+
+  /**
+   * Feed entity to share to the comment.
+   */
+  global ConnectApi.FeedEntityShareCapabilityInput feedEntityShare;
+
+  /**
+   * Existing knowledge article to attach to the comment.
+   */
+  global ConnectApi.RecordCapabilityInput record;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Keyword search results for an object.
+ */
 global class ScopedSearchResults {
-	global ConnectApi.ObjectMetadata metadata;
-	global ConnectApi.ObjectQueryInfo objectQueryInfo;
-	global String queryId;
-	global List<ConnectApi.SearchResult> results;
-	global ConnectApi.SearchObject searchObject;
-	global ScopedSearchResults() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * All search metadata associated with the object.
+   */
+  global ConnectApi.ObjectMetadata metadata;
+
+  /**
+   * Query execution information for the object.
+   */
+  global ConnectApi.ObjectQueryInfo objectQueryInfo;
+
+  /**
+   * Unique identifier assigned to a search query to enable tracking usage and analysis of user interactions with search results.
+   */
+  global String queryId;
+
+  /**
+   * Record results for the keyword search.
+   */
+  global List < ConnectApi.SearchResult > results;
+
+  /**
+   * Record results for the keyword search. In version 64.0 and later, use results for record results.
+   */
+  global ConnectApi.SearchObject searchObject;
 
 }

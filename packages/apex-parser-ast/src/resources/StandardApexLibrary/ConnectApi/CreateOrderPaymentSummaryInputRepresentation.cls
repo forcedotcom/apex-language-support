@@ -1,11 +1,26 @@
+/**
+ * An OrderSummary for which to create an OrderPaymentSummary, with the payment authorization or payments to include in it.
+ */
 global class CreateOrderPaymentSummaryInputRepresentation {
-	global String orderSummaryId;
-	global String paymentAuthorizationId;
-	global List<String> paymentIds;
-	global CreateOrderPaymentSummaryInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the OrderSummary.
+   */
+  global String orderSummaryId;
+
+  /**
+   * Name of the OrderPaymentSummary.
+   */
+  global String name;
+
+  /**
+   * ID of the payment authorization.
+   */
+  global String paymentAuthorizationId;
+
+  /**
+   * List of IDs of the payments.
+   */
+  global List < String > paymentIds;
 
 }

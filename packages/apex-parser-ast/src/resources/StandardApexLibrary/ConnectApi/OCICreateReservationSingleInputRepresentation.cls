@@ -1,12 +1,26 @@
+/**
+ * A quantity of a product and an Omnichannel Inventory location or location group at which to reserve it.
+ */
 global class OCICreateReservationSingleInputRepresentation {
-	global String locationGroupIdentifier;
-	global String locationIdentifier;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global OCICreateReservationSingleInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Identifier of the location group at which to reserve inventory.
+   */
+  global String locationGroupIdentifier;
+
+  /**
+   * Identifier of the location at which to reserve inventory.
+   */
+  global String locationIdentifier;
+
+  /**
+   * The quantity of the product to reserve.
+   */
+  global Double quantity;
+
+  /**
+   * The SKU of the product to reserve.
+   */
+  global String stockKeepingUnit;
 
 }

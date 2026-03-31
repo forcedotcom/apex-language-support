@@ -1,9 +1,6 @@
-global class ChangeOrdersInvoiceOutputRepresentation {
-	global ChangeOrdersInvoiceOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * List of IDs of invoices created for change orders.
+ */
+global class ChangeOrdersInvoiceOutputRepresentation extends ConnectApi.BaseInvoiceOutputRepresentation {
 
 }

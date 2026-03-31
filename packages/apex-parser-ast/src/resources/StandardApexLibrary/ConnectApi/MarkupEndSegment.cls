@@ -1,11 +1,16 @@
-global class MarkupEndSegment {
-	global String htmlTag;
-	global ConnectApi.MarkupType markupType;
-	global MarkupEndSegment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * The end of rich text markup.
+ */
+global class MarkupEndSegment extends ConnectApi.MessageSegment {
+
+  /**
+   * The HTML tag for this markup.
+   */
+  global String htmlTag;
+
+  /**
+   * Type of rich text markup. Bold —Bold tag. Code —Code tag. Hyperlink —Hyperlink anchor tag. Italic —Italic tag. ListItem —List item tag. OrderedList —Ordered list tag. Paragraph —Paragraph tag. Strikethrough —Strikethrough tag. Underline —Underline tag. UnorderedList —Unordered list tag.
+   */
+  global ConnectApi.MarkupType markupType;
 
 }

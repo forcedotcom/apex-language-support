@@ -1,13 +1,26 @@
+/**
+ * Managed content collection item.
+ */
 global class ManagedContentCollectionItem {
-	global Map<String,Object> body;
-	global ConnectApi.ManagedContentCollectionItemTypeSummary contentType;
-	global String id;
-	global String name;
-	global ManagedContentCollectionItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Map of properties of the collection item with their values.
+   */
+  global Map < String , Object> body;
+
+  /**
+   * Type of collection item.
+   */
+  global ConnectApi.ManagedContentCollectionItemTypeSummary contentType;
+
+  /**
+   * ID of the collection item.
+   */
+  global String id;
+
+  /**
+   * Name or title for collection item.
+   */
+  global String name;
 
 }

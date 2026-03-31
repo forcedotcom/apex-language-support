@@ -1,14 +1,31 @@
+/**
+ * Output representation of the product search image.
+ */
 global class ProductSearchImageOutputRepresentation {
-	global String alternateText;
-	global String mediaType;
-	global Integer sortOrder;
-	global String title;
-	global String url;
-	global ProductSearchImageOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Alternate text for the product image.
+   */
+  global String alternateText;
+
+  /**
+   * Media type of the product image.
+   */
+  global String mediaType;
+
+  /**
+   * Sort order of the product image.
+   */
+  global Integer sortOrder;
+
+  /**
+   * Title of the product image.
+   */
+  global String title;
+
+  /**
+   * URL of the product image.
+   */
+  global String url;
 
 }

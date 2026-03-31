@@ -1,11 +1,18 @@
+/**
+ * Contains the unique API name and display name for the report type.
+ */
 global class ReportType {
-	global ReportType(String type, String label) { }
-	global ReportType() { }
-	global Object clone() { }
-	global String getLabel() { }
-	global String getType() { }
-	global void setLabel(String label) { }
-	global void setType(String type) { }
-	global String toString() { }
+
+  /**
+   * Returns the localized display name of the report type.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * Returns the unique identifier of the report type.
+   * @return String
+   */
+  public String getType() {}
 
 }

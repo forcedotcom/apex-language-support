@@ -1,16 +1,36 @@
+/**
+ * Address input representation for a payment method or card payment method.
+ */
 global class AddressRequest {
-	global String city;
-	global String companyName;
-	global String country;
-	global String email;
-	global String phone;
-	global String postalCode;
-	global String state;
-	global String street;
-	global AddressRequest() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Payment method city.
+   */
+  global String city;
+
+  /**
+   * Payment method company name.
+   */
+  global String companyName;
+
+  /**
+   * Payment method country.
+   */
+  global String country;
+
+  /**
+   * Payment method postal code.
+   */
+  global String postalCode;
+
+  /**
+   * Payment method state.
+   */
+  global String state;
+
+  /**
+   * Payment method street.
+   */
+  global String street;
 
 }

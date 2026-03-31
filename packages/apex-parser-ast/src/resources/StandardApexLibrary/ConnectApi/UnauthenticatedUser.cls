@@ -1,9 +1,6 @@
-global class UnauthenticatedUser {
-	global UnauthenticatedUser() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Unauthenticated user.
+ */
+global class UnauthenticatedUser extends ConnectApi.Actor {
 
 }

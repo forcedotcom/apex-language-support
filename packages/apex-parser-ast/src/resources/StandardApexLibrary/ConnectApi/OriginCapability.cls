@@ -1,11 +1,16 @@
-global class OriginCapability {
-	global ConnectApi.UserSummary actor;
-	global ConnectApi.Reference originRecord;
-	global OriginCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it was created by a feed action.
+ */
+global class OriginCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * The user who executed the feed action.
+   */
+  global ConnectApi.UserSummary actor;
+
+  /**
+   * A reference to the feed element containing the feed action.
+   */
+  global ConnectApi.Reference originRecord;
 
 }

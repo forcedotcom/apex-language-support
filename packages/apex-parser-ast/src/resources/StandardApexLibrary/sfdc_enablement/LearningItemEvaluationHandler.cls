@@ -1,6 +1,8 @@
+/**
+ * Contains methods to customize the evaluation process of a learning item.
+ */
 global class LearningItemEvaluationHandler {
-	global LearningItemEvaluationHandler() { }
-	global Object clone() { }
-	global sfdc_enablement.LearningEvaluationResult evaluate(sfdc_enablement.LearningEvaluation param0) { }
+
+  public Sfdc_enablement.LearningEvaluationResult evaluate(Sfdc_enablement.LearningEvaluation learningEvaluation) {}
 
 }

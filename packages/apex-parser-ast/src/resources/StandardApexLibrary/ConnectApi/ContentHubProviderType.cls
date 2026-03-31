@@ -1,11 +1,16 @@
+/**
+ * The type of repository.
+ */
 global class ContentHubProviderType {
-	global String label;
-	global String type;
-	global ContentHubProviderType() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Localized label of the provider type.
+   */
+  global String label;
+
+  /**
+   * Provider type. One of these values: ContentHubBox ContentHubGDrive ContentHubSharepoint ContentHubSharepointOffice365 ContentHubSharepointOneDrive SimpleUrl
+   */
+  global String type;
 
 }

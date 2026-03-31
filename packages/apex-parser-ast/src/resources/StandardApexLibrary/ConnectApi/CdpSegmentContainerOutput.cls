@@ -1,14 +1,26 @@
+/**
+ * Segment container.
+ */
 global class CdpSegmentContainerOutput {
-	global Integer batchSize;
-	global Integer offset;
-	global String orderByExpression;
-	global List<ConnectApi.CdpSegmentOutput> segments;
-	global Integer totalSize;
-	global CdpSegmentContainerOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Number of items returned.
+   */
+  global Integer batchSize;
+
+  /**
+   * Number of rows skipped before returning results.
+   */
+  global Integer offset;
+
+  /**
+   * Expression indicating how results are ordered.
+   */
+  global String orderByExpression;
+
+  /**
+   * List of segments.
+   */
+  global List < ConnectApi.CdpSegmentOutput > segments;
 
 }

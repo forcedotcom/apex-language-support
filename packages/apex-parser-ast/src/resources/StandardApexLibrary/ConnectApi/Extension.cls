@@ -1,14 +1,31 @@
+/**
+ * An extension.
+ */
 global class Extension {
-	global ConnectApi.Alternative alternativeRepresentation;
-	global String attachmentId;
-	global String extensionId;
-	global String payload;
-	global String payloadVersion;
-	global Extension() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Alternative representation of the extension.
+   */
+  global ConnectApi.Alternative alternativeRepresentation;
+
+  /**
+   * Attachment ID of the extension.
+   */
+  global String attachmentId;
+
+  /**
+   * ID of the extension.
+   */
+  global String extensionId;
+
+  /**
+   * Payload associated with the extension.
+   */
+  global String payload;
+
+  /**
+   * Payload version that identifies the structure of the payload associated with the extension.
+   */
+  global String payloadVersion;
 
 }

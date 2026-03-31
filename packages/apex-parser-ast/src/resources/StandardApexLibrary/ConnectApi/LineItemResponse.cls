@@ -1,18 +1,46 @@
+/**
+ * Response class that stores information about a list of one or more line items on which the tax engine has calculated tax.
+ */
 global class LineItemResponse {
-	global ConnectApi.AdditionalDataResponse additionalData;
-	global ConnectApi.TaxAddressesResponse addresses;
-	global ConnectApi.TaxAmountDetailsResponse amountDetails;
-	global Datetime effectiveDate;
-	global String lineNumber;
-	global String productCode;
-	global Double quantity;
-	global String taxCode;
-	global List<ConnectApi.TaxDetailsResponse> taxes;
-	global LineItemResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The Ship From, Ship To, and Sold To addresses used during tax calculation.
+   */
+  global ConnectApi.TaxAddressesResponse addresses;
+
+  /**
+   * Information about tax amount values on the line item.
+   */
+  global ConnectApi.TaxAmountDetailsResponse amountDetails;
+
+  /**
+   * The date that the tax calculation takes effect.
+   */
+  global Datetime effectiveDate;
+
+  /**
+   * System-generated number used to identify the tax line.
+   */
+  global String lineNumber;
+
+  /**
+   * Product code for the product related to the taxed line item.
+   */
+  global String productCode;
+
+  /**
+   * Quantity of the taxed line item.
+   */
+  global Double quantity;
+
+  /**
+   * Tax code for the taxed line item.
+   */
+  global String taxCode;
+
+  /**
+   * Tax details for each line item in a tax line item output.
+   */
+  global List < ConnectApi.TaxDetailsResponse > taxes;
 
 }

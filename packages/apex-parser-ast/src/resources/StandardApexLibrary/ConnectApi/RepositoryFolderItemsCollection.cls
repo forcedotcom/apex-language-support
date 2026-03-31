@@ -1,13 +1,26 @@
+/**
+ * A collection of repository folder items.
+ */
 global class RepositoryFolderItemsCollection {
-	global String currentPageUrl;
-	global List<ConnectApi.RepositoryFolderItem> items;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global RepositoryFolderItemsCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the current page of items.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Collection of items in a repository folder.
+   */
+  global List < ConnectApi.RepositoryFolderItem > items;
+
+  /**
+   * URL to the next page of items, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page of items, or null if there isn’t a previous page.
+   */
+  global String previousPageUrl;
 
 }

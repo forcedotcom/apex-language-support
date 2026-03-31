@@ -773,7 +773,7 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toContain('```apex');
         // When hovering on the class name, should show the class, not the method
         expect(content).toContain('class System.Assert');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
         // Should NOT show method signature when hovering on class name
         expect(content).not.toContain('void System.Assert.isNotNull(');
       }
@@ -906,7 +906,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         expect(content).toContain('void System.debug');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*public/);
       }
     });
   });
@@ -1132,7 +1132,7 @@ describe('HoverProcessingService Integration Tests', () => {
         // New hover format: code block header with FQN
         expect(content).toContain('```apex');
         expect(content).toContain('System.String');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1161,7 +1161,7 @@ describe('HoverProcessingService Integration Tests', () => {
         // Note: Hover resolves to String class when hovering the method name; header is now a code block
         expect(content).toContain('```apex');
         expect(content).toContain('System.String');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1256,7 +1256,7 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toMatch(
           /class System\.EncodingUtil|String System\.EncodingUtil\.urlEncode/,
         );
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1321,7 +1321,7 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toMatch(
           /class System\.EncodingUtil|String System\.EncodingUtil\.urlDecode/,
         );
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1382,7 +1382,7 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
         expect(content).toContain('class System.Http');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1413,7 +1413,7 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
         expect(content).toContain('class System.HttpRequest');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
@@ -1444,12 +1444,11 @@ describe('HoverProcessingService Integration Tests', () => {
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
         expect(content).toContain('class System.HttpResponse');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
 
-    // TODO: Fix URL.getOrgDomainUrl method call resolution as an expression in a method call
-    it.skip('should provide hover for URL.getOrgDomainUrl method calls', async () => {
+    it('should provide hover for URL.getOrgDomainUrl method calls', async () => {
       mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
 
       const text = complexTestClassDocument.getText();
@@ -1481,8 +1480,7 @@ describe('HoverProcessingService Integration Tests', () => {
       }
     });
 
-    // TODO: Fix JSON.deserialize method call resolution - builtin type representations in memory are incomplete
-    it.skip('should provide hover for JSON.deserialize method calls', async () => {
+    it('should provide hover for JSON.deserialize method calls', async () => {
       mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
 
       const text = complexTestClassDocument.getText();
@@ -1504,9 +1502,9 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Class** JSON');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
-        expect(content).toContain('**FQN:** System.JSON');
+        expect(content).toContain('class System.JSON');
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
+        expect(content).toContain('System.JSON');
       }
     });
 
@@ -1534,7 +1532,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         expect(content).toContain('class System.List');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*(public|global)/);
       }
     });
   });

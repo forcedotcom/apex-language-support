@@ -1,15 +1,36 @@
+/**
+ * Price adjustment tier.
+ */
 global class PriceAdjustmentTier {
-	global ConnectApi.PriceAdjustmentTierType adjustmentType;
-	global String adjustmentValue;
-	global String id;
-	global String lowerBound;
-	global String tierUnitPrice;
-	global String upperBound;
-	global PriceAdjustmentTier() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of price adjustment for the tier. Values are: AmountBasedAdjustment —Price is adjusted by a specified amount. PercentageBasedAdjustment —Price is adjusted by a specified percentage.
+   */
+  global ConnectApi.PriceAdjustmentTierType adjustmentType;
+
+  /**
+   * Adjustment value of the tier.
+   */
+  global String adjustmentValue;
+
+  /**
+   * ID of the price adjustment tier.
+   */
+  global String id;
+
+  /**
+   * Lower limit of the tier.
+   */
+  global String lowerBound;
+
+  /**
+   * Unit price of the tier.
+   */
+  global String tierUnitPrice;
+
+  /**
+   * Upper limit of the tier.
+   */
+  global String upperBound;
 
 }

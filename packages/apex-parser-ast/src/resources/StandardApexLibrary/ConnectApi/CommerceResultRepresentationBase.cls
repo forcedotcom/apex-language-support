@@ -1,10 +1,16 @@
+/**
+ * Base cart calculate output class.
+ */
 global class CommerceResultRepresentationBase {
-	global String message;
-	global ConnectApi.AsyncOperationStatus status;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Message related to the request.
+   */
+  global String message;
+
+  /**
+   * Asynchronous processing status of the cart, if asynchronous processing is enabled for the store. This property returns Completed in Apex, because Apex operations always run synchronously.
+   */
+  global String status;
 
 }

@@ -1,12 +1,26 @@
+/**
+ * A set of recordset filter criteria applied to records, such as service appointment records.
+ */
 global class RecordsetFilterCriteriaInput {
-	global List<String> criteriaIds;
-	global Boolean enforceSharing;
-	global String filteredObjectName;
-	global List<String> recordIds;
-	global RecordsetFilterCriteriaInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Recordset filter criteria IDs.
+   */
+  global List < String > criteriaIds;
+
+  /**
+   * Determines whether record sharing checks are enforced ( true ) or not ( false ) during the execution of this call.
+   */
+  global Boolean enforceSharing;
+
+  /**
+   * Object that the filter is applied to.
+   */
+  global String filteredObjectName;
+
+  /**
+   * List of record IDs of the filtered object.
+   */
+  global List < String > recordIds;
 
 }

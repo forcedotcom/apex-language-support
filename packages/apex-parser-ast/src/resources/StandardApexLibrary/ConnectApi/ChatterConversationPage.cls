@@ -1,14 +1,31 @@
+/**
+ * Chatter conversation page.
+ */
 global class ChatterConversationPage {
-	global List<ConnectApi.ChatterConversationSummary> conversations;
-	global String currentPageToken;
-	global String currentPageUrl;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global ChatterConversationPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of conversations on the page.
+   */
+  global List < ConnectApi.ChatterConversationSummary > conversations;
+
+  /**
+   * Token identifying the current page.
+   */
+  global String currentPageToken;
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Token identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageToken;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
 
 }

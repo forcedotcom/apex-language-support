@@ -1,12 +1,21 @@
+/**
+ * Shows the results of the tax calculation request to the tax engine.
+ */
 global class TaxEngineLogResponse {
-	global Datetime createdDate;
-	global String id;
-	global String resultCode;
-	global TaxEngineLogResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The date that the gateway log was created.
+   */
+  global Datetime createdDate;
+
+  /**
+   * ID of the tax engine log record.
+   */
+  global String id;
+
+  /**
+   * Result code sent from the external tax engine. Review the tax engine provider's documentation for more information about the code.
+   */
+  global String resultCode;
 
 }

@@ -1,10 +1,11 @@
-global class UserSummary {
-	global Boolean isActive;
-	global UserSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * User summary.
+ */
+global class UserSummary extends ConnectApi.User {
+
+  /**
+   * true if user is active; false otherwise.
+   */
+  global Boolean isActive;
 
 }

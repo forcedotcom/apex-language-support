@@ -1,13 +1,26 @@
+/**
+ * Image file details.
+ */
 global class ContentImageFileDetails {
-	global Integer height;
-	global String imageFormat;
-	global String orientation;
-	global Integer width;
-	global ContentImageFileDetails() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Image’s height in pixels.
+   */
+  global Integer height;
+
+  /**
+   * Image’s format.
+   */
+  global String imageFormat;
+
+  /**
+   * Image’s EXIF orientation value, if present.
+   */
+  global String orientation;
+
+  /**
+   * Image’s width in pixels.
+   */
+  global Integer width;
 
 }

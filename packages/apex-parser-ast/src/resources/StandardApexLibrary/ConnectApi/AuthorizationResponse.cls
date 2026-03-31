@@ -1,16 +1,41 @@
+/**
+ * Payment Authorization output representation.
+ */
 global class AuthorizationResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.AuthorizationGatewayResponse gatewayResponse;
-	global Boolean isMultiCaptureSupported;
-	global ConnectApi.PaymentAuthorizationResponse paymentAuthorization;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global ConnectApi.PaymentGroupResponse paymentGroup;
-	global ConnectApi.PaymentMethodResponse paymentMethod;
-	global AuthorizationResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error representation for the payment authorization.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Gateway response representation for the payment authorization.
+   */
+  global ConnectApi.AuthorizationGatewayResponse gatewayResponse;
+
+  /**
+   * Indicates whether the authorization status from a payment gateway, such as Stripe, supports multiple captures ( true ) or not ( false ).
+   */
+  global Boolean isMultiCaptureSupported;
+
+  /**
+   * Payment authorization representation.
+   */
+  global ConnectApi.PaymentAuthorizationResponse paymentAuthorization;
+
+  /**
+   * Gateway log list representation for the payment authorization.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  /**
+   * Payment group representation for the payment authorization.
+   */
+  global ConnectApi.PaymentGroupResponse paymentGroup;
+
+  /**
+   * Payment method representation for the payment authorization.
+   */
+  global ConnectApi.PaymentMethodResponse paymentMethod;
 
 }

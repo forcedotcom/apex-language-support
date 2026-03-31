@@ -1,10 +1,11 @@
+/**
+ * Representation for list of adjustments for an Order Item Summary.
+ */
 global class OrderItemSummaryAdjustmentList {
-	global List<ConnectApi.OrderSummaryAdjustment> adjustments;
-	global OrderItemSummaryAdjustmentList() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Adjustments associated with an order item summary.
+   */
+  global List < ConnectApi.OrderSummaryAdjustment > adjustments;
 
 }

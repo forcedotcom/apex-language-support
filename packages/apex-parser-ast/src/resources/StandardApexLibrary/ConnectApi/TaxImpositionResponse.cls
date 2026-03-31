@@ -1,11 +1,16 @@
+/**
+ * Tax imposition output representation.
+ */
 global class TaxImpositionResponse {
-	global String name;
-	global String type;
-	global TaxImpositionResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the tax imposition.
+   */
+  global String name;
+
+  /**
+   * Type of the tax imposition.
+   */
+  global String type;
 
 }

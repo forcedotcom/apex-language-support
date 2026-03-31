@@ -1,12 +1,26 @@
+/**
+ * Input for unpublishing content.
+ */
 global class ManagedContentUnpublishInput {
-	global List<String> contentIds;
-	global String contextContentSpaceId;
-	global String description;
-	global List<String> variantIds;
-	global ManagedContentUnpublishInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * IDs of content to unpublish. All variants of the content are unpublished.
+   */
+  global List < String > contentIds;
+
+  /**
+   * ID of the context workspace. If specified, content from other workspaces is unpublished if it is shared to the specified workspace. If unspecified, the context workspace is derived from the content’s origin workspace. All content in the request should belong to the same origin workspace.
+   */
+  global String contextContentSpaceId;
+
+  /**
+   * Description for unpublish action.
+   */
+  global String description;
+
+  /**
+   * IDs of variants to unpublish. All variants must be from the same content space.
+   */
+  global List < String > variantIds;
 
 }

@@ -1,15 +1,36 @@
+/**
+ * Site search result item.
+ */
 global class SiteSearchItem {
-	global String contentReference;
-	global String contentTypeDeveloperName;
-	global String highlightedSnippet;
-	global String id;
-	global ConnectApi.ConnectSitesPageType pageType;
-	global String title;
-	global SiteSearchItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Content reference field, which is the route developer name for a site page or a content key for a content detail page.
+   */
+  global String contentReference;
+
+  /**
+   * Developer name of the content type of the site search result item.
+   */
+  global String contentTypeDeveloperName;
+
+  /**
+   * Text snippet that contains the query term.
+   */
+  global String highlightedSnippet;
+
+  /**
+   * ID of the site search result item.
+   */
+  global String id;
+
+  /**
+   * Type of site search result item. Values are: ContentPage SitePage
+   */
+  global ConnectApi.SitesPageType pageType;
+
+  /**
+   * Title of the site search result item.
+   */
+  global String title;
 
 }

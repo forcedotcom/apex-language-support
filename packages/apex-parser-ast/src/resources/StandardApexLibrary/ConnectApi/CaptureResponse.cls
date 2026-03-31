@@ -1,14 +1,31 @@
+/**
+ * Capture output.
+ */
 global class CaptureResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.CaptureGatewayResponse gatewayResponse;
-	global ConnectApi.PaymentResponse payment;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global ConnectApi.PaymentGroupResponse paymentGroup;
-	global CaptureResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error response representation for an authorization capture.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Gateway log response containing details about gateway logs created during the process of the capture request.
+   */
+  global ConnectApi.CaptureGatewayResponse gatewayResponse;
+
+  /**
+   * Payment response object for the capture request. Contains the information related to a payment object created during request processing.
+   */
+  global ConnectApi.PaymentResponse payment;
+
+  /**
+   * Gateway log collection for an authorization capture.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  /**
+   * Payment group associated with the capture request.
+   */
+  global ConnectApi.PaymentGroupResponse paymentGroup;
 
 }

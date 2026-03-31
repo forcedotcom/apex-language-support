@@ -1,15 +1,18 @@
+/**
+ * Represents the record set returned by Database.getQueryLocator and used with Batch Apex.
+ */
 global class QueryLocator {
-	global Boolean equals(Object obj) { }
-	/**
-	 * Gets the underlying query for this QueryLocator
-	 */
-	global String getQuery() { }
-	global Integer hashCode() { }
-	/**
-	 * Gets an iterator over the results of this QueryLocator
-	 */
-	global Database.QueryLocatorIterator iterator() { }
-	global List<SObject> querymore(Integer num) { }
-	global String toString() { }
+
+  /**
+   * Returns the query used to instantiate the Database.QueryLocator object. This is useful when testing the start method.
+   * @return String
+   */
+  public String getQuery() {}
+
+  /**
+   * Returns a new instance of a query locator iterator.
+   * @return Database.QueryLocatorIterator
+   */
+  public Database.QueryLocatorIterator iterator() {}
 
 }

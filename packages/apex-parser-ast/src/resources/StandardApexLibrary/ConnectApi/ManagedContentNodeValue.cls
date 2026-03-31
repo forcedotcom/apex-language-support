@@ -1,9 +1,11 @@
+/**
+ * Managed content node.
+ */
 global class ManagedContentNodeValue {
-	global ConnectApi.ConnectManagedContentNodeType nodeType;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of managed content node. Values are: Date DateTime Media MediaSource MultilineText NameField RichText Text Url
+   */
+  global ConnectApi.ManagedContentNodeType nodeType;
 
 }

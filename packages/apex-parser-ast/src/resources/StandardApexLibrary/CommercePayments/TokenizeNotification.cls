@@ -1,20 +1,32 @@
+/**
+ * When a payment gateway sends a notification for a payment method tokenization, the payment gateway adapter creates the TokenizeNotification object to store information about notification.
+ */
 global class TokenizeNotification {
-	global TokenizeNotification() { }
-	global Object clone() { }
-	global void setAmount(Double amount) { }
-	global void setGatewayAvsCode(String gatewayAvsCode) { }
-	global void setGatewayDate(Datetime gatewayDate) { }
-	global void setGatewayMessage(String gatewayMessage) { }
-	global void setGatewayReferenceDetails(String gatewayReferenceDetails) { }
-	global void setGatewayReferenceNumber(String gatewayReferenceNumber) { }
-	global void setGatewayResultCode(String gatewayResultCode) { }
-	global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
-	global void setGatewayToken(String gatewayToken) { }
-	global void setGatewayTokenEncrypted(String gatewayTokenEncrypted) { }
-	global void setId(String id) { }
-	global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
-	global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
-	global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
-	global void setStatus(commercepayments.NotificationStatus status) { }
+
+  public void setAmount(Double amount) {}
+
+  public void setGatewayAvsCode(String gatewayAvsCode) {}
+
+  public void setGatewayDate(Datetime gatewayDate) {}
+
+  public void setGatewayMessage(String gatewayMessage) {}
+
+  public void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+
+  public void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+
+  public void setGatewayResultCode(String gatewayResultCode) {}
+
+  public void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+
+  public void setGatewayToken(String gatewayToken) {}
+
+  public void setGatewayTokenEncrypted(String gatewayTokenEncrypted) {}
+
+  public void setId(String id) {}
+
+  public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  public void setStatus(commercepayments.NotificationStatus status) {}
 
 }

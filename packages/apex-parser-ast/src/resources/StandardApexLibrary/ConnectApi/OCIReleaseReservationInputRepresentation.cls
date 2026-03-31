@@ -1,10 +1,16 @@
+/**
+ * Details of one or more inventory reservations to release.
+ */
 global class OCIReleaseReservationInputRepresentation {
-	global List<ConnectApi.OCIReleaseReservationSingleInputRepresentation> releaseRecords;
-	global String reservationId;
-	global OCIReleaseReservationInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of inventory reservations to release. The list can include up to 100 elements.
+   */
+  global List < ConnectApi.OCIReleaseReservationSingleInputRepresentation > releaseRecords;
+
+  /**
+   * The ID of the inventory reservation.
+   */
+  global String reservationId;
 
 }

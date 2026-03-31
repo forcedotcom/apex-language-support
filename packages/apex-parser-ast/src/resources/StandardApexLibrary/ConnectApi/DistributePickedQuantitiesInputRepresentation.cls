@@ -1,11 +1,21 @@
+/**
+ * Input representation to Distribute Picked Quantities
+ */
 global class DistributePickedQuantitiesInputRepresentation {
-	global List<ConnectApi.DistributeToOrdersInputRepresentation> distributeToOrders;
-	global String optimizationCriteria;
-	global List<ConnectApi.ItemQuantityInputRepresentation> quantitiesPickedList;
-	global DistributePickedQuantitiesInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of orders that need quantities distributed.
+   */
+  global List < ConnectApi.DistributeToOrdersInputRepresentation > distributeToOrders;
+
+  /**
+   * Criteria used for distributing picked quantities to orders.
+   */
+  global String optimizationCriteria;
+
+  /**
+   * Quantities for each item picked.
+   */
+  global List < ConnectApi.ItemQuantityInputRepresentation > quantitiesPickedList;
 
 }

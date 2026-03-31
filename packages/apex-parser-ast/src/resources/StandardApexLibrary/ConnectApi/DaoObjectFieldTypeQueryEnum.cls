@@ -1,5 +1,5 @@
 global enum DaoObjectFieldTypeQueryEnum {
-DIMENSION,
-MEASURE,
-OBJECTTYPEUNSPECIFIED
+  Dimension,
+  Measure,
+  ObjectTypeUnspecified
 }

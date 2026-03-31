@@ -1,11 +1,16 @@
+/**
+ * Calculated insight data source.
+ */
 global class CdpCalculatedInsightDataSource {
-	global String sourceApiName;
-	global String type;
-	global CdpCalculatedInsightDataSource() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Data source API name.
+   */
+  global String sourceApiName;
+
+  /**
+   * Data source type.
+   */
+  global String type;
 
 }

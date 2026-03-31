@@ -1,9 +1,12 @@
+/**
+ * Represents a custom console component on a section of a page layout.
+ */
 global class ConsoleComponent {
-	global Integer height;
-	global String location;
-	global String visualforcePage;
-	global Integer width;
-	global ConsoleComponent() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.ConsoleComponent .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

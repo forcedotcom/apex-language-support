@@ -49,8 +49,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle deeply nested generic types', async () => {
       const testClass = `
         public class TestClass {
-          public Map<String, List<System.Url>> getUrlMap() {
-            return new Map<String, List<System.Url>>();
+          public Map<String, List<System.URL>> getUrlMap() {
+            return new Map<String, List<System.URL>>();
           }
         }
       `;
@@ -58,13 +58,13 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have generic parameter type references for System.Url in nested generics
+      // Should have generic parameter type references for System.URL in nested generics
       const systemUrlRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
-      expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1); // At least one System.Url reference
+      expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1); // At least one System.URL reference
 
       // Should have generic parameter type references for String in generics
       const genericTypeRefs = references.filter(
@@ -79,8 +79,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle triple nested generic types', async () => {
       const testClass = `
         public class TestClass {
-          public List<Map<String, System.Url>> getComplexList() {
-            return new List<Map<String, System.Url>>();
+          public List<Map<String, System.URL>> getComplexList() {
+            return new List<Map<String, System.URL>>();
           }
         }
       `;
@@ -88,12 +88,12 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for System.Url
+      // Should have parameter type references for System.URL
       const systemUrlRefs = references.filter(
         (ref) =>
           (ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -116,8 +116,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle mixed simple and dotted types in generics', async () => {
       const testClass = `
         public class TestClass {
-          public Map<String, System.Url> getMixedMap() {
-            return new Map<String, System.Url>();
+          public Map<String, System.URL> getMixedMap() {
+            return new Map<String, System.URL>();
           }
         }
       `;
@@ -125,11 +125,11 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have generic parameter type references for System.Url
+      // Should have generic parameter type references for System.URL
       const systemUrlRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -148,7 +148,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle three-part dotted types', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getThreePartType() {
+          public System.URL getThreePartType() {
             return null;
           }
         }
@@ -157,9 +157,9 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.Url (two-part type)
+      // Should have chained type references for System.URL (two-part type)
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -167,7 +167,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
         const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(2);
         expect(chainedRef.chainNodes[0].name).toBe('System');
-        expect(chainedRef.chainNodes[1].name).toBe('Url');
+        expect(chainedRef.chainNodes[1].name).toBe('URL');
       }
     });
 
@@ -202,8 +202,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle dotted types in generic parameters', async () => {
       const testClass = `
         public class TestClass {
-          public List<System.Url> getDottedGenericList() {
-            return new List<System.Url>();
+          public List<System.URL> getDottedGenericList() {
+            return new List<System.URL>();
           }
         }
       `;
@@ -211,12 +211,12 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for System.Url
+      // Should have parameter type references for System.URL
       const systemUrlRefs = references.filter(
         (ref) =>
           (ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -235,13 +235,13 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle dotted types in multiple contexts', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
           
-          public System.Url getUrl() {
+          public System.URL getUrl() {
             return myUrl;
           }
           
-          public void setUrl(System.Url newUrl) {
+          public void setUrl(System.URL newUrl) {
             myUrl = newUrl;
           }
         }
@@ -250,12 +250,12 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have multiple System.Url references in different contexts
+      // Should have multiple System.URL references in different contexts
       const systemUrlRefs = references.filter(
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(3); // Field, return type, parameter
 
@@ -273,20 +273,20 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle dotted types in interface methods', async () => {
       const testClass = `
         public interface TestInterface {
-          System.Url getUrl();
-          void setUrl(System.Url url);
+          System.URL getUrl();
+          void setUrl(System.URL url);
         }
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestInterface');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.Url in interface methods
+      // Should have chained type references for System.URL in interface methods
       const systemUrlRefs = references.filter(
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(2); // Return type and parameter
 
@@ -354,7 +354,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
     it('should handle very long dotted type names', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getLongType() {
+          public System.URL getLongType() {
             return null;
           }
         }
@@ -363,13 +363,13 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.Url
+      // Should have chained type references for System.URL
       const systemUrlRefs = references.filter(
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -381,7 +381,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
         const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(2);
         expect(chainedRef.chainNodes[0].name).toBe('System');
-        expect(chainedRef.chainNodes[1].name).toBe('Url');
+        expect(chainedRef.chainNodes[1].name).toBe('URL');
       }
     });
   });
