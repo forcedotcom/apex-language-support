@@ -385,6 +385,18 @@ describe('ResourceLoader Lazy Loading', () => {
       // Symbol tables from cache should be the same instance
       expect(symbolTable2).toBe(symbolTable1);
     });
+
+    it('should resolve unqualified class names via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('Action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
+
+    it('should resolve namespaced class names case-insensitively via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('apexpages/action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
   });
 
   describe('hasSymbolTable', () => {

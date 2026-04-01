@@ -16,6 +16,7 @@ import {
   createTypeWithNamespace,
   Namespaces,
 } from './NamespaceUtils';
+import { isPrimaryImplicitNamespace } from './NamespaceResolutionPolicy';
 
 /**
  * NamedScalarOrVoid rule
@@ -120,6 +121,24 @@ export const FileBaseSystemNamespace: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
+    const currentNamespace =
+      (typeof context.compilationContext.referencingType?.namespace === 'string'
+        ? context.compilationContext.referencingType.namespace
+        : context.compilationContext.referencingType?.namespace?.toString?.()) ||
+      context.compilationContext.namespace?.toString?.();
+    const shouldTryCurrentNamespaceFirst =
+      !!currentNamespace &&
+      !isPrimaryImplicitNamespace(currentNamespace) &&
+      context.referenceType === 'METHOD';
+    if (shouldTryCurrentNamespaceFirst) {
+      const found = symbols.findInExplicitNamespace(
+        currentNamespace,
+        name,
+        context.compilationContext.referencingType,
+      );
+      if (found) return found;
+    }
+
     return symbols.findInImplicitFileNamespaceSlot(
       name,
       0,

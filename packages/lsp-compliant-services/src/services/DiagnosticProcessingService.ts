@@ -1048,10 +1048,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    * Create a callback for loading missing artifacts during validation
    *
    * This callback is passed to validators via ValidationOptions and allows
-   * them to trigger artifact loading using the existing MissingArtifactResolutionService.
+   * them to enqueue artifact loading using the existing MissingArtifactResolutionService.
+   * The callback is intentionally non-blocking and always returns an empty array.
    *
    * @param contextFile - The file URI that triggered validation (for context)
-   * @returns Callback function that loads artifacts and returns loaded file URIs
+   * @returns Callback function that queues background loads and returns []
    */
   private createLoadArtifactCallback(
     contextFile: string,
@@ -1068,10 +1069,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
       );
 
-      let loadedTypeNames: string[] = [];
-
       try {
-        const result = await this.artifactResolutionService.resolveBlocking({
+        await this.artifactResolutionService.resolveInBackground({
           identifiers: typesToLoad.map((name) => ({ name })),
           origin: {
             uri: contextFile,
@@ -1080,37 +1079,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           mode: 'background',
           timeoutMsHint: 2000,
         });
-
-        if (result === 'resolved') {
-          // Wait for opened files to be indexed (didOpen processing is async)
-          const settings = ApexSettingsManager.getInstance().getSettings();
-          const pollMs =
-            settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
-          const maxWaitMs = 500;
-          const start = Date.now();
-          while (Date.now() - start < maxWaitMs) {
-            const allIndexed = typesToLoad.every((name) => {
-              const symbols = this.symbolManager.findSymbolByName(name);
-              return symbols.length > 0;
-            });
-            if (allIndexed) break;
-            await new Promise((r) => setTimeout(r, pollMs));
-          }
-          // Check which types are now in the symbol manager
-          loadedTypeNames = typesToLoad.filter((name) => {
-            const symbols = this.symbolManager.findSymbolByName(name);
-            return symbols.length > 0;
-          });
-          this.logger.debug(
-            () =>
-              `Successfully loaded ${loadedTypeNames.length} artifacts for types: ${loadedTypeNames.join(', ')}`,
-          );
-        } else {
-          this.logger.debug(
-            () =>
-              `Failed to load artifacts for types [${typesToLoad.join(', ')}]: ${result}`,
-          );
-        }
+        this.logger.debug(
+          () =>
+            `Queued background artifact resolution for ${typesToLoad.length} types: ${typesToLoad.join(', ')}`,
+        );
       } catch (error) {
         this.logger.debug(
           () =>
@@ -1119,30 +1091,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       this.logger.debug(
-        () =>
-          `Artifact loading callback completed: ${loadedTypeNames.length}/${typeNames.length} types loaded`,
+        () => 'Artifact loading callback completed in background mode',
       );
-
-      // Re-run cross-file resolution after artifacts are loaded
-      // This ensures that references that were deferred can now be resolved
-      if (loadedTypeNames.length > 0) {
-        try {
-          await Effect.runPromise(
-            this.symbolManager.resolveCrossFileReferencesForFile(contextFile),
-          );
-          this.logger.debug(
-            () =>
-              `Re-ran cross-file resolution after loading ${loadedTypeNames.length} artifacts`,
-          );
-        } catch (error) {
-          this.logger.debug(
-            () =>
-              `Error re-running cross-file resolution after artifact loading: ${error}`,
-          );
-        }
-      }
-
-      return loadedTypeNames;
+      return [];
     };
   }
 }

@@ -657,5 +657,58 @@ describe('Server Config Module', () => {
         }),
       );
     });
+
+    describe('hover middleware supersede semantics', () => {
+      function createMiddleware() {
+        const clientOptions = createClientOptions({
+          enableDocumentSymbols: true,
+          extensionMode: 'development',
+        } as any);
+        return clientOptions.middleware!.provideHover! as (
+          doc: any,
+          pos: any,
+          token: any,
+          next: any,
+        ) => Promise<any>;
+      }
+
+      const doc = { uri: 'file:///Test.cls' };
+      const pos = { line: 0, character: 0 };
+
+      it('should return null and suppress promise when token is cancelled', async () => {
+        const provideHover = createMiddleware();
+        const token = {
+          isCancellationRequested: true,
+          onCancellationRequested: jest.fn(),
+        };
+
+        const result = await provideHover(
+          doc,
+          pos,
+          token,
+          () => new Promise(() => {}),
+        );
+
+        expect(result).toBeNull();
+      });
+
+      it('should supersede older hover when newer hover arrives', async () => {
+        const provideHover = createMiddleware();
+        const token = {
+          isCancellationRequested: false,
+          onCancellationRequested: jest.fn(),
+        };
+
+        const slow = provideHover(doc, pos, token, () => new Promise(() => {}));
+        const fast = provideHover(doc, pos, token, async () => ({
+          contents: 'fast',
+        }));
+
+        const [slowResult, fastResult] = await Promise.all([slow, fast]);
+
+        expect(slowResult).toBeNull();
+        expect(fastResult).toEqual({ contents: 'fast' });
+      });
+    });
   });
 });

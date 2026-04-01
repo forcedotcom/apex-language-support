@@ -41,7 +41,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'signatureHelp',
     priority: Priority.Immediate,
-    timeout: 100,
+    timeout: 1000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createSignatureHelpService(),
   },
@@ -84,7 +84,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'references',
-    priority: Priority.Normal,
+    priority: Priority.Low,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),

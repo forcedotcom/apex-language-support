@@ -86,6 +86,21 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   async resolveBlocking(
     params: FindMissingArtifactParams,
   ): Promise<BlockingResult> {
+    const requestKind = params.origin?.requestKind ?? 'unknown';
+    const observedRequestKinds = new Set([
+      'definition',
+      'signatureHelp',
+      'references',
+      'rename',
+    ]);
+    const shouldObserve = observedRequestKinds.has(requestKind);
+    const startedAt = Date.now();
+    if (shouldObserve) {
+      this.logger.debug(
+        () =>
+          `[REQ-HARDEN] missingArtifact blocking start kind=${requestKind} ids=${params.identifiers.length}`,
+      );
+    }
     const names = params.identifiers.map((s) => s.name).join(', ');
     const normalizedNames = Array.from(
       new Set(
@@ -135,12 +150,15 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
 
     const requestPromise = (async (): Promise<BlockingResult> => {
       try {
-        // Use the queue system for blocking resolution with HIGH priority
+        // Priority tuning: keep definition responsive, but avoid starving hover/startup
+        // with high-priority artifact loads during workspace churn.
+        const priority =
+          requestKind === 'definition' ? Priority.High : Priority.Normal;
         const result = await this.getQueueManager().submitRequest(
           'findMissingArtifact',
           params,
           {
-            priority: Priority.High,
+            priority,
             timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
           },
         );
@@ -152,6 +170,13 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
         if (mapped !== 'timeout') {
           EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
             key,
+          );
+        }
+        if (shouldObserve) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] missingArtifact blocking end kind=${requestKind} ` +
+              `result=${mapped} durationMs=${Date.now() - startedAt}`,
           );
         }
         return mapped;
@@ -166,9 +191,23 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
             key,
             Date.now(),
           );
+          if (shouldObserve) {
+            this.logger.debug(
+              () =>
+                `[REQ-HARDEN] missingArtifact blocking timeout kind=${requestKind} ` +
+                `durationMs=${Date.now() - startedAt}`,
+            );
+          }
           return 'timeout';
         }
 
+        if (shouldObserve) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] missingArtifact blocking not-found kind=${requestKind} ` +
+              `durationMs=${Date.now() - startedAt}`,
+          );
+        }
         return 'not-found';
       } finally {
         EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.delete(

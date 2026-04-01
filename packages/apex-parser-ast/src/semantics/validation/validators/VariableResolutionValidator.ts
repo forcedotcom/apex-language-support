@@ -39,6 +39,7 @@ import {
 } from '../utils/typeUtils';
 import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
 import { AnnotationUtils } from '../../../utils/AnnotationUtils';
+import { getImplicitQualifiedCandidates } from '../../../namespace/NamespaceResolutionPolicy';
 
 /**
  * Validates variable and field references for:
@@ -999,11 +1000,16 @@ function resolveChainTargetType(
     if (!currentType && !firstVar) {
       let typeSymbols = symbolManager.findSymbolByName(firstNode.name);
       if (typeSymbols.length === 0 && symbolManager.findSymbolByFQN) {
-        const fqn = firstNode.name.includes('.')
-          ? firstNode.name
-          : `System.${firstNode.name}`;
-        const fqnSymbol = symbolManager.findSymbolByFQN(fqn);
-        if (fqnSymbol) typeSymbols = [fqnSymbol];
+        const candidates = firstNode.name.includes('.')
+          ? [firstNode.name]
+          : getImplicitQualifiedCandidates(firstNode.name);
+        for (const candidate of candidates) {
+          const fqnSymbol = symbolManager.findSymbolByFQN(candidate);
+          if (fqnSymbol) {
+            typeSymbols = [fqnSymbol];
+            break;
+          }
+        }
       }
       if (typeSymbols.length === 0 && firstNode.name.includes('.')) {
         const lastPart = firstNode.name.split('.').pop();
