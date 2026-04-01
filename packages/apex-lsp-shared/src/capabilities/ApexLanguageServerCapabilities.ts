@@ -126,8 +126,7 @@ export interface ClientCapabilitiesConfiguration {
 
 /**
  * Production capabilities for desktop environments.
- * Intentionally minimal — only document symbols are released for desktop production.
- * Other features (hover, definition, etc.) require further validation before desktop release.
+ * Minimal feature set — only validated features are enabled for desktop production.
  */
 export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
   publishDiagnostics: false,
@@ -139,6 +138,7 @@ export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
     willSaveWaitUntil: false,
   },
   documentSymbolProvider: true,
+  hoverProvider: true,
   workspace: {
     workspaceFolders: {
       supported: true,

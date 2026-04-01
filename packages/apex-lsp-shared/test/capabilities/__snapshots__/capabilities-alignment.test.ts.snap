@@ -2495,6 +2495,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       },
       "productionDesktop": {
         "documentSymbolProvider": true,
+        "hoverProvider": true,
         "publishDiagnostics": false,
         "textDocumentSync": {
           "change": 1,
@@ -2851,6 +2852,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   },
   "productionDesktop": {
     "documentSymbolProvider": true,
+    "hoverProvider": true,
     "publishDiagnostics": false,
     "textDocumentSync": {
       "change": 1,
