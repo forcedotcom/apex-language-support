@@ -163,14 +163,14 @@ describe('ApexCapabilitiesManager', () => {
   describe('Capability Validation', () => {
     it('should correctly identify enabled capabilities in production mode (desktop)', () => {
       manager.setMode('production');
-      // Default platform is desktop — validated features are released for desktop production
+      // Default platform is desktop — only documentSymbolProvider is released for desktop production
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // Other language features are not yet enabled on desktop/production
+      // All other language features are disabled on desktop/production
       expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
@@ -210,10 +210,10 @@ describe('ApexCapabilitiesManager', () => {
     });
 
     it('should check capabilities for specific modes', () => {
-      // Check production mode capabilities — default platform is desktop
+      // Check production mode capabilities — default platform is desktop, so only documentSymbol
       expect(
         manager.isCapabilityEnabledForMode('production', 'hoverProvider'),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         manager.isCapabilityEnabledForMode('production', 'completionProvider'),
       ).toBe(false);

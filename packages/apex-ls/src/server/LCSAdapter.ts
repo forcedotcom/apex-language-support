@@ -1249,9 +1249,10 @@ export class LCSAdapter {
         allCapabilities.documentSymbolProvider;
     }
 
-    // Always include hoverProvider in static capabilities for resilience
-    // Dynamic registration will refine document selectors if supported
-    if (allCapabilities.hoverProvider) {
+    if (
+      allCapabilities.hoverProvider &&
+      !params.capabilities.textDocument?.hover?.dynamicRegistration
+    ) {
       staticCapabilities.hoverProvider = allCapabilities.hoverProvider;
     }
 
