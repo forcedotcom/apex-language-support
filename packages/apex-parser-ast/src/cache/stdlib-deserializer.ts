@@ -51,7 +51,12 @@ import { TypeInfo } from '../types/typeInfo';
  * Result of deserialization
  */
 export interface DeserializationResult {
-  /** Hydrated map of file URI to SymbolTable (lazy-populated) */
+  /**
+   * Internal cache of hydrated SymbolTables keyed by file URI.
+   * Starts empty; tables are lazily populated via getOrCreateSymbolTable().
+   * Prefer getOrCreateSymbolTable / hydrateAllSymbolTables over direct access.
+   * @internal
+   */
   symbolTables: Map<string, SymbolTable>;
   /** Flat list of all type symbols for quick access */
   allTypes: TypeSymbol[];

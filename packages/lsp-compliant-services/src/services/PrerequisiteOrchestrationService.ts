@@ -42,7 +42,6 @@ import {
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
 
-let activeAsyncHoverEnrichments = 0;
 const coordinatedRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
 >([
@@ -380,10 +379,6 @@ export class PrerequisiteOrchestrationService {
         // results and don't need a re-pull signal.
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
-        if (requestType === 'hover') {
-          activeAsyncHoverEnrichments++;
-        }
-
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
@@ -391,12 +386,6 @@ export class PrerequisiteOrchestrationService {
             'same-file',
           )
           .then(() => {
-            if (requestType === 'hover') {
-              activeAsyncHoverEnrichments = Math.max(
-                0,
-                activeAsyncHoverEnrichments - 1,
-              );
-            }
             if (shouldSignalRefresh) {
               Effect.runPromise(
                 getDiagnosticRefreshService().signalEnrichmentComplete(),
@@ -404,12 +393,6 @@ export class PrerequisiteOrchestrationService {
             }
           })
           .catch((error: unknown) => {
-            if (requestType === 'hover') {
-              activeAsyncHoverEnrichments = Math.max(
-                0,
-                activeAsyncHoverEnrichments - 1,
-              );
-            }
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
             );
@@ -450,10 +433,13 @@ export class PrerequisiteOrchestrationService {
       skipIfUnavailable?: boolean;
     },
   ): Promise<void> {
+    const MAX_REVISION_ITERATIONS = 10;
     let lastObservedRevision = -1;
+    let iterations = 0;
     const runStartedAt = Date.now();
 
-    while (true) {
+    while (iterations < MAX_REVISION_ITERATIONS) {
+      iterations++;
       const entry = this.inFlightRegistry.get(key);
       if (!entry) {
         return;
@@ -524,6 +510,11 @@ export class PrerequisiteOrchestrationService {
 
       lastObservedRevision = latestEntry.revision;
     }
+
+    this.logger.warn(
+      `[REQ-HARDEN] coordinated prerequisite loop hit max iterations (${MAX_REVISION_ITERATIONS}) ` +
+        `for type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+    );
   }
 
   /**

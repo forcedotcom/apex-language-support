@@ -6,9 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { InFlightPrerequisiteRegistry } from '../../src/services/InFlightPrerequisiteRegistry';
+import {
+  InFlightPrerequisiteRegistry,
+  resetInFlightPrerequisiteRegistry,
+} from '../../src/services/InFlightPrerequisiteRegistry';
 
 describe('InFlightPrerequisiteRegistry', () => {
+  afterEach(() => {
+    resetInFlightPrerequisiteRegistry();
+  });
+
   it('joins existing entries and upgrades requirements', () => {
     const registry = new InFlightPrerequisiteRegistry();
     const first = registry.acquireOrJoin({

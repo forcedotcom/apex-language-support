@@ -295,14 +295,10 @@ export class StandardLibraryCacheLoader {
       StandardLibraryCacheLoader.cachedResult = result;
 
       const loadTimeMs = performance.now() - startTime;
-      const logMessage =
+      this.logger.info(
         `Loaded stdlib from protobuf cache in ${loadTimeMs.toFixed(1)}ms ` +
-        `(${result.metadata.typeCount} types, ${result.metadata.namespaceCount} namespaces)`;
-      if (process.env.NODE_ENV === 'test') {
-        this.logger.debug(() => logMessage);
-      } else {
-        this.logger.alwaysLog(() => logMessage);
-      }
+          `(${result.metadata.typeCount} types, ${result.metadata.namespaceCount} namespaces)`,
+      );
 
       return {
         success: true,
