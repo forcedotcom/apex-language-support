@@ -4349,12 +4349,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private buildTypeLookupCandidates(typeName: string): string[] {
     const normalized = this.normalizeTypeNameForLookup(typeName);
     const candidates: string[] = [];
+    const seenLowercase = new Set<string>();
     const push = (value: string): void => {
       const trimmed = value.trim();
       if (!trimmed) {
         return;
       }
-      if (!candidates.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const normalizedCandidate = trimmed.toLowerCase();
+      if (!seenLowercase.has(normalizedCandidate)) {
+        seenLowercase.add(normalizedCandidate);
         candidates.push(trimmed);
       }
     };
