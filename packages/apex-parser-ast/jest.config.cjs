@@ -43,7 +43,7 @@ module.exports = {
   workerIdleMemoryLimit: '1024MB',
   // Cap parallelism to reduce aggregate memory pressure in CI while keeping some concurrency.
   // Override with JEST_MAX_WORKERS (number or Jest string like "75%") when needed.
-  maxWorkers: process.env.JEST_MAX_WORKERS || '50%',
+  maxWorkers: process.env.JEST_MAX_WORKERS || '25%',
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes

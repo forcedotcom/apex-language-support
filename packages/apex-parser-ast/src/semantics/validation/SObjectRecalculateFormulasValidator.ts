@@ -7,6 +7,7 @@
  */
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
+import { isStandardTypeAlias } from './utils/standardTypeIdentity';
 
 /**
  * Information about a method call parameter
@@ -114,7 +115,7 @@ export class SObjectRecalculateFormulasValidator {
     }
 
     // Check 2: Class name must be correct
-    if (callInfo.className !== this.EXPECTED_CLASS_NAME) {
+    if (!isStandardTypeAlias(callInfo.className, 'formula')) {
       errors.push('method.invalid.recalculate.formulas.wrong.class');
       return {
         isValid: false,

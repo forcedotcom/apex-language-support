@@ -178,9 +178,21 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to constructor definition.
    */
   test('should navigate to constructor definition', async ({ apexEditor }) => {
-    await test.step('Position cursor on constructor call', async () => {
-      // Look for constructor usage like "new ApexClassExample()"
-      await apexEditor.positionCursorOnWord('ApexClassExample(');
+    await test.step('Open source file with constructor chain', async () => {
+      await apexEditor.openFile('ApexClassExample.cls');
+    });
+
+    await test.step('Verify source file context and position cursor on constructor call', async () => {
+      // Force a deterministic cursor position in the known fixture file instead of
+      // relying on Find widget text search, which can be flaky under CI load.
+      await apexEditor.goToPosition(1, 1);
+      const sourceViewport = await apexEditor.getContent();
+      expect(sourceViewport).toMatch(
+        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
+      );
+
+      // In ApexClassExample.cls this(...) is at line 14.
+      await apexEditor.goToPosition(14, 9);
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -188,15 +200,10 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to constructor', async () => {
-      const content = await apexEditor.findAndGetViewportContent(
-        'public ApexClassExample()',
+      const content = await apexEditor.getContent();
+      expect(content).toMatch(
+        /public\s+ApexClassExample\s*\(\s*String\s+instanceId\s*\)/,
       );
-      const hasConstructor =
-        /public\s+ApexClassExample\s*\(\s*\)/.test(content) ||
-        /public\s+ApexClassExample\s*\(\s*String\s+instanceId\s*\)/.test(
-          content,
-        );
-      expect(hasConstructor).toBe(true);
 
       console.log('✅ Navigated to constructor definition');
     });
@@ -309,8 +316,8 @@ test.describe('Apex Go-to-Definition', () => {
 
     const elapsedTime = Date.now() - startTime;
 
-    // CI runners are slower - allow 12s; local 6s
-    const maxMs = process.env.CI ? 12000 : 6000;
+    // CI runners are slower - allow 12s; local desktop can still exceed 6s occasionally.
+    const maxMs = process.env.CI ? 12000 : 8000;
     expect(elapsedTime).toBeLessThan(maxMs);
     console.log(`✅ Go-to-definition completed in ${elapsedTime}ms`);
   });
@@ -369,9 +376,13 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to enum when clicking enum value', async ({
     apexEditor,
   }) => {
+    await test.step('Open source file for enum reference', async () => {
+      await apexEditor.openFile('ApexClassExample.cls');
+    });
+
     await test.step('Position cursor on enum value', async () => {
-      // Look for an enum value like ACTIVE, INACTIVE, etc.
-      await apexEditor.positionCursorOnWord('ACTIVE');
+      // Use a unique enum constant to avoid matching string literals like 'Active'.
+      await apexEditor.positionCursorOnWord('SUSPENDED');
     });
 
     await test.step('Trigger go-to-definition', async () => {

@@ -56,6 +56,7 @@ export interface IHoverProcessor {
    * @returns Hover information for the requested position
    */
   processHover(params: HoverParams): Promise<Hover | null>;
+  scheduleTimeoutFollowup(params: HoverParams): Promise<void>;
 }
 
 /**
@@ -151,7 +152,6 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
@@ -507,7 +507,8 @@ export class HoverProcessingService implements IHoverProcessor {
               'hover',
             );
 
-            return await this.createSearchingHover(params);
+            const searchingHover = await this.createSearchingHover(params);
+            return searchingHover;
           }
         }
 
@@ -849,6 +850,19 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       return null;
     }
+  }
+
+  public async scheduleTimeoutFollowup(params: HoverParams): Promise<void> {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    if (!settings?.apex?.findMissingArtifact?.enabled) {
+      return;
+    }
+
+    this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+      params.textDocument.uri,
+      params.position,
+      'hover',
+    );
   }
 
   /**

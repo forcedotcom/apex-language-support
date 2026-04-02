@@ -104,7 +104,7 @@ describe('StandardLibraryDeserializer', () => {
 
       const result = deserializer.deserialize(proto);
 
-      expect(result.symbolTables.size).toBe(0);
+      expect(result.typeIndex.size).toBe(0);
       expect(result.allTypes.length).toBe(0);
       expect(result.metadata.namespaceCount).toBe(0);
       expect(result.metadata.typeCount).toBe(0);
@@ -354,7 +354,7 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(
+      const symbolTable = result.getOrCreateSymbolTable(
         'apex://stdlib/System/TestClass',
       );
       expect(symbolTable).toBeDefined();
@@ -401,7 +401,7 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(
+      const symbolTable = result.getOrCreateSymbolTable(
         'apex://stdlib/System/MyClass',
       );
       const symbols = symbolTable!.getAllSymbols();
@@ -509,7 +509,7 @@ describe('StandardLibraryDeserializer', () => {
       try {
         const result = deserializer.deserializeFromBinary(emptyData);
         // If it doesn't throw, it should produce a valid but empty result
-        expect(result.symbolTables.size).toBe(0);
+        expect(result.typeIndex.size).toBe(0);
       } catch (error) {
         // Expected - empty data is not valid protobuf
         expect(error).toBeDefined();
@@ -560,7 +560,7 @@ describe('StandardLibraryDeserializer', () => {
 
       expect(result.metadata.namespaceCount).toBe(1);
       expect(result.metadata.typeCount).toBe(0);
-      expect(result.symbolTables.size).toBe(0);
+      expect(result.typeIndex.size).toBe(0);
     });
 
     it('handles multiple types in same namespace', () => {
@@ -597,7 +597,7 @@ describe('StandardLibraryDeserializer', () => {
       const result = deserializer.deserialize(proto);
 
       expect(result.allTypes.length).toBe(2);
-      expect(result.symbolTables.size).toBe(2);
+      expect(result.typeIndex.size).toBe(2);
     });
 
     it('handles type with empty name', () => {
@@ -627,6 +627,101 @@ describe('StandardLibraryDeserializer', () => {
       // Should handle empty name gracefully
       expect(result.allTypes.length).toBe(1);
       expect(result.allTypes[0].name).toBe('');
+    });
+  });
+  describe('Lazy hydration', () => {
+    it('builds index eagerly and hydrates tables on demand', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-1',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+              TypeSymbol.create({
+                id: 'type-2',
+                name: 'Integer',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Integer',
+                fileUri: 'apex://stdlib/System/Integer',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      expect(result.typeIndex.size).toBe(2);
+      expect(result.symbolTables.size).toBe(0);
+
+      const stringTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/String',
+      );
+      expect(stringTable).toBeDefined();
+      expect(result.symbolTables.size).toBe(1);
+
+      // Memoized hydration should return the same instance.
+      const sameTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/String',
+      );
+      expect(sameTable).toBe(stringTable);
+      expect(result.symbolTables.size).toBe(1);
+    });
+
+    it('hydrates all tables once and keeps table instances stable', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'hydrate-all',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-1',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+              TypeSymbol.create({
+                id: 'type-2',
+                name: 'Integer',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Integer',
+                fileUri: 'apex://stdlib/System/Integer',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const firstHydration = result.hydrateAllSymbolTables();
+      const secondHydration = result.hydrateAllSymbolTables();
+
+      expect(firstHydration.size).toBe(2);
+      expect(secondHydration.size).toBe(2);
+      expect(secondHydration.get('apex://stdlib/System/String')).toBe(
+        firstHydration.get('apex://stdlib/System/String'),
+      );
+      expect(secondHydration.get('apex://stdlib/System/Integer')).toBe(
+        firstHydration.get('apex://stdlib/System/Integer'),
+      );
     });
   });
 });

@@ -16,6 +16,7 @@ import {
   type VariableSymbol,
 } from '../types/symbol';
 import type { TypeInfo } from '../types/typeInfo';
+import { getFoundationNamespaceOrder } from '../namespace/NamespaceResolutionPolicy';
 
 /**
  * Namespace dependency information
@@ -31,6 +32,29 @@ export interface NamespaceDependencies {
  * to enable optimal loading order via topological sort
  */
 export class NamespaceDependencyAnalyzer {
+  /**
+   * Analyze namespace presence/count from file URIs only (no SymbolTable hydration).
+   * This is a fast fallback used when dependency extraction would require eager hydration.
+   */
+  static analyzeFromFileUris(
+    fileUris: string[],
+  ): Map<string, NamespaceDependencies> {
+    const deps = new Map<string, NamespaceDependencies>();
+    for (const uri of fileUris) {
+      const namespace = this.extractNamespace(uri);
+      if (!namespace) continue;
+      if (!deps.has(namespace)) {
+        deps.set(namespace, {
+          namespace,
+          dependsOn: new Set(),
+          classCount: 0,
+        });
+      }
+      deps.get(namespace)!.classCount++;
+    }
+    return deps;
+  }
+
   /**
    * Analyze all symbol tables to build namespace dependency graph
    * @param symbolTables Map from protobuf deserialization (URI -> SymbolTable)
@@ -103,7 +127,7 @@ export class NamespaceDependencyAnalyzer {
 
     if (!sorted) {
       // Circular dependency detected - fall back to foundation-first
-      const FOUNDATION = ['System', 'Database', 'Schema'];
+      const FOUNDATION = getFoundationNamespaceOrder();
       const all = [...dependencies.keys()];
       return [
         ...all.filter((ns) => FOUNDATION.includes(ns)),

@@ -35,11 +35,13 @@ import {
   isPrimitiveType,
   isNumericType,
 } from '../utils/typeAssignability';
+import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
 import {
   resolveTypeName,
   ReferenceTypeEnum,
   IdentifierContext,
   type CompilationContext,
+  type SymbolProvider,
   Namespaces,
 } from '../../../namespace/NamespaceUtils';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../constants/constants';
@@ -49,6 +51,7 @@ import {
 } from '../utils/typeUtils';
 import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
 import { AnnotationUtils } from '../../../utils/AnnotationUtils';
+import { isPrimaryImplicitNamespace } from '../../../namespace/NamespaceResolutionPolicy';
 
 /**
  * Validates method calls for:
@@ -348,11 +351,49 @@ export const MethodResolutionValidator: Validator = {
                   preResolvedSymbol.kind === SymbolKind.Interface)
               ) {
                 targetClass = preResolvedSymbol as TypeSymbol;
+                if (!receiverType.includes('.') && options.namespace) {
+                  const preResolvedNamespace =
+                    typeof preResolvedSymbol.namespace === 'string'
+                      ? preResolvedSymbol.namespace
+                      : (preResolvedSymbol.namespace?.toString?.() ?? '');
+                  if (isPrimaryImplicitNamespace(preResolvedNamespace)) {
+                    const compilationContext: CompilationContext = {
+                      namespace: Namespaces.create(options.namespace),
+                      version:
+                        options.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION,
+                      isTrusted: true,
+                      sourceType: 'FILE',
+                      referencingType: containingClass,
+                      enclosingTypes: [],
+                      parentTypes: [],
+                      isStaticContext: true,
+                      currentSymbolTable: symbolTable,
+                    };
+                    const baseType = extractBaseTypeForResolution(receiverType);
+                    const namespacedResult = resolveTypeName(
+                      [baseType],
+                      compilationContext,
+                      ReferenceTypeEnum.METHOD,
+                      IdentifierContext.NONE,
+                      symbolManager as unknown as SymbolProvider,
+                    );
+                    if (
+                      namespacedResult.isResolved &&
+                      namespacedResult.symbol &&
+                      (namespacedResult.symbol.kind === SymbolKind.Class ||
+                        namespacedResult.symbol.kind === SymbolKind.Interface)
+                    ) {
+                      targetClass = namespacedResult.symbol as TypeSymbol;
+                    }
+                  }
+                }
                 if (methodCall.isStatic === undefined) {
                   isStaticCall = true;
                 }
-              } else if (methodCall.isStatic === undefined) {
-                // Receiver is not a variable - try to resolve as type (static call)
+              } else {
+                // Receiver is not a variable - resolve as type (static call candidate).
+                // Do this even when enrichment set isStatic=false, because that flag
+                // can be stale for qualified static calls like Test.foo().
                 const compilationContext: CompilationContext = {
                   namespace: options.namespace
                     ? Namespaces.create(options.namespace)
@@ -1630,7 +1671,7 @@ function areReturnTypesCompatible(
 
   // Object return type is compatible with any type (except primitives)
   // This handles cases like JSON.deserialize which returns Object but can be cast to any type
-  if (normReturn === 'object' || normReturn === 'system.object') {
+  if (isStandardTypeAlias(normReturn, 'object')) {
     // Object can be assigned to any object type; only reject if expected is primitive
     if (!isPrimitiveType(normExpected)) {
       return true;

@@ -295,9 +295,8 @@ export class StandardLibraryCacheLoader {
       StandardLibraryCacheLoader.cachedResult = result;
 
       const loadTimeMs = performance.now() - startTime;
-      this.logger.alwaysLog(
-        () =>
-          `Loaded stdlib from protobuf cache in ${loadTimeMs.toFixed(1)}ms ` +
+      this.logger.info(
+        `Loaded stdlib from protobuf cache in ${loadTimeMs.toFixed(1)}ms ` +
           `(${result.metadata.typeCount} types, ${result.metadata.namespaceCount} namespaces)`,
       );
 
@@ -332,7 +331,7 @@ export class StandardLibraryCacheLoader {
     }
 
     // Check we have some types
-    if (result.symbolTables.size === 0) {
+    if (result.typeIndex.size === 0) {
       this.logger.warn('Protobuf cache contains no symbol tables');
       return false;
     }
@@ -346,7 +345,7 @@ export class StandardLibraryCacheLoader {
 
     let foundCount = 0;
     for (const knownClass of knownClasses) {
-      if (result.symbolTables.has(knownClass)) {
+      if (result.hasSymbolTable(knownClass)) {
         foundCount++;
       }
     }
@@ -373,14 +372,19 @@ export class StandardLibraryCacheLoader {
    * Get all symbol tables from the cached result
    */
   getSymbolTables(): Map<string, SymbolTable> | null {
-    return StandardLibraryCacheLoader.cachedResult?.symbolTables ?? null;
+    if (!StandardLibraryCacheLoader.cachedResult) {
+      return null;
+    }
+    return StandardLibraryCacheLoader.cachedResult.hydrateAllSymbolTables();
   }
 
   /**
    * Get a specific symbol table by file URI
    */
   getSymbolTable(fileUri: string): SymbolTable | undefined {
-    return StandardLibraryCacheLoader.cachedResult?.symbolTables.get(fileUri);
+    return StandardLibraryCacheLoader.cachedResult?.getOrCreateSymbolTable(
+      fileUri,
+    );
   }
 
   /**
