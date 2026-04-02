@@ -60,8 +60,8 @@ export class UnifiedCache {
   // - lruPrevByKey/lruNextByKey form a doubly-linked list keyed by cache key.
   // - lruHeadKey is least-recently-used, lruTailKey is most-recently-used.
   // This keeps key removal/move-to-tail operations O(1).
-  private lruPrevByKey: HashMap<string, string | undefined> = new HashMap();
-  private lruNextByKey: HashMap<string, string | undefined> = new HashMap();
+  private lruPrevByKey: Map<string, string | undefined> = new Map();
+  private lruNextByKey: Map<string, string | undefined> = new Map();
   private lruHeadKey: string | undefined;
   private lruTailKey: string | undefined;
   private stats: UnifiedCacheStats = {
