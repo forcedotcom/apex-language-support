@@ -17,7 +17,10 @@ import {
   getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
 } from '@salesforce/apex-lsp-shared';
-import type { InitializeParams } from 'vscode-languageserver-protocol';
+import type {
+  InitializeParams,
+  MessageSignature,
+} from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
 import {
@@ -935,7 +938,7 @@ async function createDesktopLanguageClient(
     const methodName =
       typeof method === 'string'
         ? method
-        : ((method as { method?: string })?.method ?? String(method));
+        : ((method as MessageSignature).method ?? String(method));
     const isHoverRequest = methodName === 'textDocument/hover';
     const requestStartTime = Date.now();
 
