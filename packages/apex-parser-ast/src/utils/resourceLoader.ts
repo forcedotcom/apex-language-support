@@ -30,6 +30,9 @@ import {
 } from '../services/GlobalTypeRegistryService';
 import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
+const STANDARD_APEX_LIBRARY_CLASS_URI_REGEX =
+  /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/;
+
 // ResourceLoaderOptions interface removed - ResourceLoader now always uses
 // embedded archives with disk fallback. Namespace preloading is handled by
 // SymbolGraphSettings.preloadNamespaces in server settings.
@@ -1281,9 +1284,7 @@ export class ResourceLoader {
     const normalizedInput = className.replace(/\.cls$/i, '');
     const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
     const toFqnFromUri = (fileUri: string): string | null => {
-      const match = fileUri.match(
-        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
-      );
+      const match = fileUri.match(STANDARD_APEX_LIBRARY_CLASS_URI_REGEX);
       return match ? `${match[1]}.${match[2]}` : null;
     };
 
