@@ -14,6 +14,7 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
+import { DocumentSymbolResultStore } from '../../src/services/DocumentSymbolResultStore';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
@@ -24,6 +25,7 @@ describe('DocumentChangeProcessingService', () => {
   let mockDocumentProcessingService: jest.Mocked<
     Pick<DocumentProcessingService, 'processDocumentOpenInternal'>
   >;
+  let mockDocumentSymbolCache: { invalidate: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -33,6 +35,12 @@ describe('DocumentChangeProcessingService', () => {
     mockDocumentProcessingService = {
       processDocumentOpenInternal: jest.fn().mockResolvedValue([]),
     };
+    mockDocumentSymbolCache = {
+      invalidate: jest.fn(),
+    };
+    jest
+      .spyOn(DocumentSymbolResultStore, 'getInstance')
+      .mockReturnValue(mockDocumentSymbolCache as any);
 
     service = new DocumentChangeProcessingService(
       logger,
@@ -77,6 +85,9 @@ describe('DocumentChangeProcessingService', () => {
       expect(
         mockDocumentProcessingService.processDocumentOpenInternal,
       ).toHaveBeenCalledWith(event);
+      expect(mockDocumentSymbolCache.invalidate).toHaveBeenCalledWith(
+        event.document.uri,
+      );
     });
 
     it('should handle processing errors gracefully', async () => {

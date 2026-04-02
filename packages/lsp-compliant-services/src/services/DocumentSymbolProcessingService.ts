@@ -13,7 +13,6 @@ import {
 } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
-import { HashMap } from 'data-structure-typed';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -23,6 +22,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { DocumentSymbolResultStore } from './DocumentSymbolResultStore';
 
 /**
  * Interface for document symbol processing functionality
@@ -45,10 +45,7 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
-  private readonly symbolCacheByUriVersion = new HashMap<
-    string,
-    SymbolInformation[] | DocumentSymbol[] | null
-  >();
+  private readonly symbolResultStore: DocumentSymbolResultStore;
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
 
@@ -57,6 +54,7 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.symbolResultStore = DocumentSymbolResultStore.getInstance();
   }
 
   /**
@@ -112,8 +110,10 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
       // Get document to check detail level
       const document = await storage.getDocument(params.textDocument.uri);
       if (document) {
-        const cacheKey = `${params.textDocument.uri}::${document.version}`;
-        const cachedSymbols = this.symbolCacheByUriVersion.get(cacheKey);
+        const cachedSymbols = this.symbolResultStore.get(
+          params.textDocument.uri,
+          document.version,
+        );
         if (cachedSymbols !== undefined) {
           return cachedSymbols;
         }
@@ -127,10 +127,17 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
         provider.provideDocumentSymbols(params),
       );
       if (document) {
-        this.symbolCacheByUriVersion.set(
-          `${params.textDocument.uri}::${document.version}`,
-          symbols,
+        // Re-check version before storing to avoid caching stale compute output.
+        const latestDocument = await storage.getDocument(
+          params.textDocument.uri,
         );
+        if (latestDocument && latestDocument.version === document.version) {
+          this.symbolResultStore.set(
+            params.textDocument.uri,
+            document.version,
+            symbols,
+          );
+        }
       }
 
       // TODO: Enhance symbols with graph-based information using ApexSymbolManager

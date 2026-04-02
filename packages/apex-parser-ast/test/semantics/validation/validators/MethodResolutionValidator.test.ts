@@ -228,6 +228,48 @@ describe('MethodResolutionValidator', () => {
       expect(paramTypeErrors).toHaveLength(0);
     });
 
+    it('should not report parameter type error for HttpRequest.setBody string concatenation', async () => {
+      const source = `
+        public class HttpSetBodyConcatTest {
+          public static void calloutBody() {
+            HttpRequest req = new HttpRequest();
+            String city = 'San Francisco';
+            String state = 'CA';
+            req.setBody('{"city":"' + city + '","state":"' + state + '"}');
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/HttpSetBodyConcatTest.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const setBodyErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_PARAMETER_TYPE &&
+          (e.message?.toLowerCase().includes('setbody') ?? false),
+      );
+      expect(setBodyErrors).toHaveLength(0);
+    });
+
     it('reproduces dreamhouse path: compileLayered public-api->full like LayerEnrichmentService', async () => {
       const source = `
 @isTest

@@ -50,7 +50,9 @@ describe('genericTypeSubstitution', () => {
 
   it('returns null when receiver type has no usable generic substitutions', () => {
     const plainType = createPrimitiveType('String');
-    const incompleteMap = createCollectionType('Map', [createPrimitiveType('Id')]);
+    const incompleteMap = createCollectionType('Map', [
+      createPrimitiveType('Id'),
+    ]);
     expect(createGenericTypeSubstitutionMap(plainType)).toBeNull();
     expect(createGenericTypeSubstitutionMap(incompleteMap)).toBeNull();
   });

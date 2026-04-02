@@ -279,7 +279,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.fileMetadata = new HashMap();
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
-      50 * 1024 * 1024, // 50MB
       this.CACHE_TTL,
       true,
     );
@@ -4173,126 +4172,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         });
       }
 
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': 'b7aabf',
-          },
-          body: JSON.stringify({
-            sessionId: 'b7aabf',
-            runId: 'inner-profile-pre-fix-3',
-            hypothesisId: 'H9',
-            location:
-              'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:qualifierCandidates',
-            message: 'Qualifier candidate set before selection',
-            data: {
-              qualifier,
-              member,
-              candidateCount: qualifierSymbols.length,
-              sourceSymbolName: sourceSymbol?.name ?? null,
-              sourceSymbolKind: sourceSymbol?.kind ?? null,
-              refLine:
-                originalTypeRef?.location?.identifierRange?.startLine ?? null,
-              refColumn:
-                originalTypeRef?.location?.identifierRange?.startColumn ?? null,
-              candidates: qualifierSymbols.slice(0, 8).map((s) => ({
-                id: s.id,
-                name: s.name,
-                kind: s.kind,
-                fileUri: s.fileUri ?? null,
-                parentId: s.parentId ?? null,
-                typeName: (s as any)?.type?.name ?? null,
-                typeOriginal:
-                  ((s as any)?.type?.originalTypeString as
-                    | string
-                    | undefined) ?? null,
-                typeParams:
-                  ((s as any)?.type?.typeParameters as any[] | undefined)?.map(
-                    (tp) => ({
-                      name: tp?.name ?? null,
-                      originalTypeString: tp?.originalTypeString ?? null,
-                    }),
-                  ) ?? null,
-                line: s.location?.identifierRange?.startLine ?? null,
-                col: s.location?.identifierRange?.startColumn ?? null,
-              })),
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-
       // For now, take the first qualifier match
       const qualifierSymbol = qualifierSymbols[0];
-      if (qualifierSymbols.length > 1) {
-        const sourceLine =
-          sourceSymbol?.location?.identifierRange?.startLine ?? null;
-        const selectedLine =
-          qualifierSymbol.location?.identifierRange?.startLine ?? null;
-        const selectedDistance =
-          sourceLine !== null && selectedLine !== null
-            ? Math.abs(sourceLine - selectedLine)
-            : null;
-        const nearestByLine = qualifierSymbols
-          .filter((s) => s.location?.identifierRange?.startLine !== undefined)
-          .sort(
-            (a, b) =>
-              Math.abs(
-                (a.location?.identifierRange?.startLine ??
-                  Number.MAX_SAFE_INTEGER) -
-                  (sourceLine ?? Number.MAX_SAFE_INTEGER),
-              ) -
-              Math.abs(
-                (b.location?.identifierRange?.startLine ??
-                  Number.MAX_SAFE_INTEGER) -
-                  (sourceLine ?? Number.MAX_SAFE_INTEGER),
-              ),
-          )[0];
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix-4',
-              hypothesisId: 'H10',
-              location:
-                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:qualifierSelectionQuality',
-              message:
-                'Qualifier selection quality against nearest-line candidate',
-              data: {
-                qualifier,
-                member,
-                sourceSymbolName: sourceSymbol?.name ?? null,
-                sourceFileUri: sourceSymbol?.fileUri ?? null,
-                sourceLine,
-                selectedId: qualifierSymbol.id,
-                selectedFileUri: qualifierSymbol.fileUri ?? null,
-                selectedLine,
-                selectedDistance,
-                nearestId: nearestByLine?.id ?? null,
-                nearestFileUri: nearestByLine?.fileUri ?? null,
-                nearestLine:
-                  nearestByLine?.location?.identifierRange?.startLine ?? null,
-                selectedIsNearest: nearestByLine?.id === qualifierSymbol.id,
-                candidateCount: qualifierSymbols.length,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
-      }
 
       // Step 2: Find the member within the qualifier
       let memberResolutionContext: { type: 'symbol'; symbol: ApexSymbol } = {
@@ -4328,48 +4209,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               null)
             : null;
         if (rawTypeName === 'List') {
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'b7aabf',
-              },
-              body: JSON.stringify({
-                sessionId: 'b7aabf',
-                runId: 'inner-profile-pre-fix-2',
-                hypothesisId: 'H6',
-                location:
-                  'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:listTypeDetail',
-                message:
-                  'List-typed qualifier encountered during member resolution',
-                data: {
-                  qualifier,
-                  member,
-                  rawTypeName,
-                  collectionElementType,
-                  qualifierTypeObj: qualifierTypeObj
-                    ? {
-                        name: qualifierTypeObj.name ?? null,
-                        fullName: qualifierTypeObj.fullName ?? null,
-                        originalTypeString:
-                          qualifierTypeObj.originalTypeString ?? null,
-                        typeParameters:
-                          qualifierTypeObj.typeParameters?.map((tp: any) => ({
-                            name: tp?.name ?? null,
-                            originalTypeString: tp?.originalTypeString ?? null,
-                          })) ?? null,
-                      }
-                    : null,
-                  fileUri: fileUri ?? null,
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
         }
         // For collection-typed qualifiers:
         // 1) Try collection type first (e.g., List.size/add),
@@ -4397,39 +4236,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           : null;
         const typeSymbol = collectionTypeSymbol ?? elementTypeSymbol;
         promotedFromCollectionType = !!collectionTypeSymbol;
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix',
-              hypothesisId: 'H1',
-              location:
-                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:typePromotion',
-              message: 'Type-context promotion attempt for qualified reference',
-              data: {
-                qualifier,
-                member,
-                rawTypeName,
-                collectionElementType,
-                collectionTypeSymbolName: collectionTypeSymbol?.name ?? null,
-                elementTypeSymbolName: elementTypeSymbol?.name ?? null,
-                promotedFromCollectionType,
-                promotedTypeSymbolName: typeSymbol?.name ?? null,
-                promotedTypeSymbolKind: typeSymbol?.kind ?? null,
-                fileUri: fileUri ?? null,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         if (typeSymbol) {
           memberResolutionContext = { type: 'symbol', symbol: typeSymbol };
           if (resolverStats) {
@@ -4449,83 +4255,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         context === ReferenceContext.METHOD_CALL || chainIndicatesMethod
           ? 'method'
           : 'property';
-      if (
-        qualifier.toLowerCase() === 'computedcoordinates' &&
-        (member.toLowerCase() === 'add' ||
-          member.toLowerCase() === 'size' ||
-          member.toLowerCase() === 'lat' ||
-          member.toLowerCase() === 'lon')
-      ) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix-5',
-              hypothesisId: 'H11',
-              location:
-                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberTypeClassification',
-              message: 'ComputedCoordinates member classification inputs',
-              data: {
-                qualifier,
-                member,
-                context,
-                memberType,
-                originalTypeRefContext: originalTypeRef?.context ?? null,
-                originalTypeRefName: originalTypeRef?.name ?? null,
-                chainNodeContexts:
-                  isChainedSymbolReference(originalTypeRef as any) &&
-                  (originalTypeRef as any).chainNodes
-                    ? (originalTypeRef as any).chainNodes.map((n: any) => ({
-                        name: n.name,
-                        context: n.context,
-                      }))
-                    : null,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
-      }
       const memberCacheKey = `${memberResolutionContext.symbol.id}|${memberType}|${member.toLowerCase()}`;
       const cachedMember = memberResolutionCache?.get(memberCacheKey);
       if (cachedMember !== undefined) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix',
-              hypothesisId: 'H3',
-              location:
-                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberCacheHit',
-              message: 'Member-resolution cache hit',
-              data: {
-                qualifier,
-                member,
-                memberType,
-                memberCacheKey,
-                cachedIsNull: cachedMember === null,
-                contextSymbol: memberResolutionContext.symbol.name,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         if (resolverStats) {
           resolverStats.resolverMemberContextCacheHits += 1;
         }
@@ -4574,68 +4306,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         qualifiedResolutionCache?.set(qualifiedCacheKey, finalMemberSymbol);
         return finalMemberSymbol;
       }
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': 'b7aabf',
-          },
-          body: JSON.stringify({
-            sessionId: 'b7aabf',
-            runId: 'inner-profile-pre-fix-2',
-            hypothesisId: 'H7',
-            location:
-              'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberMiss',
-            message: 'Qualified member resolution miss before fallback',
-            data: {
-              qualifier,
-              member,
-              memberType,
-              contextSymbol: memberResolutionContext.symbol.name,
-              contextSymbolKind: memberResolutionContext.symbol.kind,
-              qualifierSymbol: qualifierSymbol.name,
-              resolveMemberMs,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
 
       // Step 3: For method calls, try to resolve the qualifier itself if no member found
       if (context === ReferenceContext.METHOD_CALL) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix',
-              hypothesisId: 'H4',
-              location:
-                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:methodFallbackToQualifier',
-              message:
-                'Falling back to qualifier symbol for unresolved method member',
-              data: {
-                qualifier,
-                member,
-                qualifierSymbolName: qualifierSymbol.name,
-                qualifierSymbolKind: qualifierSymbol.kind,
-                contextSymbol: memberResolutionContext.symbol.name,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         memberResolutionCache?.set(memberCacheKey, qualifierSymbol);
         qualifiedResolutionCache?.set(qualifiedCacheKey, qualifierSymbol);
         return qualifierSymbol;
@@ -4733,32 +4406,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): ApexSymbol | null {
     const candidates = this.buildTypeLookupCandidates(rawTypeName);
     if (rawTypeName.includes('.')) {
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': 'b7aabf',
-          },
-          body: JSON.stringify({
-            sessionId: 'b7aabf',
-            runId: 'inner-profile-pre-fix-2',
-            hypothesisId: 'H8',
-            location:
-              'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:nestedTypeCandidates',
-            message: 'Nested type candidate derivation',
-            data: {
-              rawTypeName,
-              candidates,
-              fileUri: fileUri ?? null,
-            },
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
     }
     const normalizedUri = fileUri
       ? extractFilePathFromUri(createFileUri(fileUri))
@@ -4805,35 +4452,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         matchesCandidate(s, candidate),
       );
       if (localMatch) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'b7aabf',
-            },
-            body: JSON.stringify({
-              sessionId: 'b7aabf',
-              runId: 'inner-profile-pre-fix',
-              hypothesisId: 'H2',
-              location:
-                'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:localMatch',
-              message: 'Resolved preferred type from same-file symbols',
-              data: {
-                rawTypeName,
-                candidates,
-                selectedCandidate: candidate,
-                selectedSymbolName: localMatch.name,
-                selectedSymbolKind: localMatch.kind,
-                localTypeSymbolCount: localTypeSymbols.length,
-              },
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         return localMatch;
       }
     }
@@ -4846,36 +4464,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           (s) => s.fileUri === normalizedUri,
         );
         if (sameFile) {
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'b7aabf',
-              },
-              body: JSON.stringify({
-                sessionId: 'b7aabf',
-                runId: 'inner-profile-pre-fix',
-                hypothesisId: 'H5',
-                location:
-                  'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:globalSameFileMatch',
-                message:
-                  'Resolved preferred type from global index with same-file tie-break',
-                data: {
-                  rawTypeName,
-                  candidate,
-                  candidateCount: typeCandidates.length,
-                  selectedSymbolName: sameFile.name,
-                  selectedFileUri: sameFile.fileUri ?? null,
-                  normalizedUri,
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
           return sameFile;
         }
       }
@@ -6275,11 +5863,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.memoryStats.lastCleanup = Date.now();
   }
 
-  // Fix memory usage to include symbolCacheSize
+  // Estimate usage including symbols and cache entries
   getMemoryUsage(): MemoryUsageStats {
     const cacheStats = this.unifiedCache.getStats();
     const estimatedMemoryUsage =
-      this.memoryStats.totalSymbols * 1024 + cacheStats.totalSize;
+      this.memoryStats.totalSymbols * 1024 + cacheStats.totalEntries * 256;
     const fileMetadataSize = this.fileMetadata.size * 256;
     const cacheEfficiency = cacheStats.hitRate;
 
@@ -7034,25 +6622,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     try {
-      const namespaceStructure = this.resourceLoader.getStandardNamespaces();
-
-      // Search through all standard namespaces (case-insensitive)
-      const target = className.toLowerCase();
-      for (const [namespace, classes] of namespaceStructure.entries()) {
-        if (this.resourceLoader.isStdApexNamespace(namespace)) {
-          // Check if any class in this namespace matches the className
-          for (const classFile of classes ?? []) {
-            const cleanClassName = classFile.replace(/\.cls$/, '');
-            if (cleanClassName.toLowerCase() === target) {
-              // Return FQN with the actual case from the standard library, not the input className
-              const fqn = `${namespace}.${cleanClassName}`;
-              return fqn;
-            }
-          }
-        }
-      }
-
-      return null;
+      return this.resourceLoader.resolveStandardClassFqn(className);
     } catch (error) {
       this.logger.warn(
         () => `Error finding FQN for standard class ${className}: ${error}`,
@@ -9723,41 +9293,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
         let symbolTable =
           this.symbolRefManager.getSymbolTableForFile(contextFile);
-        if (
-          contextSymbol.name.toLowerCase() === 'list' &&
-          (memberName.toLowerCase() === 'add' ||
-            memberName.toLowerCase() === 'size')
-        ) {
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'b7aabf',
-              },
-              body: JSON.stringify({
-                sessionId: 'b7aabf',
-                runId: 'inner-profile-post-classification-fix',
-                hypothesisId: 'H14',
-                location:
-                  'ApexSymbolManager.ts:resolveMemberInContext:listSymbolTablePresence',
-                message:
-                  'List member lookup entry with initial symbol-table state',
-                data: {
-                  contextClass: contextSymbol.name,
-                  contextFileUri: contextFile,
-                  memberName,
-                  memberType,
-                  initialSymbolTableFound: !!symbolTable,
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
-        }
         this.logger.debug(
           () =>
             `resolveMemberInContext: Symbol table for "${contextSymbol.name}": ${symbolTable ? 'found' : 'not found'}`,
@@ -9844,41 +9379,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               }
             }
           }
-        }
-        if (
-          contextSymbol.name.toLowerCase() === 'list' &&
-          (memberName.toLowerCase() === 'add' ||
-            memberName.toLowerCase() === 'size')
-        ) {
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'b7aabf',
-              },
-              body: JSON.stringify({
-                sessionId: 'b7aabf',
-                runId: 'inner-profile-post-classification-fix',
-                hypothesisId: 'H15',
-                location:
-                  'ApexSymbolManager.ts:resolveMemberInContext:listSymbolTableAfterLoad',
-                message:
-                  'List member lookup after standard-class load attempts',
-                data: {
-                  contextClass: contextSymbol.name,
-                  contextFileUri: contextFile,
-                  memberName,
-                  memberType,
-                  symbolTableFoundAfterLoad: !!symbolTable,
-                },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
         }
 
         if (symbolTable) {
@@ -10361,43 +9861,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               );
             }
             if (!classBlock) {
-              if (
-                contextSymbol.name.toLowerCase() === 'list' &&
-                (memberName.toLowerCase() === 'add' ||
-                  memberName.toLowerCase() === 'size')
-              ) {
-                // #region agent log
-                fetch(
-                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Debug-Session-Id': 'b7aabf',
-                    },
-                    body: JSON.stringify({
-                      sessionId: 'b7aabf',
-                      runId: 'inner-profile-post-classification-fix',
-                      hypothesisId: 'H17',
-                      location:
-                        'ApexSymbolManager.ts:resolveMemberInContext:listClassBlockLookup',
-                      message:
-                        'List class block not found during member resolution',
-                      data: {
-                        contextClass: contextSymbol.name,
-                        contextFileUri: contextSymbol.fileUri ?? null,
-                        memberName,
-                        memberType,
-                        contextSymbolId: contextSymbol.id,
-                        classSymbolId,
-                        classSymbolInTableId: classSymbolInTable?.id ?? null,
-                      },
-                      timestamp: Date.now(),
-                    }),
-                  },
-                ).catch(() => {});
-                // #endregion
-              }
               // Debug: show what class blocks we have
               const allClassBlocks = allSymbols.filter(
                 (s) => isBlockSymbol(s) && s.scopeType === 'class',
@@ -10457,95 +9920,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 }
                 return false;
               });
-              if (
-                contextSymbol.name.toLowerCase() === 'list' &&
-                (memberName.toLowerCase() === 'add' ||
-                  memberName.toLowerCase() === 'size')
-              ) {
-                const sameName = allSymbols.filter(
-                  (s) => !isBlockSymbol(s) && s.name === memberName,
-                );
-                const sameNameKind = sameName.filter(
-                  (s) => s.kind === memberType,
-                );
-                const sameNameKindFile = sameNameKind.filter(
-                  (s) => s.fileUri === contextSymbol.fileUri,
-                );
-                // #region agent log
-                fetch(
-                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Debug-Session-Id': 'b7aabf',
-                    },
-                    body: JSON.stringify({
-                      sessionId: 'b7aabf',
-                      runId: 'inner-profile-post-classblock-fallback',
-                      hypothesisId: 'H20',
-                      location:
-                        'ApexSymbolManager.ts:resolveMemberInContext:classlessFallbackAnalysis',
-                      message:
-                        'Classless fallback candidate breakdown for List member',
-                      data: {
-                        contextClass: contextSymbol.name,
-                        contextFileUri: contextSymbol.fileUri ?? null,
-                        memberName,
-                        memberType,
-                        allSymbolsCount: allSymbols.length,
-                        sameNameCount: sameName.length,
-                        sameNameKindCount: sameNameKind.length,
-                        sameNameKindFileCount: sameNameKindFile.length,
-                        fallbackMembersCount: fallbackMembers.length,
-                        sampleSameNameKindFile: sameNameKindFile
-                          .slice(0, 6)
-                          .map((s) => ({
-                            id: s.id,
-                            name: s.name,
-                            kind: s.kind as any,
-                            fileUri: s.fileUri ?? null,
-                            parentId: s.parentId ?? null,
-                          })),
-                      },
-                      timestamp: Date.now(),
-                    }),
-                  },
-                ).catch(() => {});
-                // #endregion
-              }
               if (fallbackMembers.length > 0) {
-                // #region agent log
-                fetch(
-                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Debug-Session-Id': 'b7aabf',
-                    },
-                    body: JSON.stringify({
-                      sessionId: 'b7aabf',
-                      runId: 'inner-profile-post-classblock-fallback',
-                      hypothesisId: 'H19',
-                      location:
-                        'ApexSymbolManager.ts:resolveMemberInContext:classlessFallback',
-                      message:
-                        'Resolved member via class-symbol lineage fallback',
-                      data: {
-                        contextClass: contextSymbol.name,
-                        contextFileUri: contextSymbol.fileUri ?? null,
-                        memberName,
-                        memberType,
-                        classSymbolId,
-                        fallbackCount: fallbackMembers.length,
-                        selectedId: fallbackMembers[0]?.id ?? null,
-                      },
-                      timestamp: Date.now(),
-                    }),
-                  },
-                ).catch(() => {});
-                // #endregion
                 const fallbackMember = fallbackMembers[0];
                 if (fallbackMember.kind === SymbolKind.Method) {
                   return applyMethodTypeSubstitutions(
@@ -10558,45 +9933,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             } else {
               // Capture classBlock in a const to help TypeScript narrow the type
               const resolvedClassBlock = classBlock;
-              if (
-                contextSymbol.name.toLowerCase() === 'list' &&
-                (memberName.toLowerCase() === 'add' ||
-                  memberName.toLowerCase() === 'size')
-              ) {
-                // #region agent log
-                fetch(
-                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Debug-Session-Id': 'b7aabf',
-                    },
-                    body: JSON.stringify({
-                      sessionId: 'b7aabf',
-                      runId: 'inner-profile-post-classification-fix',
-                      hypothesisId: 'H18',
-                      location:
-                        'ApexSymbolManager.ts:resolveMemberInContext:listClassBlockLookup',
-                      message:
-                        'List class block found during member resolution',
-                      data: {
-                        contextClass: contextSymbol.name,
-                        contextFileUri: contextSymbol.fileUri ?? null,
-                        memberName,
-                        memberType,
-                        contextSymbolId: contextSymbol.id,
-                        classSymbolId,
-                        classSymbolInTableId: classSymbolInTable?.id ?? null,
-                        classBlockId: resolvedClassBlock.id,
-                        classBlockParentId: resolvedClassBlock.parentId ?? null,
-                      },
-                      timestamp: Date.now(),
-                    }),
-                  },
-                ).catch(() => {});
-                // #endregion
-              }
               this.logger.debug(
                 () =>
                   `Class block lookup for "${contextSymbol.name}": found (id: ${resolvedClassBlock.id})`,
@@ -10662,59 +9998,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   s.kind === memberType &&
                   s.fileUri === contextSymbol.fileUri,
               );
-              if (
-                contextSymbol.name.toLowerCase() === 'list' &&
-                (memberName.toLowerCase() === 'add' ||
-                  memberName.toLowerCase() === 'size')
-              ) {
-                // #region agent log
-                fetch(
-                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Debug-Session-Id': 'b7aabf',
-                    },
-                    body: JSON.stringify({
-                      sessionId: 'b7aabf',
-                      runId: 'inner-profile-post-classification-fix',
-                      hypothesisId: 'H16',
-                      location:
-                        'ApexSymbolManager.ts:resolveMemberInContext:listMatchingAnalysis',
-                      message:
-                        'Analyzing List member match inputs and near-misses',
-                      data: {
-                        contextClass: contextSymbol.name,
-                        contextFileUri: contextSymbol.fileUri ?? null,
-                        memberName,
-                        memberType,
-                        classMembersCount: classMembers.length,
-                        matchingMembersCount: matchingMembers.length,
-                        nameOnlyCount: classMembers.filter(
-                          (s) => !isBlockSymbol(s) && s.name === memberName,
-                        ).length,
-                        kindOnlyCount: classMembers.filter(
-                          (s) => !isBlockSymbol(s) && s.kind === memberType,
-                        ).length,
-                        sameFileOnlyCount: classMembers.filter(
-                          (s) =>
-                            !isBlockSymbol(s) &&
-                            s.fileUri === contextSymbol.fileUri,
-                        ).length,
-                        sampleMembers: classMembers.slice(0, 8).map((s) => ({
-                          name: s.name ?? null,
-                          kind: s.kind as any,
-                          fileUri: s.fileUri ?? null,
-                          parentId: s.parentId ?? null,
-                        })),
-                      },
-                      timestamp: Date.now(),
-                    }),
-                  },
-                ).catch(() => {});
-                // #endregion
-              }
               this.logger.debug(
                 () =>
                   `After filtering: found ${matchingMembers.length} matching members. ` +
@@ -10746,51 +10029,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       .join(', ')}`,
                 );
                 if (methodsWithName.length > 0) {
-                  if (
-                    contextSymbol.name.toLowerCase() === 'list' &&
-                    (memberName.toLowerCase() === 'add' ||
-                      memberName.toLowerCase() === 'size')
-                  ) {
-                    // #region agent log
-                    fetch(
-                      'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                      {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'X-Debug-Session-Id': 'b7aabf',
-                        },
-                        body: JSON.stringify({
-                          sessionId: 'b7aabf',
-                          runId: 'inner-profile-post-classification-fix',
-                          hypothesisId: 'H12',
-                          location:
-                            'ApexSymbolManager.ts:resolveMemberInContext:listFilterMiss',
-                          message:
-                            'List member exists by name but filtered out by strict matching',
-                          data: {
-                            contextClass: contextSymbol.name,
-                            contextFileUri: contextSymbol.fileUri ?? null,
-                            memberName,
-                            memberType,
-                            methodsWithNameCount: methodsWithName.length,
-                            methodsWithKindCount: methodsWithKind.length,
-                            sampleMethodsWithName: methodsWithName
-                              .slice(0, 5)
-                              .map((m) => ({
-                                name: m.name,
-                                kind: m.kind,
-                                fileUri: m.fileUri ?? null,
-                                parentId: m.parentId ?? null,
-                              })),
-                            resolvedClassBlockId: resolvedClassBlock.id,
-                          },
-                          timestamp: Date.now(),
-                        }),
-                      },
-                    ).catch(() => {});
-                    // #endregion
-                  }
                   methodsWithName.forEach((m, idx) => {
                     this.logger.debug(
                       () =>
@@ -10818,46 +10056,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     methodParentBlock &&
                     (methodParentBlock.parentId === contextSymbol.id ||
                       methodParentBlock.parentId === classSymbolId);
-                  if (
-                    contextSymbol.name.toLowerCase() === 'list' &&
-                    (memberName.toLowerCase() === 'add' ||
-                      memberName.toLowerCase() === 'size')
-                  ) {
-                    // #region agent log
-                    fetch(
-                      'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
-                      {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'X-Debug-Session-Id': 'b7aabf',
-                        },
-                        body: JSON.stringify({
-                          sessionId: 'b7aabf',
-                          runId: 'inner-profile-post-classification-fix',
-                          hypothesisId: 'H13',
-                          location:
-                            'ApexSymbolManager.ts:resolveMemberInContext:listParentChainCheck',
-                          message:
-                            'List member matched by name/kind; evaluating parent-chain guard',
-                          data: {
-                            contextClass: contextSymbol.name,
-                            contextSymbolId: contextSymbol.id,
-                            classSymbolId,
-                            memberName,
-                            memberType,
-                            methodId: method.id,
-                            methodParentId: method.parentId ?? null,
-                            methodParentBlockParentId:
-                              methodParentBlock?.parentId ?? null,
-                            parentChainMatches: !!parentChainMatches,
-                          },
-                          timestamp: Date.now(),
-                        }),
-                      },
-                    ).catch(() => {});
-                    // #endregion
-                  }
                   if (parentChainMatches) {
                     return applyMethodTypeSubstitutions(
                       method as any,
