@@ -438,8 +438,7 @@ export class PrerequisiteOrchestrationService {
     let iterations = 0;
     const runStartedAt = Date.now();
 
-    while (iterations < MAX_REVISION_ITERATIONS) {
-      iterations++;
+    do {
       const entry = this.inFlightRegistry.get(key);
       if (!entry) {
         return;
@@ -509,7 +508,7 @@ export class PrerequisiteOrchestrationService {
       }
 
       lastObservedRevision = latestEntry.revision;
-    }
+    } while (++iterations < MAX_REVISION_ITERATIONS);
 
     this.logger.warn(
       `[REQ-HARDEN] coordinated prerequisite loop hit max iterations (${MAX_REVISION_ITERATIONS}) ` +

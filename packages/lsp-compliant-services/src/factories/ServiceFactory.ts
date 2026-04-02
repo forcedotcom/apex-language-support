@@ -28,6 +28,7 @@ import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
+import { PrerequisiteEnrichmentService } from '../services/PrerequisiteEnrichmentService';
 import { Connection } from 'vscode-languageserver';
 
 /**
@@ -216,6 +217,17 @@ export class ServiceFactory {
     return new ExecuteCommandProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
+    );
+  }
+
+  /**
+   * Create prerequisite enrichment processing service
+   */
+  createPrerequisiteEnrichmentService(): PrerequisiteEnrichmentService {
+    return new PrerequisiteEnrichmentService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+      this.getLayerEnrichmentService(),
     );
   }
 }

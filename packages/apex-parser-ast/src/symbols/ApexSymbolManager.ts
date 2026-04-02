@@ -186,6 +186,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Track detail level per file for enrichment
   private readonly fileDetailLevels: HashMap<string, DetailLevel> =
     new HashMap();
+  // Track last processed SymbolTable state per file to avoid duplicate work
+  private readonly lastProcessedTableStateByFile: HashMap<string, string> =
+    new HashMap();
   // Compiler service for enrichment operations
   private readonly compilerService: CompilerService;
 
@@ -1110,6 +1113,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.symbolRefManager.clear();
     this.fileMetadata.clear();
     this.unifiedCache.clear();
+    this.lastProcessedTableStateByFile.clear();
     this.memoryStats = {
       totalSymbols: 0,
       totalFiles: 0,
@@ -1174,6 +1178,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Clear cache entries for this file
     this.unifiedCache.invalidatePattern(normalizedUri);
+    this.lastProcessedTableStateByFile.delete(normalizedUri);
   }
 
   /**
@@ -1801,10 +1806,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      if (registration.decision !== 'noop-same-instance') {
-        // Rebuild per-file reference edges from the canonical table selected by registration.
-        self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
+      if (registration.decision === 'noop-same-instance') {
+        // Same instance may still have been mutated by layered enrichment.
+        // Only skip when a stable state signature matches the last processed pass.
+        const noopTable = registration.canonicalTable ?? symbolTable;
+        const noopSignature = self.getSymbolTableStateSignature(noopTable);
+        const lastSignature =
+          self.lastProcessedTableStateByFile.get(normalizedUri);
+        if (lastSignature === noopSignature) {
+          return;
+        }
       }
+
+      // Rebuild per-file reference edges from the canonical table selected by registration.
+      self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
 
       // After registration, get the canonical symbol table (may have been merged)
       const finalSymbolTable = registration.canonicalTable;
@@ -1956,7 +1971,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       for (const sourceFileUri of sourceFilesToReResolve) {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
+      self.lastProcessedTableStateByFile.set(
+        normalizedUri,
+        self.getSymbolTableStateSignature(finalSymbolTable),
+      );
     });
+  }
+
+  private getSymbolTableStateSignature(symbolTable: SymbolTable): string {
+    const metadata = symbolTable.getMetadata();
+    return [
+      metadata.documentVersion ?? '',
+      symbolTable.getAllSymbols().length,
+      symbolTable.getAllReferences().length,
+      metadata.hasErrors ? 1 : 0,
+    ].join('|');
   }
 
   registerSymbolTableForFile(
@@ -2117,6 +2146,42 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.gen(function* () {
       try {
         const typeReferences = symbolTable.getAllReferences();
+        const qualifiedResolutionCache = new HashMap<
+          string,
+          ApexSymbol | null
+        >();
+        const memberResolutionCache = new HashMap<string, ApexSymbol | null>();
+        const unresolvedByName = new HashMap<string, number>();
+        const refsByName = new HashMap<string, number>();
+        const stats = {
+          literalSkips: 0,
+          crossFileSkips: 0,
+          unresolvedSkips: 0,
+          declarationSkips: 0,
+          graphLookupCalls: 0,
+          graphEdgesAdded: 0,
+          resolveTargetMs: 0,
+          graphLookupMs: 0,
+          addReferenceMs: 0,
+          resolverCalls: 0,
+          resolverQualifiedCalls: 0,
+          resolverQualifiedMs: 0,
+          resolverScopeHierarchyMs: 0,
+          resolverScopeSearchMs: 0,
+          resolverDirectLookupMs: 0,
+          resolverBuiltInMs: 0,
+          resolverPreResolvedHits: 0,
+          resolverQualifiedThisCalls: 0,
+          resolverQualifiedThisLookupMs: 0,
+          resolverQualifiedGlobalLookupMs: 0,
+          resolverQualifiedResolveMemberMs: 0,
+          resolverQualifiedStandardClassMs: 0,
+          resolverQualifiedCacheHits: 0,
+          resolverQualifiedCacheMisses: 0,
+          resolverQualifiedTypeContextPromotions: 0,
+          resolverMemberContextCacheHits: 0,
+          resolverMemberContextCacheMisses: 0,
+        };
 
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
@@ -2125,10 +2190,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Process batch - only same-file references
           for (const typeRef of batch) {
+            const nameKey = typeRef.name?.toLowerCase?.() ?? '';
+            if (nameKey) {
+              refsByName.set(nameKey, (refsByName.get(nameKey) ?? 0) + 1);
+            }
             yield* self.processSameFileReferenceToGraphEffect(
               typeRef,
               fileUri,
               symbolTable,
+              qualifiedResolutionCache,
+              memberResolutionCache,
+              stats,
+              unresolvedByName,
             );
           }
 
@@ -2158,12 +2231,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: SymbolReference,
     fileUri: string,
     symbolTable: SymbolTable,
+    qualifiedResolutionCache: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache: HashMap<string, ApexSymbol | null>,
+    stats?: {
+      literalSkips: number;
+      crossFileSkips: number;
+      unresolvedSkips: number;
+      declarationSkips: number;
+      graphLookupCalls: number;
+      graphEdgesAdded: number;
+      resolveTargetMs: number;
+      graphLookupMs: number;
+      addReferenceMs: number;
+      resolverCalls: number;
+      resolverQualifiedCalls: number;
+      resolverQualifiedMs: number;
+      resolverScopeHierarchyMs: number;
+      resolverScopeSearchMs: number;
+      resolverDirectLookupMs: number;
+      resolverBuiltInMs: number;
+      resolverPreResolvedHits: number;
+      resolverQualifiedThisCalls: number;
+      resolverQualifiedThisLookupMs: number;
+      resolverQualifiedGlobalLookupMs: number;
+      resolverQualifiedResolveMemberMs: number;
+      resolverQualifiedStandardClassMs: number;
+      resolverQualifiedCacheHits: number;
+      resolverQualifiedCacheMisses: number;
+      resolverQualifiedTypeContextPromotions: number;
+      resolverMemberContextCacheHits: number;
+      resolverMemberContextCacheMisses: number;
+    },
+    unresolvedByName?: HashMap<string, number>,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
       try {
         // Skip LITERAL references - they don't represent symbol relationships
         if (typeRef.context === ReferenceContext.LITERAL) {
+          if (stats) {
+            stats.literalSkips += 1;
+          }
           return;
         }
 
@@ -2201,6 +2309,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Skip cross-file references - they'll be resolved on-demand
         if (isCrossFileReference) {
+          if (stats) {
+            stats.crossFileSkips += 1;
+          }
           return;
         }
 
@@ -2221,6 +2332,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (!targetSymbol) {
+          const resolveTargetStart = Date.now();
           targetSymbol = yield* Effect.tryPromise({
             try: () =>
               self.findTargetSymbolForReference(
@@ -2228,9 +2340,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 fileUri,
                 sourceSymbol,
                 symbolTable,
+                qualifiedResolutionCache,
+                memberResolutionCache,
+                stats,
               ),
             catch: (error) => error as Error,
           }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          if (stats) {
+            stats.resolveTargetMs += Date.now() - resolveTargetStart;
+          }
           if (targetSymbol) {
             typeRef.resolvedSymbolId = targetSymbol.id;
           }
@@ -2246,6 +2364,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
               '(should have been resolved during second-pass)',
           );
+          if (stats) {
+            stats.unresolvedSkips += 1;
+          }
+          if (unresolvedByName) {
+            const unresolvedKey =
+              qualifierInfo && qualifierInfo.isQualified
+                ? `${qualifierInfo.qualifier}.${qualifierInfo.member}`
+                : typeRef.name;
+            unresolvedByName.set(
+              unresolvedKey,
+              (unresolvedByName.get(unresolvedKey) ?? 0) + 1,
+            );
+          }
           return; // Skip, don't defer
         }
 
@@ -2254,16 +2385,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
           typeRef.context === ReferenceContext.PROPERTY_REFERENCE
         ) {
+          if (stats) {
+            stats.declarationSkips += 1;
+          }
           return;
         }
 
         // Add to graph
+        const graphLookupStart = Date.now();
         const sourceSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           sourceSymbol.name,
         );
         const targetSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           targetSymbol.name,
         );
+        if (stats) {
+          stats.graphLookupCalls += 2;
+          stats.graphLookupMs += Date.now() - graphLookupStart;
+        }
 
         // Capture targetSymbol in a const to help TypeScript narrow the type
         // (needed because it will be used in closures below)
@@ -2294,6 +2433,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         const referenceType = self.mapReferenceContextToType(typeRef.context);
         const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+        const addReferenceStart = Date.now();
         self.symbolRefManager.addReference(
           sourceInGraph,
           targetInGraph,
@@ -2304,6 +2444,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             isStatic: isStatic,
           },
         );
+        if (stats) {
+          stats.graphEdgesAdded += 1;
+          stats.addReferenceMs += Date.now() - addReferenceStart;
+        }
       } catch (error) {
         self.logger.error(
           () =>
@@ -3475,12 +3619,40 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
     symbolTable?: SymbolTable,
+    qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache?: HashMap<string, ApexSymbol | null>,
+    resolverStats?: {
+      resolverCalls: number;
+      resolverQualifiedCalls: number;
+      resolverQualifiedMs: number;
+      resolverScopeHierarchyMs: number;
+      resolverScopeSearchMs: number;
+      resolverDirectLookupMs: number;
+      resolverBuiltInMs: number;
+      resolverPreResolvedHits: number;
+      resolverQualifiedThisCalls: number;
+      resolverQualifiedThisLookupMs: number;
+      resolverQualifiedGlobalLookupMs: number;
+      resolverQualifiedResolveMemberMs: number;
+      resolverQualifiedStandardClassMs: number;
+      resolverQualifiedCacheHits: number;
+      resolverQualifiedCacheMisses: number;
+      resolverQualifiedTypeContextPromotions: number;
+      resolverMemberContextCacheHits: number;
+      resolverMemberContextCacheMisses: number;
+    },
   ): Promise<ApexSymbol | null> {
+    if (resolverStats) {
+      resolverStats.resolverCalls += 1;
+    }
     // Fast path: if already resolved by listener second-pass, return the symbol directly
     // This prevents redundant resolution when called from other methods
     if (typeRef.resolvedSymbolId) {
       const resolvedSymbol = this.getSymbol(typeRef.resolvedSymbolId);
       if (resolvedSymbol) {
+        if (resolverStats) {
+          resolverStats.resolverPreResolvedHits += 1;
+        }
         this.logger.debug(
           () =>
             `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" in findTargetSymbolForReference`,
@@ -3501,6 +3673,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
 
     if (qualifierInfo && qualifierInfo.isQualified) {
+      const qualifiedStart = Date.now();
       // Try to resolve the qualified reference
       // Pass fileUri and sourceSymbol to help resolve 'this.' expressions to class-scoped members
       const qualifiedSymbol = await this.resolveQualifiedReferenceFromChain(
@@ -3510,7 +3683,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         fileUri,
         sourceSymbol,
         typeRef,
+        symbolTable,
+        qualifiedResolutionCache,
+        memberResolutionCache,
+        resolverStats,
       );
+      if (resolverStats) {
+        resolverStats.resolverQualifiedCalls += 1;
+        resolverStats.resolverQualifiedMs += Date.now() - qualifiedStart;
+      }
 
       if (qualifiedSymbol) {
         return qualifiedSymbol;
@@ -3519,6 +3700,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // For unqualified references, use scope-based resolution if symbolTable is available
     if (symbolTable && fileUri) {
+      const scopeHierarchyStart = Date.now();
       // Phase 1: Same-file resolution using SymbolTable scope hierarchy
       // Use the reference location to find the scope hierarchy
       const position = {
@@ -3526,10 +3708,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         character: typeRef.location.identifierRange.startColumn,
       };
       const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+      if (resolverStats) {
+        resolverStats.resolverScopeHierarchyMs +=
+          Date.now() - scopeHierarchyStart;
+      }
 
       // Primary approach: Explicit scope hierarchy search using getAllSymbols()
       // Get all symbols from SymbolTable (they're all from the same file)
       const allFileSymbols = symbolTable.getAllSymbols();
+      const scopeSearchStart = Date.now();
 
       // Search for symbols with the target name, starting from the innermost scope
       // Reverse the hierarchy to search from innermost (most specific) to outermost
@@ -3587,6 +3774,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (!aIsVar && bIsVar) return 1;
             return 0;
           });
+          if (resolverStats) {
+            resolverStats.resolverScopeSearchMs +=
+              Date.now() - scopeSearchStart;
+          }
           return prioritized[0];
         }
       }
@@ -3618,6 +3809,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Field,
           );
           if (classFields.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return classFields[0];
           }
           // Then try methods
@@ -3628,6 +3823,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Method,
           );
           if (classMethods.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return classMethods[0];
           }
         }
@@ -3641,9 +3840,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Parameter,
           );
           if (parameters.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return parameters[0];
           }
         }
+      }
+      if (resolverStats) {
+        resolverStats.resolverScopeSearchMs += Date.now() - scopeSearchStart;
       }
     }
 
@@ -3651,10 +3857,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // try a direct lookup in the SymbolTable as a last resort for same-file references
     // This handles cases where scope hierarchy might not be perfect but we know the symbol exists
     if (symbolTable) {
+      const directLookupStart = Date.now();
       const allFileSymbols = symbolTable.getAllSymbols();
       const directMatch = allFileSymbols.find(
         (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
       );
+      if (resolverStats) {
+        resolverStats.resolverDirectLookupMs += Date.now() - directLookupStart;
+      }
       if (directMatch) {
         // Found symbol directly in SymbolTable - use it
         // This is safe for same-file references since we've already verified it's same-file
@@ -3663,7 +3873,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Try to resolve as built-in type
+    const builtInStart = Date.now();
     const builtInSymbol = await this.resolveStandardLibraryType(typeRef);
+    if (resolverStats) {
+      resolverStats.resolverBuiltInMs += Date.now() - builtInStart;
+    }
     if (builtInSymbol) {
       return builtInSymbol;
     }
@@ -3717,11 +3931,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
     originalTypeRef?: SymbolReference,
+    symbolTable?: SymbolTable,
+    qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache?: HashMap<string, ApexSymbol | null>,
+    resolverStats?: {
+      resolverQualifiedThisCalls: number;
+      resolverQualifiedThisLookupMs: number;
+      resolverQualifiedGlobalLookupMs: number;
+      resolverQualifiedResolveMemberMs: number;
+      resolverQualifiedStandardClassMs: number;
+      resolverQualifiedCacheHits: number;
+      resolverQualifiedCacheMisses: number;
+      resolverQualifiedTypeContextPromotions: number;
+      resolverMemberContextCacheHits: number;
+      resolverMemberContextCacheMisses: number;
+    },
   ): Promise<ApexSymbol | null> {
     try {
       // Special case: 'this' qualifier means we're accessing an instance member
       // in the containing class. 'this' can only reference class-scoped members.
       if (qualifier.toLowerCase() === 'this') {
+        if (resolverStats) {
+          resolverStats.resolverQualifiedThisCalls += 1;
+        }
         // Find the containing class by traversing up the parent chain from source symbol
         let containingClass: ApexSymbol | null = null;
         if (sourceSymbol) {
@@ -3731,10 +3963,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Look for the member within the containing class scope
         // 'this' can only reference class-scoped members, so we must look in the containing class
         if (containingClass && fileUri) {
+          const thisLookupStart = Date.now();
           const normalizedUri = extractFilePathFromUri(createFileUri(fileUri));
+          const localSymbols = symbolTable?.getAllSymbols();
 
-          // Find all symbols with the member name
-          const allSymbolsWithName = this.findSymbolByName(member);
+          // Same-file fast path: avoid global name index scans when local symbols are available.
+          const allSymbolsWithName = localSymbols
+            ? localSymbols.filter((s) => s.name === member)
+            : this.findSymbolByName(member);
 
           // Filter to symbols that are members of the containing class
           // A member is in the class if:
@@ -3764,12 +4000,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Return the first matching class member
           if (classMembers.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverQualifiedThisLookupMs +=
+                Date.now() - thisLookupStart;
+            }
             return classMembers[0];
+          }
+          if (resolverStats) {
+            resolverStats.resolverQualifiedThisLookupMs +=
+              Date.now() - thisLookupStart;
           }
         }
 
         // Fallback: Look for the member by name (might be in a different file or scope)
-        const symbols = this.findSymbolByName(member);
+        const thisGlobalLookupStart = Date.now();
+        const symbols = symbolTable
+          ? symbolTable
+              .getAllSymbols()
+              .filter((s) => s.name?.toLowerCase() === member.toLowerCase())
+          : this.findSymbolByName(member);
+        if (resolverStats) {
+          resolverStats.resolverQualifiedGlobalLookupMs +=
+            Date.now() - thisGlobalLookupStart;
+        }
         if (symbols.length > 0) {
           // If fileUri is provided, prefer same-file symbols
           if (fileUri) {
@@ -3790,6 +4043,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 1: Find the qualifier symbol
+      const qualifiedCacheKey = `${qualifier}|${member}|${context}|${fileUri ?? ''}`;
+      if (qualifiedResolutionCache?.has(qualifiedCacheKey)) {
+        if (resolverStats) {
+          resolverStats.resolverQualifiedCacheHits += 1;
+        }
+        return qualifiedResolutionCache.get(qualifiedCacheKey) ?? null;
+      }
+      if (resolverStats) {
+        resolverStats.resolverQualifiedCacheMisses += 1;
+      }
+
       let qualifierSymbols = this.findSymbolByName(qualifier);
 
       // If no user-defined qualifier found, try built-in types
@@ -3834,35 +4098,541 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // If still no qualifier found, try standard Apex classes
       if (qualifierSymbols.length === 0) {
+        const stdClassStart = Date.now();
         const standardClass = await this.resolveStandardApexClass(qualifier);
+        if (resolverStats) {
+          resolverStats.resolverQualifiedStandardClassMs +=
+            Date.now() - stdClassStart;
+        }
         if (standardClass) {
           qualifierSymbols = [standardClass];
         }
       }
 
       if (qualifierSymbols.length === 0) {
+        qualifiedResolutionCache?.set(qualifiedCacheKey, null);
         return null;
       }
 
+      // Prefer candidates that are most likely in the current lexical scope:
+      // same file -> nearest to source line -> variable-like kinds.
+      if (qualifierSymbols.length > 1) {
+        const preferredFileUri =
+          sourceSymbol?.fileUri ??
+          (fileUri ? extractFilePathFromUri(createFileUri(fileUri)) : null);
+        const sourceLine = sourceSymbol?.location?.identifierRange?.startLine;
+        const kindRank = (kind: string): number => {
+          if (
+            kind === SymbolKind.Variable ||
+            kind === SymbolKind.Parameter ||
+            kind === SymbolKind.Field ||
+            kind === SymbolKind.Property
+          ) {
+            return 0;
+          }
+          return 1;
+        };
+
+        qualifierSymbols = [...qualifierSymbols].sort((a, b) => {
+          const aSameFile =
+            preferredFileUri && a.fileUri === preferredFileUri ? 0 : 1;
+          const bSameFile =
+            preferredFileUri && b.fileUri === preferredFileUri ? 0 : 1;
+          if (aSameFile !== bSameFile) {
+            return aSameFile - bSameFile;
+          }
+
+          const aKind = kindRank(a.kind);
+          const bKind = kindRank(b.kind);
+          if (aKind !== bKind) {
+            return aKind - bKind;
+          }
+
+          if (sourceLine !== undefined) {
+            const aLine = a.location?.identifierRange?.startLine;
+            const bLine = b.location?.identifierRange?.startLine;
+            const aDist =
+              aLine !== undefined
+                ? Math.abs(aLine - sourceLine)
+                : Number.MAX_SAFE_INTEGER;
+            const bDist =
+              bLine !== undefined
+                ? Math.abs(bLine - sourceLine)
+                : Number.MAX_SAFE_INTEGER;
+            if (aDist !== bDist) {
+              return aDist - bDist;
+            }
+          }
+
+          return 0;
+        });
+      }
+
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'b7aabf',
+          },
+          body: JSON.stringify({
+            sessionId: 'b7aabf',
+            runId: 'inner-profile-pre-fix-3',
+            hypothesisId: 'H9',
+            location:
+              'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:qualifierCandidates',
+            message: 'Qualifier candidate set before selection',
+            data: {
+              qualifier,
+              member,
+              candidateCount: qualifierSymbols.length,
+              sourceSymbolName: sourceSymbol?.name ?? null,
+              sourceSymbolKind: sourceSymbol?.kind ?? null,
+              refLine:
+                originalTypeRef?.location?.identifierRange?.startLine ?? null,
+              refColumn:
+                originalTypeRef?.location?.identifierRange?.startColumn ?? null,
+              candidates: qualifierSymbols.slice(0, 8).map((s) => ({
+                id: s.id,
+                name: s.name,
+                kind: s.kind,
+                fileUri: s.fileUri ?? null,
+                parentId: s.parentId ?? null,
+                typeName: (s as any)?.type?.name ?? null,
+                typeOriginal:
+                  ((s as any)?.type?.originalTypeString as
+                    | string
+                    | undefined) ?? null,
+                typeParams:
+                  ((s as any)?.type?.typeParameters as any[] | undefined)?.map(
+                    (tp) => ({
+                      name: tp?.name ?? null,
+                      originalTypeString: tp?.originalTypeString ?? null,
+                    }),
+                  ) ?? null,
+                line: s.location?.identifierRange?.startLine ?? null,
+                col: s.location?.identifierRange?.startColumn ?? null,
+              })),
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+
       // For now, take the first qualifier match
       const qualifierSymbol = qualifierSymbols[0];
+      if (qualifierSymbols.length > 1) {
+        const sourceLine =
+          sourceSymbol?.location?.identifierRange?.startLine ?? null;
+        const selectedLine =
+          qualifierSymbol.location?.identifierRange?.startLine ?? null;
+        const selectedDistance =
+          sourceLine !== null && selectedLine !== null
+            ? Math.abs(sourceLine - selectedLine)
+            : null;
+        const nearestByLine = qualifierSymbols
+          .filter((s) => s.location?.identifierRange?.startLine !== undefined)
+          .sort(
+            (a, b) =>
+              Math.abs(
+                (a.location?.identifierRange?.startLine ??
+                  Number.MAX_SAFE_INTEGER) -
+                  (sourceLine ?? Number.MAX_SAFE_INTEGER),
+              ) -
+              Math.abs(
+                (b.location?.identifierRange?.startLine ??
+                  Number.MAX_SAFE_INTEGER) -
+                  (sourceLine ?? Number.MAX_SAFE_INTEGER),
+              ),
+          )[0];
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix-4',
+              hypothesisId: 'H10',
+              location:
+                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:qualifierSelectionQuality',
+              message:
+                'Qualifier selection quality against nearest-line candidate',
+              data: {
+                qualifier,
+                member,
+                sourceSymbolName: sourceSymbol?.name ?? null,
+                sourceFileUri: sourceSymbol?.fileUri ?? null,
+                sourceLine,
+                selectedId: qualifierSymbol.id,
+                selectedFileUri: qualifierSymbol.fileUri ?? null,
+                selectedLine,
+                selectedDistance,
+                nearestId: nearestByLine?.id ?? null,
+                nearestFileUri: nearestByLine?.fileUri ?? null,
+                nearestLine:
+                  nearestByLine?.location?.identifierRange?.startLine ?? null,
+                selectedIsNearest: nearestByLine?.id === qualifierSymbol.id,
+                candidateCount: qualifierSymbols.length,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+      }
 
       // Step 2: Find the member within the qualifier
-      const memberSymbol = await this.resolveMemberInContext(
-        { type: 'symbol', symbol: qualifierSymbol },
-        member,
-        context === ReferenceContext.METHOD_CALL ? 'method' : 'property',
-      );
-
-      if (memberSymbol) {
-        return memberSymbol;
+      let memberResolutionContext: { type: 'symbol'; symbol: ApexSymbol } = {
+        type: 'symbol',
+        symbol: qualifierSymbol,
+      };
+      let qualifierRawTypeName: string | null = null;
+      let collectionElementType: string | null = null;
+      let promotedFromCollectionType = false;
+      if (
+        (qualifierSymbol.kind === SymbolKind.Variable ||
+          qualifierSymbol.kind === SymbolKind.Parameter ||
+          qualifierSymbol.kind === SymbolKind.Field ||
+          qualifierSymbol.kind === SymbolKind.Property) &&
+        (qualifierSymbol as any)?.type?.name
+      ) {
+        const qualifierTypeObj = (qualifierSymbol as any)?.type;
+        const rawTypeName = (
+          (qualifierSymbol as any).type.name as string
+        ).trim();
+        qualifierRawTypeName = rawTypeName;
+        collectionElementType =
+          rawTypeName === 'List' || rawTypeName === 'Set'
+            ? ((qualifierTypeObj?.typeParameters?.[0]?.originalTypeString as
+                | string
+                | undefined) ??
+              (qualifierTypeObj?.typeParameters?.[0]?.name as
+                | string
+                | undefined) ??
+              null)
+            : null;
+        if (rawTypeName === 'List') {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': 'b7aabf',
+              },
+              body: JSON.stringify({
+                sessionId: 'b7aabf',
+                runId: 'inner-profile-pre-fix-2',
+                hypothesisId: 'H6',
+                location:
+                  'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:listTypeDetail',
+                message:
+                  'List-typed qualifier encountered during member resolution',
+                data: {
+                  qualifier,
+                  member,
+                  rawTypeName,
+                  collectionElementType,
+                  qualifierTypeObj: qualifierTypeObj
+                    ? {
+                        name: qualifierTypeObj.name ?? null,
+                        fullName: qualifierTypeObj.fullName ?? null,
+                        originalTypeString:
+                          qualifierTypeObj.originalTypeString ?? null,
+                        typeParameters:
+                          qualifierTypeObj.typeParameters?.map((tp: any) => ({
+                            name: tp?.name ?? null,
+                            originalTypeString: tp?.originalTypeString ?? null,
+                          })) ?? null,
+                      }
+                    : null,
+                  fileUri: fileUri ?? null,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+        }
+        // For collection-typed qualifiers:
+        // 1) Try collection type first (e.g., List.size/add),
+        // 2) Then fall back to element type (e.g., listVar.lat where elements are Coordinates).
+        let collectionTypeSymbol = this.resolvePreferredTypeSymbolForLookup(
+          rawTypeName,
+          fileUri,
+          symbolTable,
+        );
+        if (
+          !collectionTypeSymbol &&
+          (rawTypeName === 'List' ||
+            rawTypeName === 'Set' ||
+            rawTypeName === 'Map')
+        ) {
+          collectionTypeSymbol =
+            await this.resolveStandardApexClass(rawTypeName);
+        }
+        const elementTypeSymbol = collectionElementType
+          ? this.resolvePreferredTypeSymbolForLookup(
+              collectionElementType,
+              fileUri,
+              symbolTable,
+            )
+          : null;
+        const typeSymbol = collectionTypeSymbol ?? elementTypeSymbol;
+        promotedFromCollectionType = !!collectionTypeSymbol;
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix',
+              hypothesisId: 'H1',
+              location:
+                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:typePromotion',
+              message: 'Type-context promotion attempt for qualified reference',
+              data: {
+                qualifier,
+                member,
+                rawTypeName,
+                collectionElementType,
+                collectionTypeSymbolName: collectionTypeSymbol?.name ?? null,
+                elementTypeSymbolName: elementTypeSymbol?.name ?? null,
+                promotedFromCollectionType,
+                promotedTypeSymbolName: typeSymbol?.name ?? null,
+                promotedTypeSymbolKind: typeSymbol?.kind ?? null,
+                fileUri: fileUri ?? null,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+        if (typeSymbol) {
+          memberResolutionContext = { type: 'symbol', symbol: typeSymbol };
+          if (resolverStats) {
+            resolverStats.resolverQualifiedTypeContextPromotions += 1;
+          }
+        }
       }
+      const chainIndicatesMethod =
+        !!originalTypeRef &&
+        isChainedSymbolReference(originalTypeRef) &&
+        originalTypeRef.chainNodes?.some(
+          (node) =>
+            node.name === member &&
+            node.context === ReferenceContext.METHOD_CALL,
+        );
+      const memberType =
+        context === ReferenceContext.METHOD_CALL || chainIndicatesMethod
+          ? 'method'
+          : 'property';
+      if (
+        qualifier.toLowerCase() === 'computedcoordinates' &&
+        (member.toLowerCase() === 'add' ||
+          member.toLowerCase() === 'size' ||
+          member.toLowerCase() === 'lat' ||
+          member.toLowerCase() === 'lon')
+      ) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix-5',
+              hypothesisId: 'H11',
+              location:
+                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberTypeClassification',
+              message: 'ComputedCoordinates member classification inputs',
+              data: {
+                qualifier,
+                member,
+                context,
+                memberType,
+                originalTypeRefContext: originalTypeRef?.context ?? null,
+                originalTypeRefName: originalTypeRef?.name ?? null,
+                chainNodeContexts:
+                  isChainedSymbolReference(originalTypeRef as any) &&
+                  (originalTypeRef as any).chainNodes
+                    ? (originalTypeRef as any).chainNodes.map((n: any) => ({
+                        name: n.name,
+                        context: n.context,
+                      }))
+                    : null,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+      }
+      const memberCacheKey = `${memberResolutionContext.symbol.id}|${memberType}|${member.toLowerCase()}`;
+      const cachedMember = memberResolutionCache?.get(memberCacheKey);
+      if (cachedMember !== undefined) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix',
+              hypothesisId: 'H3',
+              location:
+                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberCacheHit',
+              message: 'Member-resolution cache hit',
+              data: {
+                qualifier,
+                member,
+                memberType,
+                memberCacheKey,
+                cachedIsNull: cachedMember === null,
+                contextSymbol: memberResolutionContext.symbol.name,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+        if (resolverStats) {
+          resolverStats.resolverMemberContextCacheHits += 1;
+        }
+        qualifiedResolutionCache?.set(qualifiedCacheKey, cachedMember);
+        return cachedMember;
+      }
+      if (resolverStats) {
+        resolverStats.resolverMemberContextCacheMisses += 1;
+      }
+      const resolveMemberStart = Date.now();
+      const memberSymbol = await this.resolveMemberInContext(
+        memberResolutionContext,
+        member,
+        memberType,
+      );
+      let finalMemberSymbol = memberSymbol;
+      if (
+        !finalMemberSymbol &&
+        collectionElementType &&
+        promotedFromCollectionType &&
+        qualifierRawTypeName &&
+        memberResolutionContext.symbol.name.toLowerCase() ===
+          qualifierRawTypeName.toLowerCase()
+      ) {
+        const elementTypeSymbol = this.resolvePreferredTypeSymbolForLookup(
+          collectionElementType,
+          fileUri,
+          symbolTable,
+        );
+        if (elementTypeSymbol) {
+          finalMemberSymbol = await this.resolveMemberInContext(
+            { type: 'symbol', symbol: elementTypeSymbol },
+            member,
+            memberType,
+          );
+        }
+      }
+      const resolveMemberMs = Date.now() - resolveMemberStart;
+      if (resolverStats) {
+        resolverStats.resolverQualifiedResolveMemberMs += resolveMemberMs;
+      }
+      if (finalMemberSymbol) {
+        memberResolutionCache?.set(memberCacheKey, finalMemberSymbol);
+        qualifiedResolutionCache?.set(qualifiedCacheKey, finalMemberSymbol);
+        return finalMemberSymbol;
+      }
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'b7aabf',
+          },
+          body: JSON.stringify({
+            sessionId: 'b7aabf',
+            runId: 'inner-profile-pre-fix-2',
+            hypothesisId: 'H7',
+            location:
+              'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:memberMiss',
+            message: 'Qualified member resolution miss before fallback',
+            data: {
+              qualifier,
+              member,
+              memberType,
+              contextSymbol: memberResolutionContext.symbol.name,
+              contextSymbolKind: memberResolutionContext.symbol.kind,
+              qualifierSymbol: qualifierSymbol.name,
+              resolveMemberMs,
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
 
       // Step 3: For method calls, try to resolve the qualifier itself if no member found
       if (context === ReferenceContext.METHOD_CALL) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix',
+              hypothesisId: 'H4',
+              location:
+                'ApexSymbolManager.ts:resolveQualifiedReferenceFromChain:methodFallbackToQualifier',
+              message:
+                'Falling back to qualifier symbol for unresolved method member',
+              data: {
+                qualifier,
+                member,
+                qualifierSymbolName: qualifierSymbol.name,
+                qualifierSymbolKind: qualifierSymbol.kind,
+                contextSymbol: memberResolutionContext.symbol.name,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+        memberResolutionCache?.set(memberCacheKey, qualifierSymbol);
+        qualifiedResolutionCache?.set(qualifiedCacheKey, qualifierSymbol);
         return qualifierSymbol;
       }
 
+      memberResolutionCache?.set(memberCacheKey, null);
+      qualifiedResolutionCache?.set(qualifiedCacheKey, null);
       return null;
     } catch (_error) {
       return null;
@@ -3910,6 +4680,197 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           member,
           isQualified: true,
         };
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeTypeNameForLookup(typeName: string): string {
+    return typeName.trim().replace(/<.*>/g, '').replace(/\[\]$/, '');
+  }
+
+  private buildTypeLookupCandidates(typeName: string): string[] {
+    const normalized = this.normalizeTypeNameForLookup(typeName);
+    const candidates: string[] = [];
+    const push = (value: string): void => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return;
+      }
+      if (!candidates.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+        candidates.push(trimmed);
+      }
+    };
+
+    push(normalized);
+    const parts = normalized.split('.').filter((p) => p.length > 0);
+    if (parts.length > 1) {
+      // Qualified Apex type names here are often nested class paths (Outer.Inner).
+      for (let i = 1; i < parts.length; i++) {
+        push(parts.slice(i).join('.'));
+      }
+      push(parts[parts.length - 1]);
+    }
+
+    return candidates;
+  }
+
+  private resolvePreferredTypeSymbolForLookup(
+    rawTypeName: string,
+    fileUri?: string,
+    symbolTable?: SymbolTable,
+  ): ApexSymbol | null {
+    const candidates = this.buildTypeLookupCandidates(rawTypeName);
+    if (rawTypeName.includes('.')) {
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'b7aabf',
+          },
+          body: JSON.stringify({
+            sessionId: 'b7aabf',
+            runId: 'inner-profile-pre-fix-2',
+            hypothesisId: 'H8',
+            location:
+              'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:nestedTypeCandidates',
+            message: 'Nested type candidate derivation',
+            data: {
+              rawTypeName,
+              candidates,
+              fileUri: fileUri ?? null,
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+    }
+    const normalizedUri = fileUri
+      ? extractFilePathFromUri(createFileUri(fileUri))
+      : null;
+    const localTypeSymbols = symbolTable
+      ? symbolTable.getAllSymbols().filter(inTypeSymbolGroup)
+      : [];
+    const localById = new HashMap<string, ApexSymbol>();
+    for (const symbol of localTypeSymbols) {
+      localById.set(symbol.id, symbol);
+    }
+
+    const matchesCandidate = (
+      symbol: ApexSymbol,
+      candidate: string,
+    ): boolean => {
+      if (symbol.name?.toLowerCase() === candidate.toLowerCase()) {
+        return true;
+      }
+      const fqn = (symbol as any)?.fqn as string | undefined;
+      if (fqn && fqn.toLowerCase() === candidate.toLowerCase()) {
+        return true;
+      }
+
+      const parts = candidate.split('.').filter((p) => p.length > 0);
+      if (
+        parts.length >= 2 &&
+        symbol.name?.toLowerCase() === parts[parts.length - 1].toLowerCase()
+      ) {
+        const parent = symbol.parentId
+          ? localById.get(symbol.parentId)
+          : undefined;
+        if (
+          parent?.name?.toLowerCase() === parts[parts.length - 2].toLowerCase()
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    for (const candidate of candidates) {
+      const localMatch = localTypeSymbols.find((s) =>
+        matchesCandidate(s, candidate),
+      );
+      if (localMatch) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'b7aabf',
+            },
+            body: JSON.stringify({
+              sessionId: 'b7aabf',
+              runId: 'inner-profile-pre-fix',
+              hypothesisId: 'H2',
+              location:
+                'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:localMatch',
+              message: 'Resolved preferred type from same-file symbols',
+              data: {
+                rawTypeName,
+                candidates,
+                selectedCandidate: candidate,
+                selectedSymbolName: localMatch.name,
+                selectedSymbolKind: localMatch.kind,
+                localTypeSymbolCount: localTypeSymbols.length,
+              },
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+        return localMatch;
+      }
+    }
+
+    for (const candidate of candidates) {
+      const typeCandidates =
+        this.findSymbolByName(candidate).filter(inTypeSymbolGroup);
+      if (normalizedUri) {
+        const sameFile = typeCandidates.find(
+          (s) => s.fileUri === normalizedUri,
+        );
+        if (sameFile) {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': 'b7aabf',
+              },
+              body: JSON.stringify({
+                sessionId: 'b7aabf',
+                runId: 'inner-profile-pre-fix',
+                hypothesisId: 'H5',
+                location:
+                  'ApexSymbolManager.ts:resolvePreferredTypeSymbolForLookup:globalSameFileMatch',
+                message:
+                  'Resolved preferred type from global index with same-file tie-break',
+                data: {
+                  rawTypeName,
+                  candidate,
+                  candidateCount: typeCandidates.length,
+                  selectedSymbolName: sameFile.name,
+                  selectedFileUri: sameFile.fileUri ?? null,
+                  normalizedUri,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+          return sameFile;
+        }
+      }
+      if (typeCandidates.length > 0) {
+        return typeCandidates[0];
       }
     }
 
@@ -8751,6 +9712,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
         let symbolTable =
           this.symbolRefManager.getSymbolTableForFile(contextFile);
+        if (
+          contextSymbol.name.toLowerCase() === 'list' &&
+          (memberName.toLowerCase() === 'add' ||
+            memberName.toLowerCase() === 'size')
+        ) {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': 'b7aabf',
+              },
+              body: JSON.stringify({
+                sessionId: 'b7aabf',
+                runId: 'inner-profile-post-classification-fix',
+                hypothesisId: 'H14',
+                location:
+                  'ApexSymbolManager.ts:resolveMemberInContext:listSymbolTablePresence',
+                message:
+                  'List member lookup entry with initial symbol-table state',
+                data: {
+                  contextClass: contextSymbol.name,
+                  contextFileUri: contextFile,
+                  memberName,
+                  memberType,
+                  initialSymbolTableFound: !!symbolTable,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+        }
         this.logger.debug(
           () =>
             `resolveMemberInContext: Symbol table for "${contextSymbol.name}": ${symbolTable ? 'found' : 'not found'}`,
@@ -8837,6 +9833,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               }
             }
           }
+        }
+        if (
+          contextSymbol.name.toLowerCase() === 'list' &&
+          (memberName.toLowerCase() === 'add' ||
+            memberName.toLowerCase() === 'size')
+        ) {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': 'b7aabf',
+              },
+              body: JSON.stringify({
+                sessionId: 'b7aabf',
+                runId: 'inner-profile-post-classification-fix',
+                hypothesisId: 'H15',
+                location:
+                  'ApexSymbolManager.ts:resolveMemberInContext:listSymbolTableAfterLoad',
+                message:
+                  'List member lookup after standard-class load attempts',
+                data: {
+                  contextClass: contextSymbol.name,
+                  contextFileUri: contextFile,
+                  memberName,
+                  memberType,
+                  symbolTableFoundAfterLoad: !!symbolTable,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
         }
 
         if (symbolTable) {
@@ -9319,6 +10350,43 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               );
             }
             if (!classBlock) {
+              if (
+                contextSymbol.name.toLowerCase() === 'list' &&
+                (memberName.toLowerCase() === 'add' ||
+                  memberName.toLowerCase() === 'size')
+              ) {
+                // #region agent log
+                fetch(
+                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Debug-Session-Id': 'b7aabf',
+                    },
+                    body: JSON.stringify({
+                      sessionId: 'b7aabf',
+                      runId: 'inner-profile-post-classification-fix',
+                      hypothesisId: 'H17',
+                      location:
+                        'ApexSymbolManager.ts:resolveMemberInContext:listClassBlockLookup',
+                      message:
+                        'List class block not found during member resolution',
+                      data: {
+                        contextClass: contextSymbol.name,
+                        contextFileUri: contextSymbol.fileUri ?? null,
+                        memberName,
+                        memberType,
+                        contextSymbolId: contextSymbol.id,
+                        classSymbolId,
+                        classSymbolInTableId: classSymbolInTable?.id ?? null,
+                      },
+                      timestamp: Date.now(),
+                    }),
+                  },
+                ).catch(() => {});
+                // #endregion
+              }
               // Debug: show what class blocks we have
               const allClassBlocks = allSymbols.filter(
                 (s) => isBlockSymbol(s) && s.scopeType === 'class',
@@ -9336,9 +10404,181 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Class block parentIds: ${allClassBlocks.map((b) => b.parentId).join(', ')}. ` +
                   `Class symbol IDs: ${classSymbols.map((s) => s.id).join(', ')}`,
               );
+
+              // Fallback for symbol tables that do not model a class scope block.
+              // Resolve class members directly under the class symbol lineage.
+              const fallbackMembers = allSymbols.filter((s) => {
+                if (
+                  isBlockSymbol(s) ||
+                  s.fileUri !== contextSymbol.fileUri ||
+                  s.name !== memberName ||
+                  s.kind !== memberType
+                ) {
+                  return false;
+                }
+                const directParent = allSymbols.find(
+                  (sym) => sym.id === s.parentId && isBlockSymbol(sym),
+                );
+                if (
+                  directParent &&
+                  (directParent as any).scopeType === 'class' &&
+                  directParent.fileUri === contextSymbol.fileUri
+                ) {
+                  return true;
+                }
+                let currentParentId = s.parentId;
+                const visited = new Set<string>();
+                while (currentParentId && !visited.has(currentParentId)) {
+                  if (
+                    currentParentId === classSymbolId ||
+                    currentParentId === contextSymbol.id
+                  ) {
+                    return true;
+                  }
+                  visited.add(currentParentId);
+                  const parent = allSymbols.find(
+                    (sym) => sym.id === currentParentId,
+                  );
+                  if (!parent) {
+                    break;
+                  }
+                  currentParentId = parent.parentId;
+                }
+                return false;
+              });
+              if (
+                contextSymbol.name.toLowerCase() === 'list' &&
+                (memberName.toLowerCase() === 'add' ||
+                  memberName.toLowerCase() === 'size')
+              ) {
+                const sameName = allSymbols.filter(
+                  (s) => !isBlockSymbol(s) && s.name === memberName,
+                );
+                const sameNameKind = sameName.filter(
+                  (s) => s.kind === memberType,
+                );
+                const sameNameKindFile = sameNameKind.filter(
+                  (s) => s.fileUri === contextSymbol.fileUri,
+                );
+                // #region agent log
+                fetch(
+                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Debug-Session-Id': 'b7aabf',
+                    },
+                    body: JSON.stringify({
+                      sessionId: 'b7aabf',
+                      runId: 'inner-profile-post-classblock-fallback',
+                      hypothesisId: 'H20',
+                      location:
+                        'ApexSymbolManager.ts:resolveMemberInContext:classlessFallbackAnalysis',
+                      message:
+                        'Classless fallback candidate breakdown for List member',
+                      data: {
+                        contextClass: contextSymbol.name,
+                        contextFileUri: contextSymbol.fileUri ?? null,
+                        memberName,
+                        memberType,
+                        allSymbolsCount: allSymbols.length,
+                        sameNameCount: sameName.length,
+                        sameNameKindCount: sameNameKind.length,
+                        sameNameKindFileCount: sameNameKindFile.length,
+                        fallbackMembersCount: fallbackMembers.length,
+                        sampleSameNameKindFile: sameNameKindFile
+                          .slice(0, 6)
+                          .map((s) => ({
+                            id: s.id,
+                            name: s.name,
+                            kind: s.kind as any,
+                            fileUri: s.fileUri ?? null,
+                            parentId: s.parentId ?? null,
+                          })),
+                      },
+                      timestamp: Date.now(),
+                    }),
+                  },
+                ).catch(() => {});
+                // #endregion
+              }
+              if (fallbackMembers.length > 0) {
+                // #region agent log
+                fetch(
+                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Debug-Session-Id': 'b7aabf',
+                    },
+                    body: JSON.stringify({
+                      sessionId: 'b7aabf',
+                      runId: 'inner-profile-post-classblock-fallback',
+                      hypothesisId: 'H19',
+                      location:
+                        'ApexSymbolManager.ts:resolveMemberInContext:classlessFallback',
+                      message:
+                        'Resolved member via class-symbol lineage fallback',
+                      data: {
+                        contextClass: contextSymbol.name,
+                        contextFileUri: contextSymbol.fileUri ?? null,
+                        memberName,
+                        memberType,
+                        classSymbolId,
+                        fallbackCount: fallbackMembers.length,
+                        selectedId: fallbackMembers[0]?.id ?? null,
+                      },
+                      timestamp: Date.now(),
+                    }),
+                  },
+                ).catch(() => {});
+                // #endregion
+                return fallbackMembers[0];
+              }
             } else {
               // Capture classBlock in a const to help TypeScript narrow the type
               const resolvedClassBlock = classBlock;
+              if (
+                contextSymbol.name.toLowerCase() === 'list' &&
+                (memberName.toLowerCase() === 'add' ||
+                  memberName.toLowerCase() === 'size')
+              ) {
+                // #region agent log
+                fetch(
+                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Debug-Session-Id': 'b7aabf',
+                    },
+                    body: JSON.stringify({
+                      sessionId: 'b7aabf',
+                      runId: 'inner-profile-post-classification-fix',
+                      hypothesisId: 'H18',
+                      location:
+                        'ApexSymbolManager.ts:resolveMemberInContext:listClassBlockLookup',
+                      message:
+                        'List class block found during member resolution',
+                      data: {
+                        contextClass: contextSymbol.name,
+                        contextFileUri: contextSymbol.fileUri ?? null,
+                        memberName,
+                        memberType,
+                        contextSymbolId: contextSymbol.id,
+                        classSymbolId,
+                        classSymbolInTableId: classSymbolInTable?.id ?? null,
+                        classBlockId: resolvedClassBlock.id,
+                        classBlockParentId: resolvedClassBlock.parentId ?? null,
+                      },
+                      timestamp: Date.now(),
+                    }),
+                  },
+                ).catch(() => {});
+                // #endregion
+              }
               this.logger.debug(
                 () =>
                   `Class block lookup for "${contextSymbol.name}": found (id: ${resolvedClassBlock.id})`,
@@ -9404,6 +10644,59 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   s.kind === memberType &&
                   s.fileUri === contextSymbol.fileUri,
               );
+              if (
+                contextSymbol.name.toLowerCase() === 'list' &&
+                (memberName.toLowerCase() === 'add' ||
+                  memberName.toLowerCase() === 'size')
+              ) {
+                // #region agent log
+                fetch(
+                  'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Debug-Session-Id': 'b7aabf',
+                    },
+                    body: JSON.stringify({
+                      sessionId: 'b7aabf',
+                      runId: 'inner-profile-post-classification-fix',
+                      hypothesisId: 'H16',
+                      location:
+                        'ApexSymbolManager.ts:resolveMemberInContext:listMatchingAnalysis',
+                      message:
+                        'Analyzing List member match inputs and near-misses',
+                      data: {
+                        contextClass: contextSymbol.name,
+                        contextFileUri: contextSymbol.fileUri ?? null,
+                        memberName,
+                        memberType,
+                        classMembersCount: classMembers.length,
+                        matchingMembersCount: matchingMembers.length,
+                        nameOnlyCount: classMembers.filter(
+                          (s) => !isBlockSymbol(s) && s.name === memberName,
+                        ).length,
+                        kindOnlyCount: classMembers.filter(
+                          (s) => !isBlockSymbol(s) && s.kind === memberType,
+                        ).length,
+                        sameFileOnlyCount: classMembers.filter(
+                          (s) =>
+                            !isBlockSymbol(s) &&
+                            s.fileUri === contextSymbol.fileUri,
+                        ).length,
+                        sampleMembers: classMembers.slice(0, 8).map((s) => ({
+                          name: s.name ?? null,
+                          kind: s.kind as any,
+                          fileUri: s.fileUri ?? null,
+                          parentId: s.parentId ?? null,
+                        })),
+                      },
+                      timestamp: Date.now(),
+                    }),
+                  },
+                ).catch(() => {});
+                // #endregion
+              }
               this.logger.debug(
                 () =>
                   `After filtering: found ${matchingMembers.length} matching members. ` +
@@ -9435,6 +10728,51 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       .join(', ')}`,
                 );
                 if (methodsWithName.length > 0) {
+                  if (
+                    contextSymbol.name.toLowerCase() === 'list' &&
+                    (memberName.toLowerCase() === 'add' ||
+                      memberName.toLowerCase() === 'size')
+                  ) {
+                    // #region agent log
+                    fetch(
+                      'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Debug-Session-Id': 'b7aabf',
+                        },
+                        body: JSON.stringify({
+                          sessionId: 'b7aabf',
+                          runId: 'inner-profile-post-classification-fix',
+                          hypothesisId: 'H12',
+                          location:
+                            'ApexSymbolManager.ts:resolveMemberInContext:listFilterMiss',
+                          message:
+                            'List member exists by name but filtered out by strict matching',
+                          data: {
+                            contextClass: contextSymbol.name,
+                            contextFileUri: contextSymbol.fileUri ?? null,
+                            memberName,
+                            memberType,
+                            methodsWithNameCount: methodsWithName.length,
+                            methodsWithKindCount: methodsWithKind.length,
+                            sampleMethodsWithName: methodsWithName
+                              .slice(0, 5)
+                              .map((m) => ({
+                                name: m.name,
+                                kind: m.kind,
+                                fileUri: m.fileUri ?? null,
+                                parentId: m.parentId ?? null,
+                              })),
+                            resolvedClassBlockId: resolvedClassBlock.id,
+                          },
+                          timestamp: Date.now(),
+                        }),
+                      },
+                    ).catch(() => {});
+                    // #endregion
+                  }
                   methodsWithName.forEach((m, idx) => {
                     this.logger.debug(
                       () =>
@@ -9462,6 +10800,46 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     methodParentBlock &&
                     (methodParentBlock.parentId === contextSymbol.id ||
                       methodParentBlock.parentId === classSymbolId);
+                  if (
+                    contextSymbol.name.toLowerCase() === 'list' &&
+                    (memberName.toLowerCase() === 'add' ||
+                      memberName.toLowerCase() === 'size')
+                  ) {
+                    // #region agent log
+                    fetch(
+                      'http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f',
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Debug-Session-Id': 'b7aabf',
+                        },
+                        body: JSON.stringify({
+                          sessionId: 'b7aabf',
+                          runId: 'inner-profile-post-classification-fix',
+                          hypothesisId: 'H13',
+                          location:
+                            'ApexSymbolManager.ts:resolveMemberInContext:listParentChainCheck',
+                          message:
+                            'List member matched by name/kind; evaluating parent-chain guard',
+                          data: {
+                            contextClass: contextSymbol.name,
+                            contextSymbolId: contextSymbol.id,
+                            classSymbolId,
+                            memberName,
+                            memberType,
+                            methodId: method.id,
+                            methodParentId: method.parentId ?? null,
+                            methodParentBlockParentId:
+                              methodParentBlock?.parentId ?? null,
+                            parentChainMatches: !!parentChainMatches,
+                          },
+                          timestamp: Date.now(),
+                        }),
+                      },
+                    ).catch(() => {});
+                    // #endregion
+                  }
                   if (parentChainMatches) {
                     return method;
                   }

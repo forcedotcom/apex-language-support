@@ -25,7 +25,6 @@ import {
   isBlockSymbol,
   SymbolKind as ApexSymbolKind,
   ScopeSymbol,
-  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -135,8 +134,6 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
         // to ensure we have complete symbol hierarchy (all visibility levels + block content)
         // This ensures consistency and avoids issues with cached symbol tables created
         // with different listeners
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        const symbolManager = backgroundManager.getSymbolManager();
         let symbolTable: SymbolTable;
         // Create a full symbol collector listener to parse the document
         const listener = new FullSymbolCollectorListener();
@@ -175,18 +172,6 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
         // Get the symbol table from the compilation result
         if (result.result) {
           symbolTable = result.result;
-
-          // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
-          yield* symbolManager.addSymbolTable(
-            symbolTable,
-            documentUri,
-            document.version,
-            result.errors.length > 0,
-          );
-          logger.debug(
-            () =>
-              `Added SymbolTable to manager for ${documentUri} during document symbols`,
-          );
 
           // Cache the compilation result for diagnostics
           const parseCache = getDocumentStateCache();
@@ -440,7 +425,6 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
           );
           symbolsResult.push(...duplicateDeclarations);
         }
-
         logger.debug(
           () =>
             `[ApexDocumentSymbolProvider] Returning ${symbolsResult.length} document symbols`,

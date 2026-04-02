@@ -318,27 +318,44 @@ export const createClientOptions = (
             inFlightSupersede.delete(seq);
           }
         }
-        const nextPromise = Promise.resolve(next(document, position, token));
-        const cancellationPromise = new Promise<null>((resolve) => {
+        const nextPromise = Promise.resolve(
+          next(document, position, token),
+        ).then(
+          (value) => ({ source: 'next' as const, value }),
+          (error) => {
+            throw error;
+          },
+        );
+        const cancellationPromise = new Promise<{
+          source: 'cancel';
+          value: null;
+        }>((resolve) => {
           if (token.isCancellationRequested) {
-            resolve(null);
+            resolve({ source: 'cancel', value: null });
             return;
           }
-          token.onCancellationRequested(() => resolve(null));
+          token.onCancellationRequested(() =>
+            resolve({ source: 'cancel', value: null }),
+          );
         });
-        const supersedePromise = new Promise<null>((resolve) => {
-          inFlightSupersede.set(requestSeq, () => resolve(null));
+        const supersedePromise = new Promise<{
+          source: 'supersede';
+          value: null;
+        }>((resolve) => {
+          inFlightSupersede.set(requestSeq, () =>
+            resolve({ source: 'supersede', value: null }),
+          );
         });
-        const result = await Promise.race([
+        const raceResult = await Promise.race([
           nextPromise,
           cancellationPromise,
           supersedePromise,
         ]);
         inFlightSupersede.delete(requestSeq);
-        if (result === null) {
+        if (raceResult.value === null) {
           void nextPromise.catch(() => {});
         }
-        return result;
+        return raceResult.value;
       },
     },
     initializationOptions,
@@ -378,6 +395,7 @@ const handleClientClosed = (): { action: CloseAction } => {
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',
   );
-  // Always return DoNotRestart since we handle restart logic separately
-  return { action: CloseAction.DoNotRestart };
+  // Auto-restart on unexpected close to avoid stuck "loading" requests after
+  // pending responses are rejected due to disposed connection.
+  return { action: CloseAction.Restart };
 };

@@ -15,6 +15,8 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { dispatch } from '../utils/handlerUtil';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
 
+let diagnosticRequestsInFlight = 0;
+
 /**
  * Process diagnostic request for Apex documents.
  *
@@ -28,6 +30,7 @@ export async function processOnDiagnostic(
   params: DocumentDiagnosticParams,
 ): Promise<DocumentDiagnosticReport> {
   const logger = getLogger();
+  diagnosticRequestsInFlight += 1;
 
   try {
     logger.debug(
@@ -56,6 +59,8 @@ export async function processOnDiagnostic(
         `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`,
     );
     return { kind: 'full', items: [] };
+  } finally {
+    diagnosticRequestsInFlight = Math.max(0, diagnosticRequestsInFlight - 1);
   }
 }
 

@@ -13,6 +13,7 @@ import {
 } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { HashMap } from 'data-structure-typed';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -21,7 +22,6 @@ import {
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
-import { getDocumentStateCache } from './DocumentStateCache';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
@@ -45,6 +45,10 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private readonly symbolCacheByUriVersion = new HashMap<
+    string,
+    SymbolInformation[] | DocumentSymbol[] | null
+  >();
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
 
@@ -108,29 +112,10 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
       // Get document to check detail level
       const document = await storage.getDocument(params.textDocument.uri);
       if (document) {
-        // Check if file needs enrichment for full symbol detail
-        const cache = getDocumentStateCache();
-        if (
-          this.layerEnrichmentService &&
-          !cache.hasDetailLevel(
-            params.textDocument.uri,
-            document.version,
-            'full',
-          )
-        ) {
-          try {
-            // Enrich synchronously for documentSymbol (user expects full results)
-            await this.layerEnrichmentService.enrichFiles(
-              [params.textDocument.uri],
-              'full',
-              'same-file',
-              undefined, // DocumentSymbolParams doesn't have workDoneToken in standard LSP
-            );
-          } catch (error) {
-            this.logger.debug(
-              () => `Error enriching file for documentSymbol: ${error}`,
-            );
-          }
+        const cacheKey = `${params.textDocument.uri}::${document.version}`;
+        const cachedSymbols = this.symbolCacheByUriVersion.get(cacheKey);
+        if (cachedSymbols !== undefined) {
+          return cachedSymbols;
         }
       }
 
@@ -141,6 +126,12 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
       const symbols = await Effect.runPromise(
         provider.provideDocumentSymbols(params),
       );
+      if (document) {
+        this.symbolCacheByUriVersion.set(
+          `${params.textDocument.uri}::${document.version}`,
+          symbols,
+        );
+      }
 
       // TODO: Enhance symbols with graph-based information using ApexSymbolManager
       // For now, return the original symbols to avoid type issues
@@ -150,6 +141,7 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
     } catch (error) {
       this.logger.error(() => `Error processing document symbols: ${error}`);
       return null;
+    } finally {
     }
   }
 }

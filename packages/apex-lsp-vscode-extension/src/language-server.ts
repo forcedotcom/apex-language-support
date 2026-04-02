@@ -932,7 +932,11 @@ async function createDesktopLanguageClient(
   // Wrap LanguageClient's sendRequest to intercept hover requests
   const originalSendRequest = nodeClient.sendRequest.bind(nodeClient);
   (nodeClient as any).sendRequest = async (method: string, ...args: any[]) => {
-    const isHoverRequest = method === 'textDocument/hover';
+    const methodName =
+      typeof method === 'string'
+        ? method
+        : ((method as { method?: string })?.method ?? String(method));
+    const isHoverRequest = methodName === 'textDocument/hover';
     const requestStartTime = Date.now();
 
     if (isHoverRequest && args[0]) {
@@ -982,6 +986,31 @@ async function createDesktopLanguageClient(
 
   // Start the client and language server
   await nodeClient.start();
+
+  const rawServerProcess = (nodeClient as any)?._serverProcess as
+    | {
+        on: (
+          event: 'spawn' | 'error' | 'exit' | 'close' | 'disconnect',
+          listener: (...args: any[]) => void,
+        ) => void;
+      }
+    | undefined;
+  if (rawServerProcess) {
+    rawServerProcess.on('spawn', () => {});
+    rawServerProcess.on('error', (error: unknown) => {});
+    rawServerProcess.on(
+      'exit',
+      (code: number | null, signal: string | null) => {},
+    );
+    rawServerProcess.on(
+      'close',
+      (code: number | null, signal: string | null) => {},
+    );
+    rawServerProcess.on('disconnect', () => {});
+  } else {
+  }
+
+  nodeClient.onDidChangeState((event: any) => {});
 
   // Set trace level based on configuration
   const traceConfig = getTraceServerConfig();

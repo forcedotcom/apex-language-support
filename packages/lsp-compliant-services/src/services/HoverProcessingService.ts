@@ -138,6 +138,7 @@ export class HoverProcessingService implements IHoverProcessor {
         );
         // Continue with hover even if prerequisites fail
       }
+    } else {
     }
 
     try {

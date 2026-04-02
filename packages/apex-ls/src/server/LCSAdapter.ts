@@ -11,6 +11,8 @@ import {
   InitializeParams,
   TextDocuments,
   DocumentSymbolParams,
+  DocumentSymbol,
+  SymbolInformation,
   DidChangeConfigurationNotification,
   DidChangeConfigurationParams,
   HoverParams,
@@ -30,6 +32,7 @@ import {
   ExecuteCommandParams,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { HashMap } from 'data-structure-typed';
 
 import {
   UniversalLoggerFactory,
@@ -61,7 +64,6 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDeleteDocument,
-  dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnDefinition,
   dispatchProcessOnImplementation,
@@ -69,12 +71,12 @@ import {
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
   dispatchProcessOnCodeLens,
-  DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
   dispatchProcessOnResolve,
   BackgroundProcessingInitializationService,
   initializeLSPQueueManager,
+  LSPQueueManager,
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
   dispatchProcessOnExecuteCommand,
@@ -116,7 +118,6 @@ export class LCSAdapter {
   private readonly documents: TextDocuments<TextDocument>;
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
-  private readonly diagnosticProcessor: DiagnosticProcessingService;
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
@@ -128,6 +129,14 @@ export class LCSAdapter {
   private clientVscodeVersion = '';
   private clientWorkspaceFileCount = 0;
   private clientApexFileCount = 0;
+  private readonly inFlightDocumentSymbolByUri = new HashMap<
+    string,
+    Promise<DocumentSymbol[] | SymbolInformation[] | null>
+  >();
+  private readonly inFlightDiagnosticsByUri = new HashMap<
+    string,
+    Promise<DocumentDiagnosticReport>
+  >();
 
   private readonly onExit: () => void;
 
@@ -137,8 +146,6 @@ export class LCSAdapter {
     this.documents = new TextDocuments(TextDocument);
     this.getHeapUsedBytes = config.getHeapUsedBytes;
     this.onExit = config.onExit ?? (() => process.exit(0));
-
-    this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
     // Log environment info for debugging
     // Note: Actual mode detection happens via initializationOptions in handleInitialize
@@ -423,7 +430,10 @@ export class LCSAdapter {
       success = false;
       throw e;
     } finally {
-      this.aggregator.record(spanName, performance.now() - start, success);
+      const durationMs = performance.now() - start;
+      if (durationMs >= 5000) {
+      }
+      this.aggregator.record(spanName, durationMs, success);
     }
   }
 
@@ -437,24 +447,39 @@ export class LCSAdapter {
     // Only register document symbol handler if the capability is enabled
     if (capabilities.documentSymbolProvider) {
       this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-        this.logger.debug(
-          () =>
-            `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
-        );
+        const uri = params.textDocument.uri;
+        const existing = this.inFlightDocumentSymbolByUri.get(uri);
+        if (existing) {
+          return await existing;
+        }
+        this.logger.debug(() => `🔍 Document symbol request for URI: ${uri}`);
+        const processingPromise = (async () => {
+          try {
+            const result = await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.DOCUMENT_SYMBOL,
+              () =>
+                LSPQueueManager.getInstance().submitDocumentSymbolRequest(
+                  params,
+                ),
+              {
+                'lsp.method': 'textDocument/documentSymbol',
+                'document.uri': uri,
+              },
+            );
+            return result;
+          } catch (error) {
+            this.logger.error(
+              () =>
+                `Error processing document symbols: ${formattedError(error)}`,
+            );
+            return [];
+          }
+        })();
+        this.inFlightDocumentSymbolByUri.set(uri, processingPromise);
         try {
-          return await this.runWithSpanAndRecord(
-            LSP_SPAN_NAMES.DOCUMENT_SYMBOL,
-            () => dispatchProcessOnDocumentSymbol(params),
-            {
-              'lsp.method': 'textDocument/documentSymbol',
-              'document.uri': params.textDocument.uri,
-            },
-          );
-        } catch (error) {
-          this.logger.error(
-            () => `Error processing document symbols: ${formattedError(error)}`,
-          );
-          return [];
+          return await processingPromise;
+        } finally {
+          this.inFlightDocumentSymbolByUri.delete(uri);
         }
       });
       this.logger.debug('✅ Document symbol handler registered');
@@ -575,24 +600,56 @@ export class LCSAdapter {
         async (
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
+          const uri = params.textDocument.uri;
+          const existing = this.inFlightDiagnosticsByUri.get(uri);
+          if (existing) {
+            return await existing;
+          }
+          const processingPromise =
+            (async (): Promise<DocumentDiagnosticReport> => {
+              let progressReporter:
+                | Awaited<
+                    ReturnType<Connection['window']['createWorkDoneProgress']>
+                  >
+                | undefined;
+              try {
+                try {
+                  progressReporter =
+                    await this.connection.window.createWorkDoneProgress();
+                  progressReporter.begin('Computing Apex Diagnostics');
+                } catch {
+                  // Progress is optional; continue even if unsupported.
+                }
+                const diagnostics = await this.runWithSpanAndRecord(
+                  LSP_SPAN_NAMES.DIAGNOSTICS,
+                  () =>
+                    LSPQueueManager.getInstance().submitDiagnosticsRequest(
+                      params,
+                    ),
+                  {
+                    'lsp.method': 'textDocument/diagnostic',
+                    'document.uri': uri,
+                  },
+                );
+                return {
+                  kind: DocumentDiagnosticReportKind.Full,
+                  items: diagnostics,
+                };
+              } catch (error) {
+                this.logger.error(
+                  () =>
+                    `Error processing diagnostics: ${formattedError(error)}`,
+                );
+                return { kind: DocumentDiagnosticReportKind.Full, items: [] };
+              } finally {
+                progressReporter?.done();
+              }
+            })();
+          this.inFlightDiagnosticsByUri.set(uri, processingPromise);
           try {
-            const diagnostics = await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.DIAGNOSTICS,
-              () => this.diagnosticProcessor.processDiagnostic(params),
-              {
-                'lsp.method': 'textDocument/diagnostic',
-                'document.uri': params.textDocument.uri,
-              },
-            );
-            return {
-              kind: DocumentDiagnosticReportKind.Full,
-              items: diagnostics,
-            };
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing diagnostics: ${formattedError(error)}`,
-            );
-            return { kind: DocumentDiagnosticReportKind.Full, items: [] };
+            return await processingPromise;
+          } finally {
+            this.inFlightDiagnosticsByUri.delete(uri);
           }
         },
       );
@@ -602,7 +659,6 @@ export class LCSAdapter {
         '⚠️ Diagnostics handler not registered (capability disabled)',
       );
     }
-
     // Only register folding range handler if the capability is enabled
     if (capabilities.foldingRangeProvider) {
       this.connection.languages.foldingRange.on(
