@@ -145,6 +145,39 @@ export interface ImpactAnalysis {
  */
 type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
 
+interface ResolverStats {
+  resolverCalls: number;
+  resolverQualifiedCalls: number;
+  resolverQualifiedMs: number;
+  resolverScopeHierarchyMs: number;
+  resolverScopeSearchMs: number;
+  resolverDirectLookupMs: number;
+  resolverBuiltInMs: number;
+  resolverPreResolvedHits: number;
+  resolverQualifiedThisCalls: number;
+  resolverQualifiedThisLookupMs: number;
+  resolverQualifiedGlobalLookupMs: number;
+  resolverQualifiedResolveMemberMs: number;
+  resolverQualifiedStandardClassMs: number;
+  resolverQualifiedCacheHits: number;
+  resolverQualifiedCacheMisses: number;
+  resolverQualifiedTypeContextPromotions: number;
+  resolverMemberContextCacheHits: number;
+  resolverMemberContextCacheMisses: number;
+}
+
+interface ReferenceResolutionStats extends ResolverStats {
+  literalSkips: number;
+  crossFileSkips: number;
+  unresolvedSkips: number;
+  declarationSkips: number;
+  graphLookupCalls: number;
+  graphEdgesAdded: number;
+  resolveTargetMs: number;
+  graphLookupMs: number;
+  addReferenceMs: number;
+}
+
 /**
  * Main Apex Symbol Manager with DST integration
  * TODO: make all functions async and remove sync versions
@@ -2237,35 +2270,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
     qualifiedResolutionCache: HashMap<string, ApexSymbol | null>,
     memberResolutionCache: HashMap<string, ApexSymbol | null>,
-    stats?: {
-      literalSkips: number;
-      crossFileSkips: number;
-      unresolvedSkips: number;
-      declarationSkips: number;
-      graphLookupCalls: number;
-      graphEdgesAdded: number;
-      resolveTargetMs: number;
-      graphLookupMs: number;
-      addReferenceMs: number;
-      resolverCalls: number;
-      resolverQualifiedCalls: number;
-      resolverQualifiedMs: number;
-      resolverScopeHierarchyMs: number;
-      resolverScopeSearchMs: number;
-      resolverDirectLookupMs: number;
-      resolverBuiltInMs: number;
-      resolverPreResolvedHits: number;
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    stats?: ReferenceResolutionStats,
     unresolvedByName?: HashMap<string, number>,
   ): Effect.Effect<void, never, never> {
     const self = this;
@@ -3625,26 +3630,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
     qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
     memberResolutionCache?: HashMap<string, ApexSymbol | null>,
-    resolverStats?: {
-      resolverCalls: number;
-      resolverQualifiedCalls: number;
-      resolverQualifiedMs: number;
-      resolverScopeHierarchyMs: number;
-      resolverScopeSearchMs: number;
-      resolverDirectLookupMs: number;
-      resolverBuiltInMs: number;
-      resolverPreResolvedHits: number;
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
     if (resolverStats) {
       resolverStats.resolverCalls += 1;
@@ -3938,18 +3924,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
     qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
     memberResolutionCache?: HashMap<string, ApexSymbol | null>,
-    resolverStats?: {
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
     try {
       // Special case: 'this' qualifier means we're accessing an instance member
