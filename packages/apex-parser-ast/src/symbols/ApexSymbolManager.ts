@@ -104,6 +104,11 @@ import {
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
+import {
+  applyMethodTypeSubstitutions,
+  createGenericTypeSubstitutionMap,
+  type GenericTypeSubstitutionMap,
+} from '../utils/genericTypeSubstitution';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -4294,6 +4299,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         type: 'symbol',
         symbol: qualifierSymbol,
       };
+      let memberTypeSubstitutions: GenericTypeSubstitutionMap | null = null;
       let qualifierRawTypeName: string | null = null;
       let collectionElementType: string | null = null;
       let promotedFromCollectionType = false;
@@ -4305,6 +4311,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         (qualifierSymbol as any)?.type?.name
       ) {
         const qualifierTypeObj = (qualifierSymbol as any)?.type;
+        memberTypeSubstitutions =
+          createGenericTypeSubstitutionMap(qualifierTypeObj);
         const rawTypeName = (
           (qualifierSymbol as any).type.name as string
         ).trim();
@@ -4532,6 +4540,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         memberResolutionContext,
         member,
         memberType,
+        memberTypeSubstitutions,
       );
       let finalMemberSymbol = memberSymbol;
       if (
@@ -4552,6 +4561,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             { type: 'symbol', symbol: elementTypeSymbol },
             member,
             memberType,
+            null,
           );
         }
       }
@@ -9699,6 +9709,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     context: ChainResolutionContext,
     memberName: string,
     memberType: 'property' | 'method' | 'class',
+    typeSubstitutions: GenericTypeSubstitutionMap | null = null,
   ): Promise<ApexSymbol | null> {
     // Handle different context types
     if (context?.type === 'symbol') {
@@ -10535,7 +10546,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   },
                 ).catch(() => {});
                 // #endregion
-                return fallbackMembers[0];
+                const fallbackMember = fallbackMembers[0];
+                if (fallbackMember.kind === SymbolKind.Method) {
+                  return applyMethodTypeSubstitutions(
+                    fallbackMember as any,
+                    typeSubstitutions,
+                  );
+                }
+                return fallbackMember;
               }
             } else {
               // Capture classBlock in a const to help TypeScript narrow the type
@@ -10841,7 +10859,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     // #endregion
                   }
                   if (parentChainMatches) {
-                    return method;
+                    return applyMethodTypeSubstitutions(
+                      method as any,
+                      typeSubstitutions,
+                    );
                   }
                   this.logger.debug(
                     () =>
@@ -10927,7 +10948,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                                   methodParentBlock.parentId ===
                                     contextSymbol.id
                                 ) {
-                                  return method;
+                                  return applyMethodTypeSubstitutions(
+                                    method as any,
+                                    typeSubstitutions,
+                                  );
                                 }
                               } else {
                                 return method;
@@ -11001,7 +11025,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
 
           if (contextMembers.length > 0) {
-            return contextMembers[0];
+            const contextMember = contextMembers[0];
+            if (contextMember.kind === SymbolKind.Method) {
+              return applyMethodTypeSubstitutions(
+                contextMember as any,
+                typeSubstitutions,
+              );
+            }
+            return contextMember;
           } else {
             // Debug: show all symbols with the same name
             const _sameNameSymbols = allSymbols.filter(
