@@ -4208,8 +4208,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 | undefined) ??
               null)
             : null;
-        if (rawTypeName === 'List') {
-        }
         // For collection-typed qualifiers:
         // 1) Try collection type first (e.g., List.size/add),
         // 2) Then fall back to element type (e.g., listVar.lat where elements are Coordinates).
@@ -4405,8 +4403,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
   ): ApexSymbol | null {
     const candidates = this.buildTypeLookupCandidates(rawTypeName);
-    if (rawTypeName.includes('.')) {
-    }
     const normalizedUri = fileUri
       ? extractFilePathFromUri(createFileUri(fileUri))
       : null;
