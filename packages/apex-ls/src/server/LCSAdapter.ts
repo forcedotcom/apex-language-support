@@ -32,7 +32,6 @@ import {
   ExecuteCommandParams,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { HashMap } from 'data-structure-typed';
 
 import {
   UniversalLoggerFactory,
@@ -129,11 +128,11 @@ export class LCSAdapter {
   private clientVscodeVersion = '';
   private clientWorkspaceFileCount = 0;
   private clientApexFileCount = 0;
-  private readonly inFlightDocumentSymbolByUri = new HashMap<
+  private readonly inFlightDocumentSymbolByUri = new Map<
     string,
     Promise<DocumentSymbol[] | SymbolInformation[] | null>
   >();
-  private readonly inFlightDiagnosticsByUri = new HashMap<
+  private readonly inFlightDiagnosticsByUri = new Map<
     string,
     Promise<DocumentDiagnosticReport>
   >();
