@@ -104,7 +104,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
   private static validatorsInitialized = false;
-  private static diagnosticsInFlight = 0;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
@@ -253,9 +252,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   public async processDiagnostic(
     params: DocumentDiagnosticParams,
   ): Promise<Diagnostic[]> {
-    const startedAt = Date.now();
-    const phaseTimings: Record<string, number> = {};
-    DiagnosticProcessingService.diagnosticsInFlight += 1;
     this.logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
@@ -284,7 +280,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         return [];
       }
 
-      const cacheLookupStartedAt = Date.now();
       // Check parse result cache first
       const parseCache = getDocumentStateCache();
       let cached = parseCache.getSymbolResult(document.uri, document.version);
@@ -326,7 +321,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       if (cached) {
-        phaseTimings.cacheLookupMs = Date.now() - cacheLookupStartedAt;
         this.logger.debug(
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
@@ -335,7 +329,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         if (this.prerequisiteOrchestrationService) {
           // Diagnostics should not block on prerequisite orchestration.
           // We enqueue prerequisites in background and continue with current state.
-          phaseTimings.prereqMs = 0;
           LSPQueueManager.getInstance().submitNotification(
             'prerequisiteEnrichment',
             {
@@ -346,14 +339,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
-        const graphEnhanceStartedAt = Date.now();
         const enhancedCachedDiagnostics = await Effect.runPromise(
           this.enhanceDiagnosticsWithGraphAnalysisEffect(
             cached.diagnostics,
             params.textDocument.uri,
           ),
         );
-        phaseTimings.graphEnhanceMs = Date.now() - graphEnhanceStartedAt;
 
         // Check for syntax errors in cached diagnostics
         const cachedSyntaxErrors = enhancedCachedDiagnostics.filter(
@@ -388,7 +379,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         const cachedTable = this.symbolManager.getSymbolTableForFile(
           params.textDocument.uri,
         );
-        phaseTimings.symbolTableLookupMs = Date.now() - startedAt;
 
         // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
         // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
@@ -727,11 +717,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`,
       );
       return [];
-    } finally {
-      DiagnosticProcessingService.diagnosticsInFlight = Math.max(
-        0,
-        DiagnosticProcessingService.diagnosticsInFlight - 1,
-      );
     }
   }
 

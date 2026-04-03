@@ -12,6 +12,7 @@
  *   --debug           : Wait for debugger attachment
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
+ *   --prod            : Run with apex.environment.serverMode=production
  *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
@@ -301,6 +302,37 @@ function ensureTestFilesExist(workspacePath) {
   }
 }
 
+/**
+ * Ensures workspace .vscode/settings.json exists and sets server mode.
+ * Preserves existing settings and only updates Apex test keys.
+ * @param {string} workspacePath Path to the test workspace
+ * @param {'development'|'production'} serverMode Apex server mode for test run
+ */
+function ensureWorkspaceSettings(workspacePath, serverMode) {
+  const vscodeDir = path.join(workspacePath, '.vscode');
+  fs.mkdirSync(vscodeDir, { recursive: true });
+
+  const settingsPath = path.join(vscodeDir, 'settings.json');
+  let vscodeSettings = {};
+
+  if (fs.existsSync(settingsPath)) {
+    try {
+      vscodeSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (error) {
+      console.warn(
+        `⚠️ Could not parse existing settings.json, recreating it: ${error.message}`,
+      );
+    }
+  }
+
+  vscodeSettings['apex.logLevel'] = 'error';
+  vscodeSettings['apex.worker.logLevel'] = 'error';
+  vscodeSettings['apex.environment.serverMode'] = serverMode;
+
+  fs.writeFileSync(settingsPath, JSON.stringify(vscodeSettings, null, 2));
+  console.log(`✅ Configured .vscode/settings.json (serverMode=${serverMode})`);
+}
+
 async function captureExtensionLogs(outputPath) {
   const timestamp = new Date().toISOString();
   const instructionMessage = `# Apex Language Extension Output - ${timestamp}
@@ -428,6 +460,11 @@ async function runWebExtensionTests() {
   let tempDir = null;
 
   try {
+    const serverMode = process.argv.includes('--prod')
+      ? 'production'
+      : 'development';
+    console.log(`⚙️  Running web extension tests in ${serverMode} mode`);
+
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
 
@@ -682,24 +719,11 @@ async function runWebExtensionTests() {
       // Create anonymous Apex file for testing anonymous execution
       createAnonymousApexFile(workspacePath);
 
-      // Create .vscode directory and settings.json
-      const vscodeDir = path.join(workspacePath, '.vscode');
-      fs.mkdirSync(vscodeDir, { recursive: true });
-
-      const vscodeSettings = {
-        'apex.logLevel': 'error',
-        'apex.worker.logLevel': 'error',
-        'apex.environment.serverMode': 'development',
-      };
-
-      fs.writeFileSync(
-        path.join(vscodeDir, 'settings.json'),
-        JSON.stringify(vscodeSettings, null, 2),
-      );
-      console.log('✅ Created .vscode/settings.json with Apex debug settings');
+      ensureWorkspaceSettings(workspacePath, serverMode);
     } else {
       // Workspace exists, but check if all test files are present
       ensureTestFilesExist(workspacePath);
+      ensureWorkspaceSettings(workspacePath, serverMode);
     }
 
     // Check if extension is built

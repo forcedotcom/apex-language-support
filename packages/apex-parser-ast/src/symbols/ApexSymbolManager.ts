@@ -145,6 +145,39 @@ export interface ImpactAnalysis {
  */
 type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
 
+interface ResolverStats {
+  resolverCalls: number;
+  resolverQualifiedCalls: number;
+  resolverQualifiedMs: number;
+  resolverScopeHierarchyMs: number;
+  resolverScopeSearchMs: number;
+  resolverDirectLookupMs: number;
+  resolverBuiltInMs: number;
+  resolverPreResolvedHits: number;
+  resolverQualifiedThisCalls: number;
+  resolverQualifiedThisLookupMs: number;
+  resolverQualifiedGlobalLookupMs: number;
+  resolverQualifiedResolveMemberMs: number;
+  resolverQualifiedStandardClassMs: number;
+  resolverQualifiedCacheHits: number;
+  resolverQualifiedCacheMisses: number;
+  resolverQualifiedTypeContextPromotions: number;
+  resolverMemberContextCacheHits: number;
+  resolverMemberContextCacheMisses: number;
+}
+
+interface ReferenceResolutionStats extends ResolverStats {
+  literalSkips: number;
+  crossFileSkips: number;
+  unresolvedSkips: number;
+  declarationSkips: number;
+  graphLookupCalls: number;
+  graphEdgesAdded: number;
+  resolveTargetMs: number;
+  graphLookupMs: number;
+  addReferenceMs: number;
+}
+
 /**
  * Main Apex Symbol Manager with DST integration
  * TODO: make all functions async and remove sync versions
@@ -2237,35 +2270,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
     qualifiedResolutionCache: HashMap<string, ApexSymbol | null>,
     memberResolutionCache: HashMap<string, ApexSymbol | null>,
-    stats?: {
-      literalSkips: number;
-      crossFileSkips: number;
-      unresolvedSkips: number;
-      declarationSkips: number;
-      graphLookupCalls: number;
-      graphEdgesAdded: number;
-      resolveTargetMs: number;
-      graphLookupMs: number;
-      addReferenceMs: number;
-      resolverCalls: number;
-      resolverQualifiedCalls: number;
-      resolverQualifiedMs: number;
-      resolverScopeHierarchyMs: number;
-      resolverScopeSearchMs: number;
-      resolverDirectLookupMs: number;
-      resolverBuiltInMs: number;
-      resolverPreResolvedHits: number;
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    stats?: ReferenceResolutionStats,
     unresolvedByName?: HashMap<string, number>,
   ): Effect.Effect<void, never, never> {
     const self = this;
@@ -3625,26 +3630,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
     qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
     memberResolutionCache?: HashMap<string, ApexSymbol | null>,
-    resolverStats?: {
-      resolverCalls: number;
-      resolverQualifiedCalls: number;
-      resolverQualifiedMs: number;
-      resolverScopeHierarchyMs: number;
-      resolverScopeSearchMs: number;
-      resolverDirectLookupMs: number;
-      resolverBuiltInMs: number;
-      resolverPreResolvedHits: number;
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
     if (resolverStats) {
       resolverStats.resolverCalls += 1;
@@ -3938,18 +3924,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
     qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
     memberResolutionCache?: HashMap<string, ApexSymbol | null>,
-    resolverStats?: {
-      resolverQualifiedThisCalls: number;
-      resolverQualifiedThisLookupMs: number;
-      resolverQualifiedGlobalLookupMs: number;
-      resolverQualifiedResolveMemberMs: number;
-      resolverQualifiedStandardClassMs: number;
-      resolverQualifiedCacheHits: number;
-      resolverQualifiedCacheMisses: number;
-      resolverQualifiedTypeContextPromotions: number;
-      resolverMemberContextCacheHits: number;
-      resolverMemberContextCacheMisses: number;
-    },
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
     try {
       // Special case: 'this' qualifier means we're accessing an instance member
@@ -4208,8 +4183,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 | undefined) ??
               null)
             : null;
-        if (rawTypeName === 'List') {
-        }
         // For collection-typed qualifiers:
         // 1) Try collection type first (e.g., List.size/add),
         // 2) Then fall back to element type (e.g., listVar.lat where elements are Coordinates).
@@ -4376,12 +4349,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private buildTypeLookupCandidates(typeName: string): string[] {
     const normalized = this.normalizeTypeNameForLookup(typeName);
     const candidates: string[] = [];
+    const seenLowercase = new Set<string>();
     const push = (value: string): void => {
       const trimmed = value.trim();
       if (!trimmed) {
         return;
       }
-      if (!candidates.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const normalizedCandidate = trimmed.toLowerCase();
+      if (!seenLowercase.has(normalizedCandidate)) {
+        seenLowercase.add(normalizedCandidate);
         candidates.push(trimmed);
       }
     };
@@ -4405,8 +4381,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
   ): ApexSymbol | null {
     const candidates = this.buildTypeLookupCandidates(rawTypeName);
-    if (rawTypeName.includes('.')) {
-    }
     const normalizedUri = fileUri
       ? extractFilePathFromUri(createFileUri(fileUri))
       : null;

@@ -15,6 +15,7 @@
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
+    "test:web:prod": "node scripts/test-web-ext.js --prod",
     "test:web:full": "wireit",
     "test:e2e": "wireit",
     "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",

@@ -17,7 +17,10 @@ import {
   getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
 } from '@salesforce/apex-lsp-shared';
-import type { InitializeParams } from 'vscode-languageserver-protocol';
+import type {
+  InitializeParams,
+  MessageSignature,
+} from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
 import {
@@ -935,7 +938,7 @@ async function createDesktopLanguageClient(
     const methodName =
       typeof method === 'string'
         ? method
-        : ((method as { method?: string })?.method ?? String(method));
+        : ((method as MessageSignature).method ?? String(method));
     const isHoverRequest = methodName === 'textDocument/hover';
     const requestStartTime = Date.now();
 
@@ -996,21 +999,43 @@ async function createDesktopLanguageClient(
       }
     | undefined;
   if (rawServerProcess) {
-    rawServerProcess.on('spawn', () => {});
-    rawServerProcess.on('error', (error: unknown) => {});
+    rawServerProcess.on('spawn', () => {
+      logToOutputChannel('🟢 Node server process spawned', 'debug');
+    });
+    rawServerProcess.on('error', (error: unknown) => {
+      logToOutputChannel(`🔴 Node server process error: ${error}`, 'error');
+    });
     rawServerProcess.on(
       'exit',
-      (code: number | null, signal: string | null) => {},
+      (code: number | null, signal: string | null) => {
+        logToOutputChannel(
+          `🟠 Node server process exited (code=${code}, signal=${signal})`,
+          'warning',
+        );
+      },
     );
     rawServerProcess.on(
       'close',
-      (code: number | null, signal: string | null) => {},
+      (code: number | null, signal: string | null) => {
+        logToOutputChannel(
+          `🟠 Node server process closed (code=${code}, signal=${signal})`,
+          'warning',
+        );
+      },
     );
-    rawServerProcess.on('disconnect', () => {});
+    rawServerProcess.on('disconnect', () => {
+      logToOutputChannel('⚪ Node server process disconnected', 'debug');
+    });
   } else {
+    logToOutputChannel('No raw node server process available', 'debug');
   }
 
-  nodeClient.onDidChangeState((event: any) => {});
+  nodeClient.onDidChangeState((event: any) => {
+    logToOutputChannel(
+      `🔄 Node language client state changed: ${event.oldState} -> ${event.newState}`,
+      'info',
+    );
+  });
 
   // Set trace level based on configuration
   const traceConfig = getTraceServerConfig();

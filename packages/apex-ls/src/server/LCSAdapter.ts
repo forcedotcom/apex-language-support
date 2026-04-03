@@ -431,8 +431,6 @@ export class LCSAdapter {
       throw e;
     } finally {
       const durationMs = performance.now() - start;
-      if (durationMs >= 5000) {
-      }
       this.aggregator.record(spanName, durationMs, success);
     }
   }

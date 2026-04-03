@@ -148,7 +148,6 @@ export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor
     } catch (error) {
       this.logger.error(() => `Error processing document symbols: ${error}`);
       return null;
-    } finally {
     }
   }
 }

@@ -9,7 +9,7 @@
 import { startApexNodeServer } from './server/nodeServer';
 
 // Start the Node.js server
-startApexNodeServer().catch(async (error) => {
+startApexNodeServer().catch((error) => {
   console.error('❌ Critical error starting Node.js server:', error);
   process.exit(1);
 });
