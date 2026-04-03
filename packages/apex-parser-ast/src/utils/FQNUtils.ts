@@ -88,8 +88,9 @@ export function calculateFQN(
         continue;
       }
 
-      // Include all parents in FQN - FQN should reflect the actual parent hierarchy
-      parts.unshift(parent.name);
+      if (parent.name) {
+        parts.unshift(parent.name);
+      }
 
       currentParentId = parent.parentId ?? null;
       depth++;
