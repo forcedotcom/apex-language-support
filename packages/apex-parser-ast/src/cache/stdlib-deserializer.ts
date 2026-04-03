@@ -350,6 +350,12 @@ export class StandardLibraryDeserializer {
       this.convertAnnotations(proto.annotations),
     ) as TypeSymbol;
 
+    // Preserve serialized id so parentId references from blocks/methods resolve correctly
+    if (proto.id) {
+      symbol.id = proto.id;
+      symbol.key.unifiedId = proto.id;
+    }
+
     // Set TypeSymbol-specific properties
     symbol.superClass = proto.superClass || undefined;
     symbol.interfaces = proto.interfaces || [];
@@ -387,6 +393,12 @@ export class StandardLibraryDeserializer {
       this.convertAnnotations(proto.annotations),
     ) as MethodSymbol;
 
+    // Preserve serialized id so parentId references resolve correctly
+    if (proto.id) {
+      symbol.id = proto.id;
+      symbol.key.unifiedId = proto.id;
+    }
+
     // Set MethodSymbol-specific properties
     symbol.returnType = this.convertTypeReference(proto.returnType);
     symbol.parameters = proto.parameters.map((p) =>
@@ -422,6 +434,12 @@ export class StandardLibraryDeserializer {
       namespace, // namespace from parent context
     ) as VariableSymbol;
 
+    // Preserve serialized id so parentId references resolve correctly
+    if (proto.id) {
+      symbol.id = proto.id;
+      symbol.key.unifiedId = proto.id;
+    }
+
     // Set VariableSymbol-specific properties
     symbol.type = this.convertTypeReference(proto.type);
     symbol.initialValue = proto.initialValue || undefined;
@@ -450,6 +468,12 @@ export class StandardLibraryDeserializer {
       modifiers,
       proto.parentId || parentId,
     ) as VariableSymbol;
+
+    // Preserve serialized id so parentId references resolve correctly
+    if (proto.id) {
+      symbol.id = proto.id;
+      symbol.key.unifiedId = proto.id;
+    }
 
     symbol.type = this.convertTypeReference(proto.type);
 
