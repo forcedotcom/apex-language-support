@@ -241,6 +241,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,
     workspaceDiagnostics: false,
+    workDoneProgress: true,
   },
   executeCommandProvider: {
     commands: ['apex.findApexTests'],

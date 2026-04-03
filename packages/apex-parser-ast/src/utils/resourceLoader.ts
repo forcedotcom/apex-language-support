@@ -30,6 +30,9 @@ import {
 } from '../services/GlobalTypeRegistryService';
 import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
+const STANDARD_APEX_LIBRARY_CLASS_URI_REGEX =
+  /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/;
+
 // ResourceLoaderOptions interface removed - ResourceLoader now always uses
 // embedded archives with disk fallback. Namespace preloading is handled by
 // SymbolGraphSettings.preloadNamespaces in server settings.
@@ -1264,5 +1267,63 @@ export class ResourceLoader {
     return namespacesFromPath && namespacesFromPath.size > 0
       ? namespacesFromPath
       : new Set<string>();
+  }
+
+  /**
+   * Resolve a canonical fully-qualified stdlib class name for an input class reference.
+   * Uses ResourceLoader indexes for O(1) namespace/class resolution where possible.
+   *
+   * Examples:
+   * - "assert" -> "System.Assert"
+   * - "system.assert" -> "System.Assert"
+   * - "Database/batchable" -> "Database.Batchable"
+   */
+  public resolveStandardClassFqn(className: string): string | null {
+    if (!className) return null;
+
+    const normalizedInput = className.replace(/\.cls$/i, '');
+    const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
+    const toFqnFromUri = (fileUri: string): string | null => {
+      const match = fileUri.match(STANDARD_APEX_LIBRARY_CLASS_URI_REGEX);
+      return match ? `${match[1]}.${match[2]}` : null;
+    };
+
+    // Namespaced input: Namespace.Class
+    if (pathParts.length >= 2) {
+      const inputNamespace = pathParts[0];
+      const inputClass = pathParts[pathParts.length - 1];
+      const canonicalNamespace =
+        this.namespaceIndex.get(inputNamespace.toLowerCase()) || inputNamespace;
+
+      const fileUri = this.namespaceClassToFileUriIndex.get(
+        `${canonicalNamespace}/${inputClass}`,
+      );
+      if (fileUri) {
+        return toFqnFromUri(fileUri);
+      }
+
+      return null;
+    }
+
+    // Unqualified input: Class
+    const inputClass = pathParts[0];
+    const namespaces = this.findNamespaceForClass(inputClass);
+    if (namespaces.size === 0) return null;
+
+    // Preserve previous behavior preference where System types are common and should win.
+    const selectedNamespace = namespaces.has('System')
+      ? 'System'
+      : namespaces.values().next().value;
+
+    if (!selectedNamespace) return null;
+
+    const fileUri = this.namespaceClassToFileUriIndex.get(
+      `${selectedNamespace}/${inputClass}`,
+    );
+    if (fileUri) {
+      return toFqnFromUri(fileUri);
+    }
+
+    return null;
   }
 }

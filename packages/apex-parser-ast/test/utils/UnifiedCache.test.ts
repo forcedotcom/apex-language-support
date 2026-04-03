@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { UnifiedCache } from '../../src/symbols/ApexSymbolManager';
+import { UnifiedCache } from '../../src/utils/UnifiedCache';
 
 // Mock the logger to avoid console output during tests
 jest.mock('@salesforce/apex-lsp-shared', () => {
@@ -22,11 +22,11 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
-describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
+describe('UnifiedCache - Phase 3 Cache Consolidation', () => {
   let cache: UnifiedCache;
 
   beforeEach(() => {
-    cache = new UnifiedCache(100, 1024 * 1024, 60000, false); // 100 entries, 1MB, 1 minute TTL, no WeakRef
+    cache = new UnifiedCache(100, 60000, false); // 100 entries, 1 minute TTL, no WeakRef
   });
 
   afterEach(() => {
@@ -99,20 +99,19 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
       expect(stats.typeDistribution.get('relationship')).toBe(1);
     });
 
-    it('should estimate memory size', () => {
+    it('should track entry counts', () => {
       cache.set('string-key', 'test string', 'symbol_lookup');
       cache.set('number-key', 42, 'fqn_lookup');
       cache.set('object-key', { a: 1, b: 2 }, 'relationship');
 
       const stats = cache.getStats();
-      expect(stats.totalSize).toBeGreaterThan(0);
-      expect(stats.averageEntrySize).toBeGreaterThan(0);
+      expect(stats.totalEntries).toBe(3);
     });
   });
 
   describe('TTL (Time To Live)', () => {
     it('should expire entries after TTL', () => {
-      const shortTTLCache = new UnifiedCache(100, 1024 * 1024, 10, false); // 10ms TTL
+      const shortTTLCache = new UnifiedCache(100, 10, false); // 10ms TTL
 
       shortTTLCache.set('test-key', 'value', 'symbol_lookup');
       expect(shortTTLCache.get('test-key')).toBe('value');
@@ -127,7 +126,7 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
     });
 
     it('should not expire entries before TTL', () => {
-      const longTTLCache = new UnifiedCache(100, 1024 * 1024, 1000, false); // 1 second TTL
+      const longTTLCache = new UnifiedCache(100, 1000, false); // 1 second TTL
 
       longTTLCache.set('test-key', 'value', 'symbol_lookup');
 
@@ -142,8 +141,8 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
   });
 
   describe('LRU Eviction', () => {
-    it('should evict least recently used entries when size limit is reached', () => {
-      const smallCache = new UnifiedCache(3, 1024 * 1024, 60000, false); // 3 entries max
+    it('should evict least recently used entries when entry limit is reached', () => {
+      const smallCache = new UnifiedCache(3, 60000, false); // 3 entries max
 
       // Add 4 entries
       smallCache.set('key1', 'value1', 'symbol_lookup');
@@ -161,7 +160,7 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
     });
 
     it('should update access order on get operations', () => {
-      const smallCache = new UnifiedCache(2, 1024 * 1024, 60000, false); // 2 entries max
+      const smallCache = new UnifiedCache(2, 60000, false); // 2 entries max
 
       smallCache.set('key1', 'value1', 'symbol_lookup');
       smallCache.set('key2', 'value2', 'fqn_lookup');
@@ -178,26 +177,16 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
     });
   });
 
-  describe('Memory Limit Enforcement', () => {
-    it('should evict entries when memory limit is reached', () => {
-      const memoryLimitedCache = new UnifiedCache(100, 100, 60000, false); // 100 bytes max
+  describe('Count Limit Enforcement', () => {
+    it('should evict entries when count limit is reached', () => {
+      const countLimitedCache = new UnifiedCache(1, 60000, false); // count limit = 1
 
-      // Add entries that exceed memory limit
-      memoryLimitedCache.set(
-        'key1',
-        'very long string that exceeds memory limit very long string that exceeds memory limit ' +
-          'very long string that exceeds memory limit',
-        'symbol_lookup',
-      );
-      memoryLimitedCache.set(
-        'key2',
-        'another very long string that also exceeds the memory limit ' +
-          'another very long string that also exceeds the memory limit',
-        'fqn_lookup',
-      );
+      countLimitedCache.set('key1', 'value1', 'symbol_lookup');
+      countLimitedCache.set('key2', 'value2', 'fqn_lookup');
 
-      const stats = memoryLimitedCache.getStats();
+      const stats = countLimitedCache.getStats();
       expect(stats.evictionCount).toBeGreaterThan(0);
+      expect(stats.totalEntries).toBeLessThanOrEqual(1);
     });
   });
 
@@ -226,7 +215,7 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
 
   describe('Optimization', () => {
     it('should remove expired entries during optimization', () => {
-      const shortTTLCache = new UnifiedCache(100, 1024 * 1024, 10, false); // 10ms TTL
+      const shortTTLCache = new UnifiedCache(100, 10, false); // 10ms TTL
 
       shortTTLCache.set('test-key', 'value', 'symbol_lookup');
       expect(shortTTLCache.getStats().totalEntries).toBe(1);
@@ -241,8 +230,8 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
       });
     });
 
-    it('should enforce size limits during optimization', () => {
-      const smallCache = new UnifiedCache(2, 1024 * 1024, 60000, false); // 2 entries max
+    it('should enforce entry limits during optimization', () => {
+      const smallCache = new UnifiedCache(2, 60000, false); // 2 entries max
 
       smallCache.set('key1', 'value1', 'symbol_lookup');
       smallCache.set('key2', 'value2', 'fqn_lookup');
@@ -257,12 +246,7 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
 
   describe('Performance Characteristics', () => {
     it('should handle large numbers of entries efficiently', () => {
-      const largeCache = new UnifiedCache(
-        10000,
-        100 * 1024 * 1024,
-        60000,
-        false,
-      );
+      const largeCache = new UnifiedCache(10000, 60000, false);
 
       const startTime = Date.now();
 
@@ -302,15 +286,13 @@ describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
     });
   });
 
-  describe('Memory Optimization Features', () => {
-    it('should track memory usage accurately', () => {
+  describe('Cache Optimization Features', () => {
+    it('should track entry usage accurately', () => {
       cache.set('string-key', 'test string', 'symbol_lookup');
       cache.set('number-key', 42, 'fqn_lookup');
       cache.set('object-key', { a: 1, b: 2, c: 3 }, 'relationship');
 
       const stats = cache.getStats();
-      expect(stats.totalSize).toBeGreaterThan(0);
-      expect(stats.averageEntrySize).toBeGreaterThan(0);
       expect(stats.totalEntries).toBe(3);
     });
 

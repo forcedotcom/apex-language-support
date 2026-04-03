@@ -340,6 +340,59 @@ describe('VariableResolutionValidator', () => {
     });
   });
 
+  describe('Receiver type resolution without fixture-specific names', () => {
+    it('should NOT report FIELD_DOES_NOT_EXIST for address.postalcode when receiver resolves correctly', async () => {
+      const sourceCode = `
+        public class PostalCodeReceiverResolutionTest {
+          public class Address {
+            public String postalcode;
+          }
+
+          public static Address buildAddress() {
+            Address a = new Address();
+            a.postalcode = '94105';
+            return a;
+          }
+
+          public static void verify() {
+            Address addr = buildAddress();
+            String code = addr.postalcode;
+            System.debug(code);
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/PostalCodeReceiverResolutionTest.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const postalCodeFieldErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.FIELD_DOES_NOT_EXIST &&
+          (e.message?.includes('postalcode') ?? false),
+      );
+      expect(postalCodeFieldErrors).toHaveLength(0);
+    });
+  });
+
   describe('Protected visibility for inner classes', () => {
     it('should allow inner class to access protected field of outer class', async () => {
       const { symbolTable, options } = await compileFixtureWithOptions(

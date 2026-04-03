@@ -13,6 +13,7 @@ import { CompilerService } from '../../../../src/parser/compilerService';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import {
   compileFixture,
+  compileSourceLayeredWithOptions,
   getMessage,
   runValidator,
   createValidationOptions,
@@ -102,5 +103,43 @@ describe('FinalAssignmentValidator', () => {
     expect(error.code).toBe(ErrorCodes.INVALID_FINAL_FIELD_ASSIGNMENT);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Final members can only be assigned');
+  });
+
+  it('should not report invalid final assignment for field assignment using differently cased constant', async () => {
+    const source = `
+      public class AddressAssignmentCaseTest {
+        private static final String STREET = 'Main';
+
+        public class Address {
+          public String street;
+        }
+
+        public static void assignStreet() {
+          Address address = new Address();
+          address.street = STREET;
+        }
+      }
+    `;
+
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/AddressAssignmentCaseTest.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      FinalAssignmentValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    const finalErrors = result.errors.filter(
+      (e: any) => e.code === ErrorCodes.INVALID_FINAL_FIELD_ASSIGNMENT,
+    );
+    expect(finalErrors).toHaveLength(0);
   });
 });

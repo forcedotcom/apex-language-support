@@ -37,7 +37,8 @@ export class HoverHandler {
     try {
       // Use the LSP queue system for hover; diagnostics instrumentation will
       // identify why fiber handoff can stall under load.
-      return await this.queueManager.submitHoverRequest(params);
+      const result = await this.queueManager.submitHoverRequest(params);
+      return result;
     } catch (error) {
       const errorText = String(error);
       const isTimeout =

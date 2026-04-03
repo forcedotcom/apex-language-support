@@ -481,6 +481,29 @@ describe('ResourceLoader Lazy Loading', () => {
     });
   });
 
+  describe('resolveStandardClassFqn', () => {
+    it('resolves unqualified class names case-insensitively', () => {
+      expect(loader.resolveStandardClassFqn('assert')).toBe('System.Assert');
+      expect(loader.resolveStandardClassFqn('String')).toBe('System.String');
+    });
+
+    it('resolves namespaced class names and preserves canonical case', () => {
+      expect(loader.resolveStandardClassFqn('system.assert')).toBe(
+        'System.Assert',
+      );
+      expect(loader.resolveStandardClassFqn('database.batchable')).toBe(
+        'Database.Batchable',
+      );
+    });
+
+    it('returns null for unknown classes', () => {
+      expect(loader.resolveStandardClassFqn('DoesNotExistClass')).toBeNull();
+      expect(loader.resolveStandardClassFqn('UnknownNamespace.Missing')).toBe(
+        null,
+      );
+    });
+  });
+
   describe('getPotentialMatches', () => {
     it('should find matches for partial class names', () => {
       const matches = loader.getPotentialMatches('System');

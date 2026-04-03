@@ -12,6 +12,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
+import { DocumentSymbolResultStore } from './DocumentSymbolResultStore';
 
 /**
  * Interface for document close processing functionality
@@ -84,6 +85,16 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
       } catch (error) {
         this.logger.error(
           () => `Error invalidating cache for ${event.document.uri}: ${error}`,
+        );
+      }
+
+      // Invalidate cached documentSymbol result for the closed URI.
+      try {
+        DocumentSymbolResultStore.getInstance().invalidate(event.document.uri);
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error invalidating documentSymbol cache for ${event.document.uri}: ${error}`,
         );
       }
 

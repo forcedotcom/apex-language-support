@@ -45,11 +45,12 @@ import {
   Namespaces,
 } from '../../../namespace/NamespaceUtils';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../constants/constants';
-import {
-  extractBaseTypeForResolution,
-  extractBaseTypeName,
-} from '../utils/typeUtils';
+import { extractBaseTypeForResolution } from '../utils/typeUtils';
 import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
+import {
+  createGenericTypeSubstitutionMap,
+  substituteTypeName,
+} from '../../../utils/genericTypeSubstitution';
 import { AnnotationUtils } from '../../../utils/AnnotationUtils';
 import { isPrimaryImplicitNamespace } from '../../../namespace/NamespaceResolutionPolicy';
 
@@ -539,44 +540,11 @@ export const MethodResolutionValidator: Validator = {
             // e.g., List<Coordinates> -> Coordinates
             // Map<String, Integer> -> K=String, V=Integer
             // Get generic type arguments from TypeInfo.typeParameters if available
-            let genericTypeArguments: Map<string, string> | null = null; // Maps generics (K, V, T) to concrete type
+            let genericTypeArguments: Map<string, string> | null = null;
             if (!isStaticCall && receiverAsVariable?.type) {
-              const fullReceiverType =
-                receiverAsVariable.type.originalTypeString ||
-                receiverAsVariable.type.name ||
-                receiverType;
-              const baseTypeName = fullReceiverType
-                ? extractBaseTypeName(fullReceiverType)
-                : null;
-
-              // Check if type has typeParameters (for List<T>, Set<T>, Map<K,V>)
-              if (
-                receiverAsVariable.type.typeParameters &&
-                receiverAsVariable.type.typeParameters.length > 0 &&
-                baseTypeName
-              ) {
-                genericTypeArguments = new Map();
-
-                if (baseTypeName === 'map') {
-                  // Map<K, V>: keyType = K, typeParameters[0] = V (value type)
-                  // Note: TypeInfo stores Map as keyType + typeParameters[0] (value)
-                  // Both must be present for Map generic resolution to work
-                  const keyTypeName = receiverAsVariable.type.keyType?.name;
-                  const valueTypeName =
-                    receiverAsVariable.type.typeParameters[0]?.name;
-                  if (keyTypeName && valueTypeName) {
-                    genericTypeArguments.set('K', keyTypeName);
-                    genericTypeArguments.set('V', valueTypeName);
-                  }
-                } else {
-                  // List<T> or Set<T>: typeParameters[0] = T (element type)
-                  const firstTypeParam =
-                    receiverAsVariable.type.typeParameters[0];
-                  if (firstTypeParam?.name) {
-                    genericTypeArguments.set('T', firstTypeParam.name);
-                  }
-                }
-              }
+              genericTypeArguments = createGenericTypeSubstitutionMap(
+                receiverAsVariable.type,
+              );
             }
 
             // Find methods that match both parameter count and types
@@ -600,23 +568,13 @@ export const MethodResolutionValidator: Validator = {
                   paramType &&
                   genericTypeArguments.size > 0
                 ) {
-                  const originalParamType =
-                    method.parameters[i]?.type?.name ?? '';
-                  if (
-                    originalParamType.length === 1 &&
-                    originalParamType >= 'A' &&
-                    originalParamType <= 'Z'
-                  ) {
-                    // For Map.put(K key, V value):
-                    // - Parameter 0 (K) -> keyType (key type)
-                    // - Parameter 1 (V) -> typeParameters[0] (value type)
-                    // For List.add(T item) or Set.add(T item):
-                    // - Parameter 0 (T) -> typeParameters[0] (element type)
-                    const resolvedType =
-                      genericTypeArguments.get(originalParamType);
-                    if (resolvedType) {
-                      paramType = resolvedType.toLowerCase();
-                    }
+                  const originalParamType = method.parameters[i]?.type?.name;
+                  const resolvedType = substituteTypeName(
+                    originalParamType,
+                    genericTypeArguments,
+                  );
+                  if (resolvedType) {
+                    paramType = resolvedType.toLowerCase();
                   }
                 }
 

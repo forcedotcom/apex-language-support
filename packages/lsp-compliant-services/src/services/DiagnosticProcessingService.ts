@@ -15,6 +15,7 @@ import {
 import {
   LoggerInterface,
   ApexSettingsManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
@@ -53,6 +54,7 @@ import {
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { isWorkspaceLoading } from './WorkspaceLoadCoordinator';
+import { LSPQueueManager } from '../queue';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -325,19 +327,16 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         );
         // Run prerequisites for diagnostics request
         if (this.prerequisiteOrchestrationService) {
-          try {
-            await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
-              'diagnostics',
-              params.textDocument.uri,
-              { workDoneToken: params.workDoneToken },
-            );
-          } catch (error) {
-            this.logger.debug(
-              () =>
-                `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
-            );
-            // Continue with diagnostics even if prerequisites fail
-          }
+          // Diagnostics should not block on prerequisite orchestration.
+          // We enqueue prerequisites in background and continue with current state.
+          LSPQueueManager.getInstance().submitNotification(
+            'prerequisiteEnrichment',
+            {
+              uri: params.textDocument.uri,
+              requestType: 'diagnostics',
+            },
+            { priority: Priority.Background },
+          );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
         const enhancedCachedDiagnostics = await Effect.runPromise(
@@ -554,19 +553,14 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // Run prerequisites for diagnostics request
       if (this.prerequisiteOrchestrationService) {
-        try {
-          await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
-            'diagnostics',
-            params.textDocument.uri,
-            { workDoneToken: params.workDoneToken },
-          );
-        } catch (error) {
-          this.logger.debug(
-            () =>
-              `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
-          );
-          // Continue with diagnostics even if prerequisites fail
-        }
+        LSPQueueManager.getInstance().submitNotification(
+          'prerequisiteEnrichment',
+          {
+            uri: params.textDocument.uri,
+            requestType: 'diagnostics',
+          },
+          { priority: Priority.Background },
+        );
       }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)
