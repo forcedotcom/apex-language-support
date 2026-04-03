@@ -128,11 +128,10 @@ export class ValidatorRegistry extends Context.Tag('ValidatorRegistry')<
  * Check if a symbol table is for a standard Apex library file
  * These files are controlled stubs and don't need validation
  *
- * Note: Built-in classes (String, Integer, List, etc.) are stored in builtins/ folder
+ * Note: Foundational System types (String, Integer, List, etc.) are authored under builtins/
  * but are merged into StandardApexLibrary/System/ during ZIP creation, so they
- * get apexlib:// URIs when parsed, not built-in:// URIs.
- * The built-in://apex URIs are only used for synthetic symbols (void, null, sObjects)
- * from BuiltInTypeTables, which are not in symbol tables.
+ * get apexlib:// URIs when parsed. Scalar keywords void/null use synthetic apexlib
+ * URIs (System/void, System/null) from the scalar keyword table, not separate protocols.
  */
 function isStandardLibrary(symbolTable: SymbolTable): boolean {
   const fileUri = symbolTable.getFileUri();

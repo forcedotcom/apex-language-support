@@ -75,7 +75,7 @@
       ]
     },
     "compile:tsc": {
-      "command": "tsc --build",
+      "command": "tsc --build || tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
         "precompile"

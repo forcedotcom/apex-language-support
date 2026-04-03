@@ -54,6 +54,12 @@ export interface MissingArtifactResolutionService {
  */
 export class EnhancedMissingArtifactResolutionService implements MissingArtifactResolutionService {
   private queueManager: LSPQueueManager | null = null;
+  private static inFlightBlockingRequests = new Map<
+    string,
+    Promise<BlockingResult>
+  >();
+  private static recentBlockingTimeouts = new Map<string, number>();
+  private static readonly BLOCKING_TIMEOUT_COOLDOWN_MS = 3000;
 
   constructor(
     private readonly logger: LoggerInterface,
@@ -80,7 +86,55 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   async resolveBlocking(
     params: FindMissingArtifactParams,
   ): Promise<BlockingResult> {
+    const requestKind = params.origin?.requestKind ?? 'unknown';
+    const observedRequestKinds = new Set([
+      'definition',
+      'signatureHelp',
+      'references',
+      'rename',
+    ]);
+    const shouldObserve = observedRequestKinds.has(requestKind);
+    const startedAt = Date.now();
+    if (shouldObserve) {
+      this.logger.debug(
+        () =>
+          `[REQ-HARDEN] missingArtifact blocking start kind=${requestKind} ids=${params.identifiers.length}`,
+      );
+    }
     const names = params.identifiers.map((s) => s.name).join(', ');
+    const normalizedNames = Array.from(
+      new Set(
+        params.identifiers
+          .map((s) => s.name.trim().toLowerCase())
+          .filter((name) => name.length > 0),
+      ),
+    )
+      .sort()
+      .join(',');
+    const key = `${params.origin?.requestKind ?? 'unknown'}|${
+      params.origin?.uri ?? 'unknown'
+    }|${normalizedNames || names.toLowerCase()}`;
+    const now = Date.now();
+    const existing =
+      EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.get(
+        key,
+      );
+    const recentTimeout =
+      EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.get(
+        key,
+      ) ?? 0;
+
+    if (existing) {
+      return existing;
+    }
+
+    if (
+      recentTimeout > 0 &&
+      now - recentTimeout <
+        EnhancedMissingArtifactResolutionService.BLOCKING_TIMEOUT_COOLDOWN_MS
+    ) {
+      return 'timeout';
+    }
     this.logger.debug(
       () => `Starting blocking resolution for identifiers: ${names}`,
     );
@@ -94,33 +148,79 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       return 'unsupported';
     }
 
-    try {
-      // Use the queue system for blocking resolution with HIGH priority
-      const result = await this.getQueueManager().submitRequest(
-        'findMissingArtifact',
-        params,
-        {
-          priority: Priority.High,
-          timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
-        },
-      );
+    const requestPromise = (async (): Promise<BlockingResult> => {
+      try {
+        // Priority tuning: keep definition responsive, but avoid starving hover/startup
+        // with high-priority artifact loads during workspace churn.
+        const priority =
+          requestKind === 'definition' ? Priority.High : Priority.Normal;
+        const result = await this.getQueueManager().submitRequest(
+          'findMissingArtifact',
+          params,
+          {
+            priority,
+            timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
+          },
+        );
 
-      this.logger.debug(() => `Blocking resolution completed for: ${names}`);
+        this.logger.debug(() => `Blocking resolution completed for: ${names}`);
 
-      // Map the result to BlockingResult
-      return this.mapResultToBlockingResult(result);
-    } catch (error) {
-      this.logger.error(
-        () => `Blocking resolution failed for ${names}: ${error}`,
-      );
+        // Map the result to BlockingResult
+        const mapped = this.mapResultToBlockingResult(result);
+        if (mapped !== 'timeout') {
+          EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
+            key,
+          );
+        }
+        if (shouldObserve) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] missingArtifact blocking end kind=${requestKind} ` +
+              `result=${mapped} durationMs=${Date.now() - startedAt}`,
+          );
+        }
+        return mapped;
+      } catch (error) {
+        this.logger.error(
+          () => `Blocking resolution failed for ${names}: ${error}`,
+        );
 
-      // Return timeout if the request timed out
-      if (error instanceof Error && error.message.includes('timeout')) {
-        return 'timeout';
+        // Return timeout if the request timed out
+        if (error instanceof Error && error.message.includes('timeout')) {
+          EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.set(
+            key,
+            Date.now(),
+          );
+          if (shouldObserve) {
+            this.logger.debug(
+              () =>
+                `[REQ-HARDEN] missingArtifact blocking timeout kind=${requestKind} ` +
+                `durationMs=${Date.now() - startedAt}`,
+            );
+          }
+          return 'timeout';
+        }
+
+        if (shouldObserve) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] missingArtifact blocking not-found kind=${requestKind} ` +
+              `durationMs=${Date.now() - startedAt}`,
+          );
+        }
+        return 'not-found';
+      } finally {
+        EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.delete(
+          key,
+        );
       }
+    })();
 
-      return 'not-found';
-    }
+    EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.set(
+      key,
+      requestPromise,
+    );
+    return requestPromise;
   }
 
   /**

@@ -35,6 +35,7 @@ import {
   ANNOTATION_REQUIRED_DEFINING_MODIFIERS,
   ANNOTATION_MIN_VERSIONS,
 } from './annotationModifierRules';
+import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
 
 /**
  * Check if a symbol is an inner type (class, interface, enum)
@@ -269,10 +270,7 @@ function isReadOnlyAllowed(
     method.parameters?.length === 1
   ) {
     const paramType = method.parameters[0].type?.name?.toLowerCase() ?? '';
-    if (
-      paramType === 'schedulablecontext' ||
-      paramType === 'system.schedulablecontext'
-    ) {
+    if (isStandardTypeAlias(paramType, 'schedulablecontext')) {
       const implementsSchedulable =
         containingClass.interfaces?.some(
           (i) => i.toLowerCase() === 'schedulable',

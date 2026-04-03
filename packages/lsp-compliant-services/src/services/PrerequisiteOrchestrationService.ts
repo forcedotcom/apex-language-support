@@ -29,16 +29,59 @@ import {
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
 import { getDocumentStateCache } from './DocumentStateCache';
+import type { DetailLevel } from './DocumentStateCache';
 import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   getLayerOrderIndex,
   hasCrossFileResolution,
 } from './PrerequisiteHelpers';
+import { getInFlightPrerequisiteRegistry } from './InFlightPrerequisiteRegistry';
 import {
   createMissingArtifactResolutionService,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
+
+const coordinatedRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>([
+  'file-open-single',
+  'documentOpen',
+  'diagnostics',
+  'definition',
+  'signatureHelp',
+  'references',
+  'rename',
+]);
+
+const observabilityRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>(['definition', 'signatureHelp', 'references', 'rename']);
+
+const strictBlockingArtifactRequestTypes = new Set<
+  LSPRequestType | 'workspace-load' | 'file-open-single'
+>(['signatureHelp', 'references', 'rename']);
+
+const toArtifactRequestKind = (
+  requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+): 'definition' | 'signatureHelp' | 'references' => {
+  if (requestType === 'definition') {
+    return 'definition';
+  }
+  if (requestType === 'signatureHelp') {
+    return 'signatureHelp';
+  }
+  return 'references';
+};
+
+const pickHighestDetailLevel = (
+  a: DetailLevel | null,
+  b: DetailLevel | null,
+): DetailLevel | null => {
+  if (!a) return b;
+  if (!b) return a;
+  return getLayerOrderIndex(a) >= getLayerOrderIndex(b) ? a : b;
+};
 
 /** Map SymbolReference to IdentifierSpec with typeReference, searchHints, qualifier */
 function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
@@ -124,6 +167,7 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private readonly inFlightRegistry = getInFlightPrerequisiteRegistry();
 
   constructor(
     private logger: LoggerInterface,
@@ -175,8 +219,12 @@ export class PrerequisiteOrchestrationService {
     }
 
     // Get current state
-    const currentDetailLevel =
-      this.symbolManager.getDetailLevelForFile(fileUri);
+    const cacheDetailLevel =
+      getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+    const currentDetailLevel = pickHighestDetailLevel(
+      this.symbolManager.getDetailLevelForFile(fileUri),
+      cacheDetailLevel,
+    );
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
 
     // Determine what needs to be done.
@@ -213,6 +261,82 @@ export class PrerequisiteOrchestrationService {
       );
     }
 
+    const shouldCoordinatePrerequisites =
+      coordinatedRequestTypes.has(requestType);
+
+    if (
+      shouldCoordinatePrerequisites &&
+      (needsEnrichment || needsCrossFileResolution)
+    ) {
+      const cachedVersion =
+        getDocumentStateCache().getCurrentState(fileUri)?.documentVersion ?? -1;
+      this.inFlightRegistry.evictStaleForUri(fileUri, cachedVersion);
+
+      const requestSpec = {
+        fileUri,
+        documentVersion: cachedVersion,
+        targetDetailLevel: (requirements.requiredDetailLevel ??
+          null) as DetailLevel | null,
+        needsCrossFileResolution,
+      };
+      const alreadySatisfied = this.inFlightRegistry.isSatisfied(requestSpec);
+      if (alreadySatisfied) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq satisfied-cache-hit type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+          );
+        }
+        return;
+      }
+      const acquireResult = this.inFlightRegistry.acquireOrJoin(requestSpec);
+
+      if (acquireResult.joined) {
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq joined type=${requestType} uri=${fileUri} ` +
+              `version=${cachedVersion} upgraded=${acquireResult.upgraded}`,
+          );
+        }
+        if (requirements.executionMode === 'blocking') {
+          await acquireResult.promise;
+        }
+        return;
+      }
+
+      if (observabilityRequestTypes.has(requestType)) {
+        this.logger.debug(
+          () =>
+            `[REQ-HARDEN] prereq started-new type=${requestType} uri=${fileUri} version=${cachedVersion}`,
+        );
+      }
+
+      const coordinatedRunner = this.runCoordinatedPrerequisites(
+        acquireResult.key,
+        fileUri,
+        requestType,
+        options,
+      )
+        .then(() => this.inFlightRegistry.complete(acquireResult.key))
+        .catch((error) => {
+          this.inFlightRegistry.fail(acquireResult.key, error);
+          throw error;
+        });
+
+      if (requirements.executionMode === 'blocking') {
+        await coordinatedRunner;
+      } else {
+        void coordinatedRunner.catch((error: unknown) => {
+          this.logger.debug(
+            () =>
+              `Coordinated async prerequisites failed for ${fileUri}: ${error}`,
+          );
+        });
+      }
+      return;
+    }
+
     // Execute prerequisites
     if (requirements.executionMode === 'blocking') {
       // Blocking execution - wait for prerequisites
@@ -233,9 +357,18 @@ export class PrerequisiteOrchestrationService {
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
 
-        // After cross-file resolution, check for unresolved types and trigger artifact loading
-        // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
-        await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
+        // Avoid blocking diagnostics on missing-artifact loading.
+        // Diagnostics validators already support on-demand artifact loading via callback,
+        // and doing blocking artifact resolution here can starve latency-sensitive
+        // requests like hover during initial workspace churn.
+        if (requestType !== 'diagnostics') {
+          // After cross-file resolution, check for unresolved types and trigger artifact loading
+          // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
+          await this.handleMissingArtifactsAfterCrossFileResolution(
+            fileUri,
+            requestType,
+          );
+        }
       }
     } else {
       // Async execution (fire-and-forget)
@@ -246,7 +379,6 @@ export class PrerequisiteOrchestrationService {
         // results and don't need a re-pull signal.
         const shouldSignalRefresh =
           requestType === 'file-open-single' || requestType === 'documentOpen';
-
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
@@ -277,7 +409,10 @@ export class PrerequisiteOrchestrationService {
           .then(() =>
             // After cross-file resolution, check for unresolved types and trigger artifact loading
             // This ensures that missing artifacts are loaded even in async mode
-            this.handleMissingArtifactsAfterCrossFileResolution(fileUri),
+            this.handleMissingArtifactsAfterCrossFileResolution(
+              fileUri,
+              requestType,
+            ),
           )
           .catch((error: unknown) => {
             this.logger.debug(
@@ -289,12 +424,106 @@ export class PrerequisiteOrchestrationService {
     }
   }
 
+  private async runCoordinatedPrerequisites(
+    key: string,
+    fileUri: string,
+    requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+    options?: {
+      workDoneToken?: ProgressToken | SharedProgressToken;
+      skipIfUnavailable?: boolean;
+    },
+  ): Promise<void> {
+    const MAX_REVISION_ITERATIONS = 10;
+    let lastObservedRevision = -1;
+    let iterations = 0;
+    const runStartedAt = Date.now();
+
+    do {
+      const entry = this.inFlightRegistry.get(key);
+      if (!entry) {
+        return;
+      }
+
+      const revision = entry.revision;
+      const cacheDetailLevel =
+        getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
+      const currentDetailLevel = pickHighestDetailLevel(
+        this.symbolManager.getDetailLevelForFile(fileUri) ?? null,
+        cacheDetailLevel,
+      );
+      const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+      const needsEnrichment =
+        !!entry.targetDetailLevel &&
+        (!currentDetailLevel ||
+          getLayerOrderIndex(currentDetailLevel) <
+            getLayerOrderIndex(entry.targetDetailLevel));
+      const needsCrossFileResolution =
+        entry.needsCrossFileResolution && !hasCrossFileResolution(symbolTable);
+
+      if (needsEnrichment && entry.targetDetailLevel) {
+        await this.layerEnrichmentService.enrichFiles(
+          [fileUri],
+          entry.targetDetailLevel,
+          'same-file',
+          options?.workDoneToken,
+        );
+      }
+
+      if (needsCrossFileResolution) {
+        await Effect.runPromise(
+          this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+        );
+        if (requestType !== 'diagnostics') {
+          await this.handleMissingArtifactsAfterCrossFileResolution(
+            fileUri,
+            requestType,
+          );
+        }
+      }
+
+      const latestEntry = this.inFlightRegistry.get(key);
+      if (!latestEntry) {
+        return;
+      }
+
+      if (latestEntry.revision === revision) {
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+        if (shouldSignalRefresh) {
+          await Effect.runPromise(
+            getDiagnosticRefreshService().signalEnrichmentComplete(),
+          ).catch(() => {});
+        }
+        if (observabilityRequestTypes.has(requestType)) {
+          this.logger.debug(
+            () =>
+              `[REQ-HARDEN] prereq complete type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+          );
+        }
+        return;
+      }
+
+      if (latestEntry.revision === lastObservedRevision) {
+        return;
+      }
+
+      lastObservedRevision = latestEntry.revision;
+    } while (++iterations < MAX_REVISION_ITERATIONS);
+
+    this.logger.warn(
+      `[REQ-HARDEN] coordinated prerequisite loop hit max iterations (${MAX_REVISION_ITERATIONS}) ` +
+        `for type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
+    );
+  }
+
   /**
    * After cross-file resolution, check for unresolved types and trigger artifact loading if needed
    * This ensures that missing artifacts are loaded before validators run
    */
   private async handleMissingArtifactsAfterCrossFileResolution(
     fileUri: string,
+    requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
+    forceBlocking = false,
   ): Promise<void> {
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
@@ -333,22 +562,53 @@ export class PrerequisiteOrchestrationService {
       nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
+    const isStrictBlockingRequest =
+      forceBlocking || strictBlockingArtifactRequestTypes.has(requestType);
 
-    // Load missing artifacts (single batch request)
-    let loadedTypeNames: string[] = [];
     try {
-      const result = await this.artifactResolutionService.resolveBlocking({
-        identifiers: identifierSpecs,
-        origin: {
-          uri: fileUri,
-          requestKind: 'references',
-        },
-        mode: 'background', // Use background mode - don't open files in editor
-        timeoutMsHint: 2000,
-      });
+      if (isStrictBlockingRequest) {
+        const blockingResult =
+          await this.artifactResolutionService.resolveBlocking({
+            identifiers: identifierSpecs,
+            origin: {
+              uri: fileUri,
+              requestKind: toArtifactRequestKind(requestType),
+            },
+            mode: 'blocking',
+            timeoutMsHint: 2000,
+          });
+        if (blockingResult === 'resolved') {
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const pollMs =
+            settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
+          const maxWaitMs = 500;
+          const start = Date.now();
+          while (Date.now() - start < maxWaitMs) {
+            const allIndexed = missingTypes.every((name) => {
+              const symbols = this.symbolManager.findSymbolByName(name);
+              return symbols.length > 0;
+            });
+            if (allIndexed) {
+              break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+          }
 
-      if (result === 'resolved') {
-        loadedTypeNames = missingTypes;
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+          );
+        }
+      } else {
+        // Keep non-strict paths backgrounded to avoid startup contention.
+        await this.artifactResolutionService.resolveInBackground({
+          identifiers: identifierSpecs,
+          origin: {
+            uri: fileUri,
+            requestKind: 'references',
+          },
+          mode: 'background', // Use background mode - don't open files in editor
+          timeoutMsHint: 2000,
+        });
       }
     } catch (error: unknown) {
       this.logger.debug(
@@ -356,34 +616,17 @@ export class PrerequisiteOrchestrationService {
           `Error loading artifacts for types [${missingTypes.join(', ')}]: ${error}`,
       );
     }
+  }
 
-    // Re-run cross-file resolution after artifacts are loaded
-    if (loadedTypeNames.length > 0) {
-      // Wait for opened files to be indexed (didOpen processing is async).
-      // Without this barrier, we re-run cross-file resolution before the client's
-      // opened documents are processed, so types remain unresolved.
-      // TODO: Replace polling loop with event-driven approach. SymbolManager should
-      // expose a waitForSymbol(name): Promise<void> backed by an event emitter,
-      // so callers can await directly. The current loop calls findSymbolByName()
-      // (O(n)) for every type on every poll iteration, which is expensive when
-      // multiple types are being loaded concurrently.
-      const pollMs =
-        ApexSettingsManager.getInstance().getSettings().apex.findMissingArtifact
-          ?.indexingBarrierPollMs ?? 100;
-      const maxWaitMs = 500;
-      const start = Date.now();
-      while (Date.now() - start < maxWaitMs) {
-        const allIndexed = loadedTypeNames.every((name) => {
-          const symbols = this.symbolManager.findSymbolByName(name);
-          return symbols.length > 0;
-        });
-        if (allIndexed) break;
-        await new Promise((r) => setTimeout(r, pollMs));
-      }
-
-      await Effect.runPromise(
-        this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
-      );
-    }
+  /**
+   * Escalate prerequisites for definition only when initial resolution misses.
+   * Runs blocking missing-artifact resolution and re-resolves cross-file references.
+   */
+  public async runDefinitionOnDemandStrictness(fileUri: string): Promise<void> {
+    await this.handleMissingArtifactsAfterCrossFileResolution(
+      fileUri,
+      'definition',
+      true,
+    );
   }
 }

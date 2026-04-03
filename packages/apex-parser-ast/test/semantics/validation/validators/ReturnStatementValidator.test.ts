@@ -15,6 +15,7 @@ import {
   runValidator,
   createValidationOptions,
   loadFixture,
+  clearGlobalTypeRegistry,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 
@@ -27,8 +28,9 @@ describe('ReturnStatementValidator', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     symbolManager.clear();
+    await clearGlobalTypeRegistry();
   });
 
   const VALIDATOR_CATEGORY = 'return-statement';

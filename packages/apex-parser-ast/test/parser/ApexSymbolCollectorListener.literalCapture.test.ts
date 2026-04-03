@@ -23,10 +23,22 @@ import { ValidationTier } from '../../src/semantics/validation/ValidationTier';
 import { TypeAssignmentValidator } from '../../src/semantics/validation/validators/TypeAssignmentValidator';
 import { EffectTestLoggerLive } from '../../src/utils/EffectLspLoggerLayer';
 import type { ValidationResult } from '../../src/semantics/validation/ValidationResult';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('ApexSymbolCollectorListener - Literal Capture and Resolution', () => {
   let compilerService: CompilerService;
   let symbolManager: ApexSymbolManager;
+
+  beforeAll(async () => {
+    await initializeResourceLoaderForTests();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
+  });
 
   beforeEach(() => {
     compilerService = new CompilerService();
@@ -226,12 +238,8 @@ public class TestClass {
       );
       expect(stringLiteralRef).toBeDefined();
 
-      // Verify that the built-in type exists
-      const builtInSymbol = symbolManager.findBuiltInType('String');
-      expect(builtInSymbol).toBeDefined();
-      if (builtInSymbol) {
-        expect(builtInSymbol.name.toLowerCase()).toBe('string');
-      }
+      // String is a standard library type (resolved via ResourceLoader, not scalar keywords)
+      expect(symbolManager.isStandardLibraryType('String')).toBe(true);
 
       // Verify that LITERAL references exist and can be resolved to built-in types
       // The key verification is that:
@@ -248,12 +256,6 @@ public class TestClass {
       expect(stringLiteralRef).toBeDefined();
       expect(stringLiteralRef?.literalType).toBe('String');
       expect(stringLiteralRef?.literalValue).toBe('hello');
-
-      // Verify built-in type exists
-      expect(builtInSymbol).toBeDefined();
-      if (builtInSymbol) {
-        expect(builtInSymbol.name.toLowerCase()).toBe('string');
-      }
 
       // If initializerType exists, verify originalTypeString preserves literal value
       if (stringVar && 'initializerType' in stringVar) {

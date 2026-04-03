@@ -660,7 +660,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       const listSymbolTable = (
         symbolManager as any
-      ).symbolGraph.getSymbolTableForFile(listFileUri);
+      ).symbolRefManager.getSymbolTableForFile(listFileUri);
 
       if (listSymbolTable) {
         // Symbol table loaded successfully
@@ -670,7 +670,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       const testFileUri = 'file:///test/TestListOperations.cls';
       const testSymbolTable = (
         symbolManager as any
-      ).symbolGraph.getSymbolTableForFile(testFileUri);
+      ).symbolRefManager.getSymbolTableForFile(testFileUri);
 
       if (testSymbolTable) {
         // Symbol table loaded successfully
@@ -762,7 +762,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'apexlib://resources/StandardApexLibrary/System/String.cls';
       const stringSymbolTable = (
         symbolManager as any
-      ).symbolGraph.getSymbolTableForFile(stringFileUri);
+      ).symbolRefManager.getSymbolTableForFile(stringFileUri);
 
       if (stringSymbolTable) {
         // Symbol table loaded successfully
@@ -775,7 +775,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         const mapFileUri = mapSymbol.fileUri;
         const mapSymbolTable = (
           symbolManager as any
-        ).symbolGraph.getSymbolTableForFile(mapFileUri);
+        ).symbolRefManager.getSymbolTableForFile(mapFileUri);
         if (mapSymbolTable) {
           const allMapSymbols = mapSymbolTable.getAllSymbols();
           const mapVariableSymbols = allMapSymbols.filter(
@@ -793,7 +793,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         const setFileUri = setSymbol.fileUri;
         const setSymbolTable = (
           symbolManager as any
-        ).symbolGraph.getSymbolTableForFile(setFileUri);
+        ).symbolRefManager.getSymbolTableForFile(setFileUri);
         if (setSymbolTable) {
           const allSetSymbols = setSymbolTable.getAllSymbols();
           const setVariableSymbols = allSetSymbols.filter(

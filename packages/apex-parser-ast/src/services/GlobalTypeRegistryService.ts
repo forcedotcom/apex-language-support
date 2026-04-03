@@ -17,6 +17,7 @@ import { Context, Effect, Layer } from 'effect';
 import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
 import { SymbolKind } from '../types/symbol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getRegistryNamespacePreference } from '../namespace/NamespaceResolutionPolicy';
 
 /**
  * Type registry entry interface
@@ -270,8 +271,10 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
       }
 
       // Multiple candidates - apply priority
-      const { currentNamespace, namespacePreference = ['System', 'Database'] } =
-        options;
+      const {
+        currentNamespace,
+        namespacePreference = [...getRegistryNamespacePreference()],
+      } = options;
       const priorityNamespaces = currentNamespace
         ? [currentNamespace, ...namespacePreference]
         : namespacePreference;
@@ -346,6 +349,7 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
     Effect.sync(() => {
       this.fqnIndex.clear();
       this.nameIndex.clear();
+      this.fileIndex.clear();
       this.stats = {
         totalTypes: 0,
         stdlibTypes: 0,

@@ -71,6 +71,7 @@ export * from './utils/symbolNarrowing';
 export * from './utils/FQNUtils';
 export * from './utils/ApexKeywords';
 export * from './utils/effectUtils';
+export * from './utils/UnifiedCache';
 
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';
@@ -80,7 +81,7 @@ export * from './symbols/ApexSymbolProcessingManager';
 export * from './symbols/resolution/types';
 
 // Export reference graph and types
-export * from './symbols/ApexSymbolGraph';
+export * from './symbols/ApexSymbolRefManager';
 
 // Export background processing components
 export * from './symbols/ApexSymbolIndexingService';

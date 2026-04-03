@@ -25,6 +25,8 @@ import {
 import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Interface for signature help processing functionality
@@ -61,12 +63,25 @@ export interface SignatureHelpContext {
 export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  public setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -80,6 +95,20 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
     this.logger.debug(
       () => `Processing signature help request for: ${params.textDocument.uri}`,
     );
+
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'signatureHelp',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for signatureHelp ${params.textDocument.uri}: ${error}`,
+        );
+      }
+    }
 
     try {
       // Get the storage manager instance

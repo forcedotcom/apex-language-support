@@ -330,6 +330,8 @@ export class DocumentProcessingService {
             yield* symbolManager.addSymbolTable(
               symbolTable,
               event.document.uri,
+              event.document.version,
+              compileResult.errors.length > 0,
             );
             const symbolAddDuration = Date.now() - symbolAddStartTime;
             filesProcessed++;
@@ -494,6 +496,8 @@ export class DocumentProcessingService {
             yield* symbolManager.addSymbolTable(
               symbolTable,
               event.document.uri,
+              event.document.version,
+              compileResult.errors.length > 0,
             );
             self.logger.debug(
               () =>

@@ -14,6 +14,8 @@ Do each of these steps, in order. Do not move to a step unless all previous are 
 
 5. `npx knip` - check for dead code related to your changes
 
+6. (Optional) [jscpd](https://github.com/kucherenko/jscpd) duplicate-block scan — config in [`.jscpd.json`](../../../.jscpd.json): repo-wide `npm run check:dupes` / `npm run check:dupes:strict`; **parser-ast only** `npm run check:dupes:parser-ast` (threshold 10%; report under `jscpd-report-parser-ast/`) / `npm run check:dupes:parser-ast:strict` (0%).
+
 - **Fix ALL unused exports** - if knip shows unused exports, remove them immediately unless they're used for tests. Exception for [ts4023 reasons](../ts4023-effect-errors/SKILL.md)
 - Don't leave any exports that are only used within the same file
 

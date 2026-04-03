@@ -36,8 +36,8 @@ test.describe('Apex Hover Functionality', () => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     const content = await hoverHelper.getHoverContent();
     expect(content.length).toBeGreaterThan(0);
-    expect(content).toMatch(/class\b/i);
     expect(content).toContain('ApexClassExample');
+    expect(content).toContain('Modifiers:');
   });
 
   /**
@@ -235,7 +235,8 @@ test.describe('Apex Hover Functionality', () => {
   }) => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     const classHover = await hoverHelper.getHoverContent();
-    expect(classHover).toMatch(/class\b/i);
+    expect(classHover).toContain('ApexClassExample');
+    expect(classHover).toContain('Modifiers:');
 
     await hoverHelper.dismissHover();
 

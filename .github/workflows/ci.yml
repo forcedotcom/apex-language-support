@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: ['20.x', 'lts/*', 'node']
+        node-version: ['lts/-1', 'lts/*', 'current']
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -42,10 +42,20 @@ jobs:
       - name: Compile project
         run: npm run compile
 
-      - name: Run tests with coverage
+      - name: Run tests with coverage (lts/current)
+        if: ${{ matrix.node-version != 'lts/-1' }}
         run: npm run test:coverage
 
+      - name: Run tests (lts/-1, no coverage)
+        if: ${{ matrix.node-version == 'lts/-1' }}
+        env:
+          # Old-LTS defaults to ~4 GB old-space, which is too low for heavy stdlib suites.
+          # Keep this scoped to lts/-1 and non-coverage runs only.
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: npm run test
+
       - name: Merge coverage reports
+        if: ${{ matrix.node-version != 'lts/-1' }}
         run: npm run test:coverage:report
 
       - name: Determine Node Label
@@ -54,11 +64,16 @@ jobs:
         run: |
           if [ "${{ matrix.node-version }}" = "lts/*" ]; then
             echo "value=lts" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.node-version }}" = "lts/-1" ]; then
+            echo "value=lts-1" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.node-version }}" = "current" ]; then
+            echo "value=current" >> $GITHUB_OUTPUT
           else
             echo "value=${{ matrix.node-version }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload coverage report
+        if: ${{ matrix.node-version != 'lts/-1' }}
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ matrix.os }}-${{ steps.node-label.outputs.value }}
@@ -70,7 +85,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        node-version: ['20.x']
+        node-version: ['lts/*']
       fail-fast: false
 
     runs-on: ${{ matrix.os }}

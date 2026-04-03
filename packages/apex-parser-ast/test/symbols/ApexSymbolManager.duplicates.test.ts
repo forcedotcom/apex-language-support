@@ -50,7 +50,7 @@ describe('ApexSymbolManager Duplicate Handling', () => {
   });
 
   describe('findSymbolsByFQN', () => {
-    it('should delegate to symbolGraph.findSymbolsByFQN', () => {
+    it('should delegate to symbolRefManager.findSymbolsByFQN', () => {
       // Verify the method exists and delegates correctly
       expect(typeof symbolManager.findSymbolsByFQN).toBe('function');
 

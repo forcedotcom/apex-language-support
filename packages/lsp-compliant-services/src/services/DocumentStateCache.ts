@@ -411,6 +411,14 @@ export class DocumentStateCache {
   has(uri: string): boolean {
     return this.cache.has(uri);
   }
+
+  /**
+   * Get the current cached state for a URI without version check.
+   * Used by orchestration to coordinate in-flight work per file/version.
+   */
+  getCurrentState(uri: string): DocumentState | null {
+    return this.cache.get(uri) ?? null;
+  }
 }
 
 /**

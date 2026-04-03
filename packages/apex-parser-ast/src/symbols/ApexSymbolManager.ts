@@ -40,9 +40,7 @@ import {
   PatternAnalysis,
 } from '../types/metrics';
 import {
-  getProtocolType,
   createFileUri,
-  isUserCodeUri,
   extractFilePath,
   isStandardApexUri,
   extractApexLibPath,
@@ -55,11 +53,12 @@ import {
   EnhancedSymbolReference,
 } from '../types/symbolReference';
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
   ReferenceResult,
   DependencyAnalysis,
-} from './ApexSymbolGraph';
+  type SymbolTableRegistrationResult,
+} from './ApexSymbolRefManager';
 import {
   ISymbolManager,
   SymbolResolutionContext,
@@ -74,6 +73,11 @@ import {
   type CompilationContext,
   Namespaces,
 } from '../namespace/NamespaceUtils';
+import {
+  getImplicitQualifiedCandidates,
+  getImplicitNamespaceOrder,
+  isPrimaryImplicitNamespace,
+} from '../namespace/NamespaceResolutionPolicy';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
@@ -92,6 +96,7 @@ import type {
 } from '../parser/listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
 import {
+  inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
   isMethodSymbol,
@@ -99,6 +104,11 @@ import {
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
+import {
+  applyMethodTypeSubstitutions,
+  createGenericTypeSubstitutionMap,
+  type GenericTypeSubstitutionMap,
+} from '../utils/genericTypeSubstitution';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -135,13 +145,46 @@ export interface ImpactAnalysis {
  */
 type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
 
+interface ResolverStats {
+  resolverCalls: number;
+  resolverQualifiedCalls: number;
+  resolverQualifiedMs: number;
+  resolverScopeHierarchyMs: number;
+  resolverScopeSearchMs: number;
+  resolverDirectLookupMs: number;
+  resolverBuiltInMs: number;
+  resolverPreResolvedHits: number;
+  resolverQualifiedThisCalls: number;
+  resolverQualifiedThisLookupMs: number;
+  resolverQualifiedGlobalLookupMs: number;
+  resolverQualifiedResolveMemberMs: number;
+  resolverQualifiedStandardClassMs: number;
+  resolverQualifiedCacheHits: number;
+  resolverQualifiedCacheMisses: number;
+  resolverQualifiedTypeContextPromotions: number;
+  resolverMemberContextCacheHits: number;
+  resolverMemberContextCacheMisses: number;
+}
+
+interface ReferenceResolutionStats extends ResolverStats {
+  literalSkips: number;
+  crossFileSkips: number;
+  unresolvedSkips: number;
+  declarationSkips: number;
+  graphLookupCalls: number;
+  graphEdgesAdded: number;
+  resolveTargetMs: number;
+  graphLookupMs: number;
+  addReferenceMs: number;
+}
+
 /**
  * Main Apex Symbol Manager with DST integration
  * TODO: make all functions async and remove sync versions
  */
 export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly logger = getLogger();
-  private symbolGraph: ApexSymbolGraph;
+  private symbolRefManager: ApexSymbolRefManager;
   private fileMetadata: HashMap<string, FileMetadata>;
   private unifiedCache: UnifiedCache;
   private readonly MAX_CACHE_SIZE = 5000;
@@ -169,6 +212,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   > = new HashMap();
   // Track files currently being loaded to prevent recursive loops
   private loadingSymbolTables: Set<string> = new Set();
+  // Deduplicate concurrent stdlib load+graph insertion work per file.
+  private inFlightStdlibHydration: Map<string, Promise<SymbolTable | null>> =
+    new Map();
   // Track files in cross-file resolution to skip concurrent/redundant calls (e.g. multiple LSP requests)
   private resolvingCrossFileRefs: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
@@ -177,6 +223,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly initialReferenceBatchSize: number;
   // Track detail level per file for enrichment
   private readonly fileDetailLevels: HashMap<string, DetailLevel> =
+    new HashMap();
+  // Track last processed SymbolTable state per file to avoid duplicate work
+  private readonly lastProcessedTableStateByFile: HashMap<string, string> =
     new HashMap();
   // Compiler service for enrichment operations
   private readonly compilerService: CompilerService;
@@ -239,9 +288,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.initialReferenceBatchSize =
       deferredReferenceSettings.initialReferenceBatchSize ?? 50;
 
-    // Initialize ApexSymbolGraph with deferred reference processing settings
-    this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
-    ApexSymbolGraph.setInstance(this.symbolGraph);
+    // Initialize ApexSymbolRefManager with deferred reference processing settings
+    this.symbolRefManager = new ApexSymbolRefManager(deferredReferenceSettings);
+    ApexSymbolRefManager.setInstance(this.symbolRefManager);
 
     // Initialize compiler service for enrichment operations
     this.compilerService = new CompilerService();
@@ -253,7 +302,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     ) {
       settingsManager.onSettingsChange((newSettings) => {
         if (newSettings.apex.deferredReferenceProcessing) {
-          this.symbolGraph.updateDeferredReferenceSettings(
+          this.symbolRefManager.updateDeferredReferenceSettings(
             newSettings.apex.deferredReferenceProcessing,
           );
         }
@@ -263,7 +312,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.fileMetadata = new HashMap();
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
-      50 * 1024 * 1024, // 50MB
       this.CACHE_TTL,
       true,
     );
@@ -312,10 +360,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbol: ApexSymbol,
     fileUri: string,
     symbolTable?: SymbolTable,
+    skipPostAddBookkeeping = false,
   ): void {
     // Convert fileUri to proper URI format to match symbol ID generation
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = createFileUri(fileUri);
 
     // Generate unified ID for the symbol if not already present
     if (!symbol.key.unifiedId) {
@@ -354,7 +402,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     if (!symbol.fqn) {
       symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
-        this.symbolGraph.getSymbol(parentId),
+        this.symbolRefManager.getSymbol(parentId),
       );
       // Update key FQN for consistency
       symbol.key.fqn = symbol.fqn;
@@ -362,18 +410,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const symbolId = this.getSymbolId(symbol, fileUri);
 
-    // Get the count before adding
-    const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
+    // Fast duplicate pre-check by unified ID; avoids expensive name-index scans.
+    const existingSymbolById = this.symbolRefManager.getSymbol(
+      symbol.key?.unifiedId || symbol.id,
+    );
 
     // If no SymbolTable provided, create or reuse a temporary one for backward compatibility
     let tempSymbolTable: SymbolTable | undefined = symbolTable;
     if (!tempSymbolTable) {
       // Check if we already have a SymbolTable for this file
-      tempSymbolTable = this.symbolGraph.getSymbolTableForFile(properUri);
+      tempSymbolTable = this.symbolRefManager.getSymbolTableForFile(properUri);
       if (!tempSymbolTable) {
         tempSymbolTable = new SymbolTable();
+        tempSymbolTable.setMetadata({
+          fileUri: properUri,
+        });
         // Register the SymbolTable with the graph immediately
-        this.symbolGraph.registerSymbolTable(tempSymbolTable, properUri);
+        this.symbolRefManager.registerSymbolTable(tempSymbolTable, properUri);
       }
     }
 
@@ -389,16 +442,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Add to symbol graph (it has its own duplicate detection)
-    this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
+    this.symbolRefManager.addSymbol(symbol, properUri, tempSymbolTable);
 
-    // Check if the symbol was actually added by comparing counts
-    const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
-    const symbolWasAdded = symbolsAfter > symbolsBefore;
+    // If the symbol ID already existed, this add is effectively a no-op.
+    const symbolWasAdded = !existingSymbolById;
 
-    if (symbolWasAdded) {
+    if (symbolWasAdded && !skipPostAddBookkeeping) {
       // Sync totalSymbols from graph to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = this.symbolGraph.getStats();
+      const graphStats = this.symbolRefManager.getStats();
       this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
       // Update file metadata
@@ -430,7 +482,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get symbol by ID
-   * Delegates to ApexSymbolGraph for O(1) lookup via symbolIdIndex
+   * Delegates to ApexSymbolRefManager for O(1) lookup via symbolIdIndex
    */
   getSymbol(symbolId: string): ApexSymbol | null {
     // First check cache for performance
@@ -440,7 +492,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Fallback to graph lookup (uses symbolIdIndex for O(1) or SymbolTable fallback)
-    const symbol = this.symbolGraph.getSymbol(symbolId);
+    const symbol = this.symbolRefManager.getSymbol(symbolId);
     if (symbol) {
       // Cache for future lookups
       this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
@@ -456,10 +508,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Check if it's a standard namespace or class before short-circuiting
     const isStandardNamespace =
       this.resourceLoader && this.resourceLoader.isStdApexNamespace(name);
-    const isBuiltInType = BUILTIN_TYPE_NAMES.has(name.toLowerCase());
+    const isStdlibPrimitiveTypeName = BUILTIN_TYPE_NAMES.has(
+      name.toLowerCase(),
+    );
 
-    // Only short-circuit keywords that are NOT standard namespaces/classes/built-in types
-    if (isApexKeyword(name) && !isStandardNamespace && !isBuiltInType) {
+    // Only short-circuit keywords that are NOT standard namespaces/classes/stdlib primitive names
+    if (
+      isApexKeyword(name) &&
+      !isStandardNamespace &&
+      !isStdlibPrimitiveTypeName
+    ) {
       return [];
     }
 
@@ -472,7 +530,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
     // nameIndex is now case-insensitive, so no fallback needed
-    const symbols = this.symbolGraph.findSymbolByName(name) || [];
+    const symbols = this.symbolRefManager.findSymbolByName(name) || [];
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
     return symbols;
   }
@@ -488,7 +546,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return cached;
     }
 
-    const symbol = this.symbolGraph.findSymbolByFQN(fqn);
+    const symbol = this.symbolRefManager.findSymbolByFQN(fqn);
     this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
     return symbol || null;
   }
@@ -499,7 +557,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns Array of all symbols with this FQN (empty if not found)
    */
   findSymbolsByFQN(fqn: string): ApexSymbol[] {
-    return this.symbolGraph.findSymbolsByFQN(fqn);
+    return this.symbolRefManager.findSymbolsByFQN(fqn);
   }
 
   /**
@@ -513,15 +571,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = createFileUri(fileUri);
 
     // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
     // This ensures we use the same normalized URI that was used when registering SymbolTables
     const normalizedUri = extractFilePathFromUri(properUri);
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
-    const symbols = this.symbolGraph.getSymbolsInFile(normalizedUri);
+    const symbols = this.symbolRefManager.getSymbolsInFile(normalizedUri);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
   }
@@ -533,13 +590,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = createFileUri(fileUri);
 
     // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
     const normalizedUri = extractFilePathFromUri(properUri);
 
-    return this.symbolGraph.getSymbolTableForFile(normalizedUri);
+    return this.symbolRefManager.getSymbolTableForFile(normalizedUri);
   }
 
   /**
@@ -579,22 +635,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[] {
-    // OPTIMIZED: Get files from symbol table references
-    const symbolIds = this.symbolGraph['nameIndex'].get(name) || [];
-    const files = new Set<string>();
-
-    for (const symbolId of symbolIds) {
-      const fileUri = this.symbolGraph['symbolFileMap'].get(symbolId);
-      if (fileUri) {
-        // Convert URI back to clean file path for consistency with test expectations
-        const cleanPath = isUserCodeUri(fileUri)
-          ? extractFilePath(fileUri)
-          : fileUri;
-        files.add(cleanPath);
-      }
-    }
-
-    return Array.from(files);
+    const fileUris = this.symbolRefManager.findFilesForSymbolName(name);
+    return fileUris.map((fileUri) =>
+      fileUri.startsWith('file://') ? extractFilePath(fileUri) : fileUri,
+    );
   }
 
   /**
@@ -635,7 +679,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return cached;
     }
 
-    const results = this.symbolGraph.findReferencesTo(symbol);
+    const results = this.symbolRefManager.findReferencesTo(symbol);
     this.unifiedCache.set(cacheKey, results, 'relationship');
     return results;
   }
@@ -650,7 +694,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return cached;
     }
 
-    const results = this.symbolGraph.findReferencesFrom(symbol);
+    const results = this.symbolRefManager.findReferencesFrom(symbol);
     this.unifiedCache.set(cacheKey, results, 'relationship');
     return results;
   }
@@ -678,7 +722,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return cached;
     }
 
-    const analysis = this.symbolGraph.analyzeDependencies(symbol);
+    const analysis = this.symbolRefManager.analyzeDependencies(symbol);
     this.unifiedCache.set(cacheKey, analysis, 'analysis');
     return analysis;
   }
@@ -687,7 +731,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Detect circular dependencies
    */
   detectCircularDependencies(): string[][] {
-    return this.symbolGraph.detectCircularDependencies();
+    return this.symbolRefManager.detectCircularDependencies();
   }
 
   /**
@@ -1084,7 +1128,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Get statistics
    */
   getStats(): SystemStats {
-    const graphStats = this.symbolGraph.getStats();
+    const graphStats = this.symbolRefManager.getStats();
     const cacheStats = this.unifiedCache.getStats();
 
     return {
@@ -1103,9 +1147,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Clear all data
    */
   clear(): void {
-    this.symbolGraph.clear();
+    this.symbolRefManager.clear();
     this.fileMetadata.clear();
     this.unifiedCache.clear();
+    this.lastProcessedTableStateByFile.clear();
     this.memoryStats = {
       totalSymbols: 0,
       totalFiles: 0,
@@ -1123,8 +1168,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   removeFile(fileUri: string): void {
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = createFileUri(fileUri);
 
     // Normalize URI using extractFilePathFromUri to match how symbols are stored
     // This ensures consistency with addSymbolTable which uses normalized URIs
@@ -1132,7 +1176,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Unregister user types from GlobalTypeRegistry before removing symbols
     // Get symbol table before removal to extract types
-    const symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+    const symbolTable =
+      this.symbolRefManager.getSymbolTableForFile(normalizedUri);
     if (symbolTable) {
       try {
         const unregisterEffect = Effect.gen(function* () {
@@ -1159,17 +1204,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
-    this.symbolGraph.removeFile(normalizedUri);
+    this.symbolRefManager.removeFile(normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
-    const graphStats = this.symbolGraph.getStats();
+    const graphStats = this.symbolRefManager.getStats();
     this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
-    // Remove from file metadata (use original fileUri for metadata lookup)
-    this.fileMetadata.delete(fileUri);
+    // Remove from file metadata (normalized key)
+    this.fileMetadata.delete(normalizedUri);
 
     // Clear cache entries for this file
-    this.unifiedCache.invalidatePattern(fileUri);
+    this.unifiedCache.invalidatePattern(normalizedUri);
+    this.lastProcessedTableStateByFile.delete(normalizedUri);
   }
 
   /**
@@ -1749,27 +1795,71 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
+    documentVersion?: number,
+    hasErrors?: boolean,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
       const addStartTime = Date.now();
 
       // Convert fileUri to proper URI format to match symbol ID generation
-      const properUri =
-        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const properUri = createFileUri(fileUri);
 
       // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
-      // Register SymbolTable once for the entire file before processing symbols
-      // This avoids redundant registration calls for each symbol
-      // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
-      self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+      const existingMetadata = symbolTable.getMetadata();
+      const metadataUpdate: {
+        fileUri: string;
+        documentVersion: number;
+        hasErrors?: boolean;
+      } = {
+        fileUri: normalizedUri,
+        documentVersion:
+          documentVersion ?? existingMetadata.documentVersion ?? 1,
+      };
+      if (hasErrors !== undefined) {
+        metadataUpdate.hasErrors = hasErrors;
+      }
+      symbolTable.setMetadata(metadataUpdate);
 
-      // After registerSymbolTable, get the final symbol table (may have been merged)
-      const finalSymbolTable =
-        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      const registration = yield* self.registerSymbolTableForFile(
+        symbolTable,
+        normalizedUri,
+        {
+          mergeReferences: false,
+          hasErrors,
+        },
+      );
+
+      if (registration.decision === 'rejected-stale') {
+        self.logger.debug(
+          () =>
+            `[addSymbolTable] Ignoring stale symbol table for ${normalizedUri} ` +
+            `(incoming=${registration.incomingVersion ?? 'unknown'}, ` +
+            `stored=${registration.storedVersion ?? 'unknown'})`,
+        );
+        return;
+      }
+
+      if (registration.decision === 'noop-same-instance') {
+        // Same instance may still have been mutated by layered enrichment.
+        // Only skip when a stable state signature matches the last processed pass.
+        const noopTable = registration.canonicalTable ?? symbolTable;
+        const noopSignature = self.getSymbolTableStateSignature(noopTable);
+        const lastSignature =
+          self.lastProcessedTableStateByFile.get(normalizedUri);
+        if (lastSignature === noopSignature) {
+          return;
+        }
+      }
+
+      // Rebuild per-file reference edges from the canonical table selected by registration.
+      self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
+
+      // After registration, get the canonical symbol table (may have been merged)
+      const finalSymbolTable = registration.canonicalTable;
       if (!finalSymbolTable) {
         self.logger.warn(
           () =>
@@ -1796,7 +1886,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
         // Pass the registered SymbolTable to avoid creating a new one
-        self.addSymbol(symbol, normalizedUri, finalSymbolTable);
+        self.addSymbol(symbol, normalizedUri, finalSymbolTable, true);
         symbolNamesAdded.add(symbol.name);
 
         // Yield every batchSize symbols to allow other tasks to run
@@ -1836,18 +1926,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
       yield* self.processSameFileReferencesToGraphEffect(
-        symbolTable,
+        finalSymbolTable,
         normalizedUri,
       );
 
       // Sync memory stats with the graph's stats to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = self.symbolGraph.getStats();
+      const graphStats = self.symbolRefManager.getStats();
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
+      // Preserve file-level bookkeeping that per-symbol path normally updates.
+      // Bulk add skips per-symbol bookkeeping for performance, so we update once.
+      if (symbols.length > 0) {
+        const existingFileMeta = self.fileMetadata.get(normalizedUri);
+        if (existingFileMeta) {
+          existingFileMeta.symbolCount += symbols.length;
+          existingFileMeta.lastUpdated = Date.now();
+        } else {
+          self.fileMetadata.set(normalizedUri, {
+            fileUri: normalizedUri,
+            symbolCount: symbols.length,
+            lastUpdated: Date.now(),
+          });
+        }
+      } else {
+        self.fileMetadata.delete(normalizedUri);
+      }
 
       // Register user types to GlobalTypeRegistry for O(1) lookup
       const symbolTableForRegistry =
-        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+        self.symbolRefManager.getSymbolTableForFile(normalizedUri);
       if (symbolTableForRegistry) {
         // Run registry update with GlobalTypeRegistry context
         const registerEffect = self.registerUserTypesToGlobalRegistry(
@@ -1863,7 +1970,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const sourceFilesToReResolve = new Set<string>();
       for (const symbolName of symbolNamesAdded) {
         // Check if there are deferred references waiting for this type
-        const deferredRefs = self.symbolGraph.getDeferredReferences(symbolName);
+        const deferredRefs =
+          self.symbolRefManager.getDeferredReferences(symbolName);
         if (deferredRefs && deferredRefs.length > 0) {
           // Collect source file URIs from deferred references
           for (const deferredRef of deferredRefs) {
@@ -1877,7 +1985,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           yield* Effect.tryPromise({
             try: () =>
               Effect.runPromise(
-                self.symbolGraph
+                self.symbolRefManager
                   .processDeferredReferencesBatchEffect(symbolName)
                   .pipe(
                     Effect.catchAll(() =>
@@ -1895,13 +2003,43 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
         }
       }
-
       // Re-run cross-file resolution for source files that had deferred references
       // This updates SymbolReference objects with resolvedSymbolId
       for (const sourceFileUri of sourceFilesToReResolve) {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
+      self.lastProcessedTableStateByFile.set(
+        normalizedUri,
+        self.getSymbolTableStateSignature(finalSymbolTable),
+      );
     });
+  }
+
+  private getSymbolTableStateSignature(symbolTable: SymbolTable): string {
+    const metadata = symbolTable.getMetadata();
+    return [
+      metadata.documentVersion ?? '',
+      symbolTable.getAllSymbols().length,
+      symbolTable.getAllReferences().length,
+      metadata.hasErrors ? 1 : 0,
+    ].join('|');
+  }
+
+  registerSymbolTableForFile(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: {
+      mergeReferences?: boolean;
+      hasErrors?: boolean;
+    },
+  ): Effect.Effect<SymbolTableRegistrationResult, never, never> {
+    const normalizedUri = extractFilePathFromUri(createFileUri(fileUri));
+    return Effect.sync(() =>
+      this.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
+        mergeReferences: options?.mergeReferences,
+        hasErrors: options?.hasErrors,
+      }),
+    );
   }
 
   /**
@@ -2045,6 +2183,42 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.gen(function* () {
       try {
         const typeReferences = symbolTable.getAllReferences();
+        const qualifiedResolutionCache = new HashMap<
+          string,
+          ApexSymbol | null
+        >();
+        const memberResolutionCache = new HashMap<string, ApexSymbol | null>();
+        const unresolvedByName = new HashMap<string, number>();
+        const refsByName = new HashMap<string, number>();
+        const stats = {
+          literalSkips: 0,
+          crossFileSkips: 0,
+          unresolvedSkips: 0,
+          declarationSkips: 0,
+          graphLookupCalls: 0,
+          graphEdgesAdded: 0,
+          resolveTargetMs: 0,
+          graphLookupMs: 0,
+          addReferenceMs: 0,
+          resolverCalls: 0,
+          resolverQualifiedCalls: 0,
+          resolverQualifiedMs: 0,
+          resolverScopeHierarchyMs: 0,
+          resolverScopeSearchMs: 0,
+          resolverDirectLookupMs: 0,
+          resolverBuiltInMs: 0,
+          resolverPreResolvedHits: 0,
+          resolverQualifiedThisCalls: 0,
+          resolverQualifiedThisLookupMs: 0,
+          resolverQualifiedGlobalLookupMs: 0,
+          resolverQualifiedResolveMemberMs: 0,
+          resolverQualifiedStandardClassMs: 0,
+          resolverQualifiedCacheHits: 0,
+          resolverQualifiedCacheMisses: 0,
+          resolverQualifiedTypeContextPromotions: 0,
+          resolverMemberContextCacheHits: 0,
+          resolverMemberContextCacheMisses: 0,
+        };
 
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
@@ -2053,10 +2227,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Process batch - only same-file references
           for (const typeRef of batch) {
+            const nameKey = typeRef.name?.toLowerCase?.() ?? '';
+            if (nameKey) {
+              refsByName.set(nameKey, (refsByName.get(nameKey) ?? 0) + 1);
+            }
             yield* self.processSameFileReferenceToGraphEffect(
               typeRef,
               fileUri,
               symbolTable,
+              qualifiedResolutionCache,
+              memberResolutionCache,
+              stats,
+              unresolvedByName,
             );
           }
 
@@ -2086,12 +2268,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: SymbolReference,
     fileUri: string,
     symbolTable: SymbolTable,
+    qualifiedResolutionCache: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache: HashMap<string, ApexSymbol | null>,
+    stats?: ReferenceResolutionStats,
+    unresolvedByName?: HashMap<string, number>,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
       try {
         // Skip LITERAL references - they don't represent symbol relationships
         if (typeRef.context === ReferenceContext.LITERAL) {
+          if (stats) {
+            stats.literalSkips += 1;
+          }
           return;
         }
 
@@ -2129,6 +2318,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Skip cross-file references - they'll be resolved on-demand
         if (isCrossFileReference) {
+          if (stats) {
+            stats.crossFileSkips += 1;
+          }
           return;
         }
 
@@ -2149,6 +2341,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (!targetSymbol) {
+          const resolveTargetStart = Date.now();
           targetSymbol = yield* Effect.tryPromise({
             try: () =>
               self.findTargetSymbolForReference(
@@ -2156,9 +2349,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 fileUri,
                 sourceSymbol,
                 symbolTable,
+                qualifiedResolutionCache,
+                memberResolutionCache,
+                stats,
               ),
             catch: (error) => error as Error,
           }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          if (stats) {
+            stats.resolveTargetMs += Date.now() - resolveTargetStart;
+          }
           if (targetSymbol) {
             typeRef.resolvedSymbolId = targetSymbol.id;
           }
@@ -2174,6 +2373,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
               '(should have been resolved during second-pass)',
           );
+          if (stats) {
+            stats.unresolvedSkips += 1;
+          }
+          if (unresolvedByName) {
+            const unresolvedKey =
+              qualifierInfo && qualifierInfo.isQualified
+                ? `${qualifierInfo.qualifier}.${qualifierInfo.member}`
+                : typeRef.name;
+            unresolvedByName.set(
+              unresolvedKey,
+              (unresolvedByName.get(unresolvedKey) ?? 0) + 1,
+            );
+          }
           return; // Skip, don't defer
         }
 
@@ -2182,16 +2394,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
           typeRef.context === ReferenceContext.PROPERTY_REFERENCE
         ) {
+          if (stats) {
+            stats.declarationSkips += 1;
+          }
           return;
         }
 
         // Add to graph
-        const sourceSymbolsInGraph = self.symbolGraph.findSymbolByName(
+        const graphLookupStart = Date.now();
+        const sourceSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           sourceSymbol.name,
         );
-        const targetSymbolsInGraph = self.symbolGraph.findSymbolByName(
+        const targetSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           targetSymbol.name,
         );
+        if (stats) {
+          stats.graphLookupCalls += 2;
+          stats.graphLookupMs += Date.now() - graphLookupStart;
+        }
 
         // Capture targetSymbol in a const to help TypeScript narrow the type
         // (needed because it will be used in closures below)
@@ -2222,7 +2442,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         const referenceType = self.mapReferenceContextToType(typeRef.context);
         const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-        self.symbolGraph.addReference(
+        const addReferenceStart = Date.now();
+        self.symbolRefManager.addReference(
           sourceInGraph,
           targetInGraph,
           referenceType,
@@ -2232,6 +2453,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             isStatic: isStatic,
           },
         );
+        if (stats) {
+          stats.graphEdgesAdded += 1;
+          stats.addReferenceMs += Date.now() - addReferenceStart;
+        }
       } catch (error) {
         self.logger.error(
           () =>
@@ -2253,7 +2478,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
   ): SymbolReference[] {
     try {
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+      const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
 
       if (!symbolTable) {
         return [];
@@ -2594,7 +2819,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Compute FQN if missing or too generic
       if (!symbol.fqn || symbol.fqn === symbol.name) {
         symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
-          this.symbolGraph.getSymbol(parentId),
+          this.symbolRefManager.getSymbol(parentId),
         );
       }
     } catch (_e) {
@@ -2645,8 +2870,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
-      const properUri =
-        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const properUri = createFileUri(fileUri);
       const normalizedUri = extractFilePathFromUri(properUri);
 
       // Skip if already resolving this file (prevents redundant work from overlapping LSP requests)
@@ -2661,7 +2885,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       self.resolvingCrossFileRefs.add(normalizedUri);
       try {
         const symbolTable =
-          self.symbolGraph.getSymbolTableForFile(normalizedUri);
+          self.symbolRefManager.getSymbolTableForFile(normalizedUri);
         if (!symbolTable) {
           self.logger.debug(
             () =>
@@ -2774,7 +2998,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     ) as TypeSymbol | undefined;
     if (!superClass?.fileUri) return null;
 
-    const superTable = this.symbolGraph.getSymbolTableForFile(
+    const superTable = this.symbolRefManager.getSymbolTableForFile(
       superClass.fileUri,
     );
     if (!superTable) return null;
@@ -2953,11 +3177,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // For METHOD_CALL and FIELD_ACCESS: use Jorje-style resolution for qualifier
             // (e.g. Test.setMock -> System.Test, not Canvas.Test in default namespace)
             const qualifierInfo = self.extractQualifierFromChain(typeRef);
-            const qualifier =
-              qualifierInfo?.qualifier ??
-              (typeRef.name.includes('.')
-                ? typeRef.name.split('.')[0]
-                : typeRef.name);
+            const hasValidatedQualifiedCall =
+              qualifierInfo?.isQualified === true &&
+              qualifierInfo.member === typeRef.name;
+            const qualifier = hasValidatedQualifiedCall
+              ? qualifierInfo!.qualifier
+              : null;
 
             if (qualifier) {
               // First check if qualifier is a variable/field/parameter (instance call)
@@ -2979,13 +3204,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 // Qualifier is not a variable - try to resolve as type
                 const containingClass = symbolTable
                   .getAllSymbols()
-                  .find(
-                    (s) =>
-                      s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface ||
-                      s.kind === SymbolKind.Enum ||
-                      s.kind === SymbolKind.Trigger,
-                  ) as TypeSymbol | undefined;
+                  .find(inTypeSymbolGroup) as TypeSymbol | undefined;
 
                 if (containingClass) {
                   const rawNs = containingClass.namespace;
@@ -3001,19 +3220,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         ? ns
                         : (ns.getGlobal?.() ?? ns.toString?.() ?? '')
                       : '';
-                  if (nsStr) {
-                    const namespaceFqn = `${nsStr}.${qualifier}`;
-                    if (!self.findSymbolByFQN(namespaceFqn)) {
+                  const fqnCandidates = getImplicitQualifiedCandidates(
+                    qualifier,
+                    nsStr || null,
+                  );
+                  for (const fqn of fqnCandidates) {
+                    if (!self.findSymbolByFQN(fqn)) {
                       yield* Effect.promise(() =>
-                        self.resolveStandardApexClass(namespaceFqn),
+                        self.resolveStandardApexClass(fqn),
                       );
                     }
-                  }
-                  const systemFqn = `System.${qualifier}`;
-                  if (!self.findSymbolByFQN(systemFqn)) {
-                    yield* Effect.promise(() =>
-                      self.resolveStandardApexClass(systemFqn),
-                    );
                   }
                   const compilationContext: CompilationContext = {
                     namespace: ns,
@@ -3031,7 +3247,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     compilationContext,
                     ReferenceTypeEnum.METHOD,
                     IdentifierContext.NONE,
-                    self as unknown as SymbolProvider,
+                    self,
                   );
                   if (
                     resolutionResult.isResolved &&
@@ -3068,10 +3284,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeRef.resolvedSymbolId = targetSymbol.id;
 
             // Find source symbol for graph edge
-            const properUri =
-              getProtocolType(fileUri) !== null
-                ? fileUri
-                : createFileUri(fileUri);
+            const properUri = createFileUri(fileUri);
             const normalizedUri = extractFilePathFromUri(properUri);
             let sourceSymbol = self.findContainingSymbolForReference(
               typeRef,
@@ -3080,24 +3293,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (!sourceSymbol) {
               // Fallback: Try to find the class symbol in the file
               const symbolsInFile = self.findSymbolsInFile(normalizedUri);
-              sourceSymbol =
-                symbolsInFile.find(
-                  (s) =>
-                    s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface ||
-                    s.kind === SymbolKind.Enum ||
-                    s.kind === SymbolKind.Trigger,
-                ) || null;
+              sourceSymbol = symbolsInFile.find(inTypeSymbolGroup) || null;
             }
 
             // Add reference to graph if both symbols found
             if (sourceSymbol && targetSymbol) {
-              const sourceSymbolsInGraph = self.symbolGraph.findSymbolByName(
-                sourceSymbol.name,
-              );
-              const targetSymbolsInGraph = self.symbolGraph.findSymbolByName(
-                targetSymbol.name,
-              );
+              const sourceSymbolsInGraph =
+                self.symbolRefManager.findSymbolByName(sourceSymbol.name);
+              const targetSymbolsInGraph =
+                self.symbolRefManager.findSymbolByName(targetSymbol.name);
               const sourceUri = sourceSymbol.fileUri;
               const targetUri = targetSymbol.fileUri;
 
@@ -3114,7 +3318,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   typeRef.context,
                 );
                 const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-                self.symbolGraph.addReference(
+                self.symbolRefManager.addReference(
                   sourceInGraph,
                   targetInGraph,
                   referenceType,
@@ -3131,10 +3335,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // If resolution failed (artifact not loaded), defer for later
           // For cross-file references, we still need a source symbol for deferral
-          const properUri =
-            getProtocolType(fileUri) !== null
-              ? fileUri
-              : createFileUri(fileUri);
+          const properUri = createFileUri(fileUri);
           const normalizedUri = extractFilePathFromUri(properUri);
           let sourceSymbol = self.findContainingSymbolForReference(
             typeRef,
@@ -3143,14 +3344,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (!sourceSymbol) {
             // Fallback: Try to find the class symbol in the file
             const symbolsInFile = self.findSymbolsInFile(normalizedUri);
-            sourceSymbol =
-              symbolsInFile.find(
-                (s) =>
-                  s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger,
-              ) || null;
+            sourceSymbol = symbolsInFile.find(inTypeSymbolGroup) || null;
           }
 
           if (sourceSymbol) {
@@ -3158,7 +3352,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               typeRef.context,
             );
             const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-            self.symbolGraph.enqueueDeferredReference(
+            self.symbolRefManager.enqueueDeferredReference(
               sourceSymbol,
               typeRef.name,
               referenceType,
@@ -3251,10 +3445,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // 3. Add to graph directly (symbols are already in graph from addSymbolTable)
         // Get symbols from graph to ensure we use the exact instances stored there
-        const sourceSymbolsInGraph = self.symbolGraph.findSymbolByName(
+        const sourceSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           sourceSymbol.name,
         );
-        const targetSymbolsInGraph = self.symbolGraph.findSymbolByName(
+        const targetSymbolsInGraph = self.symbolRefManager.findSymbolByName(
           resolvedTargetSymbol.name,
         );
 
@@ -3273,7 +3467,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         if (!sourceInGraph || !targetInGraph) {
           const referenceType = self.mapReferenceContextToType(typeRef.context);
           const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-          self.symbolGraph.enqueueDeferredReference(
+          self.symbolRefManager.enqueueDeferredReference(
             sourceSymbol,
             resolvedTargetSymbol.name,
             referenceType,
@@ -3292,7 +3486,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Add the reference to the symbol graph using symbols from the graph
         // This is deterministic for same-file references since both symbols are resolved from SymbolTable
         const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-        self.symbolGraph.addReference(
+        self.symbolRefManager.addReference(
           sourceInGraph,
           targetInGraph,
           referenceType,
@@ -3377,13 +3571,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const parent = allSymbols.find((s) => s.id === blockSymbol.parentId);
         if (parent) {
           // Check if parent is a semantic symbol (method, class, interface, enum, trigger)
-          if (
-            parent.kind === SymbolKind.Method ||
-            parent.kind === SymbolKind.Class ||
-            parent.kind === SymbolKind.Interface ||
-            parent.kind === SymbolKind.Enum ||
-            parent.kind === SymbolKind.Trigger
-          ) {
+          if (parent.kind === SymbolKind.Method || inTypeSymbolGroup(parent)) {
             return parent;
           }
 
@@ -3404,10 +3592,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Found a semantic symbol
               if (
                 ancestor.kind === SymbolKind.Method ||
-                ancestor.kind === SymbolKind.Class ||
-                ancestor.kind === SymbolKind.Interface ||
-                ancestor.kind === SymbolKind.Enum ||
-                ancestor.kind === SymbolKind.Trigger
+                inTypeSymbolGroup(ancestor)
               ) {
                 return ancestor;
               }
@@ -3426,13 +3611,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Fallback: If no containing semantic symbol found in scope hierarchy,
     // find the top-level type symbol (class, interface, enum, trigger)
-    const topLevelSymbol = allSymbols.find(
-      (s) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum ||
-        s.kind === SymbolKind.Trigger,
-    );
+    const topLevelSymbol = allSymbols.find(inTypeSymbolGroup);
 
     return topLevelSymbol || null;
   }
@@ -3449,12 +3628,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
     symbolTable?: SymbolTable,
+    qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache?: HashMap<string, ApexSymbol | null>,
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
+    if (resolverStats) {
+      resolverStats.resolverCalls += 1;
+    }
     // Fast path: if already resolved by listener second-pass, return the symbol directly
     // This prevents redundant resolution when called from other methods
     if (typeRef.resolvedSymbolId) {
       const resolvedSymbol = this.getSymbol(typeRef.resolvedSymbolId);
       if (resolvedSymbol) {
+        if (resolverStats) {
+          resolverStats.resolverPreResolvedHits += 1;
+        }
         this.logger.debug(
           () =>
             `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" in findTargetSymbolForReference`,
@@ -3475,6 +3663,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
 
     if (qualifierInfo && qualifierInfo.isQualified) {
+      const qualifiedStart = Date.now();
       // Try to resolve the qualified reference
       // Pass fileUri and sourceSymbol to help resolve 'this.' expressions to class-scoped members
       const qualifiedSymbol = await this.resolveQualifiedReferenceFromChain(
@@ -3484,7 +3673,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         fileUri,
         sourceSymbol,
         typeRef,
+        symbolTable,
+        qualifiedResolutionCache,
+        memberResolutionCache,
+        resolverStats,
       );
+      if (resolverStats) {
+        resolverStats.resolverQualifiedCalls += 1;
+        resolverStats.resolverQualifiedMs += Date.now() - qualifiedStart;
+      }
 
       if (qualifiedSymbol) {
         return qualifiedSymbol;
@@ -3493,6 +3690,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // For unqualified references, use scope-based resolution if symbolTable is available
     if (symbolTable && fileUri) {
+      const scopeHierarchyStart = Date.now();
       // Phase 1: Same-file resolution using SymbolTable scope hierarchy
       // Use the reference location to find the scope hierarchy
       const position = {
@@ -3500,10 +3698,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         character: typeRef.location.identifierRange.startColumn,
       };
       const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+      if (resolverStats) {
+        resolverStats.resolverScopeHierarchyMs +=
+          Date.now() - scopeHierarchyStart;
+      }
 
       // Primary approach: Explicit scope hierarchy search using getAllSymbols()
       // Get all symbols from SymbolTable (they're all from the same file)
       const allFileSymbols = symbolTable.getAllSymbols();
+      const scopeSearchStart = Date.now();
 
       // Search for symbols with the target name, starting from the innermost scope
       // Reverse the hierarchy to search from innermost (most specific) to outermost
@@ -3561,6 +3764,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (!aIsVar && bIsVar) return 1;
             return 0;
           });
+          if (resolverStats) {
+            resolverStats.resolverScopeSearchMs +=
+              Date.now() - scopeSearchStart;
+          }
           return prioritized[0];
         }
       }
@@ -3592,6 +3799,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Field,
           );
           if (classFields.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return classFields[0];
           }
           // Then try methods
@@ -3602,6 +3813,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Method,
           );
           if (classMethods.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return classMethods[0];
           }
         }
@@ -3615,9 +3830,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               s.kind === SymbolKind.Parameter,
           );
           if (parameters.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverScopeSearchMs +=
+                Date.now() - scopeSearchStart;
+            }
             return parameters[0];
           }
         }
+      }
+      if (resolverStats) {
+        resolverStats.resolverScopeSearchMs += Date.now() - scopeSearchStart;
       }
     }
 
@@ -3625,10 +3847,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // try a direct lookup in the SymbolTable as a last resort for same-file references
     // This handles cases where scope hierarchy might not be perfect but we know the symbol exists
     if (symbolTable) {
+      const directLookupStart = Date.now();
       const allFileSymbols = symbolTable.getAllSymbols();
       const directMatch = allFileSymbols.find(
         (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
       );
+      if (resolverStats) {
+        resolverStats.resolverDirectLookupMs += Date.now() - directLookupStart;
+      }
       if (directMatch) {
         // Found symbol directly in SymbolTable - use it
         // This is safe for same-file references since we've already verified it's same-file
@@ -3637,7 +3863,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Try to resolve as built-in type
-    const builtInSymbol = await this.resolveBuiltInType(typeRef);
+    const builtInStart = Date.now();
+    const builtInSymbol = await this.resolveStandardLibraryType(typeRef);
+    if (resolverStats) {
+      resolverStats.resolverBuiltInMs += Date.now() - builtInStart;
+    }
     if (builtInSymbol) {
       return builtInSymbol;
     }
@@ -3691,11 +3921,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
     originalTypeRef?: SymbolReference,
+    symbolTable?: SymbolTable,
+    qualifiedResolutionCache?: HashMap<string, ApexSymbol | null>,
+    memberResolutionCache?: HashMap<string, ApexSymbol | null>,
+    resolverStats?: ResolverStats,
   ): Promise<ApexSymbol | null> {
     try {
       // Special case: 'this' qualifier means we're accessing an instance member
       // in the containing class. 'this' can only reference class-scoped members.
       if (qualifier.toLowerCase() === 'this') {
+        if (resolverStats) {
+          resolverStats.resolverQualifiedThisCalls += 1;
+        }
         // Find the containing class by traversing up the parent chain from source symbol
         let containingClass: ApexSymbol | null = null;
         if (sourceSymbol) {
@@ -3705,14 +3942,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Look for the member within the containing class scope
         // 'this' can only reference class-scoped members, so we must look in the containing class
         if (containingClass && fileUri) {
-          const normalizedUri = extractFilePathFromUri(
-            getProtocolType(fileUri) !== null
-              ? fileUri
-              : createFileUri(fileUri),
-          );
+          const thisLookupStart = Date.now();
+          const normalizedUri = extractFilePathFromUri(createFileUri(fileUri));
+          const localSymbols = symbolTable?.getAllSymbols();
 
-          // Find all symbols with the member name
-          const allSymbolsWithName = this.findSymbolByName(member);
+          // Same-file fast path: avoid global name index scans when local symbols are available.
+          const allSymbolsWithName = localSymbols
+            ? localSymbols.filter((s) => s.name === member)
+            : this.findSymbolByName(member);
 
           // Filter to symbols that are members of the containing class
           // A member is in the class if:
@@ -3742,19 +3979,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Return the first matching class member
           if (classMembers.length > 0) {
+            if (resolverStats) {
+              resolverStats.resolverQualifiedThisLookupMs +=
+                Date.now() - thisLookupStart;
+            }
             return classMembers[0];
+          }
+          if (resolverStats) {
+            resolverStats.resolverQualifiedThisLookupMs +=
+              Date.now() - thisLookupStart;
           }
         }
 
         // Fallback: Look for the member by name (might be in a different file or scope)
-        const symbols = this.findSymbolByName(member);
+        const thisGlobalLookupStart = Date.now();
+        const symbols = symbolTable
+          ? symbolTable
+              .getAllSymbols()
+              .filter((s) => s.name?.toLowerCase() === member.toLowerCase())
+          : this.findSymbolByName(member);
+        if (resolverStats) {
+          resolverStats.resolverQualifiedGlobalLookupMs +=
+            Date.now() - thisGlobalLookupStart;
+        }
         if (symbols.length > 0) {
           // If fileUri is provided, prefer same-file symbols
           if (fileUri) {
             const normalizedUri = extractFilePathFromUri(
-              getProtocolType(fileUri) !== null
-                ? fileUri
-                : createFileUri(fileUri),
+              createFileUri(fileUri),
             );
             const sameFileSymbol = symbols.find(
               (s) => s.fileUri === normalizedUri,
@@ -3770,6 +4022,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 1: Find the qualifier symbol
+      const qualifiedCacheKey = `${qualifier}|${member}|${context}|${fileUri ?? ''}`;
+      if (qualifiedResolutionCache?.has(qualifiedCacheKey)) {
+        if (resolverStats) {
+          resolverStats.resolverQualifiedCacheHits += 1;
+        }
+        return qualifiedResolutionCache.get(qualifiedCacheKey) ?? null;
+      }
+      if (resolverStats) {
+        resolverStats.resolverQualifiedCacheMisses += 1;
+      }
+
       let qualifierSymbols = this.findSymbolByName(qualifier);
 
       // If no user-defined qualifier found, try built-in types
@@ -3805,7 +4068,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             resolvedSymbolId: undefined,
           };
         }
-        const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
+        const builtInQualifier =
+          await this.resolveStandardLibraryType(qualifierRef);
         if (builtInQualifier) {
           qualifierSymbols = [builtInQualifier];
         }
@@ -3813,35 +4077,218 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // If still no qualifier found, try standard Apex classes
       if (qualifierSymbols.length === 0) {
+        const stdClassStart = Date.now();
         const standardClass = await this.resolveStandardApexClass(qualifier);
+        if (resolverStats) {
+          resolverStats.resolverQualifiedStandardClassMs +=
+            Date.now() - stdClassStart;
+        }
         if (standardClass) {
           qualifierSymbols = [standardClass];
         }
       }
 
       if (qualifierSymbols.length === 0) {
+        qualifiedResolutionCache?.set(qualifiedCacheKey, null);
         return null;
+      }
+
+      // Prefer candidates that are most likely in the current lexical scope:
+      // same file -> nearest to source line -> variable-like kinds.
+      if (qualifierSymbols.length > 1) {
+        const preferredFileUri =
+          sourceSymbol?.fileUri ??
+          (fileUri ? extractFilePathFromUri(createFileUri(fileUri)) : null);
+        const sourceLine = sourceSymbol?.location?.identifierRange?.startLine;
+        const kindRank = (kind: string): number => {
+          if (
+            kind === SymbolKind.Variable ||
+            kind === SymbolKind.Parameter ||
+            kind === SymbolKind.Field ||
+            kind === SymbolKind.Property
+          ) {
+            return 0;
+          }
+          return 1;
+        };
+
+        qualifierSymbols = [...qualifierSymbols].sort((a, b) => {
+          const aSameFile =
+            preferredFileUri && a.fileUri === preferredFileUri ? 0 : 1;
+          const bSameFile =
+            preferredFileUri && b.fileUri === preferredFileUri ? 0 : 1;
+          if (aSameFile !== bSameFile) {
+            return aSameFile - bSameFile;
+          }
+
+          const aKind = kindRank(a.kind);
+          const bKind = kindRank(b.kind);
+          if (aKind !== bKind) {
+            return aKind - bKind;
+          }
+
+          if (sourceLine !== undefined) {
+            const aLine = a.location?.identifierRange?.startLine;
+            const bLine = b.location?.identifierRange?.startLine;
+            const aDist =
+              aLine !== undefined
+                ? Math.abs(aLine - sourceLine)
+                : Number.MAX_SAFE_INTEGER;
+            const bDist =
+              bLine !== undefined
+                ? Math.abs(bLine - sourceLine)
+                : Number.MAX_SAFE_INTEGER;
+            if (aDist !== bDist) {
+              return aDist - bDist;
+            }
+          }
+
+          return 0;
+        });
       }
 
       // For now, take the first qualifier match
       const qualifierSymbol = qualifierSymbols[0];
 
       // Step 2: Find the member within the qualifier
+      let memberResolutionContext: { type: 'symbol'; symbol: ApexSymbol } = {
+        type: 'symbol',
+        symbol: qualifierSymbol,
+      };
+      let memberTypeSubstitutions: GenericTypeSubstitutionMap | null = null;
+      let qualifierRawTypeName: string | null = null;
+      let collectionElementType: string | null = null;
+      let promotedFromCollectionType = false;
+      if (
+        (qualifierSymbol.kind === SymbolKind.Variable ||
+          qualifierSymbol.kind === SymbolKind.Parameter ||
+          qualifierSymbol.kind === SymbolKind.Field ||
+          qualifierSymbol.kind === SymbolKind.Property) &&
+        (qualifierSymbol as any)?.type?.name
+      ) {
+        const qualifierTypeObj = (qualifierSymbol as any)?.type;
+        memberTypeSubstitutions =
+          createGenericTypeSubstitutionMap(qualifierTypeObj);
+        const rawTypeName = (
+          (qualifierSymbol as any).type.name as string
+        ).trim();
+        qualifierRawTypeName = rawTypeName;
+        collectionElementType =
+          rawTypeName === 'List' || rawTypeName === 'Set'
+            ? ((qualifierTypeObj?.typeParameters?.[0]?.originalTypeString as
+                | string
+                | undefined) ??
+              (qualifierTypeObj?.typeParameters?.[0]?.name as
+                | string
+                | undefined) ??
+              null)
+            : null;
+        // For collection-typed qualifiers:
+        // 1) Try collection type first (e.g., List.size/add),
+        // 2) Then fall back to element type (e.g., listVar.lat where elements are Coordinates).
+        let collectionTypeSymbol = this.resolvePreferredTypeSymbolForLookup(
+          rawTypeName,
+          fileUri,
+          symbolTable,
+        );
+        if (
+          !collectionTypeSymbol &&
+          (rawTypeName === 'List' ||
+            rawTypeName === 'Set' ||
+            rawTypeName === 'Map')
+        ) {
+          collectionTypeSymbol =
+            await this.resolveStandardApexClass(rawTypeName);
+        }
+        const elementTypeSymbol = collectionElementType
+          ? this.resolvePreferredTypeSymbolForLookup(
+              collectionElementType,
+              fileUri,
+              symbolTable,
+            )
+          : null;
+        const typeSymbol = collectionTypeSymbol ?? elementTypeSymbol;
+        promotedFromCollectionType = !!collectionTypeSymbol;
+        if (typeSymbol) {
+          memberResolutionContext = { type: 'symbol', symbol: typeSymbol };
+          if (resolverStats) {
+            resolverStats.resolverQualifiedTypeContextPromotions += 1;
+          }
+        }
+      }
+      const chainIndicatesMethod =
+        !!originalTypeRef &&
+        isChainedSymbolReference(originalTypeRef) &&
+        originalTypeRef.chainNodes?.some(
+          (node) =>
+            node.name === member &&
+            node.context === ReferenceContext.METHOD_CALL,
+        );
+      const memberType =
+        context === ReferenceContext.METHOD_CALL || chainIndicatesMethod
+          ? 'method'
+          : 'property';
+      const memberCacheKey = `${memberResolutionContext.symbol.id}|${memberType}|${member.toLowerCase()}`;
+      const cachedMember = memberResolutionCache?.get(memberCacheKey);
+      if (cachedMember !== undefined) {
+        if (resolverStats) {
+          resolverStats.resolverMemberContextCacheHits += 1;
+        }
+        qualifiedResolutionCache?.set(qualifiedCacheKey, cachedMember);
+        return cachedMember;
+      }
+      if (resolverStats) {
+        resolverStats.resolverMemberContextCacheMisses += 1;
+      }
+      const resolveMemberStart = Date.now();
       const memberSymbol = await this.resolveMemberInContext(
-        { type: 'symbol', symbol: qualifierSymbol },
+        memberResolutionContext,
         member,
-        context === ReferenceContext.METHOD_CALL ? 'method' : 'property',
+        memberType,
+        memberTypeSubstitutions,
       );
-
-      if (memberSymbol) {
-        return memberSymbol;
+      let finalMemberSymbol = memberSymbol;
+      if (
+        !finalMemberSymbol &&
+        collectionElementType &&
+        promotedFromCollectionType &&
+        qualifierRawTypeName &&
+        memberResolutionContext.symbol.name.toLowerCase() ===
+          qualifierRawTypeName.toLowerCase()
+      ) {
+        const elementTypeSymbol = this.resolvePreferredTypeSymbolForLookup(
+          collectionElementType,
+          fileUri,
+          symbolTable,
+        );
+        if (elementTypeSymbol) {
+          finalMemberSymbol = await this.resolveMemberInContext(
+            { type: 'symbol', symbol: elementTypeSymbol },
+            member,
+            memberType,
+            null,
+          );
+        }
+      }
+      const resolveMemberMs = Date.now() - resolveMemberStart;
+      if (resolverStats) {
+        resolverStats.resolverQualifiedResolveMemberMs += resolveMemberMs;
+      }
+      if (finalMemberSymbol) {
+        memberResolutionCache?.set(memberCacheKey, finalMemberSymbol);
+        qualifiedResolutionCache?.set(qualifiedCacheKey, finalMemberSymbol);
+        return finalMemberSymbol;
       }
 
       // Step 3: For method calls, try to resolve the qualifier itself if no member found
       if (context === ReferenceContext.METHOD_CALL) {
+        memberResolutionCache?.set(memberCacheKey, qualifierSymbol);
+        qualifiedResolutionCache?.set(qualifiedCacheKey, qualifierSymbol);
         return qualifierSymbol;
       }
 
+      memberResolutionCache?.set(memberCacheKey, null);
+      qualifiedResolutionCache?.set(qualifiedCacheKey, null);
       return null;
     } catch (_error) {
       return null;
@@ -3889,6 +4336,113 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           member,
           isQualified: true,
         };
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeTypeNameForLookup(typeName: string): string {
+    return typeName.trim().replace(/<.*>/g, '').replace(/\[\]$/, '');
+  }
+
+  private buildTypeLookupCandidates(typeName: string): string[] {
+    const normalized = this.normalizeTypeNameForLookup(typeName);
+    const candidates: string[] = [];
+    const seenLowercase = new Set<string>();
+    const push = (value: string): void => {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return;
+      }
+      const normalizedCandidate = trimmed.toLowerCase();
+      if (!seenLowercase.has(normalizedCandidate)) {
+        seenLowercase.add(normalizedCandidate);
+        candidates.push(trimmed);
+      }
+    };
+
+    push(normalized);
+    const parts = normalized.split('.').filter((p) => p.length > 0);
+    if (parts.length > 1) {
+      // Qualified Apex type names here are often nested class paths (Outer.Inner).
+      for (let i = 1; i < parts.length; i++) {
+        push(parts.slice(i).join('.'));
+      }
+      push(parts[parts.length - 1]);
+    }
+
+    return candidates;
+  }
+
+  private resolvePreferredTypeSymbolForLookup(
+    rawTypeName: string,
+    fileUri?: string,
+    symbolTable?: SymbolTable,
+  ): ApexSymbol | null {
+    const candidates = this.buildTypeLookupCandidates(rawTypeName);
+    const normalizedUri = fileUri
+      ? extractFilePathFromUri(createFileUri(fileUri))
+      : null;
+    const localTypeSymbols = symbolTable
+      ? symbolTable.getAllSymbols().filter(inTypeSymbolGroup)
+      : [];
+    const localById = new HashMap<string, ApexSymbol>();
+    for (const symbol of localTypeSymbols) {
+      localById.set(symbol.id, symbol);
+    }
+
+    const matchesCandidate = (
+      symbol: ApexSymbol,
+      candidate: string,
+    ): boolean => {
+      if (symbol.name?.toLowerCase() === candidate.toLowerCase()) {
+        return true;
+      }
+      const fqn = (symbol as any)?.fqn as string | undefined;
+      if (fqn && fqn.toLowerCase() === candidate.toLowerCase()) {
+        return true;
+      }
+
+      const parts = candidate.split('.').filter((p) => p.length > 0);
+      if (
+        parts.length >= 2 &&
+        symbol.name?.toLowerCase() === parts[parts.length - 1].toLowerCase()
+      ) {
+        const parent = symbol.parentId
+          ? localById.get(symbol.parentId)
+          : undefined;
+        if (
+          parent?.name?.toLowerCase() === parts[parts.length - 2].toLowerCase()
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    for (const candidate of candidates) {
+      const localMatch = localTypeSymbols.find((s) =>
+        matchesCandidate(s, candidate),
+      );
+      if (localMatch) {
+        return localMatch;
+      }
+    }
+
+    for (const candidate of candidates) {
+      const typeCandidates =
+        this.findSymbolByName(candidate).filter(inTypeSymbolGroup);
+      if (normalizedUri) {
+        const sameFile = typeCandidates.find(
+          (s) => s.fileUri === normalizedUri,
+        );
+        if (sameFile) {
+          return sameFile;
+        }
+      }
+      if (typeCandidates.length > 0) {
+        return typeCandidates[0];
       }
     }
 
@@ -3973,7 +4527,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           resolvedSymbolId: undefined,
         };
       }
-      const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
+      const builtInQualifier =
+        await this.resolveStandardLibraryType(qualifierRef);
       if (builtInQualifier) {
         return true;
       }
@@ -4029,7 +4584,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           };
         }
         const builtInQualifier = yield* Effect.tryPromise({
-          try: () => self.resolveBuiltInType(qualifierRef),
+          try: () => self.resolveStandardLibraryType(qualifierRef),
           catch: (error) => error as Error,
         }).pipe(Effect.catchAll(() => Effect.succeed(null)));
         if (builtInQualifier) {
@@ -4048,7 +4603,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   getAllReferencesInFile(fileUri: string): SymbolReference[] {
     try {
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+      const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
 
       if (!symbolTable) {
         return [];
@@ -4074,7 +4629,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
   ): ApexSymbol | null {
     try {
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+      const symbolTable =
+        this.symbolRefManager.getSymbolTableForFile(sourceFile);
       if (!symbolTable) {
         return null;
       }
@@ -4371,7 +4927,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         };
 
         // Resolve using the literalType name
-        const builtInSymbol = await this.resolveBuiltInType(builtInTypeRef);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(builtInTypeRef);
         if (builtInSymbol) {
           // Store the resolved symbol ID in the original LITERAL reference
           typeReference.resolvedSymbolId = builtInSymbol.id;
@@ -4500,7 +5057,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // not to built-in types or standard classes
       if (typeReference.context !== ReferenceContext.VARIABLE_DECLARATION) {
         // Try built-in type resolution for the name itself
-        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(typeReference);
         if (builtInSymbol) {
           this.logger.debug(
             () =>
@@ -4592,7 +5150,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         if (classCandidates.length === 0) {
           // Search the source file's symbol table first
           const sourceSymbolTable =
-            this.symbolGraph.getSymbolTableForFile(sourceFile);
+            this.symbolRefManager.getSymbolTableForFile(sourceFile);
           if (sourceSymbolTable) {
             const allSymbols = sourceSymbolTable.getAllSymbols();
             classCandidates = allSymbols.filter(
@@ -4635,7 +5193,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
               if (registryEntry) {
                 // Found in registry - get the symbol directly
-                let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+                let symbol = this.symbolRefManager.getSymbol(
+                  registryEntry.symbolId,
+                );
 
                 this.logger.debug(
                   () =>
@@ -4665,7 +5225,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         this.addSymbolTable(symbolTable, registryEntry.fileUri),
                       );
                       // Try to get symbol again
-                      symbol = this.symbolGraph.getSymbol(
+                      symbol = this.symbolRefManager.getSymbol(
                         registryEntry.symbolId,
                       );
                       this.logger.debug(
@@ -4730,7 +5290,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // If no class candidates found, try built-in type resolution
         // This handles cases like Integer, String, etc. in GENERIC_PARAMETER_TYPE references
-        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(typeReference);
         if (builtInSymbol) {
           this.logger.debug(
             () =>
@@ -4913,7 +5474,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return !!(name && name.length > 0);
   }
 
-  private async resolveBuiltInType(
+  private async resolveStandardLibraryType(
     typeRef: SymbolReference,
   ): Promise<ApexSymbol | null> {
     const name = typeRef.name;
@@ -4932,18 +5493,42 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const qualifierNode = chainNodes[0]; // System
           const memberNode = chainNodes[1]; // Url
 
-          // Resolve qualifier as built-in type (recursive call with qualifier node)
-          const qualifierSymbol = await this.resolveBuiltInType(qualifierNode);
+          // Resolve qualifier as standard library type (recursive call with qualifier node)
+          const qualifierSymbol =
+            await this.resolveStandardLibraryType(qualifierNode);
           if (qualifierSymbol) {
-            // Resolve member within qualifier namespace/class
-            const fqn = `${qualifierNode.name}.${memberNode.name}`;
-            const memberSymbol = await this.resolveStandardApexClass(fqn);
-            if (memberSymbol) {
-              this.logger.debug(
-                () =>
-                  `Resolved "${name}" via chain nodes as ${fqn}: ${memberSymbol.name}`,
+            // Chain-aware handling: resolve members via member resolver, not class resolver.
+            if (
+              memberNode.context === ReferenceContext.METHOD_CALL ||
+              memberNode.context === ReferenceContext.FIELD_ACCESS
+            ) {
+              const memberType =
+                memberNode.context === ReferenceContext.METHOD_CALL
+                  ? 'method'
+                  : 'property';
+              const resolvedMember = await this.resolveMemberInContext(
+                { type: 'symbol', symbol: qualifierSymbol },
+                memberNode.name,
+                memberType,
               );
-              return memberSymbol;
+              if (resolvedMember) {
+                this.logger.debug(
+                  () =>
+                    `Resolved "${name}" via chain member lookup: ${resolvedMember.name}`,
+                );
+                return resolvedMember;
+              }
+            } else {
+              // Resolve type-like chain nodes as standard classes (e.g. System.Url)
+              const fqn = `${qualifierNode.name}.${memberNode.name}`;
+              const memberSymbol = await this.resolveStandardApexClass(fqn);
+              if (memberSymbol) {
+                this.logger.debug(
+                  () =>
+                    `Resolved "${name}" via chain nodes as ${fqn}: ${memberSymbol.name}`,
+                );
+                return memberSymbol;
+              }
             }
           }
           // If chain resolution fails, fall through to string-based resolution
@@ -4990,22 +5575,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
       // This handles wrapper types like Integer, String, etc. that are in System namespace
-      // However, builtin types like void/null should be resolved via builtInTypeTables first
-      // Only try standard class resolution if builtin type lookup fails
+      // Scalar keywords void/null (synthetic apexlib) before FQN for System types
       if (!name.includes('.')) {
-        // First check builtin types (scalar only: void, null)
-        const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
-        if (builtInType) {
+        const scalarKeyword = this.findScalarKeywordType(name);
+        if (scalarKeyword) {
           return {
-            ...builtInType,
+            ...scalarKeyword,
             modifiers: {
-              ...builtInType.modifiers,
+              ...scalarKeyword.modifiers,
               isBuiltIn: true,
             },
           };
         }
 
-        // If not a builtin type, try to find FQN for standard class
+        // If not a scalar keyword, try to find FQN for standard class
         const fqn = this.findFQNForStandardClass(name);
         if (fqn) {
           const standardClass = await this.resolveStandardApexClass(fqn);
@@ -5015,13 +5598,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 4: Check other built-in types (scalar: void, null) — fallback for qualified names
-      const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
-      if (builtInType) {
+      // Step 4: Scalar keywords void/null — fallback for qualified names
+      const scalarKeywordFallback = this.findScalarKeywordType(name);
+      if (scalarKeywordFallback) {
         return {
-          ...builtInType,
+          ...scalarKeywordFallback,
           modifiers: {
-            ...builtInType.modifiers,
+            ...scalarKeywordFallback.modifiers,
             isBuiltIn: true,
           },
         };
@@ -5254,11 +5837,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.memoryStats.lastCleanup = Date.now();
   }
 
-  // Fix memory usage to include symbolCacheSize
+  // Estimate usage including symbols and cache entries
   getMemoryUsage(): MemoryUsageStats {
     const cacheStats = this.unifiedCache.getStats();
     const estimatedMemoryUsage =
-      this.memoryStats.totalSymbols * 1024 + cacheStats.totalSize;
+      this.memoryStats.totalSymbols * 1024 + cacheStats.totalEntries * 256;
     const fileMetadataSize = this.fileMetadata.size * 256;
     const cacheEfficiency = cacheStats.hitRate;
 
@@ -5271,8 +5854,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       cacheEfficiency,
       recommendations: this.generateMemoryOptimizationRecommendations(),
       memoryPoolStats: {
-        totalReferences: this.symbolGraph.getStats().totalReferences,
-        activeReferences: this.symbolGraph.getStats().totalReferences,
+        totalReferences: this.symbolRefManager.getStats().totalReferences,
+        activeReferences: this.symbolRefManager.getStats().totalReferences,
         referenceEfficiency: 0.85,
         poolSize: estimatedMemoryUsage,
       },
@@ -5560,7 +6143,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private extractNamespaceFromFile(fileUri: string): string {
     // Get the SymbolTable for this file
-    const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
       return '';
     }
@@ -5714,7 +6297,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public constructFQN(symbol: ApexSymbol, options?: FQNOptions): string {
     return calculateFQN(symbol, options, (parentId) =>
-      this.symbolGraph.getSymbol(parentId),
+      this.symbolRefManager.getSymbol(parentId),
     );
   }
 
@@ -5725,7 +6308,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public getContainingType(symbol: ApexSymbol): ApexSymbol | null {
     // Find the immediate parent that is a type (class, interface, enum)
-    let current = this.symbolGraph.getParent(symbol);
+    let current = this.symbolRefManager.getParent(symbol);
     while (current) {
       if (
         current.kind === SymbolKind.Class ||
@@ -5734,7 +6317,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       ) {
         return current;
       }
-      current = this.symbolGraph.getParent(current);
+      current = this.symbolRefManager.getParent(current);
     }
     return null;
   }
@@ -5754,13 +6337,55 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbol = this.findSymbolByFQN(fullName);
     if (symbol) return symbol;
 
+    // Namespace-aware fallback: resolve "Namespace.Type" by type name + namespace.
+    if (fullName.includes('.')) {
+      const [namespace, typeName] = fullName.split('.', 2);
+      const byName = this.findSymbolByName(typeName);
+      const namespaceCandidates = byName.filter((candidate) => {
+        const candidateNamespace =
+          typeof candidate.namespace === 'string'
+            ? candidate.namespace
+            : (candidate.namespace?.toString?.() ?? '');
+        return candidateNamespace.toLowerCase() === namespace.toLowerCase();
+      });
+      const namespaceTypeMatch = namespaceCandidates.find(
+        (candidate) =>
+          candidate.kind === SymbolKind.Class ||
+          candidate.kind === SymbolKind.Interface ||
+          candidate.kind === SymbolKind.Enum ||
+          candidate.kind === SymbolKind.Trigger,
+      );
+      if (namespaceTypeMatch) {
+        return namespaceTypeMatch;
+      }
+      if (namespaceCandidates.length > 0) {
+        return namespaceCandidates[0];
+      }
+
+      // Last sync fallback: hydrate from stdlib protobuf cache in-memory.
+      if (this.resourceLoader?.isStdApexNamespace(namespace)) {
+        const stdlibTable = this.resourceLoader.getSymbolTableSync(
+          `${namespace}/${typeName}.cls`,
+        );
+        const classSymbol = stdlibTable
+          ?.getAllSymbols()
+          .find(
+            (candidate) =>
+              candidate.kind === SymbolKind.Class &&
+              candidate.name.toLowerCase() === typeName.toLowerCase(),
+          );
+        if (classSymbol) {
+          return classSymbol;
+        }
+      }
+    }
+
     // Try to find by name
     const symbols = this.findSymbolByName(fullName);
     return symbols.length > 0 ? symbols[0] : null;
   }
 
-  findBuiltInType(name: string): ApexSymbol | null {
-    // Use cached built-in type tables instance
+  findScalarKeywordType(name: string): ApexSymbol | null {
     return this.builtInTypeTables.findType(name.toLowerCase());
   }
 
@@ -5777,9 +6402,59 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return symbols.find((s) => s.namespace === packageName) || null;
   }
 
+  findInDefaultNamespaceOrder(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    for (const namespaceName of namespaces) {
+      const symbol = this.findInExplicitNamespace(
+        namespaceName,
+        name,
+        referencingType,
+      );
+      if (symbol) return symbol;
+    }
+    return null;
+  }
+
+  findInImplicitFileNamespaceSlot(
+    name: string,
+    slot: number,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const namespaces = ['System', 'Schema'];
+    const namespaceName = namespaces[slot];
+    if (!namespaceName) return null;
+    return this.findInExplicitNamespace(namespaceName, name, referencingType);
+  }
+
+  findInExplicitNamespace(
+    namespaceName: string,
+    typeName: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null {
+    const normalizedNamespace = namespaceName.toLowerCase();
+    const fqn = `${normalizedNamespace}.${typeName}`;
+    return (
+      this.find(referencingType, fqn) ?? this.findScalarKeywordType(fqn) ?? null
+    );
+  }
+
+  isBuiltInNamespace(namespaceName: string): boolean {
+    if (!namespaceName) return false;
+    if (this.resourceLoader?.isStdApexNamespace(namespaceName)) return true;
+    const normalized = namespaceName.toLowerCase();
+    return normalized === 'system' || normalized === 'schema';
+  }
+
+  isSObjectContainerNamespace(namespaceName: string): boolean {
+    return namespaceName.toLowerCase() === 'schema';
+  }
+
   /**
-   * Find type in standard namespaces other than System and Schema.
-   * Used by BuiltInMethodNamespace after FileBaseSystemNamespace/FileBaseSchemaNamespace.
+   * Find type in standard namespaces, excluding policy-prioritized implicit namespaces.
+   * Used by BuiltInMethodNamespace after implicit namespace attempts.
    */
   findInAnyStandardNamespace(
     name: string,
@@ -5788,11 +6463,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (!this.resourceLoader) return null;
     const namespaces = this.resourceLoader.findNamespaceForClass(name);
     if (!namespaces || namespaces.size === 0) return null;
+    const namespaceOrder: string[] = [];
+    const seen = new Set<string>();
+    const push = (ns: string): void => {
+      const key = ns.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      namespaceOrder.push(ns);
+    };
+
+    for (const policyNs of getImplicitNamespaceOrder()) {
+      for (const candidate of namespaces) {
+        if (candidate.toLowerCase() === policyNs.toLowerCase()) {
+          push(candidate);
+        }
+      }
+    }
+
     for (const ns of namespaces) {
-      const lower = ns.toLowerCase();
-      if (lower === 'system' || lower === 'schema') continue;
+      if (!isPrimaryImplicitNamespace(ns)) {
+        push(ns);
+      }
+    }
+
+    for (const ns of namespaceOrder) {
       const symbol = this.find(referencingType, `${ns}.${name}`);
-      if (symbol) return symbol;
+      if (symbol) {
+        return symbol;
+      }
     }
     return null;
   }
@@ -5846,7 +6544,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public isStandardLibraryType(name: string): boolean {
     // Check if it's a built-in type (String, Integer, etc.)
-    const builtInType = this.findBuiltInType(name);
+    const builtInType = this.findScalarKeywordType(name);
     if (builtInType) {
       return true;
     }
@@ -5898,25 +6596,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     try {
-      const namespaceStructure = this.resourceLoader.getStandardNamespaces();
-
-      // Search through all standard namespaces (case-insensitive)
-      const target = className.toLowerCase();
-      for (const [namespace, classes] of namespaceStructure.entries()) {
-        if (this.resourceLoader.isStdApexNamespace(namespace)) {
-          // Check if any class in this namespace matches the className
-          for (const classFile of classes ?? []) {
-            const cleanClassName = classFile.replace(/\.cls$/, '');
-            if (cleanClassName.toLowerCase() === target) {
-              // Return FQN with the actual case from the standard library, not the input className
-              const fqn = `${namespace}.${cleanClassName}`;
-              return fqn;
-            }
-          }
-        }
-      }
-
-      return null;
+      return this.resourceLoader.resolveStandardClassFqn(className);
     } catch (error) {
       this.logger.warn(
         () => `Error finding FQN for standard class ${className}: ${error}`,
@@ -5957,7 +6637,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
 
           // Get symbol from graph if already loaded
-          let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+          let symbol = this.symbolRefManager.getSymbol(registryEntry.symbolId);
           if (symbol) {
             return symbol;
           }
@@ -5970,13 +6650,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
           if (match) {
             const classPath = match[1];
-            const symbolTable =
-              await this.resourceLoader.getSymbolTable(classPath);
+            const symbolTable = await this.loadAndRegisterStdlibSymbolTable(
+              registryEntry.fileUri,
+              classPath,
+            );
             if (symbolTable) {
-              // Add to symbol graph
-              await Effect.runPromise(
-                this.addSymbolTable(symbolTable, registryEntry.fileUri),
-              );
               // Find symbol by name (symbolId might not match)
               const symbols = symbolTable.getAllSymbols();
               const foundSymbol = symbols.find(
@@ -6185,7 +6863,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             `classPath="${classPath}", fileUri="${fileUri}"`,
         );
 
-        const symbolTable = await this.resourceLoader.getSymbolTable(classPath);
+        const symbolTable = await this.loadAndRegisterStdlibSymbolTable(
+          fileUri,
+          classPath,
+        );
         if (!symbolTable) {
           this.logger.debug(
             () =>
@@ -6193,9 +6874,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
           return null;
         }
-        // Add the symbol table to the symbol manager to get all symbols including methods
-        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
-
         // Find the class symbol from the loaded symbol table
         const symbols = symbolTable.getAllSymbols();
         // Try to find by name first (case-insensitive for Apex)
@@ -6278,6 +6956,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
   }
 
+  private async loadAndRegisterStdlibSymbolTable(
+    fileUri: string,
+    classPath: string,
+  ): Promise<SymbolTable | null> {
+    if (!this.resourceLoader) {
+      return null;
+    }
+
+    const inFlight = this.inFlightStdlibHydration.get(fileUri);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const hydrationPromise = (async () => {
+      const symbolTable = await this.resourceLoader!.getSymbolTable(classPath);
+      if (!symbolTable) {
+        return null;
+      }
+
+      await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
+      return symbolTable;
+    })().finally(() => {
+      this.inFlightStdlibHydration.delete(fileUri);
+    });
+
+    this.inFlightStdlibHydration.set(fileUri, hydrationPromise);
+    return hydrationPromise;
+  }
+
   /**
    * Find the symbol that contains the given reference (the scope)
    * Used for: Reference relationship tracking, Find References From/To
@@ -6291,8 +6998,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): ApexSymbol | null {
     // Normalize URI to match how symbols are stored in the graph
     // This ensures consistency with addSymbolTable which uses normalized URIs
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = createFileUri(fileUri);
     const normalizedUri = extractFilePathFromUri(properUri);
 
     // Invalidate cache to ensure we get fresh symbols (they were just added)
@@ -6327,13 +7033,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // This ensures references are still processed even if position matching fails
     if (!bestMatch && symbolsInFile.length > 0) {
       // Find the top-level type symbol (class, interface, enum, trigger)
-      const topLevelSymbol = symbolsInFile.find(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum ||
-          s.kind === SymbolKind.Trigger,
-      );
+      const topLevelSymbol = symbolsInFile.find(inTypeSymbolGroup);
       if (topLevelSymbol) {
         return topLevelSymbol;
       }
@@ -7009,7 +7709,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Step 1b: Fallback - if no references found at exact position, try to find CLASS_REFERENCE
         // on the same line (for cases where position matching is slightly off)
-        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+        const symbolTable =
+          this.symbolRefManager.getSymbolTableForFile(fileUri);
         if (symbolTable) {
           const allReferences = symbolTable.getAllReferences();
           const sameLineClassRefs = allReferences.filter(
@@ -7408,7 +8109,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         resolutions.push({ type: 'symbol', symbol: scopeBasedSymbol });
       } else {
         // Fallback: Try to find the method in the current class via symbol table
-        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+        const symbolTable =
+          this.symbolRefManager.getSymbolTableForFile(fileUri);
         if (symbolTable) {
           const allSymbols = symbolTable.getAllSymbols();
           // Find methods in the current class that match the step name
@@ -7432,7 +8134,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 2: Try class resolution
-    const classSymbol = await this.tryResolveAsClass(stepName, currentContext);
+    const classSymbol = await this.tryResolveAsClass(
+      stepName,
+      currentContext,
+      step.context,
+    );
     if (classSymbol) {
       resolutions.push({ type: 'symbol', symbol: classSymbol });
     }
@@ -7462,7 +8168,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 4: Try built-in type resolution
-    const builtInSymbol = await this.resolveBuiltInType(step);
+    const builtInSymbol = await this.resolveStandardLibraryType(step);
     if (builtInSymbol) {
       resolutions.push({ type: 'symbol', symbol: builtInSymbol });
     }
@@ -7532,7 +8238,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       resolutions.length === 0
     ) {
       // Try to find the method in the current class via symbol table
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+      const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
       if (symbolTable) {
         const allSymbols = symbolTable.getAllSymbols();
         // Find methods in the current class that match the step name
@@ -7555,7 +8261,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 7: Try standard Apex class resolution (for cases like URL without namespace)
-    if (currentContext?.type === 'namespace') {
+    if (
+      currentContext?.type === 'namespace' &&
+      step.context !== ReferenceContext.METHOD_CALL &&
+      step.context !== ReferenceContext.FIELD_ACCESS &&
+      step.context !== ReferenceContext.VARIABLE_USAGE
+    ) {
       const fqn = `${currentContext.name}.${stepName}`;
       const standardClass = await this.resolveStandardApexClass(fqn);
       if (standardClass) {
@@ -7590,7 +8301,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async tryResolveAsClass(
     stepName: string,
     currentContext: ChainResolutionContext,
+    stepContext?: ReferenceContext,
   ): Promise<ApexSymbol | null> {
+    if (
+      stepContext === ReferenceContext.METHOD_CALL ||
+      stepContext === ReferenceContext.FIELD_ACCESS ||
+      stepContext === ReferenceContext.VARIABLE_USAGE
+    ) {
+      return null;
+    }
+
     if (currentContext?.type === 'namespace') {
       // Look for class in the namespace
       const namespaceSymbols = this.findSymbolsInNamespace(currentContext.name);
@@ -7978,7 +8698,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
               // Try to resolve as a method in the current class
               const symbolTable =
-                this.symbolGraph.getSymbolTableForFile(fileUri);
+                this.symbolRefManager.getSymbolTableForFile(fileUri);
               if (symbolTable) {
                 const allSymbols = symbolTable.getAllSymbols();
                 const methodSymbols = allSymbols.filter(
@@ -8041,7 +8761,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             const firstNode = chainNodes[0];
             if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
               const symbolTable =
-                this.symbolGraph.getSymbolTableForFile(fileUri);
+                this.symbolRefManager.getSymbolTableForFile(fileUri);
               if (symbolTable) {
                 const allSymbols = symbolTable.getAllSymbols();
                 const methodSymbols = allSymbols.filter(
@@ -8124,7 +8844,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 fileUri
               ) {
                 const symbolTable =
-                  this.symbolGraph.getSymbolTableForFile(fileUri);
+                  this.symbolRefManager.getSymbolTableForFile(fileUri);
                 if (symbolTable) {
                   const allSymbols = symbolTable.getAllSymbols();
                   const methodSymbols = allSymbols.filter(
@@ -8255,7 +8975,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Try built-in type resolution
     // Create a minimal SymbolReference from the string name
-    // Since resolveBuiltInType only uses typeRef.name, we can use dummy ranges
+    // Since resolveStandardLibraryType only uses typeRef.name, we can use dummy ranges
     const dummyLocation: SymbolLocation = {
       symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
       identifierRange: {
@@ -8271,7 +8991,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       ReferenceContext.CLASS_REFERENCE,
       undefined, // resolvedSymbolId - will be set during second-pass resolution
     );
-    const builtInSymbol = await this.resolveBuiltInType(typeRef);
+    const builtInSymbol = await this.resolveStandardLibraryType(typeRef);
     if (builtInSymbol) {
       this.logger.debug(
         () =>
@@ -8533,6 +9253,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     context: ChainResolutionContext,
     memberName: string,
     memberType: 'property' | 'method' | 'class',
+    typeSubstitutions: GenericTypeSubstitutionMap | null = null,
   ): Promise<ApexSymbol | null> {
     // Handle different context types
     if (context?.type === 'symbol') {
@@ -8544,7 +9265,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             `resolveMemberInContext: Looking for member "${memberName}" (${memberType}) ` +
             `in class "${contextSymbol.name}" (fileUri: ${contextFile})`,
         );
-        let symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+        let symbolTable =
+          this.symbolRefManager.getSymbolTableForFile(contextFile);
         this.logger.debug(
           () =>
             `resolveMemberInContext: Symbol table for "${contextSymbol.name}": ${symbolTable ? 'found' : 'not found'}`,
@@ -8553,12 +9275,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // If symbol table not found, try alternative URI formats before loading
         if (!symbolTable) {
           // Try with proper URI format if contextFile is not already a URI
-          const properUri =
-            getProtocolType(contextFile) !== null
-              ? contextFile
-              : createFileUri(contextFile);
+          const properUri = createFileUri(contextFile);
           if (properUri !== contextFile) {
-            symbolTable = this.symbolGraph.getSymbolTableForFile(properUri);
+            symbolTable =
+              this.symbolRefManager.getSymbolTableForFile(properUri);
           }
         }
 
@@ -8571,9 +9291,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         ) {
           // Check if we're already loading this file to prevent recursive loops
           const normalizedUri = extractFilePathFromUri(
-            getProtocolType(contextFile) !== null
-              ? contextFile
-              : createFileUri(contextFile),
+            createFileUri(contextFile),
           );
 
           if (this.loadingSymbolTables.has(normalizedUri)) {
@@ -8582,7 +9300,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 `Skipping recursive load attempt for ${contextFile} (normalized: ${normalizedUri}) - already loading`,
             );
             // Re-check symbol table after a brief moment in case it was just added
-            symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+            symbolTable =
+              this.symbolRefManager.getSymbolTableForFile(contextFile);
             if (!symbolTable) {
               return null;
             }
@@ -8591,9 +9310,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // Prevent recursive loops - if we're already loading this file, skip
             // Use normalized URI for the check to match what addSymbolTable uses
             const normalizedUri = extractFilePathFromUri(
-              getProtocolType(contextFile) !== null
-                ? contextFile
-                : createFileUri(contextFile),
+              createFileUri(contextFile),
             );
             if (this.loadingSymbolTables.has(normalizedUri)) {
               this.logger.debug(
@@ -8601,7 +9318,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Skipping recursive load attempt for ${contextFile} (normalized: ${normalizedUri}) - already loading`,
               );
               // Re-check symbol table after a brief moment in case it was just added
-              symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+              symbolTable =
+                this.symbolRefManager.getSymbolTableForFile(contextFile);
               if (!symbolTable) {
                 return null;
               }
@@ -8625,7 +9343,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                   // Re-fetch symbol table to ensure it's registered
                   symbolTable =
-                    this.symbolGraph.getSymbolTableForFile(contextFile);
+                    this.symbolRefManager.getSymbolTableForFile(contextFile);
                 }
               } catch (_error) {
                 // Error loading, continue
@@ -8902,7 +9620,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                 // Try built-in type resolution
                 const builtInTypeSymbol =
-                  await this.resolveBuiltInType(typeRef);
+                  await this.resolveStandardLibraryType(typeRef);
                 if (builtInTypeSymbol) {
                   // Recursively resolve the member on the built-in type
                   const resolvedMember = await this.resolveMemberInContext(
@@ -9025,7 +9743,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                 // Try built-in type resolution
                 const builtInTypeSymbol =
-                  await this.resolveBuiltInType(typeRef);
+                  await this.resolveStandardLibraryType(typeRef);
                 if (builtInTypeSymbol) {
                   const resolvedMember = await this.resolveMemberInContext(
                     { type: 'symbol', symbol: builtInTypeSymbol },
@@ -9134,6 +9852,58 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Class block parentIds: ${allClassBlocks.map((b) => b.parentId).join(', ')}. ` +
                   `Class symbol IDs: ${classSymbols.map((s) => s.id).join(', ')}`,
               );
+
+              // Fallback for symbol tables that do not model a class scope block.
+              // Resolve class members directly under the class symbol lineage.
+              const fallbackMembers = allSymbols.filter((s) => {
+                if (
+                  isBlockSymbol(s) ||
+                  s.fileUri !== contextSymbol.fileUri ||
+                  s.name !== memberName ||
+                  s.kind !== memberType
+                ) {
+                  return false;
+                }
+                const directParent = allSymbols.find(
+                  (sym) => sym.id === s.parentId && isBlockSymbol(sym),
+                );
+                if (
+                  directParent &&
+                  (directParent as any).scopeType === 'class' &&
+                  directParent.fileUri === contextSymbol.fileUri
+                ) {
+                  return true;
+                }
+                let currentParentId = s.parentId;
+                const visited = new Set<string>();
+                while (currentParentId && !visited.has(currentParentId)) {
+                  if (
+                    currentParentId === classSymbolId ||
+                    currentParentId === contextSymbol.id
+                  ) {
+                    return true;
+                  }
+                  visited.add(currentParentId);
+                  const parent = allSymbols.find(
+                    (sym) => sym.id === currentParentId,
+                  );
+                  if (!parent) {
+                    break;
+                  }
+                  currentParentId = parent.parentId;
+                }
+                return false;
+              });
+              if (fallbackMembers.length > 0) {
+                const fallbackMember = fallbackMembers[0];
+                if (fallbackMember.kind === SymbolKind.Method) {
+                  return applyMethodTypeSubstitutions(
+                    fallbackMember as any,
+                    typeSubstitutions,
+                  );
+                }
+                return fallbackMember;
+              }
             } else {
               // Capture classBlock in a const to help TypeScript narrow the type
               const resolvedClassBlock = classBlock;
@@ -9261,7 +10031,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     (methodParentBlock.parentId === contextSymbol.id ||
                       methodParentBlock.parentId === classSymbolId);
                   if (parentChainMatches) {
-                    return method;
+                    return applyMethodTypeSubstitutions(
+                      method as any,
+                      typeSubstitutions,
+                    );
                   }
                   this.logger.debug(
                     () =>
@@ -9303,7 +10076,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         );
                         // Re-fetch symbol table after loading
                         const reloadedSymbolTable =
-                          this.symbolGraph.getSymbolTableForFile(
+                          this.symbolRefManager.getSymbolTableForFile(
                             contextSymbol.fileUri,
                           );
                         if (reloadedSymbolTable) {
@@ -9347,7 +10120,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                                   methodParentBlock.parentId ===
                                     contextSymbol.id
                                 ) {
-                                  return method;
+                                  return applyMethodTypeSubstitutions(
+                                    method as any,
+                                    typeSubstitutions,
+                                  );
                                 }
                               } else {
                                 return method;
@@ -9421,7 +10197,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
 
           if (contextMembers.length > 0) {
-            return contextMembers[0];
+            const contextMember = contextMembers[0];
+            if (contextMember.kind === SymbolKind.Method) {
+              return applyMethodTypeSubstitutions(
+                contextMember as any,
+                typeSubstitutions,
+              );
+            }
+            return contextMember;
           } else {
             // Debug: show all symbols with the same name
             const _sameNameSymbols = allSymbols.filter(
@@ -9508,7 +10291,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         },
         resolvedSymbolId: undefined,
       };
-      const builtInSymbol = await this.resolveBuiltInType(memberRef);
+      const builtInSymbol = await this.resolveStandardLibraryType(memberRef);
       if (builtInSymbol) {
         return builtInSymbol;
       }
@@ -9543,7 +10326,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (superclassTypeSymbol) {
       // Ensure the symbol table is loaded
       if (superclassTypeSymbol.fileUri) {
-        let symbolTable = this.symbolGraph.getSymbolTableForFile(
+        let symbolTable = this.symbolRefManager.getSymbolTableForFile(
           superclassTypeSymbol.fileUri,
         );
 
@@ -9572,7 +10355,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         superclassTypeSymbol.fileUri,
                       ),
                     );
-                    symbolTable = this.symbolGraph.getSymbolTableForFile(
+                    symbolTable = this.symbolRefManager.getSymbolTableForFile(
                       superclassTypeSymbol.fileUri,
                     );
                   }
@@ -9621,7 +10404,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (objectTypeSymbol) {
       // Ensure the symbol table is loaded
       if (objectTypeSymbol.fileUri) {
-        let symbolTable = this.symbolGraph.getSymbolTableForFile(
+        let symbolTable = this.symbolRefManager.getSymbolTableForFile(
           objectTypeSymbol.fileUri,
         );
 
@@ -9645,7 +10428,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                         objectTypeSymbol.fileUri,
                       ),
                     );
-                    symbolTable = this.symbolGraph.getSymbolTableForFile(
+                    symbolTable = this.symbolRefManager.getSymbolTableForFile(
                       objectTypeSymbol.fileUri,
                     );
                   }
@@ -9665,10 +10448,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // If not found in graph, try to resolve via ResourceLoader
     if (this.resourceLoader) {
-      // Try "Object" first, then "System.Object"
-      let standardClass = await this.resolveStandardApexClass('Object');
-      if (!standardClass) {
-        standardClass = await this.resolveStandardApexClass('System.Object');
+      let standardClass: ApexSymbol | null =
+        await this.resolveStandardApexClass('Object');
+      for (const candidate of getImplicitQualifiedCandidates('Object')) {
+        if (standardClass) break;
+        standardClass = await this.resolveStandardApexClass(candidate);
+        if (standardClass) {
+          break;
+        }
       }
 
       if (standardClass && standardClass.kind === SymbolKind.Class) {
@@ -9689,11 +10476,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Try to find the symbol by searching through all known files
       const allFiles = Array.from(
-        this.symbolGraph['fileToSymbolTable']?.keys() || [],
+        this.symbolRefManager['fileToSymbolTable']?.keys() || [],
       );
 
       for (const fileUri of allFiles) {
-        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+        const symbolTable =
+          this.symbolRefManager.getSymbolTableForFile(fileUri);
         if (symbolTable) {
           const symbols = symbolTable.getAllSymbols();
           const found = symbols.find((s: ApexSymbol) => s.id === symbolId);
@@ -9711,52 +10499,52 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphData(): import('../types/graph').GraphData {
-    return this.symbolGraph.getGraphData();
+    return this.symbolRefManager.getGraphData();
   }
 
   /**
    * Get graph data filtered by file as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
-    return this.symbolGraph.getGraphDataForFile(fileUri);
+    return this.symbolRefManager.getGraphDataForFile(fileUri);
   }
 
   /**
    * Get graph data filtered by symbol type as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataByType(
     symbolType: string,
   ): import('../types/graph').TypeGraphData {
-    return this.symbolGraph.getGraphDataByType(symbolType);
+    return this.symbolRefManager.getGraphDataByType(symbolType);
   }
 
   /**
    * Get graph data as a JSON string (for direct wire transmission)
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataAsJSON(): string {
-    return this.symbolGraph.getGraphDataAsJSON();
+    return this.symbolRefManager.getGraphDataAsJSON();
   }
 
   /**
    * Get graph data for a file as a JSON string
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataForFileAsJSON(fileUri: string): string {
-    return this.symbolGraph.getGraphDataForFileAsJSON(fileUri);
+    return this.symbolRefManager.getGraphDataForFileAsJSON(fileUri);
   }
 
   /**
    * Get graph data by type as a JSON string
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataByTypeAsJSON(symbolType: string): string {
-    return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);
+    return this.symbolRefManager.getGraphDataByTypeAsJSON(symbolType);
   }
 
   /**

@@ -51,10 +51,17 @@ import { TypeInfo } from '../types/typeInfo';
  * Result of deserialization
  */
 export interface DeserializationResult {
-  /** Map of file URI to SymbolTable */
+  /**
+   * Internal cache of hydrated SymbolTables keyed by file URI.
+   * Starts empty; tables are lazily populated via getOrCreateSymbolTable().
+   * Prefer getOrCreateSymbolTable / hydrateAllSymbolTables over direct access.
+   * @internal
+   */
   symbolTables: Map<string, SymbolTable>;
   /** Flat list of all type symbols for quick access */
   allTypes: TypeSymbol[];
+  /** Lightweight index with enough data to hydrate one table on demand */
+  typeIndex: Map<string, StdlibTypeIndexEntry>;
   /** Metadata about the cache */
   metadata: {
     generatedAt: string;
@@ -62,6 +69,21 @@ export interface DeserializationResult {
     namespaceCount: number;
     typeCount: number;
   };
+  /** Hydrate/get one symbol table by file URI */
+  getOrCreateSymbolTable: (fileUri: string) => SymbolTable | undefined;
+  /** Check if a symbol table is present in stdlib index */
+  hasSymbolTable: (fileUri: string) => boolean;
+  /** Get all file URIs available in stdlib index */
+  getAllFileUris: () => string[];
+  /** Materialize all symbol tables (compatibility path) */
+  hydrateAllSymbolTables: () => Map<string, SymbolTable>;
+}
+
+export interface StdlibTypeIndexEntry {
+  fileUri: string;
+  namespace: string;
+  className: string;
+  protoType: ProtoTypeSymbol;
 }
 
 /**
@@ -81,16 +103,19 @@ export class StandardLibraryDeserializer {
    */
   deserialize(proto: StandardLibrary): DeserializationResult {
     const symbolTables = new Map<string, SymbolTable>();
+    const typeIndex = new Map<string, StdlibTypeIndexEntry>();
     const allTypes: TypeSymbol[] = [];
     let typeCount = 0;
 
     for (const namespace of proto.namespaces) {
       for (const protoType of namespace.types) {
-        const symbolTable = this.createSymbolTableForType(
+        const className = protoType.name;
+        typeIndex.set(protoType.fileUri, {
+          fileUri: protoType.fileUri,
+          namespace: namespace.name,
+          className,
           protoType,
-          namespace.name,
-        );
-        symbolTables.set(protoType.fileUri, symbolTable);
+        });
 
         // Also add to allTypes for quick access
         const typeSymbol = this.convertTypeSymbol(
@@ -103,14 +128,43 @@ export class StandardLibraryDeserializer {
       }
     }
 
+    const getOrCreateSymbolTable = (
+      fileUri: string,
+    ): SymbolTable | undefined => {
+      const hydrated = symbolTables.get(fileUri);
+      if (hydrated) {
+        return hydrated;
+      }
+      const entry = typeIndex.get(fileUri);
+      if (!entry) {
+        return undefined;
+      }
+      const symbolTable = this.createSymbolTableForType(
+        entry.protoType,
+        entry.namespace,
+      );
+      symbolTables.set(fileUri, symbolTable);
+      return symbolTable;
+    };
+
     return {
       symbolTables,
       allTypes,
+      typeIndex,
       metadata: {
         generatedAt: proto.generatedAt,
         sourceChecksum: proto.sourceChecksum,
         namespaceCount: proto.namespaces.length,
         typeCount,
+      },
+      getOrCreateSymbolTable,
+      hasSymbolTable: (fileUri: string): boolean => typeIndex.has(fileUri),
+      getAllFileUris: (): string[] => Array.from(typeIndex.keys()),
+      hydrateAllSymbolTables: (): Map<string, SymbolTable> => {
+        for (const fileUri of typeIndex.keys()) {
+          getOrCreateSymbolTable(fileUri);
+        }
+        return symbolTables;
       },
     };
   }
@@ -123,65 +177,29 @@ export class StandardLibraryDeserializer {
     namespace: string,
   ): SymbolTable {
     const symbolTable = new SymbolTable();
-    symbolTable.setFileUri(protoType.fileUri);
+    symbolTable.setMetadata({
+      fileUri: protoType.fileUri,
+      documentVersion: 1,
+      hasErrors: false,
+      parseCompleteness: 'complete',
+    });
 
     // Add the main type symbol
     const typeSymbol = this.convertTypeSymbol(protoType, null, namespace);
     symbolTable.addSymbol(typeSymbol);
 
     // Add block symbols FIRST (before methods/fields that reference them)
-    const blockIdMap = new Map<string, string>(); // Map old parentId format to actual block ID
     for (const protoBlock of protoType.blocks || []) {
-      const blockSymbol = this.convertBlockSymbol(
-        protoBlock,
-        namespace,
-        typeSymbol.id,
-      );
+      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
       symbolTable.addSymbol(blockSymbol);
-
-      // Create mapping for parentId normalization
-      // If parentId format is ...:class:ClassName:block:blockName, map it to ...:block:blockName
-      if (protoBlock.parentId && protoBlock.parentId.includes(':class:')) {
-        const match = protoBlock.parentId.match(
-          /^(.*):class:[^:]+:block:(.+)$/,
-        );
-        if (match) {
-          const normalizedId = `${match[1]}:block:${match[2]}`;
-          blockIdMap.set(protoBlock.parentId, normalizedId);
-        }
-      }
     }
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      // Normalize parentId if it has the old format with :class: in it
-      let normalizedParentId = protoMethod.parentId;
-      if (
-        normalizedParentId &&
-        normalizedParentId.includes(':class:') &&
-        normalizedParentId.includes(':block:')
-      ) {
-        const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
-        if (match) {
-          normalizedParentId = `${match[1]}:block:${match[2]}`;
-          // Verify this block exists
-          const blockExists = (protoType.blocks || []).some(
-            (b) =>
-              b.id === normalizedParentId ||
-              b.id.endsWith(`:block:${match[2]}`),
-          );
-          if (!blockExists) {
-            // Fallback to original if normalization doesn't match
-            normalizedParentId = protoMethod.parentId;
-          }
-        }
-      }
-
       const methodSymbol = this.convertMethodSymbol(
         protoMethod,
         typeSymbol.id,
         namespace,
-        normalizedParentId,
       );
       symbolTable.addSymbol(methodSymbol);
 
@@ -252,44 +270,16 @@ export class StandardLibraryDeserializer {
 
     // Add block symbols FIRST (before methods/fields that reference them)
     for (const protoBlock of protoType.blocks || []) {
-      const blockSymbol = this.convertBlockSymbol(
-        protoBlock,
-        namespace,
-        typeSymbol.id,
-      );
+      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
       symbolTable.addSymbol(blockSymbol);
     }
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      // Normalize parentId if it has the old format with :class: in it
-      let normalizedParentId = protoMethod.parentId;
-      if (
-        normalizedParentId &&
-        normalizedParentId.includes(':class:') &&
-        normalizedParentId.includes(':block:')
-      ) {
-        const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
-        if (match) {
-          normalizedParentId = `${match[1]}:block:${match[2]}`;
-          // Verify this block exists
-          const blockExists = (protoType.blocks || []).some(
-            (b) =>
-              b.id === normalizedParentId ||
-              b.id.endsWith(`:block:${match[2]}`),
-          );
-          if (!blockExists) {
-            // Fallback to original if normalization doesn't match
-            normalizedParentId = protoMethod.parentId;
-          }
-        }
-      }
-
       const methodSymbol = this.convertMethodSymbol(
         protoMethod,
         typeSymbol.id,
         namespace,
-        normalizedParentId,
       );
       symbolTable.addSymbol(methodSymbol);
     }
@@ -374,7 +364,6 @@ export class StandardLibraryDeserializer {
     proto: ProtoMethodSymbol,
     parentId: string,
     namespace?: string,
-    normalizedParentId?: string,
   ): MethodSymbol {
     const kind = proto.isConstructor
       ? SymbolKind.Constructor
@@ -382,8 +371,7 @@ export class StandardLibraryDeserializer {
     const modifiers = this.convertModifiers(proto.modifiers);
     const location = this.convertLocation(proto.location);
 
-    // Use normalized parentId if provided, otherwise fall back to proto.parentId or parentId
-    const effectiveParentId = normalizedParentId || proto.parentId || parentId;
+    const effectiveParentId = proto.parentId || parentId;
 
     // First create the base symbol
     const symbol = SymbolFactory.createFullSymbol(
@@ -475,22 +463,10 @@ export class StandardLibraryDeserializer {
   private convertBlockSymbol(
     proto: ProtoBlockSymbol,
     namespace?: string,
-    typeSymbolId?: string,
   ): ScopeSymbol {
     const location = this.convertLocation(proto.location);
 
-    // Fix parentId if it points to a class in the same file but has wrong class name
-    let parentId = proto.parentId || null;
-    if (
-      parentId &&
-      typeSymbolId &&
-      parentId.includes(':class:') &&
-      parentId.startsWith(proto.fileUri)
-    ) {
-      // Replace the class name part with the correct type symbol ID
-      // e.g., "apexlib://.../List.cls:class:unknownClass" -> typeSymbolId
-      parentId = typeSymbolId;
-    }
+    const parentId = proto.parentId || null;
 
     const blockSymbol = SymbolFactory.createBlockSymbol(
       proto.name,
@@ -532,7 +508,7 @@ export class StandardLibraryDeserializer {
       isArray: proto.isArray,
       isCollection: proto.isCollection,
       isPrimitive: proto.isPrimitive,
-      isBuiltIn: proto.isBuiltIn,
+      isBuiltIn: proto.isPrimitive,
       typeParameters: typeParameters.length > 0 ? typeParameters : undefined,
       keyType: proto.keyType
         ? this.convertTypeReference(proto.keyType)
@@ -576,7 +552,7 @@ export class StandardLibraryDeserializer {
       isTransient: proto.isTransient,
       isTestMethod: proto.isTestMethod,
       isWebService: proto.isWebService,
-      isBuiltIn: proto.isBuiltIn,
+      isBuiltIn: false,
     };
   }
 

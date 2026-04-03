@@ -86,7 +86,7 @@ describe('ResourceLoader Integration', () => {
 
     it('should resolve String class from built-in types', async () => {
       // Test that String class is resolved from built-in types
-      // Create a mock SymbolReference for resolveBuiltInType
+      // Create a mock SymbolReference for resolveStandardLibraryType
       const mockTypeRef: SymbolReference = {
         name: 'String',
         context: ReferenceContext.CLASS_REFERENCE,
@@ -106,7 +106,7 @@ describe('ResourceLoader Integration', () => {
         },
       };
       const stringSymbol =
-        await symbolManager['resolveBuiltInType'](mockTypeRef);
+        await symbolManager['resolveStandardLibraryType'](mockTypeRef);
 
       expect(stringSymbol).toBeDefined();
       if (stringSymbol) {

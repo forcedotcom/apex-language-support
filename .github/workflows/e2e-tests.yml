@@ -46,7 +46,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -151,7 +151,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -368,11 +368,17 @@ jobs:
             fi
           fi
 
+          # Export counts so downstream steps can decide whether to comment
+          echo "E2E_FAILURES=$FAILURES" >> $GITHUB_ENV
+          echo "E2E_ERRORS=$ERRORS" >> $GITHUB_ENV
+          echo "E2E_MISSING=${#MISSING_SPECS[@]}" >> $GITHUB_ENV
+          echo "E2E_TOTAL=$TOTAL" >> $GITHUB_ENV
+
           # Also write to job summary for Actions UI
           cat $SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
 
       - name: Comment PR with test results
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && (env.E2E_FAILURES != '0' || env.E2E_ERRORS != '0' || env.E2E_MISSING != '0' || env.E2E_TOTAL == '0')
         continue-on-error: true
         uses: actions/github-script@v8
         with:

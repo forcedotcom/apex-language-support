@@ -7,7 +7,7 @@ This directory contains performance benchmarks for the `apex-parser-ast` package
 - `compilerService.perf.ts` - Compilation phases and scalability
 - `protobuf-cache.perf.ts` - Cache loading and deserialization
 - `symbolManager-stdlibLoading.perf.ts` - Standard library loading overhead
-- `symbolGraph-memory.perf.ts` - Graph operations and memory usage
+- `symbolRefManager-memory.perf.ts` - Graph operations and memory usage
 
 ## Running Benchmarks
 

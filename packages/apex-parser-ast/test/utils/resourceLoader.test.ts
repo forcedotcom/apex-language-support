@@ -10,6 +10,7 @@ import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { SymbolTable } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
+import { resetResourceLoader } from '../helpers/testHelpers';
 
 describe('ResourceLoader', () => {
   let loader: ResourceLoader;
@@ -20,8 +21,8 @@ describe('ResourceLoader', () => {
     setLogLevel('error');
   });
 
-  afterEach(async () => {
-    ResourceLoader.resetInstance();
+  afterEach(() => {
+    resetResourceLoader();
   });
 
   describe('getInstance', () => {
@@ -254,7 +255,7 @@ describe('ResourceLoader', () => {
   describe('enhanced statistics', () => {
     it('should provide comprehensive statistics', async () => {
       // Ensure singleton is reset before creating new instance
-      ResourceLoader.resetInstance();
+      resetResourceLoader();
       loader = ResourceLoader.getInstance();
       await loader.initialize();
 
@@ -279,12 +280,12 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
 
   beforeEach(() => {
     // Reset the singleton to ensure we get a fresh instance
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     resourceLoader = ResourceLoader.getInstance();
   });
 
   afterAll(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
   });
 
   it('should have symbol tables available after initialization', async () => {
@@ -339,13 +340,13 @@ describe('ResourceLoader Lazy Loading', () => {
 
   beforeEach(async () => {
     // Reset singleton for each test
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     loader = ResourceLoader.getInstance();
     await loader.initialize();
   });
 
   afterEach(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
   });
 
   describe('getSymbolTable', () => {
@@ -383,6 +384,18 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(symbolTable2).toBeDefined();
       // Symbol tables from cache should be the same instance
       expect(symbolTable2).toBe(symbolTable1);
+    });
+
+    it('should resolve unqualified class names via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('Action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
+
+    it('should resolve namespaced class names case-insensitively via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('apexpages/action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
     });
   });
 
@@ -468,6 +481,29 @@ describe('ResourceLoader Lazy Loading', () => {
     });
   });
 
+  describe('resolveStandardClassFqn', () => {
+    it('resolves unqualified class names case-insensitively', () => {
+      expect(loader.resolveStandardClassFqn('assert')).toBe('System.Assert');
+      expect(loader.resolveStandardClassFqn('String')).toBe('System.String');
+    });
+
+    it('resolves namespaced class names and preserves canonical case', () => {
+      expect(loader.resolveStandardClassFqn('system.assert')).toBe(
+        'System.Assert',
+      );
+      expect(loader.resolveStandardClassFqn('database.batchable')).toBe(
+        'Database.Batchable',
+      );
+    });
+
+    it('returns null for unknown classes', () => {
+      expect(loader.resolveStandardClassFqn('DoesNotExistClass')).toBeNull();
+      expect(loader.resolveStandardClassFqn('UnknownNamespace.Missing')).toBe(
+        null,
+      );
+    });
+  });
+
   describe('getPotentialMatches', () => {
     it('should find matches for partial class names', () => {
       const matches = loader.getPotentialMatches('System');
@@ -538,7 +574,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   beforeAll(async () => {
     // Set up a loader that loads classes from protobuf cache
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     singleClassLoader = ResourceLoader.getInstance();
     await singleClassLoader.initialize();
 
@@ -551,13 +587,12 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
   });
 
   afterAll(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     singleClassLoader = null;
   });
 
   describe('symbol table analysis', () => {
     it('should analyze symbol tables from cache', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
 
       const analysis = {
@@ -581,7 +616,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should identify symbol patterns in standard classes', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const symbolPatterns = new Map<
         string,
@@ -624,7 +658,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   describe('symbol quality metrics', () => {
     it('should assess symbol completeness and structure', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
 
       const symbolQualityMetrics = {
@@ -708,7 +741,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should validate symbol location accuracy', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const locationQualityMetrics = {
         totalSymbols: 0,
@@ -796,7 +828,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   describe('symbol table health indicators', () => {
     it('should provide comprehensive symbol table health score', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const healthMetrics = {
         totalFiles: symbolTables.size,
@@ -829,7 +860,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should identify symbol quality trends across namespaces', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const namespaceQuality = new Map<
         string,

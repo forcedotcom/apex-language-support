@@ -14,7 +14,6 @@ import {
   goToLineInEditor,
 } from '../shared/utils/helpers';
 import { waitForLSPInitialization } from '../utils/vscode-interaction';
-import { SELECTORS } from '../utils/constants';
 
 /**
  * Page object for Apex editor interactions.
@@ -25,16 +24,20 @@ import { SELECTORS } from '../utils/constants';
  * - Getting editor content and state
  */
 export class ApexEditorPage extends BasePage {
-  private readonly editorContent: Locator;
+  private readonly activeEditorContent: Locator;
+  private readonly activeMonacoEditor: Locator;
   private readonly editorLineNumbers: Locator;
   private readonly defaultTimeout: number;
 
   constructor(page: Page) {
     super(page);
-    this.editorContent = page
-      .locator(SELECTORS.MONACO_EDITOR)
+    this.activeMonacoEditor = page.locator(
+      '.editor-group-container.active .monaco-editor',
+    );
+    this.activeEditorContent = this.activeMonacoEditor
       .first()
-      .locator('.view-lines');
+      .locator('.view-lines')
+      .first();
     this.editorLineNumbers = page.locator('.monaco-editor .line-numbers');
     const isCI = !!process.env.CI;
     this.defaultTimeout = this.isDesktopMode ? 30000 : isCI ? 25000 : 15000;
@@ -67,7 +70,7 @@ export class ApexEditorPage extends BasePage {
       state: 'visible',
       timeout: this.defaultTimeout,
     });
-    await this.editorContent
+    await this.activeEditorContent
       .locator('.view-line')
       .first()
       .waitFor({ state: 'visible', timeout: this.defaultTimeout });
@@ -169,7 +172,7 @@ export class ApexEditorPage extends BasePage {
       }
     }
 
-    await this.editorContent
+    await this.activeEditorContent
       .waitFor({ state: 'visible', timeout: this.defaultTimeout })
       .catch(() => {});
   }
@@ -219,7 +222,10 @@ export class ApexEditorPage extends BasePage {
     await activeEditor.click({ timeout: 5000 }).catch(() => {});
 
     await this.positionCursorOnWord(searchText);
-    await this.editorContent.waitFor({ state: 'visible', timeout: 3000 });
+    await this.activeMonacoEditor.first().waitFor({
+      state: 'visible',
+      timeout: 3000,
+    });
     return this.getContent();
   }
 
@@ -247,7 +253,7 @@ export class ApexEditorPage extends BasePage {
    * Use findAndGetViewportContent(searchText) to scroll to specific content first.
    */
   async getContent(): Promise<string> {
-    await this.editorContent.waitFor({
+    await this.activeMonacoEditor.first().waitFor({
       state: 'visible',
       timeout: this.defaultTimeout,
     });

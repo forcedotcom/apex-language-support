@@ -43,6 +43,7 @@ import {
   resolveExpressionTypeRecursive,
   type ExpressionTypeInfo,
 } from './ExpressionValidator';
+import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -177,15 +178,8 @@ function isUserOrVersionType(
     return true;
   }
 
-  // Check for Version types: Version, System.Version, Package.Version
-  if (
-    normalized === 'Version' ||
-    normalized === 'System.Version' ||
-    normalized === 'Package.Version' ||
-    normalized.toLowerCase() === 'version' ||
-    normalized.toLowerCase() === 'system.version' ||
-    normalized.toLowerCase() === 'package.version'
-  ) {
+  // Check for Version aliases: Version, System.Version, Package.Version
+  if (isStandardTypeAlias(normalized, 'version')) {
     return true;
   }
 
@@ -223,11 +217,7 @@ function isUserOrVersionType(
         }
 
         // Check if variable type is Version (System.Version, Package.Version, or just Version)
-        if (
-          normalizedTypeName === 'version' ||
-          normalizedTypeName === 'system.version' ||
-          normalizedTypeName === 'package.version'
-        ) {
+        if (isStandardTypeAlias(normalizedTypeName, 'version')) {
           return true;
         }
       }
@@ -364,9 +354,7 @@ export const RunAsStatementValidator: Validator = {
               const typeLower = expressionType.toLowerCase();
               const isValidType =
                 typeLower === 'user' ||
-                typeLower === 'version' ||
-                typeLower === 'system.version' ||
-                typeLower === 'package.version';
+                isStandardTypeAlias(typeLower, 'version');
 
               if (!isValidType) {
                 const location = getLocationFromContext(ctx);

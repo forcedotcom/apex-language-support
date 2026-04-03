@@ -163,12 +163,12 @@ graph LR
     B --> C[vsix-packages]
 
     subgraph "Test Matrix"
-        D[ubuntu-latest, 20.x]
+        D[ubuntu-latest, lts/-1]
         E[ubuntu-latest, lts/*]
-        F[ubuntu-latest, node]
-        G[windows-latest, 20.x]
+        F[ubuntu-latest, current]
+        G[windows-latest, lts/-1]
         H[windows-latest, lts/*]
-        I[windows-latest, node]
+        I[windows-latest, current]
     end
 ```
 
@@ -313,14 +313,15 @@ graph LR
 - Check suite completion
 - Status events
 
-**Purpose:** Automatically merge PRs with specific labels.
+**Purpose:** Enable GitHub auto-merge for eligible Dependabot PRs.
 
 **Features:**
 
-- Merges PRs with `automerge` or `dependencies` labels
-- Supports Dependabot PRs
+- Only applies to PRs opened by `dependabot[bot]`
+- Only applies to same-repository PRs (fork-origin PRs are excluded)
 - Uses squash merge method
-- Requires 1 approval
+- Skips major version bumps
+- Requires repository-level auto-merge to be enabled in GitHub settings
 
 #### Stale (`stale.yml`)
 
