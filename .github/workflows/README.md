@@ -313,14 +313,15 @@ graph LR
 - Check suite completion
 - Status events
 
-**Purpose:** Automatically merge PRs with specific labels.
+**Purpose:** Enable GitHub auto-merge for eligible Dependabot PRs.
 
 **Features:**
 
-- Merges PRs with `automerge` or `dependencies` labels
-- Supports Dependabot PRs
+- Only applies to PRs opened by `dependabot[bot]`
+- Only applies to same-repository PRs (fork-origin PRs are excluded)
 - Uses squash merge method
-- Requires 1 approval
+- Skips major version bumps
+- Requires repository-level auto-merge to be enabled in GitHub settings
 
 #### Stale (`stale.yml`)
 

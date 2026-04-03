@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.draft == false
     steps:
       - name: Enable auto-merge for Dependabot PR
@@ -24,8 +25,19 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const pullRequest = context.payload.pull_request;
             const title = context.payload.pull_request.title ?? "";
             const pull_number = context.payload.pull_request.number;
+            const headRepoFullName = pullRequest.head?.repo?.full_name ?? "";
+            const baseRepoFullName = pullRequest.base?.repo?.full_name ?? "";
+
+            if (headRepoFullName !== baseRepoFullName) {
+              core.info(
+                `Skipping auto-merge for PR #${pull_number}: fork-origin PR detected (${headRepoFullName} -> ${baseRepoFullName}).`
+              );
+              return;
+            }
+
             // Dependabot titles generally look like:
             // "Bump <dep> from <old> to <new>".
             // Skip auto-merge if this is a major version bump.
