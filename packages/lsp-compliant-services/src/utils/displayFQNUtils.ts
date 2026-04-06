@@ -45,6 +45,9 @@ export function toDisplayFQN(fqn: string): string {
   const parts = fqn.split('.');
   const filtered: string[] = [];
   for (const part of parts) {
+    if (!part) {
+      continue;
+    }
     // Remove block symbol patterns (legacy and StructureListener format)
     if (BLOCK_SYMBOL_PATTERN.test(part) || STRUCTURE_BLOCK_PATTERN.test(part)) {
       continue;
