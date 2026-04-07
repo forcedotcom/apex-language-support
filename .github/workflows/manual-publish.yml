@@ -419,9 +419,10 @@ jobs:
         run: echo "Manual publish approved by ${{ github.actor }} at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   # ── repackage ──────────────────────────────────────────────────────────────
+  # Use always() so this runs when quality-gate is skipped but gate succeeds (actions/runner#2205).
   repackage:
     needs: [prepare, gate]
-    if: needs.prepare.result == 'success' && needs.gate.result == 'success'
+    if: always() && needs.prepare.result == 'success' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
@@ -481,6 +482,7 @@ jobs:
   # ── publish ────────────────────────────────────────────────────────────────
   publish:
     needs: [prepare, repackage]
+    if: always() && needs.prepare.result == 'success' && needs.repackage.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -522,7 +524,7 @@ jobs:
   # ── create-github-release ──────────────────────────────────────────────────
   create-github-release:
     needs: [prepare, repackage, publish]
-    if: inputs.slot == 'stable'
+    if: always() && inputs.slot == 'stable' && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -587,7 +589,7 @@ jobs:
   # ── tag-published ──────────────────────────────────────────────────────────
   tag-published:
     needs: [prepare, publish, create-github-release]
-    if: always() && needs.publish.result == 'success'
+    if: always() && needs.publish.result == 'success' && (inputs.slot == 'pre-release' || needs.create-github-release.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
