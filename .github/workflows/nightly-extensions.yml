@@ -384,7 +384,12 @@ jobs:
         run: |
           ARTIFACTS_DIR="./vsix-artifacts"
           VSIX_PATTERN="${{ matrix.vsix_pattern }}"
-          VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
+          # Apex: universal VSIX only (exclude legacy *-web-* platform VSIX if present)
+          if [[ "$VSIX_PATTERN" == *apex-language-server-extension* ]]; then
+            VSIX_FILE=$(find "$ARTIFACTS_DIR" -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
+          else
+            VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
+          fi
 
           if [ -z "$VSIX_FILE" ]; then
             echo "❌ No VSIX file found matching pattern: $VSIX_PATTERN"
@@ -482,20 +487,21 @@ jobs:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Find web VSIX
-        id: find-web-vsix
+      - name: Find universal VSIX
+        id: find-universal-vsix
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*-web-*.vsix" | head -1)
+          # Same universal VSIX as public marketplace (excludes legacy *-web-* if present)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
-            echo "::error::No web VSIX file found in artifacts"
+            echo "::error::No universal VSIX found in artifacts (expected apex-language-server-extension-*.vsix)"
             exit 1
           fi
 
           FILE_SIZE=$(stat -c%s "$VSIX_FILE" 2>/dev/null || stat -f%z "$VSIX_FILE" 2>/dev/null || echo "unknown")
-          echo "Found web VSIX: $VSIX_FILE (${FILE_SIZE} bytes)"
+          echo "Found universal VSIX: $VSIX_FILE (${FILE_SIZE} bytes)"
           echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
 
-      - name: Publish web VSIX to CBWeb marketplace
+      - name: Publish universal VSIX to CBWeb marketplace
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
           echo "Publishing $VSIX_FILE to CBWeb marketplace..."
@@ -516,14 +522,14 @@ jobs:
             exit 1
           fi
         env:
-          VSIX_FILE: ${{ steps.find-web-vsix.outputs.vsix_file }}
+          VSIX_FILE: ${{ steps.find-universal-vsix.outputs.vsix_file }}
           MARKETPLACE_URL: ${{ vars.MARKETPLACE_URL }}
           MARKETPLACE_DEPLOY_TOKEN: ${{ secrets.MARKETPLACE_DEPLOY_TOKEN }}
 
       - name: Dry-run summary
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
         run: |
-          echo "🔄 DRY RUN: Would publish ${{ steps.find-web-vsix.outputs.vsix_file }} to CBWeb marketplace"
+          echo "🔄 DRY RUN: Would publish ${{ steps.find-universal-vsix.outputs.vsix_file }} to CBWeb marketplace"
 
   slack-notify:
     name: Slack Notification

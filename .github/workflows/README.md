@@ -270,7 +270,7 @@ graph LR
     D --> E[Upload VSIX Artifacts]
 ```
 
-**Purpose:** Create VSIX files for extensions.
+**Purpose:** Create VSIX files for extensions. Produces a **single universal VSIX** per extension (`vsce package` with desktop + browser entry points from one bundle); no separate web-target VSIX.
 
 ### 6. Additional Workflows
 
