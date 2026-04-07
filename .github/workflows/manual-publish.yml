@@ -189,6 +189,8 @@ jobs:
               --dir ./vsix-artifacts \
               --repo "${{ github.repository }}"
 
+            # Version for tag path comes from the tag name (not the VSIX), but we still need the universal VSIX for preRelease checks below.
+
           else
             echo "Source: branch CI run ($SOURCE_RUN_ID)"
             echo "source-type=run" >> $GITHUB_OUTPUT
@@ -228,9 +230,31 @@ jobs:
 
           echo "prerelease-version=$PRERELEASE_VERSION" >> $GITHUB_OUTPUT
 
+          # Universal VSIX only — vsce publish --pre-release requires vsce package --pre-release (preRelease in embedded package.json).
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "ERROR: No universal VSIX found under ./vsix-artifacts (expected apex-language-server-extension-*.vsix, excluding *-web-*)"
+            exit 1
+          fi
+          VSIX_PRERELEASE_PACKAGED=$(unzip -p "$VSIX_FILE" extension/package.json | node -e "
+            let d = '';
+            process.stdin.on('data', (c) => (d += c));
+            process.stdin.on('end', () => {
+              const p = JSON.parse(d);
+              console.log(p.preRelease === true ? 'true' : 'false');
+            });
+          ")
+          echo "VSIX preRelease (packaged): $VSIX_PRERELEASE_PACKAGED ($VSIX_FILE)"
+
           # ── Stable slot: determine and validate stable version ────────────
           if [ "$SLOT" != "stable" ]; then
             echo "stable-version=" >> $GITHUB_OUTPUT
+            if [ "$VSIX_PRERELEASE_PACKAGED" != "true" ]; then
+              echo "ERROR: Pre-release marketplace slot requires a VSIX built with vsce package --pre-release."
+              echo "This artifact is missing package.json preRelease: true (often caused by Package/nightly-extensions with pre-release inputs false)."
+              echo "Use a nightly produced via nightly.yml (pre-release is always true) or re-run packaging with pre-release enabled."
+              exit 1
+            fi
             echo "prerelease-flag=true" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -458,6 +482,7 @@ jobs:
               const fs = require('fs');
               const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
               pkg.version = '$STABLE_VERSION';
+              delete pkg.preRelease;
               fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
             "
 
