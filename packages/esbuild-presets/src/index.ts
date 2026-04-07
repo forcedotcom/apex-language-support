@@ -44,6 +44,20 @@ export const INTERNAL_PACKAGES = [
 ];
 
 /**
+ * Whether esbuild should minify output. Minify is on for CI/package builds;
+ * off when `--watch` is passed or `NODE_ENV=development` (readable stacks while iterating).
+ */
+export function shouldMinifyEsbuild(): boolean {
+  if (process.argv.includes('--watch')) {
+    return false;
+  }
+  if (process.env.NODE_ENV === 'development') {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Base configuration for Node.js builds
  */
 export const nodeBaseConfig: BuildOptions = {
@@ -52,7 +66,7 @@ export const nodeBaseConfig: BuildOptions = {
   format: 'cjs',
   bundle: true,
   sourcemap: true,
-  minify: false,
+  minify: shouldMinifyEsbuild(),
   treeShaking: true,
   external: [...COMMON_EXTERNAL, 'crypto', 'fs', 'path', 'url', 'os', 'stream'],
 };
@@ -66,7 +80,7 @@ export const browserBaseConfig: BuildOptions = {
   format: 'esm',
   bundle: true,
   sourcemap: true,
-  minify: false,
+  minify: shouldMinifyEsbuild(),
   treeShaking: true,
   external: ['vscode'],
 };

@@ -384,7 +384,12 @@ jobs:
         run: |
           ARTIFACTS_DIR="./vsix-artifacts"
           VSIX_PATTERN="${{ matrix.vsix_pattern }}"
-          VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
+          # Apex: universal VSIX only (exclude legacy *-web-* platform VSIX if present)
+          if [[ "$VSIX_PATTERN" == *apex-language-server-extension* ]]; then
+            VSIX_FILE=$(find "$ARTIFACTS_DIR" -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
+          else
+            VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
+          fi
 
           if [ -z "$VSIX_FILE" ]; then
             echo "❌ No VSIX file found matching pattern: $VSIX_PATTERN"
@@ -482,12 +487,12 @@ jobs:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Find web VSIX
+      - name: Find web-target VSIX for CBWeb
         id: find-web-vsix
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*-web-*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name "*-web-*.vsix" | head -1)
           if [ -z "$VSIX_FILE" ]; then
-            echo "::error::No web VSIX file found in artifacts"
+            echo "::error::No web-target VSIX found in artifacts (expected *-web-*.vsix from package workflow)"
             exit 1
           fi
 
@@ -495,7 +500,7 @@ jobs:
           echo "Found web VSIX: $VSIX_FILE (${FILE_SIZE} bytes)"
           echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
 
-      - name: Publish web VSIX to CBWeb marketplace
+      - name: Publish web VSIX to CBWeb internal marketplace
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
           echo "Publishing $VSIX_FILE to CBWeb marketplace..."

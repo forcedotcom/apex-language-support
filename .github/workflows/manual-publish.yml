@@ -211,8 +211,8 @@ jobs:
               --dir ./vsix-artifacts \
               --repo "${{ github.repository }}"
 
-            # Extract pre-release version from the VSIX's package.json
-            VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+            # Extract pre-release version from the VSIX's package.json (universal VSIX only)
+            VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
             if [ -z "$VSIX_FILE" ]; then
               echo "ERROR: No VSIX found in run $SOURCE_RUN_ID artifacts"
               exit 1
@@ -440,7 +440,7 @@ jobs:
           PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
           STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
             echo "ERROR: No VSIX found in artifact"
             exit 1
@@ -507,7 +507,7 @@ jobs:
 
       - name: Locate VSIX
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           echo "VSIX_PATH=$VSIX_FILE" >> $GITHUB_ENV
 
       - name: Publish to ${{ matrix.registry }}
@@ -547,7 +547,7 @@ jobs:
           SOURCE_TYPE: ${{ needs.prepare.outputs.source-type }}
           DRY_RUN: ${{ inputs.dry-run || 'false' }}
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           RELEASE_TAG="apex-language-server-extension-v${STABLE_VERSION}"
           RELEASE_TITLE="Apex Language Server Extension v${STABLE_VERSION} (stable)"
 

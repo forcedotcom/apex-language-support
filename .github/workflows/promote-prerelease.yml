@@ -112,7 +112,7 @@ jobs:
             --dir ./vsix-artifacts \
             --repo "${{ github.repository }}"
 
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
             echo "No VSIX found in release $NIGHTLY_TAG"
             exit 1

@@ -8,7 +8,7 @@
 
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { glob } from 'glob';
 
 interface PackageJson {
@@ -75,7 +75,8 @@ function findVsixFiles(extension: string, artifactsPath: string): string[] {
       }
     }
 
-    return foundFiles;
+    // Universal VSIX only: exclude legacy vsce --target web builds (*-web-* in filename)
+    return foundFiles.filter((f) => !basename(f).includes('-web-'));
   } catch (error) {
     console.warn(`Warning: Could not find VSIX files for ${extension}:`, error);
     return [];

@@ -31,8 +31,18 @@ await runBuilds(
 );
 ```
 
+## Minification
+
+`nodeBaseConfig` and `browserBaseConfig` set `minify` via `shouldMinifyEsbuild()`:
+
+- **On** for normal one-shot `tsx esbuild.config.ts` (CI, `npm run bundle`, packaging).
+- **Off** when `process.argv` includes `--watch`, or `NODE_ENV=development`.
+
+Use `shouldMinifyEsbuild()` for any extra build blocks (e.g. webview IIFE bundles) so they follow the same rules.
+
 ## Exports
 
 - `nodeBaseConfig` / `browserBaseConfig`
+- `shouldMinifyEsbuild()`
 - `NODE_POLYFILLS`, `WEB_WORKER_GLOBALS`, `configureWebWorkerPolyfills`
 - `runBuilds` with optional `afterBuild`, `onError`, and logging controls

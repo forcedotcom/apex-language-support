@@ -15,6 +15,7 @@ import {
   nodeBaseConfig,
   NODE_POLYFILLS,
   runBuilds,
+  shouldMinifyEsbuild,
 } from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
@@ -102,6 +103,7 @@ const builds: BuildOptions[] = [
     bundle: true,
     treeShaking: true,
     keepNames: true,
+    minify: shouldMinifyEsbuild(),
     define: {
       'process.env.NODE_ENV': '"production"',
     },
@@ -119,6 +121,7 @@ const builds: BuildOptions[] = [
     bundle: true,
     treeShaking: true,
     keepNames: true,
+    minify: shouldMinifyEsbuild(),
     define: {
       'process.env.NODE_ENV': '"production"',
     },
