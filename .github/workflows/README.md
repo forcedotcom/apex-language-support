@@ -267,10 +267,14 @@ graph LR
     A[Checkout] --> B[Setup Node.js]
     B --> C[Install Dependencies]
     C --> D[Package Packages]
-    D --> E[Upload VSIX Artifacts]
+    D --> E[Web-target VSIX for CBWeb]
+    E --> F[Upload VSIX Artifacts]
 ```
 
-**Purpose:** Create VSIX files for extensions. Produces a **single universal VSIX** per extension (`vsce package` with desktop + browser entry points from one bundle); no separate web-target VSIX.
+**Purpose:** Create VSIX files for extensions.
+
+- **Universal VSIX** (`vsce package`): desktop + browser entry points in one bundle — used for VS Code Marketplace / Open VSX, GitHub release assets, and Manual Publish.
+- **Web-target VSIX** (`vsce package --target web`, trimmed): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
 
 ### 6. Additional Workflows
 

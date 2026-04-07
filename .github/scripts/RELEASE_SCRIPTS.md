@@ -228,7 +228,7 @@ The release scripts are organized in the `.github/scripts` folder:
 - **`ext-release-plan.ts`**: Display extension release plan
 - **`ext-version-bumper.ts`**: Bump versions for selected extensions
 - **`ext-publish-matrix.ts`**: Determine publish matrix for extensions
-- **`ext-github-releases.ts`**: Create GitHub releases for extensions (attaches universal VSIX assets; excludes `*-web-*` filenames)
+- **`ext-github-releases.ts`**: Create GitHub releases for extensions (attaches **universal** VSIX assets only; excludes `*-web-*` so web-target VSIX stays artifact-only for CBWeb)
 
 #### NPM Modules
 
