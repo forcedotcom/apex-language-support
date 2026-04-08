@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.36",
+  "version": "0.5.37",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -813,6 +813,19 @@
         ".vscodeignore",
         "scripts/run-vsce-with-clean-package-json.mjs",
         "scripts/package-web-vsix.mjs"
+      ]
+    },
+    "package-prerelease": {
+      "command": "npx vsce package --no-dependencies --pre-release",
+      "dependencies": [
+        "bundle"
+      ],
+      "output": [
+        "*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore"
       ]
     },
     "test": {
