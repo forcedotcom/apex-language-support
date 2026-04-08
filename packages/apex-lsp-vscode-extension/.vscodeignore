@@ -42,6 +42,8 @@ node_modules/**
 # Artifacts and logs
 *.vsix
 *.log
+# Transient full package.json backup while vsce runs (see scripts/run-vsce-with-clean-package-json.mjs)
+.package.json.vsix-backup
 bundle/**
 server-bundle/**
 coverage/**

@@ -772,16 +772,17 @@
       ]
     },
     "package-prerelease": {
-      "command": "npx vsce package --no-dependencies --pre-release",
+      "command": "node ./scripts/run-vsce-with-clean-package-json.mjs --no-dependencies --pre-release",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "*.vsix"
+        "apex-language-server-extension-[0-9]*.vsix"
       ],
       "files": [
         "package.json",
-        ".vscodeignore"
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs"
       ]
     },
     "package-web": {
