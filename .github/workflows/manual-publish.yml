@@ -189,7 +189,7 @@ jobs:
               --dir ./vsix-artifacts \
               --repo "${{ github.repository }}"
 
-            # Version for tag path comes from the tag name (not the VSIX), but we still need the universal VSIX for preRelease checks below.
+            # Version for tag path comes from the tag name (not the VSIX), but we still need the universal VSIX for manifest/version checks below.
 
           else
             echo "Source: branch CI run ($SOURCE_RUN_ID)"
@@ -230,28 +230,23 @@ jobs:
 
           echo "prerelease-version=$PRERELEASE_VERSION" >> $GITHUB_OUTPUT
 
-          # Universal VSIX only — vsce publish --pre-release requires vsce package --pre-release (preRelease in embedded package.json).
+          # Universal VSIX only — vsce package --pre-release sets Microsoft.VisualStudio.Code.PreRelease in extension.vsixmanifest.
+          # @vscode/vsce does not inject preRelease into extension/package.json; the manifest is the authoritative packaged signal.
           VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
             echo "ERROR: No universal VSIX found under ./vsix-artifacts (expected apex-language-server-extension-*.vsix, excluding *-web-*)"
             exit 1
           fi
-          VSIX_PRERELEASE_PACKAGED=$(unzip -p "$VSIX_FILE" extension/package.json | node -e "
-            let d = '';
-            process.stdin.on('data', (c) => (d += c));
-            process.stdin.on('end', () => {
-              const p = JSON.parse(d);
-              console.log(p.preRelease === true ? 'true' : 'false');
-            });
-          ")
-          echo "VSIX preRelease (packaged): $VSIX_PRERELEASE_PACKAGED ($VSIX_FILE)"
+          VSIX_PRERELEASE_PACKAGED=$(unzip -p "$VSIX_FILE" extension.vsixmanifest | \
+            { grep -q 'Microsoft.VisualStudio.Code.PreRelease" Value="true"' && echo true || echo false; })
+          echo "VSIX pre-release (extension.vsixmanifest): $VSIX_PRERELEASE_PACKAGED ($VSIX_FILE)"
 
           # ── Stable slot: determine and validate stable version ────────────
           if [ "$SLOT" != "stable" ]; then
             echo "stable-version=" >> $GITHUB_OUTPUT
             if [ "$VSIX_PRERELEASE_PACKAGED" != "true" ]; then
               echo "ERROR: Pre-release marketplace slot requires a VSIX built with vsce package --pre-release."
-              echo "This artifact is missing package.json preRelease: true (often caused by Package/nightly-extensions with pre-release inputs false)."
+              echo "This artifact is missing Microsoft.VisualStudio.Code.PreRelease Value=\"true\" in extension.vsixmanifest (often caused by Package/nightly-extensions with pre-release inputs false)."
               echo "Use a nightly produced via nightly.yml (pre-release is always true) or re-run packaging with pre-release enabled."
               exit 1
             fi
