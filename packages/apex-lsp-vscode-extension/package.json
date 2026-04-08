@@ -686,6 +686,7 @@
     "bundle": "wireit",
     "vscode:bundle": "npm run bundle",
     "package": "wireit",
+    "package-prerelease": "wireit",
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",
     "test:coverage": "wireit",
@@ -756,6 +757,19 @@
     },
     "package": {
       "command": "npx vsce package --no-dependencies",
+      "dependencies": [
+        "bundle"
+      ],
+      "output": [
+        "*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore"
+      ]
+    },
+    "package-prerelease": {
+      "command": "npx vsce package --no-dependencies --pre-release",
       "dependencies": [
         "bundle"
       ],

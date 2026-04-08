@@ -46,6 +46,7 @@
     "bundle": "wireit",
     "package": "wireit",
     "package:packages": "npm run package",
+    "package:packages:prerelease": "wireit",
     "rebuild": "npm run clean && npm run compile && npm run bundle",
     "sync:vscode-version": "wireit"
   },
@@ -180,6 +181,12 @@
       "dependencies": [
         "bundle",
         "./packages/apex-lsp-vscode-extension:package"
+      ]
+    },
+    "package:packages:prerelease": {
+      "dependencies": [
+        "bundle",
+        "./packages/apex-lsp-vscode-extension:package-prerelease"
       ]
     },
     "test": {
