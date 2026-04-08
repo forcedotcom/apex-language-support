@@ -815,19 +815,6 @@
         "scripts/package-web-vsix.mjs"
       ]
     },
-    "package-prerelease": {
-      "command": "npx vsce package --no-dependencies --pre-release",
-      "dependencies": [
-        "bundle"
-      ],
-      "output": [
-        "*.vsix"
-      ],
-      "files": [
-        "package.json",
-        ".vscodeignore"
-      ]
-    },
     "test": {
       "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
       "dependencies": [
