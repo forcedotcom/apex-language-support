@@ -4,6 +4,10 @@ test/**
 scripts/**
 docs/**
 
+# Publisher / internal markdown (marketplace uses root readme.md only)
+LOCALIZATION.md
+src/**/README.md
+
 # Intermediate build output (tsc)
 out/**
 

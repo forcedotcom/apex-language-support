@@ -266,15 +266,15 @@ graph TB
 graph LR
     A[Checkout] --> B[Setup Node.js]
     B --> C[Install Dependencies]
-    C --> D[Package Packages]
-    D --> E[Web-target VSIX for CBWeb]
-    E --> F[Upload VSIX Artifacts]
+    C --> D[Package Packages — universal + web Wireit]
+    D --> E[Upload VSIX Artifacts]
 ```
 
 **Purpose:** Create VSIX files for extensions.
 
+- **CI** runs `npm run package:packages` (or `:prerelease`) only. Universal and web VSIX logic lives in **`packages/apex-lsp-vscode-extension`** Wireit (`package` / `package-web` and prerelease variants).
 - **Universal VSIX** (`vsce package`): desktop + browser entry points in one bundle — used for VS Code Marketplace / Open VSX, GitHub release assets, and Manual Publish.
-- **Web-target VSIX** (`vsce package --target web`, trimmed): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
+- **Web-target VSIX** (`vsce package --target web`, trimmed in `scripts/package-web-vsix.mjs`): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
 
 ### 6. Additional Workflows
 

@@ -687,6 +687,8 @@
     "vscode:bundle": "npm run bundle",
     "package": "wireit",
     "package-prerelease": "wireit",
+    "package-web": "wireit",
+    "package-web-prerelease": "wireit",
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",
     "test:coverage": "wireit",
@@ -756,29 +758,61 @@
       ]
     },
     "package": {
-      "command": "npx vsce package --no-dependencies",
+      "command": "node ./scripts/run-vsce-with-clean-package-json.mjs --no-dependencies",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "*.vsix"
+        "apex-language-server-extension-[0-9]*.vsix"
       ],
       "files": [
         "package.json",
-        ".vscodeignore"
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs"
       ]
     },
     "package-prerelease": {
-      "command": "npx vsce package --no-dependencies --pre-release",
+      "command": "node ./scripts/run-vsce-with-clean-package-json.mjs --no-dependencies --pre-release",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "*.vsix"
+        "apex-language-server-extension-[0-9]*.vsix"
       ],
       "files": [
         "package.json",
-        ".vscodeignore"
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs"
+      ]
+    },
+    "package-web": {
+      "command": "node ./scripts/package-web-vsix.mjs",
+      "dependencies": [
+        "package"
+      ],
+      "output": [
+        "*-web-*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs",
+        "scripts/package-web-vsix.mjs"
+      ]
+    },
+    "package-web-prerelease": {
+      "command": "node ./scripts/package-web-vsix.mjs --prerelease",
+      "dependencies": [
+        "package-prerelease"
+      ],
+      "output": [
+        "*-web-*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs",
+        "scripts/package-web-vsix.mjs"
       ]
     },
     "test": {

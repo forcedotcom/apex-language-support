@@ -80,34 +80,13 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
+      # Universal + web-target VSIXs are defined in packages/apex-lsp-vscode-extension (Wireit: package + package-web).
       - name: Package packages
         run: |
           if [ "${{ inputs.pre-release }}" = "true" ]; then
             npm run package:packages:prerelease
           else
             npm run package:packages
-          fi
-
-      - name: Package web-target VSIX for CBWeb internal marketplace
-        working-directory: packages/apex-lsp-vscode-extension
-        run: |
-          if [ "${{ inputs.pre-release }}" = "true" ]; then
-            npx vsce package --target web --no-dependencies --pre-release
-          else
-            npx vsce package --target web --no-dependencies
-          fi
-
-          WEB_VSIX=$(find . -maxdepth 1 -name "*-web-*.vsix" | head -1)
-          if [ -n "$WEB_VSIX" ]; then
-            BEFORE_SIZE=$(stat -c%s "$WEB_VSIX" 2>/dev/null || stat -f%z "$WEB_VSIX" 2>/dev/null)
-            zip -d "$WEB_VSIX" \
-              "extension/dist/extension.js" \
-              "extension/dist/server.node.js" \
-              "extension/dist/*.map" \
-              "extension/dist/webview/*.map" \
-              2>/dev/null || true
-            AFTER_SIZE=$(stat -c%s "$WEB_VSIX" 2>/dev/null || stat -f%z "$WEB_VSIX" 2>/dev/null)
-            echo "Optimized web VSIX: ${BEFORE_SIZE} -> ${AFTER_SIZE} bytes"
           fi
 
       - name: Generate MD5 checksums
