@@ -808,8 +808,7 @@ The package includes a storage interface for persisting AST, symbol tables, and 
 
 Runtime-specific implementations are provided by both web and extension packages:
 
-- `@salesforce/apex-lsp-extension`: Node.js filesystem-based implementation
-- `@salesforce/apex-lsp-web`: Browser IndexedDB-based implementation
+- Host integrations provide runtime-specific storage implementations (for example, extension/desktop hosts for filesystem-backed storage and web hosts for browser-backed storage).
 
 ### Integrating Storage in LSP Server
 
@@ -819,15 +818,13 @@ import {
   ApexStorageInterface,
 } from '@salesforce/apex-lsp-compliant-services';
 
-// For Node.js (VS Code Extension)
-import { NodeFileSystemApexStorage } from '@salesforce/apex-lsp-node';
-
-// Or for Browser
-// import { BrowserIndexedDBApexStorage } from '@salesforce/apex-lsp-web';
-
 // Initialize the storage manager with the appropriate implementation
 ApexStorageManager.getInstance({
-  storageFactory: (options) => new NodeFileSystemApexStorage(),
+  storageFactory: (options) => {
+    // Provide your host-specific ApexStorageInterface implementation here.
+    // Example: filesystem-backed in desktop extension hosts.
+    throw new Error('Provide a storage implementation for your runtime');
+  },
   storageOptions: {
     // Configuration options for the storage implementation
     storagePath: '/path/to/storage',

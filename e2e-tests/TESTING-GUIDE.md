@@ -488,8 +488,8 @@ Then use Chrome DevTools:
 ### GitHub Actions
 
 Tests run automatically on:
-- Push to `main`, `tdx26/main`
-- Pull requests to `main` and `tdx26/main`
+- Push to `main`
+- Pull requests to `main`
 - Manual workflow dispatch
 
 **Web Mode (Default):**
@@ -516,9 +516,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, tdx26/main]
+    branches: [main]
   pull_request:
-    branches: [main, tdx26/main]
+    branches: [main]
   workflow_dispatch:
     inputs:
       test_mode:

@@ -85,7 +85,7 @@ permissions:
 - **Operations**: Checkout, build, upload artifacts
 - **Permissions**: `contents: read`, `actions: read`
 
-### **Release Workflow** (`release.yml`)
+### **Release Workflow** (`nightly.yml`)
 
 - **Token**: `GITHUB_TOKEN` (automatic)
 - **Operations**: Orchestrate releases
