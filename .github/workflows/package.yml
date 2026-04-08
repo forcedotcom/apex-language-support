@@ -83,7 +83,7 @@ jobs:
       - name: Package packages
         run: |
           if [ "${{ inputs.pre-release }}" = "true" ]; then
-            npm run package:packages -- -- --pre-release
+            npm run package:packages:prerelease
           else
             npm run package:packages
           fi
