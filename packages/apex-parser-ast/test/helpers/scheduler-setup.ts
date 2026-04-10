@@ -8,7 +8,7 @@
 
 /**
  * Helper functions for scheduler setup and teardown in tests
- * This ensures all tests that use ApexSymbolManager or ApexSymbolGraph
+ * This ensures all tests that use ApexSymbolManager or ApexSymbolRefManager
  * properly initialize and shut down the scheduler.
  */
 

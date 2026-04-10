@@ -7,7 +7,7 @@
  */
 
 /**
- * Symbol Graph Pre-population Performance Tests
+ * Symbol Ref Manager Pre-population Performance Tests
  *
  * These tests measure the startup cost of pre-populating the symbol graph
  * with different namespace combinations. Results inform the decision to
@@ -61,7 +61,7 @@ interface PrePopulationResult {
 
 // TODO: Convert these Jest tests to proper Benchmark.js format
 // These tests still use Jest assertions and timeouts instead of Benchmark.js
-describe.skip('Symbol Graph Pre-population Performance', () => {
+describe.skip('Symbol Ref Manager Pre-population Performance', () => {
   let logger: LoggerInterface;
   let symbolManager: ApexSymbolManager;
   let resourceLoader: ResourceLoader;

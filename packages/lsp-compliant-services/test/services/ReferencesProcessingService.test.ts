@@ -401,6 +401,7 @@ describe('ReferencesProcessingService', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     // Reset scheduler service instance (scheduler is not initialized in tests)
     SchedulerInitializationService.resetInstance();
   });

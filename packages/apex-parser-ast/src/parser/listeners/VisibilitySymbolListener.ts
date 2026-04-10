@@ -36,6 +36,7 @@ import {
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
+import { applyModifierKeyword } from '../utils/applyModifierKeyword';
 import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 import {
   SymbolKind,
@@ -54,8 +55,13 @@ import {
   ScopeType,
   SymbolKey,
 } from '../../types/symbol';
+import { type ParameterInfo } from '../../types/UriBasedIdGenerator';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
-import { isBlockSymbol, isEnumSymbol } from '../../utils/symbolNarrowing';
+import {
+  inTypeSymbolGroup,
+  isBlockSymbol,
+  isEnumSymbol,
+} from '../../utils/symbolNarrowing';
 import {
   ClassModifierValidator,
   MethodModifierValidator,
@@ -487,6 +493,7 @@ export class VisibilitySymbolListener
         name,
         modifiers,
         returnType,
+        parameters,
       );
 
       // Check if method has a body block
@@ -594,6 +601,7 @@ export class VisibilitySymbolListener
         name,
         implicitModifiers,
         returnType,
+        parameters,
       );
 
       // Interface methods never have bodies (they end with ';' not '{...}')
@@ -704,15 +712,8 @@ export class VisibilitySymbolListener
         // Find the type with the constructor's name (most nested one if multiple)
         const matchingTypes = this.symbolTable
           .getAllSymbols()
-          .filter(
-            (s) =>
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger) &&
-              s.name === name &&
-              s.fileUri === this.currentFilePath,
-          ) as TypeSymbol[];
+          .filter((s) => s.name === name && s.fileUri === this.currentFilePath)
+          .filter(inTypeSymbolGroup);
 
         if (matchingTypes.length > 0) {
           // Prefer nested types (inner classes) - they're more specific
@@ -749,12 +750,7 @@ export class VisibilitySymbolListener
           const blockType = this.symbolTable
             .getAllSymbols()
             .find(
-              (s) =>
-                s.id === classBlock!.parentId &&
-                (s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger),
+              (s) => s.id === classBlock!.parentId && inTypeSymbolGroup(s),
             ) as TypeSymbol | undefined;
 
           if (!blockType || blockType.id !== currentType.id) {
@@ -785,6 +781,7 @@ export class VisibilitySymbolListener
         ctx,
         name,
         modifiers,
+        parameters,
       );
 
       constructorSymbol.parameters = parameters;
@@ -972,7 +969,7 @@ export class VisibilitySymbolListener
   // Modifier and annotation tracking
   enterModifier(ctx: ModifierContext): void {
     const modifierText = ctx.text.toLowerCase();
-    this.applyModifier(this.currentModifiers, modifierText);
+    applyModifierKeyword(this.currentModifiers, modifierText);
   }
 
   exitModifier(): void {
@@ -1166,13 +1163,7 @@ export class VisibilitySymbolListener
       visited.add(current.id);
 
       // If this symbol is a root (parentId === null) and is a type, return it
-      if (
-        current.parentId === null &&
-        (current.kind === SymbolKind.Class ||
-          current.kind === SymbolKind.Interface ||
-          current.kind === SymbolKind.Enum ||
-          current.kind === SymbolKind.Trigger)
-      ) {
+      if (current.parentId === null && inTypeSymbolGroup(current)) {
         return current;
       }
 
@@ -1227,13 +1218,7 @@ export class VisibilitySymbolListener
         // Use getSymbolById for O(1) lookup instead of getAllSymbols().find()
         if (owner.parentId) {
           const typeSymbol = this.symbolTable.getSymbolById(owner.parentId);
-          if (
-            typeSymbol &&
-            (typeSymbol.kind === SymbolKind.Class ||
-              typeSymbol.kind === SymbolKind.Interface ||
-              typeSymbol.kind === SymbolKind.Enum ||
-              typeSymbol.kind === SymbolKind.Trigger)
-          ) {
+          if (typeSymbol && inTypeSymbolGroup(typeSymbol)) {
             return typeSymbol as TypeSymbol;
           }
         }
@@ -1269,15 +1254,11 @@ export class VisibilitySymbolListener
       if (typeName) {
         // Find the type symbol - prefer most nested if multiple matches
         const allSymbols = this.symbolTable.getAllSymbols();
-        const matchingTypes = allSymbols.filter(
-          (s) =>
-            s.name === typeName &&
-            s.fileUri === this.currentFilePath &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger),
-        ) as TypeSymbol[];
+        const matchingTypes = allSymbols
+          .filter(
+            (s) => s.name === typeName && s.fileUri === this.currentFilePath,
+          )
+          .filter(inTypeSymbolGroup);
 
         if (matchingTypes.length > 0) {
           // Return the most nested matching type (for inner classes)
@@ -1308,15 +1289,11 @@ export class VisibilitySymbolListener
         if (typeName) {
           // Find the type symbol - prefer most nested if multiple matches
           const allSymbols = this.symbolTable.getAllSymbols();
-          const matchingTypes = allSymbols.filter(
-            (s) =>
-              s.name === typeName &&
-              s.fileUri === this.currentFilePath &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger),
-          ) as TypeSymbol[];
+          const matchingTypes = allSymbols
+            .filter(
+              (s) => s.name === typeName && s.fileUri === this.currentFilePath,
+            )
+            .filter(inTypeSymbolGroup);
 
           if (matchingTypes.length > 0) {
             // Return the most nested matching type (for inner classes)
@@ -1474,6 +1451,28 @@ export class VisibilitySymbolListener
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
     }
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds and block names
+    const cleanScopePath = scopePath.filter((part, index) => {
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
     // For inner types, use class block as parent (consistent with methods/constructors/fields)
     const parentId =
       kind === SymbolKind.Trigger
@@ -1494,7 +1493,7 @@ export class VisibilitySymbolListener
       undefined,
       namespace,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as TypeSymbol;
 
     return typeSymbol;
@@ -1505,6 +1504,7 @@ export class VisibilitySymbolListener
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
+    parameters: VariableSymbol[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -1552,6 +1552,34 @@ export class VisibilitySymbolListener
       scopePath = ['class', currentScope.name, ...baseScopePath];
     }
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds ('class', 'method', 'block', etc.) and block names
+    // Example: ['class', 'MyClass', 'block', 'MyClass'] -> ['MyClass']
+    const cleanScopePath = scopePath.filter((part, index) => {
+      // Skip symbol kind names
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      // Skip if this is a duplicate of the previous symbol name (block names often duplicate parent)
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
+    // Convert parameters to ParameterInfo for stable ID generation
+    const parameterInfo = this.convertToParameterInfo(parameters);
+
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -1559,10 +1587,10 @@ export class VisibilitySymbolListener
       this.currentFilePath,
       modifiers,
       parentId,
-      undefined,
+      { parameters: parameterInfo }, // Pass parameters as typeData
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     methodSymbol.returnType = returnType;
@@ -1575,6 +1603,7 @@ export class VisibilitySymbolListener
     ctx: ParserRuleContext,
     name: string,
     modifiers: SymbolModifiers,
+    parameters: VariableSymbol[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -1588,6 +1617,31 @@ export class VisibilitySymbolListener
     const currentScope = this.getCurrentScopeSymbol();
     const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds and block names (same as createMethodSymbol)
+    const cleanScopePath = scopePath.filter((part, index) => {
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
+    // Convert parameters to ParameterInfo for stable ID generation
+    const parameterInfo = this.convertToParameterInfo(parameters);
+
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Constructor,
@@ -1595,10 +1649,10 @@ export class VisibilitySymbolListener
       this.currentFilePath,
       modifiers,
       parentId,
-      undefined,
+      { parameters: parameterInfo }, // Pass parameters as typeData
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     constructorSymbol.returnType = createPrimitiveType('void');
@@ -1667,15 +1721,9 @@ export class VisibilitySymbolListener
       (!currentType || currentType.name !== semanticName)
     ) {
       const allSymbols = this.symbolTable.getAllSymbols();
-      const matchingTypes = allSymbols.filter(
-        (s) =>
-          s.name === semanticName &&
-          s.fileUri === fileUri &&
-          (s.kind === SymbolKind.Class ||
-            s.kind === SymbolKind.Interface ||
-            s.kind === SymbolKind.Enum ||
-            s.kind === SymbolKind.Trigger),
-      ) as TypeSymbol[];
+      const matchingTypes = allSymbols
+        .filter((s) => s.name === semanticName && s.fileUri === fileUri)
+        .filter(inTypeSymbolGroup);
 
       if (matchingTypes.length > 0) {
         // Prefer the most nested type (one with parentId, and deepest nesting)
@@ -1765,13 +1813,7 @@ export class VisibilitySymbolListener
             const parentType = this.symbolTable.getSymbolById(
               parentSymbol.parentId,
             );
-            if (
-              parentType &&
-              (parentType.kind === SymbolKind.Class ||
-                parentType.kind === SymbolKind.Interface ||
-                parentType.kind === SymbolKind.Enum ||
-                parentType.kind === SymbolKind.Trigger)
-            ) {
+            if (parentType && inTypeSymbolGroup(parentType)) {
               type = parentType as TypeSymbol;
             } else {
               break;
@@ -1779,13 +1821,7 @@ export class VisibilitySymbolListener
           } else {
             break;
           }
-        } else if (
-          parentSymbol &&
-          (parentSymbol.kind === SymbolKind.Class ||
-            parentSymbol.kind === SymbolKind.Interface ||
-            parentSymbol.kind === SymbolKind.Enum ||
-            parentSymbol.kind === SymbolKind.Trigger)
-        ) {
+        } else if (parentSymbol && inTypeSymbolGroup(parentSymbol)) {
           // Parent is a type symbol (inner class case) - find its block and continue
           // Note: This lookup filters by parentId, so we can't use getSymbolById directly
           // but this is only executed for inner classes (rare case)
@@ -1948,42 +1984,16 @@ export class VisibilitySymbolListener
     return params;
   }
 
-  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
-    switch (modifier.toLowerCase()) {
-      case 'public':
-        modifiers.visibility = SymbolVisibility.Public;
-        break;
-      case 'private':
-        modifiers.visibility = SymbolVisibility.Private;
-        break;
-      case 'protected':
-        modifiers.visibility = SymbolVisibility.Protected;
-        break;
-      case 'global':
-        modifiers.visibility = SymbolVisibility.Global;
-        break;
-      case 'static':
-        modifiers.isStatic = true;
-        break;
-      case 'final':
-        modifiers.isFinal = true;
-        break;
-      case 'abstract':
-        modifiers.isAbstract = true;
-        break;
-      case 'virtual':
-        modifiers.isVirtual = true;
-        break;
-      case 'override':
-        modifiers.isOverride = true;
-        break;
-      case 'transient':
-        modifiers.isTransient = true;
-        break;
-      case 'webservice':
-        modifiers.isWebService = true;
-        break;
-    }
+  /**
+   * Convert VariableSymbol parameters to ParameterInfo format for ID generation
+   */
+  private convertToParameterInfo(
+    parameters: VariableSymbol[],
+  ): ParameterInfo[] {
+    return parameters.map((param) => ({
+      type: param.type?.name || 'Object',
+      name: param.name,
+    }));
   }
 
   /**

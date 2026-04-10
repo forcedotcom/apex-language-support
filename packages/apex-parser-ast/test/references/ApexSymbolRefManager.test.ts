@@ -7,9 +7,9 @@
  */
 
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
-} from '../../src/symbols/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolRefManager';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
@@ -18,7 +18,12 @@ import {
   setLogLevel,
   Priority,
 } from '@salesforce/apex-lsp-shared';
-import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
+import {
+  type ApexSymbol,
+  SymbolKind,
+  SymbolTable,
+  SymbolVisibility,
+} from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
   initialize as schedulerInitialize,
@@ -28,8 +33,8 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
-describe('ApexSymbolGraph', () => {
-  let graph: ApexSymbolGraph;
+describe('ApexSymbolRefManager', () => {
+  let graph: ApexSymbolRefManager;
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
@@ -60,7 +65,7 @@ describe('ApexSymbolGraph', () => {
   });
 
   beforeEach(() => {
-    graph = new ApexSymbolGraph();
+    graph = new ApexSymbolRefManager();
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
     enableConsoleLogging();
@@ -84,7 +89,7 @@ describe('ApexSymbolGraph', () => {
     }
     // Clear the singleton instance to prevent timers from keeping the process alive
     try {
-      ApexSymbolGraph.setInstance(null as any);
+      ApexSymbolRefManager.setInstance(null as any);
     } catch (_error) {
       // Ignore errors
     }
@@ -111,6 +116,47 @@ describe('ApexSymbolGraph', () => {
 
     return result;
   };
+
+  const createTestSymbol = (
+    name: string,
+    kind: SymbolKind,
+    fileUri: string,
+    id: string,
+    parentId: string | null = null,
+  ): ApexSymbol => ({
+    id,
+    name,
+    kind,
+    fileUri,
+    parentId,
+    location: {
+      symbolRange: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 10,
+      },
+    },
+    key: {
+      prefix: kind,
+      name,
+      path: [fileUri, name],
+    },
+    modifiers: {
+      visibility: SymbolVisibility.Public,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    },
+    _isLoaded: true,
+  });
 
   // Debug test to check basic DST functionality
   it('should debug basic DST operations', async () => {
@@ -453,9 +499,9 @@ describe('ApexSymbolGraph', () => {
 
       await compileAndAddToManager(testCode, 'file:///test/TestClass.cls');
 
-      // Get symbol by ID
-      const symbolId = 'file:///test/TestClass.cls:TestClass';
-      const found = graph.getSymbol(symbolId);
+      const [classSymbol] = graph.lookupSymbolByName('TestClass');
+      expect(classSymbol).toBeDefined();
+      const found = graph.getSymbol(classSymbol!.id);
 
       expect(found).toBeDefined();
       expect(found!.location.symbolRange).toBeDefined();
@@ -500,6 +546,147 @@ describe('ApexSymbolGraph', () => {
   });
 
   describe('Reference Tracking', () => {
+    it('attributes deep block-origin references to nearest enclosing declaration', async () => {
+      await compileAndAddToManager(
+        `
+        public class Owner {
+          public void run() {
+            if (true) {
+              for (Integer i = 0; i < 1; i++) {
+                Integer x = i;
+              }
+            }
+          }
+        }
+      `,
+        'file:///test/Owner.cls',
+      );
+      await compileAndAddToManager(
+        'public class Target {}',
+        'file:///test/Target.cls',
+      );
+
+      const methodSymbol = graph.lookupSymbolByName('run')[0];
+      const blocks = graph
+        .getSymbolsInFile('file:///test/Owner.cls')
+        .filter((s) => isBlockSymbol(s));
+      const deepBlock =
+        blocks.find(
+          (block) =>
+            !!block.parentId &&
+            blocks.some((candidate) => candidate.id === block.parentId),
+        ) || blocks[blocks.length - 1];
+      const targetClass = graph.lookupSymbolByName('Target')[0];
+
+      expect(methodSymbol).toBeDefined();
+      expect(deepBlock).toBeDefined();
+      expect(targetClass).toBeDefined();
+
+      graph.addReference(deepBlock!, targetClass, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 4, startColumn: 3, endLine: 4, endColumn: 9 },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 3,
+          endLine: 4,
+          endColumn: 9,
+        },
+      });
+
+      const refs = graph.findReferencesTo(targetClass!);
+      expect(refs).toHaveLength(1);
+      expect(refs[0].symbol.name).toBe('run');
+      expect(refs[0].symbol.kind).toBe(SymbolKind.Method);
+    });
+
+    it('does not add references when source fileUri invariant is violated', () => {
+      const source = createTestSymbol(
+        'SourceClass',
+        SymbolKind.Class,
+        'file:///test/SourceClass.cls',
+        'shared#source-class',
+      );
+      const target = createTestSymbol(
+        'TargetClass',
+        SymbolKind.Class,
+        'file:///test/TargetClass.cls',
+        'shared#target-class',
+      );
+      graph.addSymbol(source, source.fileUri, new SymbolTable());
+      graph.addSymbol(target, target.fileUri, new SymbolTable());
+
+      const invalidSource = { ...source, fileUri: '' } as ApexSymbol;
+      graph.addReference(invalidSource, target, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 8 },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 8,
+        },
+      });
+
+      expect(graph.findReferencesTo(target)).toHaveLength(0);
+    });
+
+    it('keeps reverse lookups isolated when symbol IDs collide across artifacts', () => {
+      const collisionId = 'collision#symbol-id';
+      const targetA = createTestSymbol(
+        'DupTarget',
+        SymbolKind.Class,
+        'file:///artifactA/DupTarget.cls',
+        collisionId,
+      );
+      const targetB = createTestSymbol(
+        'DupTarget',
+        SymbolKind.Class,
+        'file:///artifactB/DupTarget.cls',
+        collisionId,
+      );
+      graph.addSymbol(targetA, targetA.fileUri, new SymbolTable());
+      graph.addSymbol(targetB, targetB.fileUri, new SymbolTable());
+
+      const sourceA = createTestSymbol(
+        'SourceA',
+        SymbolKind.Method,
+        'file:///artifactA/SourceA.cls',
+        'source#a',
+      );
+      const sourceB = createTestSymbol(
+        'SourceB',
+        SymbolKind.Method,
+        'file:///artifactB/SourceB.cls',
+        'source#b',
+      );
+      graph.addSymbol(sourceA, sourceA.fileUri, new SymbolTable());
+      graph.addSymbol(sourceB, sourceB.fileUri, new SymbolTable());
+
+      graph.addReference(sourceA, targetA, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 8 },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 8,
+        },
+      });
+      graph.addReference(sourceB, targetB, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 8 },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 8,
+        },
+      });
+
+      const refsToA = graph.findReferencesTo(targetA);
+      const refsToB = graph.findReferencesTo(targetB);
+      expect(refsToA).toHaveLength(1);
+      expect(refsToB).toHaveLength(1);
+      expect(refsToA[0].symbol.name).toBe('SourceA');
+      expect(refsToB[0].symbol.name).toBe('SourceB');
+    });
+
     it('should add references between symbols', async () => {
       const testCode = `
         public class MyClass {
@@ -629,11 +816,11 @@ describe('ApexSymbolGraph', () => {
 
       // Try to add reference to non-existent symbol (should be deferred)
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -757,6 +944,113 @@ describe('ApexSymbolGraph', () => {
 
       const references = graph.findReferencesTo(classSymbol);
       expect(references).toHaveLength(1); // Should only have one reference
+    });
+
+    it('should use internal separator for generated ref keys', async () => {
+      const sourceCode = `
+        public class SourceClass {
+          public void myMethod() {
+          }
+        }
+      `;
+      const targetCode = `
+        public class TargetClass {
+        }
+      `;
+      await compileAndAddToManager(sourceCode, 'file:///test/SourceClass.cls');
+      await compileAndAddToManager(targetCode, 'file:///test/TargetClass.cls');
+
+      const sourceSymbol = graph.lookupSymbolByName('myMethod')[0];
+      const targetSymbol = graph.lookupSymbolByName('TargetClass')[0];
+      expect(sourceSymbol).toBeDefined();
+      expect(targetSymbol).toBeDefined();
+
+      graph.addReference(
+        sourceSymbol,
+        targetSymbol,
+        ReferenceType.METHOD_CALL,
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 5,
+            endLine: 3,
+            endColumn: 12,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 5,
+            endLine: 3,
+            endColumn: 12,
+          },
+        },
+      );
+
+      const refKeys = Array.from(graph.getRefStore().keys());
+      expect(refKeys).toHaveLength(1);
+      expect(refKeys[0]).toContain('\x1f');
+    });
+
+    it('should keep ref key counters monotonic after single reference removal', async () => {
+      const sourceCode = `
+        public class SourceClass {
+          public void myMethod() {
+          }
+        }
+      `;
+      const targetACode = 'public class TargetA {}';
+      const targetBCode = 'public class TargetB {}';
+      const targetCCode = 'public class TargetC {}';
+      await compileAndAddToManager(sourceCode, 'file:///test/SourceClass.cls');
+      await compileAndAddToManager(targetACode, 'file:///test/TargetA.cls');
+      await compileAndAddToManager(targetBCode, 'file:///test/TargetB.cls');
+      await compileAndAddToManager(targetCCode, 'file:///test/TargetC.cls');
+
+      const sourceSymbol = graph.lookupSymbolByName('myMethod')[0];
+      const targetA = graph.lookupSymbolByName('TargetA')[0];
+      const targetB = graph.lookupSymbolByName('TargetB')[0];
+      const targetC = graph.lookupSymbolByName('TargetC')[0];
+
+      graph.addReference(sourceSymbol, targetA, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 5 },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 5,
+        },
+      });
+      graph.addReference(sourceSymbol, targetB, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 4, startColumn: 1, endLine: 4, endColumn: 5 },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 1,
+          endLine: 4,
+          endColumn: 5,
+        },
+      });
+
+      const beforeKeys = Array.from(graph.getRefStore().keys());
+      expect(beforeKeys).toHaveLength(2);
+      const removedKey = beforeKeys[0];
+      (
+        graph as unknown as {
+          removeReferenceKey: (refKey: string) => void;
+        }
+      ).removeReferenceKey(removedKey);
+
+      graph.addReference(sourceSymbol, targetC, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 5, startColumn: 1, endLine: 5, endColumn: 5 },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 1,
+          endLine: 5,
+          endColumn: 5,
+        },
+      });
+
+      const afterKeys = Array.from(graph.getRefStore().keys());
+      expect(afterKeys).toHaveLength(2);
+      expect(afterKeys).not.toContain(removedKey);
     });
   });
 
@@ -1022,37 +1316,13 @@ describe('ApexSymbolGraph', () => {
       // Check that the cycle contains both classes
       const cycle = cycles[0];
       // The cycle contains URI-based symbol IDs, so we need to check if they contain the class names
-      // Format: file:///path/to/file.cls:prefix:name or file:///path/to/file.cls:prefix:name:lineNumber
+      // Extract symbol names from stable IDs
       const cycleSymbolNames = cycle.map((symbolId) => {
-        // Extract the symbol name from the URI-based symbol ID
-        // Format examples:
-        // - "file:///test/ClassA.cls:class:ClassA" -> "ClassA"
-        // - "file:///test/ClassA.cls:class:ClassA:5" -> "ClassA"
-        // - "apexlib://ClassA:class:ClassA" -> "ClassA"
-        const parts = symbolId.split(':');
-        if (
-          symbolId.startsWith('file://') ||
-          symbolId.startsWith('apexlib://')
-        ) {
-          // For file:// or apexlib://, the name is the last part (or second-to-last if there's a line number)
-          // Format: protocol://path:prefix:name or protocol://path:prefix:name:lineNumber
-          // After splitting by ':', we have: [protocol, //path, prefix, name]
-          // or [protocol, //path, prefix, name, lineNumber]
-          // So the name is either parts[parts.length - 1]
-          // (if no line number) or parts[parts.length - 2] (if line number)
-          // But we need to check if the last part is a number (line number)
-          const lastPart = parts[parts.length - 1];
-          if (!isNaN(Number(lastPart))) {
-            // Last part is a line number, so name is second-to-last
-            return parts[parts.length - 2];
-          } else {
-            // Last part is the name
-            return lastPart;
-          }
-        } else {
-          // Fallback for old format: name:kind:path
-          return parts[0]; // Take the first part (the symbol name)
-        }
+        // Stable format: file:///path/to/file.cls#QualifiedName or ...#QualifiedName$prefix
+        const afterHash = symbolId.split('#')[1];
+        const withoutPrefix = afterHash.split('$')[0];
+        const parts = withoutPrefix.split('.');
+        return parts[0];
       });
       expect(cycleSymbolNames).toContain('ClassA');
       expect(cycleSymbolNames).toContain('ClassB');
@@ -1500,11 +1770,11 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent symbol (should be deferred)
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -1633,11 +1903,11 @@ describe('ApexSymbolGraph', () => {
 
       // Try to find references to non-existent symbol
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -1790,7 +2060,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target (should be deferred)
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -1877,7 +2147,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -1993,7 +2263,7 @@ describe('ApexSymbolGraph', () => {
       // Add multiple references to non-existent targets
       for (let i = 0; i < 5; i++) {
         const targetSymbol = {
-          id: `file:///test/TargetClass${i}.cls:TargetClass${i}`,
+          id: `file:///test/TargetClass${i}.cls#TargetClass${i}.TargetClass${i}$class`,
           name: `TargetClass${i}`,
           kind: SymbolKind.Class,
           fqn: `TargetClass${i}`,
@@ -2078,7 +2348,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2182,7 +2452,7 @@ describe('ApexSymbolGraph', () => {
       // Add many deferred references
       for (let i = 0; i < 100; i++) {
         const targetSymbol = {
-          id: `file:///test/TargetClass${i}.cls:TargetClass${i}`,
+          id: `file:///test/TargetClass${i}.cls#TargetClass${i}.TargetClass${i}$class`,
           name: `TargetClass${i}`,
           kind: SymbolKind.Class,
           fqn: `TargetClass${i}`,
@@ -2278,7 +2548,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2375,7 +2645,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2469,7 +2739,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2566,7 +2836,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2669,7 +2939,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',

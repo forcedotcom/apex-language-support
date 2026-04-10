@@ -12,6 +12,7 @@ import {
   configureWebWorkerPolyfills,
   nodeBaseConfig,
   runBuilds,
+  shouldMinifyEsbuild,
 } from '@salesforce/esbuild-presets';
 
 /**
@@ -111,7 +112,7 @@ const builds: BuildOptions[] = [
     format: 'iife',
     target: 'es2022',
     sourcemap: true,
-    minify: false,
+    minify: shouldMinifyEsbuild(),
     metafile: true,
     external: WORKER_EXTERNAL,
     keepNames: true,

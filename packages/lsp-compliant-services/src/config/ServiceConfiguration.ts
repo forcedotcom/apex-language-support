@@ -27,7 +27,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
     priority: Priority.Immediate,
-    timeout: 100,
+    timeout: 1000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },
@@ -41,7 +41,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'signatureHelp',
     priority: Priority.Immediate,
-    timeout: 100,
+    timeout: 1000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createSignatureHelpService(),
   },
@@ -55,7 +55,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'documentSymbol',
     priority: Priority.High,
-    timeout: 1000,
+    timeout: 5000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
@@ -84,7 +84,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'references',
-    priority: Priority.Normal,
+    priority: Priority.Low,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),
@@ -92,7 +92,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'diagnostics',
     priority: Priority.Normal,
-    timeout: 5000,
+    timeout: 15000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDiagnosticService(),
   },
@@ -145,5 +145,13 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     timeout: 5000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createExecuteCommandService(),
+  },
+  {
+    requestType: 'prerequisiteEnrichment',
+    priority: Priority.Background,
+    timeout: 60000,
+    maxRetries: 0,
+    serviceFactory: (deps) =>
+      deps.serviceFactory.createPrerequisiteEnrichmentService(),
   },
 ];

@@ -1,96 +1,71 @@
 name: Dependabot Automerge
 
 on:
-  pull_request:
+  pull_request_target:
     types:
-      - labeled
-      - unlabeled
+      - opened
       - synchronize
       - ready_for_review
       - reopened
-  check_suite:
-    types:
-      - completed
-  status: ~
 
-# Add explicit permissions for security
 permissions:
-  contents: write # Needed for merging
-  pull-requests: write # Needed for merging
-  actions: read
+  contents: write
+  pull-requests: write
 
 jobs:
-  auto-merge:
+  enable-automerge:
     runs-on: ubuntu-latest
-    # Only run for Dependabot PRs that are ready to merge
     if: |
-      github.actor == 'dependabot[bot]' &&
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.mergeable == true
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
     steps:
-      - name: Audit automerge attempt
-        shell: bash
-        run: |
-          # Create audit log entry for automerge attempt
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          ACTOR="${{ github.actor }}"
-          REPO="${{ github.repository }}"
-          RUN_ID="${{ github.run_id }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+      - name: Enable auto-merge for Dependabot PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pullRequest = context.payload.pull_request;
+            const title = context.payload.pull_request.title ?? "";
+            const pull_number = context.payload.pull_request.number;
+            const headRepoFullName = pullRequest.head?.repo?.full_name ?? "";
+            const baseRepoFullName = pullRequest.base?.repo?.full_name ?? "";
 
-          # Log audit information to GitHub Actions output for persistence
-          echo "🔍 AUDIT: Dependabot automerge attempt logged - $TIMESTAMP"
-          echo "  Actor: $ACTOR"
-          echo "  Repository: $REPO"
-          echo "  Run ID: $RUN_ID"
-          echo "  PR Number: $PR_NUMBER"
-          echo "  PR Title: $PR_TITLE"
-          echo "  Source Branch: $BRANCH"
-          echo "  Target Branch: $BASE_BRANCH"
-          echo "  Is Draft: ${{ github.event.pull_request.draft }}"
-          echo "  Is Mergeable: ${{ github.event.pull_request.mergeable }}"
+            if (headRepoFullName !== baseRepoFullName) {
+              core.info(
+                `Skipping auto-merge for PR #${pull_number}: fork-origin PR detected (${headRepoFullName} -> ${baseRepoFullName}).`
+              );
+              return;
+            }
 
-      - name: Checkout
-        uses: actions/checkout@v6
+            // Dependabot titles generally look like:
+            // "Bump <dep> from <old> to <new>".
+            // Skip auto-merge if this is a major version bump.
+            const bumpMatch = title.match(/ from v?(\d+)(?:\.[\w.-]+)? to v?(\d+)(?:\.[\w.-]+)?$/i);
+            if (bumpMatch) {
+              const fromMajor = Number.parseInt(bumpMatch[1], 10);
+              const toMajor = Number.parseInt(bumpMatch[2], 10);
+              if (Number.isFinite(fromMajor) && Number.isFinite(toMajor) && toMajor > fromMajor) {
+                core.info(`Skipping auto-merge for PR #${pull_number}: major version bump detected in title "${title}".`);
+                return;
+              }
+            }
 
-      - name: Automerge
-        id: automerge
-        uses: pascalgn/automerge-action@v0.15.6
-        env:
-          GITHUB_TOKEN: '${{ secrets.IDEE_GH_TOKEN }}'
-          MERGE_METHOD: 'squash'
-          MERGE_RETRIES: '3'
-          MERGE_RETRY_SLEEP: '30000'
-          MERGE_REQUIRED_APPROVALS: '0'
-          MERGE_DELETE_BRANCH: 'true'
-          MERGE_COMMIT_MESSAGE: 'chore(deps): automerge dependabot PR #${{ github.event.pull_request.number }}'
-          MERGE_REQUIRED_STATUS_CHECKS: 'CI Completed'
-
-      - name: Audit automerge result
-        shell: bash
-        run: |
-          # Log the result of the automerge attempt
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          ACTOR="${{ github.actor }}"
-          REPO="${{ github.repository }}"
-          RUN_ID="${{ github.run_id }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          AUTOMERGE_EXIT_CODE="${{ steps.automerge.outcome }}"
-
-          if [ "$AUTOMERGE_EXIT_CODE" = "success" ]; then
-            echo "✅ AUDIT: Dependabot automerge successful - $TIMESTAMP"
-            echo "  Actor: $ACTOR"
-            echo "  Repository: $REPO"
-            echo "  Run ID: $RUN_ID"
-            echo "  PR Number: $PR_NUMBER"
-          else
-            echo "❌ AUDIT: Dependabot automerge failed - $TIMESTAMP"
-            echo "  Actor: $ACTOR"
-            echo "  Repository: $REPO"
-            echo "  Run ID: $RUN_ID"
-            echo "  PR Number: $PR_NUMBER"
-            echo "  Exit Code: $AUTOMERGE_EXIT_CODE"
-          fi
+            await github.graphql(`
+              mutation($pullRequestId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $pullRequestId,
+                  mergeMethod: SQUASH
+                }) {
+                  pullRequest {
+                    number
+                    autoMergeRequest {
+                      enabledAt
+                    }
+                  }
+                }
+              }
+            `, {
+              pullRequestId: context.payload.pull_request.node_id
+            });
+            core.info(`Enabled auto-merge for PR #${pull_number}`);

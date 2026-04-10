@@ -49,6 +49,7 @@ describe('HoverProcessingService Integration Tests', () => {
   let stdApexDocument: TextDocument;
   let complexTestClassDocument: TextDocument;
   let resourceLoader: ResourceLoader;
+  let __sharedSetupComplete = false;
 
   beforeAll(async () => {
     // Enable console logging for debugging
@@ -75,6 +76,9 @@ describe('HoverProcessingService Integration Tests', () => {
   });
 
   beforeEach(async () => {
+    if (__sharedSetupComplete) {
+      return;
+    }
     // Ensure ResourceLoader singleton is properly initialized with standard library
     // ApexSymbolManager constructor will call ResourceLoader.getInstance(), which
     // should return the singleton instance initialized in beforeAll
@@ -331,6 +335,7 @@ describe('HoverProcessingService Integration Tests', () => {
           `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
       );
     });
+    __sharedSetupComplete = true;
   });
 
   afterEach(() => {

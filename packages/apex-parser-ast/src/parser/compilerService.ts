@@ -502,10 +502,23 @@ export class CompilerService {
   private createSymbolProvider(): any {
     return {
       find: (referencingType: any, fullName: string) => null,
-      findBuiltInType: (name: string) => null,
+      findScalarKeywordType: (_name: string) => null,
       findSObjectType: (name: string) => null,
       findUserType: (name: string, namespace?: string) => null,
       findExternalType: (name: string, packageName: string) => null,
+      findInDefaultNamespaceOrder: (name: string, referencingType: any) => null,
+      findInImplicitFileNamespaceSlot: (
+        name: string,
+        slot: number,
+        referencingType: any,
+      ) => null,
+      findInExplicitNamespace: (
+        namespaceName: string,
+        typeName: string,
+        referencingType: any,
+      ) => null,
+      isBuiltInNamespace: (namespaceName: string) => false,
+      isSObjectContainerNamespace: (namespaceName: string) => false,
     };
   }
 

@@ -9,7 +9,6 @@
 import { HoverParams, Hover } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { dispatch } from '../utils/handlerUtil';
 import { IHoverProcessor } from '../services/HoverProcessingService';
 import { LSPQueueManager } from '../queue';
 
@@ -36,20 +35,39 @@ export class HoverHandler {
       () => `Processing hover request: ${params.textDocument.uri}`,
     );
     try {
-      // Use the LSP queue system for immediate processing
-      return await this.queueManager.submitHoverRequest(params);
+      // Use the LSP queue system for hover; diagnostics instrumentation will
+      // identify why fiber handoff can stall under load.
+      const result = await this.queueManager.submitHoverRequest(params);
+      return result;
     } catch (error) {
+      const errorText = String(error);
+      const isTimeout =
+        errorText.includes('TimeoutException') ||
+        errorText.includes('timed out');
       this.logger.error(
         () =>
           `Error processing hover request for ${params.textDocument.uri}: ${error}`,
       );
 
-      // Fallback to direct processing if queue fails
-      this.logger.debug(() => 'Falling back to direct hover processing');
-      return await dispatch(
-        this.hoverProcessor.processHover(params),
-        'Error processing hover request',
-      );
+      // When the queued hover times out, avoid re-running hover directly.
+      // A direct fallback can trigger a second heavy resolution pass and exceed UX budgets.
+      if (isTimeout) {
+        void this.hoverProcessor
+          .scheduleTimeoutFollowup(params)
+          .catch((followupError) => {
+            this.logger.debug(
+              () =>
+                `Failed to schedule hover timeout follow-up for ${params.textDocument.uri}: ${followupError}`,
+            );
+          });
+        this.logger.debug(
+          () =>
+            `Skipping direct hover fallback after timeout for ${params.textDocument.uri}`,
+        );
+        return null;
+      }
+
+      return null;
     }
   }
 

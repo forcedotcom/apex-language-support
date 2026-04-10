@@ -12,6 +12,7 @@
  */
 
 import { ResourceLoader } from '../src/utils/resourceLoader';
+import { resetResourceLoader } from './helpers/testHelpers';
 import {
   enableConsoleLogging,
   setLogLevel,
@@ -25,6 +26,10 @@ describe('Protobuf Cache Diagnostic', () => {
     enableConsoleLogging();
     setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     logger = getLogger();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   it('should diagnose protobuf cache lookup for standard library classes', async () => {

@@ -421,6 +421,7 @@ export const StaticContextValidator: Validator = {
               (r) =>
                 (r.context === ReferenceContext.VARIABLE_USAGE ||
                   r.context === ReferenceContext.FIELD_ACCESS ||
+                  r.name?.toLowerCase() === 'this' ||
                   r.context === ReferenceContext.CHAIN_STEP) &&
                 callLine(r) === line,
             );
@@ -472,11 +473,13 @@ export const StaticContextValidator: Validator = {
           !isStaticContext &&
           methodIsStatic &&
           !receiverIsStatic &&
-          ref.chainNodes &&
-          ref.chainNodes.length > 0
+          finalHasInstanceReceiver
         ) {
-          const methodName =
-            ref.chainNodes[ref.chainNodes.length - 1]?.name ?? ref.name;
+          const lastChainNode =
+            ref.chainNodes && ref.chainNodes.length > 0
+              ? ref.chainNodes[ref.chainNodes.length - 1]
+              : undefined;
+          const methodName = lastChainNode?.name ?? ref.name;
           errors.push({
             message: localizeTyped(
               ErrorCodes.INVALID_STATIC_METHOD_CONTEXT,

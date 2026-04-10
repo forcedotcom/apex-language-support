@@ -215,9 +215,43 @@ export interface ResolutionRule {
  */
 export interface SymbolProvider {
   find(referencingType: ApexSymbol, fullName: string): ApexSymbol | null;
-  findBuiltInType(name: string): ApexSymbol | null;
+  /** Scalar keywords void/null (synthetic apexlib URIs); not wrapper types like String */
+  findScalarKeywordType(name: string): ApexSymbol | null;
   findSObjectType(name: string): ApexSymbol | null;
   findExternalType(name: string, packageName: string): ApexSymbol | null;
+  /**
+   * Resolve an unqualified name using provider-defined default namespace order.
+   * Rules delegate ordering details (e.g. System/Schema) to the provider.
+   */
+  findInDefaultNamespaceOrder(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Resolve an unqualified name in provider-defined implicit file namespaces by slot.
+   * Slot 0 is highest precedence, slot 1 is next, etc.
+   */
+  findInImplicitFileNamespaceSlot(
+    name: string,
+    slot: number,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Resolve a type by explicit namespace and unqualified type name.
+   */
+  findInExplicitNamespace(
+    namespaceName: string,
+    typeName: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+  /**
+   * Whether the namespace token is a known built-in namespace alias.
+   */
+  isBuiltInNamespace(namespaceName: string): boolean;
+  /**
+   * Whether the namespace token should be treated as an SObject container namespace.
+   */
+  isSObjectContainerNamespace(namespaceName: string): boolean;
 }
 
 /**
@@ -245,11 +279,8 @@ export interface NamespaceResolutionResult {
 }
 
 /**
- * Built-in type tables
- * Maps to Java TypeInfoTables
- * Note: Wrapper types, collection types (List, Set, Map), System types,
- * and Schema types are now resolved via ResourceLoader
- * This interface only includes types that aren't real classes (scalar, sObject)
+ * Scalar keyword types (void, null) not backed by real .cls files.
+ * Wrapper types, collections, System/Schema types resolve via ResourceLoader.
  */
 export interface BuiltInTypeTables {
   readonly scalarTypes: Map<string, ApexSymbol>;

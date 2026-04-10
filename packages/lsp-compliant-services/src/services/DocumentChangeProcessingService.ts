@@ -10,11 +10,8 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { ApexStorageManager } from '../storage/ApexStorageManager';
-import {
-  ApexSymbolProcessingManager,
-  ISymbolManager,
-} from '@salesforce/apex-lsp-parser-ast';
+import { DocumentProcessingService } from './DocumentProcessingService';
+import { DocumentSymbolResultStore } from './DocumentSymbolResultStore';
 
 /**
  * Interface for document change processing functionality
@@ -28,21 +25,31 @@ export interface IDocumentChangeProcessor {
 }
 
 /**
- * Service for processing document change events
+ * Service for processing document change events.
+ *
+ * Delegates to the same shared tier-1 pipeline used by didOpen
+ * (parse with VisibilitySymbolListener, setDocument, addSymbolTable, cache merge).
+ *
+ * The DocumentChangeBatcher debounces rapid edits per-URI before calling this
+ * service, so each invocation processes the latest document version.
  */
 export class DocumentChangeProcessingService implements IDocumentChangeProcessor {
   private readonly logger: LoggerInterface;
-  private readonly symbolManager: ISymbolManager;
+  private readonly documentProcessingService: DocumentProcessingService;
 
-  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
+  constructor(
+    logger: LoggerInterface,
+    documentProcessingService?: DocumentProcessingService,
+  ) {
     this.logger = logger;
-    this.symbolManager =
-      symbolManager ||
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.documentProcessingService =
+      documentProcessingService ?? new DocumentProcessingService(logger);
   }
 
   /**
    * Process a document change event (LSP notification - fire-and-forget)
+   * Delegates to the shared tier-1 pipeline (same as didOpen):
+   * parse → setDocument → addSymbolTable(version) → cache merge
    * @param event The document change event
    */
   public processDocumentChange(
@@ -53,26 +60,25 @@ export class DocumentChangeProcessingService implements IDocumentChangeProcessor
         `Processing document change for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    // Start async processing but don't return a promise
-    (async () => {
-      try {
-        // Get the storage manager instance
-        const storageManager = ApexStorageManager.getInstance();
-        const storage = storageManager.getStorage();
+    // documentSymbol cache is URI-keyed; invalidate eagerly on any content/version change.
+    DocumentSymbolResultStore.getInstance().invalidate(event.document.uri);
 
-        // Update the document in storage
-        await storage.setDocument(event.document.uri, event.document);
-
+    // Delegate to the shared tier-1 pipeline used by didOpen.
+    // processDocumentOpenInternal handles: storage update, compile with
+    // VisibilitySymbolListener, addSymbolTable(version), cache merge.
+    this.documentProcessingService
+      .processDocumentOpenInternal(event)
+      .then(() => {
         this.logger.debug(
           () =>
             `Document change processed: ${event.document.uri} (version: ${event.document.version})`,
         );
-      } catch (error) {
+      })
+      .catch((error) => {
         this.logger.error(
           () =>
             `Error processing document change for ${event.document.uri}: ${error}`,
         );
-      }
-    })();
+      });
   }
 }

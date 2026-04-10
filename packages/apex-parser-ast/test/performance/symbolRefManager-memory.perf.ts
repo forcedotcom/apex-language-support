@@ -7,7 +7,7 @@
  */
 
 /**
- * ApexSymbolGraph Memory and Performance Benchmarks
+ * ApexSymbolRefManager Memory and Performance Benchmarks
  *
  * These benchmarks measure graph operations and memory usage:
  * 1. Symbol addition performance
@@ -19,14 +19,14 @@
  *
  * Purpose: Track graph performance and memory efficiency over time
  *
- * Moved from: test/references/ApexSymbolGraph.performance.test.ts
+ * Moved from: test/references/ApexSymbolRefManager.performance.test.ts
  */
 
 import Benchmark from 'benchmark';
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
-} from '../../src/symbols/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolRefManager';
 import { generateSymbolId } from '../../src/types/UriBasedIdGenerator';
 import {
   ApexSymbol,
@@ -40,8 +40,8 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
-describe('ApexSymbolGraph Performance Benchmarks', () => {
-  let graph: ApexSymbolGraph;
+describe('ApexSymbolRefManager Performance Benchmarks', () => {
+  let graph: ApexSymbolRefManager;
 
   const isCI = process.env.CI === 'true';
   const isQuick = process.env.QUICK === 'true';
@@ -75,7 +75,7 @@ describe('ApexSymbolGraph Performance Benchmarks', () => {
   });
 
   beforeEach(() => {
-    graph = new ApexSymbolGraph();
+    graph = new ApexSymbolRefManager();
   });
 
   afterEach(() => {
@@ -145,7 +145,7 @@ describe('ApexSymbolGraph Performance Benchmarks', () => {
     let counter = 0;
 
     suite
-      .add('ApexSymbolGraph.addSymbol (1000 symbols)', {
+      .add('ApexSymbolRefManager.addSymbol (1000 symbols)', {
         defer: true,
         ...benchmarkSettings,
         fn: (deferred: any) => {
@@ -206,7 +206,7 @@ describe('ApexSymbolGraph Performance Benchmarks', () => {
     const results: Record<string, Benchmark.Target> = {};
 
     suite
-      .add('ApexSymbolGraph.lookupSymbolByName (10K symbols)', {
+      .add('ApexSymbolRefManager.lookupSymbolByName (10K symbols)', {
         defer: true,
         ...benchmarkSettings,
         fn: (deferred: any) => {
@@ -287,7 +287,7 @@ describe('ApexSymbolGraph Performance Benchmarks', () => {
     const results: Record<string, Benchmark.Target> = {};
 
     suite
-      .add('ApexSymbolGraph.findReferences (1K symbols, 5K refs)', {
+      .add('ApexSymbolRefManager.findReferences (1K symbols, 5K refs)', {
         defer: true,
         ...benchmarkSettings,
         fn: (deferred: any) => {
@@ -377,7 +377,7 @@ describe('ApexSymbolGraph Performance Benchmarks', () => {
     const results: Record<string, Benchmark.Target> = {};
 
     suite
-      .add('ApexSymbolGraph.detectCircularDependencies (1K symbols)', {
+      .add('ApexSymbolRefManager.detectCircularDependencies (1K symbols)', {
         defer: true,
         ...benchmarkSettings,
         fn: (deferred: any) => {

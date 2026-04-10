@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
@@ -18,8 +18,8 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
-describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
-  let symbolGraph: ApexSymbolGraph;
+describe('ApexSymbolRefManager FQN Bug Fix Tests', () => {
+  let symbolRefManager: ApexSymbolRefManager;
   let compilerService: CompilerService;
 
   beforeAll(async () => {
@@ -49,14 +49,14 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
+    symbolRefManager = new ApexSymbolRefManager();
     compilerService = new CompilerService();
     enableConsoleLogging();
     setLogLevel('error');
   });
 
   afterEach(() => {
-    symbolGraph.clear();
+    symbolRefManager.clear();
   });
 
   describe('FQN Calculation and Storage', () => {
@@ -88,7 +88,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'file:///TestClass.cls',
+          symbolTable,
+        );
       }
 
       // Find the class symbol (filter by kind - blocks can share the name)
@@ -100,7 +104,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       expect(['testclass', 'testclass.testclass']).toContain(classSymbol?.fqn);
 
       // Verify FQN can be looked up (case-insensitive)
-      const foundSymbol = symbolGraph.findSymbolByFQN('testclass');
+      const foundSymbol = symbolRefManager.findSymbolByFQN('testclass');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
     });
@@ -133,7 +137,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'file:///TestClass.cls',
+          symbolTable,
+        );
       }
 
       // Find the method symbol
@@ -147,7 +155,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Verify FQN can be looked up using the actual FQN (case-insensitive)
       const actualFQN = methodSymbol?.fqn;
       expect(actualFQN).toBeDefined();
-      const foundSymbol = symbolGraph.findSymbolByFQN(actualFQN!);
+      const foundSymbol = symbolRefManager.findSymbolByFQN(actualFQN!);
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('myMethod');
     });
@@ -182,7 +190,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'file:///OuterClass.cls', symbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'file:///OuterClass.cls',
+          symbolTable,
+        );
       }
 
       // Find the inner class and method symbols
@@ -202,13 +214,13 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Verify FQNs can be looked up using the actual FQNs (case-insensitive)
       const innerClassFQN = innerClass?.fqn;
       expect(innerClassFQN).toBeDefined();
-      const foundInnerClass = symbolGraph.findSymbolByFQN(innerClassFQN!);
+      const foundInnerClass = symbolRefManager.findSymbolByFQN(innerClassFQN!);
       expect(foundInnerClass).toBeTruthy();
       expect(foundInnerClass?.name).toBe('InnerClass');
 
       const methodFQN = methodSymbol?.fqn;
       expect(methodFQN).toBeDefined();
-      const foundMethod = symbolGraph.findSymbolByFQN(methodFQN!);
+      const foundMethod = symbolRefManager.findSymbolByFQN(methodFQN!);
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('innerMethod');
     });
@@ -244,7 +256,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'file:///TestClass.cls',
+          symbolTable,
+        );
       }
 
       // Find the class symbol (filter by kind)
@@ -261,7 +277,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Verify FQN can be looked up using actual FQN
       const fqnToLookup = classSymbol?.fqn;
       expect(fqnToLookup).toBeDefined();
-      const foundSymbol = symbolGraph.findSymbolByFQN(fqnToLookup!);
+      const foundSymbol = symbolRefManager.findSymbolByFQN(fqnToLookup!);
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
     });
@@ -296,7 +312,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'file:///TestClass.cls',
+          symbolTable,
+        );
       }
 
       // Find symbols first to get their actual FQNs (which include block names)
@@ -313,13 +333,13 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Verify both FQNs can be looked up using the actual FQNs
       const classFQN = classSymbol?.fqn;
       expect(classFQN).toBeDefined();
-      const foundClass = symbolGraph.findSymbolByFQN(classFQN!);
+      const foundClass = symbolRefManager.findSymbolByFQN(classFQN!);
       expect(foundClass).toBeTruthy();
       expect(foundClass?.name).toBe('TestClass');
 
       const methodFQN = methodSymbol?.fqn;
       expect(methodFQN).toBeDefined();
-      const foundMethod = symbolGraph.findSymbolByFQN(methodFQN!);
+      const foundMethod = symbolRefManager.findSymbolByFQN(methodFQN!);
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('myMethod');
     });

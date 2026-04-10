@@ -190,6 +190,10 @@ describe('didOpen Performance Benchmarks', () => {
     await cleanupTestResources();
   });
 
+  afterAll(async () => {
+    await cleanupTestResources();
+  });
+
   // Complexity Scaling Benchmarks
   fixtures.forEach((fixture) => {
     it(`benchmarks ${fixture.complexity} complexity (${fixture.name})`, (done) => {

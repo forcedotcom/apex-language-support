@@ -317,16 +317,16 @@ describe('ApexKeywords', () => {
 
   describe('Integration - Short-Circuit Behavior', () => {
     let symbolManager: any;
-    let symbolGraph: any;
+    let symbolRefManager: any;
 
     beforeAll(async () => {
       // Dynamic imports to avoid circular dependencies
       const { ApexSymbolManager } =
         await import('../../src/symbols/ApexSymbolManager');
-      const { ApexSymbolGraph } =
-        await import('../../src/symbols/ApexSymbolGraph');
+      const { ApexSymbolRefManager: ApexSymbolRefManager } =
+        await import('../../src/symbols/ApexSymbolRefManager');
       symbolManager = new ApexSymbolManager();
-      symbolGraph = new ApexSymbolGraph();
+      symbolRefManager = new ApexSymbolRefManager();
     });
 
     describe('findSymbolByName short-circuit', () => {
@@ -338,10 +338,10 @@ describe('ApexKeywords', () => {
         });
       });
 
-      it('should return empty array for keywords in ApexSymbolGraph', () => {
+      it('should return empty array for keywords in ApexSymbolRefManager', () => {
         const keywords = ['if', 'for', 'while', 'class', 'try', 'catch'];
         keywords.forEach((keyword) => {
-          const result = symbolGraph.findSymbolByName(keyword);
+          const result = symbolRefManager.findSymbolByName(keyword);
           expect(result).toEqual([]);
         });
       });
@@ -362,7 +362,7 @@ describe('ApexKeywords', () => {
       it('should return null for keywords', () => {
         const keywords = ['if', 'for', 'while', 'class', 'try'];
         keywords.forEach((keyword) => {
-          const result = symbolGraph.lookupSymbolWithContext(keyword);
+          const result = symbolRefManager.lookupSymbolWithContext(keyword);
           expect(result).toBeNull();
         });
       });
@@ -381,7 +381,7 @@ describe('ApexKeywords', () => {
         builtinTypes.forEach((typeName) => {
           // These should not throw and should not be immediately null due to keyword check
           // (they may return null if not in symbol graph, but not because of keyword short-circuit)
-          const result = symbolGraph.lookupSymbolWithContext(typeName);
+          const result = symbolRefManager.lookupSymbolWithContext(typeName);
           // Result may be null if not in graph, but it shouldn't be short-circuited as keyword
           expect(result === null || typeof result === 'object').toBe(true);
         });

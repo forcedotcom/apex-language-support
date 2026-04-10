@@ -7,7 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import { ApexSymbolGraph, ReferenceType } from '../symbols/ApexSymbolGraph';
+import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
+import {
+  ApexSymbolRefManager,
+  ReferenceType,
+} from '../symbols/ApexSymbolRefManager';
 import {
   GraphNode,
   GraphEdge,
@@ -24,8 +28,43 @@ import {
 /**
  * Helper function to get the graph instance via singleton
  */
-function getGraph(): ApexSymbolGraph {
-  return ApexSymbolGraph.getInstance();
+function getGraph(): ApexSymbolRefManager {
+  return ApexSymbolRefManager.getInstance();
+}
+
+/**
+ * Helper function to create a GraphNode from a symbol with reference count
+ */
+function createGraphNode(
+  symbol: ApexSymbol,
+  reverseIndex: CaseInsensitiveHashMap<Set<string>>,
+): GraphNode {
+  const refKeys = reverseIndex.get(symbol.id);
+  const referenceCount = refKeys ? refKeys.size : 0;
+
+  return {
+    id: symbol.id,
+    name: symbol.name,
+    kind: symbol.kind,
+    fileUri: symbol.fileUri,
+    fqn: symbol.fqn,
+    location: symbol.location,
+    modifiers: symbol.modifiers,
+    parentId: symbol.parentId,
+    namespace:
+      typeof symbol.namespace === 'string'
+        ? symbol.namespace
+        : symbol.namespace?.toString() || null,
+    annotations: symbol.annotations?.map((ann) => ({
+      name: ann.name,
+      parameters: ann.parameters?.map((param) => ({
+        name: param.name || '',
+        value: param.value,
+      })),
+    })),
+    nodeId: 0, // Deprecated: no longer used
+    referenceCount: referenceCount,
+  };
 }
 
 /**
@@ -49,20 +88,20 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
     // Also track by name+kind+fileUri+location to catch duplicates with different IDs
     const seenByKey = new Map<string, GraphNode>();
 
-    const symbolIds = graph.getSymbolIds();
-    const symbolToVertex = graph.getSymbolToVertex();
+    const symbolIds = Array.from(graph.getSymbolIds());
+    const reverseIndex = graph.getReverseIndex();
     const fileToSymbolTable = graph.getFileToSymbolTable();
     const logger = graph.getLoggerInstance();
 
     // Diagnostic tracking
-    const totalSymbolIds = symbolIds.size;
+    const totalSymbolIds = symbolIds.length;
     let successfulRetrievals = 0;
     let failedRetrievals = 0;
     const failedUris = new Set<string>();
     const userFileUris = new Set<string>();
     const apexLibUris = new Set<string>();
 
-    const symbolIdsArray = Array.from(symbolIds);
+    const symbolIdsArray = symbolIds;
     const batchSize = 100;
 
     // Iterate through all symbol IDs with yielding
@@ -113,35 +152,8 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
           }
         }
 
-        // Get graph-specific properties from ReferenceNode
-        const vertex = symbolToVertex.get(symbol.id);
-        const nodeId = vertex?.value?.nodeId || 0;
-        const referenceCount = vertex?.value?.referenceCount || 0;
-
-        // Create proper GraphNode structure
-        const graphNode: GraphNode = {
-          id: symbol.id,
-          name: symbol.name,
-          kind: symbol.kind,
-          fileUri: symbol.fileUri,
-          fqn: symbol.fqn,
-          location: symbol.location,
-          modifiers: symbol.modifiers,
-          parentId: symbol.parentId,
-          namespace:
-            typeof symbol.namespace === 'string'
-              ? symbol.namespace
-              : symbol.namespace?.toString() || null,
-          annotations: symbol.annotations?.map((ann) => ({
-            name: ann.name,
-            parameters: ann.parameters?.map((param) => ({
-              name: param.name || '',
-              value: param.value,
-            })),
-          })),
-          nodeId: nodeId,
-          referenceCount: referenceCount,
-        };
+        // Create GraphNode with reference count
+        const graphNode = createGraphNode(symbol, reverseIndex);
 
         seenNodeIds.set(symbol.id, graphNode);
         seenByKey.set(semanticKey, graphNode);
@@ -242,8 +254,7 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
     const edges: GraphEdge[] = [];
 
     const fileToSymbolTable = graph.getFileToSymbolTable();
-    const symbolToVertex = graph.getSymbolToVertex();
-    const referenceGraph = graph.getReferenceGraph();
+    const refStore = graph.getRefStore();
 
     // First, add hierarchical relationships from SymbolTable structure
     const fileEntries = Array.from(fileToSymbolTable.entries());
@@ -268,90 +279,83 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
       edgeMap.set(edgeKey, edge);
     }
 
-    // Then, add reference relationships from the graph
+    // Then, add reference relationships from the refStore
     // Only add reference edges that don't conflict with hierarchical "contains" relationships
-    const vertexEntries = Array.from(symbolToVertex.entries());
-    const vertexBatchSize = 100;
+    const refEntries = Array.from(refStore.entries());
+    const refBatchSize = 100;
 
-    for (let i = 0; i < vertexEntries.length; i++) {
-      const [_symbolId, vertex] = vertexEntries[i];
-      if (!vertex) continue;
+    for (let i = 0; i < refEntries.length; i++) {
+      const [_refKey, entry] = refEntries[i];
+      if (!entry) continue;
 
-      // Get outgoing edges for this vertex
-      const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
+      const edgeKey = `${entry.sourceSymbolId}-${entry.targetSymbolId}`;
+      const existingEdge = edgeMap.get(edgeKey);
 
-      for (const edge of outgoingEdges) {
-        if (!edge.value) continue;
-
-        const edgeKey = `${edge.src}-${edge.dest}`;
-        const existingEdge = edgeMap.get(edgeKey);
-
-        // If a hierarchical "contains" edge already exists, prefer it over reference edges
-        // Hierarchical edges use IMPORT_REFERENCE (9) for contains relationships
-        // For outer-inner class relationships, "contains" is more semantically correct than "calls"
+      // If a hierarchical "contains" edge already exists, prefer it over reference edges
+      // Hierarchical edges use IMPORT_REFERENCE (9) for contains relationships
+      // For outer-inner class relationships, "contains" is more semantically correct than "calls"
+      if (
+        existingEdge &&
+        existingEdge.type === ReferenceType.IMPORT_REFERENCE
+      ) {
+        // Check if this is a class-to-class relationship that should be "contains"
+        const sourceSymbol = graph.getSymbol(entry.sourceSymbolId);
+        const targetSymbol = graph.getSymbol(entry.targetSymbolId);
         if (
-          existingEdge &&
-          existingEdge.type === ReferenceType.IMPORT_REFERENCE
+          sourceSymbol &&
+          targetSymbol &&
+          (sourceSymbol.kind === 'class' ||
+            sourceSymbol.kind === 'interface' ||
+            sourceSymbol.kind === 'enum') &&
+          (targetSymbol.kind === 'class' ||
+            targetSymbol.kind === 'interface' ||
+            targetSymbol.kind === 'enum') &&
+          entry.referenceType === ReferenceType.CONSTRUCTOR_CALL
         ) {
-          // Check if this is a class-to-class relationship that should be "contains"
-          const sourceSymbol = graph.getSymbol(String(edge.src));
-          const targetSymbol = graph.getSymbol(String(edge.dest));
-          if (
-            sourceSymbol &&
-            targetSymbol &&
-            (sourceSymbol.kind === 'class' ||
-              sourceSymbol.kind === 'interface' ||
-              sourceSymbol.kind === 'enum') &&
-            (targetSymbol.kind === 'class' ||
-              targetSymbol.kind === 'interface' ||
-              targetSymbol.kind === 'enum') &&
-            edge.value.type === ReferenceType.CONSTRUCTOR_CALL
-          ) {
-            // Skip CONSTRUCTOR_CALL edges between classes when "contains" edge exists
-            // This represents outer-inner class relationship, not a constructor call
-            continue;
-          }
-        }
-
-        const newEdge: GraphEdge = {
-          id: edgeKey,
-          source: String(edge.src),
-          target: String(edge.dest),
-          type: edge.value.type,
-          sourceFileUri: edge.value.sourceFileUri,
-          targetFileUri: edge.value.targetFileUri,
-          context: edge.value.context
-            ? {
-                methodName: edge.value.context.methodName,
-                parameterIndex: edge.value.context.parameterIndex
-                  ? Number(edge.value.context.parameterIndex)
-                  : undefined,
-                isStatic: edge.value.context.isStatic,
-                namespace: edge.value.context.namespace,
-              }
-            : undefined,
-        };
-
-        // Skip if an edge with the same source-target and type already exists (prevents duplicates)
-        if (existingEdge && existingEdge.type === newEdge.type) {
+          // Skip CONSTRUCTOR_CALL edges between classes when "contains" edge exists
+          // This represents outer-inner class relationship, not a constructor call
           continue;
-        }
-
-        // Only add reference edge if:
-        // 1. No existing edge, OR
-        // 2. Existing edge is not a hierarchical edge (type 9) and types differ
-        // Never overwrite hierarchical "contains" edges with reference edges
-        if (
-          !existingEdge ||
-          (existingEdge.type !== ReferenceType.IMPORT_REFERENCE &&
-            existingEdge.type !== newEdge.type)
-        ) {
-          edgeMap.set(edgeKey, newEdge);
         }
       }
 
-      // Yield after processing each batch of vertices
-      if ((i + 1) % vertexBatchSize === 0) {
+      const newEdge: GraphEdge = {
+        id: edgeKey,
+        source: entry.sourceSymbolId,
+        target: entry.targetSymbolId,
+        type: entry.referenceType,
+        sourceFileUri: entry.sourceFileUri,
+        targetFileUri: entry.targetFileUri,
+        context: entry.context
+          ? {
+              methodName: entry.context.methodName,
+              parameterIndex: entry.context.parameterIndex
+                ? Number(entry.context.parameterIndex)
+                : undefined,
+              isStatic: entry.context.isStatic,
+              namespace: entry.context.namespace,
+            }
+          : undefined,
+      };
+
+      // Skip if an edge with the same source-target and type already exists (prevents duplicates)
+      if (existingEdge && existingEdge.type === newEdge.type) {
+        continue;
+      }
+
+      // Only add reference edge if:
+      // 1. No existing edge, OR
+      // 2. Existing edge is not a hierarchical edge (type 9) and types differ
+      // Never overwrite hierarchical "contains" edges with reference edges
+      if (
+        !existingEdge ||
+        (existingEdge.type !== ReferenceType.IMPORT_REFERENCE &&
+          existingEdge.type !== newEdge.type)
+      ) {
+        edgeMap.set(edgeKey, newEdge);
+      }
+
+      // Yield after processing each batch of references
+      if ((i + 1) % refBatchSize === 0) {
         yield* Effect.yieldNow();
       }
     }
@@ -399,32 +403,20 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
   const graph = getGraph();
   const normalizedUri = extractFilePathFromUri(fileUri);
   const fileIndex = graph.getFileIndex();
-  const symbolToVertex = graph.getSymbolToVertex();
-  const referenceGraph = graph.getReferenceGraph();
+  const reverseIndex = graph.getReverseIndex();
+  const forwardIndex = graph.getForwardIndex();
+  const refStore = graph.getRefStore();
   const fileSymbolIds = fileIndex.get(normalizedUri) || [];
 
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
-
-  // Parent property removed - no need to clean it
-  const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const cleaned = { ...symbol } as any;
-
-    const vertex = symbolToVertex.get(symbol.id);
-    if (vertex?.value) {
-      cleaned.nodeId = vertex.value.nodeId;
-      cleaned.referenceCount = vertex.value.referenceCount;
-    }
-
-    return cleaned;
-  };
 
   // Get nodes for this file
   for (const symbolId of fileSymbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol) {
       // Include all symbols including blocks - embrace the structural nature of SymbolTable
-      nodes.push(cleanSymbol(symbol));
+      nodes.push(createGraphNode(symbol, reverseIndex));
     }
   }
 
@@ -440,37 +432,37 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
     edgeMap.set(`${e.source}-${e.target}-${String(e.type)}`, e);
   }
 
-  const fileSymbolIdSet = new Set(fileSymbolIds);
-  for (const symbolId of fileSymbolIds) {
-    const vertex = symbolToVertex.get(symbolId);
-    if (!vertex) continue;
+  // Get all refKeys for this file from forward index
+  const fileRefKeys = forwardIndex.get(normalizedUri);
+  if (fileRefKeys) {
+    const fileSymbolIdSet = new Set(fileSymbolIds);
+    for (const refKey of fileRefKeys) {
+      const entry = refStore.get(refKey);
+      if (!entry) continue;
 
-    const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
-    for (const edge of outgoingEdges) {
-      if (!edge.value) continue;
-      const src = String(edge.src);
-      const dest = String(edge.dest);
+      const src = entry.sourceSymbolId;
+      const dest = entry.targetSymbolId;
       // Only include if both endpoints are in this file
       if (!fileSymbolIdSet.has(src) || !fileSymbolIdSet.has(dest)) continue;
 
-      const edgeKey = `${src}-${dest}-${String(edge.value.type)}`;
+      const edgeKey = `${src}-${dest}-${String(entry.referenceType)}`;
       if (edgeMap.has(edgeKey)) continue;
 
       edgeMap.set(edgeKey, {
         id: `${src}-${dest}`,
         source: src,
         target: dest,
-        type: edge.value.type,
-        sourceFileUri: edge.value.sourceFileUri,
-        targetFileUri: edge.value.targetFileUri,
-        context: edge.value.context
+        type: entry.referenceType,
+        sourceFileUri: entry.sourceFileUri,
+        targetFileUri: entry.targetFileUri,
+        context: entry.context
           ? {
-              methodName: edge.value.context.methodName,
-              parameterIndex: edge.value.context.parameterIndex
-                ? Number(edge.value.context.parameterIndex)
+              methodName: entry.context.methodName,
+              parameterIndex: entry.context.parameterIndex
+                ? Number(entry.context.parameterIndex)
                 : undefined,
-              isStatic: edge.value.context.isStatic,
-              namespace: edge.value.context.namespace,
+              isStatic: entry.context.isStatic,
+              namespace: entry.context.namespace,
             }
           : undefined,
       });
@@ -499,66 +491,58 @@ export function getGraphDataByType(symbolType: string): TypeGraphData {
   const filteredNodes: GraphNode[] = [];
   const nodeIds = new Set<string>();
 
-  const symbolIds = graph.getSymbolIds();
-  const symbolToVertex = graph.getSymbolToVertex();
-  const referenceGraph = graph.getReferenceGraph();
+  const symbolIds = Array.from(graph.getSymbolIds());
+  const reverseIndex = graph.getReverseIndex();
+  const refStore = graph.getRefStore();
   const fileIndex = graph.getFileIndex();
-
-  // Parent property removed - no need to clean it
-  const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const cleaned = { ...symbol } as any;
-
-    const vertex = symbolToVertex.get(symbol.id);
-    if (vertex?.value) {
-      cleaned.nodeId = vertex.value.nodeId;
-      cleaned.referenceCount = vertex.value.referenceCount;
-    }
-
-    return cleaned;
-  };
 
   // Get all nodes of the specified type
   for (const symbolId of symbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol && symbol.kind === symbolType) {
       // Include all symbols including blocks - embrace the structural nature of SymbolTable
-      filteredNodes.push(cleanSymbol(symbol));
+      filteredNodes.push(createGraphNode(symbol, reverseIndex));
       nodeIds.add(symbolId);
     }
   }
 
-  const edges: GraphEdge[] = [];
+  const edgeMap = new Map<string, GraphEdge>();
 
   // Get edges that involve the filtered nodes
-  for (const symbolId of nodeIds) {
-    const vertex = symbolToVertex.get(symbolId);
-    if (!vertex) continue;
+  // Use refStore to find all references involving these symbols
+  for (const [_refKey, entry] of refStore.entries()) {
+    if (!entry) continue;
 
-    const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
-    const incomingEdges = referenceGraph.incomingEdgesOf(vertex.key);
-
-    for (const edge of [...outgoingEdges, ...incomingEdges]) {
-      if (!edge.value) continue;
-      edges.push({
-        id: `${edge.src}-${edge.dest}`,
-        source: String(edge.src),
-        target: String(edge.dest),
-        type: edge.value.type,
-        sourceFileUri: edge.value.sourceFileUri,
-        targetFileUri: edge.value.targetFileUri,
-        context: edge.value.context
-          ? {
-              methodName: edge.value.context.methodName,
-              parameterIndex: edge.value.context.parameterIndex
-                ? Number(edge.value.context.parameterIndex)
-                : undefined,
-              isStatic: edge.value.context.isStatic,
-              namespace: edge.value.context.namespace,
-            }
-          : undefined,
-      });
+    // Include edge if either source or target is in our filtered set
+    if (
+      nodeIds.has(entry.sourceSymbolId) ||
+      nodeIds.has(entry.targetSymbolId)
+    ) {
+      const edgeKey = `${entry.sourceSymbolId}-${entry.targetSymbolId}`;
+      if (!edgeMap.has(edgeKey)) {
+        edgeMap.set(edgeKey, {
+          id: edgeKey,
+          source: entry.sourceSymbolId,
+          target: entry.targetSymbolId,
+          type: entry.referenceType,
+          sourceFileUri: entry.sourceFileUri,
+          targetFileUri: entry.targetFileUri,
+          context: entry.context
+            ? {
+                methodName: entry.context.methodName,
+                parameterIndex: entry.context.parameterIndex
+                  ? Number(entry.context.parameterIndex)
+                  : undefined,
+                isStatic: entry.context.isStatic,
+                namespace: entry.context.namespace,
+              }
+            : undefined,
+        });
+      }
     }
   }
+
+  const edges = Array.from(edgeMap.values());
 
   return {
     nodes: filteredNodes,

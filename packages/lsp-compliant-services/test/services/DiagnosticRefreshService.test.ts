@@ -12,14 +12,12 @@ import {
   getDiagnosticRefreshService,
 } from '../../src/services/DiagnosticRefreshService';
 
-// Use fake timers so Effect.sleep is controlled by jest
-jest.useFakeTimers();
-
 describe('DiagnosticRefreshService', () => {
   let refreshMock: jest.Mock;
   let mockConnection: any;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     // Reset singleton between tests
     DiagnosticRefreshService.reset();
 
@@ -35,6 +33,7 @@ describe('DiagnosticRefreshService', () => {
 
   afterEach(() => {
     jest.clearAllTimers();
+    jest.useRealTimers();
     DiagnosticRefreshService.reset();
   });
 

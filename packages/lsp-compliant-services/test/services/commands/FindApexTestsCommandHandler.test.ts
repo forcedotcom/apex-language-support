@@ -68,7 +68,7 @@ describe('FindApexTestsCommandHandler', () => {
     it('should find test classes with test methods', async () => {
       // Arrange
       const testClass: TypeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass',
+        id: 'file:///test/TestClass.cls#TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/TestClass.cls',
@@ -91,7 +91,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'TestClass',
           path: ['file:///test/TestClass.cls', 'TestClass'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.TestClass$class',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Class,
         },
@@ -132,7 +132,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const classBlock: ScopeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass:block:class_1',
+        id: 'file:///test/TestClass.cls#TestClass.class_1$block',
         name: 'class_1',
         kind: SymbolKind.Block,
         fileUri: 'file:///test/TestClass.cls',
@@ -155,7 +155,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: 'block',
           name: 'class_1',
           path: ['file:///test/TestClass.cls', 'class_1'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass:block:class_1',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.class_1$block',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Block,
         },
@@ -176,7 +176,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const testMethod: MethodSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod',
+        id: 'file:///test/TestClass.cls#TestClass.class_1.testMethod$method',
         name: 'testMethod',
         kind: SymbolKind.Method,
         fileUri: 'file:///test/TestClass.cls',
@@ -205,7 +205,7 @@ describe('FindApexTestsCommandHandler', () => {
             'testMethod',
           ],
           unifiedId:
-            'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod',
+            'file:///test/TestClass.cls#TestClass.class_1.testMethod$method',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Method,
         },
@@ -246,7 +246,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const regularClass: TypeSymbol = {
-        id: 'file:///test/RegularClass.cls:class:RegularClass',
+        id: 'file:///test/RegularClass.cls#RegularClass.RegularClass$class',
         name: 'RegularClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/RegularClass.cls',
@@ -269,7 +269,8 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'RegularClass',
           path: ['file:///test/RegularClass.cls', 'RegularClass'],
-          unifiedId: 'file:///test/RegularClass.cls:class:RegularClass',
+          unifiedId:
+            'file:///test/RegularClass.cls#RegularClass.RegularClass$class',
           fileUri: 'file:///test/RegularClass.cls',
           kind: SymbolKind.Class,
         },
@@ -317,7 +318,7 @@ describe('FindApexTestsCommandHandler', () => {
     it('should find test classes with multiple test methods', async () => {
       // Arrange
       const testClass: TypeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass',
+        id: 'file:///test/TestClass.cls#TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/TestClass.cls',
@@ -340,7 +341,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'TestClass',
           path: ['file:///test/TestClass.cls', 'TestClass'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.TestClass$class',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Class,
         },
@@ -381,7 +382,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const classBlock: ScopeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass:block:class_1',
+        id: 'file:///test/TestClass.cls#TestClass.class_1$block',
         name: 'class_1',
         kind: SymbolKind.Block,
         fileUri: 'file:///test/TestClass.cls',
@@ -404,7 +405,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: 'block',
           name: 'class_1',
           path: ['file:///test/TestClass.cls', 'class_1'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass:block:class_1',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.class_1$block',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Block,
         },
@@ -425,7 +426,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const testMethod1: MethodSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod1',
+        id: 'file:///test/TestClass.cls#TestClass.class_1.testMethod1$method',
         name: 'testMethod1',
         kind: SymbolKind.Method,
         fileUri: 'file:///test/TestClass.cls',
@@ -454,7 +455,7 @@ describe('FindApexTestsCommandHandler', () => {
             'testMethod1',
           ],
           unifiedId:
-            'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod1',
+            'file:///test/TestClass.cls#TestClass.class_1.testMethod1$method',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Method,
         },
@@ -495,7 +496,7 @@ describe('FindApexTestsCommandHandler', () => {
       };
 
       const testMethod2: MethodSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod2',
+        id: 'file:///test/TestClass.cls#TestClass.class_1.testMethod2$method',
         name: 'testMethod2',
         kind: SymbolKind.Method,
         fileUri: 'file:///test/TestClass.cls',
@@ -524,7 +525,7 @@ describe('FindApexTestsCommandHandler', () => {
             'testMethod2',
           ],
           unifiedId:
-            'file:///test/TestClass.cls:class:TestClass:block:class_1:method:testMethod2',
+            'file:///test/TestClass.cls#TestClass.class_1.testMethod2$method',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Method,
         },
@@ -568,7 +569,7 @@ describe('FindApexTestsCommandHandler', () => {
     it('should return empty array when no test classes found', async () => {
       // Arrange
       const regularClass: TypeSymbol = {
-        id: 'file:///test/RegularClass.cls:class:RegularClass',
+        id: 'file:///test/RegularClass.cls#RegularClass.RegularClass$class',
         name: 'RegularClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/RegularClass.cls',
@@ -591,7 +592,8 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'RegularClass',
           path: ['file:///test/RegularClass.cls', 'RegularClass'],
-          unifiedId: 'file:///test/RegularClass.cls:class:RegularClass',
+          unifiedId:
+            'file:///test/RegularClass.cls#RegularClass.RegularClass$class',
           fileUri: 'file:///test/RegularClass.cls',
           kind: SymbolKind.Class,
         },
@@ -629,7 +631,7 @@ describe('FindApexTestsCommandHandler', () => {
     it('should handle test class with no test methods', async () => {
       // Arrange
       const testClass: TypeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass',
+        id: 'file:///test/TestClass.cls#TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/TestClass.cls',
@@ -652,7 +654,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'TestClass',
           path: ['file:///test/TestClass.cls', 'TestClass'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.TestClass$class',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Class,
         },
@@ -733,7 +735,7 @@ describe('FindApexTestsCommandHandler', () => {
     it('should correctly convert locations to LSP format (0-based)', async () => {
       // Arrange
       const testClass: TypeSymbol = {
-        id: 'file:///test/TestClass.cls:class:TestClass',
+        id: 'file:///test/TestClass.cls#TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         fileUri: 'file:///test/TestClass.cls',
@@ -756,7 +758,7 @@ describe('FindApexTestsCommandHandler', () => {
           prefix: SymbolKind.Class,
           name: 'TestClass',
           path: ['file:///test/TestClass.cls', 'TestClass'],
-          unifiedId: 'file:///test/TestClass.cls:class:TestClass',
+          unifiedId: 'file:///test/TestClass.cls#TestClass.TestClass$class',
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Class,
         },

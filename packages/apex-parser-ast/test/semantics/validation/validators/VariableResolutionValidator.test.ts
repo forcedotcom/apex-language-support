@@ -248,6 +248,44 @@ describe('VariableResolutionValidator', () => {
       expect(getBVarErrors).toHaveLength(0);
       expect(xFieldErrors).toHaveLength(0);
     });
+
+    it('should resolve unqualified stdlib class receiver via policy candidates', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void m() {
+            Date d = Date.today();
+            System.debug(d);
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/TestClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const variableErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.VARIABLE_DOES_NOT_EXIST,
+      );
+      expect(variableErrors).toHaveLength(0);
+    });
   });
 
   describe('List element field access (arr[0].field)', () => {
@@ -299,6 +337,59 @@ describe('VariableResolutionValidator', () => {
       }
 
       expect(latOnListErrors).toHaveLength(0);
+    });
+  });
+
+  describe('Receiver type resolution without fixture-specific names', () => {
+    it('should NOT report FIELD_DOES_NOT_EXIST for address.postalcode when receiver resolves correctly', async () => {
+      const sourceCode = `
+        public class PostalCodeReceiverResolutionTest {
+          public class Address {
+            public String postalcode;
+          }
+
+          public static Address buildAddress() {
+            Address a = new Address();
+            a.postalcode = '94105';
+            return a;
+          }
+
+          public static void verify() {
+            Address addr = buildAddress();
+            String code = addr.postalcode;
+            System.debug(code);
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/PostalCodeReceiverResolutionTest.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const postalCodeFieldErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.FIELD_DOES_NOT_EXIST &&
+          (e.message?.includes('postalcode') ?? false),
+      );
+      expect(postalCodeFieldErrors).toHaveLength(0);
     });
   });
 

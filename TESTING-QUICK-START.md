@@ -1,125 +1,47 @@
-# 🚀 Quick Start Testing Guide
+# Testing Quick Start
 
-## ✅ Your Workflows Are Ready to Test!
+This is the fastest path to validate changes in this repo.
 
-Based on the validation results, your GitHub Actions workflows are properly configured and ready for testing.
+## Local Validation
 
-## 🧪 Testing Steps (In Order)
-
-### 1. **Local Validation** ✅ COMPLETED
+Run from repo root:
 
 ```bash
-./scripts/test-workflows.sh
+npm run compile
+npm run lint
+npm run test
+npm run bundle
 ```
 
-**Result**: All tests passed! 🎉
+For e2e coverage:
 
-### 2. **Test Individual Components**
+```bash
+npm run test:e2e
+```
 
-Go to GitHub → Actions → "Test Workflows Locally"
+## CI Workflows to Use
 
-Choose one of these test types:
+Use GitHub Actions for these workflows:
 
-- **package-detection**: Verify package discovery
-- **change-detection**: Test change detection logic
-- **artifact-creation**: Test VSIX creation
-- **version-bumping**: Test version calculation
-- **npm-publishing**: Test NPM package validation
-- **extension-publishing**: Test extension validation
+- `ci.yml` for compile/lint/test/package verification
+- `e2e-tests.yml` for web and desktop Playwright validation
+- `package.yml` for VSIX packaging checks
+- `nightly.yml` and `nightly-extensions.yml` for extension release flow (including dry-run)
+- `release-npm.yml` for npm package release flow
 
-### 3. **Dry Run Release** 🆕
+## Suggested Validation Order
 
-Go to GitHub → Actions → "Release All"
+1. Run local validation commands.
+2. Open a PR to trigger `ci.yml`.
+3. Run `e2e-tests.yml` (web by default, desktop or both via workflow input).
+4. Run release workflows in dry-run mode before any real publish.
 
-**Enable Dry Run Mode:**
+## Release Readiness Checklist
 
-- Check the **"Run in dry-run mode"** checkbox
-- Configure other inputs as needed
-- **No actual publishing occurs** - just shows what would happen
-
-This simulates a complete release without publishing:
-
-- Shows which packages would be released
-- Displays version calculations
-- Lists target registries
-- **No actual publishing occurs**
-
-### 4. **Test CI Workflow**
-
-Create a test PR or push to main to trigger:
-
-- Multi-OS/Node testing
-- VSIX package creation
-- Coverage report generation
-
-### 5. **Test Package Workflow**
-
-Manually trigger the package workflow to test:
-
-- VSIX file creation
-- Artifact upload
-- Naming conventions
-
-### 6. **Test Release Workflows**
-
-After dry run passes, test actual releases:
-
-- Start with a single package
-- Use a test branch
-- Monitor execution closely
-
-## 🔧 Issues Found & Fixed
-
-The validation found one minor issue:
-
-- No issues found in current package structure
-
-## 📋 Pre-Release Checklist
-
-Before running actual releases:
-
-- [x] Local validation passes
-- [ ] Dry run workflow completes successfully
-- [ ] All required secrets configured in GitHub
-- [ ] Test on feature branch first
-- [ ] Verify artifact downloads work
-- [ ] Check registry authentication
-
-## 🚨 Emergency Testing
-
-For urgent fixes:
-
-1. Run `./scripts/test-workflows.sh` (quick validation)
-2. Use dry-run mode in Release All workflow
-3. Test on feature branch
-4. Monitor workflow execution
-
-## 📞 Next Steps
-
-1. **Configure Secrets**: Set up NPM_TOKEN, VSCE_PAT, etc. in GitHub repository settings
-2. **Test Dry Run**: Run the Release All workflow with dry-run enabled
-3. **Start Small**: Test with a single package first
-4. **Monitor**: Watch workflow execution and logs
-
-## 🎯 Success Indicators
-
-Your workflows are working correctly when:
-
-- ✅ Local validation script passes
-- ✅ Dry run shows correct packages/versions
-- ✅ CI workflow creates artifacts
-- ✅ Package workflow uploads VSIX files
-- ✅ Release workflows publish successfully
-
-## 🆕 **New Integrated Dry-Run Feature**
-
-Instead of a separate dry-run workflow, you now have:
-
-- **Single workflow** for both dry-run and real releases
-- **Checkbox option** to enable dry-run mode
-- **Same logic** - no duplication
-- **Easier maintenance** - one workflow to rule them all
-
----
-
-**Ready to test? Start with the Release All workflow with dry-run enabled!** 🚀
+- [ ] `npm run compile` passes
+- [ ] `npm run lint` passes
+- [ ] `npm run test` passes
+- [ ] `npm run bundle` passes
+- [ ] `e2e-tests.yml` results are acceptable
+- [ ] Dry-run release workflows complete successfully
+- [ ] Required GitHub secrets are configured (`NPM_TOKEN`, `VSCE_PAT`, `OVSX_PAT`, etc.)

@@ -582,7 +582,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       if (classSymbol && classBlockSymbol) {
         // Class block should have parentId pointing to class symbol
         expect(classBlockSymbol.parentId).toBe(classSymbol.id);
-        expect(classBlockSymbol.parentId).toContain('class:TestClass');
+        // Stable ID format uses # separator and dot-qualified names
+        expect(classBlockSymbol.parentId).toContain('#TestClass');
       }
     });
 
@@ -625,11 +626,10 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(methodBlockSymbol).toBeDefined();
       if (methodSymbol && methodBlockSymbol) {
         // Method block should have parentId pointing to method symbol
-        // Method ID now correctly includes block: prefix in hierarchy: file://...:block:class_1:method:testMethod
         expect(methodBlockSymbol.parentId).toBe(methodSymbol.id);
-        expect(methodBlockSymbol.parentId).toContain('method:testMethod');
-        // Method ID should contain block: prefix as part of the correct hierarchy
-        expect(methodBlockSymbol.parentId).toContain('block:');
+        // Stable ID format uses # separator and dot-qualified names
+        expect(methodBlockSymbol.parentId).toContain('#');
+        expect(methodBlockSymbol.parentId).toContain('testMethod');
       }
     });
 
@@ -670,13 +670,10 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(constructorBlockSymbol).toBeDefined();
       if (constructorSymbol && constructorBlockSymbol) {
         // Constructor block should have parentId pointing to constructor symbol
-        // Constructor ID now correctly includes block: prefix in hierarchy
         expect(constructorBlockSymbol.parentId).toBe(constructorSymbol.id);
-        expect(constructorBlockSymbol.parentId).toContain(
-          'constructor:TestClass',
-        );
-        // Constructor ID should contain block: prefix as part of the correct hierarchy
-        expect(constructorBlockSymbol.parentId).toContain('block:');
+        // Stable ID format uses # separator and dot-qualified names
+        expect(constructorBlockSymbol.parentId).toContain('#');
+        expect(constructorBlockSymbol.parentId).toContain('TestClass');
       }
     });
 
@@ -2188,9 +2185,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
 
       expect(classSymbol).toBeDefined();
       if (classSymbol) {
-        // Top-level class ID format: fileUri:class:MyClass (not fileUri:class:MyClass:class:MyClass)
+        // Top-level class ID format: fileUri#MyClass (stable format with no line numbers)
         expect(classSymbol.id).toMatch(
-          /^file:\/\/\/test\/MyClass\.cls:class:MyClass$/,
+          /^file:\/\/\/test\/MyClass\.cls#MyClass$/,
         );
         expect(classSymbol.parentId).toBeNull();
       }
@@ -2229,9 +2226,10 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(classSymbol).toBeDefined();
       expect(methodSymbol).toBeDefined();
       if (classSymbol && methodSymbol) {
-        // Method ID should include class and method identifiers
-        expect(methodSymbol.id).toContain('class:MyClass');
-        expect(methodSymbol.id).toContain('method:myMethod');
+        // Method ID should include class and method identifiers with stable format
+        expect(methodSymbol.id).toContain('#');
+        expect(methodSymbol.id).toContain('MyClass');
+        expect(methodSymbol.id).toContain('myMethod');
         // Method should be nested under class (parent chain reaches class)
         expect(methodSymbol.parentId ?? methodSymbol.id).toBeTruthy();
       }
@@ -2281,10 +2279,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(variableSymbol).toBeDefined();
 
       if (classSymbol && methodSymbol && methodBlock && variableSymbol) {
-        // Method and method block should reference class context
-        expect(methodSymbol.id).toContain('class:MyClass');
-        expect(methodSymbol.id).toContain('method:myMethod');
-        // StructureListener block IDs use scopeType:line:column; method block should exist
+        // Method should reference class context with stable format
+        expect(methodSymbol.id).toContain('#');
+        expect(methodSymbol.id).toContain('MyClass');
+        expect(methodSymbol.id).toContain('myMethod');
+        // Block IDs use scopeType:line:column; method block should exist
         expect(methodBlock.id).toContain('block');
 
         // Variable should be in a scope that eventually reaches the class
@@ -2296,7 +2295,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           let foundClassContext = false;
           while (current && !foundClassContext) {
             if (
-              current.id.includes('class:MyClass') ||
+              current.id.includes('MyClass') ||
               current.id.includes('block')
             ) {
               foundClassContext = true;
