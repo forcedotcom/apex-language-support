@@ -880,7 +880,7 @@
     "@salesforce/vscode-services": "^66.2.2",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
-    "@salesforce/apex-tmlanguage": "^2.0.2",
+    "@salesforce/apex-tmlanguage": "^2.0.3",
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.7.1",
