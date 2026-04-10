@@ -4,20 +4,20 @@ This package provides comprehensive end-to-end testing for the Apex Language Ser
 
 ## Test Suite Overview
 
-**Total Tests:** 79 comprehensive e2e tests
+**Total Tests:** See latest CI run summary (count changes over time)
 **Test Files:** 5 feature-specific test suites
-**Code Coverage:** Complete LSP feature coverage
+**Code Coverage:** Broad coverage of core Apex LSP features
 **Architecture:** Page Objects + Fixtures + Utilities
 
 ### Test Coverage Summary
 
-| Feature | Tests | Coverage |
-|---------|-------|----------|
-| Extension Activation & LCS Integration | 8 | ✅ 100% |
-| Outline View (Document Symbols) | 11 | ✅ 100% |
-| Hover Functionality | 19 | ✅ 100% |
-| Go-to-Definition Navigation | 25 | ✅ 100% |
-| LSP Integration & Stability | 16 | ✅ 100% |
+| Feature | Status |
+|---------|--------|
+| Extension Activation & LCS Integration | Covered |
+| Outline View (Document Symbols) | Covered |
+| Hover Functionality | Covered |
+| Go-to-Definition Navigation | Covered |
+| LSP Integration & Stability | Covered |
 
 ---
 
@@ -478,8 +478,8 @@ Tests include comprehensive logging:
 ## CI/CD Integration
 
 Tests run automatically in GitHub Actions on:
-- Push to `main`, `tdx26/main`
-- Pull requests to `main` and `tdx26/main`
+- Push to `main`
+- Pull requests to `main`
 - Manual workflow dispatch
 
 **Configuration:** `.github/workflows/e2e-tests.yml`
@@ -587,21 +587,20 @@ The test suite is designed to grow with the extension while maintaining reliabil
 
 ### Growth Over Time
 
-| Metric | Original | Phase 2 | Phase 3 |
-|--------|----------|---------|---------|
-| Test Files | 1 | 3 | 5 |
-| Total Tests | 3 | 38 | 79 |
-| Lines of Code | 259 | 789 | 1,750 |
-| Coverage | ~30% | ~70% | 100% |
+| Metric | Original | Current |
+|--------|----------|---------|
+| Test Files | 1 | 5 |
+| Total Tests | 3 | See latest CI summary |
+| Coverage Focus | Core smoke | Core feature suites |
 
 ### Current Status
 
-- **79 comprehensive e2e tests**
+- **Comprehensive e2e suite spanning core Apex features**
 - **5 feature-specific test files**
 - **4 Apex page object models** + shared utilities (commands, contextMenu, outputChannel)
 - **5 fixture files** (apexFixtures, workspaceFixtures, createDesktopTest, desktopFixtureTypes, desktopWorkspace)
 - **3 sample Apex files**
-- **100% LSP feature coverage**
+- **High coverage across major user-facing LSP flows**
 
 ---
 

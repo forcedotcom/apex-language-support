@@ -181,7 +181,7 @@ graph LR
 - Merges coverage reports across matrix runs
 - Creates VSIX packages for extensions
 
-### 2. Nightly Release Workflow (`release.yml` → will become `nightly.yml` on main)
+### 2. Nightly Release Workflow (`nightly.yml`)
 
 **Triggers:**
 
@@ -208,7 +208,7 @@ graph TB
 
 **Triggers:**
 
-- Called by `release.yml`
+- Called by `nightly.yml`
 - Manual dispatch
 
 **Jobs:**
@@ -299,7 +299,7 @@ graph LR
 **Triggers:**
 
 - Pull request events (opened, reopened, edited, synchronize)
-- Target branch: `develop`
+- Target branch: `main`
 
 **Purpose:** Validate pull requests using Salesforce CLI workflows and code quality checks.
 
