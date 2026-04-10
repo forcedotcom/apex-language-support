@@ -29,7 +29,8 @@ export type LSPRequestType =
   | 'documentClose'
   | 'documentLoad'
   | 'findMissingArtifact'
-  | 'executeCommand';
+  | 'executeCommand'
+  | 'prerequisiteEnrichment';
 
 /**
  * LSP request task interface

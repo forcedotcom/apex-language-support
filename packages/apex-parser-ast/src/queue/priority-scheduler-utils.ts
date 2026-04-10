@@ -697,6 +697,9 @@ const lastSentMetricsRef = Ref.unsafeMake<SchedulerMetrics | undefined>(
   undefined,
 );
 
+// Global Ref to throttle callback-driven metrics emissions under bursts
+const lastCallbackEmitAtRef = Ref.unsafeMake<number>(0);
+
 // Global Ref to store task ID counter for guaranteed unique IDs
 const taskIdCounterRef = Ref.unsafeMake<number>(0);
 
@@ -1028,20 +1031,25 @@ export function initialize(config?: {
               `[QUEUE] Enqueued ${requestType} (id: ${queuedItem.id}) with priority ${priorityNameDisplay}, ` +
               `queue size: ${queueSize}/${capacity}`,
           );
-
           // Notify callback immediately after enqueueing to capture queue growth
           // This ensures we capture transient queue sizes before tasks complete
           // Note: Callback is already deferred via setImmediate in LCSAdapter to avoid blocking
           const callback = yield* Ref.get(queueStateCallbackRef);
           if (callback) {
             try {
-              const currentMetrics = yield* getCurrentMetrics(schedulerState);
-              const lastSent = yield* Ref.get(lastSentMetricsRef);
-              if (metricsChanged(lastSent, currentMetrics)) {
-                // Callback is already deferred via setImmediate in LCSAdapter
-                // This prevents blocking the enqueue operation
-                callback(currentMetrics);
-                yield* Ref.set(lastSentMetricsRef, currentMetrics);
+              const now = Date.now();
+              const lastEmitAt = yield* Ref.get(lastCallbackEmitAtRef);
+              const CALLBACK_MIN_INTERVAL_MS = 25;
+              if (now - lastEmitAt >= CALLBACK_MIN_INTERVAL_MS) {
+                const currentMetrics = yield* getCurrentMetrics(schedulerState);
+                const lastSent = yield* Ref.get(lastSentMetricsRef);
+                if (metricsChanged(lastSent, currentMetrics)) {
+                  // Callback is already deferred via setImmediate in LCSAdapter
+                  // This prevents blocking the enqueue operation
+                  callback(currentMetrics);
+                  yield* Ref.set(lastSentMetricsRef, currentMetrics);
+                  yield* Ref.set(lastCallbackEmitAtRef, now);
+                }
               }
             } catch (error) {
               // Don't let callback errors break enqueueing
@@ -1460,6 +1468,7 @@ export function reset(): Effect.Effect<void, never, never> {
     });
     yield* Ref.set(queueStateCallbackRef, undefined);
     yield* Ref.set(lastSentMetricsRef, undefined);
+    yield* Ref.set(lastCallbackEmitAtRef, 0);
     // Reset task ID counter on reset
     yield* Ref.set(taskIdCounterRef, 0);
   });

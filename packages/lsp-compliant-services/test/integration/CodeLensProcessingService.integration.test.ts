@@ -21,6 +21,7 @@ import {
   getLogger,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { cleanupTestResources } from '../helpers/test-cleanup';
 
 describe('CodeLensProcessingService Integration Tests', () => {
   let codeLensService: CodeLensProcessingService;
@@ -31,6 +32,10 @@ describe('CodeLensProcessingService Integration Tests', () => {
     // Enable console logging for debugging
     enableConsoleLogging();
     setLogLevel('error');
+  });
+
+  afterAll(async () => {
+    await cleanupTestResources();
   });
 
   beforeEach(async () => {

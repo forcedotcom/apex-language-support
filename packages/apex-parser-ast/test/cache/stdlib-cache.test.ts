@@ -89,6 +89,7 @@ describe('StandardLibraryDeserializer', () => {
 
       const result = deserializer.deserialize(proto);
 
+      expect(result.typeIndex.size).toBe(0);
       expect(result.symbolTables.size).toBe(0);
       expect(result.allTypes.length).toBe(0);
       expect(result.metadata.sourceChecksum).toBe('abc123');
@@ -140,13 +141,14 @@ describe('StandardLibraryDeserializer', () => {
       const binary = StandardLibrary.toBinary(proto);
       const result = deserializer.deserializeFromBinary(binary);
 
-      expect(result.symbolTables.size).toBe(1);
+      expect(result.typeIndex.size).toBe(1);
+      expect(result.symbolTables.size).toBe(0);
       expect(result.allTypes.length).toBe(1);
       expect(result.metadata.namespaceCount).toBe(1);
       expect(result.metadata.typeCount).toBe(1);
 
       // Verify the symbol table content
-      const symbolTable = result.symbolTables.get(
+      const symbolTable = result.getOrCreateSymbolTable(
         'apex://stdlib/System/String',
       );
       expect(symbolTable).toBeDefined();
@@ -157,6 +159,56 @@ describe('StandardLibraryDeserializer', () => {
       const stringType = symbols.find((s) => s.name === 'String');
       expect(stringType).toBeDefined();
       expect(stringType!.kind).toBe(SymbolKind.Class);
+    });
+
+    it('hydrateAllSymbolTables is idempotent for cached deserialization result', () => {
+      const deserializer = new StandardLibraryDeserializer();
+      const {
+        StandardLibrary,
+        TypeKind,
+        Visibility,
+      } = require('../../src/generated/apex-stdlib');
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'hydrate-all-test',
+        namespaces: [
+          {
+            name: 'System',
+            types: [
+              {
+                id: 'test-string-id',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                parentId: '',
+                superClass: '',
+                interfaces: [],
+                annotations: [],
+                methods: [],
+                fields: [],
+                properties: [],
+                innerTypes: [],
+                enumValues: [],
+                modifiers: {
+                  visibility: Visibility.PUBLIC,
+                  isBuiltIn: true,
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const first = result.hydrateAllSymbolTables();
+      const second = result.hydrateAllSymbolTables();
+
+      expect(first.size).toBe(1);
+      expect(second.size).toBe(1);
+      expect(second.get('apex://stdlib/System/String')).toBe(
+        first.get('apex://stdlib/System/String'),
+      );
     });
   });
 });
@@ -312,7 +364,7 @@ describe('Round-trip serialization', () => {
     expect(result.metadata.typeCount).toBe(1);
 
     // Verify symbol table
-    const deserializedTable = result.symbolTables.get(
+    const deserializedTable = result.getOrCreateSymbolTable(
       'apex://stdlib/System/RoundTrip',
     );
     expect(deserializedTable).toBeDefined();
@@ -407,7 +459,7 @@ describe('Round-trip serialization with gzip compression', () => {
     expect(result.metadata.typeCount).toBe(1);
 
     // Verify symbol table
-    const deserializedTable = result.symbolTables.get(
+    const deserializedTable = result.getOrCreateSymbolTable(
       'apex://stdlib/System/GzipRoundTrip',
     );
     expect(deserializedTable).toBeDefined();

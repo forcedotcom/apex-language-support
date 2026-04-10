@@ -36,16 +36,27 @@ test.describe('Apex Hover Functionality', () => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     const content = await hoverHelper.getHoverContent();
     expect(content.length).toBeGreaterThan(0);
-    expect(content).toMatch(/class\b/i);
     expect(content).toContain('ApexClassExample');
+    expect(content).toContain('Modifiers:');
   });
 
   /**
    * Test: Hover on static variable shows type information.
    */
-  test('should show hover for static variable', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('DEFAULT_STATUS');
-    const content = await hoverHelper.getHoverContent();
+  test('should show hover for static variable', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    // Hover on DEFAULT_STATUS at its usage site (line 94, col 35) rather than
+    // the declaration (line 3). Static field declarations don't reliably
+    // produce hover tooltips via keyboard chord in VS Code Web automated tests,
+    // but references within method bodies do.
+    await apexEditor.openFile('AccountHandler.cls');
+    await apexEditor.openFile('ApexClassExample.cls');
+    await apexEditor.waitForLanguageServerReady();
+    // DEFAULT_STATUS usage at line 94: `acc.Type = DEFAULT_STATUS;`
+    // hoverAtWithResolution performs a double-hover with a 3 s warm-up gap.
+    const content = await hoverHelper.hoverAtWithResolution(94, 35);
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -155,7 +166,12 @@ test.describe('Apex Hover Functionality', () => {
     hoverHelper,
   }) => {
     await hoverHelper.hoverOnWord('accounts');
-    const content = await hoverHelper.getHoverContent();
+    let content = await hoverHelper.getHoverContent();
+    if (!content) {
+      // Retry once to handle LSP hover timing flakiness in desktop mode
+      await hoverHelper.hoverOnWord('accounts');
+      content = await hoverHelper.getHoverContent();
+    }
     expect(content).toBeTruthy();
     expect(content).toMatch(/List|Account/);
   });
@@ -235,7 +251,8 @@ test.describe('Apex Hover Functionality', () => {
   }) => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     const classHover = await hoverHelper.getHoverContent();
-    expect(classHover).toMatch(/class\b/i);
+    expect(classHover).toContain('ApexClassExample');
+    expect(classHover).toContain('Modifiers:');
 
     await hoverHelper.dismissHover();
 

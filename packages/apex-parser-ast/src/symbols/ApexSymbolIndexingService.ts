@@ -334,10 +334,16 @@ export class ApexSymbolIndexingService {
             `[processTask] Symbols in file before addSymbolTable: ${symbolsBefore.length}`,
         );
 
+        task.symbolTable.setMetadata({
+          fileUri: task.fileUri,
+          documentVersion: task.documentVersion,
+        });
+
         // Process symbols with yielding
         yield* self.symbolManager.addSymbolTable(
           task.symbolTable,
           task.fileUri,
+          task.documentVersion,
         );
 
         const symbolsAfter = self.symbolManager.findSymbolsInFile(task.fileUri);

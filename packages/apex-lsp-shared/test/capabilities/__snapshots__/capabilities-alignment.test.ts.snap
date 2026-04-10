@@ -19,6 +19,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
+    "workDoneProgress": true,
     "workspaceDiagnostics": false,
   },
   "documentFormattingProvider": undefined,
@@ -83,9 +84,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": {
-    "resolveProvider": false,
-  },
+  "codeLensProvider": undefined,
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,
@@ -157,6 +156,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
     "diagnosticProvider": {
       "identifier": "apex-ls-ts",
       "interFileDependencies": true,
+      "workDoneProgress": true,
       "workspaceDiagnostics": false,
     },
     "documentSymbolProvider": true,
@@ -1353,9 +1353,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
     "expectedServer": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": {
-        "resolveProvider": false,
-      },
+      "codeLensProvider": undefined,
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
@@ -1627,6 +1625,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
+        "workDoneProgress": true,
         "workspaceDiagnostics": false,
       },
       "documentFormattingProvider": undefined,
@@ -2372,6 +2371,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "diagnosticProvider": {
           "identifier": "apex-ls-ts",
           "interFileDependencies": true,
+          "workDoneProgress": true,
           "workspaceDiagnostics": false,
         },
         "documentFormattingProvider": undefined,
@@ -2433,9 +2433,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "production": {
         "callHierarchyProvider": undefined,
         "codeActionProvider": undefined,
-        "codeLensProvider": {
-          "resolveProvider": false,
-        },
+        "codeLensProvider": undefined,
         "colorProvider": undefined,
         "completionProvider": undefined,
         "declarationProvider": undefined,
@@ -2531,6 +2529,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
+        "workDoneProgress": true,
         "workspaceDiagnostics": false,
       },
       "documentFormattingProvider": undefined,
@@ -2592,9 +2591,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     "production": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": {
-        "resolveProvider": false,
-      },
+      "codeLensProvider": undefined,
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
@@ -2728,6 +2725,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "diagnosticProvider": {
       "identifier": "apex-ls-ts",
       "interFileDependencies": true,
+      "workDoneProgress": true,
       "workspaceDiagnostics": false,
     },
     "documentFormattingProvider": undefined,
@@ -2789,9 +2787,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "production": {
     "callHierarchyProvider": undefined,
     "codeActionProvider": undefined,
-    "codeLensProvider": {
-      "resolveProvider": false,
-    },
+    "codeLensProvider": undefined,
     "colorProvider": undefined,
     "completionProvider": undefined,
     "declarationProvider": undefined,
@@ -2888,6 +2884,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
+    "workDoneProgress": true,
     "workspaceDiagnostics": false,
   },
   "documentFormattingProvider": undefined,
@@ -2952,9 +2949,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": {
-    "resolveProvider": false,
-  },
+  "codeLensProvider": undefined,
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,

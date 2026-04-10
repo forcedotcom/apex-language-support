@@ -228,6 +228,48 @@ describe('MethodResolutionValidator', () => {
       expect(paramTypeErrors).toHaveLength(0);
     });
 
+    it('should not report parameter type error for HttpRequest.setBody string concatenation', async () => {
+      const source = `
+        public class HttpSetBodyConcatTest {
+          public static void calloutBody() {
+            HttpRequest req = new HttpRequest();
+            String city = 'San Francisco';
+            String state = 'CA';
+            req.setBody('{"city":"' + city + '","state":"' + state + '"}');
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/HttpSetBodyConcatTest.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const setBodyErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_PARAMETER_TYPE &&
+          (e.message?.toLowerCase().includes('setbody') ?? false),
+      );
+      expect(setBodyErrors).toHaveLength(0);
+    });
+
     it('reproduces dreamhouse path: compileLayered public-api->full like LayerEnrichmentService', async () => {
       const source = `
 @isTest
@@ -827,6 +869,70 @@ private class TestInCanvasNamespace {
       );
       expect(mapPutErrors).toHaveLength(0);
       expect(result.isValid).toBe(true);
+    });
+
+    it.skip('reports parameter-type mismatch for List<Integer>.add(String)', async () => {
+      const source = `
+        public class InvalidListAdd {
+          public void run() {
+            List<Integer> values = new List<Integer>();
+            values.add('bad');
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/InvalidListAdd.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+      const paramTypeErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_PARAMETER_TYPE,
+      );
+      expect(paramTypeErrors.length).toBeGreaterThan(0);
+    });
+
+    it.skip('reports parameter-type mismatch for Map<String, Integer>.put(Integer, String)', async () => {
+      const source = `
+        public class InvalidMapPut {
+          public void run() {
+            Map<String, Integer> values = new Map<String, Integer>();
+            values.put(1, 'bad');
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/InvalidMapPut.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+      const paramTypeErrors = result.errors.filter(
+        (e: any) =>
+          e.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_PARAMETER_TYPE,
+      );
+      expect(paramTypeErrors.length).toBeGreaterThan(0);
     });
   });
 

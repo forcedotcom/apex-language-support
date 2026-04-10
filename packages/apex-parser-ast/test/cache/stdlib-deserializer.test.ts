@@ -19,13 +19,15 @@ import {
   TypeSymbol,
   MethodSymbol,
   ParameterSymbol,
+  VariableSymbol,
+  BlockSymbol,
   TypeReference,
   Modifiers,
   SymbolLocation,
   Range,
   TypeKind,
+  VariableKind,
   Visibility,
-  BlockSymbol,
 } from '../../src/generated/apex-stdlib';
 
 // Helper to create a valid proto location
@@ -58,7 +60,6 @@ function createProtoModifiers(overrides: Partial<Modifiers> = {}): Modifiers {
     isTransient: false,
     isTestMethod: false,
     isWebService: false,
-    isBuiltIn: true,
     ...overrides,
   });
 }
@@ -69,7 +70,6 @@ function createTypeReference(name: string, isPrimitive = false): TypeReference {
     name,
     originalTypeString: name,
     isPrimitive,
-    isBuiltIn: true,
     isArray: false,
     isCollection: false,
     typeParameters: [],
@@ -107,7 +107,7 @@ describe('StandardLibraryDeserializer', () => {
 
       const result = deserializer.deserialize(proto);
 
-      expect(result.symbolTables.size).toBe(0);
+      expect(result.typeIndex.size).toBe(0);
       expect(result.allTypes.length).toBe(0);
       expect(result.metadata.namespaceCount).toBe(0);
       expect(result.metadata.typeCount).toBe(0);
@@ -357,7 +357,7 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(
+      const symbolTable = result.getOrCreateSymbolTable(
         'apex://stdlib/System/TestClass',
       );
       expect(symbolTable).toBeDefined();
@@ -404,7 +404,7 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(
+      const symbolTable = result.getOrCreateSymbolTable(
         'apex://stdlib/System/MyClass',
       );
       const symbols = symbolTable!.getAllSymbols();
@@ -474,7 +474,6 @@ describe('StandardLibraryDeserializer', () => {
                   isTransient: true,
                   isTestMethod: true,
                   isWebService: true,
-                  isBuiltIn: true,
                 }),
               }),
             ],
@@ -493,7 +492,6 @@ describe('StandardLibraryDeserializer', () => {
       expect(modifiers.isTransient).toBe(true);
       expect(modifiers.isTestMethod).toBe(true);
       expect(modifiers.isWebService).toBe(true);
-      expect(modifiers.isBuiltIn).toBe(true);
     });
   });
 
@@ -514,7 +512,7 @@ describe('StandardLibraryDeserializer', () => {
       try {
         const result = deserializer.deserializeFromBinary(emptyData);
         // If it doesn't throw, it should produce a valid but empty result
-        expect(result.symbolTables.size).toBe(0);
+        expect(result.typeIndex.size).toBe(0);
       } catch (error) {
         // Expected - empty data is not valid protobuf
         expect(error).toBeDefined();
@@ -565,7 +563,7 @@ describe('StandardLibraryDeserializer', () => {
 
       expect(result.metadata.namespaceCount).toBe(1);
       expect(result.metadata.typeCount).toBe(0);
-      expect(result.symbolTables.size).toBe(0);
+      expect(result.typeIndex.size).toBe(0);
     });
 
     it('handles multiple types in same namespace', () => {
@@ -602,7 +600,7 @@ describe('StandardLibraryDeserializer', () => {
       const result = deserializer.deserialize(proto);
 
       expect(result.allTypes.length).toBe(2);
-      expect(result.symbolTables.size).toBe(2);
+      expect(result.typeIndex.size).toBe(2);
     });
 
     it('handles type with empty name', () => {
@@ -634,14 +632,8 @@ describe('StandardLibraryDeserializer', () => {
       expect(result.allTypes[0].name).toBe('');
     });
   });
-
-  describe('Block Symbol parentId enrichment bug fix', () => {
-    it('should correct block parentId when it contains :class:unknownClass', () => {
-      // Tests the enrichment bug fix where blocks had parentId with :class:unknownClass
-      // instead of the correct type symbol ID
-      const fileUri = 'apex://stdlib/System/List';
-      const typeSymbolId = `${fileUri}:class:List`;
-
+  describe('Proto ID preservation', () => {
+    it('preserves TypeSymbol proto.id after deserialization', () => {
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
@@ -650,22 +642,203 @@ describe('StandardLibraryDeserializer', () => {
             name: 'System',
             types: [
               TypeSymbol.create({
-                id: typeSymbolId,
-                name: 'List',
+                id: 'stable-type-id-123',
+                name: 'Map',
                 kind: TypeKind.CLASS,
-                fqn: 'System.List',
-                fileUri,
+                fqn: 'System.Map',
+                fileUri: 'apex://stdlib/System/Map',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/Map',
+      );
+      expect(symbolTable).toBeDefined();
+
+      const symbols = symbolTable!.getAllSymbols();
+      const typeSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Class && s.name === 'Map',
+      );
+      expect(typeSymbol).toBeDefined();
+      expect(typeSymbol!.id).toBe('stable-type-id-123');
+    });
+
+    it('preserves MethodSymbol proto.id after deserialization', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-map',
+                name: 'Map',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Map',
+                fileUri: 'apex://stdlib/System/Map',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                methods: [
+                  MethodSymbol.create({
+                    id: 'stable-method-id-456',
+                    name: 'put',
+                    isConstructor: false,
+                    returnType: createTypeReference('Object'),
+                    parameters: [],
+                    location: createProtoLocation(),
+                    modifiers: createProtoModifiers(),
+                    parentId: 'type-map',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/Map',
+      );
+      const symbols = symbolTable!.getAllSymbols();
+      const methodSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Method && s.name === 'put',
+      );
+      expect(methodSymbol).toBeDefined();
+      expect(methodSymbol!.id).toBe('stable-method-id-456');
+    });
+
+    it('preserves VariableSymbol proto.id after deserialization', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-str',
+                name: 'String',
+                kind: TypeKind.CLASS,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                fields: [
+                  VariableSymbol.create({
+                    id: 'stable-field-id-789',
+                    name: 'EMPTY',
+                    kind: VariableKind.FIELD,
+                    type: createTypeReference('String'),
+                    location: createProtoLocation(),
+                    modifiers: createProtoModifiers({ isStatic: true }),
+                    parentId: 'type-str',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/String',
+      );
+      const symbols = symbolTable!.getAllSymbols();
+      const fieldSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Field && s.name === 'EMPTY',
+      );
+      expect(fieldSymbol).toBeDefined();
+      expect(fieldSymbol!.id).toBe('stable-field-id-789');
+    });
+
+    it('preserves ParameterSymbol proto.id after deserialization', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-map',
+                name: 'Map',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Map',
+                fileUri: 'apex://stdlib/System/Map',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                methods: [
+                  MethodSymbol.create({
+                    id: 'method-put',
+                    name: 'put',
+                    isConstructor: false,
+                    returnType: createTypeReference('Object'),
+                    parameters: [
+                      ParameterSymbol.create({
+                        id: 'stable-param-id-abc',
+                        name: 'key',
+                        type: createTypeReference('Object'),
+                        location: createProtoLocation(),
+                        modifiers: createProtoModifiers(),
+                        parentId: 'method-put',
+                      }),
+                    ],
+                    location: createProtoLocation(),
+                    modifiers: createProtoModifiers(),
+                    parentId: 'type-map',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/Map',
+      );
+      const symbols = symbolTable!.getAllSymbols();
+      const paramSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Parameter && s.name === 'key',
+      );
+      expect(paramSymbol).toBeDefined();
+      expect(paramSymbol!.id).toBe('stable-param-id-abc');
+    });
+
+    it('preserves BlockSymbol proto.id after deserialization', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-map',
+                name: 'Map',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Map',
+                fileUri: 'apex://stdlib/System/Map',
                 location: createProtoLocation(),
                 modifiers: createProtoModifiers(),
                 blocks: [
                   BlockSymbol.create({
-                    id: `${fileUri}:block:class_1`,
+                    id: 'stable-block-id-xyz',
                     name: 'class_1',
                     scopeType: 'class',
                     location: createProtoLocation(),
-                    fileUri,
-                    // This is the buggy parentId format that should be corrected
-                    parentId: `${fileUri}:class:unknownClass`,
+                    parentId: 'type-map',
+                    fileUri: 'apex://stdlib/System/Map',
                   }),
                 ],
               }),
@@ -675,26 +848,127 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(fileUri);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/Map',
+      );
+      const symbols = symbolTable!.getAllSymbols();
+      const blockSymbol = symbols.find((s) => s.name === 'class_1');
+      expect(blockSymbol).toBeDefined();
+      expect(blockSymbol!.id).toBe('stable-block-id-xyz');
+    });
+
+    it('maintains parentId chain consistency across deserialized symbols', () => {
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: 'type-map-id',
+                name: 'Map',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Map',
+                fileUri: 'apex://stdlib/System/Map',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                blocks: [
+                  BlockSymbol.create({
+                    id: 'block-class-id',
+                    name: 'class_1',
+                    scopeType: 'class',
+                    location: createProtoLocation(),
+                    parentId: 'type-map-id',
+                    fileUri: 'apex://stdlib/System/Map',
+                  }),
+                ],
+                methods: [
+                  MethodSymbol.create({
+                    id: 'method-put-id',
+                    name: 'put',
+                    isConstructor: false,
+                    returnType: createTypeReference('Object'),
+                    parameters: [
+                      ParameterSymbol.create({
+                        id: 'param-key-id',
+                        name: 'key',
+                        type: createTypeReference('Object'),
+                        location: createProtoLocation(),
+                        modifiers: createProtoModifiers(),
+                        parentId: 'method-put-id',
+                      }),
+                    ],
+                    location: createProtoLocation(),
+                    modifiers: createProtoModifiers(),
+                    parentId: 'block-class-id',
+                  }),
+                ],
+                fields: [
+                  VariableSymbol.create({
+                    id: 'field-size-id',
+                    name: 'size',
+                    kind: VariableKind.FIELD,
+                    type: createTypeReference('Integer', true),
+                    location: createProtoLocation(),
+                    modifiers: createProtoModifiers(),
+                    parentId: 'type-map-id',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/Map',
+      );
       expect(symbolTable).toBeDefined();
-
-      // Find the block symbol
       const symbols = symbolTable!.getAllSymbols();
-      const block = symbols.find(
-        (s) => s.kind === SymbolKind.Block && s.name === 'class_1',
+
+      const typeSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Class && s.name === 'Map',
       );
-      expect(block).toBeDefined();
+      const blockSymbol = symbols.find((s) => s.name === 'class_1');
+      const methodSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Method && s.name === 'put',
+      );
+      const paramSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Parameter && s.name === 'key',
+      );
+      const fieldSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Field && s.name === 'size',
+      );
 
-      // The parentId should be corrected to the typeSymbolId, not :class:unknownClass
-      expect(block!.parentId).toBe(typeSymbolId);
-      expect(block!.parentId).not.toContain('unknownClass');
+      expect(typeSymbol).toBeDefined();
+      expect(blockSymbol).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+      expect(paramSymbol).toBeDefined();
+      expect(fieldSymbol).toBeDefined();
+
+      // Block's parentId should point to the type's actual id
+      expect(blockSymbol!.parentId).toBe(typeSymbol!.id);
+      // Method's parentId should point to the block's actual id
+      expect(methodSymbol!.parentId).toBe(blockSymbol!.id);
+      // Param's parentId should point to the method's actual id
+      expect(paramSymbol!.parentId).toBe(methodSymbol!.id);
+      // Field's parentId should point to the type's actual id
+      expect(fieldSymbol!.parentId).toBe(typeSymbol!.id);
+
+      // All IDs should be findable in the symbol table
+      const idSet = new Set(symbols.map((s) => s.id));
+      expect(idSet.has(typeSymbol!.id)).toBe(true);
+      expect(idSet.has(blockSymbol!.id)).toBe(true);
+      expect(idSet.has(methodSymbol!.id)).toBe(true);
+      expect(idSet.has(paramSymbol!.id)).toBe(true);
+      expect(idSet.has(fieldSymbol!.id)).toBe(true);
     });
+  });
 
-    it('should not modify block parentId when it does not contain :class:', () => {
-      // Blocks without :class: in parentId should not be modified
-      const fileUri = 'apex://stdlib/System/List';
-      const blockParentId = `${fileUri}:block:parent_block`;
-
+  describe('Lazy hydration', () => {
+    it('builds index eagerly and hydrates tables on demand', () => {
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
@@ -703,23 +977,22 @@ describe('StandardLibraryDeserializer', () => {
             name: 'System',
             types: [
               TypeSymbol.create({
-                id: `${fileUri}:class:List`,
-                name: 'List',
+                id: 'type-1',
+                name: 'String',
                 kind: TypeKind.CLASS,
-                fqn: 'System.List',
-                fileUri,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
                 location: createProtoLocation(),
                 modifiers: createProtoModifiers(),
-                blocks: [
-                  BlockSymbol.create({
-                    id: `${fileUri}:block:child_block`,
-                    name: 'child_block',
-                    scopeType: 'block',
-                    location: createProtoLocation(),
-                    fileUri,
-                    parentId: blockParentId, // Valid parentId without :class:
-                  }),
-                ],
+              }),
+              TypeSymbol.create({
+                id: 'type-2',
+                name: 'Integer',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Integer',
+                fileUri: 'apex://stdlib/System/Integer',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
               }),
             ],
           }),
@@ -727,48 +1000,48 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(fileUri);
-      const symbols = symbolTable!.getAllSymbols();
-      const block = symbols.find(
-        (s) => s.kind === SymbolKind.Block && s.name === 'child_block',
-      );
+      expect(result.typeIndex.size).toBe(2);
+      expect(result.symbolTables.size).toBe(0);
 
-      // parentId should remain unchanged
-      expect(block!.parentId).toBe(blockParentId);
+      const stringTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/String',
+      );
+      expect(stringTable).toBeDefined();
+      expect(result.symbolTables.size).toBe(1);
+
+      // Memoized hydration should return the same instance.
+      const sameTable = result.getOrCreateSymbolTable(
+        'apex://stdlib/System/String',
+      );
+      expect(sameTable).toBe(stringTable);
+      expect(result.symbolTables.size).toBe(1);
     });
 
-    it('should not modify block parentId when fileUri does not match', () => {
-      // Blocks from different files should not have their parentId modified
-      const fileUri = 'apex://stdlib/System/List';
-      const differentFileUri = 'apex://stdlib/System/Set';
-      const originalParentId = `${differentFileUri}:class:unknownClass`;
-
+    it('hydrates all tables once and keeps table instances stable', () => {
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
-        sourceChecksum: 'checksum',
+        sourceChecksum: 'hydrate-all',
         namespaces: [
           Namespace.create({
             name: 'System',
             types: [
               TypeSymbol.create({
-                id: `${fileUri}:class:List`,
-                name: 'List',
+                id: 'type-1',
+                name: 'String',
                 kind: TypeKind.CLASS,
-                fqn: 'System.List',
-                fileUri,
+                fqn: 'System.String',
+                fileUri: 'apex://stdlib/System/String',
                 location: createProtoLocation(),
                 modifiers: createProtoModifiers(),
-                blocks: [
-                  BlockSymbol.create({
-                    id: `${fileUri}:block:block_1`,
-                    name: 'block_1',
-                    scopeType: 'block',
-                    location: createProtoLocation(),
-                    fileUri,
-                    // parentId points to different file, should not be modified
-                    parentId: originalParentId,
-                  }),
-                ],
+              }),
+              TypeSymbol.create({
+                id: 'type-2',
+                name: 'Integer',
+                kind: TypeKind.CLASS,
+                fqn: 'System.Integer',
+                fileUri: 'apex://stdlib/System/Integer',
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
               }),
             ],
           }),
@@ -776,14 +1049,17 @@ describe('StandardLibraryDeserializer', () => {
       });
 
       const result = deserializer.deserialize(proto);
-      const symbolTable = result.symbolTables.get(fileUri);
-      const symbols = symbolTable!.getAllSymbols();
-      const block = symbols.find(
-        (s) => s.kind === SymbolKind.Block && s.name === 'block_1',
-      );
+      const firstHydration = result.hydrateAllSymbolTables();
+      const secondHydration = result.hydrateAllSymbolTables();
 
-      // parentId should remain unchanged because fileUri doesn't match
-      expect(block!.parentId).toBe(originalParentId);
+      expect(firstHydration.size).toBe(2);
+      expect(secondHydration.size).toBe(2);
+      expect(secondHydration.get('apex://stdlib/System/String')).toBe(
+        firstHydration.get('apex://stdlib/System/String'),
+      );
+      expect(secondHydration.get('apex://stdlib/System/Integer')).toBe(
+        firstHydration.get('apex://stdlib/System/Integer'),
+      );
     });
   });
 });

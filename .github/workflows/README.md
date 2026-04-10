@@ -163,12 +163,12 @@ graph LR
     B --> C[vsix-packages]
 
     subgraph "Test Matrix"
-        D[ubuntu-latest, 20.x]
+        D[ubuntu-latest, lts/-1]
         E[ubuntu-latest, lts/*]
-        F[ubuntu-latest, node]
-        G[windows-latest, 20.x]
+        F[ubuntu-latest, current]
+        G[windows-latest, lts/-1]
         H[windows-latest, lts/*]
-        I[windows-latest, node]
+        I[windows-latest, current]
     end
 ```
 
@@ -181,7 +181,7 @@ graph LR
 - Merges coverage reports across matrix runs
 - Creates VSIX packages for extensions
 
-### 2. Nightly Release Workflow (`release.yml` → will become `nightly.yml` on main)
+### 2. Nightly Release Workflow (`nightly.yml`)
 
 **Triggers:**
 
@@ -208,7 +208,7 @@ graph TB
 
 **Triggers:**
 
-- Called by `release.yml`
+- Called by `nightly.yml`
 - Manual dispatch
 
 **Jobs:**
@@ -266,11 +266,15 @@ graph TB
 graph LR
     A[Checkout] --> B[Setup Node.js]
     B --> C[Install Dependencies]
-    C --> D[Package Packages]
+    C --> D[Package Packages — universal + web Wireit]
     D --> E[Upload VSIX Artifacts]
 ```
 
 **Purpose:** Create VSIX files for extensions.
+
+- **CI** runs `npm run package:packages` (or `:prerelease`) only. Universal and web VSIX logic lives in **`packages/apex-lsp-vscode-extension`** Wireit (`package` / `package-web` and prerelease variants).
+- **Universal VSIX** (`vsce package`): desktop + browser entry points in one bundle — used for VS Code Marketplace / Open VSX, GitHub release assets, and Manual Publish.
+- **Web-target VSIX** (`vsce package --target web`, trimmed in `scripts/package-web-vsix.mjs`): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
 
 ### 6. Additional Workflows
 
@@ -295,7 +299,7 @@ graph LR
 **Triggers:**
 
 - Pull request events (opened, reopened, edited, synchronize)
-- Target branch: `develop`
+- Target branch: `main`
 
 **Purpose:** Validate pull requests using Salesforce CLI workflows and code quality checks.
 
@@ -313,14 +317,15 @@ graph LR
 - Check suite completion
 - Status events
 
-**Purpose:** Automatically merge PRs with specific labels.
+**Purpose:** Enable GitHub auto-merge for eligible Dependabot PRs.
 
 **Features:**
 
-- Merges PRs with `automerge` or `dependencies` labels
-- Supports Dependabot PRs
+- Only applies to PRs opened by `dependabot[bot]`
+- Only applies to same-repository PRs (fork-origin PRs are excluded)
 - Uses squash merge method
-- Requires 1 approval
+- Skips major version bumps
+- Requires repository-level auto-merge to be enabled in GitHub settings
 
 #### Stale (`stale.yml`)
 

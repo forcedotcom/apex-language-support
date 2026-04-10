@@ -15,7 +15,8 @@ import {
   ReferenceResult,
   DependencyAnalysis,
   ReferenceType,
-} from '../symbols/ApexSymbolGraph';
+  SymbolTableRegistrationResult,
+} from '../symbols/ApexSymbolRefManager';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
 import { SymbolReference } from '../types/symbolReference';
@@ -26,6 +27,7 @@ import type {
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 import { Effect } from 'effect';
 import type { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import type { SymbolProvider } from '../namespace/NamespaceUtils';
 
 /**
  * Context for symbol resolution
@@ -63,7 +65,7 @@ export interface SymbolResolutionResult {
  * Interface defining the contract for symbol managers
  * This allows for both production and test implementations
  */
-export interface ISymbolManager {
+export interface ISymbolManager extends SymbolProvider {
   /**
    * Add a symbol to the manager
    */
@@ -190,12 +192,28 @@ export interface ISymbolManager {
    * Add a symbol table to the manager
    * @param symbolTable The symbol table to add
    * @param fileUri The file URI associated with the symbol table
+   * @param documentVersion Optional document version for version-aware replace vs merge
    * @returns Effect that resolves when the symbol table is added
    */
   addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
+    documentVersion?: number,
+    hasErrors?: boolean,
   ): Effect.Effect<void, never, never>;
+
+  /**
+   * Register a SymbolTable as the canonical table for a file and
+   * return explicit adjudication outcome.
+   */
+  registerSymbolTableForFile(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: {
+      mergeReferences?: boolean;
+      hasErrors?: boolean;
+    },
+  ): Effect.Effect<SymbolTableRegistrationResult, never, never>;
 
   /**
    * Get SymbolTable for a file

@@ -1,6 +1,6 @@
-# Contributing to Apex Language Server (TypeScript)
+# Contributing to Apex Language Support
 
-Thank you for your interest in contributing to the Apex Language Server project! This document provides guidelines and setup instructions to help you get started.
+Thank you for your interest in contributing to the Apex Language Support project! This document provides guidelines and setup instructions to help you get started.
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@ Before you begin, ensure your development environment meets these requirements:
 1. **Fork and clone the repository**:
 
    ```bash
-   git clone https://github.com/your-username/apex-language-server-ts.git
-   cd apex-language-server-ts
+   git clone https://github.com/your-username/apex-language-support.git
+   cd apex-language-support
    ```
 
 2. **Install dependencies**:
@@ -79,9 +79,9 @@ packages/
 
 #### Build & Bundling
 
-- **`esbuild.config.ts`**: TypeScript bundling configuration
-- **`scripts/build-and-package.js`**: Packaging script for extensions
+- **`esbuild.config.ts`**: TypeScript bundling configuration (in packages)
 - **`scripts/merge-coverage.js`**: Test coverage aggregation
+- **`scripts/sync-vscode-version.js`**: VS Code version synchronization
 
 #### Development Tools
 
@@ -268,8 +268,7 @@ This project uses **Wireit** for smart incremental builds that only rebuild what
 - **Build a specific package** (will also build its dependencies):
 
   ```bash
-  cd packages/apex-parser-ast
-  npm run compile
+  npm run compile --workspace=@salesforce/apex-lsp-parser-ast
   ```
 
 - **Clean build** (remove all build artifacts):
@@ -289,8 +288,7 @@ For VS Code extensions specifically:
 
 ```bash
 # Build extension (includes both desktop and web)
-cd packages/apex-lsp-vscode-extension
-npm run package
+npm run package --workspace=apex-language-server-extension
 ```
 
 ### Testing
@@ -385,13 +383,13 @@ This will start an interactive prompt that guides you through creating a properl
 
 The scope specifies the part of the codebase your change affects. For this project, valid scopes include:
 
-- **apex-lsp-parser-ast**: Changes to the parser/AST package
-- **apex-lsp-custom-services**: Changes to custom language services
-- **apex-lsp-compliant-services**: Changes to standard LSP services
-- **apex-lsp-extension**: Changes to VS Code extension integration
-- **apex-lsp-web**: Changes to web-based integration
+- **apex-parser-ast**: Changes to the parser/AST package
+- **custom-services**: Changes to custom language services
+- **lsp-compliant-services**: Changes to standard LSP services
+- **apex-ls**: Changes to the language server
+- **apex-lsp-vscode-extension**: Changes to VS Code extension
+- **apex-lsp-testbed**: Changes to testing infrastructure
 - **docs**: Documentation changes
-- **infra**: Infrastructure changes
 - **build**: Build system changes
 - **ci**: CI/CD changes
 - **deps**: Dependency updates

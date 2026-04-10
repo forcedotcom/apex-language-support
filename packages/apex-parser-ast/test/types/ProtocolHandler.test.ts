@@ -7,86 +7,60 @@
  */
 
 import {
-  getProtocolType,
-  hasProtocol,
+  hasUriScheme,
   createFileUri,
+  createApexLibUri,
+  getFilePathFromUri,
 } from '../../src/types/ProtocolHandler';
 
 describe('ProtocolHandler', () => {
-  describe('getProtocolType', () => {
-    it('should recognize file:// URIs', () => {
-      expect(getProtocolType('file:///path/to/File.cls')).toBe('file');
+  describe('hasUriScheme', () => {
+    it('should return true for file:// URIs', () => {
+      expect(hasUriScheme('file:///path/to/File.cls')).toBe(true);
     });
 
-    it('should recognize apexlib:// URIs', () => {
+    it('should return true for apexlib:// URIs', () => {
       expect(
-        getProtocolType(
+        hasUriScheme(
           'apexlib://resources/StandardApexLibrary/System/String.cls',
         ),
-      ).toBe('apexlib');
-    });
-
-    it('should recognize built-in:// URIs', () => {
-      expect(getProtocolType('built-in://Object')).toBe('builtin');
-    });
-
-    it('should recognize double-slash other protocols', () => {
-      expect(getProtocolType('vscode-test-web://mount/path/File.cls')).toBe(
-        'other',
-      );
-    });
-
-    it('should recognize single-slash memfs: URIs', () => {
-      expect(getProtocolType('memfs:/MyProject/path/File.cls')).toBe('other');
-    });
-
-    it('should recognize single-slash vscode-vfs: URIs', () => {
-      expect(getProtocolType('vscode-vfs:/path/File.cls')).toBe('other');
-    });
-
-    it('should return null for plain relative paths', () => {
-      expect(getProtocolType('src/classes/File.cls')).toBeNull();
-    });
-
-    it('should return null for plain absolute paths', () => {
-      expect(getProtocolType('/Users/me/src/File.cls')).toBeNull();
-    });
-
-    it('should return null for Windows drive letters (backslash)', () => {
-      expect(getProtocolType('C:\\Users\\me\\File.cls')).toBeNull();
-    });
-
-    it('should return null for Windows drive letters (forward slash)', () => {
-      expect(getProtocolType('C:/Users/me/File.cls')).toBeNull();
-    });
-
-    it('should return null for empty string', () => {
-      expect(getProtocolType('')).toBeNull();
-    });
-  });
-
-  describe('hasProtocol', () => {
-    it('should detect file protocol', () => {
-      expect(hasProtocol('file:///path/to/File.cls', 'file')).toBe(true);
-      expect(hasProtocol('memfs:/path/File.cls', 'file')).toBe(false);
-    });
-
-    it('should detect other protocol for double-slash URIs', () => {
-      expect(
-        hasProtocol('vscode-test-web://mount/path/File.cls', 'other'),
       ).toBe(true);
     });
 
-    it('should detect other protocol for single-slash URIs', () => {
-      expect(hasProtocol('memfs:/MyProject/path/File.cls', 'other')).toBe(true);
+    it('should return true for arbitrary scheme:// URIs', () => {
+      expect(hasUriScheme('vscode-remote://host/path/File.cls')).toBe(true);
     });
 
-    it('should not detect other for known protocols', () => {
-      expect(hasProtocol('file:///path/File.cls', 'other')).toBe(false);
+    it('should return true for double-slash other protocols', () => {
+      expect(hasUriScheme('vscode-test-web://mount/path/File.cls')).toBe(true);
     });
 
-    it('should not detect other for Windows forward-slash paths', () => {
-      expect(hasProtocol('C:/Users/me/File.cls', 'other')).toBe(false);
+    it('should return true for single-slash memfs: URIs', () => {
+      expect(hasUriScheme('memfs:/MyProject/path/File.cls')).toBe(true);
+    });
+
+    it('should return true for single-slash vscode-vfs: URIs', () => {
+      expect(hasUriScheme('vscode-vfs:/path/File.cls')).toBe(true);
+    });
+
+    it('should return false for plain relative paths', () => {
+      expect(hasUriScheme('src/classes/File.cls')).toBe(false);
+    });
+
+    it('should return false for plain absolute paths', () => {
+      expect(hasUriScheme('/Users/me/src/File.cls')).toBe(false);
+    });
+
+    it('should return false for Windows drive letters (backslash)', () => {
+      expect(hasUriScheme('C:\\Users\\me\\File.cls')).toBe(false);
+    });
+
+    it('should return false for Windows drive letters (forward slash)', () => {
+      expect(hasUriScheme('C:/Users/me/File.cls')).toBe(false);
+    });
+
+    it('should return false for empty string', () => {
+      expect(hasUriScheme('')).toBe(false);
     });
   });
 
@@ -113,6 +87,20 @@ describe('ProtocolHandler', () => {
       expect(createFileUri('vscode-test-web://mount/File.cls')).toBe(
         'vscode-test-web://mount/File.cls',
       );
+    });
+  });
+
+  describe('getFilePathFromUri', () => {
+    it('should map apexlib URIs to StandardApexLibrary-relative paths', () => {
+      const uri = createApexLibUri('System/System.cls');
+      expect(getFilePathFromUri(uri)).toBe('System/System.cls');
+    });
+
+    it('should pass through file:// and other URIs unchanged', () => {
+      expect(getFilePathFromUri('file:///path/File.cls')).toBe(
+        'file:///path/File.cls',
+      );
+      expect(getFilePathFromUri('memfs:/p/File.cls')).toBe('memfs:/p/File.cls');
     });
   });
 });

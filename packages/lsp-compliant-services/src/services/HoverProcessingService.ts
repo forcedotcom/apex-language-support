@@ -56,6 +56,7 @@ export interface IHoverProcessor {
    * @returns Hover information for the requested position
    */
   processHover(params: HoverParams): Promise<Hover | null>;
+  scheduleTimeoutFollowup(params: HoverParams): Promise<void>;
 }
 
 /**
@@ -151,7 +152,6 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
@@ -486,6 +486,32 @@ export class HoverProcessingService implements IHoverProcessor {
       // This enriches layer by layer (public-api -> protected -> private -> full)
       // with resolution attempts between each layer
       if (references && references.length > 0) {
+        // Restore original hover UX: when initial symbol lookup misses, immediately
+        // return a "searching" hover and do artifact lookup in background.
+        const earlySettings = ApexSettingsManager.getInstance().getSettings();
+        if (earlySettings?.apex?.findMissingArtifact?.enabled) {
+          // Check if this is a variable reference - skip missing artifact resolution
+          const variableRef =
+            references.find(
+              (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+            ) ||
+            references.find(
+              (ref) =>
+                ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
+            );
+
+          if (!variableRef) {
+            this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+              params.textDocument.uri,
+              params.position,
+              'hover',
+            );
+
+            const searchingHover = await this.createSearchingHover(params);
+            return searchingHover;
+          }
+        }
+
         this.logger.debug(
           () =>
             '[HOVER] TypeReference exists but no symbol found. ' +
@@ -824,6 +850,19 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       return null;
     }
+  }
+
+  public async scheduleTimeoutFollowup(params: HoverParams): Promise<void> {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    if (!settings?.apex?.findMissingArtifact?.enabled) {
+      return;
+    }
+
+    this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+      params.textDocument.uri,
+      params.position,
+      'hover',
+    );
   }
 
   /**

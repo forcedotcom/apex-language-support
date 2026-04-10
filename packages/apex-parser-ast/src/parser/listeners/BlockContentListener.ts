@@ -80,7 +80,7 @@ import {
   isContextType,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
-import { isBlockSymbol } from '../../utils/symbolNarrowing';
+import { inTypeSymbolGroup, isBlockSymbol } from '../../utils/symbolNarrowing';
 import { TypeInfo } from '../../types/typeInfo';
 import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 
@@ -1810,13 +1810,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         // Use getSymbolById for O(1) lookup
         if (owner.parentId) {
           const typeSymbol = this.symbolTable.getSymbolById(owner.parentId);
-          if (
-            typeSymbol &&
-            (typeSymbol.kind === SymbolKind.Class ||
-              typeSymbol.kind === SymbolKind.Interface ||
-              typeSymbol.kind === SymbolKind.Enum ||
-              typeSymbol.kind === SymbolKind.Trigger)
-          ) {
+          if (typeSymbol && inTypeSymbolGroup(typeSymbol)) {
             return typeSymbol as TypeSymbol;
           }
         }
@@ -1855,15 +1849,9 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       if (typeName) {
         // Find the type symbol - prefer most nested if multiple matches
         const allSymbols = this.symbolTable.getAllSymbols();
-        const matchingTypes = allSymbols.filter(
-          (s) =>
-            s.name === typeName &&
-            s.fileUri === fileUri &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger),
-        ) as TypeSymbol[];
+        const matchingTypes = allSymbols
+          .filter((s) => s.name === typeName && s.fileUri === fileUri)
+          .filter(inTypeSymbolGroup);
 
         if (matchingTypes.length > 0) {
           // Return the most nested matching type (for inner classes)
@@ -1894,15 +1882,9 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         if (typeName) {
           // Find the type symbol - prefer most nested if multiple matches
           const allSymbols = this.symbolTable.getAllSymbols();
-          const matchingTypes = allSymbols.filter(
-            (s) =>
-              s.name === typeName &&
-              s.fileUri === fileUri &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger),
-          ) as TypeSymbol[];
+          const matchingTypes = allSymbols
+            .filter((s) => s.name === typeName && s.fileUri === fileUri)
+            .filter(inTypeSymbolGroup);
 
           if (matchingTypes.length > 0) {
             // Return the most nested matching type (for inner classes)

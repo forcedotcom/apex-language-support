@@ -37,7 +37,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'file-open-single':
       return {
-        requiredDetailLevel: 'full', // Editor needs full semantics
+        requiredDetailLevel: 'private', // Keep file-open at same-file enrichment level
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false, // Can be async
@@ -71,8 +71,10 @@ export function getPrerequisitesForLspRequestType(
         requiredDetailLevel: 'full', // Need full type info for hover
         requiresReferences: true,
         requiresReferenceResolution: true,
-        requiresCrossFileResolution: true, // May need cross-file types
-        executionMode: 'blocking', // Block for accurate hover info
+        // Keep hover responsive: cross-file/missing-artifact flows are handled
+        // opportunistically in the hover service itself via background resolution.
+        requiresCrossFileResolution: false,
+        executionMode: 'async',
         skipDuringWorkspaceLoad: true,
         missingArtifactResolution: {
           enabled: true, // Hover should attempt missing artifact resolution
@@ -93,7 +95,8 @@ export function getPrerequisitesForLspRequestType(
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // Definitions may be cross-file
         executionMode: 'blocking',
-        skipDuringWorkspaceLoad: true,
+        // Keep definition strict: do not skip prerequisites during workspace load.
+        skipDuringWorkspaceLoad: false,
         missingArtifactResolution: {
           enabled: true, // Definition should attempt missing artifact resolution
           mode: 'blocking', // Block for definition (user expects result)
@@ -107,11 +110,11 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentSymbol':
       return {
-        requiredDetailLevel: 'full', // Need all symbols for outline
+        requiredDetailLevel: 'private', // Outline should include all same-file members
         requiresReferences: false, // Not needed for symbol list
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
-        executionMode: 'blocking', // Block for complete outline
+        executionMode: 'async', // Keep outline non-blocking
         skipDuringWorkspaceLoad: true,
       };
 
@@ -144,7 +147,8 @@ export function getPrerequisitesForLspRequestType(
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // May need cross-file for method signatures
         executionMode: 'blocking',
-        skipDuringWorkspaceLoad: true,
+        // Keep signature help strict: do not skip prerequisites during workspace load.
+        skipDuringWorkspaceLoad: false,
       };
 
     case 'codeAction':

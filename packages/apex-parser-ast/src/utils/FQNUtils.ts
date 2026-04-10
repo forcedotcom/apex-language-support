@@ -10,7 +10,7 @@
  * Utilities for working with Fully Qualified Names (FQNs) in Apex
  */
 
-import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { ApexSymbol, SymbolKind, inTypeSymbolGroup } from '../types/symbol';
 import { isBlockSymbol } from './symbolNarrowing';
 import { ResourceLoader } from './resourceLoader';
 
@@ -88,8 +88,9 @@ export function calculateFQN(
         continue;
       }
 
-      // Include all parents in FQN - FQN should reflect the actual parent hierarchy
-      parts.unshift(parent.name);
+      if (parent.name) {
+        parts.unshift(parent.name);
+      }
 
       currentParentId = parent.parentId ?? null;
       depth++;
@@ -122,12 +123,7 @@ export function calculateFQN(
  * @returns True if the symbol is a type, false otherwise
  */
 export function isType(symbol: ApexSymbol): boolean {
-  return (
-    symbol.kind === SymbolKind.Class ||
-    symbol.kind === SymbolKind.Interface ||
-    symbol.kind === SymbolKind.Enum ||
-    symbol.kind === SymbolKind.Trigger
-  );
+  return inTypeSymbolGroup(symbol);
 }
 
 /**
@@ -179,11 +175,10 @@ export function getAncestorChain(
 }
 
 /**
- * Check if a type is a built-in Apex type
- * @param symbol The symbol to check
- * @returns Whether the symbol is a built-in type
+ * Whether the symbol represents a standard Apex library type (namespaces from ResourceLoader,
+ * or collection types List/Set/Map).
  */
-export function isBuiltInType(symbol: any): boolean {
+export function isStandardLibraryTypeSymbol(symbol: any): boolean {
   if (!symbol || !symbol.name) return false;
 
   // Check for List, Set, Map types (generic collection types)
@@ -195,9 +190,7 @@ export function isBuiltInType(symbol: any): boolean {
     return true;
   }
 
-  // Check if this is a type from a built-in namespace (System namespace)
-  // This includes wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
-  // which are now in StandardApexLibrary/System/ and resolved via ResourceLoader
+  // Standard library namespaces (System, …) and collections (List, Set, Map)
   const namespace = symbol.namespace || extractNamespace(symbol.name);
   const resourceLoader = ResourceLoader.getInstance();
   return namespace
@@ -244,7 +237,7 @@ export function extractNamespace(
 ): string {
   if (!name) return '';
   const resourceLoader = ResourceLoader.getInstance();
-  // If it's a built-in namespace, return the name itself
+  // If it's a standard library namespace, return the name itself
   if (
     [...resourceLoader.getStandardNamespaces().keys()].includes(name as any)
   ) {
@@ -254,7 +247,7 @@ export function extractNamespace(
   // If the name has a namespace prefix (e.g., 'Namespace.ClassName')
   if (name.includes('.')) {
     const parts = name.split('.');
-    // Check if the first part is a built-in namespace
+    // Check if the first part is a standard library namespace
     if (
       [...resourceLoader.getStandardNamespaces().keys()].includes(
         parts[0] as any,
@@ -287,13 +280,10 @@ export function isGlobalSymbol(symbol: any): boolean {
   return symbol.visibility === 'global';
 }
 
-/**
- * Check if a fully qualified name belongs to a built-in type
- */
-export function isBuiltInFQN(fqn: string): boolean {
+/** Whether the FQN is under a standard Apex library namespace (System, Schema, …). */
+export function isStandardLibraryFQN(fqn: string): boolean {
   if (!fqn) return false;
   const resourceLoader = ResourceLoader.getInstance();
-  // Check if the FQN starts with a built-in namespace
   for (const namespace of [...resourceLoader.getStandardNamespaces().keys()]) {
     if (fqn === namespace.toString() || fqn.startsWith(`${namespace}.`)) {
       return true;

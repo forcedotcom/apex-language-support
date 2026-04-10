@@ -7,7 +7,7 @@
  */
 
 import { SymbolLocation, SymbolModifiers } from './symbol';
-import { ReferenceType } from '../symbols/ApexSymbolGraph';
+import { ReferenceType } from '../symbols/ApexSymbolRefManager';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 
 /**

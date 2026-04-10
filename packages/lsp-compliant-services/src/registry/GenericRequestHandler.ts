@@ -77,6 +77,7 @@ export class GenericRequestHandler<
       documentLoad: 'processDocumentLoad',
       findMissingArtifact: 'processFindMissingArtifact',
       executeCommand: 'processExecuteCommand',
+      prerequisiteEnrichment: 'processPrerequisiteEnrichment',
     };
 
     return methodMap[requestType] || 'process';

@@ -13,6 +13,7 @@ import {
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { DocumentSymbolResultStore } from '../../src/services/DocumentSymbolResultStore';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
@@ -21,6 +22,7 @@ describe('DocumentCloseProcessingService', () => {
   let service: DocumentCloseProcessingService;
   let logger: ReturnType<typeof getLogger>;
   let mockStorage: any;
+  let mockDocumentSymbolCache: { invalidate: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -33,6 +35,12 @@ describe('DocumentCloseProcessingService', () => {
       deleteDocument: jest.fn(),
       getAllDocuments: jest.fn(),
     };
+    mockDocumentSymbolCache = {
+      invalidate: jest.fn(),
+    };
+    jest
+      .spyOn(DocumentSymbolResultStore, 'getInstance')
+      .mockReturnValue(mockDocumentSymbolCache as any);
 
     const {
       ApexStorageManager,
@@ -279,6 +287,67 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockStorage.deleteDocument).toHaveBeenCalled();
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
       // The service only removes documents from storage, not from symbol manager
+    });
+  });
+
+  describe('cache invalidation', () => {
+    it('should invalidate document state cache on close', async () => {
+      const {
+        getDocumentStateCache,
+      } = require('../../src/services/DocumentStateCache');
+      const cache = getDocumentStateCache();
+      const testUri = 'file:///cachetest.cls';
+
+      // Populate the cache first
+      cache.merge(testUri, {
+        diagnostics: [],
+        documentVersion: 1,
+        documentLength: 100,
+        symbolsIndexed: false,
+      });
+
+      // Verify cache entry exists
+      expect(cache.get(testUri, 1)).not.toBeNull();
+
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: testUri,
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'public class CacheTest {}',
+          positionAt: jest.fn(),
+          offsetAt: jest.fn(),
+          lineCount: 1,
+        },
+      };
+
+      service.processDocumentClose(event);
+
+      // Allow the fire-and-forget async processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Cache should be invalidated after close
+      expect(cache.get(testUri, 1)).toBeNull();
+    });
+
+    it('should invalidate documentSymbol cache on close', async () => {
+      const testUri = 'file:///docsymbol-cachetest.cls';
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: testUri,
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'public class CacheTest {}',
+          positionAt: jest.fn(),
+          offsetAt: jest.fn(),
+          lineCount: 1,
+        },
+      };
+
+      service.processDocumentClose(event);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(mockDocumentSymbolCache.invalidate).toHaveBeenCalledWith(testUri);
     });
   });
 

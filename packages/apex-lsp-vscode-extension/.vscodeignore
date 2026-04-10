@@ -4,6 +4,10 @@ test/**
 scripts/**
 docs/**
 
+# Publisher / internal markdown (marketplace uses root readme.md only)
+LOCALIZATION.md
+src/**/README.md
+
 # Intermediate build output (tsc)
 out/**
 
@@ -38,6 +42,8 @@ node_modules/**
 # Artifacts and logs
 *.vsix
 *.log
+# Transient full package.json backup while vsce runs (see scripts/run-vsce-with-clean-package-json.mjs)
+.package.json.vsix-backup
 bundle/**
 server-bundle/**
 coverage/**

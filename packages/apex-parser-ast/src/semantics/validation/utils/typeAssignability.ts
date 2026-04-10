@@ -14,6 +14,10 @@ import {
   isPrimitiveType,
   NON_NULLABLE_PRIMITIVES,
 } from '../../../utils/primitiveTypes';
+import {
+  canonicalizeStandardTypeName,
+  isStandardTypeAlias,
+} from './standardTypeIdentity';
 
 export { isPrimitiveType, isNumericType };
 
@@ -45,9 +49,9 @@ export function isAssignable(
 ): boolean {
   const base = (s: string) => s.split('.').pop() ?? s;
   let source = base((sourceType ?? '').toLowerCase());
-  let target = base((targetType ?? '').toLowerCase());
-  if (target === 'system.object') target = 'object';
-  if (target === 'system.type') target = 'type';
+  let target = canonicalizeStandardTypeName(
+    base((targetType ?? '').toLowerCase()),
+  );
   if (context === 'method-parameter' && !target) return true;
 
   // Exact match
@@ -82,7 +86,7 @@ export function isAssignable(
   }
 
   // method-parameter: Type param accepts Type and Object (e.g. Assert.isInstanceOfType)
-  if (context === 'method-parameter' && target === 'type') {
+  if (context === 'method-parameter' && isStandardTypeAlias(target, 'type')) {
     return ['type', 'object'].includes(source);
   }
 
