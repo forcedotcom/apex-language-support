@@ -189,6 +189,8 @@ jobs:
               --dir ./vsix-artifacts \
               --repo "${{ github.repository }}"
 
+            # Version for tag path comes from the tag name (not the VSIX), but we still need the universal VSIX for manifest/version checks below.
+
           else
             echo "Source: branch CI run ($SOURCE_RUN_ID)"
             echo "source-type=run" >> $GITHUB_OUTPUT
@@ -211,8 +213,8 @@ jobs:
               --dir ./vsix-artifacts \
               --repo "${{ github.repository }}"
 
-            # Extract pre-release version from the VSIX's package.json
-            VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+            # Extract pre-release version from the VSIX's package.json (universal VSIX only)
+            VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
             if [ -z "$VSIX_FILE" ]; then
               echo "ERROR: No VSIX found in run $SOURCE_RUN_ID artifacts"
               exit 1
@@ -228,9 +230,26 @@ jobs:
 
           echo "prerelease-version=$PRERELEASE_VERSION" >> $GITHUB_OUTPUT
 
+          # Universal VSIX only — vsce package --pre-release sets Microsoft.VisualStudio.Code.PreRelease in extension.vsixmanifest.
+          # @vscode/vsce does not inject preRelease into extension/package.json; the manifest is the authoritative packaged signal.
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "ERROR: No universal VSIX found under ./vsix-artifacts (expected apex-language-server-extension-*.vsix, excluding *-web-*)"
+            exit 1
+          fi
+          VSIX_PRERELEASE_PACKAGED=$(unzip -p "$VSIX_FILE" extension.vsixmanifest | \
+            { grep -q 'Microsoft.VisualStudio.Code.PreRelease" Value="true"' && echo true || echo false; })
+          echo "VSIX pre-release (extension.vsixmanifest): $VSIX_PRERELEASE_PACKAGED ($VSIX_FILE)"
+
           # ── Stable slot: determine and validate stable version ────────────
           if [ "$SLOT" != "stable" ]; then
             echo "stable-version=" >> $GITHUB_OUTPUT
+            if [ "$VSIX_PRERELEASE_PACKAGED" != "true" ]; then
+              echo "ERROR: Pre-release marketplace slot requires a VSIX built with vsce package --pre-release."
+              echo "This artifact is missing Microsoft.VisualStudio.Code.PreRelease Value=\"true\" in extension.vsixmanifest (often caused by Package/nightly-extensions with pre-release inputs false)."
+              echo "Use a nightly produced via nightly.yml (pre-release is always true) or re-run packaging with pre-release enabled."
+              exit 1
+            fi
             echo "prerelease-flag=true" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -419,9 +438,10 @@ jobs:
         run: echo "Manual publish approved by ${{ github.actor }} at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   # ── repackage ──────────────────────────────────────────────────────────────
+  # Use always() so this runs when quality-gate is skipped but gate succeeds (actions/runner#2205).
   repackage:
     needs: [prepare, gate]
-    if: needs.prepare.result == 'success' && needs.gate.result == 'success'
+    if: always() && needs.prepare.result == 'success' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
@@ -439,7 +459,7 @@ jobs:
           PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
           STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
             echo "ERROR: No VSIX found in artifact"
             exit 1
@@ -457,6 +477,7 @@ jobs:
               const fs = require('fs');
               const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
               pkg.version = '$STABLE_VERSION';
+              delete pkg.preRelease;
               fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
             "
 
@@ -481,6 +502,7 @@ jobs:
   # ── publish ────────────────────────────────────────────────────────────────
   publish:
     needs: [prepare, repackage]
+    if: always() && needs.prepare.result == 'success' && needs.repackage.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -505,7 +527,7 @@ jobs:
 
       - name: Locate VSIX
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           echo "VSIX_PATH=$VSIX_FILE" >> $GITHUB_ENV
 
       - name: Publish to ${{ matrix.registry }}
@@ -522,7 +544,7 @@ jobs:
   # ── create-github-release ──────────────────────────────────────────────────
   create-github-release:
     needs: [prepare, repackage, publish]
-    if: inputs.slot == 'stable'
+    if: always() && inputs.slot == 'stable' && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -545,7 +567,7 @@ jobs:
           SOURCE_TYPE: ${{ needs.prepare.outputs.source-type }}
           DRY_RUN: ${{ inputs.dry-run || 'false' }}
         run: |
-          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           RELEASE_TAG="apex-language-server-extension-v${STABLE_VERSION}"
           RELEASE_TITLE="Apex Language Server Extension v${STABLE_VERSION} (stable)"
 
@@ -587,7 +609,7 @@ jobs:
   # ── tag-published ──────────────────────────────────────────────────────────
   tag-published:
     needs: [prepare, publish, create-github-release]
-    if: always() && needs.publish.result == 'success'
+    if: always() && needs.publish.result == 'success' && (inputs.slot == 'pre-release' || needs.create-github-release.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

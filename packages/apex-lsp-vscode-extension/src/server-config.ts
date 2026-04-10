@@ -294,6 +294,8 @@ export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
+  let hoverSequence = 0;
+  const inFlightSupersede = new Map<number, () => void>();
   return {
     documentSelector: getDocumentSelectorsFromSettings(
       'all',
@@ -308,8 +310,53 @@ export const createClientOptions = (
       closed: () => handleClientClosed(),
     },
     middleware: {
-      provideHover: async (document, position, token, next) =>
-        next(document, position, token),
+      provideHover: async (document, position, token, next) => {
+        const requestSeq = ++hoverSequence;
+        for (const [seq, resolveSupersede] of inFlightSupersede.entries()) {
+          if (seq < requestSeq) {
+            resolveSupersede();
+            inFlightSupersede.delete(seq);
+          }
+        }
+        const nextPromise = Promise.resolve(
+          next(document, position, token),
+        ).then(
+          (value) => ({ source: 'next' as const, value }),
+          (error) => {
+            throw error;
+          },
+        );
+        const cancellationPromise = new Promise<{
+          source: 'cancel';
+          value: null;
+        }>((resolve) => {
+          if (token.isCancellationRequested) {
+            resolve({ source: 'cancel', value: null });
+            return;
+          }
+          token.onCancellationRequested(() =>
+            resolve({ source: 'cancel', value: null }),
+          );
+        });
+        const supersedePromise = new Promise<{
+          source: 'supersede';
+          value: null;
+        }>((resolve) => {
+          inFlightSupersede.set(requestSeq, () =>
+            resolve({ source: 'supersede', value: null }),
+          );
+        });
+        const raceResult = await Promise.race([
+          nextPromise,
+          cancellationPromise,
+          supersedePromise,
+        ]);
+        inFlightSupersede.delete(requestSeq);
+        if (raceResult.value === null) {
+          void nextPromise.catch(() => {});
+        }
+        return raceResult.value;
+      },
     },
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
@@ -348,6 +395,7 @@ const handleClientClosed = (): { action: CloseAction } => {
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',
   );
-  // Always return DoNotRestart since we handle restart logic separately
-  return { action: CloseAction.DoNotRestart };
+  // Auto-restart on unexpected close to avoid stuck "loading" requests after
+  // pending responses are rejected due to disposed connection.
+  return { action: CloseAction.Restart };
 };

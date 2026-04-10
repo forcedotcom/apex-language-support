@@ -5,3 +5,6 @@ node_modules
 .vscode-test/
 *.tsbuildinfo
 resources/StandardApexLibrary.zip
+
+# Transient backup while packaging VSIX (see scripts/run-vsce-with-clean-package-json.mjs)
+.package.json.vsix-backup

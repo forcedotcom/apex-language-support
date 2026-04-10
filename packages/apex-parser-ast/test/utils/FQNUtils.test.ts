@@ -739,6 +739,66 @@ describe('FQN Utilities', () => {
         expect(fqn).toContain('localvar');
       }
     });
+
+    describe('empty parent name handling', () => {
+      it('should skip parents with empty names when building FQN', () => {
+        const emptyNameParent: ApexSymbol = {
+          id: 'empty-parent',
+          name: '',
+          kind: SymbolKind.Class,
+          parentId: null,
+        } as unknown as ApexSymbol;
+
+        const child: ApexSymbol = {
+          id: 'child-symbol',
+          name: 'put',
+          kind: SymbolKind.Method,
+          parentId: 'empty-parent',
+        } as unknown as ApexSymbol;
+
+        const lookup = (parentId: string): ApexSymbol | null => {
+          if (parentId === 'empty-parent') return emptyNameParent;
+          return null;
+        };
+
+        const fqn = calculateFQN(child, undefined, lookup);
+        expect(fqn).toBe('put');
+        expect(fqn).not.toContain('..');
+      });
+
+      it('should skip empty-name parents in the middle of a chain', () => {
+        const grandparent: ApexSymbol = {
+          id: 'grandparent',
+          name: 'System',
+          kind: SymbolKind.Class,
+          parentId: null,
+        } as unknown as ApexSymbol;
+
+        const emptyParent: ApexSymbol = {
+          id: 'empty-parent',
+          name: '',
+          kind: SymbolKind.Class,
+          parentId: 'grandparent',
+        } as unknown as ApexSymbol;
+
+        const child: ApexSymbol = {
+          id: 'child',
+          name: 'put',
+          kind: SymbolKind.Method,
+          parentId: 'empty-parent',
+        } as unknown as ApexSymbol;
+
+        const lookup = (parentId: string): ApexSymbol | null => {
+          if (parentId === 'empty-parent') return emptyParent;
+          if (parentId === 'grandparent') return grandparent;
+          return null;
+        };
+
+        const fqn = calculateFQN(child, undefined, lookup);
+        expect(fqn).toBe('System.put');
+        expect(fqn).not.toContain('..');
+      });
+    });
   });
 
   describe('extractNamespace', () => {

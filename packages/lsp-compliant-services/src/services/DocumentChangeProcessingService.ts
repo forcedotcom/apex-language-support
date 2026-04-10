@@ -11,6 +11,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { DocumentProcessingService } from './DocumentProcessingService';
+import { DocumentSymbolResultStore } from './DocumentSymbolResultStore';
 
 /**
  * Interface for document change processing functionality
@@ -58,6 +59,9 @@ export class DocumentChangeProcessingService implements IDocumentChangeProcessor
       () =>
         `Processing document change for: ${event.document.uri} (version: ${event.document.version})`,
     );
+
+    // documentSymbol cache is URI-keyed; invalidate eagerly on any content/version change.
+    DocumentSymbolResultStore.getInstance().invalidate(event.document.uri);
 
     // Delegate to the shared tier-1 pipeline used by didOpen.
     // processDocumentOpenInternal handles: storage update, compile with

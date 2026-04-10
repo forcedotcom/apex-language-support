@@ -85,7 +85,7 @@ permissions:
 - **Operations**: Checkout, build, upload artifacts
 - **Permissions**: `contents: read`, `actions: read`
 
-### **Release Workflow** (`release.yml`)
+### **Release Workflow** (`nightly.yml`)
 
 - **Token**: `GITHUB_TOKEN` (automatic)
 - **Operations**: Orchestrate releases
@@ -109,8 +109,10 @@ permissions:
 ### **Automerge Workflow** (`automerge.yml`)
 
 - **Token**: `GITHUB_TOKEN`
-- **Operations**: Automatic PR merging
+- **Operations**: Enables auto-merge for eligible Dependabot PRs
 - **Permissions**: `contents: write`, `pull-requests: write`, `actions: read`
+- **Guards**: Only same-repo `dependabot[bot]` PRs are eligible; fork-origin PRs are excluded
+- **Prerequisite**: Repository auto-merge must be enabled in GitHub settings
 
 ### **Validate PR Workflow** (`validatePR.yml`)
 

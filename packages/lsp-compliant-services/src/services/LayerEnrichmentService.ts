@@ -357,7 +357,6 @@ export class LayerEnrichmentService {
             },
             cachedParseTree || undefined,
           );
-
           if (result?.result) {
             // Update symbol table in manager
             yield* self.symbolManager.addSymbolTable(
@@ -366,15 +365,12 @@ export class LayerEnrichmentService {
               version,
               result.errors.length > 0,
             );
-
-            // Update cache with new detail level
-            const currentCache = cache.get(uri, version);
-            if (currentCache) {
-              cache.merge(uri, {
-                ...currentCache,
-                detailLevel: targetLevel,
-              });
-            }
+            // Update cache with new detail level even when there is no existing entry.
+            cache.merge(uri, {
+              documentVersion: version,
+              documentLength: document.getText().length,
+              detailLevel: targetLevel,
+            });
 
             self.logger.debug(
               () =>

@@ -385,6 +385,18 @@ describe('ResourceLoader Lazy Loading', () => {
       // Symbol tables from cache should be the same instance
       expect(symbolTable2).toBe(symbolTable1);
     });
+
+    it('should resolve unqualified class names via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('Action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
+
+    it('should resolve namespaced class names case-insensitively via stdlib index', async () => {
+      const symbolTable = await loader.getSymbolTable('apexpages/action');
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
   });
 
   describe('hasSymbolTable', () => {
@@ -466,6 +478,29 @@ describe('ResourceLoader Lazy Loading', () => {
     it('should handle edge cases', () => {
       expect(loader.couldResolveSymbol('')).toBe(false);
       expect(loader.couldResolveSymbol('System.System.extra')).toBe(false);
+    });
+  });
+
+  describe('resolveStandardClassFqn', () => {
+    it('resolves unqualified class names case-insensitively', () => {
+      expect(loader.resolveStandardClassFqn('assert')).toBe('System.Assert');
+      expect(loader.resolveStandardClassFqn('String')).toBe('System.String');
+    });
+
+    it('resolves namespaced class names and preserves canonical case', () => {
+      expect(loader.resolveStandardClassFqn('system.assert')).toBe(
+        'System.Assert',
+      );
+      expect(loader.resolveStandardClassFqn('database.batchable')).toBe(
+        'Database.Batchable',
+      );
+    });
+
+    it('returns null for unknown classes', () => {
+      expect(loader.resolveStandardClassFqn('DoesNotExistClass')).toBeNull();
+      expect(loader.resolveStandardClassFqn('UnknownNamespace.Missing')).toBe(
+        null,
+      );
     });
   });
 

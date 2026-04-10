@@ -71,6 +71,7 @@ export * from './utils/symbolNarrowing';
 export * from './utils/FQNUtils';
 export * from './utils/ApexKeywords';
 export * from './utils/effectUtils';
+export * from './utils/UnifiedCache';
 
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';

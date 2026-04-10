@@ -404,6 +404,12 @@ export class LSPQueueManager {
     }
 
     const submitStartTime = Date.now();
+    const observabilityRequests = new Set<LSPRequestType>([
+      'definition',
+      'signatureHelp',
+      'references',
+      'rename',
+    ]);
 
     try {
       // Ensure scheduler is initialized
@@ -475,6 +481,15 @@ export class LSPQueueManager {
       const result = await Effect.runPromise(Fiber.await(fiber));
       const executionTime = Date.now() - executionStartTime;
       const totalTime = Date.now() - submitStartTime;
+
+      if (observabilityRequests.has(type)) {
+        this.logger.debug(
+          () =>
+            `[REQ-HARDEN] queue timings type=${type} ` +
+            `totalMs=${totalTime} queueMs=${queueWaitTime} ` +
+            `execMs=${executionTime}`,
+        );
+      }
 
       if (totalTime > 50 || queueWaitTime > 10 || executionTime > 50) {
         this.logger.debug(

@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.26",
+  "version": "0.5.41",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -686,6 +686,9 @@
     "bundle": "wireit",
     "vscode:bundle": "npm run bundle",
     "package": "wireit",
+    "package-prerelease": "wireit",
+    "package-web": "wireit",
+    "package-web-prerelease": "wireit",
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",
     "test:coverage": "wireit",
@@ -755,16 +758,61 @@
       ]
     },
     "package": {
-      "command": "npx vsce package --no-dependencies",
+      "command": "node ./scripts/run-vsce-with-clean-package-json.mjs --no-dependencies",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "*.vsix"
+        "apex-language-server-extension-[0-9]*.vsix"
       ],
       "files": [
         "package.json",
-        ".vscodeignore"
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs"
+      ]
+    },
+    "package-prerelease": {
+      "command": "node ./scripts/run-vsce-with-clean-package-json.mjs --no-dependencies --pre-release",
+      "dependencies": [
+        "bundle"
+      ],
+      "output": [
+        "apex-language-server-extension-[0-9]*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs"
+      ]
+    },
+    "package-web": {
+      "command": "node ./scripts/package-web-vsix.mjs",
+      "dependencies": [
+        "package"
+      ],
+      "output": [
+        "*-web-*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs",
+        "scripts/package-web-vsix.mjs"
+      ]
+    },
+    "package-web-prerelease": {
+      "command": "node ./scripts/package-web-vsix.mjs --prerelease",
+      "dependencies": [
+        "package-prerelease"
+      ],
+      "output": [
+        "*-web-*.vsix"
+      ],
+      "files": [
+        "package.json",
+        ".vscodeignore",
+        "scripts/run-vsce-with-clean-package-json.mjs",
+        "scripts/package-web-vsix.mjs"
       ]
     },
     "test": {
@@ -832,7 +880,7 @@
     "@salesforce/vscode-services": "^66.2.2",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
-    "@salesforce/apex-tmlanguage": "2.0.1",
+    "@salesforce/apex-tmlanguage": "^2.0.2",
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.7.1",
@@ -841,7 +889,7 @@
     "events": "^3.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
-    "shx": "^0.3.4",
+    "shx": "^0.4.0",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5"
   }

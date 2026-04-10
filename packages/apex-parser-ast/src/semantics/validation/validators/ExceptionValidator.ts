@@ -43,6 +43,7 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
+import { normalizeStandardTypeName } from '../utils/standardTypeIdentity';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { isContextType } from '../../../utils/contextTypeGuards';
 
@@ -397,7 +398,9 @@ export const ExceptionValidator: Validator = {
                 // This is specifically for System exception classes that try to redefine constructors
                 // For user-defined exceptions, duplicate constructors with same signature
                 // are caught by DuplicateMethodValidator
-                if (className.toLowerCase().startsWith('system.')) {
+                if (
+                  normalizeStandardTypeName(className).startsWith('system.')
+                ) {
                   errors.push({
                     message: localizeTyped(
                       ErrorCodes.INVALID_EXCEPTION_CONSTRUCTOR_ALREADY_DEFINED,

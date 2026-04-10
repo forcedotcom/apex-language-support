@@ -91,7 +91,7 @@ The server mode can be configured through multiple methods:
 For detailed information about server mode configuration and capabilities, see:
 
 - [Server Mode Override Documentation](packages/apex-lsp-vscode-extension/docs/server-mode-override.md)
-- [Capabilities Documentation](packages/lsp-compliant-services/docs/CAPABILITIES.md)
+- [LSP Compliant Services README](packages/lsp-compliant-services/README.md)
 
 ## Client Libraries
 

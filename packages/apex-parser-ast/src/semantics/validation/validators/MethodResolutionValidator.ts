@@ -35,20 +35,24 @@ import {
   isPrimitiveType,
   isNumericType,
 } from '../utils/typeAssignability';
+import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
 import {
   resolveTypeName,
   ReferenceTypeEnum,
   IdentifierContext,
   type CompilationContext,
+  type SymbolProvider,
   Namespaces,
 } from '../../../namespace/NamespaceUtils';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../constants/constants';
-import {
-  extractBaseTypeForResolution,
-  extractBaseTypeName,
-} from '../utils/typeUtils';
+import { extractBaseTypeForResolution } from '../utils/typeUtils';
 import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
+import {
+  createGenericTypeSubstitutionMap,
+  substituteTypeName,
+} from '../../../utils/genericTypeSubstitution';
 import { AnnotationUtils } from '../../../utils/AnnotationUtils';
+import { isPrimaryImplicitNamespace } from '../../../namespace/NamespaceResolutionPolicy';
 
 /**
  * Validates method calls for:
@@ -348,11 +352,49 @@ export const MethodResolutionValidator: Validator = {
                   preResolvedSymbol.kind === SymbolKind.Interface)
               ) {
                 targetClass = preResolvedSymbol as TypeSymbol;
+                if (!receiverType.includes('.') && options.namespace) {
+                  const preResolvedNamespace =
+                    typeof preResolvedSymbol.namespace === 'string'
+                      ? preResolvedSymbol.namespace
+                      : (preResolvedSymbol.namespace?.toString?.() ?? '');
+                  if (isPrimaryImplicitNamespace(preResolvedNamespace)) {
+                    const compilationContext: CompilationContext = {
+                      namespace: Namespaces.create(options.namespace),
+                      version:
+                        options.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION,
+                      isTrusted: true,
+                      sourceType: 'FILE',
+                      referencingType: containingClass,
+                      enclosingTypes: [],
+                      parentTypes: [],
+                      isStaticContext: true,
+                      currentSymbolTable: symbolTable,
+                    };
+                    const baseType = extractBaseTypeForResolution(receiverType);
+                    const namespacedResult = resolveTypeName(
+                      [baseType],
+                      compilationContext,
+                      ReferenceTypeEnum.METHOD,
+                      IdentifierContext.NONE,
+                      symbolManager as unknown as SymbolProvider,
+                    );
+                    if (
+                      namespacedResult.isResolved &&
+                      namespacedResult.symbol &&
+                      (namespacedResult.symbol.kind === SymbolKind.Class ||
+                        namespacedResult.symbol.kind === SymbolKind.Interface)
+                    ) {
+                      targetClass = namespacedResult.symbol as TypeSymbol;
+                    }
+                  }
+                }
                 if (methodCall.isStatic === undefined) {
                   isStaticCall = true;
                 }
-              } else if (methodCall.isStatic === undefined) {
-                // Receiver is not a variable - try to resolve as type (static call)
+              } else {
+                // Receiver is not a variable - resolve as type (static call candidate).
+                // Do this even when enrichment set isStatic=false, because that flag
+                // can be stale for qualified static calls like Test.foo().
                 const compilationContext: CompilationContext = {
                   namespace: options.namespace
                     ? Namespaces.create(options.namespace)
@@ -498,44 +540,11 @@ export const MethodResolutionValidator: Validator = {
             // e.g., List<Coordinates> -> Coordinates
             // Map<String, Integer> -> K=String, V=Integer
             // Get generic type arguments from TypeInfo.typeParameters if available
-            let genericTypeArguments: Map<string, string> | null = null; // Maps generics (K, V, T) to concrete type
+            let genericTypeArguments: Map<string, string> | null = null;
             if (!isStaticCall && receiverAsVariable?.type) {
-              const fullReceiverType =
-                receiverAsVariable.type.originalTypeString ||
-                receiverAsVariable.type.name ||
-                receiverType;
-              const baseTypeName = fullReceiverType
-                ? extractBaseTypeName(fullReceiverType)
-                : null;
-
-              // Check if type has typeParameters (for List<T>, Set<T>, Map<K,V>)
-              if (
-                receiverAsVariable.type.typeParameters &&
-                receiverAsVariable.type.typeParameters.length > 0 &&
-                baseTypeName
-              ) {
-                genericTypeArguments = new Map();
-
-                if (baseTypeName === 'map') {
-                  // Map<K, V>: keyType = K, typeParameters[0] = V (value type)
-                  // Note: TypeInfo stores Map as keyType + typeParameters[0] (value)
-                  // Both must be present for Map generic resolution to work
-                  const keyTypeName = receiverAsVariable.type.keyType?.name;
-                  const valueTypeName =
-                    receiverAsVariable.type.typeParameters[0]?.name;
-                  if (keyTypeName && valueTypeName) {
-                    genericTypeArguments.set('K', keyTypeName);
-                    genericTypeArguments.set('V', valueTypeName);
-                  }
-                } else {
-                  // List<T> or Set<T>: typeParameters[0] = T (element type)
-                  const firstTypeParam =
-                    receiverAsVariable.type.typeParameters[0];
-                  if (firstTypeParam?.name) {
-                    genericTypeArguments.set('T', firstTypeParam.name);
-                  }
-                }
-              }
+              genericTypeArguments = createGenericTypeSubstitutionMap(
+                receiverAsVariable.type,
+              );
             }
 
             // Find methods that match both parameter count and types
@@ -559,23 +568,13 @@ export const MethodResolutionValidator: Validator = {
                   paramType &&
                   genericTypeArguments.size > 0
                 ) {
-                  const originalParamType =
-                    method.parameters[i]?.type?.name ?? '';
-                  if (
-                    originalParamType.length === 1 &&
-                    originalParamType >= 'A' &&
-                    originalParamType <= 'Z'
-                  ) {
-                    // For Map.put(K key, V value):
-                    // - Parameter 0 (K) -> keyType (key type)
-                    // - Parameter 1 (V) -> typeParameters[0] (value type)
-                    // For List.add(T item) or Set.add(T item):
-                    // - Parameter 0 (T) -> typeParameters[0] (element type)
-                    const resolvedType =
-                      genericTypeArguments.get(originalParamType);
-                    if (resolvedType) {
-                      paramType = resolvedType.toLowerCase();
-                    }
+                  const originalParamType = method.parameters[i]?.type?.name;
+                  const resolvedType = substituteTypeName(
+                    originalParamType,
+                    genericTypeArguments,
+                  );
+                  if (resolvedType) {
+                    paramType = resolvedType.toLowerCase();
                   }
                 }
 
@@ -1630,7 +1629,7 @@ function areReturnTypesCompatible(
 
   // Object return type is compatible with any type (except primitives)
   // This handles cases like JSON.deserialize which returns Object but can be cast to any type
-  if (normReturn === 'object' || normReturn === 'system.object') {
+  if (isStandardTypeAlias(normReturn, 'object')) {
     // Object can be assigned to any object type; only reject if expected is primitive
     if (!isPrimitiveType(normExpected)) {
       return true;
