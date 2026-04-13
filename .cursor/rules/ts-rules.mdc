@@ -1,174 +1,71 @@
 ---
-description: Complete Effect-TS Documentation
+description: Language server, Apex parser, and VS Code extension host notes; general TS via skills
 alwaysApply: false
 ---
 
----
+# TypeScript in this repo
 
-description: "Expert guidelines for TypeScript and Node.js development, including tech stack (Lodash, Zod), shortcuts for pair programming and prompt improvement, core principles, coding standards (naming, functions, types), code review checklist, documentation standards (Google Style Guide, TypeDoc), and Git commit rules."
-globs:
-alwaysApply: false
-author: adx
-tags: "typescript,nodejs,development-guidelines,shortcuts,best-practices,coding-standards,code-review,documentation,git"
+- **General TS conventions:** `.claude/skills/typescript/SKILL.md`
+- **Effect:** `.cursor/rules/effect-llm.mdc`, `.claude/skills/effect-best-practices/SKILL.md`, `.cursor/skills/prefer-effect-ts/SKILL.md`
+- **Extension + services consumption:** `.claude/skills/services-extension-consumption/SKILL.md`
+- **Apex language / parser:** `.cursor/rules/apex-lang-rules.mdc`, `.cursor/skills/apex-language/SKILL.md`
 
----
+Monorepo builds use **Wireit** (not turbo). See root `package.json` and `.claude/skills/wireit/SKILL.md`.
 
-# Overview
-
-You are an expert in TypeScript and Node.js development. You are also an expert with common libraries and frameworks used in the industry. You are thoughtful, give nuanced answers, and are brilliant at reasoning. You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
-
-- Follow the user's requirements carefully & to the letter.
-- First think step-by-step - describe your plan for what to build in pseudocode, written out in great detail.
-
-## Tech Stack
-
-The application we are working on uses the following tech stack:
-
-- TypeScript
-- Node.js
-- esbuild for bundling/rollup
-- turbo for managing package target dependencies
-
-## NPM Targets
-
-- The target dependencies are package -> bundle -> compile -> precompile
-
-- package: runs package for the distrinution model for each package in the mono-repo
-- bundle: causes the steps needed to bundle the package smallest artifact count and size for packaging
-- compile: used to compile artifacts
-- precompile: each package may have a precompile step
-- test: run tests for each package
-
-## Shortcuts
-
-- When provided with the words 'CURSOR:PAIR' this means you are to act as a pair programmer and senior developer, providing guidance and suggestions to the user. You are to provide alternatives the user may have not considered, and weigh in on the best course of action.
-- When provided with the words 'RFC', refactor the code per the instructions provided. Follow the requirements of the instructions provided.
-- When provided with the words 'RFP', improve the prompt provided to be clear.
-  - Break it down into smaller steps. Provide a clear breakdown of the issue or question at hand at the start.
-  - When breaking it down, ensure your writing follows Google's Technical Writing Style Guide.
-
-## TypeScript General Guidelines
-
-## Core Principles
-
-- Write straightforward, readable, and maintainable code
-- Use strong typing and avoid 'any'
-- Restate what the objective is of what you are being asked to change clearly in a short summary.
-- 'Promise.all()' and other standard techniques to optimize performance when working with large datasets
-- When adding calls to Logger, found here, when message is complex, such as string templates, JSON.stringify, etc. the provider form MUST BE USED of the log message to avoid unnecessary string construction unless needed
-
-## Coding Standards
-
-- Avoid usage of enums in any Typescript files, either by removing existing instances or avoiding adding new instances. Use string unions instead of enums.
-- Use arrow functions instead of function declaration
-
-### Naming Conventions
-
-- Classes: PascalCase
-- Variables, functions, methods: camelCase
-- Files, directories: kebab-case
-- Constants, env variables: UPPERCASE
-
-### Functions
-
-- Use descriptive names: verbs & nouns (e.g., getUserData)
-- Prefer arrow functions for simple operations
-- Use default parameters and object destructuring
-- Document with JSDoc
-
-### Types and Interfaces
-
-- Create custom types/interfaces for complex structures
-- Use 'readonly' for immutable properties
-- If an import is only used as a type in the file, use 'import type' instead of 'import'
-
-## Code Review Checklist
-
-- Ensure proper typing
-- Check for code duplication
-- Verify error handling
-- Confirm test coverage
-- Review naming conventions
-- Assess overall code structure and readability
-
-## Documentation
-
-- When writing documentation, README's, technical writing, technical documentation, JSDocs or comments, always follow Google's Technical Writing Style Guide.
-- Define terminology when needed
-- Use the active voice
-- Use the present tense
-- Write in a clear and concise manner
-- Present information in a logical order
-- Use lists and tables when appropriate
-- When writing JSDocs, only use TypeDoc compatible tags.
-- Always write JSDocs for all code: classes, functions, methods, fields, types, interfaces.
-
-## Git Commit Rules
-
-- Make the head / title of the commit message brief
-- Include elaborate details in the body of the commit message
-- Always follow the conventional commit message format
-- Add two newlines after the commit message title
-- Do not ever commit and push without asking for consent from the user
-
-## When to create a class
-
-- Only when one needs state retained
-
-## language server protocol (LSP)
+## Language Server Protocol (LSP)
 
 - Positions (line:column) from the client side are both 0-based indexes
-- This includes ranges, which is start-position and end-position
-- The package lsp-compliant-services layer is resonsible for transform of position data to parser-ast values and back again
+- This includes ranges (start-position and end-position)
+- The `lsp-compliant-services` layer transforms position data to parser-ast values and back
 
 ## Apex parser/ast
 
-- Positions in package apex-parser-ast take the form defined by antlr4 base parser
-- Positions in parser-ast will use a 1-based index for line numbers and 0-based index for column numbers
-- code in package apex-parser-ast should never use a different indexing scheme
+- Positions in package `apex-parser-ast` follow the form defined by the ANTLR4 base parser
+- Positions in parser-ast use a 1-based index for line numbers and 0-based index for column numbers
+- Code in `apex-parser-ast` should never use a different indexing scheme
 
 ## Apex class semantics
 
-- For a positive that defines Apex source, never use method "testMethod", as it is a reserved word
+- For a class that defines Apex source, never use method `testMethod`, as it is a reserved word
 
-# VS Code Web Extension Development Rules
+## VS Code Web Extension Development Rules
 
-## Web Extension Runtime Environment
+### Web Extension Runtime Environment
 
 - Web extensions run in a Browser WebWorker environment within the VS Code extension host, subject to browser worker sandbox restrictions. This environment has significant limitations compared to Node.js-based extensions.
 
-## Module Loading and Bundling
+### Module Loading and Bundling
 
 - Web extensions do not support ES module imports, `require()` for external modules, or `importScripts()`. The ONLY exception is `require('vscode')`, which works via a special shim.
 - All web extension code MUST be bundled into a single file before deployment. Use esbuild (preferred) or webpack to produce a single-file output.
 - Never attempt to dynamically load additional extension files or node modules at runtime in web extensions.
 
-## Node.js APIs and Globals
+### Node.js APIs and Globals
 
 - Node.js globals and built-in modules (`process`, `os`, `setImmediate`, `path`, `util`, `url`, `fs`, `crypto`, etc.) are NOT available at runtime in web extensions.
 - These APIs can be polyfilled at build time using webpack or similar bundlers with appropriate configuration, but the runtime will never have native Node.js support.
 - Always verify that any dependencies used in web extensions are browser-compatible or have browser builds available.
 
-## File System Access
+### File System Access
 
 - Workspace files and folders are on a virtual file system in web extensions.
 - ALL file system operations MUST use the VS Code file system API: `vscode.workspace.fs` (methods: `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete`, `rename`, `copy`, `stat`).
 - Never use Node.js `fs` module methods directly in web extension code, even if polyfilled.
 - Extension context locations (`ExtensionContext.extensionUri`) and storage locations (`ExtensionContext.storageUri`, `ExtensionContext.globalStorageUri`) are also on virtual file systems and require `vscode.workspace.fs`.
 
-## Network and Web Resources
+### Network and Web Resources
 
 - Use the Fetch API (`fetch()`) for all HTTP/HTTPS requests to web resources in web extensions.
 - All accessed external resources MUST support Cross-Origin Resource Sharing (CORS). Resources without proper CORS headers will fail to load.
 - Never use Node.js-specific HTTP libraries like `http`, `https`, or `axios` (unless they have browser-compatible builds).
 
-## Process and Worker Management
+### Process and Worker Management
 
 - Creating child processes or running executables is NOT possible in web extensions.
 - To run background work or language servers, use the Web Worker API (`new Worker()`) instead.
 - Language servers in web extensions must be packaged as browser-compatible workers and communicate via the Language Server Protocol over Web Worker messaging.
 
-## Extension Activation
+### Extension Activation
 
 - Web extensions must export their lifecycle functions using CommonJS-style exports: `exports.activate = ...` and `exports.deactivate = ...`.
 - Do not use ES module `export` syntax for the main activation functions in web extension entry points.

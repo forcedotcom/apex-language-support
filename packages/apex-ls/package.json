@@ -168,10 +168,8 @@
     "data-structure-typed": "^2.4.3",
     "effect": "^3.20.0",
     "fflate": "^0.8.1",
-    "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "web-worker": "^1.5.0"
+    "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
     "@salesforce/esbuild-presets": "^0.1.0",

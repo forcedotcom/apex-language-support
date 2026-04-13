@@ -5,7 +5,7 @@ description: TypeScript coding standards and conventions including file naming r
 
 - no barrel files
 - avoid type assertions (`as Foo` or `as unknown as` or `Foo!`). do guards or Effect.schema stuff (ex `is`) instead
-- no `void` for async - use async/effect
+- no `void` for async - use async/effect (exception [vscode-window-messages](../vscode-window-messages/SKILL.md))
 - no `export *` - name exports explicitly
 - prefer `undefined` over null (unless server requires null)
 - prefer `undefined` over empty string

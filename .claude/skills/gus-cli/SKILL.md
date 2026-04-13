@@ -12,9 +12,11 @@ Interact with Gus (Salesforce Agile Accelerator org) via sf CLI. Requires alias 
 - **Queries** (sf data query, sf alias list): run without asking
 - **Writes** (create, update): **do not execute until user explicitly confirms**
   - Present the draft (subject, epic, details, assignee). Ask: "Create this work item?" or "Update work item X?"
+  - **Draft format:** Use bullet list, not markdown table (tables can render blank in some viewers). Put Details\_\_c in a code block so HTML content is visible.
   - Only run `sf data create record` / `sf data update record` after user says yes (or equivalent)
   - Answering scope questions (e.g. "just createProject") is not confirmation—still ask
 - **Epic selection**: when less than 50% sure which epic a work item belongs in, ask the user
+- **IDs vs Names**: `Id` (e.g., `a07...`) is for CLI commands. `Name` (e.g., `W-12345`) is for human display and PR titles appended as ` - W-12345` at the end per [pr-draft Title format](../pr-draft/SKILL.md#title-format). NEVER use `Id` in PR titles or descriptions. Always query `Name` after creation.
 
 ## Prerequisites
 
@@ -34,8 +36,7 @@ Interact with Gus (Salesforce Agile Accelerator org) via sf CLI. Requires alias 
 | Constant                | Value                |
 | ----------------------- | -------------------- |
 | Team ID                 | `a00B0000000w9xPIAQ` |
-| Product Tag             | `a1aEE0000028Da1YAE` |
-| Epic ID                 | `a3QEE000002BQSf2AO` |
+| Product Tag             | `a1aB000000005G3IAI` |
 | User Story RecordTypeId | `0129000000006gDAAQ` |
 | Bug RecordTypeId        | `012T00000004MUHIA2` |
 
@@ -45,16 +46,16 @@ Objects: `ADM_Work__c`, `ADM_Epic__c` (not ADM_Theme\_\_c).
 
 **Default when unassigned:** Platform Dev Tools Scrum Team `005B0000000GIODIA4` – use when work isn't assigned to a person yet.
 
-| Name               | Id                   |
-| ------------------ | -------------------- |
-| Cristina Cañizales | `005EE000008cgrGYAQ` |
-| Daphne Yang        | `005EE000005d0jdYAA` |
-| Jonny Hork         | `005B0000004pYWjIAM` |
-| Kyle Walker        | `005EE0000010oCLYAY` |
-| Madhur Shrivastava | `005EE00000VZK5FYAX` |
-| Peter Hale         | `005B0000000GFvWIAW` |
-| Shane McLaughlin   | `005B00000024wGBIAY` |
-| Sonal Budhiraja    | `005B0000005ccPnIAI` |
+| Name | Id | GitHub login |
+|---|---|---|
+| Cristina Cañizales | `005EE000008cgrGYAQ` | `CristiCanizales` |
+| Daphne Yang | `005EE000005d0jdYAA` | `daphne-sfdc` |
+| Jonny Hork | `005B0000004pYWjIAM` | `jonnyhork` |
+| Kyle Walker | `005EE0000010oCLYAY` | `kylewalke` |
+| Madhur Shrivastava | `005EE00000VZK5FYAX` | `madhur310` |
+| Peter Hale | `005B0000000GFvWIAW` | `peternhale` |
+| Shane McLaughlin | `005B00000024wGBIAY` | `mshanemc` |
+| Sonal Budhiraja | `005B0000005ccPnIAI` | `sbudhirajadoc` |
 
 ## Work items (ADM_Work\_\_c)
 
@@ -75,11 +76,20 @@ Closed statuses: see ## Status\_\_c values. Use `LIMIT 50` (or 100) when queryin
 
 **Create:** Always set `Story_Points__c=2`, `Product_Tag__c=a1aB000000005G3IAI`, `RecordTypeId`. Include `Subject__c`, `Assignee__c`, `Scrum_Team__c=a00B0000000w9xPIAQ`, `Epic__c` (optional), `QA_Engineer__c` (optional), `Details__c` (optional). Leave `Sprint__c` blank; never modify it. **Details\_\_c:** write concisely—fragments/bullets, minimal words, no repetition (see .claude/skills/concise/SKILL.md).
 
-```
-sf data create record -s ADM_Work__c -o gus -v "Subject__c='...' Assignee__c='<userId>' Scrum_Team__c='a00B0000000w9xPIAQ' Product_Tag__c='a1aB000000005G3IAI' Story_Points__c=2 RecordTypeId='0129000000006gDAAQ' Epic__c='<epicId>'"
-```
+**Details\_\_c formatting (readable WI body):** Details__c is a Rich Text Area (extraTypeInfo: richtextarea)—use HTML, not markdown. The `-v` flag parses space-separated key=value; use `--flags-dir` with a `values` file ([ref](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_flag_values_in_files.htm)):
+
+1. `mkdir -p /tmp/gus-flags`
+2. Create `values` with one line: `Details__c='<p><strong>Section</strong></p><p>Content. <code>inline code</code></p><ul><li>item</li></ul><p><strong>Ref:</strong> <a href="https://...">url</a></p>'`
+3. `sf data update record -s ADM_Work__c -i <id> -o gus --flags-dir /tmp/gus-flags`
+
+Constraints: File must be single-line (flags-dir treats each line as a separate flag invocation). Value in single quotes. Use HTML: `<p>`, `<strong>`, `<code>`, `<ul><li>`, `<a href="...">`. Avoid unescaped `"` inside value—use `&quot;` or rephrase.
 
 **After create:** Always provide the work item link. Format: `https://gus.lightning.force.com/lightning/r/ADM_Work__c/<recordId>/view` (replace `<recordId>` with the Id from the create output, e.g. `a07EE00002V3a8YYAR`). Example: [a07EE00002V3a8YYAR](https://gus.lightning.force.com/lightning/r/ADM_Work__c/a07EE00002V3a8YYAR/view).
+
+**CRITICAL:** After creation, you MUST query the `Name` (W-XXXXX) to append to the PR title as ` - W-XXXXX`. The `id` returned by `sf data create` is NOT the `W-XXXXX` name.
+```bash
+sf data query --query "SELECT Name FROM ADM_Work__c WHERE Id = '<id_from_create>'" -o gus --json
+```
 
 **Update:** If User Story has null `Story_Points__c`, set `Story_Points__c=2`. Never modify `Sprint__c`. `Details__c` can store PR links, notes.
 
@@ -117,10 +127,6 @@ Use to pick the right Epic\_\_c when creating work. Query epics first; match by 
 **TDX 262 epics** (Code Builder Web, CBLite, Org Browser on Web, LWC on web, Apex Testing Extension, etc.)
 
 - Web IDE compatibility; running extensions in browser
-
-**IDE Apex Language Support** `a3QEE000002BQSf2AO`
-
-- Primary epic for the apex-language-support repo
 
 **Backlog epics** (IDE Exp - Core, Extensions, LWC & Aura, etc.)
 
