@@ -199,26 +199,27 @@ describe('WorkerCoordinator', () => {
         dispatcher = new WorkerTopologyDispatcher({} as WorkerTopology, logger);
       });
 
-      it.each(['completion', 'signatureHelp', 'rename'] as const)(
-        'blocks coordinator-only type: %s',
-        (type) => {
-          expect(dispatcher.canDispatch(type)).toBe(false);
-        },
-      );
-
       it.each([
+        'completion',
+        'signatureHelp',
+        'rename',
         'hover',
         'definition',
-        'documentSymbol',
         'references',
+        'implementation',
+        'documentSymbol',
+        'codeLens',
         'diagnostics',
+        'foldingRange',
+      ] as const)('blocks coordinator-only type: %s', (type) => {
+        expect(dispatcher.canDispatch(type)).toBe(false);
+      });
+
+      it.each([
         'documentOpen',
         'documentChange',
         'documentSave',
         'documentClose',
-        'codeLens',
-        'foldingRange',
-        'implementation',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });
@@ -369,7 +370,7 @@ describe('WorkerCoordinator', () => {
         logger,
       );
 
-      expect(dispatcher.canDispatch('hover')).toBe(true);
+      expect(dispatcher.canDispatch('hover')).toBe(false);
       expect(dispatcher.canDispatch('completion')).toBe(false);
       expect(dispatcher.canDispatch('rename')).toBe(false);
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);

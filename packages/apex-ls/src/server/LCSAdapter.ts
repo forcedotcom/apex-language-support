@@ -933,6 +933,14 @@ export class LCSAdapter {
           );
           try {
             const result = await dispatchProcessOnQueueState(params);
+            if (result && typeof result === 'object' && 'metrics' in result) {
+              const dispatcher =
+                LSPQueueManager.getInstance().getWorkerDispatcher();
+              if (dispatcher?.getTopologyStatus) {
+                (result as any).metrics.workerTopology =
+                  dispatcher.getTopologyStatus();
+              }
+            }
             this.logger.debug(
               () =>
                 `✅ apex/queueState processed successfully, result type: ${typeof result}`,
@@ -1471,6 +1479,14 @@ export class LCSAdapter {
           // Callback function to send notifications to client
           const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
+              const dispatcher =
+                LSPQueueManager.getInstance().getWorkerDispatcher();
+              const enrichedMetrics = dispatcher?.getTopologyStatus
+                ? {
+                    ...metrics,
+                    workerTopology: dispatcher.getTopologyStatus(),
+                  }
+                : metrics;
               this.logger.debug(
                 () =>
                   `Sending queue state notification: Started=${
@@ -1478,7 +1494,7 @@ export class LCSAdapter {
                   }, Completed=${metrics.tasksCompleted}`,
               );
               this.connection.sendNotification('apex/queueStateChanged', {
-                metrics,
+                metrics: enrichedMetrics,
                 metadata: {
                   timestamp: Date.now(),
                 },
@@ -1614,9 +1630,19 @@ export class LCSAdapter {
       );
     });
 
-    // Worker pool topology (Node only, gated by experiment flag)
-    if (process?.env?.APEX_WORKER_EXPERIMENT) {
-      this.initializeWorkerTopology();
+    // Worker pool topology (Node/desktop only — web has no worker_threads)
+    try {
+      require.resolve('node:worker_threads');
+      const workerSettings = LSPConfigurationManager.getInstance().getSettings()
+        .apex as any;
+      const workersEnabled =
+        process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
+        workerSettings?.experimental?.workers?.enabled !== false;
+      if (workersEnabled) {
+        this.initializeWorkerTopology();
+      }
+    } catch {
+      // Not in Node — skip worker topology
     }
   }
 
@@ -1685,6 +1711,12 @@ export class LCSAdapter {
           );
         }
       }
+
+      // Disabled: posting WorkerLogLevelChange to worker message port
+      // collides with @effect/platform worker protocol (same issue as
+      // WorkerLogMessage). Needs a dedicated MessageChannel.
+      // Runtime log-level changes are not propagated until then;
+      // initial log level is set via WorkerInit.logLevel.
 
       const newCapabilities = configManager.getCapabilities();
 
@@ -2085,6 +2117,9 @@ export class LCSAdapter {
    * Runs asynchronously; failures are logged but non-fatal.
    */
   private initializeWorkerTopology(): void {
+    this.logger.info(
+      () => '[WorkerCoordinator] Initializing worker topology...',
+    );
     Promise.all([
       import('./WorkerCoordinator'),
       import('./CoordinatorAssistanceMediator'),
@@ -2103,22 +2138,49 @@ export class LCSAdapter {
         ]) => {
           const { Effect, Scope } = await import('effect');
 
-          const enableResourceLoader =
-            !!process?.env?.APEX_WORKER_RESOURCE_LOADER;
+          const apexSettings =
+            LSPConfigurationManager.getInstance().getSettings().apex as any;
+          const workerCfg = apexSettings?.experimental?.workers || {};
+
+          const enableResourceLoader = workerCfg.resourceLoader !== false;
+
+          const workerLogLevel = apexSettings?.worker?.logLevel || 'error';
 
           const config = {
-            poolSize: 2,
+            poolSize: workerCfg.poolSize ?? 2,
             enableResourceLoader,
             logger: this.logger,
+            logLevel: workerLogLevel,
           };
+
+          const path = await import('path');
+          const fs = await import('fs');
+
+          // Find the apex-ls package root by walking up from __dirname
+          // to locate package.json, then resolve dist/worker.platform.js.
+          // This works whether the server runs from dist/ (bundled) or
+          // out/node/server/ (individual files dev mode).
+          let pkgRoot = __dirname;
+          while (
+            !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
+            pkgRoot !== path.dirname(pkgRoot)
+          ) {
+            pkgRoot = path.dirname(pkgRoot);
+          }
+          const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
+          if (!fs.existsSync(workerScript)) {
+            throw new Error(
+              `worker.platform.js not found at ${workerScript}` +
+                ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
+            );
+          }
+          this.logger.info(
+            () => `[WorkerCoordinator] Worker script: ${workerScript}`,
+          );
 
           const program = Effect.gen(function* () {
             return yield* initializeTopology(config);
-          }).pipe(
-            Effect.provide(
-              makeNodeWorkerLayer(__dirname + '/worker.platform.js'),
-            ),
-          );
+          }).pipe(Effect.provide(makeNodeWorkerLayer(workerScript)));
 
           const scope = Effect.runSync(Scope.make());
           const topology = await Effect.runPromise(

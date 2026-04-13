@@ -438,4 +438,7 @@ export type {
   DataOwnerRequest,
   EnrichmentSearchRequest,
   ResourceLoaderRequest,
+  WorkerLogMessage,
+  WorkerLogLevelChange,
+  WorkerLogLevel,
 } from './workerWireSchemas';

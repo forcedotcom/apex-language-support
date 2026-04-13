@@ -62,6 +62,14 @@ const builds: BuildOptions[] = [
             from: ['../apex-ls/dist/server.node.js.map'],
             to: ['./dist/server.node.js.map'],
           },
+          {
+            from: ['../apex-ls/dist/worker.platform.js'],
+            to: ['./dist/worker.platform.js'],
+          },
+          {
+            from: ['../apex-ls/dist/worker.platform.js.map'],
+            to: ['./dist/worker.platform.js.map'],
+          },
         ],
         watch: true,
         verbose: true,

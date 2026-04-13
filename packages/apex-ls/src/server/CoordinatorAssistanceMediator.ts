@@ -21,7 +21,10 @@
  */
 
 import type * as WorkerThreads from 'node:worker_threads';
-import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import type {
+  LoggerInterface,
+  WorkerLogMessage,
+} from '@salesforce/apex-lsp-shared';
 
 export interface AssistanceRequestPayload {
   readonly _tag: 'WorkerAssistanceRequest';
@@ -57,8 +60,14 @@ export class CoordinatorAssistanceMediator {
    * all others (platform protocol messages pass through untouched).
    */
   attachToWorkers(workers: WorkerThreads.Worker[]): void {
-    for (const worker of workers) {
+    for (let i = 0; i < workers.length; i++) {
+      const workerIdx = i;
+      const worker = workers[i];
       worker.on('message', (data: unknown) => {
+        if (isLogMessage(data)) {
+          this.forwardLogMessage(data, workerIdx);
+          return;
+        }
         if (!isAssistanceRequest(data)) return;
         void this.handleRequest(data, worker);
       });
@@ -66,6 +75,24 @@ export class CoordinatorAssistanceMediator {
     this.logger.debug(
       () => `[AssistanceMediator] Attached to ${workers.length} worker(s)`,
     );
+  }
+
+  private forwardLogMessage(msg: WorkerLogMessage, workerIdx: number): void {
+    const prefixed = `[worker:${workerIdx}] ${msg.message}`;
+    switch (msg.level) {
+      case 'error':
+        this.logger.error(() => prefixed);
+        break;
+      case 'warning':
+        this.logger.warn(() => prefixed);
+        break;
+      case 'info':
+        this.logger.info(() => prefixed);
+        break;
+      case 'debug':
+        this.logger.debug(() => prefixed);
+        break;
+    }
   }
 
   private async handleRequest(
@@ -132,5 +159,13 @@ function isAssistanceRequest(data: unknown): data is AssistanceRequestPayload {
     typeof data === 'object' &&
     data !== null &&
     (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
+  );
+}
+
+function isLogMessage(data: unknown): data is WorkerLogMessage {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerLogMessage'
   );
 }

@@ -46,4 +46,21 @@ export interface WorkerDispatchStrategy {
    * for that type even if isAvailable() is true.
    */
   canDispatch(type: LSPRequestType): boolean;
+
+  /**
+   * Returns current worker topology status for dashboard display.
+   * Optional — returns undefined when the dispatcher does not
+   * track topology state.
+   */
+  getTopologyStatus?(): {
+    readonly enabled: boolean;
+    readonly dataOwner: { readonly active: boolean };
+    readonly enrichmentPool: {
+      readonly size: number;
+      readonly active: boolean;
+    };
+    readonly resourceLoader: { readonly active: boolean } | null;
+    readonly dispatchedCount: number;
+    readonly coordinatorOnlyTypes: readonly string[];
+  };
 }

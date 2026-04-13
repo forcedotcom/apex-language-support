@@ -92,6 +92,10 @@ export class LSPQueueManager {
     );
   }
 
+  getWorkerDispatcher(): WorkerDispatchStrategy | null {
+    return this.workerDispatcher;
+  }
+
   /**
    * Create a QueuedItem from request parameters
    */

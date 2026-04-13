@@ -52,6 +52,19 @@ import type {
   PoolHandle,
 } from '@salesforce/apex-lsp-compliant-services';
 
+/** Shape returned by getTopologyStatus() for dashboard display. */
+export interface WorkerTopologyStatus {
+  readonly enabled: boolean;
+  readonly dataOwner: { readonly active: boolean };
+  readonly enrichmentPool: {
+    readonly size: number;
+    readonly active: boolean;
+  };
+  readonly resourceLoader: { readonly active: boolean } | null;
+  readonly dispatchedCount: number;
+  readonly coordinatorOnlyTypes: readonly string[];
+}
+
 // ---------------------------------------------------------------------------
 // Worker Layer factory
 // ---------------------------------------------------------------------------
@@ -63,7 +76,13 @@ export const makeNodeWorkerLayer = (
   workerOptions?: WorkerThreads.WorkerOptions,
 ) =>
   NodeWorker.layer((_id: number) => {
-    const w = new WorkerThreads.Worker(workerScript, workerOptions);
+    const w = new WorkerThreads.Worker(workerScript, {
+      // Prevent worker stdout/stderr from leaking into the LSP stdio
+      // transport, which corrupts the Content-Length framed protocol.
+      stdout: true,
+      stderr: true,
+      ...workerOptions,
+    });
     rawWorkers.push(w);
     return w;
   });
@@ -117,11 +136,18 @@ export interface TopologyConfig {
   readonly poolSize: number;
   readonly enableResourceLoader: boolean;
   readonly logger: LoggerInterface;
+  readonly logLevel?: string;
 }
 
 const makeInitMessage = (
   role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader',
-) => new WorkerInit({ role, protocolVersion: WIRE_PROTOCOL_VERSION });
+  logLevel?: string,
+) =>
+  new WorkerInit({
+    role,
+    protocolVersion: WIRE_PROTOCOL_VERSION,
+    logLevel,
+  });
 
 export function clampPoolSize(requested: number): number {
   const cpus = os.cpus().length;
@@ -143,18 +169,18 @@ export const initializeTopology = (
   Worker.WorkerManager | Worker.Spawner | Scope.Scope
 > =>
   Effect.gen(function* () {
-    const { logger } = config;
+    const { logger, logLevel } = config;
     const poolSize = clampPoolSize(config.poolSize);
 
     const dataOwner = yield* Worker.makeSerialized<DataOwnerRequest>({
-      initialMessage: () => makeInitMessage('dataOwner'),
+      initialMessage: () => makeInitMessage('dataOwner', logLevel),
     });
     logger.info(() => '[WorkerCoordinator] Data owner initialized');
 
     const enrichmentPool =
       yield* Worker.makePoolSerialized<EnrichmentSearchRequest>({
         size: poolSize,
-        initialMessage: () => makeInitMessage('enrichmentSearch'),
+        initialMessage: () => makeInitMessage('enrichmentSearch', logLevel),
       });
     logger.info(
       () =>
@@ -165,7 +191,7 @@ export const initializeTopology = (
       null;
     if (config.enableResourceLoader) {
       resourceLoader = yield* Worker.makeSerialized<ResourceLoaderRequest>({
-        initialMessage: () => makeInitMessage('resourceLoader'),
+        initialMessage: () => makeInitMessage('resourceLoader', logLevel),
       });
       logger.info(() => '[WorkerCoordinator] Resource loader initialized');
     }
@@ -278,15 +304,22 @@ const DATA_OWNER_TYPES: ReadonlySet<LSPRequestType> = new Set([
 /**
  * Request types that still run on the coordinator thread.
  *
- * Step 11 moved most types to worker dispatch. Types remaining here
- * have complex coordinator-side dependencies (completion popups,
- * signature help positioning, rename across files) that require
- * additional coordination work before they can be offloaded.
+ * Enrichment types (hover, definition, etc.) are here because
+ * enrichment workers bootstrap empty services — they have no
+ * document/symbol data until Step 11 data sharing is implemented.
  */
 const COORDINATOR_ONLY_TYPES: ReadonlySet<LSPRequestType> = new Set([
   'completion',
   'signatureHelp',
   'rename',
+  'hover',
+  'definition',
+  'references',
+  'implementation',
+  'documentSymbol',
+  'codeLens',
+  'diagnostics',
+  'foldingRange',
 ]);
 
 /**
@@ -295,6 +328,7 @@ const COORDINATOR_ONLY_TYPES: ReadonlySet<LSPRequestType> = new Set([
  */
 export class WorkerTopologyDispatcher implements WorkerDispatchStrategy {
   private available = true;
+  private _dispatchedCount = 0;
 
   constructor(
     private readonly topology: WorkerTopology,
@@ -317,10 +351,24 @@ export class WorkerTopologyDispatcher implements WorkerDispatchStrategy {
   }
 
   async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
+    this._dispatchedCount++;
     if (DATA_OWNER_TYPES.has(type)) {
       return this.dispatchToDataOwner(type, params);
     }
     return this.dispatchToEnrichmentPool(type, params);
+  }
+
+  getTopologyStatus(): WorkerTopologyStatus {
+    return {
+      enabled: true,
+      dataOwner: { active: this.available },
+      enrichmentPool: { size: 0, active: this.available },
+      resourceLoader: this.topology.resourceLoader
+        ? { active: this.available }
+        : null,
+      dispatchedCount: this._dispatchedCount,
+      coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
+    };
   }
 
   /**
@@ -387,6 +435,7 @@ export class WorkerTopologyDispatcher implements WorkerDispatchStrategy {
  */
 export class TransportTopologyDispatcher implements WorkerDispatchStrategy {
   private available = true;
+  private _dispatchedCount = 0;
 
   constructor(
     private readonly topology: TransportTopology,
@@ -409,10 +458,27 @@ export class TransportTopologyDispatcher implements WorkerDispatchStrategy {
   }
 
   async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
+    this._dispatchedCount++;
     if (DATA_OWNER_TYPES.has(type)) {
       return this.dispatchToDataOwner(type, params);
     }
     return this.dispatchToEnrichmentPool(type, params);
+  }
+
+  getTopologyStatus(): WorkerTopologyStatus {
+    return {
+      enabled: true,
+      dataOwner: { active: this.available },
+      enrichmentPool: {
+        size: this.topology.enrichmentPool.size,
+        active: this.available,
+      },
+      resourceLoader: this.topology.resourceLoader
+        ? { active: this.available }
+        : null,
+      dispatchedCount: this._dispatchedCount,
+      coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
+    };
   }
 
   createBatchIngestionDispatcher(): (

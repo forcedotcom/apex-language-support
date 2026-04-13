@@ -46,6 +46,7 @@ export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
     payload: {
       role: WorkerRole,
       protocolVersion: Schema.Number,
+      logLevel: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -520,6 +521,25 @@ export type ResourceLoaderRequest =
 
 /** Current wire protocol version — bump on breaking schema changes */
 export const WIRE_PROTOCOL_VERSION = 1;
+
+// ---------------------------------------------------------------------------
+// Side-channel messages (plain objects via postMessage, not Schema requests)
+// ---------------------------------------------------------------------------
+
+/** Fire-and-forget log message from worker to coordinator. */
+export interface WorkerLogMessage {
+  readonly _tag: 'WorkerLogMessage';
+  readonly level: 'debug' | 'info' | 'warning' | 'error';
+  readonly message: string;
+}
+
+/** Coordinator-to-worker notification to update the worker's log level. */
+export interface WorkerLogLevelChange {
+  readonly _tag: 'WorkerLogLevelChange';
+  readonly logLevel: 'debug' | 'info' | 'warning' | 'error';
+}
+
+export type WorkerLogLevel = WorkerLogMessage['level'];
 
 // ---------------------------------------------------------------------------
 // Guards

@@ -24,7 +24,16 @@
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
-import { Effect, Layer, Schema, Queue, Deferred, Fiber } from 'effect';
+import {
+  Effect,
+  Layer,
+  Logger,
+  LogLevel,
+  Schema,
+  Queue,
+  Deferred,
+  Fiber,
+} from 'effect';
 import {
   WorkerInit,
   PingWorker,
@@ -48,7 +57,12 @@ import {
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
 } from '@salesforce/apex-lsp-shared';
-import type { WorkerRole } from '@salesforce/apex-lsp-shared';
+import type {
+  WorkerRole,
+  WorkerLogMessage,
+  WorkerLogLevelChange,
+  WorkerLogLevel,
+} from '@salesforce/apex-lsp-shared';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -213,6 +227,38 @@ const ensureEnrichmentServices = Effect.gen(function* () {
 });
 
 // ---------------------------------------------------------------------------
+// Role-specific initialization
+// ---------------------------------------------------------------------------
+
+const handleWorkerInitRole = (
+  req: Schema.Schema.Type<typeof WorkerInit>,
+): Effect.Effect<{ ready: boolean }> => {
+  if (req.role === 'resourceLoader') {
+    return Effect.gen(function* () {
+      const { ResourceLoader } = yield* Effect.promise(
+        () => import('@salesforce/apex-lsp-parser-ast'),
+      );
+      yield* Effect.promise(() => ResourceLoader.getInstance().initialize());
+      yield* Effect.logInfo('[resource-loader] stdlib loaded');
+      return { ready: true };
+    });
+  }
+  if (req.role === 'dataOwner') {
+    return Effect.gen(function* () {
+      yield* ensureDataOwnerServices;
+      return { ready: true };
+    });
+  }
+  if (req.role === 'enrichmentSearch') {
+    return Effect.gen(function* () {
+      yield* ensureEnrichmentServices;
+      return { ready: true };
+    });
+  }
+  return Effect.succeed({ ready: true });
+};
+
+// ---------------------------------------------------------------------------
 // Handlers — one per _tag in AllWorkerRequests
 // ---------------------------------------------------------------------------
 
@@ -226,32 +272,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       );
     }
     assignedRole = req.role;
-    console.log(
-      `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}`,
-    );
-    if (req.role === 'resourceLoader') {
-      return Effect.gen(function* () {
-        const { ResourceLoader } = yield* Effect.promise(
-          () => import('@salesforce/apex-lsp-parser-ast'),
-        );
-        yield* Effect.promise(() => ResourceLoader.getInstance().initialize());
-        yield* Effect.logInfo('[resource-loader] stdlib loaded');
-        return { ready: true };
-      });
+    if (req.logLevel) {
+      setWorkerLogLevel(req.logLevel);
     }
-    if (req.role === 'dataOwner') {
-      return Effect.gen(function* () {
-        yield* ensureDataOwnerServices;
-        return { ready: true };
-      });
-    }
-    if (req.role === 'enrichmentSearch') {
-      return Effect.gen(function* () {
-        yield* ensureEnrichmentServices;
-        return { ready: true };
-      });
-    }
-    return Effect.succeed({ ready: true });
+    return Effect.gen(function* () {
+      yield* Effect.logInfo(
+        `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
+          ` logLevel=${currentWorkerLogLevel}`,
+      );
+    }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
 
   PingWorker: (req) =>
@@ -670,11 +699,81 @@ export function requestCoordinatorAssistance(
 }
 
 // ---------------------------------------------------------------------------
+// Worker→coordinator log transport
+//
+// Custom Effect logger that posts WorkerLogMessage to parentPort.
+// The coordinator's mediator listens for these and forwards them to the
+// LSP logger (window/logMessage).
+// ---------------------------------------------------------------------------
+
+const LOG_LEVEL_PRIORITY: Record<WorkerLogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warning: 2,
+  error: 3,
+};
+
+let currentWorkerLogLevel: WorkerLogLevel = 'error';
+
+function setWorkerLogLevel(level: string): void {
+  if (level in LOG_LEVEL_PRIORITY) {
+    currentWorkerLogLevel = level as WorkerLogLevel;
+  }
+}
+
+function effectLogLevelToWire(level: LogLevel.LogLevel): WorkerLogLevel | null {
+  if (LogLevel.greaterThanEqual(level, LogLevel.Error)) return 'error';
+  if (LogLevel.greaterThanEqual(level, LogLevel.Warning)) return 'warning';
+  if (LogLevel.greaterThanEqual(level, LogLevel.Info)) return 'info';
+  if (LogLevel.greaterThanEqual(level, LogLevel.Debug)) return 'debug';
+  return null;
+}
+
+const workerLogger = Logger.make(({ logLevel, message }) => {
+  if (!parentPort) return;
+  const wireLevel = effectLogLevelToWire(logLevel);
+  if (!wireLevel) return;
+  if (LOG_LEVEL_PRIORITY[wireLevel] < LOG_LEVEL_PRIORITY[currentWorkerLogLevel])
+    return;
+
+  const msg: WorkerLogMessage = {
+    _tag: 'WorkerLogMessage',
+    level: wireLevel,
+    message: typeof message === 'string' ? message : String(message),
+  };
+  parentPort.postMessage(msg);
+});
+
+// Disabled: posting WorkerLogMessage to parentPort collides with the
+// @effect/platform worker protocol on the same MessagePort, crashing
+// the worker fiber runtime. Needs a dedicated MessageChannel for logs.
+const _WorkerLoggerLayer = Logger.replace(Logger.defaultLogger, workerLogger);
+
+// Disabled: coordinator-side WorkerLogLevelChange posting is disabled
+// (same parentPort protocol collision as WorkerLogMessage). The listener
+// is kept but not called until a dedicated MessageChannel is used.
+function _listenForLogLevelChanges(): void {
+  if (!parentPort) return;
+  parentPort.on('message', (data: unknown) => {
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      (data as Record<string, unknown>)._tag === 'WorkerLogLevelChange'
+    ) {
+      const { logLevel } = data as WorkerLogLevelChange;
+      setWorkerLogLevel(logLevel);
+    }
+  });
+}
+// listenForLogLevelChanges(); // disabled — see comment above
+
+// ---------------------------------------------------------------------------
 // Bootstrap — Node worker runner
 // ---------------------------------------------------------------------------
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
 WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
+  // Effect.provide(_WorkerLoggerLayer), // see comment above
   Effect.runFork,
 );

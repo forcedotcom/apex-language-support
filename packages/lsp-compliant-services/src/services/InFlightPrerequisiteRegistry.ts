@@ -201,7 +201,6 @@ let workerThreadWarningEmitted = false;
 
 function isWorkerThread(): boolean {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return !require('node:worker_threads').isMainThread;
   } catch {
     return false;
