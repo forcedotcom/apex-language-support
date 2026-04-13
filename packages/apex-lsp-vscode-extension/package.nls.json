@@ -87,6 +87,10 @@
   "commands.apex.profiling.start.title": "SFDX: Start Performance Profiling",
   "commands.apex.profiling.stop.title": "SFDX: Stop Performance Profiling",
   "commands.apex.profiling.status.title": "SFDX: Show Profiling Status",
+  "configuration.apex-ls-ts.experimental.workers.description": "Experimental: offload LSP processing to internal worker threads. Improves responsiveness for large workspaces at the cost of additional memory. Settings take effect on server restart.",
+  "configuration.apex-ls-ts.experimental.workers.enabled.description": "Enable internal worker threads for parallel LSP processing. When false (default), all processing happens on the coordinator thread as before.",
+  "configuration.apex-ls-ts.experimental.workers.poolSize.description": "Number of enrichment/search worker threads (1–cpus-2, default 2). A data-owner worker is always spawned separately. Higher values increase parallelism but consume more memory.",
+  "configuration.apex-ls-ts.experimental.workers.resourceLoader.description": "Spawn a dedicated resource-loader worker for stdlib/library loading. Disable to reduce memory when stdlib loading latency is acceptable.",
   "configuration.apex.title": "Apex Language Server",
   "viewsContainers.apex-explorer.title": "Apex-LS-TS Explorer"
 }

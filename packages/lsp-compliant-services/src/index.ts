@@ -134,6 +134,17 @@ export {
   type EnrichmentServices,
 } from './workers/WorkerBackendBootstrap';
 
+// Export worker transport isolation (Step 12)
+export type {
+  WorkerTransport,
+  WorkerPoolTransport,
+  WorkerTopologyTransport,
+  WorkerHandle,
+  PoolHandle,
+  TransportSpawnError,
+  TransportSendError,
+} from './workers/WorkerTransport';
+
 /**
  * Initialize LSPQueueManager with required dependencies
  * This should be called during server initialization
