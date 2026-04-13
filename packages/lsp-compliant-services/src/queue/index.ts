@@ -9,3 +9,4 @@
 // Export LSP queue components
 export * from './LSPRequestQueue';
 export * from './LSPQueueManager';
+export * from './WorkerDispatchStrategy';

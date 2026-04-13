@@ -246,6 +246,41 @@ export function clearBatchStorage(): void {
   batchStorage['sessions'].clear();
 }
 
+// ---------------------------------------------------------------------------
+// Step 8 — Data-owner batch dispatch
+// ---------------------------------------------------------------------------
+
+/**
+ * Dispatch function for routing decoded batch entries to the data-owner
+ * worker via WorkspaceBatchIngest. When set, processStoredBatches
+ * decodes+unzips on the coordinator and forwards entries to the worker.
+ * When null, falls back to local processing.
+ */
+export type BatchIngestionDispatcher = (
+  sessionId: string,
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>,
+) => Promise<{ processedCount: number }>;
+
+let batchIngestionDispatcher: BatchIngestionDispatcher | null = null;
+
+export function setBatchIngestionDispatcher(
+  dispatcher: BatchIngestionDispatcher | null,
+): void {
+  batchIngestionDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Batch ingestion dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getBatchIngestionDispatcher(): BatchIngestionDispatcher | null {
+  return batchIngestionDispatcher;
+}
+
 /**
  * Decode base64 string to Uint8Array
  */
@@ -262,6 +297,48 @@ function decodeBase64(base64: string): Uint8Array {
     }
     return bytes;
   }
+}
+
+/**
+ * Decode and unzip a compressed batch, returning plain entries suitable
+ * for WorkspaceBatchIngest. Used by both the local processing path and
+ * the data-owner dispatch path (Step 8).
+ */
+type BatchEntry = {
+  uri: string;
+  content: string;
+  languageId: string;
+  version: number;
+};
+
+function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
+  const compressedData = decodeBase64(compressedDataBase64);
+  const decompressedFiles = unzipSync(compressedData);
+
+  const metadataEntry = decompressedFiles['__metadata.json'];
+  if (!metadataEntry) {
+    throw new Error('Missing __metadata.json in compressed batch');
+  }
+
+  const decoder = new TextDecoder();
+  const metadata = JSON.parse(decoder.decode(metadataEntry)) as {
+    fileMetadata: Array<{ uri: string; version: number }>;
+  };
+
+  const entries: BatchEntry[] = [];
+
+  for (const fileMeta of metadata.fileMetadata) {
+    const fileContent = decompressedFiles[fileMeta.uri];
+    if (!fileContent) continue;
+    entries.push({
+      uri: fileMeta.uri,
+      content: decoder.decode(fileContent),
+      languageId: 'apex',
+      version: fileMeta.version,
+    });
+  }
+
+  return entries;
 }
 
 /**
@@ -406,14 +483,21 @@ function processWorkspaceBatchBackground(
 }
 
 /**
- * Process all stored batches for a session
- * This is called when all batches have been received
+ * Process all stored batches for a session.
+ *
+ * When a BatchIngestionDispatcher is set (Step 8), each batch is
+ * decoded+unzipped on the coordinator, then the plain entries are
+ * dispatched to the data-owner worker via WorkspaceBatchIngest.
+ *
+ * When no dispatcher is set, falls back to local processing via
+ * the priority scheduler (pre-Step 8 behavior).
  */
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
+  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
     logger.debug(
@@ -421,11 +505,70 @@ function processStoredBatches(
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
     );
 
-    // Ensure scheduler is initialized
+    if (dispatcher) {
+      yield* processViaDataOwner(sessionId, batches, dispatcher, logger);
+    } else {
+      yield* processLocally(sessionId, batches, logger);
+    }
+
+    batchStorage.removeSession(sessionId);
+    logger.debug(
+      () => `[BATCH-PROCESSING] Completed all batches for session ${sessionId}`,
+    );
+  }).pipe(
+    Effect.catchAll((error: unknown) =>
+      Effect.gen(function* () {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          () =>
+            `[BATCH-PROCESSING] Error for session ${sessionId}: ${errorMessage}`,
+        );
+        batchStorage.removeSession(sessionId);
+        return undefined;
+      }),
+    ),
+  );
+}
+
+function processViaDataOwner(
+  sessionId: string,
+  batches: SendWorkspaceBatchParams[],
+  dispatcher: BatchIngestionDispatcher,
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
+    for (const batchParams of batches) {
+      const entries = yield* Effect.try({
+        try: () => extractBatchEntries(batchParams.compressedData),
+        catch: (e) =>
+          new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
+      });
+
+      const result = yield* Effect.tryPromise({
+        try: () => dispatcher(sessionId, entries),
+        catch: (e) => e as Error,
+      });
+
+      logger.debug(
+        () =>
+          '[BATCH-PROCESSING] Data-owner ingested batch ' +
+          `${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
+          `${result.processedCount} entries`,
+      );
+    }
+  });
+}
+
+function processLocally(
+  _sessionId: string,
+  batches: SendWorkspaceBatchParams[],
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
     const schedulerService = SchedulerInitializationService.getInstance();
     yield* Effect.promise(() => schedulerService.ensureInitialized());
 
-    // Process each batch via scheduler
     for (const batchParams of batches) {
       const backgroundProcessingEffect = processWorkspaceBatchBackground(
         batchParams,
@@ -440,32 +583,12 @@ function processStoredBatches(
 
       logger.debug(
         () =>
-          `[BATCH-PROCESSING] Enqueued batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
-          `(${batchParams.fileMetadata.length} files) for processing`,
+          '[BATCH-PROCESSING] Enqueued batch ' +
+          `${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
+          `(${batchParams.fileMetadata.length} files) for local processing`,
       );
     }
-
-    // Remove session after processing
-    batchStorage.removeSession(sessionId);
-    logger.debug(
-      () =>
-        `[BATCH-PROCESSING] Completed processing all batches for session ${sessionId}`,
-    );
-  }).pipe(
-    Effect.catchAll((error: unknown) =>
-      Effect.gen(function* () {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logger.error(
-          () =>
-            `[BATCH-PROCESSING] Error processing batches for session ${sessionId}: ${errorMessage}`,
-        );
-        // Remove session even on error to prevent memory leak
-        batchStorage.removeSession(sessionId);
-        return undefined;
-      }),
-    ),
-  );
+  });
 }
 
 /**

@@ -112,6 +112,7 @@ const builds: BuildOptions[] = [
   },
   // Node.js internal worker build — spawned by WorkerCoordinator (Step 3)
   // Same Node externals as server.node; browser variant added in Step 10
+  // Step 9: resource-loader role imports ResourceLoader which needs .zip/.gz loaders
   {
     ...nodeBaseConfig,
     entryPoints: { 'worker.platform': 'src/worker.platform.ts' },
@@ -122,6 +123,33 @@ const builds: BuildOptions[] = [
     keepNames: true,
     conditions: ['node', 'require', 'default'],
     mainFields: ['main', 'module'],
+    loader: {
+      '.zip': 'dataurl',
+      '.gz': 'dataurl',
+    },
+  },
+  // Browser internal worker build — spawned by WorkerCoordinator in web extension (Step 10)
+  // IIFE format for nested Worker context; same polyfills as server.web.js
+  {
+    entryPoints: { 'worker.platform.web': 'src/worker.platform.web.ts' },
+    outdir: 'dist',
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2022',
+    sourcemap: true,
+    minify: shouldMinifyEsbuild(),
+    metafile: true,
+    external: [],
+    keepNames: true,
+    splitting: false,
+    bundle: true,
+    treeShaking: true,
+    conditions: ['browser', 'worker', 'import', 'module', 'default'],
+    mainFields: ['browser', 'module', 'main'],
+    loader: {
+      '.zip': 'dataurl',
+      '.gz': 'dataurl',
+    },
   },
   // Web worker build - used by the web VSCode extension
   // Produces server.web.js as an IIFE bundle for Web Worker context
@@ -151,7 +179,9 @@ const builds: BuildOptions[] = [
   },
 ];
 
-// Apply browser/worker-specific settings to the worker bundle
+// Apply browser/worker-specific settings to browser builds
+// Index 2 = browser internal worker, last = web server
+configureWebWorkerPolyfills(builds[2]);
 configureWebWorkerPolyfills(builds[builds.length - 1]);
 
 async function run(watch = false): Promise<void> {

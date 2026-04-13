@@ -161,9 +161,22 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
 }
 
 /**
- * Service for orchestrating prerequisite fulfillment for LSP request types
- * This service uses the well-defined mapping from LSP request types to prerequisites
+ * Service for orchestrating prerequisite fulfillment for LSP request types.
+ *
+ * Uses the well-defined mapping from LSP request types to prerequisites
  * and coordinates enrichment, reference collection, and cross-file resolution.
+ *
+ * **Atomicity contract (Step 6):**
+ * `runCoordinatedPrerequisites` for a given (fileUri, documentVersion) is
+ * one atomic schedulable unit. It must never be split across different
+ * workers — the entire chain (enrichment → cross-file resolution →
+ * missing artifact handling → revision stabilization) runs on a single
+ * thread where `InFlightPrerequisiteRegistry` provides dedup via
+ * `acquireOrJoin`.
+ *
+ * When worker dispatch is active, `WorkerTopologyDispatcher.canDispatch()`
+ * returns false for prerequisite-requiring types, forcing them to run
+ * locally on the coordinator thread.
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;

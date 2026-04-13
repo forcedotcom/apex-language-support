@@ -83,6 +83,13 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
       deps.serviceFactory.createMissingArtifactService(),
   },
   {
+    requestType: 'implementation',
+    priority: Priority.High,
+    timeout: 1000,
+    maxRetries: 1,
+    serviceFactory: (deps) => deps.serviceFactory.createImplementationService(),
+  },
+  {
     requestType: 'references',
     priority: Priority.Low,
     timeout: 5000,
@@ -117,6 +124,20 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
+  },
+  {
+    requestType: 'codeLens',
+    priority: Priority.Low,
+    timeout: 5000,
+    maxRetries: 1,
+    serviceFactory: (deps) => deps.serviceFactory.createCodeLensService(),
+  },
+  {
+    requestType: 'foldingRange',
+    priority: Priority.Low,
+    timeout: 5000,
+    maxRetries: 0,
+    serviceFactory: (deps) => deps.serviceFactory.createFoldingRangeService(),
   },
   {
     requestType: 'codeAction',

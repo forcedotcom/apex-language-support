@@ -6,8 +6,31 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+/**
+ * Atomicity contract (Step 6):
+ *
+ * This registry deduplicates concurrent prerequisite chains for the
+ * same (fileUri, documentVersion). Its `acquireOrJoin` method performs
+ * a synchronous read-modify-write on an in-memory Map, relying on
+ * JavaScript's single-threaded event loop to prevent interleaving.
+ *
+ * **Thread-safety invariant:** This registry MUST run on the coordinator
+ * thread (Node main thread or VS Code extension host). Worker threads
+ * each get their own module-scoped singleton, so cross-worker dedup
+ * would silently fail. The `getInFlightPrerequisiteRegistry()` factory
+ * emits a warning when called from a worker thread.
+ *
+ * When `WorkerTopologyDispatcher` is active, request types that trigger
+ * prerequisite orchestration (hover, definition, references, etc.)
+ * fall back to local execution on the coordinator — see
+ * `WorkerDispatchStrategy.canDispatch()`. This preserves the single-
+ * registry guarantee. Step 11 (real workload offload) must explicitly
+ * handle prerequisite coordination before routing to pool workers.
+ */
+
 import type { DetailLevel } from './DocumentStateCache';
 import { getLayerOrderIndex } from './PrerequisiteHelpers';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 export interface PrerequisiteRequestSpec {
   readonly fileUri: string;
@@ -174,10 +197,29 @@ export class InFlightPrerequisiteRegistry {
 }
 
 let inFlightRegistry: InFlightPrerequisiteRegistry | null = null;
+let workerThreadWarningEmitted = false;
+
+function isWorkerThread(): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return !require('node:worker_threads').isMainThread;
+  } catch {
+    return false;
+  }
+}
 
 export const getInFlightPrerequisiteRegistry =
   (): InFlightPrerequisiteRegistry => {
     if (!inFlightRegistry) {
+      if (isWorkerThread() && !workerThreadWarningEmitted) {
+        workerThreadWarningEmitted = true;
+        getLogger().warn(
+          () =>
+            'InFlightPrerequisiteRegistry instantiated on a worker thread. ' +
+            'Cross-worker dedup will not work — prerequisite-requiring ' +
+            'request types should fall back to coordinator execution.',
+        );
+      }
       inFlightRegistry = new InFlightPrerequisiteRegistry();
     }
     return inFlightRegistry;

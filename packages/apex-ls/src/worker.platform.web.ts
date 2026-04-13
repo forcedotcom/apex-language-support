@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -7,23 +7,27 @@
  */
 
 /**
- * Single entry point for all internal worker roles (Node.js).
+ * Browser worker entry point (Step 10).
  *
- * Spawned by the coordinator (WorkerCoordinator, Step 3). The first message
- * is always WorkerInit, which assigns the worker's role. Subsequent messages
- * are validated against the role's allowed-tag set — disallowed tags cause a
- * defect (defense-in-depth against coordinator misrouting).
+ * Mirror of worker.platform.ts but bootstrapped with BrowserWorkerRunner
+ * and using self.postMessage for the assistance proxy. Polyfills match
+ * webWorkerServer.ts (process, Buffer, global).
  *
- * Handler stubs are wired to real implementations in later steps:
- *   - Step 8:  WorkspaceBatchIngest (data-owner)
- *   - Step 9:  ResourceLoaderGetSymbolTable
- *   - Step 11: Dispatch* (pool / data-owner)
- *
- * Browser variant: worker.platform.web.ts (Step 10).
+ * Kept as a standalone file (no local imports) so that each esbuild
+ * entry bundles independently without cross-file resolution issues
+ * at test time (tsx worker threads).
  */
 
+// Polyfills — must execute before any library code
+import process from 'process';
+import { Buffer } from 'buffer';
+
+(globalThis as any).process = process;
+(globalThis as any).Buffer = Buffer;
+(globalThis as any).global = globalThis;
+
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
+import * as BrowserWorkerRunner from '@effect/platform-browser/BrowserWorkerRunner';
 import { Effect, Layer, Schema, Queue, Deferred, Fiber } from 'effect';
 import {
   WorkerInit,
@@ -52,7 +56,6 @@ import type { WorkerRole } from '@salesforce/apex-lsp-shared';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
-// WorkerAssistanceRequest excluded: it flows worker → coordinator
 // ---------------------------------------------------------------------------
 
 const AllWorkerRequests = Schema.Union(
@@ -83,10 +86,6 @@ const AllWorkerRequests = Schema.Union(
 
 let assignedRole: WorkerRole | null = null;
 
-/**
- * Defects on role violation — these are programming errors (coordinator
- * misrouted a message) and should never happen in normal operation.
- */
 const guardRole = (tag: string): Effect.Effect<void> => {
   if (assignedRole === null) {
     return Effect.die(
@@ -114,11 +113,6 @@ const notImplementedYet = (tag: string): Effect.Effect<never> =>
 
 // ---------------------------------------------------------------------------
 // Data-owner internal tiered queue (Step 5)
-//
-// Reads (QuerySymbolSubset, etc.) get priority over writes
-// (WorkspaceBatchIngest, DispatchDocument*). The processing loop
-// drains all pending reads before processing one write, preventing
-// bulk ingestion from starving enrichment-worker symbol queries.
 // ---------------------------------------------------------------------------
 
 type DOQueueItem = {
@@ -218,8 +212,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   PingWorker: (req) =>
     guardRole('PingWorker').pipe(Effect.map(() => ({ echo: req.echo }))),
 
-  // -- Data-owner handlers (routed through internal tiered queue) ------------
-
   QuerySymbolSubset: (req) =>
     guardRole('QuerySymbolSubset').pipe(
       Effect.flatMap(() =>
@@ -276,8 +268,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  // -- Stubs for enrichment/search pool -------------------------------------
-
   DispatchHover: () =>
     guardRole('DispatchHover').pipe(
       Effect.flatMap(() => notImplementedYet('DispatchHover')),
@@ -317,8 +307,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('DispatchGenericLspRequest').pipe(
       Effect.flatMap(() => notImplementedYet('DispatchGenericLspRequest')),
     ),
-
-  // -- Resource-loader handlers (Step 9) -------------------------------------
 
   ResourceLoaderGetSymbolTable: (req) =>
     guardRole('ResourceLoaderGetSymbolTable').pipe(
@@ -371,15 +359,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 };
 
 // ---------------------------------------------------------------------------
-// Worker→coordinator assistance proxy (Step 7)
+// Worker→coordinator assistance proxy (Step 7 — browser transport)
 //
-// Workers that need client RPCs (e.g. apex/findMissingArtifact) send
-// WorkerAssistanceRequest via parentPort. The coordinator's
-// CoordinatorAssistanceMediator listens for these messages and
-// responds with WorkerAssistanceResponse carrying the same correlationId.
+// Uses self.postMessage / self.addEventListener instead of parentPort.
+// Messages are JSON-roundtripped to strip non-cloneable values.
 // ---------------------------------------------------------------------------
-
-import { parentPort } from 'node:worker_threads';
 
 interface PendingAssistance {
   resolve: (result: unknown) => void;
@@ -391,14 +375,15 @@ let assistanceListenerAttached = false;
 let assistanceIdCounter = 0;
 
 function ensureAssistanceListener(): void {
-  if (assistanceListenerAttached || !parentPort) return;
+  if (assistanceListenerAttached) return;
   assistanceListenerAttached = true;
 
-  parentPort.on('message', (data: unknown) => {
+  self.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data;
     if (
       typeof data !== 'object' ||
       data === null ||
-      (data as Record<string, unknown>)._tag !== 'WorkerAssistanceResponse'
+      data._tag !== 'WorkerAssistanceResponse'
     )
       return;
 
@@ -421,9 +406,7 @@ function ensureAssistanceListener(): void {
 }
 
 /**
- * Request coordinator assistance for a client RPC.
- * Used by worker-side MissingArtifactResolutionService (Step 11) to
- * route apex/findMissingArtifact through the coordinator's LSP connection.
+ * Request coordinator assistance for a client RPC (browser variant).
  */
 export function requestCoordinatorAssistance(
   method: string,
@@ -432,33 +415,30 @@ export function requestCoordinatorAssistance(
 ): Promise<unknown> {
   ensureAssistanceListener();
 
-  if (!parentPort) {
-    return Promise.reject(
-      new Error('requestCoordinatorAssistance: no parentPort (not a worker)'),
-    );
-  }
-
   const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
 
   return new Promise((resolve, reject) => {
     pendingAssistanceRequests.set(correlationId, { resolve, reject });
 
-    parentPort!.postMessage({
-      _tag: 'WorkerAssistanceRequest',
-      correlationId,
-      method,
-      params,
-      blocking,
-    });
+    const msg = JSON.parse(
+      JSON.stringify({
+        _tag: 'WorkerAssistanceRequest',
+        correlationId,
+        method,
+        params,
+        blocking,
+      }),
+    );
+    self.postMessage(msg);
   });
 }
 
 // ---------------------------------------------------------------------------
-// Bootstrap — Node worker runner
+// Bootstrap — Browser worker runner
 // ---------------------------------------------------------------------------
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
-WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
+WorkerRunner.launch(Layer.provide(runnerLayer, BrowserWorkerRunner.layer)).pipe(
   Effect.runFork,
 );

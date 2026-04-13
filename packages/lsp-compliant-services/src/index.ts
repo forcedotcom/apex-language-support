@@ -41,8 +41,6 @@ import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
 import { DocumentChangeBatcher } from './services/DocumentChangeBatcher';
-import { DocumentChangeProcessingService } from './services/DocumentChangeProcessingService';
-
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
 export * from './storage/ApexStorage';
@@ -198,41 +196,37 @@ export const dispatchProcessOnChangeDocument = (
 
   if (!changeBatcher) {
     const logger = getLogger();
-    const processor = new DocumentChangeProcessingService(logger);
-    changeBatcher = new DocumentChangeBatcher(
-      logger,
-      (ev) =>
-        new Promise<void>((resolve) => {
-          processor.processDocumentChange(ev);
-          resolve();
-        }),
-    );
+    changeBatcher = new DocumentChangeBatcher(logger, (ev) => {
+      const queueManager = LSPQueueManager.getInstance();
+      queueManager.submitDocumentChangeNotification(ev);
+      return Promise.resolve();
+    });
   }
   changeBatcher.enqueue(event);
 };
 
 /**
  * Dispatch function for document close events (LSP notification - fire-and-forget)
+ * Routes through LSPQueueManager for priority-ordered processing.
  * @param event The document close event
  */
 export const dispatchProcessOnCloseDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
-  const handler = HandlerFactory.createDidCloseDocumentHandler();
-  // Error handling is done internally in handleDocumentClose
-  handler.handleDocumentClose(event);
+  const queueManager = LSPQueueManager.getInstance();
+  queueManager.submitDocumentCloseNotification(event);
 };
 
 /**
  * Dispatch function for document save events (LSP notification - fire-and-forget)
+ * Routes through LSPQueueManager for priority-ordered processing.
  * @param event The document save event
  */
 export const dispatchProcessOnSaveDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
-  const handler = HandlerFactory.createDidSaveDocumentHandler();
-  // Error handling is done internally in handleDocumentSave
-  handler.handleDocumentSave(event);
+  const queueManager = LSPQueueManager.getInstance();
+  queueManager.submitDocumentSaveNotification(event);
 };
 
 /**

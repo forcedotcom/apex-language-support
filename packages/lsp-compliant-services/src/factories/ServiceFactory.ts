@@ -26,6 +26,9 @@ import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessin
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
+import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
+import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
+import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessingService';
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
 import { PrerequisiteEnrichmentService } from '../services/PrerequisiteEnrichmentService';
@@ -181,6 +184,24 @@ export class ServiceFactory {
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
+  }
+
+  createImplementationService(): ImplementationProcessingService {
+    return new ImplementationProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+  }
+
+  createCodeLensService(): CodeLensProcessingService {
+    return new CodeLensProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+  }
+
+  createFoldingRangeService(): FoldingRangeProcessingService {
+    return new FoldingRangeProcessingService(this.dependencies.logger);
   }
 
   /**

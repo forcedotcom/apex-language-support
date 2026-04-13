@@ -12,10 +12,12 @@ import {
   initializeTopology,
   makeNodeWorkerLayer,
   clampPoolSize,
+  WorkerTopologyDispatcher,
 } from '../../src/server/WorkerCoordinator';
 import { PingWorker, QuerySymbolSubset } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
@@ -136,6 +138,123 @@ describe('WorkerCoordinator', () => {
       expect(logger.messages).toContainEqual(
         expect.stringContaining('Resource loader initialized'),
       );
+    }, 15_000);
+  });
+
+  describe('WorkerTopologyDispatcher (step 5 + step 6)', () => {
+    it('isAvailable returns true by default', () => {
+      const logger = createSpyLogger();
+      const mockTopology = {} as WorkerTopology;
+      const dispatcher = new WorkerTopologyDispatcher(mockTopology, logger);
+      expect(dispatcher.isAvailable()).toBe(true);
+    });
+
+    it('isAvailable can be toggled off', () => {
+      const logger = createSpyLogger();
+      const mockTopology = {} as WorkerTopology;
+      const dispatcher = new WorkerTopologyDispatcher(mockTopology, logger);
+      dispatcher.setAvailable(false);
+      expect(dispatcher.isAvailable()).toBe(false);
+    });
+
+    it('dispatches QuerySymbolSubset through data-owner via live worker', async () => {
+      const logger = createSpyLogger();
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: false,
+          logger,
+        });
+
+        const dispatcher = new WorkerTopologyDispatcher(topology, logger);
+
+        const ping = yield* topology.dataOwner.executeEffect(
+          new PingWorker({ echo: 'dispatcher-test' }),
+        );
+        expect(ping.echo).toBe('dispatcher-test');
+        expect(dispatcher.isAvailable()).toBe(true);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+      );
+
+      await Effect.runPromise(program);
+    }, 15_000);
+
+    describe('canDispatch — prerequisite atomicity (step 6)', () => {
+      let dispatcher: WorkerTopologyDispatcher;
+
+      beforeEach(() => {
+        const logger = createSpyLogger();
+        dispatcher = new WorkerTopologyDispatcher({} as WorkerTopology, logger);
+      });
+
+      it.each([
+        'hover',
+        'definition',
+        'completion',
+        'signatureHelp',
+        'documentSymbol',
+        'references',
+        'rename',
+        'diagnostics',
+        'documentOpen',
+      ] as const)('blocks prerequisite-requiring type: %s', (type) => {
+        expect(dispatcher.canDispatch(type)).toBe(false);
+      });
+
+      it.each([
+        'documentChange',
+        'documentSave',
+        'documentClose',
+        'codeLens',
+        'foldingRange',
+        'implementation',
+      ] as const)('allows prerequisite-free type: %s', (type) => {
+        expect(dispatcher.canDispatch(type)).toBe(true);
+      });
+    });
+  });
+
+  describe('createBatchIngestionDispatcher (Step 8)', () => {
+    it('returns a function that sends WorkspaceBatchIngest to data-owner', async () => {
+      const logger = createSpyLogger();
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: false,
+          logger,
+        });
+
+        const dispatcher = new WorkerTopologyDispatcher(topology, logger);
+        const ingest = dispatcher.createBatchIngestionDispatcher();
+
+        const result = yield* Effect.promise(() =>
+          ingest('test-session-1', [
+            {
+              uri: 'file:///Foo.cls',
+              content: 'public class Foo {}',
+              languageId: 'apex',
+              version: 1,
+            },
+            {
+              uri: 'file:///Bar.cls',
+              content: 'public class Bar {}',
+              languageId: 'apex',
+              version: 2,
+            },
+          ]),
+        );
+
+        expect(result.processedCount).toBe(2);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+      );
+
+      await Effect.runPromise(program);
     }, 15_000);
   });
 

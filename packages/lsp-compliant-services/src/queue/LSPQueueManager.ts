@@ -19,6 +19,7 @@ import {
 import { Effect, Deferred, Fiber, Cause } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
+import type { WorkerDispatchStrategy } from './WorkerDispatchStrategy';
 
 /**
  * Dependencies interface for LSPQueueManager initialization
@@ -44,6 +45,7 @@ export class LSPQueueManager {
   private readonly serviceRegistry: ServiceRegistry;
   private schedulerInitialized = false;
   private isShutdown = false;
+  private workerDispatcher: WorkerDispatchStrategy | null = null;
 
   private constructor(dependencies?: LSPQueueManagerDependencies) {
     // Initialize the service registry
@@ -78,6 +80,19 @@ export class LSPQueueManager {
   }
 
   /**
+   * Inject a worker dispatch strategy. When set and available,
+   * createQueuedItem wraps worker dispatch instead of local handler
+   * execution. Pass null to revert to local-only.
+   */
+  setWorkerDispatcher(dispatcher: WorkerDispatchStrategy | null): void {
+    this.workerDispatcher = dispatcher;
+    this.logger.debug(
+      () =>
+        `Worker dispatcher ${dispatcher ? 'set' : 'cleared'} on LSPQueueManager`,
+    );
+  }
+
+  /**
    * Create a QueuedItem from request parameters
    */
   private createQueuedItem<T>(
@@ -92,15 +107,20 @@ export class LSPQueueManager {
     const logger = this.logger;
     const taskId = this.generateTaskId();
 
+    const dispatcher = this.workerDispatcher;
+
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
         Fiber.RuntimeFiber<T, Error>,
         Error
       >();
 
-      // Wrap request execution in an Effect
       const requestEffect = Effect.tryPromise({
-        try: async () => {
+        try: async (): Promise<T> => {
+          if (dispatcher?.isAvailable() && dispatcher.canDispatch(type)) {
+            logger.debug(() => `Dispatching ${type} request to worker pool`);
+            return (await dispatcher.dispatch(type, params)) as T;
+          }
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
             throw new Error(`No handler registered for request type: ${type}`);
@@ -272,6 +292,28 @@ export class LSPQueueManager {
   async submitExecuteCommandRequest(params: any): Promise<any> {
     return this.submitRequest('executeCommand', params, {
       priority: Priority.Normal,
+    });
+  }
+
+  async submitImplementationRequest(params: any): Promise<any> {
+    return this.submitRequest('implementation', params, {
+      priority: Priority.High,
+    });
+  }
+
+  async submitCodeLensRequest(params: any): Promise<any> {
+    return this.submitRequest('codeLens', params, { priority: Priority.Low });
+  }
+
+  async submitFoldingRangeRequest(params: any): Promise<any> {
+    return this.submitRequest('foldingRange', params, {
+      priority: Priority.Low,
+    });
+  }
+
+  async submitFindMissingArtifactRequest(params: any): Promise<any> {
+    return this.submitRequest('findMissingArtifact', params, {
+      priority: Priority.Low,
     });
   }
 

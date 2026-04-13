@@ -188,6 +188,48 @@ export type ResourceLoaderGetSymbolTableSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
+// ResourceLoaderGetFile — source code for goto-definition
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetFile extends Schema.TaggedRequest<ResourceLoaderGetFile>()(
+  'ResourceLoaderGetFile',
+  {
+    success: Schema.Struct({
+      found: Schema.Boolean,
+      content: Schema.optional(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      path: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderResolveClass — resolve class name to canonical FQN
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderResolveClass extends Schema.TaggedRequest<ResourceLoaderResolveClass>()(
+  'ResourceLoaderResolveClass',
+  {
+    success: Schema.Struct({
+      found: Schema.Boolean,
+      fqn: Schema.optional(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      className: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // LSP request dispatch — coordinator sends queued work to workers
 // ---------------------------------------------------------------------------
 
@@ -425,6 +467,8 @@ export const ResourceLoaderTags = [
   'WorkerInit',
   'PingWorker',
   'ResourceLoaderGetSymbolTable',
+  'ResourceLoaderGetFile',
+  'ResourceLoaderResolveClass',
 ] as const;
 export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
 
@@ -470,7 +514,9 @@ export type EnrichmentSearchRequest =
 export type ResourceLoaderRequest =
   | WorkerInit
   | PingWorker
-  | ResourceLoaderGetSymbolTable;
+  | ResourceLoaderGetSymbolTable
+  | ResourceLoaderGetFile
+  | ResourceLoaderResolveClass;
 
 /** Current wire protocol version — bump on breaking schema changes */
 export const WIRE_PROTOCOL_VERSION = 1;

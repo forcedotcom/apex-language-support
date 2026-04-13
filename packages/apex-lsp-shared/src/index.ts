@@ -402,6 +402,8 @@ export {
   WorkerAssistanceRequest,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetFile,
+  ResourceLoaderResolveClass,
   WireLspRequestType,
   DispatchDocumentOpen,
   DispatchDocumentChange,

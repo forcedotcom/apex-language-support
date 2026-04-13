@@ -64,13 +64,6 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDeleteDocument,
-  dispatchProcessOnHover,
-  dispatchProcessOnDefinition,
-  dispatchProcessOnImplementation,
-  dispatchProcessOnReferences,
-  dispatchProcessOnFoldingRange,
-  dispatchProcessOnFindMissingArtifact,
-  dispatchProcessOnCodeLens,
   ApexStorageManager,
   ApexStorage,
   dispatchProcessOnResolve,
@@ -79,7 +72,6 @@ import {
   LSPQueueManager,
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
-  dispatchProcessOnExecuteCommand,
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
   getDiagnosticRefreshService,
@@ -88,6 +80,7 @@ import {
 import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
+  setBatchIngestionDispatcher,
 } from './WorkspaceBatchHandler';
 
 import {
@@ -119,6 +112,7 @@ export class LCSAdapter {
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
   private hoverHandlerRegistered = false;
+  private resourceLoaderProxy?: import('./ResourceLoaderProxy').ResourceLoaderProxy;
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
   private readonly aggregator = new CommandPerformanceAggregator();
@@ -499,7 +493,8 @@ export class LCSAdapter {
           try {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.DEFINITION,
-              () => dispatchProcessOnDefinition(params),
+              () =>
+                LSPQueueManager.getInstance().submitDefinitionRequest(params),
               {
                 'lsp.method': 'textDocument/definition',
                 'document.uri': params.textDocument.uri,
@@ -533,7 +528,10 @@ export class LCSAdapter {
           try {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.IMPLEMENTATION,
-              () => dispatchProcessOnImplementation(params),
+              () =>
+                LSPQueueManager.getInstance().submitImplementationRequest(
+                  params,
+                ),
               {
                 'lsp.method': 'textDocument/implementation',
                 'document.uri': params.textDocument.uri,
@@ -567,7 +565,8 @@ export class LCSAdapter {
           try {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.REFERENCES,
-              () => dispatchProcessOnReferences(params),
+              () =>
+                LSPQueueManager.getInstance().submitReferencesRequest(params),
               {
                 'lsp.method': 'textDocument/references',
                 'document.uri': params.textDocument.uri,
@@ -666,10 +665,10 @@ export class LCSAdapter {
               `🔍 Folding range request for URI: ${params.textDocument.uri}`,
           );
           try {
-            const storage = ApexStorageManager.getInstance().getStorage();
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.FOLDING_RANGE,
-              () => dispatchProcessOnFoldingRange(params, storage),
+              () =>
+                LSPQueueManager.getInstance().submitFoldingRangeRequest(params),
               {
                 'lsp.method': 'textDocument/foldingRange',
                 'document.uri': params.textDocument.uri,
@@ -708,7 +707,7 @@ export class LCSAdapter {
         try {
           const result = await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.CODE_LENS,
-            () => dispatchProcessOnCodeLens(params),
+            () => LSPQueueManager.getInstance().submitCodeLensRequest(params),
             {
               'lsp.method': 'textDocument/codeLens',
               'document.uri': params.textDocument.uri,
@@ -745,7 +744,10 @@ export class LCSAdapter {
         try {
           return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
-            () => dispatchProcessOnFindMissingArtifact(params),
+            () =>
+              LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
+                params,
+              ),
             {
               'apex.identifier': params.identifiers
                 .map((i) => i.name)
@@ -854,7 +856,10 @@ export class LCSAdapter {
           try {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.EXECUTE_COMMAND,
-              () => dispatchProcessOnExecuteCommand(params),
+              () =>
+                LSPQueueManager.getInstance().submitExecuteCommandRequest(
+                  params,
+                ),
               {
                 'lsp.method': 'workspace/executeCommand',
                 'command.name': params.command,
@@ -1609,22 +1614,9 @@ export class LCSAdapter {
       );
     });
 
-    // Step 3 vertical slice: spawn one worker, ping it, shut down (Node only)
+    // Worker pool topology (Node only, gated by experiment flag)
     if (process?.env?.APEX_WORKER_EXPERIMENT) {
-      import('./WorkerCoordinator')
-        .then(({ runVerticalSlice }) =>
-          runVerticalSlice(this.logger).catch((error) => {
-            this.logger.error(
-              () => `❌ Worker experiment failed: ${formattedError(error)}`,
-            );
-          }),
-        )
-        .catch((error) => {
-          this.logger.error(
-            () =>
-              `❌ Failed to load WorkerCoordinator: ${formattedError(error)}`,
-          );
-        });
+      this.initializeWorkerTopology();
     }
   }
 
@@ -2056,7 +2048,7 @@ export class LCSAdapter {
           const dispatchStartTime = Date.now();
           const result = await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.HOVER,
-            () => dispatchProcessOnHover(params),
+            () => LSPQueueManager.getInstance().submitHoverRequest(params),
             {
               'lsp.method': 'textDocument/hover',
               'document.uri': params.textDocument.uri,
@@ -2085,5 +2077,94 @@ export class LCSAdapter {
     this.logger.debug(
       () => '✅ Hover handler registered (hoverProvider capability enabled)',
     );
+  }
+
+  /**
+   * Initialize worker topology and wire the dispatch strategy into
+   * LSPQueueManager so queued LSP requests are dispatched to workers.
+   * Runs asynchronously; failures are logged but non-fatal.
+   */
+  private initializeWorkerTopology(): void {
+    Promise.all([
+      import('./WorkerCoordinator'),
+      import('./CoordinatorAssistanceMediator'),
+      import('./ResourceLoaderProxy'),
+    ])
+      .then(
+        async ([
+          {
+            initializeTopology,
+            makeNodeWorkerLayer,
+            WorkerTopologyDispatcher,
+            getRawWorkers,
+          },
+          { CoordinatorAssistanceMediator },
+          { ResourceLoaderProxy },
+        ]) => {
+          const { Effect, Scope } = await import('effect');
+
+          const enableResourceLoader =
+            !!process?.env?.APEX_WORKER_RESOURCE_LOADER;
+
+          const config = {
+            poolSize: 2,
+            enableResourceLoader,
+            logger: this.logger,
+          };
+
+          const program = Effect.gen(function* () {
+            return yield* initializeTopology(config);
+          }).pipe(
+            Effect.provide(
+              makeNodeWorkerLayer(__dirname + '/worker.platform.js'),
+            ),
+          );
+
+          const scope = Effect.runSync(Scope.make());
+          const topology = await Effect.runPromise(
+            Effect.provideService(program, Scope.Scope, scope),
+          );
+
+          const dispatcher = new WorkerTopologyDispatcher(
+            topology,
+            this.logger,
+          );
+          LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
+
+          setBatchIngestionDispatcher(
+            dispatcher.createBatchIngestionDispatcher(),
+          );
+
+          const mediator = new CoordinatorAssistanceMediator(
+            (method, params) => this.connection.sendRequest(method, params),
+            this.logger,
+          );
+          mediator.attachToWorkers(getRawWorkers());
+
+          if (topology.resourceLoader) {
+            this.resourceLoaderProxy = new ResourceLoaderProxy(
+              topology.resourceLoader,
+              this.logger,
+            );
+            this.logger.info(
+              () =>
+                '[WorkerCoordinator] ResourceLoaderProxy active — ' +
+                'stdlib queries routed to resource-loader worker',
+            );
+          }
+
+          this.logger.info(
+            () =>
+              '[WorkerCoordinator] Topology active — ' +
+              'queue dispatch, batch ingestion, assistance mediation',
+          );
+        },
+      )
+      .catch((error) => {
+        this.logger.error(
+          () =>
+            `❌ Failed to initialize worker topology: ${formattedError(error)}`,
+        );
+      });
   }
 }
