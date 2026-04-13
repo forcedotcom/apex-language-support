@@ -1608,6 +1608,24 @@ export class LCSAdapter {
         () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
       );
     });
+
+    // Step 3 vertical slice: spawn one worker, ping it, shut down (Node only)
+    if (process?.env?.APEX_WORKER_EXPERIMENT) {
+      import('./WorkerCoordinator')
+        .then(({ runVerticalSlice }) =>
+          runVerticalSlice(this.logger).catch((error) => {
+            this.logger.error(
+              () => `❌ Worker experiment failed: ${formattedError(error)}`,
+            );
+          }),
+        )
+        .catch((error) => {
+          this.logger.error(
+            () =>
+              `❌ Failed to load WorkerCoordinator: ${formattedError(error)}`,
+          );
+        });
+    }
   }
 
   /**

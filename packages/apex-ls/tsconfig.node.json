@@ -12,6 +12,7 @@
     "src/server.node.ts",
     "src/server/nodeServer.ts",
     "src/server/LCSAdapter.ts",
+    "src/server/WorkerCoordinator.ts",
     "src/server/WorkspaceBatchHandler.ts",
     "src/utils/EnvironmentUtils.ts",
     "src/profiling/ProfilingService.ts",

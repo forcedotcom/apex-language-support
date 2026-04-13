@@ -58,7 +58,14 @@ const NODE_SERVER_EXTERNAL = [
  * they get bundled into the worker. Only deps that are loaded separately
  * (like the ANTLR parser which is too large) should be external.
  */
-const WORKER_EXTERNAL: string[] = [];
+const WORKER_EXTERNAL: string[] = [
+  // Node-only deps used by WorkerCoordinator — dead code in browser, but
+  // esbuild follows the dynamic import so we must mark them external.
+  'node:worker_threads',
+  'node:os',
+  '@effect/platform-node/NodeWorker',
+  '@effect/platform/WorkerError',
+];
 
 const builds: BuildOptions[] = [
   // Node.js server build - used by desktop VSCode extension
@@ -102,6 +109,19 @@ const builds: BuildOptions[] = [
         verbose: true,
       }),
     ],
+  },
+  // Node.js internal worker build — spawned by WorkerCoordinator (Step 3)
+  // Same Node externals as server.node; browser variant added in Step 10
+  {
+    ...nodeBaseConfig,
+    entryPoints: { 'worker.platform': 'src/worker.platform.ts' },
+    outdir: 'dist',
+    format: 'cjs',
+    sourcemap: true,
+    external: NODE_SERVER_EXTERNAL,
+    keepNames: true,
+    conditions: ['node', 'require', 'default'],
+    mainFields: ['main', 'module'],
   },
   // Web worker build - used by the web VSCode extension
   // Produces server.web.js as an IIFE bundle for Web Worker context
