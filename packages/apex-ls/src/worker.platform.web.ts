@@ -104,13 +104,6 @@ const guardRole = (tag: string): Effect.Effect<void> => {
   return Effect.void;
 };
 
-const notImplementedYet = (tag: string): Effect.Effect<never> =>
-  Effect.die(
-    new Error(
-      `WorkerHandler: '${tag}' not yet implemented (wired in later steps)`,
-    ),
-  );
-
 // ---------------------------------------------------------------------------
 // Data-owner internal tiered queue (Step 5)
 // ---------------------------------------------------------------------------
@@ -180,6 +173,40 @@ const dataOwnerWrite = <A>(eff: Effect.Effect<A, any>): Effect.Effect<A, any> =>
   });
 
 // ---------------------------------------------------------------------------
+// Lazy role-specific service containers (bootstrapped on first dispatch)
+// ---------------------------------------------------------------------------
+
+import type {
+  DataOwnerServices,
+  EnrichmentServices,
+} from '@salesforce/apex-lsp-compliant-services';
+
+let dataOwnerServices: DataOwnerServices | null = null;
+let enrichmentServices: EnrichmentServices | null = null;
+
+const ensureDataOwnerServices = Effect.gen(function* () {
+  if (dataOwnerServices) return dataOwnerServices;
+  const { bootstrapDataOwnerServices } = yield* Effect.promise(
+    () => import('@salesforce/apex-lsp-compliant-services'),
+  );
+  dataOwnerServices = yield* Effect.promise(() => bootstrapDataOwnerServices());
+  yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
+  return dataOwnerServices;
+});
+
+const ensureEnrichmentServices = Effect.gen(function* () {
+  if (enrichmentServices) return enrichmentServices;
+  const { bootstrapEnrichmentServices } = yield* Effect.promise(
+    () => import('@salesforce/apex-lsp-compliant-services'),
+  );
+  enrichmentServices = yield* Effect.promise(() =>
+    bootstrapEnrichmentServices(),
+  );
+  yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
+  return enrichmentServices;
+});
+
+// ---------------------------------------------------------------------------
 // Handlers — one per _tag in AllWorkerRequests
 // ---------------------------------------------------------------------------
 
@@ -206,6 +233,18 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         return { ready: true };
       });
     }
+    if (req.role === 'dataOwner') {
+      return Effect.gen(function* () {
+        yield* ensureDataOwnerServices;
+        return { ready: true };
+      });
+    }
+    if (req.role === 'enrichmentSearch') {
+      return Effect.gen(function* () {
+        yield* ensureEnrichmentServices;
+        return { ready: true };
+      });
+    }
     return Effect.succeed({ ready: true });
   },
 
@@ -216,10 +255,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('QuerySymbolSubset').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
-          Effect.succeed({
-            entries: Object.fromEntries(
-              req.uris.map((uri) => [uri, { mock: true }]),
-            ),
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const entries: Record<string, unknown> = {};
+            for (const uri of req.uris) {
+              const st = svc.symbolManager.getSymbolTableForFile(uri);
+              entries[uri] = st ? JSON.parse(JSON.stringify(st)) : null;
+            }
+            return { entries };
           }),
         ),
       ),
@@ -230,6 +273,16 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       Effect.flatMap(() =>
         dataOwnerWrite(
           Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            for (const entry of req.entries) {
+              const storage = svc.storageManager.getStorage();
+              void storage.setDocument(entry.uri, {
+                uri: entry.uri,
+                getText: () => entry.content,
+                languageId: entry.languageId,
+                version: entry.version,
+              } as any);
+            }
             yield* Effect.logDebug(
               `[DATA-OWNER] WorkspaceBatchIngest: session=${req.sessionId}, ` +
                 `entries=${req.entries.length}`,
@@ -240,72 +293,235 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  DispatchDocumentOpen: () =>
+  DispatchDocumentOpen: (req) =>
     guardRole('DispatchDocumentOpen').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(notImplementedYet('DispatchDocumentOpen')),
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
+            const doc = {
+              uri: req.uri,
+              getText: () => req.content,
+              languageId: req.languageId,
+              version: req.version,
+            } as any;
+            void storage.setDocument(req.uri, doc);
+            const diagnostics = yield* Effect.promise(() =>
+              svc.documentProcessingService.processDocumentOpenInternal({
+                document: doc,
+              }),
+            );
+            return {
+              accepted: true,
+              diagnostics: diagnostics
+                ? JSON.parse(JSON.stringify(diagnostics))
+                : undefined,
+            };
+          }),
+        ),
       ),
     ),
 
-  DispatchDocumentChange: () =>
+  DispatchDocumentChange: (req) =>
     guardRole('DispatchDocumentChange').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(notImplementedYet('DispatchDocumentChange')),
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
+            const doc = {
+              uri: req.uri,
+              getText: () => '',
+              languageId: 'apex',
+              version: req.version,
+            } as any;
+            void storage.setDocument(req.uri, doc);
+            const diagnostics = yield* Effect.promise(() =>
+              svc.documentProcessingService.processDocumentOpenInternal({
+                document: doc,
+              }),
+            );
+            return {
+              accepted: true,
+              diagnostics: diagnostics
+                ? JSON.parse(JSON.stringify(diagnostics))
+                : undefined,
+            };
+          }),
+        ),
       ),
     ),
 
-  DispatchDocumentSave: () =>
+  DispatchDocumentSave: (req) =>
     guardRole('DispatchDocumentSave').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(notImplementedYet('DispatchDocumentSave')),
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            yield* ensureDataOwnerServices;
+            yield* Effect.logDebug(
+              `[DATA-OWNER] DispatchDocumentSave: uri=${req.uri}`,
+            );
+            return { accepted: true };
+          }),
+        ),
       ),
     ),
 
-  DispatchDocumentClose: () =>
+  DispatchDocumentClose: (req) =>
     guardRole('DispatchDocumentClose').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(notImplementedYet('DispatchDocumentClose')),
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            svc.documentCloseProcessingService.processDocumentClose({
+              document: {
+                uri: req.uri,
+                getText: () => '',
+                languageId: 'apex',
+                version: 0,
+              } as any,
+            });
+            return { accepted: true };
+          }),
+        ),
       ),
     ),
 
-  DispatchHover: () =>
+  DispatchHover: (req) =>
     guardRole('DispatchHover').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchHover')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.hoverService.processHover({
+              textDocument: { uri: req.textDocument.uri },
+              position: {
+                line: req.position.line,
+                character: req.position.character,
+              },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchDefinition: () =>
+  DispatchDefinition: (req) =>
     guardRole('DispatchDefinition').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchDefinition')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.definitionService.processDefinition({
+              textDocument: { uri: req.textDocument.uri },
+              position: {
+                line: req.position.line,
+                character: req.position.character,
+              },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchReferences: () =>
+  DispatchReferences: (req) =>
     guardRole('DispatchReferences').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchReferences')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.referencesService.processReferences({
+              textDocument: { uri: req.textDocument.uri },
+              position: {
+                line: req.position.line,
+                character: req.position.character,
+              },
+              context: {
+                includeDeclaration: req.context.includeDeclaration,
+              },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchImplementation: () =>
+  DispatchImplementation: (req) =>
     guardRole('DispatchImplementation').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchImplementation')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.implementationService.processImplementation({
+              textDocument: { uri: req.textDocument.uri },
+              position: {
+                line: req.position.line,
+                character: req.position.character,
+              },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchDocumentSymbol: () =>
+  DispatchDocumentSymbol: (req) =>
     guardRole('DispatchDocumentSymbol').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchDocumentSymbol')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.documentSymbolService.processDocumentSymbol({
+              textDocument: { uri: req.textDocument.uri },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchCodeLens: () =>
+  DispatchCodeLens: (req) =>
     guardRole('DispatchCodeLens').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchCodeLens')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.codeLensService.processCodeLens({
+              textDocument: { uri: req.textDocument.uri },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchDiagnostic: () =>
+  DispatchDiagnostic: (req) =>
     guardRole('DispatchDiagnostic').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchDiagnostic')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() =>
+            svc.diagnosticService.processDiagnostic({
+              textDocument: { uri: req.textDocument.uri },
+            }),
+          );
+          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
+        }),
+      ),
     ),
 
-  DispatchGenericLspRequest: () =>
+  DispatchGenericLspRequest: (req) =>
     guardRole('DispatchGenericLspRequest').pipe(
-      Effect.flatMap(() => notImplementedYet('DispatchGenericLspRequest')),
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          yield* Effect.logWarning(
+            `[ENRICHMENT] GenericLspRequest: unhandled type=${req.requestType}`,
+          );
+          return { result: null };
+        }),
+      ),
     ),
 
   ResourceLoaderGetSymbolTable: (req) =>

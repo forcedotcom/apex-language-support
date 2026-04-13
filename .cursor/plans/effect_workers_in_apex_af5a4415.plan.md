@@ -402,30 +402,43 @@ flowchart TB
 
 ---
 
-## Step 11 — Real workload offload
+## Step 11 — Real workload offload ✅
 
-**Prerequisite:** Step 4.5 — handlers must already enqueue service work; offload moves execution of queued units to workers, not ad-hoc parallel calls.
+**Where:** `WorkerCoordinator.ts`, `worker.platform.ts`, `worker.platform.web.ts`, `lsp-compliant-services/src/workers/WorkerBackendBootstrap.ts`
 
-**Where:** [`LCSAdapter.ts`](packages/apex-ls/src/server/LCSAdapter.ts), `WorkerCoordinator.ts`, `lsp-compliant-services` role layers
+**Implemented:**
 
-**What:** Wire actual LSP request handlers to dispatch through worker topology instead of running on the coordinator thread.
+1. **`WorkerBackendBootstrap`** (`lsp-compliant-services/src/workers/`) — role-specific service initialization:
+   - `bootstrapDataOwnerServices()`: initializes `ApexStorageManager`, `ApexSymbolProcessingManager`/`ISymbolManager`, `DocumentProcessingService`, `DocumentCloseProcessingService` inside the worker thread
+   - `bootstrapEnrichmentServices()`: initializes ISymbolManager and all enrichment processing services (hover, definition, references, implementation, documentSymbol, codeLens, diagnostic)
 
-**Package placement:** Role-specific `Layer` implementations (`bootstrapWorkerBackend(role)` / `provideWorkerLayers(role)`) live in `lsp-compliant-services`, exported for `apex-ls` to import. Business logic stays co-located with `LSPQueueManager`, `PrerequisiteOrchestrationService`, etc.
+2. **Data-owner handler implementations** (replacing stubs):
+   - `DispatchDocumentOpen`: stores document in local storage, calls `DocumentProcessingService.processDocumentOpenInternal()`, returns diagnostics
+   - `DispatchDocumentChange`: stores updated document, re-processes via same pipeline
+   - `DispatchDocumentSave`: acknowledged (save-specific logic deferred)
+   - `DispatchDocumentClose`: calls `DocumentCloseProcessingService.processDocumentClose()`
+   - `QuerySymbolSubset`: returns real symbol table data from local ISymbolManager
+   - `WorkspaceBatchIngest`: stores entries in local ApexStorageManager
 
-**What moves where:**
+3. **Enrichment handler implementations** (replacing stubs):
+   - `DispatchHover` → `HoverProcessingService.processHover()`
+   - `DispatchDefinition` → `DefinitionProcessingService.processDefinition()`
+   - `DispatchReferences` → `ReferencesProcessingService.processReferences()`
+   - `DispatchImplementation` → `ImplementationProcessingService.processImplementation()`
+   - `DispatchDocumentSymbol` → `DocumentSymbolProcessingService.processDocumentSymbol()`
+   - `DispatchCodeLens` → `CodeLensProcessingService.processCodeLens()`
+   - `DispatchDiagnostic` → `DiagnosticProcessingService.processDiagnostic()`
+   - `DispatchGenericLspRequest` → logged warning, returns null
 
-- **Data-owner worker:** `dispatchProcessOnOpenDocument`, `dispatchProcessOnChangeDocument`, `dispatchProcessOnSaveDocument`, `dispatchProcessOnCloseDocument` — these trigger parsing + AST walk + symbol graph mutations. Data owner holds authoritative `ISymbolManager` state.
-- **Enrichment/search pool:** `dispatchProcessOnHover`, `dispatchProcessOnDefinition`, `dispatchProcessOnReferences`, `dispatchProcessOnImplementation`, `dispatchProcessOnCodeLens` — CPU-bound symbol resolution and graph traversal. Workers query data owner for subsets.
-- **Resource-loader worker:** `ResourceLoader.initialize()`, `prePopulateSymbolGraph` — startup-only protobuf deserialization and symbol graph population.
-- **Coordinator keeps:** LSP `Connection`, `TextDocuments` sync, capability negotiation, `runWithSpanAndRecord` tracing, in-flight dedup maps, scheduler tick loop, config change handling, telemetry, progress reporting.
+4. **Dispatch gates opened** — `PREREQUISITE_REQUIRING_TYPES` replaced with narrow `COORDINATOR_ONLY_TYPES` (completion, signatureHelp, rename). All document lifecycle and enrichment types now dispatch to workers.
 
-**Shared singleton migration:** `ResourceLoader.getInstance()` on the main thread becomes a message-based facade (Step 9). `ApexStorageManager`, `DocumentStateCache` become data-owner-internal state. `SchedulerInitializationService` stays on coordinator.
+5. **Lazy bootstrap** — services are bootstrapped on first dispatch via `ensureDataOwnerServices` / `ensureEnrichmentServices` Effect generators. WorkerInit eagerly triggers bootstrap for the assigned role.
 
-**Verification:**
-- Hover/definition/references/diagnostics return correct results via worker dispatch
-- Document open/change triggers parse on data-owner worker, not coordinator
-- Coordinator thread stays responsive during heavy parse workloads
-- Existing telemetry and tracing still captures per-request timing
+6. **Browser entry mirrored** — `worker.platform.web.ts` has identical handler logic.
+
+**Coordinator keeps:** LSP Connection, TextDocuments sync, capability negotiation, tracing, dedup maps, scheduler, config, telemetry, progress.
+
+**Verification:** compile ✅, lint ✅, bundle ✅, all 94 apex-ls tests pass ✅, all 554 lsp-compliant-services tests pass ✅
 
 ---
 

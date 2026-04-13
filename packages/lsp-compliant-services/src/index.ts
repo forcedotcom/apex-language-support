@@ -126,6 +126,14 @@ export * from './queue';
 // Export registry components
 export * from './registry';
 
+// Export worker backend bootstrap (Step 11)
+export {
+  bootstrapDataOwnerServices,
+  bootstrapEnrichmentServices,
+  type DataOwnerServices,
+  type EnrichmentServices,
+} from './workers/WorkerBackendBootstrap';
+
 /**
  * Initialize LSPQueueManager with required dependencies
  * This should be called during server initialization

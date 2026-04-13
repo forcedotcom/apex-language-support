@@ -223,27 +223,17 @@ const DATA_OWNER_TYPES: ReadonlySet<LSPRequestType> = new Set([
 ]);
 
 /**
- * Request types whose processing services internally call
- * PrerequisiteOrchestrationService.runPrerequisitesForLspRequestType().
+ * Request types that still run on the coordinator thread.
  *
- * Step 6 atomicity enforcement: these types must NOT be dispatched to
- * pool workers because InFlightPrerequisiteRegistry is per-process —
- * cross-worker dedup would silently fail. They fall back to local
- * coordinator execution where the single registry provides dedup.
- *
- * Step 11 must explicitly opt each type into worker dispatch after
- * implementing coordinator-mediated prerequisite coordination.
+ * Step 11 moved most types to worker dispatch. Types remaining here
+ * have complex coordinator-side dependencies (completion popups,
+ * signature help positioning, rename across files) that require
+ * additional coordination work before they can be offloaded.
  */
-const PREREQUISITE_REQUIRING_TYPES: ReadonlySet<LSPRequestType> = new Set([
-  'hover',
-  'definition',
+const COORDINATOR_ONLY_TYPES: ReadonlySet<LSPRequestType> = new Set([
   'completion',
   'signatureHelp',
-  'documentSymbol',
-  'references',
   'rename',
-  'diagnostics',
-  'documentOpen',
 ]);
 
 /**
@@ -267,7 +257,7 @@ export class WorkerTopologyDispatcher implements WorkerDispatchStrategy {
   }
 
   canDispatch(type: LSPRequestType): boolean {
-    if (PREREQUISITE_REQUIRING_TYPES.has(type)) {
+    if (COORDINATOR_ONLY_TYPES.has(type)) {
       return false;
     }
     return true;

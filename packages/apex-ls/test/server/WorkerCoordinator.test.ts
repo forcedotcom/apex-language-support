@@ -102,8 +102,8 @@ describe('WorkerCoordinator', () => {
           new QuerySymbolSubset({ uris: ['file:///a.cls', 'file:///b.cls'] }),
         );
 
-        expect(result.entries['file:///a.cls']).toEqual({ mock: true });
-        expect(result.entries['file:///b.cls']).toEqual({ mock: true });
+        expect(result.entries['file:///a.cls']).toBeNull();
+        expect(result.entries['file:///b.cls']).toBeNull();
       }).pipe(
         Effect.scoped,
         Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
@@ -190,28 +190,27 @@ describe('WorkerCoordinator', () => {
         dispatcher = new WorkerTopologyDispatcher({} as WorkerTopology, logger);
       });
 
+      it.each(['completion', 'signatureHelp', 'rename'] as const)(
+        'blocks coordinator-only type: %s',
+        (type) => {
+          expect(dispatcher.canDispatch(type)).toBe(false);
+        },
+      );
+
       it.each([
         'hover',
         'definition',
-        'completion',
-        'signatureHelp',
         'documentSymbol',
         'references',
-        'rename',
         'diagnostics',
         'documentOpen',
-      ] as const)('blocks prerequisite-requiring type: %s', (type) => {
-        expect(dispatcher.canDispatch(type)).toBe(false);
-      });
-
-      it.each([
         'documentChange',
         'documentSave',
         'documentClose',
         'codeLens',
         'foldingRange',
         'implementation',
-      ] as const)('allows prerequisite-free type: %s', (type) => {
+      ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });
     });
