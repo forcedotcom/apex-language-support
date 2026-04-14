@@ -21,25 +21,14 @@
  */
 
 import type * as WorkerThreads from 'node:worker_threads';
-import type {
-  LoggerInterface,
-  WorkerLogMessage,
+import { Effect } from 'effect';
+import {
+  isAssistanceRequest,
+  type AssistanceRequestPayload,
+  type AssistanceResponsePayload,
+  type LoggerInterface,
+  type WorkerLogMessage,
 } from '@salesforce/apex-lsp-shared';
-
-export interface AssistanceRequestPayload {
-  readonly _tag: 'WorkerAssistanceRequest';
-  readonly correlationId: string;
-  readonly method: string;
-  readonly params: unknown;
-  readonly blocking: boolean;
-}
-
-export interface AssistanceResponsePayload {
-  readonly _tag: 'WorkerAssistanceResponse';
-  readonly correlationId: string;
-  readonly result?: unknown;
-  readonly error?: string;
-}
 
 export type AssistanceHandler = (
   method: string,
@@ -54,11 +43,6 @@ export class CoordinatorAssistanceMediator {
     private readonly logger: LoggerInterface,
   ) {}
 
-  /**
-   * Attach message listeners to all raw worker handles.
-   * Filters for WorkerAssistanceRequest-tagged messages; ignores
-   * all others (platform protocol messages pass through untouched).
-   */
   attachToWorkers(workers: WorkerThreads.Worker[]): void {
     for (let i = 0; i < workers.length; i++) {
       const workerIdx = i;
@@ -69,7 +53,7 @@ export class CoordinatorAssistanceMediator {
           return;
         }
         if (!isAssistanceRequest(data)) return;
-        void this.handleRequest(data, worker);
+        Effect.runFork(this.handleRequest(data, worker));
       });
     }
     this.logger.debug(
@@ -95,23 +79,25 @@ export class CoordinatorAssistanceMediator {
     }
   }
 
-  private async handleRequest(
+  private handleRequest(
     req: AssistanceRequestPayload,
     worker: WorkerThreads.Worker,
-  ): Promise<void> {
+  ): Effect.Effect<void> {
     const { correlationId, method, params, blocking } = req;
 
-    try {
-      let result: unknown;
-      if (blocking) {
-        result = await this.deduplicatedCall(correlationId, method, params);
-      } else {
-        const m = method;
-        this.handler(method, params).catch((err) => {
-          this.logger.warn(() => `[AssistanceMediator] BG ${m}: ${err}`);
-        });
-        result = { accepted: true };
-      }
+    return Effect.gen(this, function* () {
+      const result = yield* Effect.tryPromise({
+        try: () => {
+          if (blocking) {
+            return this.deduplicatedCall(correlationId, method, params);
+          }
+          this.handler(method, params).catch((err) => {
+            this.logger.warn(() => `[AssistanceMediator] BG ${method}: ${err}`);
+          });
+          return Promise.resolve({ accepted: true } as unknown);
+        },
+        catch: (err) => err,
+      });
 
       const response: AssistanceResponsePayload = {
         _tag: 'WorkerAssistanceResponse',
@@ -119,17 +105,21 @@ export class CoordinatorAssistanceMediator {
         result,
       };
       worker.postMessage(response);
-    } catch (err) {
-      const response: AssistanceResponsePayload = {
-        _tag: 'WorkerAssistanceResponse',
-        correlationId,
-        error: err instanceof Error ? err.message : String(err),
-      };
-      worker.postMessage(response);
-    }
+    }).pipe(
+      Effect.catchAll((err) =>
+        Effect.sync(() => {
+          const response: AssistanceResponsePayload = {
+            _tag: 'WorkerAssistanceResponse',
+            correlationId,
+            error: err instanceof Error ? err.message : String(err),
+          };
+          worker.postMessage(response);
+        }),
+      ),
+    );
   }
 
-  private async deduplicatedCall(
+  private deduplicatedCall(
     correlationId: string,
     method: string,
     params: unknown,
@@ -152,14 +142,6 @@ export class CoordinatorAssistanceMediator {
   dispose(): void {
     this.inFlight.clear();
   }
-}
-
-function isAssistanceRequest(data: unknown): data is AssistanceRequestPayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
-  );
 }
 
 function isLogMessage(data: unknown): data is WorkerLogMessage {

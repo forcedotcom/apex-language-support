@@ -16,7 +16,7 @@ import {
   shutdown,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect, Deferred, Fiber, Cause } from 'effect';
+import { Effect, Deferred, Fiber, Context } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
 import type { WorkerDispatchStrategy } from './WorkerDispatchStrategy';
@@ -25,10 +25,34 @@ import type { WorkerDispatchStrategy } from './WorkerDispatchStrategy';
  * Dependencies interface for LSPQueueManager initialization
  */
 export interface LSPQueueManagerDependencies {
-  serviceFactory: any; // ServiceFactory from lsp-compliant-services
-  serviceConfig: any[]; // DEFAULT_SERVICE_CONFIG from lsp-compliant-services
-  storageManager: any; // ApexStorageManager from lsp-compliant-services
-  settingsManager: any; // ApexSettingsManager from lsp-compliant-services
+  serviceFactory: unknown;
+  serviceConfig: ReadonlyArray<{
+    requestType: LSPRequestType;
+    priority: Priority;
+    timeout: number;
+    maxRetries: number;
+    serviceFactory: (deps: { serviceFactory: unknown }) => unknown;
+  }>;
+  storageManager: unknown;
+  settingsManager: unknown;
+}
+
+class QueueShutdownError {
+  readonly _tag = 'QueueShutdownError' as const;
+  readonly message = 'LSP Queue Manager is shutdown';
+}
+
+class QueueSubmitError {
+  readonly _tag = 'QueueSubmitError' as const;
+  readonly type: LSPRequestType;
+  readonly cause: unknown;
+  constructor(type: LSPRequestType, cause: unknown) {
+    this.type = type;
+    this.cause = cause;
+  }
+  get message(): string {
+    return `Failed to submit ${this.type} request: ${this.cause}`;
+  }
 }
 
 /**
@@ -48,13 +72,11 @@ export class LSPQueueManager {
   private workerDispatcher: WorkerDispatchStrategy | null = null;
 
   private constructor(dependencies?: LSPQueueManagerDependencies) {
-    // Initialize the service registry
     this.serviceRegistry = new ServiceRegistry();
 
     this.symbolManager =
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
 
-    // Register all services if dependencies are provided
     if (dependencies) {
       this.registerServices(dependencies);
     }
@@ -64,19 +86,15 @@ export class LSPQueueManager {
     );
   }
 
-  /**
-   * Ensure scheduler is initialized (lazy initialization)
-   * Uses centralized SchedulerInitializationService to ensure single initialization
-   */
-  private async ensureSchedulerInitialized(): Promise<void> {
-    // Fast path: if already initialized, return immediately
+  private ensureSchedulerInitialized(): Effect.Effect<void> {
     if (this.schedulerInitialized) {
-      return;
+      return Effect.void;
     }
-
-    const schedulerService = SchedulerInitializationService.getInstance();
-    await schedulerService.ensureInitialized();
-    this.schedulerInitialized = schedulerService.isInitialized();
+    return Effect.promise(async () => {
+      const schedulerService = SchedulerInitializationService.getInstance();
+      await schedulerService.ensureInitialized();
+      this.schedulerInitialized = schedulerService.isInitialized();
+    });
   }
 
   /**
@@ -96,12 +114,9 @@ export class LSPQueueManager {
     return this.workerDispatcher;
   }
 
-  /**
-   * Create a QueuedItem from request parameters
-   */
   private createQueuedItem<T>(
     type: LSPRequestType,
-    params: any,
+    params: unknown,
     symbolManager: ISymbolManager,
     timeout: number,
     callback?: (result: T) => void,
@@ -110,7 +125,6 @@ export class LSPQueueManager {
     const serviceRegistry = this.serviceRegistry;
     const logger = this.logger;
     const taskId = this.generateTaskId();
-
     const dispatcher = this.workerDispatcher;
 
     return Effect.gen(function* () {
@@ -155,16 +169,10 @@ export class LSPQueueManager {
     });
   }
 
-  /**
-   * Generate unique task ID
-   */
   private generateTaskId(): string {
     return `lsp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
 
-  /**
-   * Register all services with the registry
-   */
   private registerServices(dependencies: LSPQueueManagerDependencies): void {
     for (const config of dependencies.serviceConfig) {
       const service = config.serviceFactory({
@@ -190,11 +198,6 @@ export class LSPQueueManager {
     );
   }
 
-  /**
-   * Get the singleton instance
-   * @param dependencies Optional dependencies for initialization
-   * (required on first call if services need to be registered)
-   */
   static getInstance(
     dependencies?: LSPQueueManagerDependencies,
   ): LSPQueueManager {
@@ -204,118 +207,169 @@ export class LSPQueueManager {
     return LSPQueueManager.instance;
   }
 
+  // ---------------------------------------------------------------------------
+  // Effect-based submit — core implementation
+  // ---------------------------------------------------------------------------
+
   /**
-   * Submit a hover request
+   * Submit a typed request via the priority scheduler.
+   * Returns an Effect that resolves with the handler result.
    */
-  async submitHoverRequest(params: any): Promise<any> {
+  submitRequestEffect<T = unknown>(
+    type: LSPRequestType,
+    params: unknown,
+    options: {
+      priority?: Priority;
+      timeout?: number;
+      callback?: (result: T) => void;
+      errorCallback?: (error: Error) => void;
+    } = {},
+  ): Effect.Effect<T, QueueShutdownError | QueueSubmitError> {
+    if (this.isShutdown) {
+      return Effect.fail(new QueueShutdownError());
+    }
+
+    const self = this;
+    return Effect.gen(function* () {
+      const submitStartTime = Date.now();
+      const observabilityRequests = new Set<LSPRequestType>([
+        'definition',
+        'signatureHelp',
+        'references',
+        'rename',
+      ]);
+
+      yield* self.ensureSchedulerInitialized();
+
+      const requestedPriority = options.priority;
+      const registryPriority = self.serviceRegistry.getPriority(type);
+      const priority = requestedPriority || registryPriority;
+      const timeout = options.timeout || self.serviceRegistry.getTimeout(type);
+
+      self.logger.debug(
+        () =>
+          `Submitting ${type} request with priority ${priority} ` +
+          `(requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
+      );
+
+      const queuedItem = yield* self.createQueuedItem<T>(
+        type,
+        params,
+        self.symbolManager,
+        timeout,
+        options.callback,
+        options.errorCallback,
+      );
+
+      const scheduledTask = yield* offer(priority, queuedItem);
+      const fiber = yield* scheduledTask.fiber;
+      const result = yield* Fiber.join(fiber);
+
+      const totalTime = Date.now() - submitStartTime;
+      if (observabilityRequests.has(type)) {
+        self.logger.debug(
+          () => `[REQ-HARDEN] queue timings type=${type} totalMs=${totalTime}`,
+        );
+      }
+
+      return result;
+    }).pipe(
+      Effect.mapError((error) => {
+        const submitError = new QueueSubmitError(type, error);
+        options.errorCallback?.(
+          error instanceof Error ? error : new Error(submitError.message),
+        );
+        return submitError as QueueShutdownError | QueueSubmitError;
+      }),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Promise-based public API (backward compat)
+  //
+  // Return type is intentionally wide — callers (LSP handlers) know
+  // the concrete result type and assign directly.
+  // ---------------------------------------------------------------------------
+
+  async submitHoverRequest(params: unknown): Promise<any> {
     return this.submitRequest('hover', params, {
       priority: Priority.Immediate,
     });
   }
 
-  /**
-   * Submit a completion request
-   */
-  async submitCompletionRequest(params: any): Promise<any> {
+  async submitCompletionRequest(params: unknown): Promise<any> {
     return this.submitRequest('completion', params, {
       priority: Priority.Immediate,
     });
   }
 
-  /**
-   * Submit a definition request
-   */
-  async submitDefinitionRequest(params: any): Promise<any> {
+  async submitDefinitionRequest(params: unknown): Promise<any> {
     return this.submitRequest('definition', params, {
       priority: Priority.High,
     });
   }
 
-  /**
-   * Submit a references request
-   */
-  async submitReferencesRequest(params: any): Promise<any> {
+  async submitReferencesRequest(params: unknown): Promise<any> {
     return this.submitRequest('references', params, {
       priority: Priority.Normal,
     });
   }
 
-  /**
-   * Submit a document symbol request
-   */
-  async submitDocumentSymbolRequest(params: any): Promise<any> {
+  async submitDocumentSymbolRequest(params: unknown): Promise<any> {
     return this.submitRequest('documentSymbol', params, {
       priority: Priority.High,
     });
   }
 
-  /**
-   * Submit a workspace symbol request
-   */
-  async submitWorkspaceSymbolRequest(params: any): Promise<any> {
+  async submitWorkspaceSymbolRequest(params: unknown): Promise<any> {
     return this.submitRequest('workspaceSymbol', params, {
       priority: Priority.Normal,
     });
   }
 
-  /**
-   * Submit a diagnostics request
-   */
-  async submitDiagnosticsRequest(params: any): Promise<any> {
+  async submitDiagnosticsRequest(params: unknown): Promise<any> {
     return this.submitRequest('diagnostics', params, {
       priority: Priority.Normal,
     });
   }
 
-  /**
-   * Submit a code action request
-   */
-  async submitCodeActionRequest(params: any): Promise<any> {
+  async submitCodeActionRequest(params: unknown): Promise<any> {
     return this.submitRequest('codeAction', params, { priority: Priority.Low });
   }
 
-  /**
-   * Submit a signature help request
-   */
-  async submitSignatureHelpRequest(params: any): Promise<any> {
+  async submitSignatureHelpRequest(params: unknown): Promise<any> {
     return this.submitRequest('signatureHelp', params, {
       priority: Priority.Immediate,
     });
   }
 
-  /**
-   * Submit a rename request
-   */
-  async submitRenameRequest(params: any): Promise<any> {
+  async submitRenameRequest(params: unknown): Promise<any> {
     return this.submitRequest('rename', params, { priority: Priority.Low });
   }
 
-  /**
-   * Submit an execute command request
-   */
-  async submitExecuteCommandRequest(params: any): Promise<any> {
+  async submitExecuteCommandRequest(params: unknown): Promise<any> {
     return this.submitRequest('executeCommand', params, {
       priority: Priority.Normal,
     });
   }
 
-  async submitImplementationRequest(params: any): Promise<any> {
+  async submitImplementationRequest(params: unknown): Promise<any> {
     return this.submitRequest('implementation', params, {
       priority: Priority.High,
     });
   }
 
-  async submitCodeLensRequest(params: any): Promise<any> {
+  async submitCodeLensRequest(params: unknown): Promise<any> {
     return this.submitRequest('codeLens', params, { priority: Priority.Low });
   }
 
-  async submitFoldingRangeRequest(params: any): Promise<any> {
+  async submitFoldingRangeRequest(params: unknown): Promise<any> {
     return this.submitRequest('foldingRange', params, {
       priority: Priority.Low,
     });
   }
 
-  async submitFindMissingArtifactRequest(params: any): Promise<any> {
+  async submitFindMissingArtifactRequest(params: unknown): Promise<any> {
     return this.submitRequest('findMissingArtifact', params, {
       priority: Priority.Low,
     });
@@ -323,13 +377,10 @@ export class LSPQueueManager {
 
   /**
    * Submit a notification (fire-and-forget, doesn't wait for completion)
-   * @param type The notification type
-   * @param params The notification parameters
-   * @param options Optional configuration
    */
   submitNotification(
     type: LSPRequestType,
-    params: any,
+    params: unknown,
     options: {
       priority?: Priority;
       timeout?: number;
@@ -342,102 +393,60 @@ export class LSPQueueManager {
       return;
     }
 
-    // Queue the work but don't wait for completion
-    (async () => {
-      try {
-        // Ensure scheduler is initialized
-        await this.ensureSchedulerInitialized();
-
-        // Get configuration from service registry
-        const requestedPriority = options.priority;
-        const registryPriority = this.serviceRegistry.getPriority(type);
-        const priority = requestedPriority || registryPriority;
-        const timeout =
-          options.timeout || this.serviceRegistry.getTimeout(type);
-
-        this.logger.debug(
-          () =>
-            `Submitting ${type} notification with priority ${priority} ` +
-            `(requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
-        );
-
-        // Create QueuedItem from request
-        const queuedItem = await Effect.runPromise(
-          this.createQueuedItem<any>(
-            type,
-            params,
-            this.symbolManager,
-            timeout,
-            undefined, // No callback for notifications
-            options.errorCallback,
-          ),
-        );
-
-        // Schedule the task using the priority scheduler (don't wait)
-        await Effect.runPromise(offer(priority, queuedItem));
-
-        // Don't wait for completion - fire and forget
-      } catch (error) {
-        this.logger.error(
-          () => `Failed to submit ${type} notification: ${error}`,
-        );
-        options.errorCallback?.(error as Error);
-      }
-    })();
+    Effect.runFork(
+      this.submitRequestEffect(type, params, {
+        priority: options.priority,
+        timeout: options.timeout,
+        errorCallback: options.errorCallback,
+      }).pipe(
+        Effect.catchAll((err) =>
+          Effect.sync(() => {
+            this.logger.error(
+              () => `Failed to submit ${type} notification: ${err.message}`,
+            );
+            options.errorCallback?.(new Error(err.message));
+          }),
+        ),
+      ),
+    );
   }
 
-  /**
-   * Submit a document open notification (fire-and-forget)
-   */
-  submitDocumentOpenNotification(params: any): void {
+  submitDocumentOpenNotification(params: unknown): void {
     this.submitNotification('documentOpen', params, {
       priority: Priority.High,
     });
   }
 
-  /**
-   * Submit a document save notification (fire-and-forget)
-   */
-  submitDocumentSaveNotification(params: any): void {
+  submitDocumentSaveNotification(params: unknown): void {
     this.submitNotification('documentSave', params, {
       priority: Priority.Normal,
     });
   }
 
-  /**
-   * Submit a document change notification (fire-and-forget)
-   */
-  submitDocumentChangeNotification(params: any): void {
+  submitDocumentChangeNotification(params: unknown): void {
     this.submitNotification('documentChange', params, {
       priority: Priority.Normal,
     });
   }
 
-  /**
-   * Submit a document close notification (fire-and-forget)
-   */
-  submitDocumentCloseNotification(params: any): void {
+  submitDocumentCloseNotification(params: unknown): void {
     this.submitNotification('documentClose', params, {
       priority: Priority.Immediate,
     });
   }
 
-  /**
-   * Submit a document load request
-   * Requests the client to load a document via window/showDocument
-   */
-  async submitDocumentLoadRequest(params: any): Promise<any> {
+  async submitDocumentLoadRequest(params: unknown): Promise<any> {
     return this.submitRequest('documentLoad', params, {
       priority: Priority.High,
     });
   }
 
   /**
-   * Submit a generic LSP request
+   * Submit a generic LSP request (Promise-based wrapper over submitRequestEffect).
    */
-  async submitRequest<T>(
+  async submitRequest<T = unknown>(
     type: LSPRequestType,
-    params: any,
+    params: unknown,
     options: {
       priority?: Priority;
       timeout?: number;
@@ -445,157 +454,19 @@ export class LSPQueueManager {
       errorCallback?: (error: Error) => void;
     } = {},
   ): Promise<T> {
-    if (this.isShutdown) {
-      throw new Error('LSP Queue Manager is shutdown');
-    }
-
-    const submitStartTime = Date.now();
-    const observabilityRequests = new Set<LSPRequestType>([
-      'definition',
-      'signatureHelp',
-      'references',
-      'rename',
-    ]);
-
-    try {
-      // Ensure scheduler is initialized
-      const initStartTime = Date.now();
-      await this.ensureSchedulerInitialized();
-      const initTime = Date.now() - initStartTime;
-      if (initTime > 10) {
-        this.logger.debug(
-          () => `[QUEUE-DIAG] ${type} scheduler init took ${initTime}ms`,
-        );
-      }
-
-      // Get configuration from service registry
-      const requestedPriority = options.priority;
-      const registryPriority = this.serviceRegistry.getPriority(type);
-      const priority = requestedPriority || registryPriority;
-      const timeout = options.timeout || this.serviceRegistry.getTimeout(type);
-
-      this.logger.debug(
-        () =>
-          `Submitting ${type} request with priority ${priority} ` +
-          `(requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
-      );
-
-      // Create QueuedItem from request
-      const createStartTime = Date.now();
-      const queuedItem = await Effect.runPromise(
-        this.createQueuedItem<T>(
-          type,
-          params,
-          this.symbolManager,
-          timeout,
-          options.callback,
-          options.errorCallback,
-        ),
-      );
-      const createTime = Date.now() - createStartTime;
-      if (createTime > 10) {
-        this.logger.debug(
-          () => `[QUEUE-DIAG] ${type} createQueuedItem took ${createTime}ms`,
-        );
-      }
-
-      // Schedule the task using the priority scheduler
-      const queueStartTime = Date.now();
-      const scheduledTask = await Effect.runPromise(
-        offer(priority, queuedItem),
-      );
-      const queueWaitTime = Date.now() - queueStartTime;
-      if (queueWaitTime > 5) {
-        this.logger.debug(
-          () =>
-            `[QUEUE-DIAG] ${type} queued in ${queueWaitTime}ms, ` +
-            `priority=${priority}`,
-        );
-      }
-
-      // Wait for the fiber to complete
-      const fiberStartTime = Date.now();
-      const fiber = await Effect.runPromise(scheduledTask.fiber);
-      const fiberWaitTime = Date.now() - fiberStartTime;
-      if (fiberWaitTime > 5) {
-        this.logger.debug(
-          () => `[QUEUE-DIAG] ${type} fiber obtained in ${fiberWaitTime}ms`,
-        );
-      }
-
-      const executionStartTime = Date.now();
-      const result = await Effect.runPromise(Fiber.await(fiber));
-      const executionTime = Date.now() - executionStartTime;
-      const totalTime = Date.now() - submitStartTime;
-
-      if (observabilityRequests.has(type)) {
-        this.logger.debug(
-          () =>
-            `[REQ-HARDEN] queue timings type=${type} ` +
-            `totalMs=${totalTime} queueMs=${queueWaitTime} ` +
-            `execMs=${executionTime}`,
-        );
-      }
-
-      if (totalTime > 50 || queueWaitTime > 10 || executionTime > 50) {
-        this.logger.debug(
-          () =>
-            `[QUEUE-DIAG] ${type} completed in ${totalTime}ms ` +
-            `(init=${initTime}ms, create=${createTime}ms, ` +
-            `queue=${queueWaitTime}ms, fiber=${fiberWaitTime}ms, ` +
-            `execution=${executionTime}ms)`,
-        );
-      }
-      if (result._tag === 'Failure') {
-        // Extract the error from the Effect failure cause
-        // The cause should be a Fail cause containing our Error
-        let error: Error;
-        // Check if cause is a Fail type (has _tag === 'Fail')
-        if (
-          result.cause &&
-          typeof result.cause === 'object' &&
-          '_tag' in result.cause
-        ) {
-          if (result.cause._tag === 'Fail' && 'error' in result.cause) {
-            error = result.cause.error as Error;
-          } else {
-            // Try to extract from cause using Cause utilities
-            try {
-              const failureOption = Cause.failureOption(result.cause as any);
-              if (
-                failureOption &&
-                '_tag' in failureOption &&
-                failureOption._tag === 'Some'
-              ) {
-                error = (failureOption as any).value as Error;
-              } else {
-                error = new Error('Task failed');
-              }
-            } catch {
-              error = new Error('Task failed');
-            }
-          }
-        } else {
-          error = new Error('Task failed');
-        }
-        options.errorCallback?.(error);
-        throw error;
-      }
-
-      return result.value;
-    } catch (error) {
-      const totalTime = Date.now() - submitStartTime;
-      this.logger.error(
-        () =>
-          `[QUEUE-DIAG] Failed to submit ${type} request after ${totalTime}ms: ${error}`,
-      );
-      throw error;
-    }
+    return Effect.runPromise(
+      this.submitRequestEffect<T>(type, params, options).pipe(
+        Effect.mapError((err) => {
+          const error =
+            err._tag === 'QueueSubmitError' && err.cause instanceof Error
+              ? err.cause
+              : new Error(err.message);
+          throw error;
+        }),
+      ),
+    );
   }
 
-  /**
-   * Get queue statistics
-   */
   async getStats(): Promise<LSPQueueStats> {
     if (!this.schedulerInitialized) {
       return {
@@ -620,21 +491,15 @@ export class LSPQueueManager {
       lowPriorityQueueSize: schedulerMetrics.queueSizes[Priority.Low] || 0,
       totalProcessed: schedulerMetrics.tasksStarted,
       totalFailed: schedulerMetrics.tasksDropped,
-      averageProcessingTime: 0, // Not tracked by scheduler
-      activeWorkers: 1, // Scheduler runs in background
+      averageProcessingTime: 0,
+      activeWorkers: 1,
     };
   }
 
-  /**
-   * Get the underlying symbol manager
-   */
   getSymbolManager(): ISymbolManager {
     return this.symbolManager;
   }
 
-  /**
-   * Shutdown the queue manager
-   */
   async shutdown(): Promise<void> {
     if (this.isShutdown) {
       return;
@@ -649,21 +514,72 @@ export class LSPQueueManager {
       this.schedulerInitialized = false;
     }
 
-    // Clear the singleton instance
     LSPQueueManager.instance = null;
   }
 
-  /**
-   * Check if the queue manager is shutdown
-   */
   isShutdownState(): boolean {
     return this.isShutdown;
   }
 
-  /**
-   * Reset the singleton instance (for testing only)
-   */
   static reset(): void {
     LSPQueueManager.instance = null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Effect.Service — typed context tag for Effect-based consumers
+// ---------------------------------------------------------------------------
+
+/**
+ * Effect-based queue service interface.
+ * New code should depend on this tag via Context instead of using
+ * the LSPQueueManager singleton directly.
+ */
+export interface LSPQueueService {
+  readonly submitRequest: <T = unknown>(
+    type: LSPRequestType,
+    params: unknown,
+    options?: {
+      priority?: Priority;
+      timeout?: number;
+    },
+  ) => Effect.Effect<T, QueueShutdownError | QueueSubmitError>;
+  readonly submitNotification: (
+    type: LSPRequestType,
+    params: unknown,
+    options?: { priority?: Priority },
+  ) => Effect.Effect<void>;
+  readonly setWorkerDispatcher: (
+    dispatcher: WorkerDispatchStrategy | null,
+  ) => void;
+  readonly getStats: () => Effect.Effect<LSPQueueStats>;
+  readonly shutdown: () => Effect.Effect<void>;
+}
+
+export const LSPQueueServiceTag =
+  Context.GenericTag<LSPQueueService>('LSPQueueService');
+
+/**
+ * Create a live LSPQueueService layer backed by LSPQueueManager.
+ * The dispatcher is injected at layer construction time instead
+ * of via mutable `setWorkerDispatcher`.
+ */
+export function makeLSPQueueServiceLive(
+  dependencies?: LSPQueueManagerDependencies,
+  dispatcher?: WorkerDispatchStrategy | null,
+) {
+  const qm = LSPQueueManager.getInstance(dependencies);
+  if (dispatcher !== undefined) {
+    qm.setWorkerDispatcher(dispatcher);
+  }
+  const service: LSPQueueService = {
+    submitRequest: (type, params, options) =>
+      qm.submitRequestEffect(type, params, options),
+    submitNotification: (type, params, options) =>
+      Effect.sync(() => qm.submitNotification(type, params, options)),
+    setWorkerDispatcher: (d) => qm.setWorkerDispatcher(d),
+    getStats: () => Effect.promise(() => qm.getStats()),
+    shutdown: () => Effect.promise(() => qm.shutdown()),
+  };
+  return service;
 }

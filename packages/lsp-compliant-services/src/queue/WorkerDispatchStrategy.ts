@@ -8,6 +8,19 @@
 
 import type { LSPRequestType } from './LSPRequestQueue';
 
+/** Shape returned by getTopologyStatus() for dashboard display. */
+export interface WorkerTopologyStatus {
+  readonly enabled: boolean;
+  readonly dataOwner: { readonly active: boolean };
+  readonly enrichmentPool: {
+    readonly size: number;
+    readonly active: boolean;
+  };
+  readonly resourceLoader: { readonly active: boolean } | null;
+  readonly dispatchedCount: number;
+  readonly coordinatorOnlyTypes: readonly string[];
+}
+
 /**
  * Strategy for dispatching queued LSP requests to worker threads.
  *
@@ -20,47 +33,8 @@ import type { LSPRequestType } from './LSPRequestQueue';
  * because they depend on @effect/platform worker types.
  */
 export interface WorkerDispatchStrategy {
-  /**
-   * Send a request of the given LSP type to the appropriate worker
-   * and return the result. The returned promise resolves when the
-   * worker responds; rejects on worker error or timeout.
-   */
   dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
-
-  /**
-   * Whether worker dispatch is currently active.
-   * Returns false before topology initialisation, in browser
-   * environments, or when the experiment flag is off.
-   * When false, LSPQueueManager falls back to local handler execution.
-   */
   isAvailable(): boolean;
-
-  /**
-   * Whether a specific request type can be dispatched to a worker.
-   * Returns false for request types that require prerequisite
-   * orchestration (Step 6 atomicity enforcement) — these must
-   * run on the coordinator thread where InFlightPrerequisiteRegistry
-   * provides cross-request deduplication.
-   *
-   * When false, LSPQueueManager falls back to local handler execution
-   * for that type even if isAvailable() is true.
-   */
   canDispatch(type: LSPRequestType): boolean;
-
-  /**
-   * Returns current worker topology status for dashboard display.
-   * Optional — returns undefined when the dispatcher does not
-   * track topology state.
-   */
-  getTopologyStatus?(): {
-    readonly enabled: boolean;
-    readonly dataOwner: { readonly active: boolean };
-    readonly enrichmentPool: {
-      readonly size: number;
-      readonly active: boolean;
-    };
-    readonly resourceLoader: { readonly active: boolean } | null;
-    readonly dispatchedCount: number;
-    readonly coordinatorOnlyTypes: readonly string[];
-  };
+  getTopologyStatus?(): WorkerTopologyStatus;
 }

@@ -130,6 +130,8 @@ export * from './registry';
 export {
   bootstrapDataOwnerServices,
   bootstrapEnrichmentServices,
+  bootstrapDataOwnerServicesEffect,
+  bootstrapEnrichmentServicesEffect,
   type DataOwnerServices,
   type EnrichmentServices,
 } from './workers/WorkerBackendBootstrap';

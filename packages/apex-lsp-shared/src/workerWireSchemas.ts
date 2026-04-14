@@ -129,6 +129,47 @@ export type WorkerAssistanceSuccess = Schema.Schema.Type<
   (typeof WorkerAssistanceRequest)['success']
 >;
 
+/**
+ * Plain-object shapes for assistance messages exchanged over the
+ * worker MessagePort side-channel. These are NOT Schema-decoded —
+ * they flow as raw postMessage objects alongside the @effect/platform
+ * protocol.
+ */
+export interface AssistanceRequestPayload {
+  readonly _tag: 'WorkerAssistanceRequest';
+  readonly correlationId: string;
+  readonly method: string;
+  readonly params: unknown;
+  readonly blocking: boolean;
+}
+
+export interface AssistanceResponsePayload {
+  readonly _tag: 'WorkerAssistanceResponse';
+  readonly correlationId: string;
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export function isAssistanceRequest(
+  data: unknown,
+): data is AssistanceRequestPayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
+  );
+}
+
+export function isAssistanceResponse(
+  data: unknown,
+): data is AssistanceResponsePayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceResponse'
+  );
+}
+
 // ---------------------------------------------------------------------------
 // WorkspaceBatchIngest — coordinator forwards decoded batch to data-owner
 // ---------------------------------------------------------------------------
@@ -231,17 +272,18 @@ export class ResourceLoaderResolveClass extends Schema.TaggedRequest<ResourceLoa
 ) {}
 
 // ---------------------------------------------------------------------------
-// LSP request dispatch — coordinator sends queued work to workers
+// Canonical LSP request type list — single source of truth
+//
+// Both the plain TS union (LSPRequestType) and the Effect Schema literal
+// (WireLspRequestType) are derived from this array, guaranteeing they
+// stay in sync.
 // ---------------------------------------------------------------------------
 
-/**
- * LSP request type discriminant — mirrors LSPRequestType from
- * lsp-compliant-services but defined here for wire-level independence.
- */
-export const WireLspRequestType = Schema.Literal(
+export const LSP_REQUEST_TYPES = [
   'hover',
   'completion',
   'definition',
+  'implementation',
   'references',
   'documentSymbol',
   'workspaceSymbol',
@@ -249,6 +291,8 @@ export const WireLspRequestType = Schema.Literal(
   'codeAction',
   'signatureHelp',
   'rename',
+  'codeLens',
+  'foldingRange',
   'documentOpen',
   'documentSave',
   'documentChange',
@@ -257,11 +301,16 @@ export const WireLspRequestType = Schema.Literal(
   'findMissingArtifact',
   'executeCommand',
   'prerequisiteEnrichment',
-  'codeLens',
-  'foldingRange',
-  'implementation',
   'resolve',
-);
+] as const;
+
+export type LSPRequestType = (typeof LSP_REQUEST_TYPES)[number];
+
+// ---------------------------------------------------------------------------
+// LSP request dispatch — coordinator sends queued work to workers
+// ---------------------------------------------------------------------------
+
+export const WireLspRequestType = Schema.Literal(...LSP_REQUEST_TYPES);
 export type WireLspRequestType = Schema.Schema.Type<typeof WireLspRequestType>;
 
 const DispatchError = Schema.Struct({
@@ -274,9 +323,25 @@ const DispatchError = Schema.Struct({
  * Position within a text document (mirrors LSP Position).
  * Shared sub-schema for position-based requests.
  */
-const WirePosition = Schema.Struct({
+export const WirePosition = Schema.Struct({
   line: Schema.Number,
   character: Schema.Number,
+});
+
+/** LSP Range — start/end positions. */
+export const WireRange = Schema.Struct({
+  start: WirePosition,
+  end: WirePosition,
+});
+
+/**
+ * Mirrors LSP TextDocumentContentChangeEvent.
+ * Incremental: range + text; full: text only.
+ */
+export const WireContentChangeEvent = Schema.Struct({
+  range: Schema.optional(WireRange),
+  rangeLength: Schema.optional(Schema.Number),
+  text: Schema.String,
 });
 
 /**
@@ -308,7 +373,7 @@ export class DispatchDocumentChange extends Schema.TaggedRequest<DispatchDocumen
     payload: {
       uri: Schema.String,
       version: Schema.Number,
-      contentChanges: Schema.Array(Schema.Unknown),
+      contentChanges: Schema.Array(WireContentChangeEvent),
     },
   },
 ) {}

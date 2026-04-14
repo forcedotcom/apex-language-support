@@ -32,7 +32,6 @@ import {
   Schema,
   Queue,
   Deferred,
-  Fiber,
 } from 'effect';
 import {
   WorkerInit,
@@ -57,11 +56,12 @@ import {
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
 } from '@salesforce/apex-lsp-shared';
-import type {
-  WorkerRole,
-  WorkerLogMessage,
-  WorkerLogLevelChange,
-  WorkerLogLevel,
+import {
+  isAssistanceResponse,
+  type WorkerRole,
+  type WorkerLogMessage,
+  type WorkerLogLevelChange,
+  type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
 
 // ---------------------------------------------------------------------------
@@ -90,6 +90,27 @@ const AllWorkerRequests = Schema.Union(
   DispatchDiagnostic,
   DispatchGenericLspRequest,
 );
+
+// ---------------------------------------------------------------------------
+// Minimal document interface matching the subset of TextDocument used
+// by storage/processing services. Avoids importing the full
+// vscode-languageserver-textdocument package in worker context.
+// ---------------------------------------------------------------------------
+
+interface WorkerDocument {
+  readonly uri: string;
+  readonly languageId: string;
+  readonly version: number;
+  getText(): string;
+}
+
+// ---------------------------------------------------------------------------
+// Utility — deep clone for structured-clone-safe postMessage results
+// ---------------------------------------------------------------------------
+
+function cloneForWire<T>(value: T): T | null {
+  return value != null ? JSON.parse(JSON.stringify(value)) : null;
+}
 
 // ---------------------------------------------------------------------------
 // Role state & guard
@@ -128,67 +149,75 @@ const guardRole = (tag: string): Effect.Effect<void> => {
 // bulk ingestion from starving enrichment-worker symbol queries.
 // ---------------------------------------------------------------------------
 
-type DOQueueItem = {
-  eff: Effect.Effect<any, any>;
-  deferred: Deferred.Deferred<any, any>;
-};
-
-let readQueue: Queue.Queue<DOQueueItem> | null = null;
-let writeQueue: Queue.Queue<DOQueueItem> | null = null;
-let _processingFiber: Fiber.RuntimeFiber<never> | null = null;
-
-function ensureDataOwnerQueue(): void {
-  if (readQueue !== null) return;
-
-  readQueue = Effect.runSync(Queue.unbounded<DOQueueItem>());
-  writeQueue = Effect.runSync(Queue.unbounded<DOQueueItem>());
-
-  const processItem = (item: DOQueueItem) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.either(item.eff);
-      if (result._tag === 'Right') {
-        yield* Deferred.succeed(item.deferred, result.right);
-      } else {
-        yield* Deferred.fail(item.deferred, result.left);
-      }
-    });
-
-  const loop = Effect.forever(
-    Effect.gen(function* () {
-      const reads = yield* Queue.takeAll(readQueue!);
-      const readItems = Array.from(reads);
-      for (const item of readItems) {
-        yield* processItem(item);
-      }
-
-      const writeChunk = yield* Queue.takeUpTo(writeQueue!, 1);
-      const writeItems = Array.from(writeChunk);
-      for (const item of writeItems) {
-        yield* processItem(item);
-      }
-
-      if (readItems.length === 0 && writeItems.length === 0) {
-        yield* Effect.sleep('1 millis');
-      }
-    }),
-  );
-
-  _processingFiber = Effect.runFork(loop);
+interface DOQueueItem {
+  readonly eff: Effect.Effect<unknown, unknown>;
+  readonly deferred: Deferred.Deferred<unknown, unknown>;
 }
 
-const dataOwnerRead = <A>(eff: Effect.Effect<A, any>): Effect.Effect<A, any> =>
+interface DOQueues {
+  readonly read: Queue.Queue<DOQueueItem>;
+  readonly write: Queue.Queue<DOQueueItem>;
+}
+
+const processItem = (item: DOQueueItem) =>
   Effect.gen(function* () {
-    ensureDataOwnerQueue();
-    const deferred = yield* Deferred.make<A, any>();
-    yield* Queue.offer(readQueue!, { eff, deferred });
+    const result = yield* Effect.either(item.eff);
+    if (result._tag === 'Right') {
+      yield* Deferred.succeed(item.deferred, result.right);
+    } else {
+      yield* Deferred.fail(item.deferred, result.left);
+    }
+  });
+
+const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
+  Effect.gen(function* () {
+    const read = yield* Queue.unbounded<DOQueueItem>();
+    const write = yield* Queue.unbounded<DOQueueItem>();
+
+    const loop = Effect.forever(
+      Effect.gen(function* () {
+        const reads = yield* Queue.takeAll(read);
+        const readItems = Array.from(reads);
+        for (const item of readItems) {
+          yield* processItem(item);
+        }
+
+        const writeChunk = yield* Queue.takeUpTo(write, 1);
+        const writeItems = Array.from(writeChunk);
+        for (const item of writeItems) {
+          yield* processItem(item);
+        }
+
+        if (readItems.length === 0 && writeItems.length === 0) {
+          yield* Effect.sleep('1 millis');
+        }
+      }),
+    );
+
+    yield* Effect.forkDaemon(loop);
+    return { read, write } satisfies DOQueues;
+  }),
+).pipe(Effect.runSync);
+
+const dataOwnerRead = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  Effect.gen(function* () {
+    const queues = yield* initDataOwnerQueues;
+    const deferred = yield* Deferred.make<A, E>();
+    yield* Queue.offer(queues.read, {
+      eff: eff as Effect.Effect<unknown, unknown>,
+      deferred: deferred as Deferred.Deferred<unknown, unknown>,
+    });
     return yield* Deferred.await(deferred);
   });
 
-const dataOwnerWrite = <A>(eff: Effect.Effect<A, any>): Effect.Effect<A, any> =>
+const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.gen(function* () {
-    ensureDataOwnerQueue();
-    const deferred = yield* Deferred.make<A, any>();
-    yield* Queue.offer(writeQueue!, { eff, deferred });
+    const queues = yield* initDataOwnerQueues;
+    const deferred = yield* Deferred.make<A, E>();
+    yield* Queue.offer(queues.write, {
+      eff: eff as Effect.Effect<unknown, unknown>,
+      deferred: deferred as Deferred.Deferred<unknown, unknown>,
+    });
     return yield* Deferred.await(deferred);
   });
 
@@ -201,30 +230,33 @@ import type {
   EnrichmentServices,
 } from '@salesforce/apex-lsp-compliant-services';
 
-let dataOwnerServices: DataOwnerServices | null = null;
-let enrichmentServices: EnrichmentServices | null = null;
+const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const { bootstrapDataOwnerServices } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-compliant-services'),
+        );
+        const svc = yield* Effect.promise(() => bootstrapDataOwnerServices());
+        yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
+        return svc;
+      }),
+    ),
+  );
 
-const ensureDataOwnerServices = Effect.gen(function* () {
-  if (dataOwnerServices) return dataOwnerServices;
-  const { bootstrapDataOwnerServices } = yield* Effect.promise(
-    () => import('@salesforce/apex-lsp-compliant-services'),
+const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const { bootstrapEnrichmentServices } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-compliant-services'),
+        );
+        const svc = yield* Effect.promise(() => bootstrapEnrichmentServices());
+        yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
+        return svc;
+      }),
+    ),
   );
-  dataOwnerServices = yield* Effect.promise(() => bootstrapDataOwnerServices());
-  yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
-  return dataOwnerServices;
-});
-
-const ensureEnrichmentServices = Effect.gen(function* () {
-  if (enrichmentServices) return enrichmentServices;
-  const { bootstrapEnrichmentServices } = yield* Effect.promise(
-    () => import('@salesforce/apex-lsp-compliant-services'),
-  );
-  enrichmentServices = yield* Effect.promise(() =>
-    bootstrapEnrichmentServices(),
-  );
-  yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
-  return enrichmentServices;
-});
 
 // ---------------------------------------------------------------------------
 // Role-specific initialization
@@ -256,6 +288,118 @@ const handleWorkerInitRole = (
     });
   }
   return Effect.succeed({ ready: true });
+};
+
+// ---------------------------------------------------------------------------
+// Data-owner document handler factory
+//
+// The outer shell (guardRole → dataOwnerWrite → ensureDataOwnerServices)
+// is identical for all document mutation handlers. The factory captures
+// this; each handler only provides its unique body logic.
+// ---------------------------------------------------------------------------
+
+const dataOwnerDocHandler =
+  <R, A>(
+    tag: string,
+    body: (svc: DataOwnerServices, req: R) => Effect.Effect<A>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            return yield* body(svc, req);
+          }),
+        ),
+      ),
+    );
+
+// ---------------------------------------------------------------------------
+// Enrichment handler factory
+//
+// All enrichment dispatch handlers follow the same pattern: guard the
+// role, lazily bootstrap services, call a service method, clone the
+// result for structured-clone-safe postMessage. The factory captures
+// this pattern; each handler is a one-liner config.
+// ---------------------------------------------------------------------------
+
+const enrichmentHandler =
+  <R>(
+    tag: string,
+    callService: (svc: EnrichmentServices, req: R) => Promise<unknown>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureEnrichmentServices;
+          const result = yield* Effect.promise(() => callService(svc, req));
+          return { result: cloneForWire(result) };
+        }),
+      ),
+    );
+
+type PositionReq = {
+  textDocument: { uri: string };
+  position: { line: number; character: number };
+};
+type DocOnlyReq = { textDocument: { uri: string } };
+type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
+
+const enrichmentHandlers = {
+  DispatchHover: enrichmentHandler<PositionReq>('DispatchHover', (svc, req) =>
+    svc.hoverService.processHover({
+      textDocument: { uri: req.textDocument.uri },
+      position: req.position,
+    }),
+  ),
+  DispatchDefinition: enrichmentHandler<PositionReq>(
+    'DispatchDefinition',
+    (svc, req) =>
+      svc.definitionService.processDefinition({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      }),
+  ),
+  DispatchReferences: enrichmentHandler<RefsReq>(
+    'DispatchReferences',
+    (svc, req) =>
+      svc.referencesService.processReferences({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        context: { includeDeclaration: req.context.includeDeclaration },
+      }),
+  ),
+  DispatchImplementation: enrichmentHandler<PositionReq>(
+    'DispatchImplementation',
+    (svc, req) =>
+      svc.implementationService.processImplementation({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      }),
+  ),
+  DispatchDocumentSymbol: enrichmentHandler<DocOnlyReq>(
+    'DispatchDocumentSymbol',
+    (svc, req) =>
+      svc.documentSymbolService.processDocumentSymbol({
+        textDocument: { uri: req.textDocument.uri },
+      }),
+  ),
+  DispatchCodeLens: enrichmentHandler<DocOnlyReq>(
+    'DispatchCodeLens',
+    (svc, req) =>
+      svc.codeLensService.processCodeLens({
+        textDocument: { uri: req.textDocument.uri },
+      }),
+  ),
+  DispatchDiagnostic: enrichmentHandler<DocOnlyReq>(
+    'DispatchDiagnostic',
+    (svc, req) =>
+      svc.diagnosticService.processDiagnostic({
+        textDocument: { uri: req.textDocument.uri },
+      }),
+  ),
 };
 
 // ---------------------------------------------------------------------------
@@ -297,7 +441,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const entries: Record<string, unknown> = {};
             for (const uri of req.uris) {
               const st = svc.symbolManager.getSymbolTableForFile(uri);
-              entries[uri] = st ? JSON.parse(JSON.stringify(st)) : null;
+              entries[uri] = cloneForWire(st);
             }
             return { entries };
           }),
@@ -313,12 +457,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             for (const entry of req.entries) {
               const storage = svc.storageManager.getStorage();
-              void storage.setDocument(entry.uri, {
+              const doc: WorkerDocument = {
                 uri: entry.uri,
                 getText: () => entry.content,
                 languageId: entry.languageId,
                 version: entry.version,
-              } as any);
+              };
+              void storage.setDocument(entry.uri, doc as never);
             }
             yield* Effect.logDebug(
               `[DATA-OWNER] WorkspaceBatchIngest: session=${req.sessionId}, ` +
@@ -330,226 +475,87 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  DispatchDocumentOpen: (req) =>
-    guardRole('DispatchDocumentOpen').pipe(
-      Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            const storage = svc.storageManager.getStorage();
-            const doc = {
-              uri: req.uri,
-              getText: () => req.content,
-              languageId: req.languageId,
-              version: req.version,
-            } as any;
-            void storage.setDocument(req.uri, doc);
-            const diagnostics = yield* Effect.promise(() =>
-              svc.documentProcessingService.processDocumentOpenInternal({
-                document: doc,
-              }),
-            );
-            return {
-              accepted: true,
-              diagnostics: diagnostics
-                ? JSON.parse(JSON.stringify(diagnostics))
-                : undefined,
-            };
+  DispatchDocumentOpen: dataOwnerDocHandler(
+    'DispatchDocumentOpen',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => req.content,
+          languageId: req.languageId,
+          version: req.version,
+        };
+        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        const diagnostics = yield* Effect.promise(() =>
+          svc.documentProcessingService.processDocumentOpenInternal({
+            document: doc as never,
           }),
-        ),
-      ),
-    ),
+        );
+        return {
+          accepted: true,
+          diagnostics: cloneForWire(diagnostics) ?? undefined,
+        };
+      }),
+  ),
 
-  DispatchDocumentChange: (req) =>
-    guardRole('DispatchDocumentChange').pipe(
-      Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            const storage = svc.storageManager.getStorage();
-            const doc = {
-              uri: req.uri,
-              getText: () => '',
-              languageId: 'apex',
-              version: req.version,
-            } as any;
-            void storage.setDocument(req.uri, doc);
-            const diagnostics = yield* Effect.promise(() =>
-              svc.documentProcessingService.processDocumentOpenInternal({
-                document: doc,
-              }),
-            );
-            return {
-              accepted: true,
-              diagnostics: diagnostics
-                ? JSON.parse(JSON.stringify(diagnostics))
-                : undefined,
-            };
+  DispatchDocumentChange: dataOwnerDocHandler(
+    'DispatchDocumentChange',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: req.version,
+        };
+        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        const diagnostics = yield* Effect.promise(() =>
+          svc.documentProcessingService.processDocumentOpenInternal({
+            document: doc as never,
           }),
-        ),
-      ),
-    ),
+        );
+        return {
+          accepted: true,
+          diagnostics: cloneForWire(diagnostics) ?? undefined,
+        };
+      }),
+  ),
 
-  DispatchDocumentSave: (req) =>
-    guardRole('DispatchDocumentSave').pipe(
-      Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            yield* ensureDataOwnerServices;
-            yield* Effect.logDebug(
-              `[DATA-OWNER] DispatchDocumentSave: uri=${req.uri}`,
-            );
-            return { accepted: true };
-          }),
-        ),
-      ),
-    ),
+  DispatchDocumentSave: dataOwnerDocHandler(
+    'DispatchDocumentSave',
+    (_svc, req) =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug(
+          `[DATA-OWNER] DispatchDocumentSave: uri=${req.uri}`,
+        );
+        return { accepted: true };
+      }),
+  ),
 
-  DispatchDocumentClose: (req) =>
-    guardRole('DispatchDocumentClose').pipe(
-      Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            svc.documentCloseProcessingService.processDocumentClose({
-              document: {
-                uri: req.uri,
-                getText: () => '',
-                languageId: 'apex',
-                version: 0,
-              } as any,
-            });
-            return { accepted: true };
-          }),
-        ),
-      ),
-    ),
+  DispatchDocumentClose: dataOwnerDocHandler(
+    'DispatchDocumentClose',
+    (svc, req) =>
+      Effect.sync(() => {
+        const closeDoc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: 0,
+        };
+        svc.documentCloseProcessingService.processDocumentClose({
+          document: closeDoc as never,
+        });
+        return { accepted: true };
+      }),
+  ),
 
   // -- Enrichment/search pool handlers (Step 11) ----------------------------
+  //
+  // All enrichment handlers follow the same pattern: guard role, bootstrap
+  // services, call the service method, clone the result for postMessage.
+  // The `enrichmentHandler` factory eliminates the repetition.
 
-  DispatchHover: (req) =>
-    guardRole('DispatchHover').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.hoverService.processHover({
-              textDocument: { uri: req.textDocument.uri },
-              position: {
-                line: req.position.line,
-                character: req.position.character,
-              },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchDefinition: (req) =>
-    guardRole('DispatchDefinition').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.definitionService.processDefinition({
-              textDocument: { uri: req.textDocument.uri },
-              position: {
-                line: req.position.line,
-                character: req.position.character,
-              },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchReferences: (req) =>
-    guardRole('DispatchReferences').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.referencesService.processReferences({
-              textDocument: { uri: req.textDocument.uri },
-              position: {
-                line: req.position.line,
-                character: req.position.character,
-              },
-              context: {
-                includeDeclaration: req.context.includeDeclaration,
-              },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchImplementation: (req) =>
-    guardRole('DispatchImplementation').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.implementationService.processImplementation({
-              textDocument: { uri: req.textDocument.uri },
-              position: {
-                line: req.position.line,
-                character: req.position.character,
-              },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchDocumentSymbol: (req) =>
-    guardRole('DispatchDocumentSymbol').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.documentSymbolService.processDocumentSymbol({
-              textDocument: { uri: req.textDocument.uri },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchCodeLens: (req) =>
-    guardRole('DispatchCodeLens').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.codeLensService.processCodeLens({
-              textDocument: { uri: req.textDocument.uri },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
-
-  DispatchDiagnostic: (req) =>
-    guardRole('DispatchDiagnostic').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
-          const result = yield* Effect.promise(() =>
-            svc.diagnosticService.processDiagnostic({
-              textDocument: { uri: req.textDocument.uri },
-            }),
-          );
-          return { result: result ? JSON.parse(JSON.stringify(result)) : null };
-        }),
-      ),
-    ),
+  ...enrichmentHandlers,
 
   DispatchGenericLspRequest: (req) =>
     guardRole('DispatchGenericLspRequest').pipe(
@@ -576,8 +582,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             ResourceLoader.getInstance().getSymbolTable(req.classPath),
           );
           if (!st) return { found: false };
-          const serialized = JSON.parse(JSON.stringify(st));
-          return { found: true, symbolTable: serialized };
+          return { found: true, symbolTable: cloneForWire(st) };
         }),
       ),
     ),
@@ -626,12 +631,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
 import { parentPort } from 'node:worker_threads';
 
-interface PendingAssistance {
-  resolve: (result: unknown) => void;
-  reject: (error: Error) => void;
-}
-
-const pendingAssistanceRequests = new Map<string, PendingAssistance>();
+const pendingAssistanceCallbacks = new Map<
+  string,
+  { resolve: (value: unknown) => void; reject: (error: Error) => void }
+>();
 let assistanceListenerAttached = false;
 let assistanceIdCounter = 0;
 
@@ -640,62 +643,80 @@ function ensureAssistanceListener(): void {
   assistanceListenerAttached = true;
 
   parentPort.on('message', (data: unknown) => {
-    if (
-      typeof data !== 'object' ||
-      data === null ||
-      (data as Record<string, unknown>)._tag !== 'WorkerAssistanceResponse'
-    )
-      return;
+    if (!isAssistanceResponse(data)) return;
 
-    const { correlationId, result, error } = data as {
-      correlationId: string;
-      result?: unknown;
-      error?: string;
-    };
-
-    const pending = pendingAssistanceRequests.get(correlationId);
+    const pending = pendingAssistanceCallbacks.get(data.correlationId);
     if (!pending) return;
-    pendingAssistanceRequests.delete(correlationId);
+    pendingAssistanceCallbacks.delete(data.correlationId);
 
-    if (error) {
-      pending.reject(new Error(error));
+    if (data.error) {
+      pending.reject(new Error(data.error));
     } else {
-      pending.resolve(result);
+      pending.resolve(data.result);
     }
   });
 }
 
+class AssistanceError {
+  readonly _tag = 'AssistanceError' as const;
+  readonly message: string;
+  constructor(message: string) {
+    this.message = message;
+  }
+}
+
 /**
  * Request coordinator assistance for a client RPC.
- * Used by worker-side MissingArtifactResolutionService (Step 11) to
- * route apex/findMissingArtifact through the coordinator's LSP connection.
+ * Returns an Effect that resolves when the coordinator responds.
  */
 export function requestCoordinatorAssistance(
   method: string,
   params: unknown,
   blocking: boolean,
-): Promise<unknown> {
-  ensureAssistanceListener();
+): Effect.Effect<unknown, AssistanceError> {
+  return Effect.gen(function* () {
+    ensureAssistanceListener();
 
-  if (!parentPort) {
-    return Promise.reject(
-      new Error('requestCoordinatorAssistance: no parentPort (not a worker)'),
-    );
-  }
+    if (!parentPort) {
+      return yield* Effect.fail(
+        new AssistanceError('no parentPort (not a worker)'),
+      );
+    }
 
-  const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
+    const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
 
-  return new Promise((resolve, reject) => {
-    pendingAssistanceRequests.set(correlationId, { resolve, reject });
+    const result = yield* Effect.async<unknown, AssistanceError>((resume) => {
+      pendingAssistanceCallbacks.set(correlationId, {
+        resolve: (value) => resume(Effect.succeed(value)),
+        reject: (error) =>
+          resume(Effect.fail(new AssistanceError(error.message))),
+      });
 
-    parentPort!.postMessage({
-      _tag: 'WorkerAssistanceRequest',
-      correlationId,
-      method,
-      params,
-      blocking,
+      parentPort!.postMessage({
+        _tag: 'WorkerAssistanceRequest',
+        correlationId,
+        method,
+        params,
+        blocking,
+      });
     });
+
+    return result;
   });
+}
+
+/**
+ * Promise-based wrapper for backward compatibility.
+ * Callers that haven't migrated to Effect can use this.
+ */
+export function requestCoordinatorAssistancePromise(
+  method: string,
+  params: unknown,
+  blocking: boolean,
+): Promise<unknown> {
+  return Effect.runPromise(
+    requestCoordinatorAssistance(method, params, blocking),
+  );
 }
 
 // ---------------------------------------------------------------------------

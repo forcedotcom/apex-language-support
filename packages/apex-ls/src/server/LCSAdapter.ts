@@ -430,6 +430,35 @@ export class LCSAdapter {
   }
 
   /**
+   * Common handler pattern: span + telemetry + error catch + fallback.
+   * Reduces per-handler boilerplate from ~15 lines to a single call.
+   */
+  private async handleLspRequest<
+    P extends { textDocument: { uri: string } },
+    R,
+  >(
+    spanName: string,
+    lspMethod: string,
+    params: P,
+    submit: (params: P) => Promise<any>,
+    fallback: R,
+    extraAttrs?: Record<string, string>,
+  ): Promise<R> {
+    try {
+      return await this.runWithSpanAndRecord(spanName, () => submit(params), {
+        'lsp.method': lspMethod,
+        'document.uri': params.textDocument.uri,
+        ...extraAttrs,
+      });
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing ${lspMethod}: ${formattedError(error)}`,
+      );
+      return fallback;
+    }
+  }
+
+  /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
   private setupProtocolHandlers(): void {
@@ -481,33 +510,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register definition handler if the capability is enabled
     if (capabilities.definitionProvider) {
       this.connection.onDefinition(
-        async (params: DefinitionParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Definition request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.DEFINITION,
-              () =>
-                LSPQueueManager.getInstance().submitDefinitionRequest(params),
-              {
-                'lsp.method': 'textDocument/definition',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing definition: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: DefinitionParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.DEFINITION,
+            'textDocument/definition',
+            params,
+            (p) => LSPQueueManager.getInstance().submitDefinitionRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ Definition handler registered');
     } else {
@@ -516,35 +531,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register implementation handler if the capability is enabled (development mode only)
     if (capabilities.implementationProvider) {
       this.connection.onImplementation(
-        async (params: ImplementationParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.IMPLEMENTATION,
-              () =>
-                LSPQueueManager.getInstance().submitImplementationRequest(
-                  params,
-                ),
-              {
-                'lsp.method': 'textDocument/implementation',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing implementation: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: ImplementationParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.IMPLEMENTATION,
+            'textDocument/implementation',
+            params,
+            (p) => LSPQueueManager.getInstance().submitImplementationRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ Implementation handler registered');
     } else {
@@ -553,33 +552,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register references handler if the capability is enabled
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
-        async (params: ReferenceParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 References request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.REFERENCES,
-              () =>
-                LSPQueueManager.getInstance().submitReferencesRequest(params),
-              {
-                'lsp.method': 'textDocument/references',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing references: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: ReferenceParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.REFERENCES,
+            'textDocument/references',
+            params,
+            (p) => LSPQueueManager.getInstance().submitReferencesRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ References handler registered');
     } else {
@@ -656,31 +641,16 @@ export class LCSAdapter {
         '⚠️ Diagnostics handler not registered (capability disabled)',
       );
     }
-    // Only register folding range handler if the capability is enabled
     if (capabilities.foldingRangeProvider) {
       this.connection.languages.foldingRange.on(
-        async (params: FoldingRangeParams) => {
-          this.logger.debug(
-            () =>
-              `🔍 Folding range request for URI: ${params.textDocument.uri}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.FOLDING_RANGE,
-              () =>
-                LSPQueueManager.getInstance().submitFoldingRangeRequest(params),
-              {
-                'lsp.method': 'textDocument/foldingRange',
-                'document.uri': params.textDocument.uri,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing folding ranges: ${formattedError(error)}`,
-            );
-            return [];
-          }
-        },
+        async (params: FoldingRangeParams) =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.FOLDING_RANGE,
+            'textDocument/foldingRange',
+            params,
+            (p) => LSPQueueManager.getInstance().submitFoldingRangeRequest(p),
+            [],
+          ),
       );
       this.logger.debug('✅ Folding range handler registered');
     } else {
@@ -698,32 +668,16 @@ export class LCSAdapter {
       );
     }
 
-    // Only register code lens handler if the capability is enabled
     if (capabilities.codeLensProvider) {
-      this.connection.onCodeLens(async (params: CodeLensParams) => {
-        this.logger.debug(
-          () => `CodeLens request received for URI: ${params.textDocument.uri}`,
-        );
-        try {
-          const result = await this.runWithSpanAndRecord(
-            LSP_SPAN_NAMES.CODE_LENS,
-            () => LSPQueueManager.getInstance().submitCodeLensRequest(params),
-            {
-              'lsp.method': 'textDocument/codeLens',
-              'document.uri': params.textDocument.uri,
-            },
-          );
-          this.logger.debug(
-            `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
-          );
-          return result;
-        } catch (error) {
-          this.logger.error(
-            () => `Error processing code lens: ${formattedError(error)}`,
-          );
-          return [];
-        }
-      });
+      this.connection.onCodeLens(async (params: CodeLensParams) =>
+        this.handleLspRequest(
+          LSP_SPAN_NAMES.CODE_LENS,
+          'textDocument/codeLens',
+          params,
+          (p) => LSPQueueManager.getInstance().submitCodeLensRequest(p),
+          [],
+        ),
+      );
       this.logger.debug('CodeLens handler registered');
     } else {
       this.logger.debug(
@@ -2114,119 +2068,124 @@ export class LCSAdapter {
   /**
    * Initialize worker topology and wire the dispatch strategy into
    * LSPQueueManager so queued LSP requests are dispatched to workers.
-   * Runs asynchronously; failures are logged but non-fatal.
+   * Runs as a forked fiber; failures are logged but non-fatal.
    */
   private initializeWorkerTopology(): void {
     this.logger.info(
       () => '[WorkerCoordinator] Initializing worker topology...',
     );
-    Promise.all([
-      import('./WorkerCoordinator'),
-      import('./CoordinatorAssistanceMediator'),
-      import('./ResourceLoaderProxy'),
-    ])
-      .then(
-        async ([
-          {
-            initializeTopology,
-            makeNodeWorkerLayer,
-            WorkerTopologyDispatcher,
-            getRawWorkers,
-          },
-          { CoordinatorAssistanceMediator },
-          { ResourceLoaderProxy },
-        ]) => {
-          const { Effect, Scope } = await import('effect');
 
-          const apexSettings =
-            LSPConfigurationManager.getInstance().getSettings().apex as any;
-          const workerCfg = apexSettings?.experimental?.workers || {};
+    const pipeline = Effect.gen(this, function* () {
+      const [coordinatorModule, mediatorModule, resourceLoaderModule] =
+        yield* Effect.all([
+          Effect.promise(() => import('./WorkerCoordinator')),
+          Effect.promise(() => import('./CoordinatorAssistanceMediator')),
+          Effect.promise(() => import('./ResourceLoaderProxy')),
+        ]);
 
-          const enableResourceLoader = workerCfg.resourceLoader !== false;
+      const {
+        initializeTopology,
+        makeNodeWorkerLayer,
+        makeWorkerDispatcher,
+        getRawWorkers,
+      } = coordinatorModule;
+      const { CoordinatorAssistanceMediator } = mediatorModule;
+      const { ResourceLoaderProxy } = resourceLoaderModule;
 
-          const workerLogLevel = apexSettings?.worker?.logLevel || 'error';
+      const { Scope } = yield* Effect.promise(() => import('effect'));
 
-          const config = {
-            poolSize: workerCfg.poolSize ?? 2,
-            enableResourceLoader,
-            logger: this.logger,
-            logLevel: workerLogLevel,
-          };
+      const apexSettings = LSPConfigurationManager.getInstance().getSettings()
+        .apex as Record<string, any>;
+      const workerCfg =
+        (apexSettings?.experimental as Record<string, unknown>)?.workers ??
+        ({} as Record<string, unknown>);
 
-          const path = await import('path');
-          const fs = await import('fs');
+      const enableResourceLoader =
+        (workerCfg as Record<string, unknown>).resourceLoader !== false;
+      const workerLogLevel =
+        (apexSettings?.worker as Record<string, unknown>)?.logLevel ?? 'error';
 
-          // Find the apex-ls package root by walking up from __dirname
-          // to locate package.json, then resolve dist/worker.platform.js.
-          // This works whether the server runs from dist/ (bundled) or
-          // out/node/server/ (individual files dev mode).
-          let pkgRoot = __dirname;
-          while (
-            !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
-            pkgRoot !== path.dirname(pkgRoot)
-          ) {
-            pkgRoot = path.dirname(pkgRoot);
-          }
-          const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
-          if (!fs.existsSync(workerScript)) {
-            throw new Error(
-              `worker.platform.js not found at ${workerScript}` +
-                ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
-            );
-          }
-          this.logger.info(
-            () => `[WorkerCoordinator] Worker script: ${workerScript}`,
-          );
+      const config = {
+        poolSize:
+          ((workerCfg as Record<string, unknown>).poolSize as number) ?? 2,
+        enableResourceLoader,
+        logger: this.logger,
+        logLevel: workerLogLevel as string,
+      };
 
-          const program = Effect.gen(function* () {
-            return yield* initializeTopology(config);
-          }).pipe(Effect.provide(makeNodeWorkerLayer(workerScript)));
+      const path = yield* Effect.promise(() => import('path'));
+      const fs = yield* Effect.promise(() => import('fs'));
 
-          const scope = Effect.runSync(Scope.make());
-          const topology = await Effect.runPromise(
-            Effect.provideService(program, Scope.Scope, scope),
-          );
-
-          const dispatcher = new WorkerTopologyDispatcher(
-            topology,
-            this.logger,
-          );
-          LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
-
-          setBatchIngestionDispatcher(
-            dispatcher.createBatchIngestionDispatcher(),
-          );
-
-          const mediator = new CoordinatorAssistanceMediator(
-            (method, params) => this.connection.sendRequest(method, params),
-            this.logger,
-          );
-          mediator.attachToWorkers(getRawWorkers());
-
-          if (topology.resourceLoader) {
-            this.resourceLoaderProxy = new ResourceLoaderProxy(
-              topology.resourceLoader,
-              this.logger,
-            );
-            this.logger.info(
-              () =>
-                '[WorkerCoordinator] ResourceLoaderProxy active — ' +
-                'stdlib queries routed to resource-loader worker',
-            );
-          }
-
-          this.logger.info(
-            () =>
-              '[WorkerCoordinator] Topology active — ' +
-              'queue dispatch, batch ingestion, assistance mediation',
-          );
-        },
-      )
-      .catch((error) => {
-        this.logger.error(
-          () =>
-            `❌ Failed to initialize worker topology: ${formattedError(error)}`,
+      let pkgRoot = __dirname;
+      while (
+        !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
+        pkgRoot !== path.dirname(pkgRoot)
+      ) {
+        pkgRoot = path.dirname(pkgRoot);
+      }
+      const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
+      if (!fs.existsSync(workerScript)) {
+        return yield* Effect.fail(
+          new Error(
+            `worker.platform.js not found at ${workerScript}` +
+              ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
+          ),
         );
-      });
+      }
+      this.logger.info(
+        () => `[WorkerCoordinator] Worker script: ${workerScript}`,
+      );
+
+      const program = initializeTopology(config).pipe(
+        Effect.provide(makeNodeWorkerLayer(workerScript)),
+      );
+
+      const scope = Effect.runSync(Scope.make());
+      const topology = yield* Effect.provideService(
+        program,
+        Scope.Scope,
+        scope,
+      );
+
+      const dispatcher = makeWorkerDispatcher(topology, this.logger);
+      LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
+
+      setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
+
+      const mediator = new CoordinatorAssistanceMediator(
+        (method, params) => this.connection.sendRequest(method, params),
+        this.logger,
+      );
+      mediator.attachToWorkers(getRawWorkers());
+
+      if (topology.resourceLoader) {
+        this.resourceLoaderProxy = new ResourceLoaderProxy(
+          topology.resourceLoader,
+          this.logger,
+        );
+        this.logger.info(
+          () =>
+            '[WorkerCoordinator] ResourceLoaderProxy active — ' +
+            'stdlib queries routed to resource-loader worker',
+        );
+      }
+
+      this.logger.info(
+        () =>
+          '[WorkerCoordinator] Topology active — ' +
+          'queue dispatch, batch ingestion, assistance mediation',
+      );
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.sync(() => {
+          this.logger.error(
+            () =>
+              `❌ Failed to initialize worker topology: ${formattedError(error)}`,
+          );
+        }),
+      ),
+    );
+
+    Effect.runFork(pipeline);
   }
 }

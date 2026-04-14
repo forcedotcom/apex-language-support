@@ -395,6 +395,7 @@ export type {
 
 // Worker wire schemas — internal worker IPC contract (Option B)
 export {
+  LSP_REQUEST_TYPES,
   WorkerRole,
   WorkerInit,
   PingWorker,
@@ -405,6 +406,9 @@ export {
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   WireLspRequestType,
+  WirePosition,
+  WireRange,
+  WireContentChangeEvent,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -423,8 +427,13 @@ export {
   AllWorkerTags,
   WIRE_PROTOCOL_VERSION,
   isAllowedTag,
+  isAssistanceRequest,
+  isAssistanceResponse,
 } from './workerWireSchemas';
 export type {
+  LSPRequestType,
+  AssistanceRequestPayload,
+  AssistanceResponsePayload,
   WorkerInitSuccess,
   PingWorkerSuccess,
   QuerySymbolSubsetSuccess,

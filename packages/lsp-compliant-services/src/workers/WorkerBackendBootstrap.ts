@@ -16,15 +16,12 @@
  * Called from worker.platform.ts during WorkerInit handling.
  */
 
-import {
-  getLogger,
-  type LoggerInterface,
-  ApexSettingsManager,
-} from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   type ISymbolManager,
   ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { ApexStorage } from '../storage/ApexStorage';
 import {
@@ -46,30 +43,27 @@ import type { DiagnosticProcessingService } from '../services/DiagnosticProcessi
 // ---------------------------------------------------------------------------
 
 export interface DataOwnerServices {
-  symbolManager: ISymbolManager;
-  storageManager: ApexStorageManager;
-  documentProcessingService: DocumentProcessingService;
-  documentCloseProcessingService: DocumentCloseProcessingService;
-  factory: ServiceFactory;
+  readonly symbolManager: ISymbolManager;
+  readonly storageManager: ApexStorageManager;
+  readonly documentProcessingService: DocumentProcessingService;
+  readonly documentCloseProcessingService: DocumentCloseProcessingService;
+  readonly factory: ServiceFactory;
 }
 
-/**
- * Bootstrap services for the data-owner worker role.
- *
- * Initializes ApexStorageManager, ISymbolManager, and document
- * processing services. The data-owner holds authoritative state
- * for the workspace — all document mutations flow through here.
- */
-export async function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
-  const logger: LoggerInterface = getLogger();
+const bootstrapSharedDeps = Effect.gen(function* () {
+  const logger = getLogger();
 
-  const storageManager = ApexStorageManager.getInstance({
-    storageFactory: () => ApexStorage.getInstance(),
-  });
-  await storageManager.initialize();
+  const storageManager = yield* Effect.sync(() =>
+    ApexStorageManager.getInstance({
+      storageFactory: () => ApexStorage.getInstance(),
+    }),
+  );
+  yield* Effect.promise(() => storageManager.initialize());
 
-  const spm = ApexSymbolProcessingManager.getInstance();
-  await spm.initialize();
+  const spm = yield* Effect.sync(() =>
+    ApexSymbolProcessingManager.getInstance(),
+  );
+  yield* Effect.promise(() => spm.initialize());
   const symbolManager = spm.getSymbolManager();
 
   const deps: ServiceDependencies = {
@@ -80,16 +74,35 @@ export async function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
   };
   const factory = new ServiceFactory(deps);
 
-  const { DocumentCloseProcessingService: DocClose } =
-    await import('../services/DocumentCloseProcessingService');
+  return { logger, symbolManager, storageManager, factory };
+});
 
-  return {
-    symbolManager,
-    storageManager,
-    documentProcessingService: factory.createDocumentProcessingService(),
-    documentCloseProcessingService: new DocClose(logger),
-    factory,
-  };
+/**
+ * Bootstrap services for the data-owner worker role as an Effect.
+ */
+export const bootstrapDataOwnerServicesEffect: Effect.Effect<DataOwnerServices> =
+  Effect.gen(function* () {
+    const { logger, symbolManager, storageManager, factory } =
+      yield* bootstrapSharedDeps;
+
+    const { DocumentCloseProcessingService: DocClose } = yield* Effect.promise(
+      () => import('../services/DocumentCloseProcessingService'),
+    );
+
+    return {
+      symbolManager,
+      storageManager,
+      documentProcessingService: factory.createDocumentProcessingService(),
+      documentCloseProcessingService: new DocClose(logger),
+      factory,
+    };
+  });
+
+/**
+ * Promise-based wrapper for backward compatibility.
+ */
+export function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
+  return Effect.runPromise(bootstrapDataOwnerServicesEffect);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,53 +110,40 @@ export async function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
 // ---------------------------------------------------------------------------
 
 export interface EnrichmentServices {
-  symbolManager: ISymbolManager;
-  hoverService: HoverProcessingService;
-  definitionService: DefinitionProcessingService;
-  referencesService: ReferencesProcessingService;
-  implementationService: ImplementationProcessingService;
-  documentSymbolService: DocumentSymbolProcessingService;
-  codeLensService: CodeLensProcessingService;
-  diagnosticService: DiagnosticProcessingService;
-  factory: ServiceFactory;
+  readonly symbolManager: ISymbolManager;
+  readonly hoverService: HoverProcessingService;
+  readonly definitionService: DefinitionProcessingService;
+  readonly referencesService: ReferencesProcessingService;
+  readonly implementationService: ImplementationProcessingService;
+  readonly documentSymbolService: DocumentSymbolProcessingService;
+  readonly codeLensService: CodeLensProcessingService;
+  readonly diagnosticService: DiagnosticProcessingService;
+  readonly factory: ServiceFactory;
 }
 
 /**
- * Bootstrap services for enrichment/search pool workers.
- *
- * Creates a local ISymbolManager and processing services.
- * Symbol data is populated via QuerySymbolSubset from the data-owner
- * or through local document processing.
+ * Bootstrap services for enrichment/search pool workers as an Effect.
  */
-export async function bootstrapEnrichmentServices(): Promise<EnrichmentServices> {
-  const logger: LoggerInterface = getLogger();
+export const bootstrapEnrichmentServicesEffect: Effect.Effect<EnrichmentServices> =
+  Effect.gen(function* () {
+    const { symbolManager, factory } = yield* bootstrapSharedDeps;
 
-  const storageManager = ApexStorageManager.getInstance({
-    storageFactory: () => ApexStorage.getInstance(),
+    return {
+      symbolManager,
+      hoverService: factory.createHoverService(),
+      definitionService: factory.createDefinitionService(),
+      referencesService: factory.createReferencesService(),
+      implementationService: factory.createImplementationService(),
+      documentSymbolService: factory.createDocumentSymbolService(),
+      codeLensService: factory.createCodeLensService(),
+      diagnosticService: factory.createDiagnosticService(),
+      factory,
+    };
   });
-  await storageManager.initialize();
 
-  const spm = ApexSymbolProcessingManager.getInstance();
-  await spm.initialize();
-  const symbolManager = spm.getSymbolManager();
-
-  const deps: ServiceDependencies = {
-    logger,
-    symbolManager,
-    storageManager,
-    settingsManager: ApexSettingsManager.getInstance(),
-  };
-  const factory = new ServiceFactory(deps);
-
-  return {
-    symbolManager,
-    hoverService: factory.createHoverService(),
-    definitionService: factory.createDefinitionService(),
-    referencesService: factory.createReferencesService(),
-    implementationService: factory.createImplementationService(),
-    documentSymbolService: factory.createDocumentSymbolService(),
-    codeLensService: factory.createCodeLensService(),
-    diagnosticService: factory.createDiagnosticService(),
-    factory,
-  };
+/**
+ * Promise-based wrapper for backward compatibility.
+ */
+export function bootstrapEnrichmentServices(): Promise<EnrichmentServices> {
+  return Effect.runPromise(bootstrapEnrichmentServicesEffect);
 }

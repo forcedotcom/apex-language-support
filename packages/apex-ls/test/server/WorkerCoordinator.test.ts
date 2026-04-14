@@ -12,14 +12,15 @@ import {
   initializeTopology,
   makeNodeWorkerLayer,
   clampPoolSize,
-  WorkerTopologyDispatcher,
-  TransportTopologyDispatcher,
+  makeWorkerDispatcher,
+  makeTransportDispatcher,
   initializeTransportTopology,
 } from '../../src/server/WorkerCoordinator';
 import { PingWorker, QuerySymbolSubset } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
+type DispatcherResult = ReturnType<typeof makeWorkerDispatcher>;
 import type {
   WorkerTopologyTransport,
   WorkerHandle,
@@ -150,18 +151,18 @@ describe('WorkerCoordinator', () => {
     }, 15_000);
   });
 
-  describe('WorkerTopologyDispatcher (step 5 + step 6)', () => {
+  describe('makeWorkerDispatcher (step 5 + step 6)', () => {
     it('isAvailable returns true by default', () => {
       const logger = createSpyLogger();
       const mockTopology = {} as WorkerTopology;
-      const dispatcher = new WorkerTopologyDispatcher(mockTopology, logger);
+      const dispatcher = makeWorkerDispatcher(mockTopology, logger);
       expect(dispatcher.isAvailable()).toBe(true);
     });
 
     it('isAvailable can be toggled off', () => {
       const logger = createSpyLogger();
       const mockTopology = {} as WorkerTopology;
-      const dispatcher = new WorkerTopologyDispatcher(mockTopology, logger);
+      const dispatcher = makeWorkerDispatcher(mockTopology, logger);
       dispatcher.setAvailable(false);
       expect(dispatcher.isAvailable()).toBe(false);
     });
@@ -176,7 +177,7 @@ describe('WorkerCoordinator', () => {
           logger,
         });
 
-        const dispatcher = new WorkerTopologyDispatcher(topology, logger);
+        const dispatcher = makeWorkerDispatcher(topology, logger);
 
         const ping = yield* topology.dataOwner.executeEffect(
           new PingWorker({ echo: 'dispatcher-test' }),
@@ -192,11 +193,11 @@ describe('WorkerCoordinator', () => {
     }, 15_000);
 
     describe('canDispatch — prerequisite atomicity (step 6)', () => {
-      let dispatcher: WorkerTopologyDispatcher;
+      let dispatcher: DispatcherResult;
 
       beforeEach(() => {
         const logger = createSpyLogger();
-        dispatcher = new WorkerTopologyDispatcher({} as WorkerTopology, logger);
+        dispatcher = makeWorkerDispatcher({} as WorkerTopology, logger);
       });
 
       it.each([
@@ -237,7 +238,7 @@ describe('WorkerCoordinator', () => {
           logger,
         });
 
-        const dispatcher = new WorkerTopologyDispatcher(topology, logger);
+        const dispatcher = makeWorkerDispatcher(topology, logger);
         const ingest = dispatcher.createBatchIngestionDispatcher();
 
         const result = yield* Effect.promise(() =>
@@ -353,10 +354,10 @@ describe('WorkerCoordinator', () => {
       ).toBeDefined();
     });
 
-    it('TransportTopologyDispatcher canDispatch matches WorkerTopologyDispatcher', () => {
+    it('makeTransportDispatcher canDispatch matches makeWorkerDispatcher', () => {
       const transport = new MockWorkerTransport();
       const logger = createSpyLogger();
-      const dispatcher = new TransportTopologyDispatcher(
+      const dispatcher = makeTransportDispatcher(
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
@@ -376,14 +377,14 @@ describe('WorkerCoordinator', () => {
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
     });
 
-    it('TransportTopologyDispatcher routes data-owner types through transport.send', async () => {
+    it('makeTransportDispatcher routes data-owner types through transport.send', async () => {
       const transport = new MockWorkerTransport();
       const logger = createSpyLogger();
       const dataOwner: WorkerHandle = {
         _tag: 'WorkerHandle',
         role: 'dataOwner',
       };
-      const dispatcher = new TransportTopologyDispatcher(
+      const dispatcher = makeTransportDispatcher(
         {
           transport,
           dataOwner,
@@ -410,10 +411,10 @@ describe('WorkerCoordinator', () => {
       expect(transport.sendCalls[0].role).toBe('dataOwner');
     });
 
-    it('TransportTopologyDispatcher routes enrichment types through transport.dispatch', async () => {
+    it('makeTransportDispatcher routes enrichment types through transport.dispatch', async () => {
       const transport = new MockWorkerTransport();
       const logger = createSpyLogger();
-      const dispatcher = new TransportTopologyDispatcher(
+      const dispatcher = makeTransportDispatcher(
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
@@ -443,7 +444,7 @@ describe('WorkerCoordinator', () => {
         _tag: 'WorkerHandle',
         role: 'dataOwner',
       };
-      const dispatcher = new TransportTopologyDispatcher(
+      const dispatcher = makeTransportDispatcher(
         {
           transport,
           dataOwner,

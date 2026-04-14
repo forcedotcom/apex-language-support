@@ -37,33 +37,19 @@ import {
   DispatchDocumentSave,
   DispatchDocumentClose,
   DispatchGenericLspRequest,
-} from '@salesforce/apex-lsp-shared';
-import type {
-  LoggerInterface,
-  DataOwnerRequest,
-  EnrichmentSearchRequest,
-  ResourceLoaderRequest,
+  type LSPRequestType,
+  type LoggerInterface,
+  type DataOwnerRequest,
+  type EnrichmentSearchRequest,
+  type ResourceLoaderRequest,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
-  LSPRequestType,
+  WorkerTopologyStatus,
   WorkerTopologyTransport,
   WorkerHandle,
   PoolHandle,
 } from '@salesforce/apex-lsp-compliant-services';
-
-/** Shape returned by getTopologyStatus() for dashboard display. */
-export interface WorkerTopologyStatus {
-  readonly enabled: boolean;
-  readonly dataOwner: { readonly active: boolean };
-  readonly enrichmentPool: {
-    readonly size: number;
-    readonly active: boolean;
-  };
-  readonly resourceLoader: { readonly active: boolean } | null;
-  readonly dispatchedCount: number;
-  readonly coordinatorOnlyTypes: readonly string[];
-}
 
 // ---------------------------------------------------------------------------
 // Worker Layer factory
@@ -111,7 +97,7 @@ export function clearRawWorkers(): void {
  */
 export async function makeBrowserWorkerLayer(
   workerScriptUrl: string,
-): Promise<any> {
+): Promise<unknown> {
   const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
 
   const W = (globalThis as any).Worker as new (url: string | URL) => unknown;
@@ -291,244 +277,236 @@ export const initializeTransportTopology = (
   });
 
 // ---------------------------------------------------------------------------
-// WorkerTopologyDispatcher — bridges LSPQueueManager → worker pool
+// Dispatcher factory — bridges LSPQueueManager → worker pool
 // ---------------------------------------------------------------------------
 
-const DATA_OWNER_TYPES: ReadonlySet<LSPRequestType> = new Set([
-  'documentOpen',
-  'documentChange',
-  'documentSave',
-  'documentClose',
-]);
-
 /**
- * Request types that still run on the coordinator thread.
+ * Dispatch routing — single source of truth for where each LSP request
+ * type is executed. Adding a new type here is the only change needed;
+ * DATA_OWNER_TYPES and COORDINATOR_ONLY_TYPES are derived automatically.
  *
- * Enrichment types (hover, definition, etc.) are here because
- * enrichment workers bootstrap empty services — they have no
- * document/symbol data until Step 11 data sharing is implemented.
+ * - dataOwner:       routed to the data-owner worker
+ * - enrichmentPool:  routed to an enrichment pool worker (TODO: enable when data sharing is ready)
+ * - coordinatorOnly: runs on the coordinator thread (local handler)
  */
-const COORDINATOR_ONLY_TYPES: ReadonlySet<LSPRequestType> = new Set([
-  'completion',
-  'signatureHelp',
-  'rename',
-  'hover',
-  'definition',
-  'references',
-  'implementation',
-  'documentSymbol',
-  'codeLens',
-  'diagnostics',
-  'foldingRange',
-]);
+type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
 
-/**
- * Maps LSP request types to wire DTOs and routes them to the correct
- * topology member. Injected into LSPQueueManager via setWorkerDispatcher().
- */
-export class WorkerTopologyDispatcher implements WorkerDispatchStrategy {
-  private available = true;
-  private _dispatchedCount = 0;
+const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
+  documentOpen: 'dataOwner',
+  documentChange: 'dataOwner',
+  documentSave: 'dataOwner',
+  documentClose: 'dataOwner',
+  documentLoad: 'coordinatorOnly',
+  hover: 'coordinatorOnly',
+  completion: 'coordinatorOnly',
+  definition: 'coordinatorOnly',
+  implementation: 'coordinatorOnly',
+  references: 'coordinatorOnly',
+  documentSymbol: 'coordinatorOnly',
+  workspaceSymbol: 'coordinatorOnly',
+  diagnostics: 'coordinatorOnly',
+  codeAction: 'coordinatorOnly',
+  signatureHelp: 'coordinatorOnly',
+  rename: 'coordinatorOnly',
+  codeLens: 'coordinatorOnly',
+  foldingRange: 'coordinatorOnly',
+  findMissingArtifact: 'coordinatorOnly',
+  executeCommand: 'coordinatorOnly',
+  prerequisiteEnrichment: 'coordinatorOnly',
+  resolve: 'coordinatorOnly',
+};
 
-  constructor(
-    private readonly topology: WorkerTopology,
-    private readonly logger: LoggerInterface,
-  ) {}
+const DATA_OWNER_TYPES = new Set(
+  (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
+    (t) => DISPATCH_ROUTING[t] === 'dataOwner',
+  ),
+);
 
-  isAvailable(): boolean {
-    return this.available;
-  }
+const COORDINATOR_ONLY_TYPES = new Set(
+  (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
+    (t) => DISPATCH_ROUTING[t] === 'coordinatorOnly',
+  ),
+);
 
-  setAvailable(v: boolean): void {
-    this.available = v;
-  }
-
-  canDispatch(type: LSPRequestType): boolean {
-    if (COORDINATOR_ONLY_TYPES.has(type)) {
-      return false;
-    }
-    return true;
-  }
-
-  async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
-    this._dispatchedCount++;
-    if (DATA_OWNER_TYPES.has(type)) {
-      return this.dispatchToDataOwner(type, params);
-    }
-    return this.dispatchToEnrichmentPool(type, params);
-  }
-
-  getTopologyStatus(): WorkerTopologyStatus {
-    return {
-      enabled: true,
-      dataOwner: { active: this.available },
-      enrichmentPool: { size: 0, active: this.available },
-      resourceLoader: this.topology.resourceLoader
-        ? { active: this.available }
-        : null,
-      dispatchedCount: this._dispatchedCount,
-      coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
-    };
-  }
-
-  /**
-   * Create a batch ingestion dispatcher for WorkspaceBatchHandler.
-   * Sends decoded entries to the data-owner worker via WorkspaceBatchIngest.
-   */
-  createBatchIngestionDispatcher(): (
-    sessionId: string,
-    entries: Array<{
-      uri: string;
-      content: string;
-      languageId: string;
-      version: number;
-    }>,
-  ) => Promise<{ processedCount: number }> {
-    return async (sessionId, entries) => {
-      this.logger.debug(
-        () =>
-          '[WorkerDispatch] → dataOwner: WorkspaceBatchIngest ' +
-          `(session=${sessionId}, entries=${entries.length})`,
-      );
-      const msg = new WorkspaceBatchIngest({ sessionId, entries });
-      const eff = this.topology.dataOwner.executeEffect(msg);
-      return Effect.runPromise(eff);
-    };
-  }
-
-  // -- private routing helpers ------------------------------------------------
-
-  private async dispatchToDataOwner(
-    type: LSPRequestType,
-    params: unknown,
-  ): Promise<unknown> {
-    const msg = buildDataOwnerMessage(type, params as Record<string, any>);
-    this.logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
-    const eff = this.topology.dataOwner.executeEffect(
-      msg as any,
-    ) as Effect.Effect<unknown, unknown, never>;
-    return Effect.runPromise(eff);
-  }
-
-  private async dispatchToEnrichmentPool(
-    type: LSPRequestType,
-    params: unknown,
-  ): Promise<unknown> {
-    const msg = buildEnrichmentMessage(type, params as Record<string, any>);
-    this.logger.debug(() => `[WorkerDispatch] → enrichmentPool: ${type}`);
-    const eff = this.topology.enrichmentPool.executeEffect(
-      msg as any,
-    ) as Effect.Effect<unknown, unknown, never>;
-    const response = await Effect.runPromise(eff);
-    return (response as { result: unknown }).result;
-  }
+/** Batch ingestion entry shape. */
+export interface BatchIngestEntry {
+  uri: string;
+  content: string;
+  languageId: string;
+  version: number;
 }
 
-// ---------------------------------------------------------------------------
-// TransportTopologyDispatcher — transport-isolated variant (Step 12)
-// ---------------------------------------------------------------------------
+/** Callbacks that parameterize the dispatcher for different transport backends. */
+interface DispatcherCallbacks {
+  readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
+  readonly dispatchToPool: (msg: EnrichmentSearchRequest) => Promise<unknown>;
+  readonly sendBatch: (
+    msg: WorkspaceBatchIngest,
+  ) => Promise<{ processedCount: number }>;
+  readonly poolSize: number;
+  readonly hasResourceLoader: boolean;
+}
 
 /**
- * Like WorkerTopologyDispatcher but sends requests through the
- * WorkerTopologyTransport interface instead of calling executeEffect
- * directly on @effect/platform Worker handles.
+ * Core factory — creates a WorkerDispatchStrategy from transport callbacks.
+ * Both direct-Worker and transport-isolated dispatchers use this.
  */
-export class TransportTopologyDispatcher implements WorkerDispatchStrategy {
-  private available = true;
-  private _dispatchedCount = 0;
+function createDispatcher(
+  callbacks: DispatcherCallbacks,
+  logger: LoggerInterface,
+): WorkerDispatchStrategy & {
+  setAvailable(v: boolean): void;
+  createBatchIngestionDispatcher(): (
+    sessionId: string,
+    entries: BatchIngestEntry[],
+  ) => Promise<{ processedCount: number }>;
+} {
+  let available = true;
+  let dispatchedCount = 0;
 
-  constructor(
-    private readonly topology: TransportTopology,
-    private readonly logger: LoggerInterface,
-  ) {}
+  return {
+    isAvailable: () => available,
+    setAvailable: (v: boolean) => {
+      available = v;
+    },
+    canDispatch: (type: LSPRequestType) => !COORDINATOR_ONLY_TYPES.has(type),
 
-  isAvailable(): boolean {
-    return this.available;
-  }
+    async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
+      dispatchedCount++;
+      if (DATA_OWNER_TYPES.has(type)) {
+        const msg = buildDataOwnerMessage(type, params);
+        logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
+        return callbacks.sendToDataOwner(msg);
+      }
+      const msg = buildEnrichmentMessage(type, params);
+      logger.debug(() => `[WorkerDispatch] → enrichmentPool: ${type}`);
+      const response = await callbacks.dispatchToPool(msg);
+      return (response as { result: unknown }).result;
+    },
 
-  setAvailable(v: boolean): void {
-    this.available = v;
-  }
-
-  canDispatch(type: LSPRequestType): boolean {
-    if (COORDINATOR_ONLY_TYPES.has(type)) {
-      return false;
-    }
-    return true;
-  }
-
-  async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
-    this._dispatchedCount++;
-    if (DATA_OWNER_TYPES.has(type)) {
-      return this.dispatchToDataOwner(type, params);
-    }
-    return this.dispatchToEnrichmentPool(type, params);
-  }
-
-  getTopologyStatus(): WorkerTopologyStatus {
-    return {
+    getTopologyStatus: (): WorkerTopologyStatus => ({
       enabled: true,
-      dataOwner: { active: this.available },
-      enrichmentPool: {
-        size: this.topology.enrichmentPool.size,
-        active: this.available,
+      dataOwner: { active: available },
+      enrichmentPool: { size: callbacks.poolSize, active: available },
+      resourceLoader: callbacks.hasResourceLoader
+        ? { active: available }
+        : null,
+      dispatchedCount,
+      coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
+    }),
+
+    createBatchIngestionDispatcher() {
+      return async (sessionId: string, entries: BatchIngestEntry[]) => {
+        logger.debug(
+          () =>
+            '[WorkerDispatch] → dataOwner: WorkspaceBatchIngest ' +
+            `(session=${sessionId}, entries=${entries.length})`,
+        );
+        return callbacks.sendBatch(
+          new WorkspaceBatchIngest({ sessionId, entries }),
+        );
+      };
+    },
+  };
+}
+
+/**
+ * Create a dispatcher backed by @effect/platform Worker handles.
+ */
+export function makeWorkerDispatcher(
+  topology: WorkerTopology,
+  logger: LoggerInterface,
+) {
+  return createDispatcher(
+    {
+      sendToDataOwner: (msg) => {
+        const eff = topology.dataOwner.executeEffect(msg) as Effect.Effect<
+          unknown,
+          unknown,
+          never
+        >;
+        return Effect.runPromise(eff);
       },
-      resourceLoader: this.topology.resourceLoader
-        ? { active: this.available }
-        : null,
-      dispatchedCount: this._dispatchedCount,
-      coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
-    };
-  }
-
-  createBatchIngestionDispatcher(): (
-    sessionId: string,
-    entries: Array<{
-      uri: string;
-      content: string;
-      languageId: string;
-      version: number;
-    }>,
-  ) => Promise<{ processedCount: number }> {
-    return async (sessionId, entries) => {
-      this.logger.debug(
-        () =>
-          '[WorkerDispatch/Transport] → dataOwner: WorkspaceBatchIngest ' +
-          `(session=${sessionId}, entries=${entries.length})`,
-      );
-      const msg = new WorkspaceBatchIngest({ sessionId, entries });
-      const result = await Effect.runPromise(
-        this.topology.transport.send(this.topology.dataOwner, msg),
-      );
-      return result as { processedCount: number };
-    };
-  }
-
-  private async dispatchToDataOwner(
-    type: LSPRequestType,
-    params: unknown,
-  ): Promise<unknown> {
-    const msg = buildDataOwnerMessage(type, params as Record<string, any>);
-    this.logger.debug(() => `[WorkerDispatch/Transport] → dataOwner: ${type}`);
-    return Effect.runPromise(
-      this.topology.transport.send(this.topology.dataOwner, msg),
-    );
-  }
-
-  private async dispatchToEnrichmentPool(
-    type: LSPRequestType,
-    params: unknown,
-  ): Promise<unknown> {
-    const msg = buildEnrichmentMessage(type, params as Record<string, any>);
-    this.logger.debug(
-      () => `[WorkerDispatch/Transport] → enrichmentPool: ${type}`,
-    );
-    const response = await Effect.runPromise(
-      this.topology.transport.dispatch(this.topology.enrichmentPool, msg),
-    );
-    return (response as { result: unknown }).result;
-  }
+      dispatchToPool: (msg) => {
+        const eff = topology.enrichmentPool.executeEffect(msg) as Effect.Effect<
+          unknown,
+          unknown,
+          never
+        >;
+        return Effect.runPromise(eff);
+      },
+      sendBatch: (msg) =>
+        Effect.runPromise(topology.dataOwner.executeEffect(msg)),
+      poolSize: 0,
+      hasResourceLoader: topology.resourceLoader !== null,
+    },
+    logger,
+  );
 }
+
+/**
+ * Create a dispatcher backed by the transport-isolated interface.
+ */
+export function makeTransportDispatcher(
+  topology: TransportTopology,
+  logger: LoggerInterface,
+) {
+  return createDispatcher(
+    {
+      sendToDataOwner: (msg) =>
+        Effect.runPromise(topology.transport.send(topology.dataOwner, msg)),
+      dispatchToPool: (msg) =>
+        Effect.runPromise(
+          topology.transport.dispatch(topology.enrichmentPool, msg),
+        ),
+      sendBatch: (msg) =>
+        Effect.runPromise(
+          topology.transport.send(topology.dataOwner, msg),
+        ) as Promise<{ processedCount: number }>,
+      poolSize: topology.enrichmentPool.size,
+      hasResourceLoader: topology.resourceLoader !== null,
+    },
+    logger,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Typed dispatch param interfaces
+// ---------------------------------------------------------------------------
+
+/** Params shape for document mutation dispatches (open/change/save/close). */
+interface DocumentEventParams {
+  readonly document?: {
+    readonly uri: string;
+    readonly languageId?: string;
+    readonly version?: number;
+    readonly getText?: () => string;
+  };
+  readonly textDocument?: { readonly uri: string };
+  readonly text?: string;
+  readonly contentChanges?: ReadonlyArray<{
+    readonly range?: {
+      readonly start: { readonly line: number; readonly character: number };
+      readonly end: { readonly line: number; readonly character: number };
+    };
+    readonly rangeLength?: number;
+    readonly text: string;
+  }>;
+}
+
+/** Params shape for position-based enrichment dispatches. */
+interface PositionBasedParams {
+  readonly textDocument: { readonly uri: string };
+  readonly position: { readonly line: number; readonly character: number };
+  readonly context?: { readonly includeDeclaration: boolean };
+}
+
+/** Params shape for document-only enrichment dispatches (symbols, lenses). */
+interface DocumentOnlyParams {
+  readonly textDocument: { readonly uri: string };
+}
+
+type EnrichmentParams = PositionBasedParams | DocumentOnlyParams;
 
 // ---------------------------------------------------------------------------
 // Shared message builders (used by both dispatcher variants)
@@ -536,8 +514,9 @@ export class TransportTopologyDispatcher implements WorkerDispatchStrategy {
 
 function buildDataOwnerMessage(
   type: LSPRequestType,
-  p: Record<string, any>,
+  params: unknown,
 ): DataOwnerRequest {
+  const p = params as DocumentEventParams;
   switch (type) {
     case 'documentOpen':
       return new DispatchDocumentOpen({
@@ -550,7 +529,13 @@ function buildDataOwnerMessage(
       return new DispatchDocumentChange({
         uri: p.document?.uri ?? p.textDocument?.uri ?? '',
         version: p.document?.version ?? 0,
-        contentChanges: p.contentChanges ?? [],
+        contentChanges: (p.contentChanges ?? []).map((c) => ({
+          text: c.text,
+          ...(c.range ? { range: c.range } : {}),
+          ...(c.rangeLength !== undefined
+            ? { rangeLength: c.rangeLength }
+            : {}),
+        })),
       });
     case 'documentSave':
       return new DispatchDocumentSave({
@@ -568,59 +553,50 @@ function buildDataOwnerMessage(
 
 function buildEnrichmentMessage(
   type: LSPRequestType,
-  p: Record<string, any>,
+  params: unknown,
 ): EnrichmentSearchRequest {
+  const p = params as EnrichmentParams;
   switch (type) {
     case 'hover':
       return new DispatchHover({
-        textDocument: { uri: p.textDocument?.uri },
-        position: {
-          line: p.position?.line,
-          character: p.position?.character,
-        },
+        textDocument: { uri: p.textDocument.uri },
+        position: (p as PositionBasedParams).position,
       });
     case 'definition':
       return new DispatchDefinition({
-        textDocument: { uri: p.textDocument?.uri },
-        position: {
-          line: p.position?.line,
-          character: p.position?.character,
-        },
+        textDocument: { uri: p.textDocument.uri },
+        position: (p as PositionBasedParams).position,
       });
-    case 'references':
+    case 'references': {
+      const r = p as PositionBasedParams;
       return new DispatchReferences({
-        textDocument: { uri: p.textDocument?.uri },
-        position: {
-          line: p.position?.line,
-          character: p.position?.character,
-        },
+        textDocument: { uri: r.textDocument.uri },
+        position: r.position,
         context: {
-          includeDeclaration: p.context?.includeDeclaration ?? false,
+          includeDeclaration: r.context?.includeDeclaration ?? false,
         },
       });
+    }
     case 'implementation':
       return new DispatchImplementation({
-        textDocument: { uri: p.textDocument?.uri },
-        position: {
-          line: p.position?.line,
-          character: p.position?.character,
-        },
+        textDocument: { uri: p.textDocument.uri },
+        position: (p as PositionBasedParams).position,
       });
     case 'documentSymbol':
       return new DispatchDocumentSymbol({
-        textDocument: { uri: p.textDocument?.uri },
+        textDocument: { uri: p.textDocument.uri },
       });
     case 'codeLens':
       return new DispatchCodeLens({
-        textDocument: { uri: p.textDocument?.uri },
+        textDocument: { uri: p.textDocument.uri },
       });
     case 'diagnostics':
       return new DispatchDiagnostic({
-        textDocument: { uri: p.textDocument?.uri },
+        textDocument: { uri: p.textDocument.uri },
       });
     default:
       return new DispatchGenericLspRequest({
-        requestType: type as any,
+        requestType: type,
         params: p,
       });
   }
