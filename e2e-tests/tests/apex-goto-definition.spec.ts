@@ -223,9 +223,9 @@ test.describe('Apex Go-to-Definition', () => {
       await apexEditor.goToDefinition();
     });
 
-    await test.step('Verify we stayed in the file', async () => {
-      // Go-to-definition on local variable should navigate within the same method
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+    await test.step('Verify navigation to variable declaration', async () => {
+      const content = await apexEditor.findAndGetViewportContent('accountMap');
+      expect(content).toMatch(/Map<Id,\s*Account>\s+accountMap/);
 
       console.log('✅ Navigated to local variable definition');
     });
@@ -236,15 +236,19 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should navigate to parameter definition', async ({ apexEditor }) => {
     await test.step('Position cursor on parameter usage in method body', async () => {
-      await apexEditor.positionCursorOnWord('inputAccounts');
+      // Line 59: validateAccounts(inputAccounts) — usage site, not declaration
+      await apexEditor.goToPosition(59, 25);
     });
 
     await test.step('Trigger go-to-definition', async () => {
       await apexEditor.goToDefinition();
     });
 
-    await test.step('Verify navigation', async () => {
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+    await test.step('Verify navigation to parameter declaration', async () => {
+      const content =
+        await apexEditor.findAndGetViewportContent('inputAccounts');
+      expect(content).toMatch(/inputAccounts/);
+      expect(content).toMatch(/processAccounts/);
 
       console.log('✅ Navigated to parameter definition');
     });
@@ -295,10 +299,9 @@ test.describe('Apex Go-to-Definition', () => {
       await apexEditor.goToDefinition();
     });
 
-    await test.step('Verify navigation or no error', async () => {
-      // Generic types may not have definitions in user code
-      // Just verify no crash occurred
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+    await test.step('Verify navigation to variable declaration', async () => {
+      const content = await apexEditor.findAndGetViewportContent('accounts');
+      expect(content).toMatch(/List<Account>\s+accounts/);
     });
   });
 
@@ -330,19 +333,30 @@ test.describe('Apex Go-to-Definition', () => {
     await test.step('First navigation', async () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
       await apexEditor.goToDefinition();
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content1 = await apexEditor.findAndGetViewportContent(
+        'public with sharing class ApexClassExample',
+      );
+      expect(content1).toMatch(
+        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
+      );
     });
 
     await test.step('Second navigation', async () => {
       await apexEditor.positionCursorOnWord('Configuration');
       await apexEditor.goToDefinition();
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content2 = await apexEditor.findAndGetViewportContent(
+        'public class Configuration',
+      );
+      expect(content2).toMatch(/public\s+class\s+Configuration/);
     });
 
     await test.step('Third navigation', async () => {
       await apexEditor.positionCursorOnWord('StatusType');
       await apexEditor.goToDefinition();
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content3 = await apexEditor.findAndGetViewportContent(
+        'public enum StatusType',
+      );
+      expect(content3).toMatch(/public\s+enum\s+StatusType/);
     });
 
     console.log('✅ Multiple sequential go-to-definitions succeeded');
@@ -363,7 +377,12 @@ test.describe('Apex Go-to-Definition', () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
       await apexEditor.goToDefinition();
 
-      expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content = await apexEditor.findAndGetViewportContent(
+        'public with sharing class ApexClassExample',
+      );
+      expect(content).toMatch(
+        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
+      );
 
       console.log('✅ Go-to-definition works after file edit');
     });
@@ -401,17 +420,18 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should handle this keyword appropriately', async ({ apexEditor }) => {
     await test.step('Position cursor on this keyword', async () => {
-      // Use 'this' alone; 'this.instanceId' is multi-word and unreliable via Find
-      await apexEditor.positionCursorOnWord('this');
+      // Line 24: this.instanceId = instanceId — 'this' usage in constructor
+      await apexEditor.goToPosition(24, 9);
     });
 
     await test.step('Trigger go-to-definition', async () => {
       await apexEditor.goToDefinition();
     });
 
-    await test.step('Verify stayed in file', async () => {
-      // 'this' should either navigate to class or stay in place
+    await test.step('Verify editor is still functional', async () => {
       expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content = await apexEditor.getContent();
+      expect(content.length).toBeGreaterThan(0);
     });
   });
 
@@ -433,6 +453,8 @@ test.describe('Apex Go-to-Definition', () => {
 
     await test.step('Verify editor is still functional', async () => {
       expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content = await apexEditor.getContent();
+      expect(content.length).toBeGreaterThan(0);
 
       console.log('✅ Gracefully handled definition not found');
     });
@@ -451,9 +473,9 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify no error', async () => {
-      // Standard types may not have definitions available
-      // Just verify no crash
       expect(await apexEditor.isApexFileOpen()).toBe(true);
+      const content = await apexEditor.getContent();
+      expect(content.length).toBeGreaterThan(0);
 
       console.log('✅ Handled standard Apex type');
     });
@@ -472,22 +494,9 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to base class from derived class', async ({
     apexEditor,
   }) => {
-    await test.step('Try to open inheritance test file', async () => {
-      try {
-        await apexEditor.openFile('AccountHandler.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened AccountHandler.cls test file');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log(
-          '⚠️ AccountHandler.cls not available, using default file',
-          errStr,
-        );
-        return; // Skip this test if file not available
-      }
+    await test.step('Open inheritance test file', async () => {
+      await apexEditor.openFile('AccountHandler.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Navigate from derived class to base', async () => {
@@ -509,17 +518,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     apexEditor,
   }) => {
     await test.step('Open inheritance test file', async () => {
-      try {
-        await apexEditor.openFile('AccountHandler.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ AccountHandler.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('AccountHandler.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Navigate to overridden execute method', async () => {
@@ -539,17 +539,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     apexEditor,
   }) => {
     await test.step('Open interface implementation test file', async () => {
-      try {
-        await apexEditor.openFile('AccountProcessor.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ AccountProcessor.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('AccountProcessor.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Navigate to interface definition', async () => {
@@ -571,17 +562,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     apexEditor,
   }) => {
     await test.step('Open interface implementation file', async () => {
-      try {
-        await apexEditor.openFile('AccountProcessor.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ AccountProcessor.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('AccountProcessor.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Navigate to processRecords method', async () => {
@@ -600,17 +582,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    */
   test('should navigate in complex class structure', async ({ apexEditor }) => {
     await test.step('Open complex class test file', async () => {
-      try {
-        await apexEditor.openFile('ComplexClass.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ ComplexClass.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('ComplexClass.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Navigate to inner class in complex file', async () => {
@@ -642,38 +615,23 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
-      try {
-        // Open the target file first so the LSP indexes it eagerly.
-        // Unlike extends-based references (which the LSP resolves structurally),
-        // method-call references like CrossFileUtility.formatName are resolved
-        // lazily and may not be indexed by hover warm-up alone.
-        await apexEditor.openFile('CrossFileUtility.cls');
-        await apexEditor.waitForLanguageServerReady();
-        await apexEditor.openFile('CrossFileCaller.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened CrossFileCaller.cls');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileCaller.cls not available', errStr);
-        return;
-      }
+      // Open the target file first so the LSP indexes it eagerly.
+      // Method-call references like CrossFileUtility.formatName are resolved
+      // lazily and may not be indexed by hover warm-up alone.
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('CrossFileCaller.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
       // The Apex LSP uses "missing artifact resolution" to lazily load cross-file
       // types. hoverAtWithResolution triggers this: first hover fires the resolver,
       // waits 3s for the background load, then re-hovers to confirm resolution.
-      // Without this warm-up, go-to-definition fires before the LSP has indexed
-      // CrossFileUtility.cls and returns no result.
       await hoverHelper.hoverAtWithResolution(11, 27);
-      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file class reference and go-to-definition', async () => {
-      // CrossFileUtility at line 11, col 27 in CrossFileCaller.cls
       await apexEditor.goToPosition(11, 27);
       await apexEditor.goToDefinition();
       await apexEditor.waitForNavigation('CrossFileCaller.cls', 15000);
@@ -682,10 +640,6 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         'public class CrossFileUtility',
       );
       expect(content).toMatch(/public\s+class\s+CrossFileUtility/);
-
-      console.log(
-        '✅ Navigated to CrossFileUtility in separate workspace file',
-      );
     });
   });
 
@@ -698,31 +652,17 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
-      try {
-        // Open the target file first so the LSP indexes it eagerly.
-        await apexEditor.openFile('CrossFileUtility.cls');
-        await apexEditor.waitForLanguageServerReady();
-        await apexEditor.openFile('CrossFileCaller.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileCaller.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('CrossFileCaller.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      // Same warm-up as the class test: hover triggers missing-artifact resolution
-      // so the LSP indexes CrossFileUtility.cls before go-to-definition fires.
       await hoverHelper.hoverAtWithResolution(11, 27);
-      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file method call and go-to-definition', async () => {
-      // formatName at line 11, col 44 in CrossFileCaller.cls
       await apexEditor.goToPosition(11, 44);
       await apexEditor.goToDefinition();
       await apexEditor.waitForNavigation('CrossFileCaller.cls', 15000);
@@ -731,8 +671,6 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         'public static String formatName',
       );
       expect(content).toMatch(/public\s+static\s+String\s+formatName/);
-
-      console.log('✅ Navigated to formatName in CrossFileUtility.cls');
     });
   });
 
@@ -745,28 +683,15 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
-      try {
-        await apexEditor.openFile('CrossFileChildClass.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened CrossFileChildClass.cls');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileChildClass.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      // CrossFileBaseClass at line 6, col 42 — trigger missing artifact resolution
       await hoverHelper.hoverAtWithResolution(6, 42);
-      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file base class reference and go-to-definition', async () => {
-      // CrossFileBaseClass at line 6, col 42 in CrossFileChildClass.cls
       await apexEditor.goToPosition(6, 42);
       await apexEditor.goToDefinition();
       await apexEditor.waitForNavigation('CrossFileChildClass.cls', 15000);
@@ -775,10 +700,6 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         'public virtual class CrossFileBaseClass',
       );
       expect(content).toMatch(/public\s+virtual\s+class\s+CrossFileBaseClass/);
-
-      console.log(
-        '✅ Navigated to CrossFileBaseClass in separate workspace file',
-      );
     });
   });
 
@@ -791,36 +712,23 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
-      try {
-        await apexEditor.openFile('CrossFileChildClass.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileChildClass.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      // Hover at base class reference (line 6, col 42) to trigger missing artifact resolution
+      // Hover at base class reference to trigger missing artifact resolution
       // for CrossFileBaseClass.cls, which is needed for getBaseName to resolve.
       await hoverHelper.hoverAtWithResolution(6, 42);
-      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Call getBaseName to reference inherited method across files', async () => {
-      // getBaseName at line 43, col 16 in CrossFileChildClass.cls
       await apexEditor.goToPosition(43, 16);
       await apexEditor.goToDefinition();
       await apexEditor.waitForNavigation('CrossFileChildClass.cls', 15000);
 
       const content = await apexEditor.findAndGetViewportContent('getBaseName');
       expect(content).toMatch(/public\s+String\s+getBaseName/);
-
-      console.log('✅ Navigated to inherited method in CrossFileBaseClass.cls');
     });
   });
 });

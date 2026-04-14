@@ -294,28 +294,14 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
-      try {
-        await apexEditor.openFile('CrossFileCaller.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened CrossFileCaller.cls');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileCaller.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileCaller.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file class reference', async () => {
-      // CrossFileUtility at line 11, col 27; hover twice for cross-file resolution
       const content = await hoverHelper.hoverAtWithResolution(11, 27);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
-      console.log(
-        '✅ Hover content shown for cross-file class CrossFileUtility',
-      );
     });
   });
 
@@ -328,25 +314,14 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
-      try {
-        await apexEditor.openFile('CrossFileCaller.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileCaller.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileCaller.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file static method reference', async () => {
-      // formatName at line 11, col 44; hover twice for cross-file resolution
       const content = await hoverHelper.hoverAtWithResolution(11, 44);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
-      console.log('✅ Hover content shown for cross-file method formatName');
     });
   });
 
@@ -359,28 +334,14 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
-      try {
-        await apexEditor.openFile('CrossFileChildClass.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened CrossFileChildClass.cls');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
-        return;
-      }
+      await apexEditor.openFile('CrossFileChildClass.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file base class reference', async () => {
-      // CrossFileBaseClass at line 6, col 42; hover twice for cross-file resolution
       const content = await hoverHelper.hoverAtWithResolution(6, 42);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
-      console.log(
-        '✅ Hover content shown for cross-file base class CrossFileBaseClass',
-      );
     });
   });
 });
