@@ -80,13 +80,13 @@ export function toDisplayFQN(fqn: string): string {
  * });
  * ```
  */
-export function calculateDisplayFQN(
+export async function calculateDisplayFQN(
   symbol: ApexSymbol,
   symbolManager: ISymbolManager,
   options?: FQNOptions,
-): string {
+): Promise<string> {
   // Get the full FQN from the symbol manager (includes block symbols)
-  const fullFQN = symbolManager.constructFQN(symbol, options);
+  const fullFQN = await symbolManager.constructFQN(symbol, options);
 
   // Transform to display FQN by removing block symbols
   return toDisplayFQN(fullFQN);

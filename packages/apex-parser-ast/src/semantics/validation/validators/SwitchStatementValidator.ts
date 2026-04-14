@@ -299,11 +299,11 @@ function extractWhenLiteralInfo(wl: WhenLiteralContext): WhenLiteralInfo {
 /**
  * Resolve type of an identifier (field, variable, enum value) - sync, same-file only
  */
-function resolveIdentifierType(
+async function resolveIdentifierType(
   identifierText: string,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
-): string | null {
+): Promise<string | null> {
   const trimmed = identifierText?.trim();
   if (!trimmed) {
     return null;
@@ -322,7 +322,7 @@ function resolveIdentifierType(
     return varSymbol.type?.name?.toLowerCase() ?? null;
   }
 
-  const found = symbolManager.findSymbolByName(trimmed);
+  const found = await symbolManager.findSymbolByName(trimmed);
   const enumVal = found.find(
     (s: ApexSymbol) => s.kind === SymbolKind.EnumValue,
   );
@@ -360,11 +360,11 @@ function isWhenTypeCompatible(whenType: string, switchType: string): boolean {
 /**
  * Find symbol by name in symbol table or symbol manager (handles fields in class scope)
  */
-function findSymbolForWhenIdentifier(
+async function findSymbolForWhenIdentifier(
   name: string,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
-): ApexSymbol | undefined {
+): Promise<ApexSymbol | undefined> {
   const nameLower = name.toLowerCase();
 
   // Try symbol table lookup first (finds variables, params in scope)
@@ -390,7 +390,7 @@ function findSymbolForWhenIdentifier(
   }
 
   // Try symbol manager (cross-file, e.g. enum values)
-  const found = symbolManager.findSymbolByName(name);
+  const found = await symbolManager.findSymbolByName(name);
   return found.find(
     (s: ApexSymbol) =>
       s.fileUri === fileUri &&
@@ -424,14 +424,14 @@ function validateWhenIdentifier(
     const nameLower = name.toLowerCase();
 
     // Look up in symbol table (field, variable, enum value)
-    const symbol = findSymbolForWhenIdentifier(
-      nameLower,
-      symbolTable,
-      symbolManager,
+    const symbol = yield* Effect.promise(() =>
+      findSymbolForWhenIdentifier(nameLower, symbolTable, symbolManager),
     );
     if (!symbol) {
       // Could be enum value from another type - try findSymbolByName
-      const found = symbolManager.findSymbolByName(trimmed);
+      const found = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(trimmed),
+      );
       const enumVal = found.find(
         (s: ApexSymbol) => s.kind === SymbolKind.EnumValue,
       );
@@ -764,10 +764,9 @@ export const SwitchStatementValidator: Validator = {
                 if (wl.literalType) {
                   whenType = wl.literalType;
                 } else if (wl.identifierText) {
-                  whenType = resolveIdentifierType(
-                    wl.identifierText,
-                    symbolTable,
-                    symbolManager,
+                  const idText = wl.identifierText;
+                  whenType = yield* Effect.promise(() =>
+                    resolveIdentifierType(idText, symbolTable, symbolManager),
                   );
                 }
                 if (whenType) {
@@ -928,7 +927,9 @@ function validateEnumSwitch(
     }
 
     const enumTypeName = typeInfo.resolvedType;
-    const enumSymbols = symbolManager.findSymbolByName(enumTypeName);
+    const enumSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(enumTypeName),
+    );
     const enumSymbol = enumSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Enum,
     ) as EnumSymbol | undefined;
@@ -1015,7 +1016,9 @@ function validateEnumSwitchText(
 
     // Check if the variable type is an enum
     const enumTypeName = varSymbol.type.name;
-    const enumSymbols = symbolManager.findSymbolByName(enumTypeName);
+    const enumSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(enumTypeName),
+    );
     const enumSymbol = enumSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Enum,
     ) as EnumSymbol | undefined;

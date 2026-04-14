@@ -474,7 +474,10 @@ function resolveTypeIfNeeded(
       // Step 2: Try to resolve the reference if not already resolved
       let resolvedSymbol: ApexSymbol | null = null;
       if (targetRef.resolvedSymbolId) {
-        resolvedSymbol = symbolManager.getSymbol(targetRef.resolvedSymbolId);
+        const targetRefId = targetRef.resolvedSymbolId;
+        resolvedSymbol = yield* Effect.promise(() =>
+          symbolManager.getSymbol(targetRefId),
+        );
       } else {
         // Reference not resolved yet - try to resolve it using symbolManager
         // For METHOD_CALL and FIELD_ACCESS, we need to find the symbol
@@ -492,8 +495,8 @@ function resolveTypeIfNeeded(
                 node.context === ReferenceContext.FIELD_ACCESS,
             );
             if (targetNode && targetNode.resolvedSymbolId) {
-              resolvedSymbol = symbolManager.getSymbol(
-                targetNode.resolvedSymbolId,
+              resolvedSymbol = yield* Effect.promise(() =>
+                symbolManager.getSymbol(targetNode.resolvedSymbolId),
               );
             } else if (targetNode && chainedRef.chainNodes.length >= 2) {
               // Chained reference: resolve qualifier first, then find member
@@ -502,12 +505,12 @@ function resolveTypeIfNeeded(
 
               // Resolve the qualifier (first node)
               if (firstNode.resolvedSymbolId) {
-                qualifierSymbol = symbolManager.getSymbol(
-                  firstNode.resolvedSymbolId,
+                qualifierSymbol = yield* Effect.promise(() =>
+                  symbolManager.getSymbol(firstNode.resolvedSymbolId),
                 );
               } else {
-                const qualifierSymbols = symbolManager.findSymbolByName(
-                  firstNode.name,
+                const qualifierSymbols = yield* Effect.promise(() =>
+                  symbolManager.findSymbolByName(firstNode.name),
                 );
                 qualifierSymbol =
                   qualifierSymbols.find((s) => isTypeSymbol(s)) || null;
@@ -524,8 +527,8 @@ function resolveTypeIfNeeded(
                   // Qualifier is a class - find method/field in that class
                   // Use findSymbolByName to search for the member
                   if (targetNode.context === ReferenceContext.METHOD_CALL) {
-                    const methodSymbols = symbolManager.findSymbolByName(
-                      targetNode.name,
+                    const methodSymbols = yield* Effect.promise(() =>
+                      symbolManager.findSymbolByName(targetNode.name),
                     );
                     resolvedSymbol =
                       methodSymbols.find(
@@ -537,8 +540,8 @@ function resolveTypeIfNeeded(
                   } else if (
                     targetNode.context === ReferenceContext.FIELD_ACCESS
                   ) {
-                    const fieldSymbols = symbolManager.findSymbolByName(
-                      targetNode.name,
+                    const fieldSymbols = yield* Effect.promise(() =>
+                      symbolManager.findSymbolByName(targetNode.name),
                     );
                     resolvedSymbol =
                       fieldSymbols.find(
@@ -556,8 +559,8 @@ function resolveTypeIfNeeded(
                   if (qualifierType.resolvedSymbol) {
                     const typeSymbol = qualifierType.resolvedSymbol;
                     if (targetNode.context === ReferenceContext.METHOD_CALL) {
-                      const methodSymbols = symbolManager.findSymbolByName(
-                        targetNode.name,
+                      const methodSymbols = yield* Effect.promise(() =>
+                        symbolManager.findSymbolByName(targetNode.name),
                       );
                       resolvedSymbol =
                         methodSymbols.find(
@@ -569,8 +572,8 @@ function resolveTypeIfNeeded(
                     } else if (
                       targetNode.context === ReferenceContext.FIELD_ACCESS
                     ) {
-                      const fieldSymbols = symbolManager.findSymbolByName(
-                        targetNode.name,
+                      const fieldSymbols = yield* Effect.promise(() =>
+                        symbolManager.findSymbolByName(targetNode.name),
                       );
                       resolvedSymbol =
                         fieldSymbols.find(
@@ -586,7 +589,9 @@ function resolveTypeIfNeeded(
               }
             } else if (targetNode) {
               // Single node or no qualifier - try to resolve by name
-              const symbols = symbolManager.findSymbolByName(targetNode.name);
+              const symbols = yield* Effect.promise(() =>
+                symbolManager.findSymbolByName(targetNode.name),
+              );
               if (targetRef.context === ReferenceContext.METHOD_CALL) {
                 resolvedSymbol =
                   symbols.find((s: ApexSymbol) => isMethodSymbol(s)) || null;
@@ -602,7 +607,9 @@ function resolveTypeIfNeeded(
             }
           } else {
             // Not a chained reference - try to resolve by name
-            const symbols = symbolManager.findSymbolByName(targetRef.name);
+            const symbols = yield* Effect.promise(() =>
+              symbolManager.findSymbolByName(targetRef.name),
+            );
             if (targetRef.context === ReferenceContext.METHOD_CALL) {
               resolvedSymbol =
                 symbols.find((s: ApexSymbol) => isMethodSymbol(s)) || null;
@@ -682,7 +689,9 @@ function resolveTypeIfNeeded(
     }
 
     // Step 3: Fallback to findSymbolByName if typeReferenceId not available or not resolved
-    const symbols = symbolManager.findSymbolByName(typeInfo.name);
+    const symbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(typeInfo.name),
+    );
     const typeSymbol = symbols.find((s) => isTypeSymbol(s)) as
       | TypeSymbol
       | undefined;

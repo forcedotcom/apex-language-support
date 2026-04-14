@@ -624,7 +624,9 @@ function findTypeSymbolByName(
     }
 
     // Try to find via symbol manager (cross-file)
-    const symbols = symbolManager.findSymbolByName(typeName);
+    const symbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(typeName),
+    );
     const typeSymbol = symbols.find(
       (s: ApexSymbol) =>
         s.kind === SymbolKind.Class ||
@@ -637,7 +639,9 @@ function findTypeSymbolByName(
     }
 
     // Try FQN lookup
-    const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
+    const fqnSymbol = yield* Effect.promise(() =>
+      symbolManager.findSymbolByFQN(typeName),
+    );
     if (
       fqnSymbol &&
       (fqnSymbol.kind === SymbolKind.Class ||

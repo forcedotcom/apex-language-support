@@ -234,40 +234,46 @@ describe('ResourceLoader Integration', () => {
       expect(symbolManager.isStandardApexClass('Error')).toBe(true);
     });
 
-    it('should find FQN for standard classes using findFQNForStandardClass', () => {
+    it('should find FQN for standard classes using findFQNForStandardClass', async () => {
       // Test the new findFQNForStandardClass function
       // This function should return the fully qualified name for namespace-less class names
 
       // Test namespace-less class names
-      expect(symbolManager.findFQNForStandardClass('Assert')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('Assert')).toBe(
         'System.Assert',
       );
-      expect(symbolManager.findFQNForStandardClass('Batchable')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('Batchable')).toBe(
         'Database.Batchable',
       );
-      expect(symbolManager.findFQNForStandardClass('Error')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('Error')).toBe(
         'ConnectApi.Error',
       );
-      expect(symbolManager.findFQNForStandardClass('System')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('System')).toBe(
         'System.System',
       );
-      expect(symbolManager.findFQNForStandardClass('ApexPages')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('ApexPages')).toBe(
         'System.ApexPages',
       );
-      expect(symbolManager.findFQNForStandardClass('Callable')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('Callable')).toBe(
         'System.Callable',
       );
 
       // Test that it returns null for non-existent classes
-      expect(symbolManager.findFQNForStandardClass('NonExistentClass')).toBe(
+      expect(
+        await symbolManager.findFQNForStandardClass('NonExistentClass'),
+      ).toBe(null);
+      expect(await symbolManager.findFQNForStandardClass('MyCustomClass')).toBe(
         null,
       );
-      expect(symbolManager.findFQNForStandardClass('MyCustomClass')).toBe(null);
 
       // Test that it returns FQN for standard classes (List, Map, String are standard Apex classes)
-      expect(symbolManager.findFQNForStandardClass('List')).toBe('System.List');
-      expect(symbolManager.findFQNForStandardClass('Map')).toBe('System.Map');
-      expect(symbolManager.findFQNForStandardClass('String')).toBe(
+      expect(await symbolManager.findFQNForStandardClass('List')).toBe(
+        'System.List',
+      );
+      expect(await symbolManager.findFQNForStandardClass('Map')).toBe(
+        'System.Map',
+      );
+      expect(await symbolManager.findFQNForStandardClass('String')).toBe(
         'System.String',
       );
     });

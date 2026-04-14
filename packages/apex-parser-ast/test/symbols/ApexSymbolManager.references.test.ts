@@ -51,9 +51,9 @@ describe('ApexSymbolManager Reference Processing', () => {
     symbolManager = new ApexSymbolManager();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (symbolManager) {
-      symbolManager.clear();
+      await symbolManager.clear();
     }
   });
 
@@ -124,7 +124,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       expect(typeDeclarationRefs.length).toBeGreaterThan(0);
 
       // Verify that references were processed into the graph
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalReferences).toBeGreaterThan(0);
 
       // Verify specific references exist
@@ -190,7 +190,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       expect(methodCallRefs.length).toBeGreaterThan(0);
 
       // Verify that the references were processed into the graph
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalReferences).toBeGreaterThan(0);
     });
 
@@ -290,7 +290,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Verify that the references were processed into the graph
       // Note: For complex this. expressions, some references might be deferred
       // but the main verification is that references were captured in the symbol table
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
 
       // Primary check: References should be in the graph if they were processed
       // However, for complex this. expressions, processing might be deferred
@@ -329,7 +329,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Should have VARIABLE_USAGE reference for "contacts" only
       const contactsRefs = references.filter(
@@ -367,7 +367,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Trailing dots may be captured for completion, but should not trigger resolution
       // The validation in resolveStandardLibraryType should prevent ResourceLoader calls
@@ -404,7 +404,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify that no references with invalid names exist
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
       const invalidNames = references.filter(
         (r) =>
           r.name.includes('[') ||
@@ -438,7 +438,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Find the ChainedSymbolReference for System.Url
       const systemUrlRefs = references.filter(
@@ -486,7 +486,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Find references - System.Assert should be captured as a chained expression
       // The System part should be resolvable as a built-in type using chain nodes
@@ -517,7 +517,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Find String type reference
       const stringRefs = references.filter(
@@ -560,7 +560,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const references = await symbolManager.getAllReferencesInFile(fileUri);
 
       // Find System.EncodingUtil.urlEncode chain
       const _longChainRefs = references.filter(

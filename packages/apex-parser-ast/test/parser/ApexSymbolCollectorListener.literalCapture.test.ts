@@ -47,8 +47,8 @@ describe('ApexSymbolCollectorListener - Literal Capture and Resolution', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   describe('Literal TypeInfo Linking', () => {
@@ -239,7 +239,7 @@ public class TestClass {
       expect(stringLiteralRef).toBeDefined();
 
       // String is a standard library type (resolved via ResourceLoader, not scalar keywords)
-      expect(symbolManager.isStandardLibraryType('String')).toBe(true);
+      expect(await symbolManager.isStandardLibraryType('String')).toBe(true);
 
       // Verify that LITERAL references exist and can be resolved to built-in types
       // The key verification is that:

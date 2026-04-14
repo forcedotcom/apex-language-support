@@ -147,7 +147,7 @@ export class HoverProcessingService implements IHoverProcessor {
       // Get TypeReferences at position first
       // This tells us if there's a parsed identifier at this position
       const referencesStartTime = Date.now();
-      const references = this.symbolManager.getReferencesAtPosition(
+      const references = await this.symbolManager.getReferencesAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
@@ -199,7 +199,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
       // Check if file has symbols indexed before lookup
       const fileSymbolsStartTime = Date.now();
-      const fileSymbols = this.symbolManager.findSymbolsInFile(
+      const fileSymbols = await this.symbolManager.findSymbolsInFile(
         params.textDocument.uri,
       );
       const fileSymbolsTime = Date.now() - fileSymbolsStartTime;
@@ -374,7 +374,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
           if (constructorCallRef) {
             // Try to find the constructor symbol for this class
-            const fileSymbols = this.symbolManager.findSymbolsInFile(
+            const fileSymbols = await this.symbolManager.findSymbolsInFile(
               params.textDocument.uri,
             );
             const constructorSymbol = fileSymbols.find(
@@ -525,14 +525,14 @@ export class HoverProcessingService implements IHoverProcessor {
           const documentText = document.getText();
 
           // Use the new ISymbolManager API for iterative enrichment
-          const symbolAfterEnrichment = await Effect.runPromise(
+          const symbolAfterEnrichmentOrPromise = await Effect.runPromise(
             this.symbolManager.resolveWithEnrichment(
               params.textDocument.uri,
               documentText,
-              () => {
+              async () => {
                 // Resolution function: try to find symbol at position
                 // This is called after each enrichment layer
-                const symbols = this.symbolManager.findSymbolsInFile(
+                const symbols = await this.symbolManager.findSymbolsInFile(
                   params.textDocument.uri,
                 );
 
@@ -587,7 +587,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 if (methodCallRef) {
                   // If the reference is already resolved, use the resolved symbol
                   if (methodCallRef.resolvedSymbolId) {
-                    const resolvedSymbol = this.symbolManager.getSymbol(
+                    const resolvedSymbol = await this.symbolManager.getSymbol(
                       methodCallRef.resolvedSymbolId,
                     );
                     if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
@@ -598,9 +598,10 @@ export class HoverProcessingService implements IHoverProcessor {
                   // If not resolved, try to find the method symbol by name
                   // This might be in the current file or in a standard library class
                   if (methodCallRef.name) {
-                    const methodSymbols = this.symbolManager.findSymbolByName(
-                      methodCallRef.name,
-                    );
+                    const methodSymbols =
+                      await this.symbolManager.findSymbolByName(
+                        methodCallRef.name,
+                      );
                     // Filter for method symbols
                     const methodCandidates = methodSymbols.filter((s) =>
                       isMethodSymbol(s),
@@ -613,7 +614,7 @@ export class HoverProcessingService implements IHoverProcessor {
                       methodCandidates.length > 0
                     ) {
                       const parentClassSymbols =
-                        this.symbolManager.findSymbolByName(
+                        await this.symbolManager.findSymbolByName(
                           methodCallRef.parentContext,
                         );
                       const parentClass = parentClassSymbols.find((c) =>
@@ -669,6 +670,7 @@ export class HoverProcessingService implements IHoverProcessor {
               },
             ),
           );
+          const symbolAfterEnrichment = await symbolAfterEnrichmentOrPromise;
 
           if (symbolAfterEnrichment) {
             this.logger.debug(
@@ -754,12 +756,12 @@ export class HoverProcessingService implements IHoverProcessor {
         if (document) {
           const documentText = document.getText();
 
-          const symbolAfterEnrichment = await Effect.runPromise(
+          const symbolAfterEnrichmentOrPromise2 = await Effect.runPromise(
             this.symbolManager.resolveWithEnrichment(
               params.textDocument.uri,
               documentText,
-              () => {
-                const symbols = this.symbolManager.findSymbolsInFile(
+              async () => {
+                const symbols = await this.symbolManager.findSymbolsInFile(
                   params.textDocument.uri,
                 );
 
@@ -792,6 +794,7 @@ export class HoverProcessingService implements IHoverProcessor {
               },
             ),
           );
+          const symbolAfterEnrichment = await symbolAfterEnrichmentOrPromise2;
 
           if (symbolAfterEnrichment) {
             this.logger.debug(
@@ -903,7 +906,7 @@ export class HoverProcessingService implements IHoverProcessor {
     // Construct display FQN (semantic hierarchy without block symbols) with original casing preserved
     // Always construct a new FQN with normalizeCase: false for display purposes,
     // even if symbol.fqn exists (which may be normalized to lowercase)
-    const fqn = calculateDisplayFQN(symbol, this.symbolManager, {
+    const fqn = await calculateDisplayFQN(symbol, this.symbolManager, {
       normalizeCase: false,
     });
 
@@ -917,7 +920,7 @@ export class HoverProcessingService implements IHoverProcessor {
         .join(', ');
 
       // Prefer a containing type-qualified name to make hover clearer for chained calls
-      const containingTypeName = this.findContainingTypeName(symbol);
+      const containingTypeName = await this.findContainingTypeName(symbol);
       const methodName = containingTypeName
         ? `${containingTypeName}.${symbol.name}`
         : fqn || symbol.name;
@@ -1016,10 +1019,11 @@ export class HoverProcessingService implements IHoverProcessor {
       }
 
       try {
-        const referencesTo = this.symbolManager.findReferencesTo(symbol);
-        const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+        const referencesTo = await this.symbolManager.findReferencesTo(symbol);
+        const referencesFrom =
+          await this.symbolManager.findReferencesFrom(symbol);
         const dependencyAnalysis =
-          this.symbolManager.analyzeDependencies(symbol);
+          await this.symbolManager.analyzeDependencies(symbol);
         const totalReferences = referencesTo.length + referencesFrom.length;
 
         if (
@@ -1204,13 +1208,15 @@ export class HoverProcessingService implements IHoverProcessor {
    * Returns the FQN (including namespace) of the containing type for proper display.
    * symbol.parent may point to a block; this climbs until it finds a type.
    */
-  private findContainingTypeName(symbol: ApexSymbol): string | null {
+  private async findContainingTypeName(
+    symbol: ApexSymbol,
+  ): Promise<string | null> {
     try {
       // Fast path: try symbolManager helper first
-      const containing = this.symbolManager.getContainingType(symbol);
+      const containing = await this.symbolManager.getContainingType(symbol);
       if (containing) {
         // Use FQN to include namespace (e.g., "System.Assert" instead of just "Assert")
-        const containingFQN = calculateDisplayFQN(
+        const containingFQN = await calculateDisplayFQN(
           containing,
           this.symbolManager,
           {
@@ -1226,7 +1232,7 @@ export class HoverProcessingService implements IHoverProcessor {
       while (current?.parentId) {
         if (visited.has(current.parentId)) break;
         visited.add(current.parentId);
-        const parent = this.symbolManager.getSymbol(current.parentId);
+        const parent = await this.symbolManager.getSymbol(current.parentId);
         if (!parent) break;
 
         if (
@@ -1235,9 +1241,13 @@ export class HoverProcessingService implements IHoverProcessor {
           isEnumSymbol(parent)
         ) {
           // Use FQN to include namespace
-          const parentFQN = calculateDisplayFQN(parent, this.symbolManager, {
-            normalizeCase: false,
-          });
+          const parentFQN = await calculateDisplayFQN(
+            parent,
+            this.symbolManager,
+            {
+              normalizeCase: false,
+            },
+          );
           return parentFQN || parent.name || null;
         }
 
@@ -1248,17 +1258,17 @@ export class HoverProcessingService implements IHoverProcessor {
       if (symbol.fileUri && symbol.location?.symbolRange) {
         const { startLine, endLine, startColumn, endColumn } =
           symbol.location.symbolRange;
-        const candidates = this.symbolManager
-          .findSymbolsInFile(symbol.fileUri)
-          .filter(
-            (s) =>
-              (isClassSymbol(s) || isInterfaceSymbol(s) || isEnumSymbol(s)) &&
-              s.location?.symbolRange &&
-              s.location.symbolRange.startLine <= startLine &&
-              s.location.symbolRange.endLine >= endLine &&
-              s.location.symbolRange.startColumn <= startColumn &&
-              s.location.symbolRange.endColumn >= endColumn,
-          );
+        const candidates = (
+          await this.symbolManager.findSymbolsInFile(symbol.fileUri)
+        ).filter(
+          (s) =>
+            (isClassSymbol(s) || isInterfaceSymbol(s) || isEnumSymbol(s)) &&
+            s.location?.symbolRange &&
+            s.location.symbolRange.startLine <= startLine &&
+            s.location.symbolRange.endLine >= endLine &&
+            s.location.symbolRange.startColumn <= startColumn &&
+            s.location.symbolRange.endColumn >= endColumn,
+        );
 
         if (candidates.length > 0) {
           // Choose the smallest enclosing range (most specific containing type)
@@ -1276,9 +1286,13 @@ export class HoverProcessingService implements IHoverProcessor {
 
           if (best) {
             // Use FQN to include namespace
-            const bestFQN = calculateDisplayFQN(best, this.symbolManager, {
-              normalizeCase: false,
-            });
+            const bestFQN = await calculateDisplayFQN(
+              best,
+              this.symbolManager,
+              {
+                normalizeCase: false,
+              },
+            );
             return bestFQN || best.name || null;
           }
         }

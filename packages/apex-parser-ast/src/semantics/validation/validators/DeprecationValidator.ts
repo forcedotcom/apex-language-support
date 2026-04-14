@@ -57,62 +57,117 @@ function loadCrossFileDeprecatedTypes(
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
   deprecatedTypes: Set<string>,
-): void {
-  // Get all type references from the symbol table
-  const allSymbols = symbolTable.getAllSymbols();
-  const typeNames = new Set<string>();
+): Effect.Effect<void, never, never> {
+  return Effect.gen(function* () {
+    // Get all type references from the symbol table
+    const allSymbols = symbolTable.getAllSymbols();
+    const typeNames = new Set<string>();
 
-  // Collect type names from method return types and parameters
-  for (const symbol of allSymbols) {
-    if (symbol.kind === SymbolKind.Method) {
-      const method = symbol as MethodSymbol;
-      if (method.returnType?.name) {
-        const returnTypeName = method.returnType.name.toLowerCase();
-        typeNames.add(returnTypeName);
-        // Also try original case in case findSymbolByName needs it
-        if (method.returnType.name !== returnTypeName) {
-          typeNames.add(method.returnType.name);
+    // Collect type names from method return types and parameters
+    for (const symbol of allSymbols) {
+      if (symbol.kind === SymbolKind.Method) {
+        const method = symbol as MethodSymbol;
+        if (method.returnType?.name) {
+          const returnTypeName = method.returnType.name.toLowerCase();
+          typeNames.add(returnTypeName);
+          // Also try original case in case findSymbolByName needs it
+          if (method.returnType.name !== returnTypeName) {
+            typeNames.add(method.returnType.name);
+          }
         }
-      }
-      if (method.parameters) {
-        for (const param of method.parameters) {
-          if (param.type?.name) {
-            const paramTypeName = param.type.name.toLowerCase();
-            typeNames.add(paramTypeName);
-            // Also try original case
-            if (param.type.name !== paramTypeName) {
-              typeNames.add(param.type.name);
+        if (method.parameters) {
+          for (const param of method.parameters) {
+            if (param.type?.name) {
+              const paramTypeName = param.type.name.toLowerCase();
+              typeNames.add(paramTypeName);
+              // Also try original case
+              if (param.type.name !== paramTypeName) {
+                typeNames.add(param.type.name);
+              }
             }
           }
         }
-      }
-    } else if (
-      symbol.kind === SymbolKind.Field ||
-      symbol.kind === SymbolKind.Property
-    ) {
-      const field = symbol as VariableSymbol;
-      if (field.type?.name) {
-        const fieldTypeName = field.type.name.toLowerCase();
-        typeNames.add(fieldTypeName);
-        // Also try original case
-        if (field.type.name !== fieldTypeName) {
-          typeNames.add(field.type.name);
+      } else if (
+        symbol.kind === SymbolKind.Field ||
+        symbol.kind === SymbolKind.Property
+      ) {
+        const field = symbol as VariableSymbol;
+        if (field.type?.name) {
+          const fieldTypeName = field.type.name.toLowerCase();
+          typeNames.add(fieldTypeName);
+          // Also try original case
+          if (field.type.name !== fieldTypeName) {
+            typeNames.add(field.type.name);
+          }
         }
       }
     }
-  }
 
-  // Check each type to see if it's deprecated in another file
-  for (const typeName of typeNames) {
-    // Normalize type name to lowercase for consistent comparison
-    const normalizedTypeName = typeName.toLowerCase();
+    // Check each type to see if it's deprecated in another file
+    for (const typeName of typeNames) {
+      // Normalize type name to lowercase for consistent comparison
+      const normalizedTypeName = typeName.toLowerCase();
 
-    // Skip if we already know it's deprecated (same file) - check normalized version
-    if (deprecatedTypes.has(normalizedTypeName)) {
-      continue;
+      // Skip if we already know it's deprecated (same file) - check normalized version
+      if (deprecatedTypes.has(normalizedTypeName)) {
+        continue;
+      }
+
+      // Skip primitive types and system types
+      const primitiveTypes = [
+        'integer',
+        'long',
+        'double',
+        'decimal',
+        'string',
+        'boolean',
+        'date',
+        'datetime',
+        'id',
+        'blob',
+        'object',
+      ];
+      if (primitiveTypes.includes(normalizedTypeName)) {
+        continue;
+      }
+
+      // Try to find the type in other files
+      // findSymbolByName is case-insensitive, so either case should work
+      const foundSymbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(typeName),
+      );
+      const foundSymbol = foundSymbols.find(
+        (s) =>
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum,
+      ) as TypeSymbol | undefined;
+
+      if (foundSymbol && hasDeprecatedAnnotation(foundSymbol)) {
+        deprecatedTypes.add(normalizedTypeName);
+      }
+    }
+  });
+}
+
+/**
+ * Check if a type is deprecated (TIER 2)
+ * Checks both same-file and cross-file types
+ */
+function checkIfTypeIsDeprecated(
+  typeName: string,
+  symbolManager: ISymbolManagerInterface,
+  deprecatedTypes: Set<string>,
+): Effect.Effect<boolean, never, never> {
+  return Effect.gen(function* () {
+    const normalizedName = typeName.toLowerCase();
+
+    // Check if already in deprecated types set (same file)
+    if (deprecatedTypes.has(normalizedName)) {
+      return true;
     }
 
-    // Skip primitive types and system types
+    // Skip primitive types
     const primitiveTypes = [
       'integer',
       'long',
@@ -126,13 +181,15 @@ function loadCrossFileDeprecatedTypes(
       'blob',
       'object',
     ];
-    if (primitiveTypes.includes(normalizedTypeName)) {
-      continue;
+    if (primitiveTypes.includes(normalizedName)) {
+      return false;
     }
 
     // Try to find the type in other files
     // findSymbolByName is case-insensitive, so either case should work
-    const foundSymbols = symbolManager.findSymbolByName(typeName);
+    const foundSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(typeName),
+    );
     const foundSymbol = foundSymbols.find(
       (s) =>
         s.kind === SymbolKind.Class ||
@@ -141,61 +198,12 @@ function loadCrossFileDeprecatedTypes(
     ) as TypeSymbol | undefined;
 
     if (foundSymbol && hasDeprecatedAnnotation(foundSymbol)) {
-      deprecatedTypes.add(normalizedTypeName);
+      deprecatedTypes.add(normalizedName);
+      return true;
     }
-  }
-}
 
-/**
- * Check if a type is deprecated (TIER 2)
- * Checks both same-file and cross-file types
- */
-function checkIfTypeIsDeprecated(
-  typeName: string,
-  symbolManager: ISymbolManagerInterface,
-  deprecatedTypes: Set<string>,
-): boolean {
-  const normalizedName = typeName.toLowerCase();
-
-  // Check if already in deprecated types set (same file)
-  if (deprecatedTypes.has(normalizedName)) {
-    return true;
-  }
-
-  // Skip primitive types
-  const primitiveTypes = [
-    'integer',
-    'long',
-    'double',
-    'decimal',
-    'string',
-    'boolean',
-    'date',
-    'datetime',
-    'id',
-    'blob',
-    'object',
-  ];
-  if (primitiveTypes.includes(normalizedName)) {
     return false;
-  }
-
-  // Try to find the type in other files
-  // findSymbolByName is case-insensitive, so either case should work
-  const foundSymbols = symbolManager.findSymbolByName(typeName);
-  const foundSymbol = foundSymbols.find(
-    (s) =>
-      s.kind === SymbolKind.Class ||
-      s.kind === SymbolKind.Interface ||
-      s.kind === SymbolKind.Enum,
-  ) as TypeSymbol | undefined;
-
-  if (foundSymbol && hasDeprecatedAnnotation(foundSymbol)) {
-    deprecatedTypes.add(normalizedName);
-    return true;
-  }
-
-  return false;
+  });
 }
 
 /**
@@ -256,7 +264,7 @@ export const DeprecationValidator: Validator = {
         options.tier === ValidationTier.THOROUGH &&
         options.allowArtifactLoading
       ) {
-        loadCrossFileDeprecatedTypes(
+        yield* loadCrossFileDeprecatedTypes(
           symbolTable,
           symbolManager,
           deprecatedTypes,
@@ -301,13 +309,13 @@ export const DeprecationValidator: Validator = {
             options.allowArtifactLoading
           ) {
             // Try checking with the original case first, then lowercase
-            isReturnTypeDeprecated = checkIfTypeIsDeprecated(
+            isReturnTypeDeprecated = yield* checkIfTypeIsDeprecated(
               method.returnType.name,
               symbolManager,
               deprecatedTypes,
             );
             if (!isReturnTypeDeprecated) {
-              isReturnTypeDeprecated = checkIfTypeIsDeprecated(
+              isReturnTypeDeprecated = yield* checkIfTypeIsDeprecated(
                 returnTypeName,
                 symbolManager,
                 deprecatedTypes,
@@ -338,7 +346,7 @@ export const DeprecationValidator: Validator = {
                 options.tier === ValidationTier.THOROUGH &&
                 options.allowArtifactLoading
               ) {
-                isParamTypeDeprecated = checkIfTypeIsDeprecated(
+                isParamTypeDeprecated = yield* checkIfTypeIsDeprecated(
                   paramTypeName,
                   symbolManager,
                   deprecatedTypes,
@@ -394,7 +402,7 @@ export const DeprecationValidator: Validator = {
             options.tier === ValidationTier.THOROUGH &&
             options.allowArtifactLoading
           ) {
-            isFieldTypeDeprecated = checkIfTypeIsDeprecated(
+            isFieldTypeDeprecated = yield* checkIfTypeIsDeprecated(
               fieldTypeName,
               symbolManager,
               deprecatedTypes,
@@ -447,7 +455,7 @@ export const DeprecationValidator: Validator = {
             options.tier === ValidationTier.THOROUGH &&
             options.allowArtifactLoading
           ) {
-            isFieldTypeDeprecated = checkIfTypeIsDeprecated(
+            isFieldTypeDeprecated = yield* checkIfTypeIsDeprecated(
               fieldTypeName,
               symbolManager,
               deprecatedTypes,

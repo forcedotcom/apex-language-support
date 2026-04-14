@@ -536,8 +536,9 @@ export const VariableResolutionValidator: Validator = {
           }
 
           if (objectName) {
+            const objName = objectName;
             let objectVariable = findVariableInScope(
-              objectName,
+              objName,
               fieldRef.parentContext,
               allSymbols,
               symbolTable,
@@ -550,22 +551,28 @@ export const VariableResolutionValidator: Validator = {
             if (!objectVariable) {
               // "this" and containing class name are deterministic - don't suppress
               const isThisOrClassName =
-                objectName?.toLowerCase() === 'this' ||
-                objectName === containingClass?.name;
+                objName?.toLowerCase() === 'this' ||
+                objName === containingClass?.name;
               if (!isThisOrClassName) {
-                let typeSymbols = symbolManager.findSymbolByName(objectName);
+                let typeSymbols = yield* Effect.promise(() =>
+                  symbolManager.findSymbolByName(objName),
+                );
                 if (
                   typeSymbols.length === 0 &&
-                  objectName.includes('.') &&
+                  objName.includes('.') &&
                   symbolManager.findSymbolByFQN
                 ) {
-                  const fqn = symbolManager.findSymbolByFQN(objectName);
+                  const fqn = yield* Effect.promise(() =>
+                    symbolManager.findSymbolByFQN(objName),
+                  );
                   if (fqn) typeSymbols = [fqn];
                 }
-                if (typeSymbols.length === 0 && objectName.includes('.')) {
-                  const lastPart = objectName.split('.').pop();
+                if (typeSymbols.length === 0 && objName.includes('.')) {
+                  const lastPart = objName.split('.').pop();
                   if (lastPart) {
-                    typeSymbols = symbolManager.findSymbolByName(lastPart);
+                    typeSymbols = yield* Effect.promise(() =>
+                      symbolManager.findSymbolByName(lastPart),
+                    );
                   }
                 }
                 const resolvedType =
@@ -577,7 +584,7 @@ export const VariableResolutionValidator: Validator = {
                 if (resolvedType) {
                   targetType = yield* resolveTargetTypeWithArrayAccess(
                     resolvedType,
-                    objectName,
+                    objName,
                     fieldRef,
                     options.sourceContent,
                     symbolManager,
@@ -613,19 +620,25 @@ export const VariableResolutionValidator: Validator = {
               const varTypeName = objectVariable.type.name;
               const fullTypeStr =
                 objectVariable.type.originalTypeString || varTypeName;
-              let typeSymbols = symbolManager.findSymbolByName(varTypeName);
+              let typeSymbols = yield* Effect.promise(() =>
+                symbolManager.findSymbolByName(varTypeName),
+              );
               if (
                 typeSymbols.length === 0 &&
                 varTypeName.includes('.') &&
                 symbolManager.findSymbolByFQN
               ) {
-                const fqn = symbolManager.findSymbolByFQN(varTypeName);
+                const fqn = yield* Effect.promise(() =>
+                  symbolManager.findSymbolByFQN(varTypeName),
+                );
                 if (fqn) typeSymbols = [fqn];
               }
               if (typeSymbols.length === 0 && varTypeName.includes('.')) {
                 const lastPart = varTypeName.split('.').pop();
                 if (lastPart) {
-                  typeSymbols = symbolManager.findSymbolByName(lastPart);
+                  typeSymbols = yield* Effect.promise(() =>
+                    symbolManager.findSymbolByName(lastPart),
+                  );
                 }
               }
               let resolvedTargetType =
@@ -818,19 +831,25 @@ export const VariableResolutionValidator: Validator = {
               );
               if (objectVariable?.type?.name) {
                 const varTypeName = objectVariable.type.name;
-                let typeSymbols = symbolManager.findSymbolByName(varTypeName);
+                let typeSymbols = yield* Effect.promise(() =>
+                  symbolManager.findSymbolByName(varTypeName),
+                );
                 if (
                   typeSymbols.length === 0 &&
                   varTypeName.includes('.') &&
                   symbolManager.findSymbolByFQN
                 ) {
-                  const fqn = symbolManager.findSymbolByFQN(varTypeName);
+                  const fqn = yield* Effect.promise(() =>
+                    symbolManager.findSymbolByFQN(varTypeName),
+                  );
                   if (fqn) typeSymbols = [fqn];
                 }
                 if (typeSymbols.length === 0 && varTypeName.includes('.')) {
                   const lastPart = varTypeName.split('.').pop();
                   if (lastPart)
-                    typeSymbols = symbolManager.findSymbolByName(lastPart);
+                    typeSymbols = yield* Effect.promise(() =>
+                      symbolManager.findSymbolByName(lastPart),
+                    );
                 }
                 const resolvedTargetType =
                   (typeSymbols.find(
@@ -977,18 +996,25 @@ function resolveChainTargetType(
     );
     if (firstVar?.type?.name) {
       const typeName = firstVar.type.name;
-      let typeSymbols = symbolManager.findSymbolByName(typeName);
+      let typeSymbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(typeName),
+      );
       if (
         typeSymbols.length === 0 &&
         typeName.includes('.') &&
         symbolManager.findSymbolByFQN
       ) {
-        const fqn = symbolManager.findSymbolByFQN(typeName);
+        const fqn = yield* Effect.promise(() =>
+          symbolManager.findSymbolByFQN(typeName),
+        );
         if (fqn) typeSymbols = [fqn];
       }
       if (typeSymbols.length === 0 && typeName.includes('.')) {
         const lastPart = typeName.split('.').pop();
-        if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
+        if (lastPart)
+          typeSymbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(lastPart),
+          );
       }
       currentType =
         (typeSymbols.find(
@@ -998,13 +1024,17 @@ function resolveChainTargetType(
     }
     // When first node is a class name (e.g. EncodingUtil), resolve via symbol manager
     if (!currentType && !firstVar) {
-      let typeSymbols = symbolManager.findSymbolByName(firstNode.name);
+      let typeSymbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(firstNode.name),
+      );
       if (typeSymbols.length === 0 && symbolManager.findSymbolByFQN) {
         const candidates = firstNode.name.includes('.')
           ? [firstNode.name]
           : getImplicitQualifiedCandidates(firstNode.name);
         for (const candidate of candidates) {
-          const fqnSymbol = symbolManager.findSymbolByFQN(candidate);
+          const fqnSymbol = yield* Effect.promise(() =>
+            symbolManager.findSymbolByFQN(candidate),
+          );
           if (fqnSymbol) {
             typeSymbols = [fqnSymbol];
             break;
@@ -1013,7 +1043,10 @@ function resolveChainTargetType(
       }
       if (typeSymbols.length === 0 && firstNode.name.includes('.')) {
         const lastPart = firstNode.name.split('.').pop();
-        if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
+        if (lastPart)
+          typeSymbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(lastPart),
+          );
       }
       currentType =
         (typeSymbols.find(
@@ -1035,7 +1068,9 @@ function resolveChainTargetType(
       );
       if (!method?.returnType?.name) return null;
       const returnTypeName = method.returnType.name;
-      const typeSymbols = symbolManager.findSymbolByName(returnTypeName);
+      const typeSymbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(returnTypeName),
+      );
       const nextType = typeSymbols.find(
         (s: ApexSymbol) =>
           s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
@@ -1058,8 +1093,9 @@ function findMethodInClassHierarchy(
   allSymbols: ApexSymbol[],
 ): Effect.Effect<MethodSymbol | null, never, never> {
   return Effect.gen(function* () {
-    const allSymbolsForCompletion =
-      symbolManager.getAllSymbolsForCompletion?.() ?? [];
+    const allSymbolsForCompletion = symbolManager.getAllSymbolsForCompletion
+      ? yield* Effect.promise(() => symbolManager.getAllSymbolsForCompletion())
+      : [];
     const combined = [
       ...allSymbols,
       ...allSymbolsForCompletion.filter(
@@ -1086,8 +1122,8 @@ function findMethodInClassHierarchy(
     if (method) return method;
 
     if (classSymbol.superClass) {
-      const superSymbols = symbolManager.findSymbolByName(
-        classSymbol.superClass,
+      const superSymbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(classSymbol.superClass!),
       );
       const superClass = superSymbols.find(
         (s: ApexSymbol) =>
@@ -1129,7 +1165,9 @@ function resolveTargetTypeWithArrayAccess(
     if (!hasArrayAccess || !isListOrSet) return targetType;
     const elementType = extractElementTypeFromCollection(variableTypeName);
     if (!elementType) return targetType;
-    const elementSymbols = symbolManager.findSymbolByName(elementType);
+    const elementSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(elementType),
+    );
     const elementTypeSymbol = elementSymbols.find(
       (s: ApexSymbol) =>
         s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
@@ -1301,7 +1339,7 @@ function findFieldInHierarchy(
   return Effect.gen(function* () {
     // Get all symbols across all files for cross-file resolution
     const allSymbolsForCompletion = symbolManager.getAllSymbolsForCompletion
-      ? symbolManager.getAllSymbolsForCompletion()
+      ? yield* Effect.promise(() => symbolManager.getAllSymbolsForCompletion())
       : [];
     // Combine with current file symbols (current file takes precedence)
     const combinedSymbols = [
@@ -1378,7 +1416,9 @@ function findFieldInSuperclass(
 ): Effect.Effect<VariableSymbol | null, never, never> {
   return Effect.gen(function* () {
     // Find the superclass type symbol
-    const superClassSymbols = symbolManager.findSymbolByName(superClassName);
+    const superClassSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(superClassName),
+    );
     const superClassSymbol = superClassSymbols.find(
       (s: ApexSymbol) =>
         s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
@@ -1390,7 +1430,9 @@ function findFieldInSuperclass(
     }
 
     // Get all symbols for completion to find fields
-    const allSymbols = symbolManager.getAllSymbolsForCompletion();
+    const allSymbols = yield* Effect.promise(() =>
+      symbolManager.getAllSymbolsForCompletion(),
+    );
 
     // Find fields in the superclass
     const superClassFields = findFieldsInClass(superClassSymbol, allSymbols);
@@ -1440,10 +1482,8 @@ function isVariableVisible(
     }
 
     // Find the declaring class for this field
-    const declaringClass = findDeclaringClassForVariable(
-      variable,
-      allSymbols,
-      symbolManager,
+    const declaringClass = yield* Effect.promise(() =>
+      findDeclaringClassForVariable(variable, allSymbols, symbolManager),
     );
     if (!declaringClass) {
       // Can't determine declaring class - assume visible (conservative)
@@ -1460,7 +1500,9 @@ function isVariableVisible(
       // @TestVisible allows test classes to access private/protected members
       if (
         AnnotationUtils.hasAnnotation(variable, 'TestVisible') &&
-        isInTestContext(callingClass, allSymbols, symbolManager)
+        (yield* Effect.promise(() =>
+          isInTestContext(callingClass, allSymbols, symbolManager),
+        ))
       ) {
         return true;
       }
@@ -1476,16 +1518,16 @@ function isVariableVisible(
 
       // Check if calling class extends declaring class
       if (
-        isSubclassOf(callingClass, declaringClass, symbolManager, allSymbols)
+        yield* Effect.promise(() =>
+          isSubclassOf(callingClass, declaringClass, symbolManager, allSymbols),
+        )
       ) {
         return true;
       }
 
       // Check if calling class is an inner class whose enclosing class is the declaring class
-      const enclosingClass = getEnclosingClass(
-        callingClass,
-        allSymbols,
-        symbolManager,
+      const enclosingClass = yield* Effect.promise(() =>
+        getEnclosingClass(callingClass, allSymbols, symbolManager),
       );
       if (enclosingClass && enclosingClass.id === declaringClass.id) {
         return true;
@@ -1494,7 +1536,9 @@ function isVariableVisible(
       // @TestVisible allows test classes to access private/protected members
       if (
         AnnotationUtils.hasAnnotation(variable, 'TestVisible') &&
-        isInTestContext(callingClass, allSymbols, symbolManager)
+        (yield* Effect.promise(() =>
+          isInTestContext(callingClass, allSymbols, symbolManager),
+        ))
       ) {
         return true;
       }
@@ -1510,13 +1554,15 @@ function isVariableVisible(
 /**
  * Find the declaring class for a variable/field
  */
-function findDeclaringClassForVariable(
+async function findDeclaringClassForVariable(
   variable: VariableSymbol,
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
-): TypeSymbol | null {
-  const resolveParent = (id: string): ApexSymbol | null =>
-    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
+): Promise<TypeSymbol | null> {
+  const resolveParent = async (id: string): Promise<ApexSymbol | null> =>
+    allSymbols.find((s) => s.id === id) ??
+    (await symbolManager.getSymbol(id)) ??
+    null;
 
   let current: ApexSymbol | null = variable;
   while (current) {
@@ -1527,7 +1573,7 @@ function findDeclaringClassForVariable(
       return current as TypeSymbol;
     }
     if (current.parentId) {
-      const parent = resolveParent(current.parentId);
+      const parent = await resolveParent(current.parentId);
       if (
         parent &&
         (parent.kind === SymbolKind.Class ||
@@ -1537,7 +1583,7 @@ function findDeclaringClassForVariable(
       }
       // If parent is a block, check its parent
       if (parent && isBlockSymbol(parent) && parent.parentId) {
-        const grandParent = resolveParent(parent.parentId);
+        const grandParent = await resolveParent(parent.parentId);
         if (
           grandParent &&
           (grandParent.kind === SymbolKind.Class ||
@@ -1558,12 +1604,12 @@ function findDeclaringClassForVariable(
 /**
  * Check if a class is a subclass of another class
  */
-function isSubclassOf(
+async function isSubclassOf(
   childClass: TypeSymbol,
   parentClass: TypeSymbol,
   symbolManager: ISymbolManagerInterface,
   allSymbols: ApexSymbol[],
-): boolean {
+): Promise<boolean> {
   // Check direct superclass
   if (childClass.superClass === parentClass.name) {
     return true;
@@ -1571,7 +1617,7 @@ function isSubclassOf(
 
   // Check if child's superclass extends parent (recursive)
   if (childClass.superClass) {
-    const superClassSymbols = symbolManager.findSymbolByName(
+    const superClassSymbols = await symbolManager.findSymbolByName(
       childClass.superClass,
     );
     const superClassSymbol = superClassSymbols.find(

@@ -732,7 +732,9 @@ function resolveTestForTypes(
 
     // Try to find types in symbol manager
     for (const ref of references) {
-      const symbols = symbolManager.findSymbolByName(ref.typeName);
+      const symbols = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(ref.typeName),
+      );
       const expectedKind =
         ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
 
@@ -766,7 +768,9 @@ function resolveTestForTypes(
       for (const typeName of loadResult.loaded) {
         const ref = references.find((r) => r.typeName === typeName);
         if (ref) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const expectedKind =
             ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
           const found = symbols.find(

@@ -74,8 +74,8 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (fileName: string = 'ChainedMethodParams.cls') => {
@@ -131,7 +131,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
       const testClassUri = await addTestClass();
 
       // Find the chained expression reference
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -160,7 +160,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve middle node (getOrgDomainUrl) in URL.getOrgDomainUrl().toExternalForm()', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -187,7 +187,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve last node (toExternalForm) in URL.getOrgDomainUrl().toExternalForm()', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -216,7 +216,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chained call when used as first parameter', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -244,7 +244,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chained call when used as middle parameter', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -271,7 +271,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chained call when used as last parameter', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -300,7 +300,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve both chained calls when multiple chains are parameters', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find both chained expressions
       const urlChainRef = refs.find(
@@ -361,7 +361,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chained call in static method parameter', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -390,7 +390,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chained call in constructor parameter', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) => r.name === 'URL.getOrgDomainUrl.toExternalForm',
       );
@@ -419,7 +419,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve nested chained call', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
         (r) =>
           r.name === 'Account.SObjectType.getDescribe.getLabel.toLowerCase',
@@ -459,7 +459,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve deeply nested chained calls a.b(c.d(e.f()).g.h()).i(j())', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the outer chain: chainA.b(...).i(...)
       // The chain should be: chainA.b.chainC.d.chainE.f.g.h.i.chainJ.j
@@ -521,7 +521,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     it('should resolve chain that continues after method call with parameter a.b.c(d()).e', async () => {
       const testClassUri = await addTestClass();
 
-      const refs = symbolManager.getAllReferencesInFile(testClassUri);
+      const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
       // The chain structure might vary - check for various possible chain names
       // The parser might create separate chains when entering parameter lists

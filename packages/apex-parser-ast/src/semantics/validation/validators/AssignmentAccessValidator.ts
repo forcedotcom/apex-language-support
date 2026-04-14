@@ -176,7 +176,10 @@ function validateFieldWriteAccess(
       return;
     }
 
-    const fieldSymbol = symbolManager.getSymbol(ref.resolvedSymbolId);
+    const resolvedId = ref.resolvedSymbolId;
+    const fieldSymbol = yield* Effect.promise(() =>
+      symbolManager.getSymbol(resolvedId),
+    );
     if (!fieldSymbol || fieldSymbol.kind !== SymbolKind.Field) {
       return;
     }
@@ -216,7 +219,10 @@ function validateMethodAccess(
       return;
     }
 
-    const methodSymbol = symbolManager.getSymbol(ref.resolvedSymbolId);
+    const resolvedId = ref.resolvedSymbolId;
+    const methodSymbol = yield* Effect.promise(() =>
+      symbolManager.getSymbol(resolvedId),
+    );
     if (!methodSymbol || methodSymbol.kind !== SymbolKind.Method) {
       return;
     }
@@ -248,7 +254,10 @@ function validateFieldReadAccess(
       return;
     }
 
-    const fieldSymbol = symbolManager.getSymbol(ref.resolvedSymbolId);
+    const resolvedId = ref.resolvedSymbolId;
+    const fieldSymbol = yield* Effect.promise(() =>
+      symbolManager.getSymbol(resolvedId),
+    );
     if (!fieldSymbol || fieldSymbol.kind !== SymbolKind.Field) {
       return;
     }

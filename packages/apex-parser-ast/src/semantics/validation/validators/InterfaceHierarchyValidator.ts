@@ -86,8 +86,9 @@ export const InterfaceHierarchyValidator: Validator = {
         const symbolManager = yield* ISymbolManager;
         // Get all symbols from symbol manager and filter to interfaces
         // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
-        const allSymbolsFromManager =
-          symbolManager.getAllSymbolsForCompletion();
+        const allSymbolsFromManager = yield* Effect.promise(() =>
+          symbolManager.getAllSymbolsForCompletion(),
+        );
         const crossFileInterfaces = allSymbolsFromManager.filter(
           (s: ApexSymbol) => s.kind === SymbolKind.Interface,
         ) as TypeSymbol[];
@@ -200,7 +201,9 @@ export const InterfaceHierarchyValidator: Validator = {
           ...loadResult.loaded,
           ...loadResult.alreadyLoaded,
         ]) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const ifaceSymbol = symbols.find(
             (s: ApexSymbol) => s.kind === SymbolKind.Interface,
           ) as TypeSymbol | undefined;
@@ -227,8 +230,9 @@ export const InterfaceHierarchyValidator: Validator = {
       let allMethodsForValidation = [...allSymbols];
       if (_options.symbolManager) {
         const symbolManager = yield* ISymbolManager;
-        const allSymbolsFromManager =
-          symbolManager.getAllSymbolsForCompletion();
+        const allSymbolsFromManager = yield* Effect.promise(() =>
+          symbolManager.getAllSymbolsForCompletion(),
+        );
         // Merge with current symbols, avoiding duplicates by ID
         const symbolIds = new Set(allSymbols.map((s) => s.id));
         for (const sym of allSymbolsFromManager) {

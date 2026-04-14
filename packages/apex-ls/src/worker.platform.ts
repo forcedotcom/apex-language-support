@@ -440,7 +440,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             const entries: Record<string, unknown> = {};
             for (const uri of req.uris) {
-              const st = svc.symbolManager.getSymbolTableForFile(uri);
+              const st = yield* Effect.promise(() =>
+                svc.symbolManager.getSymbolTableForFile(uri),
+              );
               entries[uri] = cloneForWire(st);
             }
             return { entries };

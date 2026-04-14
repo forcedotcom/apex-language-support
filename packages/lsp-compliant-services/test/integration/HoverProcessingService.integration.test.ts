@@ -302,10 +302,10 @@ describe('HoverProcessingService Integration Tests', () => {
     hoverService = new HoverProcessingService(getLogger(), symbolManager);
 
     // Debug: Verify symbols are added correctly
-    const testClassSymbols = symbolManager.findSymbolsInFile(
+    const testClassSymbols = await symbolManager.findSymbolsInFile(
       'file:///TestClass.cls',
     );
-    const anotherTestClassSymbols = symbolManager.findSymbolsInFile(
+    const anotherTestClassSymbols = await symbolManager.findSymbolsInFile(
       'file:///AnotherTestClass.cls',
     );
 

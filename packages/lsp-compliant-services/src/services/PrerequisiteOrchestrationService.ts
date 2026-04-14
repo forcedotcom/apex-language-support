@@ -235,10 +235,10 @@ export class PrerequisiteOrchestrationService {
     const cacheDetailLevel =
       getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
     const currentDetailLevel = pickHighestDetailLevel(
-      this.symbolManager.getDetailLevelForFile(fileUri),
+      await this.symbolManager.getDetailLevelForFile(fileUri),
       cacheDetailLevel,
     );
-    const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
 
     // Determine what needs to be done.
     // Skip enrichment when a previous attempt failed (e.g. missing superclass); the failure flag
@@ -461,10 +461,11 @@ export class PrerequisiteOrchestrationService {
       const cacheDetailLevel =
         getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
       const currentDetailLevel = pickHighestDetailLevel(
-        this.symbolManager.getDetailLevelForFile(fileUri) ?? null,
+        (await this.symbolManager.getDetailLevelForFile(fileUri)) ?? null,
         cacheDetailLevel,
       );
-      const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+      const symbolTable =
+        await this.symbolManager.getSymbolTableForFile(fileUri);
       const needsEnrichment =
         !!entry.targetDetailLevel &&
         (!currentDetailLevel ||
@@ -538,7 +539,7 @@ export class PrerequisiteOrchestrationService {
     requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
     forceBlocking = false,
   ): Promise<void> {
-    const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
       return;
     }
@@ -554,8 +555,13 @@ export class PrerequisiteOrchestrationService {
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
     // artifacts. Stdlib (String, List, System, etc.) is loaded by the symbol manager
     // via resolveStandardApexClass, not via the client's artifact resolution.
+    const stdlibChecks = await Promise.all(
+      unresolvedTypeRefs.map((r) =>
+        this.symbolManager.isStandardLibraryType(r.name),
+      ),
+    );
     const nonStdlibRefs = unresolvedTypeRefs.filter(
-      (r) => !this.symbolManager.isStandardLibraryType(r.name),
+      (_r, i) => !stdlibChecks[i],
     );
 
     if (nonStdlibRefs.length === 0) {
@@ -597,10 +603,14 @@ export class PrerequisiteOrchestrationService {
           const maxWaitMs = 500;
           const start = Date.now();
           while (Date.now() - start < maxWaitMs) {
-            const allIndexed = missingTypes.every((name) => {
-              const symbols = this.symbolManager.findSymbolByName(name);
-              return symbols.length > 0;
-            });
+            const indexResults = await Promise.all(
+              missingTypes.map((name) =>
+                this.symbolManager.findSymbolByName(name),
+              ),
+            );
+            const allIndexed = indexResults.every(
+              (symbols) => symbols.length > 0,
+            );
             if (allIndexed) {
               break;
             }

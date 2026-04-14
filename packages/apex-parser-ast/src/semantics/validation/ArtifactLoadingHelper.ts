@@ -145,33 +145,36 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
      * @param typeName - Simple name or FQN of the type
      * @returns Type symbol if found, undefined otherwise
      */
-    const findTypeSymbol = (typeName: string): TypeSymbol | undefined => {
-      // Try by name first
-      const symbolsByName = symbolManager.findSymbolByName(typeName);
-      const typeByName = symbolsByName.find(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum,
-      ) as TypeSymbol | undefined;
+    const findTypeSymbol = (typeName: string) =>
+      Effect.gen(function* () {
+        const symbolsByName = yield* Effect.promise(() =>
+          symbolManager.findSymbolByName(typeName),
+        );
+        const typeByName = symbolsByName.find(
+          (s) =>
+            s.kind === SymbolKind.Class ||
+            s.kind === SymbolKind.Interface ||
+            s.kind === SymbolKind.Enum,
+        ) as TypeSymbol | undefined;
 
-      if (typeByName) {
-        return typeByName;
-      }
+        if (typeByName) {
+          return typeByName;
+        }
 
-      // Try by FQN
-      const symbolByFQN = symbolManager.findSymbolByFQN(typeName);
-      if (
-        symbolByFQN &&
-        (symbolByFQN.kind === SymbolKind.Class ||
-          symbolByFQN.kind === SymbolKind.Interface ||
-          symbolByFQN.kind === SymbolKind.Enum)
-      ) {
-        return symbolByFQN as TypeSymbol;
-      }
+        const symbolByFQN = yield* Effect.promise(() =>
+          symbolManager.findSymbolByFQN(typeName),
+        );
+        if (
+          symbolByFQN &&
+          (symbolByFQN.kind === SymbolKind.Class ||
+            symbolByFQN.kind === SymbolKind.Interface ||
+            symbolByFQN.kind === SymbolKind.Enum)
+        ) {
+          return symbolByFQN as TypeSymbol;
+        }
 
-      return undefined;
-    };
+        return undefined;
+      });
 
     return {
       loadMissingArtifacts: (typeNames, options) =>
@@ -200,7 +203,7 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
 
           // Check ApexSymbolManager for already-loaded types
           for (const typeName of typeNames) {
-            const existing = findTypeSymbol(typeName);
+            const existing = yield* findTypeSymbol(typeName);
             if (existing) {
               alreadyLoaded.push(typeName);
               yield* Effect.logDebug(
@@ -261,7 +264,7 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
                 }
 
                 // Verify the type is now available in symbol manager
-                const nowAvailable = findTypeSymbol(typeName);
+                const nowAvailable = yield* findTypeSymbol(typeName);
                 if (nowAvailable) {
                   loaded.push(typeName);
                   yield* Effect.logDebug(

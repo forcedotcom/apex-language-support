@@ -22,8 +22,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (sourceCode: string, className: string) => {
@@ -51,7 +51,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url return type
       const chainedTypeRefs = references.filter(
@@ -61,19 +62,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Test resolution of the return type reference
       const returnTypeRef = chainedTypeRefs[0];
-      const _resolvedSymbol = symbolManager.getSymbolAtPosition(testClassUri, {
-        line: returnTypeRef.location.identifierRange.startLine, // 1-based line numbers
+      await symbolManager.getSymbolAtPosition(testClassUri, {
+        line: returnTypeRef.location.identifierRange.startLine,
         character: returnTypeRef.location.identifierRange.startColumn,
       });
-
-      // The resolution should work (even if it returns null for non-existent classes)
-      // The important thing is that it doesn't throw an error
-      expect(() => {
-        symbolManager.getSymbolAtPosition(testClassUri, {
-          line: returnTypeRef.location.identifierRange.startLine,
-          character: returnTypeRef.location.identifierRange.startColumn,
-        });
-      }).not.toThrow();
     });
 
     it('should resolve parameter type references to symbols', async () => {
@@ -86,7 +78,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the type reference for System.Url parameter (could be chained or PARAMETER_TYPE)
       const typeRefs = references.filter(
@@ -99,12 +92,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Test resolution of the parameter type reference
       const paramTypeRef = typeRefs[0];
-      expect(() => {
-        symbolManager.getSymbolAtPosition(testClassUri, {
-          line: paramTypeRef.location.identifierRange.startLine,
-          character: paramTypeRef.location.identifierRange.startColumn,
-        });
-      }).not.toThrow();
+      await symbolManager.getSymbolAtPosition(testClassUri, {
+        line: paramTypeRef.location.identifierRange.startLine,
+        character: paramTypeRef.location.identifierRange.startColumn,
+      });
     });
 
     it('should resolve field type references to symbols', async () => {
@@ -115,7 +106,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url field
       const chainedTypeRefs = references.filter(
@@ -125,12 +117,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Test resolution of the field type reference
       const fieldTypeRef = chainedTypeRefs[0];
-      expect(() => {
-        symbolManager.getSymbolAtPosition(testClassUri, {
-          line: fieldTypeRef.location.identifierRange.startLine,
-          character: fieldTypeRef.location.identifierRange.startColumn,
-        });
-      }).not.toThrow();
+      await symbolManager.getSymbolAtPosition(testClassUri, {
+        line: fieldTypeRef.location.identifierRange.startLine,
+        character: fieldTypeRef.location.identifierRange.startColumn,
+      });
     });
 
     it('should handle mixed return and parameter type references', async () => {
@@ -143,7 +133,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple System.Url references (return type and parameter)
       const systemUrlRefs = references.filter(
@@ -156,12 +147,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Test resolution of each reference
       for (const ref of systemUrlRefs) {
-        expect(() => {
-          symbolManager.getSymbolAtPosition(testClassUri, {
-            line: ref.location.identifierRange.startLine,
-            character: ref.location.identifierRange.startColumn,
-          });
-        }).not.toThrow();
+        await symbolManager.getSymbolAtPosition(testClassUri, {
+          line: ref.location.identifierRange.startLine,
+          character: ref.location.identifierRange.startColumn,
+        });
       }
     });
 
@@ -175,7 +164,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have type references for System.Url (return type and generic parameter)
       const systemUrlRefs = references.filter(
@@ -189,12 +179,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Test resolution of each reference
       for (const ref of systemUrlRefs) {
-        expect(() => {
-          symbolManager.getSymbolAtPosition(testClassUri, {
-            line: ref.location.identifierRange.startLine,
-            character: ref.location.identifierRange.startColumn,
-          });
-        }).not.toThrow();
+        await symbolManager.getSymbolAtPosition(testClassUri, {
+          line: ref.location.identifierRange.startLine,
+          character: ref.location.identifierRange.startColumn,
+        });
       }
     });
   });
@@ -215,7 +203,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple types of references
       const chainedTypeRefs = references.filter((ref) =>
@@ -230,12 +219,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // All references should be resolvable without errors
       for (const ref of references) {
-        expect(() => {
-          symbolManager.getSymbolAtPosition(testClassUri, {
-            line: ref.location.identifierRange.startLine,
-            character: ref.location.identifierRange.startColumn,
-          });
-        }).not.toThrow();
+        await symbolManager.getSymbolAtPosition(testClassUri, {
+          line: ref.location.identifierRange.startLine,
+          character: ref.location.identifierRange.startColumn,
+        });
       }
     });
   });

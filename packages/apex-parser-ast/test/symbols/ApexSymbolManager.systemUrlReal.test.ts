@@ -42,8 +42,8 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   afterAll(() => {
@@ -79,7 +79,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the chained expression reference directly
     const target = refs.find(
@@ -114,7 +114,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the chained expression that contains getOrgDomainUrl
     const target = refs.find(
@@ -138,7 +138,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the System.Url chained reference
     const target = refs.find((r) => r.name === 'System.Url');

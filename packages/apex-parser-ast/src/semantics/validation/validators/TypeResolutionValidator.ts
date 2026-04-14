@@ -104,7 +104,9 @@ export const TypeResolutionValidator: Validator = {
         );
         if (sameFileType) continue;
         if (options.tier === ValidationTier.THOROUGH) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const found = symbols.find(
             (s: ApexSymbol) =>
               s.kind === SymbolKind.Class ||
@@ -112,7 +114,9 @@ export const TypeResolutionValidator: Validator = {
               s.kind === SymbolKind.Enum,
           );
           if (found) continue;
-          const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
+          const fqnSymbol = yield* Effect.promise(() =>
+            symbolManager.findSymbolByFQN(typeName),
+          );
           if (
             fqnSymbol &&
             (fqnSymbol.kind === SymbolKind.Class ||
@@ -161,7 +165,9 @@ export const TypeResolutionValidator: Validator = {
           typeSymbol = sameFileType;
         } else if (options.tier === ValidationTier.THOROUGH) {
           // Cross-file lookup via symbolManager (types may have been loaded above)
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const found = symbols.find(
             (s: ApexSymbol) =>
               s.kind === SymbolKind.Class ||
@@ -171,7 +177,9 @@ export const TypeResolutionValidator: Validator = {
           if (found) {
             typeSymbol = found;
           } else {
-            const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
+            const fqnSymbol = yield* Effect.promise(() =>
+              symbolManager.findSymbolByFQN(typeName),
+            );
             if (
               fqnSymbol &&
               (fqnSymbol.kind === SymbolKind.Class ||

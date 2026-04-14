@@ -22,8 +22,8 @@ describe('ApexSymbolManager - Return Type References', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (sourceCode: string, className: string) => {
@@ -46,7 +46,8 @@ describe('ApexSymbolManager - Return Type References', () => {
         "public class TestClass { public String getString() { return 'test'; } }";
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a return type reference for String
       const returnTypeRefs = references.filter(
@@ -66,7 +67,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type and method call)
       const chainedTypeRefs = references.filter((ref) =>
@@ -91,7 +93,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have return type reference for List (the return type itself)
       // Generic type arguments (String) should only have GENERIC_PARAMETER_TYPE, not RETURN_TYPE
@@ -123,7 +126,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have return type references for List and System.Url
       const returnTypeRefs = references.filter(
@@ -157,7 +161,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type)
       const chainedTypeRefs = references.filter((ref) =>
@@ -182,7 +187,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestInterface');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url (dotted return types become chained)
       const chainedTypeRefs = references.filter((ref) =>

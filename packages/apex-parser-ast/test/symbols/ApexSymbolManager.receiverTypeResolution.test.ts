@@ -44,8 +44,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   afterAll(() => {
@@ -82,7 +82,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     const testClassUri = URI.file(testClassPath).toString();
     await addTestClass();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
     const getQualifier = (ref: any): string | undefined => {
@@ -122,7 +122,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     const testClassUri = URI.file(testClassPath).toString();
     await addTestClass();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
     const getQualifier = (ref: any): string | undefined => {
@@ -162,7 +162,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     const testClassUri = URI.file(testClassPath).toString();
     await addTestClass();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
     const getQualifier = (ref: any): string | undefined => {
@@ -202,7 +202,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     const testClassUri = URI.file(testClassPath).toString();
     await addTestClass();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
     const getQualifier = (ref: any): string | undefined => {
@@ -242,7 +242,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     const testClassUri = URI.file(testClassPath).toString();
     await addTestClass();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
     const getQualifier = (ref: any): string | undefined => {
@@ -283,7 +283,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     const fileUri = URI.file(systemUrlPath).toString();
 
     // Get all references in the file
-    const refs = symbolManager.getAllReferencesInFile(fileUri);
+    const refs = await symbolManager.getAllReferencesInFile(fileUri);
     // Helper function to extract qualifier from new structure
     const _getQualifier = (ref: any): string | undefined => {
       // Check for chainNodes (chained expressions)

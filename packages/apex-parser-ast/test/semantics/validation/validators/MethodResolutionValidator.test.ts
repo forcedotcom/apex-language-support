@@ -54,8 +54,8 @@ describe('MethodResolutionValidator', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const VALIDATOR_CATEGORY = 'method-resolution';
@@ -581,7 +581,7 @@ private class FileUtilitiesTest {
         );
       expect(containingClass).toBeDefined();
 
-      const resolutionResult = resolveTypeName(
+      const resolutionResult = await resolveTypeName(
         ['Test'],
         {
           namespace: null,

@@ -326,8 +326,8 @@ export class ApexSymbolIndexingService {
           () =>
             `[processTask] Adding symbol table for ${task.fileUri} (task: ${task.id})`,
         );
-        const symbolsBefore = self.symbolManager.findSymbolsInFile(
-          task.fileUri,
+        const symbolsBefore = yield* Effect.promise(() =>
+          self.symbolManager.findSymbolsInFile(task.fileUri),
         );
         self.logger.debug(
           () =>
@@ -346,7 +346,9 @@ export class ApexSymbolIndexingService {
           task.documentVersion,
         );
 
-        const symbolsAfter = self.symbolManager.findSymbolsInFile(task.fileUri);
+        const symbolsAfter = yield* Effect.promise(() =>
+          self.symbolManager.findSymbolsInFile(task.fileUri),
+        );
         self.logger.debug(
           () =>
             `[processTask] Symbols in file after addSymbolTable: ${symbolsAfter.length}`,
