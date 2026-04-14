@@ -374,15 +374,13 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Perform go-to-definition after edit', async () => {
-      await apexEditor.positionCursorOnWord('ApexClassExample');
+      await apexEditor.positionCursorOnWord('sayHello');
       await apexEditor.goToDefinition();
 
       const content = await apexEditor.findAndGetViewportContent(
-        'public with sharing class ApexClassExample',
+        'public static void sayHello',
       );
-      expect(content).toMatch(
-        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
-      );
+      expect(content).toMatch(/public\s+static\s+void\s+sayHello/);
 
       console.log('✅ Go-to-definition works after file edit');
     });
