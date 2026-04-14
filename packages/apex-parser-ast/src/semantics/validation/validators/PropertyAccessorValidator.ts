@@ -15,6 +15,9 @@ import {
   ApexLexer,
   ApexParser,
   CaseInsensitiveInputStream,
+  CompilationUnitContext,
+  TriggerUnitContext,
+  BlockContext,
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, VariableSymbol } from '../../../types/symbol';
@@ -176,7 +179,10 @@ export const PropertyAccessorValidator: Validator = {
 
       try {
         // Use cached parse tree if available, otherwise parse source content
-        let parseTree: any;
+        let parseTree:
+          | CompilationUnitContext
+          | TriggerUnitContext
+          | BlockContext;
         if (options.parseTree) {
           parseTree = options.parseTree;
         } else {

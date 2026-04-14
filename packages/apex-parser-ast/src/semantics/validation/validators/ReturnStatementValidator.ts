@@ -38,6 +38,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 import {
@@ -86,7 +87,7 @@ function isVoidReturnType(method: MethodSymbol): boolean {
 class ReturnStatementListener extends BaseApexParserListener<void> {
   private errors: Array<{
     ctx: ReturnStatementContext;
-    code: string;
+    code: ErrorCodeKey;
     returnType?: string;
     expressionType?: string;
   }> = [];
@@ -170,7 +171,7 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
   }
 
   // Track trigger context (for trigger files)
-  enterTriggerUnit(ctx: any): void {
+  enterTriggerUnit(ctx: TriggerUnitContext): void {
     this.isInTrigger = true;
   }
 
@@ -273,7 +274,7 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
 
   getErrors(): Array<{
     ctx: ReturnStatementContext;
-    code: string;
+    code: ErrorCodeKey;
     returnType?: string;
     expressionType?: string;
   }> {
@@ -439,9 +440,9 @@ export const ReturnStatementValidator: Validator = {
         for (const { ctx, code } of returnErrors) {
           const location = getLocationFromContext(ctx);
           errors.push({
-            message: localizeTyped(code as any),
+            message: localizeTyped(code),
             location,
-            code: code as any,
+            code,
           });
         }
 

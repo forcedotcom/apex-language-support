@@ -45,6 +45,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 import { isContextType } from '../../../utils/contextTypeGuards';
@@ -125,7 +126,7 @@ function isValidAssignmentTarget(
  */
 interface ExpressionValidationError {
   ctx?: ParserRuleContext;
-  code: string;
+  code: ErrorCodeKey;
   symbolLocation?: SymbolLocation;
 }
 
@@ -426,7 +427,7 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
             const hasMethodCall =
               primaryCtx &&
               (isContextType(primaryCtx, IdPrimaryContext) ||
-                (primaryCtx as any).methodCall !== undefined);
+                'methodCall' in primaryCtx);
             if (!hasMethodCall) {
               // Primary expression without method call is invalid as statement
               // (unless it's increment/decrement which we already checked)
@@ -591,7 +592,7 @@ export const ExpressionTypeValidator: Validator = {
           }
 
           errors.push({
-            message: localizeTyped(errorInfo.code as any),
+            message: localizeTyped(errorInfo.code),
             location,
             code: errorInfo.code,
           });
@@ -615,7 +616,7 @@ export const ExpressionTypeValidator: Validator = {
           };
 
           errors.push({
-            message: localizeTyped(errorInfo.code as any),
+            message: localizeTyped(errorInfo.code),
             location,
             code: errorInfo.code,
           });

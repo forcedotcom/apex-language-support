@@ -736,7 +736,7 @@ function resolveTestForTypes(
       const expectedKind =
         ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
 
-      const found = symbols.find((s: any) => s.kind === expectedKind) as any;
+      const found = symbols.find((s) => s.kind === expectedKind);
 
       if (found) {
         results.set(ref.typeName, { found: true, kind: found.kind });
@@ -769,9 +769,7 @@ function resolveTestForTypes(
           const symbols = symbolManager.findSymbolByName(typeName);
           const expectedKind =
             ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
-          const found = symbols.find(
-            (s: any) => s.kind === expectedKind,
-          ) as any;
+          const found = symbols.find((s) => s.kind === expectedKind);
           if (found) {
             results.set(typeName, { found: true, kind: found.kind });
           }
@@ -1355,7 +1353,7 @@ export const AnnotationPropertyValidator: Validator = {
                   errors.push({
                     message: formatError.message,
                     location: annotation.location,
-                    code: formatError.code as any,
+                    code: formatError.code,
                   });
                 }
 
@@ -1874,7 +1872,7 @@ export const AnnotationPropertyValidator: Validator = {
                     errors.push({
                       message: formatError.message,
                       location: annotation.location,
-                      code: formatError.code as any,
+                      code: formatError.code,
                     });
                   }
 
@@ -2400,7 +2398,7 @@ export const AnnotationPropertyValidator: Validator = {
                   errors.push({
                     message: formatError.message,
                     location: annotation.location,
-                    code: formatError.code as any,
+                    code: formatError.code,
                   });
                 }
 

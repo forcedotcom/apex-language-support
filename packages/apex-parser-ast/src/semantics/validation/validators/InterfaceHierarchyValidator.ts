@@ -25,6 +25,7 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
+import { isBlockSymbol } from '../../../utils/symbolNarrowing';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 
@@ -314,9 +315,9 @@ export const InterfaceHierarchyValidator: Validator = {
           // Find class block first (if it exists)
           const classBlock = allMethodsForValidation.find(
             (s) =>
-              s.kind === SymbolKind.Block &&
+              isBlockSymbol(s) &&
               s.parentId === cls.id &&
-              (s as any).scopeType === 'class',
+              s.scopeType === 'class',
           );
           const classBlockId = classBlock?.id;
 
@@ -515,9 +516,9 @@ function getAllInterfaceMethods(
     // Find interface block first (if it exists) - interface blocks use 'class' scopeType
     const interfaceBlock = allSymbols.find(
       (s) =>
-        s.kind === SymbolKind.Block &&
+        isBlockSymbol(s) &&
         s.parentId === currentIface.id &&
-        (s as any).scopeType === 'class',
+        s.scopeType === 'class',
     );
     const interfaceBlockId = interfaceBlock?.id;
 

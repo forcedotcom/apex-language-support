@@ -20,6 +20,7 @@ import {
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
+  SymbolLocation,
   ApexSymbol,
   TypeSymbol,
   MethodSymbol,
@@ -111,7 +112,7 @@ function findStaticContextRanges(
     }
     if (symbol.kind === SymbolKind.Block) {
       const block = symbol as ScopeSymbol;
-      if ((block as any).scopeType === 'static' && block.location) {
+      if (block.modifiers?.isStatic && block.location) {
         const start =
           block.location.symbolRange?.startLine ??
           block.location.identifierRange?.startLine;
@@ -300,7 +301,7 @@ export const StaticContextValidator: Validator = {
       }
 
       // 2. Check METHOD_CALL and FIELD_ACCESS for static context violations
-      const callLine = (ref: { location?: any }) =>
+      const callLine = (ref: { location?: SymbolLocation }) =>
         ref.location?.identifierRange?.startLine ??
         ref.location?.symbolRange?.startLine;
 

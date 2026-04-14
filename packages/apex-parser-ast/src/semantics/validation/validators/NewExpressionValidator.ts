@@ -257,13 +257,13 @@ export const NewExpressionValidator: Validator = {
           const outerClassBlock = allSymbols.find(
             (s) =>
               isBlockSymbol(s) &&
-              (s as any).scopeType === 'class' &&
+              s.scopeType === 'class' &&
               s.parentId === outerType.id,
           );
           const innerClassBlock = allSymbols.find(
             (s) =>
               isBlockSymbol(s) &&
-              (s as any).scopeType === 'class' &&
+              s.scopeType === 'class' &&
               s.parentId === resolvedType.id,
           );
           const memberParentIds = [

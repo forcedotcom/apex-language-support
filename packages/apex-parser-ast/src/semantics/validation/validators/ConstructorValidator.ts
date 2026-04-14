@@ -44,6 +44,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { isContextType } from '../../../utils/contextTypeGuards';
@@ -135,21 +136,19 @@ class ConstructorListener extends BaseApexParserListener<void> {
     }
 
     // Check if this is a super() or this() call
-    const superToken = (methodCall as any).SUPER?.();
-    const thisToken = (methodCall as any).THIS?.();
+    const superToken = methodCall.SUPER?.();
+    const thisToken = methodCall.THIS?.();
 
     if (superToken || thisToken) {
       const isSuper = !!superToken;
       const line = ctx.start.line;
       const column = ctx.start.charPositionInLine;
 
-      // Get arguments from expressionList
       const expressionList = methodCall.expressionList?.();
       const args = expressionList
         ? this.extractArgumentsAsString(expressionList)
         : '';
 
-      // Get the statement containing this call
       const statementContext: StatementContext =
         this.statementStack.length > 0
           ? this.statementStack[this.statementStack.length - 1]
@@ -202,7 +201,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
  */
 interface ConstructorBodyCheckResult {
   errors: Array<{
-    code: string;
+    code: ErrorCodeKey;
     line: number;
     column: number;
     message?: string;
@@ -230,7 +229,7 @@ function checkConstructorBody(
   symbolTable: SymbolTable,
 ): ConstructorBodyCheckResult {
   const errors: Array<{
-    code: string;
+    code: ErrorCodeKey;
     line: number;
     column: number;
     message?: string;
@@ -423,8 +422,8 @@ function extractMethodName(
         return id.text || null;
       }
       // For this() and super() calls, return null (they're constructor calls, not instance methods)
-      const thisToken = (methodCall as any).THIS?.();
-      const superToken = (methodCall as any).SUPER?.();
+      const thisToken = methodCall.THIS?.();
+      const superToken = methodCall.SUPER?.();
       if (thisToken || superToken) {
         return null; // Constructor calls are allowed
       }
@@ -551,16 +550,8 @@ function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
           return !!literal.StringLiteral?.();
         }
       }
-      // Also check if primary has literalPrimary() method (alternative structure)
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.() as
-          | LiteralContext
-          | undefined;
-        if (literal) {
-          return !!literal.StringLiteral?.();
-        }
-      }
+      // LiteralPrimaryContext extends PrimaryContext — the instanceof check
+      // above already covers this case; no fallback needed.
     }
   }
 
@@ -585,23 +576,18 @@ function isNumericLiteral(
 ): boolean {
   if (!expr) return false;
 
-  // Check for PrimaryExpressionContext -> literalPrimary -> literal -> INTEGER_LITERAL or DECIMAL_LITERAL
   if (isContextType(expr, PrimaryExpressionContext)) {
     const primaryExpr = expr as PrimaryExpressionContext;
     const primary = primaryExpr.primary?.();
-    if (primary) {
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.() as
-          | LiteralContext
-          | undefined;
-        if (literal) {
-          // Use method calls like StringLiteral(), not properties like INTEGER_LITERAL
-          const intLiteral = literal.IntegerLiteral?.();
-          const longLiteral = literal.LongLiteral?.();
-          const numberLiteral = literal.NumberLiteral?.();
-          return !!(intLiteral || longLiteral || numberLiteral);
-        }
+    if (primary && isContextType(primary, LiteralPrimaryContext)) {
+      const literal = (primary as LiteralPrimaryContext).literal?.() as
+        | LiteralContext
+        | undefined;
+      if (literal) {
+        const intLiteral = literal.IntegerLiteral?.();
+        const longLiteral = literal.LongLiteral?.();
+        const numberLiteral = literal.NumberLiteral?.();
+        return !!(intLiteral || longLiteral || numberLiteral);
       }
     }
   }
@@ -627,18 +613,13 @@ function isBooleanLiteral(
 ): boolean {
   if (!expr) return false;
 
-  // Check for PrimaryExpressionContext -> literalPrimary -> literal -> BOOLEAN_LITERAL
   if (isContextType(expr, PrimaryExpressionContext)) {
     const primaryExpr = expr as PrimaryExpressionContext;
     const primary = primaryExpr.primary?.();
-    if (primary) {
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.();
-        if (literal) {
-          const booleanLiteral = (literal as any).BOOLEAN_LITERAL?.();
-          return !!booleanLiteral;
-        }
+    if (primary && isContextType(primary, LiteralPrimaryContext)) {
+      const literal = (primary as LiteralPrimaryContext).literal?.();
+      if (literal) {
+        return !!literal.BooleanLiteral?.();
       }
     }
   }
@@ -910,7 +891,7 @@ function validateConstructorSignature(
     // This is more reliable than getAllSymbolsForCompletion which may not include all constructors
     if (targetClass.fileUri) {
       // Try to get SymbolTable directly for more complete symbol access
-      const parentSymbolTable = (symbolManager as any).getSymbolTableForFile?.(
+      const parentSymbolTable = symbolManager.getSymbolTableForFile(
         targetClass.fileUri,
       );
       const fileSymbols = parentSymbolTable
@@ -1461,8 +1442,8 @@ export const ConstructorValidator: Validator = {
               for (const bodyError of bodyCheckResult.errors) {
                 errors.push({
                   message: bodyError.message
-                    ? localizeTyped(bodyError.code as any, bodyError.message)
-                    : localizeTyped(bodyError.code as any),
+                    ? localizeTyped(bodyError.code, bodyError.message)
+                    : localizeTyped(bodyError.code),
                   location: {
                     symbolRange: {
                       startLine: bodyError.line,
@@ -1477,7 +1458,7 @@ export const ConstructorValidator: Validator = {
                       endColumn: bodyError.column + 10,
                     },
                   },
-                  code: bodyError.code as any,
+                  code: bodyError.code,
                 });
               }
             }

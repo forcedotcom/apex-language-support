@@ -63,7 +63,7 @@ class StaticBlockListener extends BaseApexParserListener<void> {
     this.classStack.pop();
   }
 
-  enterBlock(ctx: any): void {
+  enterBlock(ctx: BlockContext): void {
     if (ctx.parent && this.isStaticBlock(ctx) && this.classStack.length > 0) {
       const currentClass = this.classStack[this.classStack.length - 1];
       if (currentClass.isInner) {
@@ -76,7 +76,7 @@ class StaticBlockListener extends BaseApexParserListener<void> {
     }
   }
 
-  private isStaticBlock(ctx: any): boolean {
+  private isStaticBlock(ctx: BlockContext): boolean {
     const parent = ctx.parent;
     if (!parent) return false;
     const children = parent.children ?? [];

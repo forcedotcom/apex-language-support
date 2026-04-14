@@ -17,7 +17,10 @@ import type {
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
-import { ReferenceContext } from '../../../types/symbolReference';
+import {
+  ReferenceContext,
+  type SymbolReference,
+} from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -158,8 +161,8 @@ export const MethodResolutionValidator: Validator = {
           // Find the class block (methods have parentId pointing to class block, not class symbol)
           const classBlock = allSymbols.find(
             (s) =>
-              s.kind === SymbolKind.Block &&
-              (s as any).scopeType === 'class' &&
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
               s.parentId === containingClass.id,
           );
 
@@ -726,7 +729,7 @@ function extractReceiverNameFromSource(
  * Returns the type name if found, null otherwise
  */
 function resolveMethodCallReceiverType(
-  methodCall: any,
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
@@ -1345,7 +1348,7 @@ function findMethodsInClass(
  * Checks if the method call's return type matches the variable it's assigned to
  */
 function validateMethodReturnType(
-  methodCall: any,
+  methodCall: SymbolReference,
   visibleMethods: MethodSymbol[],
   symbolTable: SymbolTable,
   sourceContent: string,
@@ -1378,9 +1381,10 @@ function validateMethodReturnType(
     }
 
     // Verify we have the right method (name match)
+    const chainNodes = methodCall.chainNodes;
     const actualMethodName =
-      methodCall.chainNodes?.length > 0
-        ? methodCall.chainNodes[methodCall.chainNodes.length - 1]?.name
+      chainNodes && chainNodes.length > 0
+        ? chainNodes[chainNodes.length - 1]?.name
         : methodCall.name?.split('.').pop();
     if (
       actualMethodName &&
@@ -1434,7 +1438,7 @@ function validateMethodReturnType(
  * Returns the variable name and type if the method call is on the RHS of an assignment
  */
 function extractAssignmentContext(
-  methodCall: any,
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
@@ -1651,7 +1655,7 @@ function areReturnTypesCompatible(
  * Similar to constructor argument extraction but for method calls
  */
 function extractMethodCallArgumentTypes(
-  methodCall: any, // SymbolReference with METHOD_CALL context
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,

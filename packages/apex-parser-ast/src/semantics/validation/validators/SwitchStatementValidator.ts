@@ -187,9 +187,7 @@ class SwitchListener extends BaseApexParserListener<void> {
   }
 
   enterSwitchStatement(ctx: SwitchStatementContext): void {
-    const expression = (ctx as any).expression?.() as
-      | ExpressionContext
-      | undefined;
+    const expression = ctx.expression();
     const expressionText = expression?.text || '';
     this.switchStatements.push({ ctx, expression, expressionText });
   }

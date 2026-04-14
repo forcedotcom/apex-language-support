@@ -20,7 +20,10 @@ import {
   isBlockSymbol,
   isChainedSymbolReference,
 } from '../../../utils/symbolNarrowing';
-import { ReferenceContext } from '../../../types/symbolReference';
+import {
+  ReferenceContext,
+  type SymbolReference,
+} from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -83,8 +86,8 @@ export const VariableResolutionValidator: Validator = {
       const chainedTypeRefs = allReferences.filter((ref) =>
         isChainedSymbolReference(ref),
       );
-      const extractedFieldAccesses: any[] = [];
-      const extractedWriteFieldAccesses: any[] = []; // Track write accesses separately
+      const extractedFieldAccesses: SymbolReference[] = [];
+      const extractedWriteFieldAccesses: SymbolReference[] = [];
 
       for (const chainedRef of chainedTypeRefs) {
         if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
@@ -1112,7 +1115,7 @@ function findMethodInClassHierarchy(
 function resolveTargetTypeWithArrayAccess(
   targetType: TypeSymbol | null,
   variableTypeName: string | undefined,
-  fieldRef: any,
+  fieldRef: SymbolReference,
   sourceContent: string | undefined,
   symbolManager: ISymbolManagerInterface,
 ): Effect.Effect<TypeSymbol | null, never, never> {
@@ -1143,7 +1146,7 @@ function resolveTargetTypeWithArrayAccess(
  * For qualified field access like "obj.field", extracts "obj"
  */
 function extractObjectNameFromFieldAccess(
-  fieldRef: any, // SymbolReference with FIELD_ACCESS context
+  fieldRef: SymbolReference,
   sourceContent: string,
 ): string | null {
   if (!sourceContent || !fieldRef.location) {

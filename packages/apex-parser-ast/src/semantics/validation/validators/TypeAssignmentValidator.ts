@@ -28,6 +28,7 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import type { ExpressionType } from '../TypePromotionSystem';
 import { StatementValidator } from '../StatementValidator';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
@@ -342,15 +343,9 @@ export const TypeAssignmentValidator: Validator = {
 /**
  * Convert TypeInfo to StatementExpressionType for compatibility checking
  */
-function convertTypeInfoToExpressionType(typeInfo: TypeInfo): {
-  kind: 'primitive' | 'object' | 'collection' | 'void' | 'unresolved';
-  name: string;
-  isNullable: boolean;
-  isArray: boolean;
-  isPrimitive?: boolean;
-  isCollection?: boolean;
-  elementType?: any;
-} {
+function convertTypeInfoToExpressionType(
+  typeInfo: TypeInfo,
+): ExpressionType & { isPrimitive?: boolean; isCollection?: boolean } {
   const name = typeInfo.name.toLowerCase();
   const isNull = name === 'null';
 
@@ -483,10 +478,9 @@ function resolveTypeIfNeeded(
           targetRef.context === ReferenceContext.FIELD_ACCESS
         ) {
           // For chained references, check chainNodes
-          const chainedRef = targetRef as any;
-          if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
+          if (isChainedSymbolReference(targetRef) && targetRef.chainNodes) {
             // Find the METHOD_CALL or FIELD_ACCESS node in the chain
-            const targetNode = chainedRef.chainNodes.find(
+            const targetNode = targetRef.chainNodes.find(
               (node: SymbolReference) =>
                 node.context === ReferenceContext.METHOD_CALL ||
                 node.context === ReferenceContext.FIELD_ACCESS,
@@ -495,9 +489,9 @@ function resolveTypeIfNeeded(
               resolvedSymbol = symbolManager.getSymbol(
                 targetNode.resolvedSymbolId,
               );
-            } else if (targetNode && chainedRef.chainNodes.length >= 2) {
+            } else if (targetNode && targetRef.chainNodes.length >= 2) {
               // Chained reference: resolve qualifier first, then find member
-              const firstNode = chainedRef.chainNodes[0];
+              const firstNode = targetRef.chainNodes[0];
               let qualifierSymbol: ApexSymbol | null = null;
 
               // Resolve the qualifier (first node)
@@ -734,7 +728,7 @@ function findSymbolReferenceById(
 /**
  * Check if a symbol is a type symbol (Class, Interface, or Enum)
  */
-function isTypeSymbol(symbol: any): boolean {
+function isTypeSymbol(symbol: ApexSymbol): symbol is TypeSymbol {
   return (
     symbol.kind === SymbolKind.Class ||
     symbol.kind === SymbolKind.Interface ||
@@ -742,19 +736,13 @@ function isTypeSymbol(symbol: any): boolean {
   );
 }
 
-/**
- * Check if a symbol is a method symbol (Method or Constructor)
- */
-function isMethodSymbol(symbol: any): boolean {
+function isMethodSymbol(symbol: ApexSymbol): symbol is MethodSymbol {
   return (
     symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor
   );
 }
 
-/**
- * Check if a symbol is a variable symbol (Property, Field, Variable, Parameter, or EnumValue)
- */
-function isVariableSymbol(symbol: any): boolean {
+function isVariableSymbol(symbol: ApexSymbol): symbol is VariableSymbol {
   return (
     symbol.kind === SymbolKind.Property ||
     symbol.kind === SymbolKind.Field ||

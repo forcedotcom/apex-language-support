@@ -562,11 +562,13 @@ function resolveThrowExpressionType(
     // Check for new expression: new MyException()
     if (isContextType(expression, NewExpressionContext)) {
       const newExpr = expression as NewExpressionContext;
-      const typeRef = (newExpr as any).typeRef?.();
-      if (typeRef) {
-        const typeName = extractTypeNameFromTypeRef(typeRef);
+      const createdName = newExpr.creator()?.createdName();
+      if (createdName) {
+        const typeName = createdName
+          .idCreatedNamePair()
+          .map((p) => p.anyId().text)
+          .join('.');
         if (typeName) {
-          // Try to find the type symbol
           const typeSymbol = yield* findTypeSymbolByName(
             symbolManager,
             typeName,
@@ -581,24 +583,6 @@ function resolveThrowExpressionType(
     // For now, return null (conservative - don't report false positives)
     return null;
   });
-}
-
-/**
- * Extract type name from TypeRefContext
- */
-function extractTypeNameFromTypeRef(typeRef: any): string | null {
-  try {
-    const qualifiedName = typeRef.qualifiedName?.();
-    if (qualifiedName) {
-      const ids = qualifiedName.id();
-      if (ids && ids.length > 0) {
-        return ids.map((id: any) => id.text).join('.');
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 /**

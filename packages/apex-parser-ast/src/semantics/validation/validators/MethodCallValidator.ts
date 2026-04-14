@@ -7,7 +7,12 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream, DefaultErrorStrategy } from 'antlr4ts';
+import {
+  CharStreams,
+  CommonTokenStream,
+  DefaultErrorStrategy,
+  ParserRuleContext,
+} from 'antlr4ts';
 import {
   ApexLexer,
   ApexParser,
@@ -40,7 +45,11 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isVariableSymbol,
+} from '../../../utils/symbolNarrowing';
+import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { isContextType } from '../../../utils/contextTypeGuards';
 import { ReferenceContext } from '../../../types/symbolReference';
@@ -63,7 +72,7 @@ interface MethodCallInfo {
   methodName: string;
   line: number;
   column: number;
-  ctx: MethodCallExpressionContext | DotMethodCallContext;
+  ctx: MethodCallExpressionContext | DotMethodCallContext | null;
   receiverName?: string; // Name of the receiver variable (e.g., "obj" in "obj.method()")
   /** True if receiver is a dot expression (obj.field), required for addError */
   receiverIsFieldAccess?: boolean;
@@ -90,29 +99,11 @@ class MethodCallListener extends BaseApexParserListener<void> {
         // Try to get type name from createdName
         let typeName: string | null = null;
 
-        // Check for typeName() directly (for collection types like List, Set, Map)
-        const typeNameNode = (createdName as any).typeName?.();
-        if (typeNameNode) {
-          typeName = typeNameNode.text || null;
-        }
-
-        // If not found, check idCreatedNamePair() structure (for regular types)
-        if (!typeName) {
-          const idCreatedNamePairs = createdName.idCreatedNamePair();
-          if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
-            const firstPair = idCreatedNamePairs[0];
-            const pairTypeName = (firstPair as any).typeName?.();
-            if (pairTypeName) {
-              typeName = pairTypeName.text || null;
-            }
-            // Also check for anyId() in the pair
-            if (!typeName) {
-              const anyId = firstPair.anyId?.();
-              if (anyId) {
-                typeName = anyId.text || null;
-              }
-            }
-          }
+        const idCreatedNamePairs = createdName.idCreatedNamePair();
+        if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
+          typeName = idCreatedNamePairs
+            .map((pair) => pair.anyId().text)
+            .join('.');
         }
 
         if (typeName) {
@@ -191,7 +182,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
         methodName: methodName.trim(),
         line: start.line,
         column: start.charPositionInLine,
-        ctx: ctx as any,
+        ctx,
         receiverName,
         receiverIsFieldAccess,
         hasSafeNavigationBeforeCall,
@@ -202,7 +193,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
   /**
    * Extract receiver name from an expression (for dot expressions like obj.method())
    */
-  private extractReceiverName(expr: any): string | undefined {
+  private extractReceiverName(expr: ParserRuleContext): string | undefined {
     if (!expr) return undefined;
 
     // Handle IdPrimaryContext (simple identifier like "obj")
@@ -245,7 +236,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
 function findTypeByName(
   typeName: string,
   allSymbols: ApexSymbol[],
-  symbolManager?: any,
+  symbolManager?: ISymbolManagerInterface,
 ): TypeSymbol | null {
   const normalizedName = typeName.toLowerCase().trim();
   const baseName =
@@ -282,7 +273,7 @@ function findTypeByName(
 function findClassByName(
   className: string,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): TypeSymbol | null {
   const normalizedName = className.toLowerCase().trim();
 
@@ -353,7 +344,7 @@ function findMethodInClass(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): MethodSymbol | null {
   const normalizedName = methodName.toLowerCase().trim();
   const validParentIds = buildValidParentIdsForClass(classSymbol, allSymbols);
@@ -399,9 +390,8 @@ function findMethodInClassHierarchy(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): MethodSymbol | null {
-  // First check the class itself (this now checks symbol manager if needed)
   let method = findMethodInClass(
     methodName,
     classSymbol,
@@ -604,7 +594,7 @@ export const MethodCallValidator: Validator = {
                 location?.identifierRange?.startColumn ??
                 location?.symbolRange?.startColumn ??
                 0,
-              ctx: null as any, // Not available from references
+              ctx: null,
               receiverName,
               receiverIsFieldAccess,
               receiverChain,
@@ -738,11 +728,10 @@ export const MethodCallValidator: Validator = {
                   s.fileUri === fileUri,
               );
 
-              if (receiverSymbol) {
-                const varSymbol = receiverSymbol as any;
-                if (varSymbol.type?.name) {
+              if (receiverSymbol && isVariableSymbol(receiverSymbol)) {
+                if (receiverSymbol.type?.name) {
                   const baseType = extractBaseTypeForResolution(
-                    varSymbol.type.name,
+                    receiverSymbol.type.name,
                   );
                   targetClass = findClassByName(
                     baseType,
