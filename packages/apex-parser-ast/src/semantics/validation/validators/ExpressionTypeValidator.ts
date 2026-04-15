@@ -48,7 +48,10 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  isMethodCallContext,
+} from '../../../utils/contextTypeGuards';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -422,12 +425,10 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
             const primary = expr as PrimaryExpressionContext;
             // Check if primary contains a method call
             const primaryCtx = primary.primary();
-            // Check if primary context has a method call
-            // PrimaryContext doesn't have methodCall() directly, so we check the structure
             const hasMethodCall =
               primaryCtx &&
               (isContextType(primaryCtx, IdPrimaryContext) ||
-                'methodCall' in primaryCtx);
+                isMethodCallContext(primaryCtx));
             if (!hasMethodCall) {
               // Primary expression without method call is invalid as statement
               // (unless it's increment/decrement which we already checked)

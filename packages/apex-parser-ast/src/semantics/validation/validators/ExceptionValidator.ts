@@ -45,7 +45,10 @@ import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { normalizeStandardTypeName } from '../utils/standardTypeIdentity';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  getTypeNameFromCreatedName,
+} from '../../../utils/contextTypeGuards';
 
 /**
  * Helper to check if a type extends Exception
@@ -564,10 +567,7 @@ function resolveThrowExpressionType(
       const newExpr = expression as NewExpressionContext;
       const createdName = newExpr.creator()?.createdName();
       if (createdName) {
-        const typeName = createdName
-          .idCreatedNamePair()
-          .map((p) => p.anyId().text)
-          .join('.');
+        const typeName = getTypeNameFromCreatedName(createdName);
         if (typeName) {
           const typeSymbol = yield* findTypeSymbolByName(
             symbolManager,

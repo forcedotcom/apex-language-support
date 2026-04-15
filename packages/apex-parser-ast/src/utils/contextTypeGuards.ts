@@ -33,6 +33,7 @@ import {
   UpsertStatementContext,
   ExpressionListContext,
   MethodCallContext,
+  CreatedNameContext,
 } from '@apexdevtools/apex-parser';
 
 /**
@@ -218,4 +219,21 @@ export function isMethodCallContext(
     ctx instanceof MethodCallContext ||
     ctx instanceof DotMethodCallContext
   );
+}
+
+/**
+ * Build a dot-separated type name from a CreatedNameContext.
+ *
+ * Grammar: createdName : idCreatedNamePair (DOT idCreatedNamePair)*
+ *
+ * Returns `null` when no idCreatedNamePair children exist.
+ */
+export function getTypeNameFromCreatedName(
+  createdName: CreatedNameContext,
+): string | null {
+  const pairs = createdName.idCreatedNamePair();
+  if (!pairs || pairs.length === 0) {
+    return null;
+  }
+  return pairs.map((pair) => pair.anyId().text).join('.');
 }

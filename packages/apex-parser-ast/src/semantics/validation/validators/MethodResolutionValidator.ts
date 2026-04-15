@@ -1383,7 +1383,7 @@ function validateMethodReturnType(
     // Verify we have the right method (name match)
     const chainNodes = methodCall.chainNodes;
     const actualMethodName =
-      chainNodes?.length > 0
+      chainNodes && chainNodes.length > 0
         ? chainNodes[chainNodes.length - 1]?.name
         : methodCall.name?.split('.').pop();
     if (

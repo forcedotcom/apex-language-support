@@ -51,7 +51,10 @@ import {
 } from '../../../utils/symbolNarrowing';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  getTypeNameFromCreatedName,
+} from '../../../utils/contextTypeGuards';
 import { ReferenceContext } from '../../../types/symbolReference';
 import { extractBaseTypeForResolution } from '../utils/typeUtils';
 
@@ -96,15 +99,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
     if (creator) {
       const createdName = creator.createdName();
       if (createdName) {
-        // Try to get type name from createdName
-        let typeName: string | null = null;
-
-        const idCreatedNamePairs = createdName.idCreatedNamePair();
-        if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
-          typeName = idCreatedNamePairs
-            .map((pair) => pair.anyId().text)
-            .join('.');
-        }
+        const typeName = getTypeNameFromCreatedName(createdName);
 
         if (typeName) {
           const start = ctx.start;
