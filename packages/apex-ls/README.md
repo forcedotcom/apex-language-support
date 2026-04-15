@@ -121,8 +121,7 @@ Return to Client
 
 - `vscode-languageserver`: VSCode Language Server implementation (browser version)
 - `vscode-languageserver-textdocument`: Text document handling
-- `vscode-languageserver-protocol`: LSP protocol definitions
-- `vscode-jsonrpc`: JSON-RPC communication
+- `vscode-languageserver-protocol`: LSP protocol definitions (transitive; includes JSON-RPC)
 - `@salesforce/apex-lsp-parser-ast`: Apex parser and AST
 - `@salesforce/apex-lsp-compliant-services`: LSP compliant services
 - `@salesforce/apex-lsp-shared`: Shared utilities and logging

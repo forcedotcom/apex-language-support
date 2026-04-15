@@ -52,6 +52,7 @@
       ],
       "ignoreDependencies": [
         "@salesforce/apex-tmlanguage",
+        "@vscode/vsce",
         "buffer",
         "events",
         "process",
@@ -82,7 +83,12 @@
       ]
     },
     "e2e-tests": {
-      "entry": ["tests/**/*.spec.ts", "utils/**/*.ts"]
+      "entry": [
+        "tests/**/*.spec.ts",
+        "utils/**/*.ts",
+        "fixtures/workspaceFixtures.ts",
+        "shared/index.ts"
+      ]
     }
   },
   "ignoreBinaries": ["ovsx", "gh"],
