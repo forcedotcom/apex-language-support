@@ -16,6 +16,7 @@ import {
   ApexCapabilitiesManager,
   LoggerInterface,
   ApexSettingsManager,
+  type ServerMode,
 } from '@salesforce/apex-lsp-shared';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -178,6 +179,9 @@ export class HoverProcessingService implements IHoverProcessor {
             return hover;
           }
         }
+        // No TypeReferences at this position and precise did not resolve.
+        // Do not fall back to scope here: scope's containment fallback returns the enclosing
+        // method/class, which is not meaningful for arbitrary positions (keywords, whitespace, etc.).
         return null;
       }
 
@@ -345,7 +349,6 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
-
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
@@ -889,6 +892,20 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
+   * In worker threads, `ApexCapabilitiesManager` may not share the same module
+   * instance as `HoverProcessingService` after bundling; `WorkerInit` stores
+   * the authoritative mode on `globalThis` for dev-only hover extras.
+   */
+  private getEffectiveServerMode(): ServerMode {
+    const wire = (globalThis as Record<string, unknown>)
+      .__apexWorkerInitServerMode;
+    if (wire === 'development' || wire === 'production') {
+      return wire;
+    }
+    return this.capabilitiesManager.getMode();
+  }
+
+  /**
    * Create hover information for a symbol
    * @param symbol The symbol to create hover for
    * @param originalSymbol The original symbol found (may differ if we're showing constructor for class)
@@ -984,8 +1001,8 @@ export class HoverProcessingService implements IHoverProcessor {
         content.push(`**Modifiers:** ${modifiers.join(', ')}`);
       }
     }
-    // Add metrics information only in development mode
-    if (this.capabilitiesManager.getMode() === 'development') {
+    const devMode = this.getEffectiveServerMode();
+    if (devMode === 'development') {
       // Add type information (compact) for value-like symbols
       const isTypeLike = inTypeSymbolGroup(symbol);
       if (!isMethodSymbol(symbol) && !isTypeLike && isVariableSymbol(symbol)) {
@@ -1016,36 +1033,6 @@ export class HoverProcessingService implements IHoverProcessor {
         if (symbol.interfaces && symbol.interfaces.length > 0) {
           content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
         }
-      }
-
-      try {
-        const referencesTo = await this.symbolManager.findReferencesTo(symbol);
-        const referencesFrom =
-          await this.symbolManager.findReferencesFrom(symbol);
-        const dependencyAnalysis =
-          await this.symbolManager.analyzeDependencies(symbol);
-        const totalReferences = referencesTo.length + referencesFrom.length;
-
-        if (
-          totalReferences > 0 ||
-          dependencyAnalysis.dependencies.length > 0 ||
-          dependencyAnalysis.dependents.length > 0
-        ) {
-          content.push('');
-          content.push('**Metrics:**');
-          content.push(`- Reference count: ${totalReferences}`);
-          content.push(
-            `- Dependency count: ${dependencyAnalysis.dependencies.length}`,
-          );
-          content.push(
-            `- Dependents count: ${dependencyAnalysis.dependents.length}`,
-          );
-          content.push(
-            `- Impact score: ${dependencyAnalysis.impactScore.toFixed(2)}`,
-          );
-        }
-      } catch (error) {
-        this.logger.debug(() => `Error getting metrics: ${error}`);
       }
     }
 
