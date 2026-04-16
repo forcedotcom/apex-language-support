@@ -894,16 +894,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               req.enrichedSymbolTable as never,
             );
 
-            // Merge into symbol manager (returns Effect, so wrap in Effect.promise and run)
-            yield* Effect.promise(() =>
-              Effect.runPromise(
-                svc.symbolManager.addSymbolTable(
-                  enrichedSt,
-                  req.uri,
-                  req.documentVersion,
-                  false, // hasErrors
-                ),
-              ),
+            // Merge into symbol manager (returns Effect, so yield directly)
+            yield* svc.symbolManager.addSymbolTable(
+              enrichedSt,
+              req.uri,
+              req.documentVersion,
+              false, // hasErrors
             );
 
             // Update cache with new detail level
