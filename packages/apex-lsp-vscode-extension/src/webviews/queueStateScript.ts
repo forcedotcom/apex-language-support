@@ -449,14 +449,22 @@ function initDashboard() {
     console.error('Failed to initialize queue state dashboard:', error);
     const content = document.getElementById('dashboard-content');
     if (content) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       content.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">❌</div>
-          <div>Failed to initialize dashboard: ${error}</div>
+          <div>Failed to initialize dashboard: ${escapeHtml(errorMessage)}</div>
         </div>
       `;
     }
   }
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 if (document.readyState === 'loading') {
