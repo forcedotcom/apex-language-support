@@ -73,6 +73,15 @@ export const isInterfaceSymbol = (
 ): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Interface;
 
 /**
+ * Type predicate to check if a symbol is a Class or Interface
+ */
+export const isClassOrInterfaceSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol =>
+  !!symbol &&
+  (symbol.kind === SymbolKind.Class || symbol.kind === SymbolKind.Interface);
+
+/**
  * Type predicate to check if a symbol is a TriggerSymbol
  */
 export const isTriggerSymbol = (

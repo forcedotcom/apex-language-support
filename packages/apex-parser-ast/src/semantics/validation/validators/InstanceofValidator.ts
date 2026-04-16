@@ -22,7 +22,7 @@ import {
   CastExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import { inTypeSymbolGroup } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -90,7 +90,7 @@ class InstanceofCollectorListener extends BaseApexParserListener<
     };
     parent?: ParserRuleContext;
   }): void {
-    const literal = (ctx as any).literal?.();
+    const literal = ctx.literal?.();
     if (!literal) return;
     let litType:
       | 'integer'
@@ -107,13 +107,13 @@ class InstanceofCollectorListener extends BaseApexParserListener<
     else if (literal.BooleanLiteral?.()) litType = 'boolean';
     else if (literal.NULL?.()) litType = 'null';
     if (litType) {
-      let current: ParserRuleContext | null = (ctx as any).parent || null;
+      let current: ParserRuleContext | null = ctx.parent || null;
       while (current) {
         if (current instanceof ExpressionContext) {
           this.literalTypes.set(current, litType);
           break;
         }
-        current = (current as any).parent || null;
+        current = current.parent || null;
       }
     }
   }
@@ -268,11 +268,7 @@ export const InstanceofValidator: Validator = {
 
         // For non-Object RHS, ensure we can resolve (allSymbols has same-file types)
         const rightInAll = allSymbols.find(
-          (s) =>
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum) &&
-            s.name.toLowerCase() === rightBase,
+          (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === rightBase,
         );
         const rightSymbols = rightInAll
           ? [rightInAll]

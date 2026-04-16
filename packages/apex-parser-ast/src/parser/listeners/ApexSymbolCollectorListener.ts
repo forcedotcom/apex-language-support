@@ -148,6 +148,7 @@ import {
   isVariableOrFieldDeclarationContext,
   isMethodDeclarationContext,
   isMethodCallContext,
+  getTypeNameFromCreatedName,
 } from '../../utils/contextTypeGuards';
 import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
@@ -5196,24 +5197,9 @@ export class ApexSymbolCollectorListener
       }
 
       // Handle regular class constructor calls
-      const anyId = firstPair.anyId();
-      if (anyId) {
-        const typeName = anyId.text;
-
-        // Build qualified name if there are multiple pairs
-        if (idCreatedNamePairs.length > 1) {
-          const parts: string[] = [typeName];
-          for (let i = 1; i < idCreatedNamePairs.length; i++) {
-            const pair = idCreatedNamePairs[i];
-            const pairId = pair.anyId();
-            if (pairId) {
-              parts.push(pairId.text);
-            }
-          }
-          return createTypeInfo(parts.join('.'));
-        }
-
-        return createTypeInfo(typeName);
+      const qualifiedName = getTypeNameFromCreatedName(createdName);
+      if (qualifiedName) {
+        return createTypeInfo(qualifiedName);
       }
     }
 

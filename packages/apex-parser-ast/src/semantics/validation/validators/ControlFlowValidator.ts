@@ -21,6 +21,8 @@ import {
   ForStatementContext,
   WhileStatementContext,
   DoWhileStatementContext,
+  MethodDeclarationContext,
+  ConstructorDeclarationContext,
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
@@ -34,6 +36,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 
@@ -64,7 +67,7 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 class ControlFlowListener extends BaseApexParserListener<void> {
   private errors: Array<{
     ctx: ParserRuleContext;
-    code: string;
+    code: ErrorCodeKey;
   }> = [];
   private loopDepth = 0; // Track nesting depth of loops
   private methodDepth = 0; // Track nesting depth of methods
@@ -96,20 +99,19 @@ class ControlFlowListener extends BaseApexParserListener<void> {
   // Enhanced for loops also use ForStatementContext in Apex parser
   // We track them the same way as regular for loops
 
-  enterMethodDeclaration(ctx: any): void {
+  enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     this.methodDepth++;
   }
 
-  exitMethodDeclaration(ctx: any): void {
+  exitMethodDeclaration(ctx: MethodDeclarationContext): void {
     this.methodDepth--;
   }
 
-  enterConstructorDeclaration(ctx: any): void {
-    // Constructors are like methods for return statement validation
+  enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     this.methodDepth++;
   }
 
-  exitConstructorDeclaration(ctx: any): void {
+  exitConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     this.methodDepth--;
   }
 
@@ -146,7 +148,7 @@ class ControlFlowListener extends BaseApexParserListener<void> {
 
   getErrors(): Array<{
     ctx: ParserRuleContext;
-    code: string;
+    code: ErrorCodeKey;
   }> {
     return this.errors;
   }
@@ -251,7 +253,7 @@ export const ControlFlowValidator: Validator = {
         for (const { ctx, code } of controlFlowErrors) {
           const location = getLocationFromContext(ctx);
           errors.push({
-            message: localizeTyped(code as any),
+            message: localizeTyped(code),
             location,
             code,
           });

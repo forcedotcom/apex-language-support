@@ -22,7 +22,11 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isMethodSymbol,
+  isFieldSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 
 /**
  * Helper to check if a method has @AuraEnabled annotation
@@ -73,14 +77,9 @@ export const AuraEnabledValidator: Validator = {
       // Get all @AuraEnabled methods
       const auraMethods: MethodSymbol[] = [];
       for (const symbol of allSymbols) {
-        if (
-          symbol.kind === SymbolKind.Method &&
-          'parameters' in symbol &&
-          'returnType' in symbol
-        ) {
-          const method = symbol as MethodSymbol;
-          if (hasAuraEnabledAnnotation(method)) {
-            auraMethods.push(method);
+        if (isMethodSymbol(symbol)) {
+          if (hasAuraEnabledAnnotation(symbol)) {
+            auraMethods.push(symbol);
           }
         }
       }
@@ -89,19 +88,13 @@ export const AuraEnabledValidator: Validator = {
       // Note: @AuraEnabled is valid on Properties, but fields can also have annotations
       const auraFields: VariableSymbol[] = [];
       for (const symbol of allSymbols) {
-        if (
-          (symbol.kind === SymbolKind.Field ||
-            symbol.kind === SymbolKind.Property) &&
-          'type' in symbol
-        ) {
-          const field = symbol as VariableSymbol;
-          // Check annotations directly from ApexSymbol
+        if (isFieldSymbol(symbol) || isPropertySymbol(symbol)) {
           const hasAuraEnabled =
-            field.annotations?.some(
+            symbol.annotations?.some(
               (ann) => ann.name.toLowerCase() === 'auraenabled',
             ) || false;
           if (hasAuraEnabled) {
-            auraFields.push(field);
+            auraFields.push(symbol);
           }
         }
       }

@@ -10,7 +10,6 @@ import { Effect, Layer } from 'effect';
 import type {
   SymbolTable,
   MethodSymbol,
-  TypeSymbol,
   Annotation,
 } from '../../../types/symbol';
 import type {
@@ -24,6 +23,12 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { SymbolKind } from '../../../types/symbol';
+import {
+  isClassOrInterfaceSymbol,
+  isMethodSymbol,
+  isFieldSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 import {
   ArtifactLoadingHelper,
   ArtifactLoadingHelperLive,
@@ -736,7 +741,7 @@ function resolveTestForTypes(
       const expectedKind =
         ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
 
-      const found = symbols.find((s: any) => s.kind === expectedKind) as any;
+      const found = symbols.find((s) => s.kind === expectedKind);
 
       if (found) {
         results.set(ref.typeName, { found: true, kind: found.kind });
@@ -769,9 +774,7 @@ function resolveTestForTypes(
           const symbols = symbolManager.findSymbolByName(typeName);
           const expectedKind =
             ref.prefix === 'ApexClass' ? SymbolKind.Class : SymbolKind.Trigger;
-          const found = symbols.find(
-            (s: any) => s.kind === expectedKind,
-          ) as any;
+          const found = symbols.find((s) => s.kind === expectedKind);
           if (found) {
             results.set(typeName, { found: true, kind: found.kind });
           }
@@ -838,12 +841,7 @@ export const AnnotationPropertyValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Validate @RestResource classes
-      const classes = allSymbols.filter(
-        (symbol): symbol is TypeSymbol =>
-          (symbol.kind === SymbolKind.Class ||
-            symbol.kind === SymbolKind.Interface) &&
-          'annotations' in symbol,
-      );
+      const classes = allSymbols.filter(isClassOrInterfaceSymbol);
 
       for (const classSymbol of classes) {
         if (!classSymbol.annotations) {
@@ -1355,7 +1353,7 @@ export const AnnotationPropertyValidator: Validator = {
                   errors.push({
                     message: formatError.message,
                     location: annotation.location,
-                    code: formatError.code as any,
+                    code: formatError.code,
                   });
                 }
 
@@ -1399,10 +1397,7 @@ export const AnnotationPropertyValidator: Validator = {
               // @isTest on class with @TestSetup methods: cannot have seeAllData
               // Check if there are any @TestSetup methods in the file
               // (TIER 1: same-file only, so all methods belong to classes in this file)
-              const allMethods = allSymbols.filter(
-                (symbol): symbol is MethodSymbol =>
-                  symbol.kind === SymbolKind.Method && 'parameters' in symbol,
-              );
+              const allMethods = allSymbols.filter(isMethodSymbol);
               const hasTestSetupMethods = allMethods.some((method) =>
                 method.annotations?.some(
                   (ann) => ann.name.toLowerCase() === 'testsetup',
@@ -1430,10 +1425,7 @@ export const AnnotationPropertyValidator: Validator = {
       }
 
       // Validate @InvocableMethod methods
-      const methods = allSymbols.filter(
-        (symbol): symbol is MethodSymbol =>
-          symbol.kind === SymbolKind.Method && 'parameters' in symbol,
-      );
+      const methods = allSymbols.filter(isMethodSymbol);
 
       for (const method of methods) {
         // General annotation property validation for method annotations
@@ -1874,7 +1866,7 @@ export const AnnotationPropertyValidator: Validator = {
                     errors.push({
                       message: formatError.message,
                       location: annotation.location,
-                      code: formatError.code as any,
+                      code: formatError.code,
                     });
                   }
 
@@ -1986,10 +1978,7 @@ export const AnnotationPropertyValidator: Validator = {
 
       // Validate field and property annotations
       const fieldsAndProperties = allSymbols.filter(
-        (symbol) =>
-          (symbol.kind === SymbolKind.Field ||
-            symbol.kind === SymbolKind.Property) &&
-          'annotations' in symbol,
+        (symbol) => isFieldSymbol(symbol) || isPropertySymbol(symbol),
       );
 
       for (const fieldOrProperty of fieldsAndProperties) {
@@ -2400,7 +2389,7 @@ export const AnnotationPropertyValidator: Validator = {
                   errors.push({
                     message: formatError.message,
                     location: annotation.location,
-                    code: formatError.code as any,
+                    code: formatError.code,
                   });
                 }
 

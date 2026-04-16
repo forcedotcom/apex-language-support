@@ -22,7 +22,10 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isClassOrInterfaceSymbol,
+  isMethodSymbol,
+} from '../../../utils/symbolNarrowing';
 
 /**
  * Helper to check if a method has @isTest annotation
@@ -116,10 +119,7 @@ export const TestMethodValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Validate test methods
-      const methods = allSymbols.filter(
-        (symbol): symbol is MethodSymbol =>
-          symbol.kind === SymbolKind.Method && 'parameters' in symbol,
-      );
+      const methods = allSymbols.filter(isMethodSymbol);
 
       for (const method of methods) {
         // Check @isTest methods
@@ -161,12 +161,7 @@ export const TestMethodValidator: Validator = {
       }
 
       // Validate test classes (cannot be exception classes)
-      const classes = allSymbols.filter(
-        (symbol): symbol is TypeSymbol =>
-          (symbol.kind === SymbolKind.Class ||
-            symbol.kind === SymbolKind.Interface) &&
-          'annotations' in symbol,
-      );
+      const classes = allSymbols.filter(isClassOrInterfaceSymbol);
 
       for (const classSymbol of classes) {
         // Check if class has @isTest annotation

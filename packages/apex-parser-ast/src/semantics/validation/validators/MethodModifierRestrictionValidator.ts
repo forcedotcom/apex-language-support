@@ -13,7 +13,12 @@ import type {
   TypeSymbol,
   MethodSymbol,
 } from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import { SymbolVisibility } from '../../../types/symbol';
+import {
+  isClassSymbol,
+  isBlockSymbol,
+  isMethodSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -46,20 +51,19 @@ function findContainingClass(
   let current: ApexSymbol | null = method;
 
   while (current) {
-    if (current.kind === SymbolKind.Class) {
-      return current as TypeSymbol;
+    if (isClassSymbol(current)) {
+      return current;
     }
 
     if (current.parentId) {
       const parent = allSymbols.find((s) => s.id === current!.parentId);
-      if (parent && parent.kind === SymbolKind.Class) {
-        return parent as TypeSymbol;
+      if (isClassSymbol(parent)) {
+        return parent;
       }
-      // If parent is a block, check its parent
-      if (parent && parent.kind === SymbolKind.Block && parent.parentId) {
+      if (isBlockSymbol(parent) && parent.parentId) {
         const grandParent = allSymbols.find((s) => s.id === parent!.parentId);
-        if (grandParent && grandParent.kind === SymbolKind.Class) {
-          return grandParent as TypeSymbol;
+        if (isClassSymbol(grandParent)) {
+          return grandParent;
         }
       }
       current = parent ?? null;
@@ -105,7 +109,7 @@ export const MethodModifierRestrictionValidator: Validator = {
       // Get all methods
       const methods = allSymbols.filter(
         (symbol): symbol is MethodSymbol =>
-          symbol.kind === SymbolKind.Method && 'parameters' in symbol,
+          isMethodSymbol(symbol) && 'parameters' in symbol,
       );
 
       // Group methods by containing class

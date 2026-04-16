@@ -19,8 +19,15 @@ import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import {
   isBlockSymbol,
   isChainedSymbolReference,
+  isClassOrInterfaceSymbol,
+  isFieldSymbol,
+  isMethodSymbol,
+  isPropertySymbol,
 } from '../../../utils/symbolNarrowing';
-import { ReferenceContext } from '../../../types/symbolReference';
+import {
+  ReferenceContext,
+  type SymbolReference,
+} from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -83,8 +90,8 @@ export const VariableResolutionValidator: Validator = {
       const chainedTypeRefs = allReferences.filter((ref) =>
         isChainedSymbolReference(ref),
       );
-      const extractedFieldAccesses: any[] = [];
-      const extractedWriteFieldAccesses: any[] = []; // Track write accesses separately
+      const extractedFieldAccesses: SymbolReference[] = [];
+      const extractedWriteFieldAccesses: SymbolReference[] = [];
 
       for (const chainedRef of chainedTypeRefs) {
         if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
@@ -245,9 +252,7 @@ export const VariableResolutionValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Find the containing class for context
-      const containingClass = allSymbols.find(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const containingClass = allSymbols.find(isClassOrInterfaceSymbol);
 
       // Validate variable usages
       for (const variableRef of variableUsages) {
@@ -376,7 +381,7 @@ export const VariableResolutionValidator: Validator = {
         }
 
         // Check visibility if it's a field (not a local variable or parameter)
-        if (variable.kind === SymbolKind.Field && containingClass) {
+        if (isFieldSymbol(variable) && containingClass) {
           const isVisible = yield* isVariableVisible(
             variable as VariableSymbol,
             containingClass,
@@ -569,11 +574,7 @@ export const VariableResolutionValidator: Validator = {
                   }
                 }
                 const resolvedType =
-                  (typeSymbols.find(
-                    (s: ApexSymbol) =>
-                      s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface,
-                  ) as TypeSymbol | undefined) ?? null;
+                  typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
                 if (resolvedType) {
                   targetType = yield* resolveTargetTypeWithArrayAccess(
                     resolvedType,
@@ -629,11 +630,7 @@ export const VariableResolutionValidator: Validator = {
                 }
               }
               let resolvedTargetType =
-                (typeSymbols.find(
-                  (s: ApexSymbol) =>
-                    s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface,
-                ) as TypeSymbol | undefined) ?? null;
+                typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
               resolvedTargetType = yield* resolveTargetTypeWithArrayAccess(
                 resolvedTargetType,
                 fullTypeStr,
@@ -833,15 +830,10 @@ export const VariableResolutionValidator: Validator = {
                     typeSymbols = symbolManager.findSymbolByName(lastPart);
                 }
                 const resolvedTargetType =
-                  (typeSymbols.find(
-                    (s: ApexSymbol) =>
-                      s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface,
-                  ) as TypeSymbol | undefined) ?? null;
+                  typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
                 if (resolvedTargetType) {
                   targetType = resolvedTargetType;
                 } else {
-                  // Type not in symbol manager (e.g. ContentVersion) - suppress false positive
                   suppressDueToUnresolvedDeclaredType = true;
                 }
                 break;
@@ -990,11 +982,7 @@ function resolveChainTargetType(
         const lastPart = typeName.split('.').pop();
         if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
       }
-      currentType =
-        (typeSymbols.find(
-          (s: ApexSymbol) =>
-            s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        ) as TypeSymbol | undefined) ?? null;
+      currentType = typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
     }
     // When first node is a class name (e.g. EncodingUtil), resolve via symbol manager
     if (!currentType && !firstVar) {
@@ -1015,11 +1003,7 @@ function resolveChainTargetType(
         const lastPart = firstNode.name.split('.').pop();
         if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
       }
-      currentType =
-        (typeSymbols.find(
-          (s: ApexSymbol) =>
-            s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        ) as TypeSymbol | undefined) ?? null;
+      currentType = typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
     }
     if (!currentType) return null;
 
@@ -1036,10 +1020,7 @@ function resolveChainTargetType(
       if (!method?.returnType?.name) return null;
       const returnTypeName = method.returnType.name;
       const typeSymbols = symbolManager.findSymbolByName(returnTypeName);
-      const nextType = typeSymbols.find(
-        (s: ApexSymbol) =>
-          s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const nextType = typeSymbols.find(isClassOrInterfaceSymbol);
       if (!nextType) return null;
       currentType = nextType;
     }
@@ -1069,7 +1050,7 @@ function findMethodInClassHierarchy(
 
     const isMethodInClass = (method: ApexSymbol): boolean => {
       if (
-        method.kind !== SymbolKind.Method ||
+        !isMethodSymbol(method) ||
         method.name?.toLowerCase() !== methodName.toLowerCase()
       )
         return false;
@@ -1089,10 +1070,7 @@ function findMethodInClassHierarchy(
       const superSymbols = symbolManager.findSymbolByName(
         classSymbol.superClass,
       );
-      const superClass = superSymbols.find(
-        (s: ApexSymbol) =>
-          s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const superClass = superSymbols.find(isClassOrInterfaceSymbol);
       if (superClass)
         return yield* findMethodInClassHierarchy(
           symbolManager,
@@ -1112,7 +1090,7 @@ function findMethodInClassHierarchy(
 function resolveTargetTypeWithArrayAccess(
   targetType: TypeSymbol | null,
   variableTypeName: string | undefined,
-  fieldRef: any,
+  fieldRef: SymbolReference,
   sourceContent: string | undefined,
   symbolManager: ISymbolManagerInterface,
 ): Effect.Effect<TypeSymbol | null, never, never> {
@@ -1130,10 +1108,7 @@ function resolveTargetTypeWithArrayAccess(
     const elementType = extractElementTypeFromCollection(variableTypeName);
     if (!elementType) return targetType;
     const elementSymbols = symbolManager.findSymbolByName(elementType);
-    const elementTypeSymbol = elementSymbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-    ) as TypeSymbol | undefined;
+    const elementTypeSymbol = elementSymbols.find(isClassOrInterfaceSymbol);
     return elementTypeSymbol ?? targetType;
   });
 }
@@ -1143,7 +1118,7 @@ function resolveTargetTypeWithArrayAccess(
  * For qualified field access like "obj.field", extracts "obj"
  */
 function extractObjectNameFromFieldAccess(
-  fieldRef: any, // SymbolReference with FIELD_ACCESS context
+  fieldRef: SymbolReference,
   sourceContent: string,
 ): string | null {
   if (!sourceContent || !fieldRef.location) {
@@ -1242,11 +1217,9 @@ function findVariableInScope(
   // misses parameters since they live in method block scope, not file scope)
   if (parentContext) {
     const methodSymbol = allSymbols.find(
-      (s) =>
-        s.kind === SymbolKind.Method &&
-        'parameters' in s &&
-        s.name === parentContext,
-    ) as MethodSymbol | undefined;
+      (s): s is MethodSymbol =>
+        isMethodSymbol(s) && 'parameters' in s && s.name === parentContext,
+    );
     if (methodSymbol?.parameters) {
       const param = methodSymbol.parameters.find(
         (p) => p.name?.toLowerCase() === variableName.toLowerCase(),
@@ -1259,12 +1232,8 @@ function findVariableInScope(
   // (not in symbolArray). Search all methods in the file.
   if (!parentContext) {
     for (const s of allSymbols) {
-      if (
-        s.kind === SymbolKind.Method &&
-        'parameters' in s &&
-        (s as MethodSymbol).parameters
-      ) {
-        const param = (s as MethodSymbol).parameters.find(
+      if (isMethodSymbol(s) && 'parameters' in s && s.parameters) {
+        const param = s.parameters.find(
           (p) => p.name?.toLowerCase() === variableName.toLowerCase(),
         );
         if (param) return param;
@@ -1357,11 +1326,10 @@ function findFieldsInClass(
   // Get fields and properties directly in this class (properties use get; set;)
   for (const symbol of allSymbols) {
     if (
-      (symbol.kind === SymbolKind.Field ||
-        symbol.kind === SymbolKind.Property) &&
+      (isFieldSymbol(symbol) || isPropertySymbol(symbol)) &&
       (symbol.parentId === classBlock?.id || symbol.parentId === classSymbol.id)
     ) {
-      fields.push(symbol as VariableSymbol);
+      fields.push(symbol);
     }
   }
 
@@ -1379,17 +1347,12 @@ function findFieldInSuperclass(
   return Effect.gen(function* () {
     // Find the superclass type symbol
     const superClassSymbols = symbolManager.findSymbolByName(superClassName);
-    const superClassSymbol = superClassSymbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-    ) as TypeSymbol | undefined;
+    const superClassSymbol = superClassSymbols.find(isClassOrInterfaceSymbol);
 
     if (!superClassSymbol) {
-      // Superclass not found - might need artifact loading
       return null;
     }
 
-    // Get all symbols for completion to find fields
     const allSymbols = symbolManager.getAllSymbolsForCompletion();
 
     // Find fields in the superclass
@@ -1520,30 +1483,18 @@ function findDeclaringClassForVariable(
 
   let current: ApexSymbol | null = variable;
   while (current) {
-    if (
-      current.kind === SymbolKind.Class ||
-      current.kind === SymbolKind.Interface
-    ) {
-      return current as TypeSymbol;
+    if (isClassOrInterfaceSymbol(current)) {
+      return current;
     }
     if (current.parentId) {
       const parent = resolveParent(current.parentId);
-      if (
-        parent &&
-        (parent.kind === SymbolKind.Class ||
-          parent.kind === SymbolKind.Interface)
-      ) {
-        return parent as TypeSymbol;
+      if (isClassOrInterfaceSymbol(parent)) {
+        return parent;
       }
-      // If parent is a block, check its parent
       if (parent && isBlockSymbol(parent) && parent.parentId) {
         const grandParent = resolveParent(parent.parentId);
-        if (
-          grandParent &&
-          (grandParent.kind === SymbolKind.Class ||
-            grandParent.kind === SymbolKind.Interface)
-        ) {
-          return grandParent as TypeSymbol;
+        if (isClassOrInterfaceSymbol(grandParent)) {
+          return grandParent;
         }
       }
       current = parent ?? null;
@@ -1574,10 +1525,7 @@ function isSubclassOf(
     const superClassSymbols = symbolManager.findSymbolByName(
       childClass.superClass,
     );
-    const superClassSymbol = superClassSymbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-    ) as TypeSymbol | undefined;
+    const superClassSymbol = superClassSymbols.find(isClassOrInterfaceSymbol);
 
     if (superClassSymbol) {
       return isSubclassOf(

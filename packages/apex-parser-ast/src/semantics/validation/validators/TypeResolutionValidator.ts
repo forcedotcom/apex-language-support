@@ -12,7 +12,10 @@ import type {
   TypeSymbol,
   ApexSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  inTypeSymbolGroup,
+  isInterfaceSymbol,
+} from '../../../utils/symbolNarrowing';
 import { ReferenceContext } from '../../../types/symbolReference';
 import type {
   ValidationResult,
@@ -96,30 +99,15 @@ export const TypeResolutionValidator: Validator = {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
         const sameFileType = allSymbols.find(
-          (s) =>
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum) &&
-            s.name.toLowerCase() === baseName,
+          (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
         );
         if (sameFileType) continue;
         if (options.tier === ValidationTier.THOROUGH) {
           const symbols = symbolManager.findSymbolByName(typeName);
-          const found = symbols.find(
-            (s: ApexSymbol) =>
-              s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum,
-          );
+          const found = symbols.find((s: ApexSymbol) => inTypeSymbolGroup(s));
           if (found) continue;
           const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-          if (
-            fqnSymbol &&
-            (fqnSymbol.kind === SymbolKind.Class ||
-              fqnSymbol.kind === SymbolKind.Interface ||
-              fqnSymbol.kind === SymbolKind.Enum)
-          )
-            continue;
+          if (inTypeSymbolGroup(fqnSymbol)) continue;
         }
         unresolvedTypeNames.push(typeName);
       }
@@ -150,35 +138,23 @@ export const TypeResolutionValidator: Validator = {
 
         // Same-file lookup
         const sameFileType = allSymbols.find(
-          (s) =>
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum) &&
-            s.name.toLowerCase() === baseName,
-        ) as TypeSymbol | undefined;
+          (s): s is TypeSymbol =>
+            inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
+        );
 
         if (sameFileType) {
           typeSymbol = sameFileType;
         } else if (options.tier === ValidationTier.THOROUGH) {
-          // Cross-file lookup via symbolManager (types may have been loaded above)
           const symbols = symbolManager.findSymbolByName(typeName);
-          const found = symbols.find(
-            (s: ApexSymbol) =>
-              s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum,
-          ) as TypeSymbol | undefined;
+          const found = symbols.find((s: ApexSymbol): s is TypeSymbol =>
+            inTypeSymbolGroup(s),
+          );
           if (found) {
             typeSymbol = found;
           } else {
             const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-            if (
-              fqnSymbol &&
-              (fqnSymbol.kind === SymbolKind.Class ||
-                fqnSymbol.kind === SymbolKind.Interface ||
-                fqnSymbol.kind === SymbolKind.Enum)
-            ) {
-              typeSymbol = fqnSymbol as TypeSymbol;
+            if (inTypeSymbolGroup(fqnSymbol)) {
+              typeSymbol = fqnSymbol;
             }
           }
         }
@@ -204,7 +180,7 @@ export const TypeResolutionValidator: Validator = {
 
         // INVALID_CLASS: When class is required but type is interface or enum
         if (classRequiredContexts.has(ref.context)) {
-          if (typeSymbol.kind === SymbolKind.Interface) {
+          if (isInterfaceSymbol(typeSymbol)) {
             errors.push({
               message: localizeTyped(ErrorCodes.INVALID_CLASS, typeName),
               location: ref.location,

@@ -7,12 +7,8 @@
  */
 
 import { Effect } from 'effect';
-import type {
-  SymbolTable,
-  ApexSymbol,
-  TypeSymbol,
-} from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import type { SymbolTable, TypeSymbol } from '../../../types/symbol';
+import { isClassSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationErrorInfo,
   ValidationWarningInfo,
@@ -73,9 +69,7 @@ export const ClassHierarchyValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to class symbols
-      const classes = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Class,
-      ) as TypeSymbol[];
+      const classes = allSymbols.filter(isClassSymbol);
 
       // Check 1: Missing superclasses and invalid types (first pass)
       const missingSuperclasses: string[] = [];
@@ -110,17 +104,8 @@ export const ClassHierarchyValidator: Validator = {
             });
           }
 
-          // Check 4: Superclass must be a class (not interface/enum)
-          // This is already enforced by finding in classes array, but validate explicitly
-          if (superClass.kind !== SymbolKind.Class) {
-            errors.push({
-              message:
-                `Class '${cls.name}' cannot extend '${superClass.name}' ` +
-                `(expected class, found ${superClass.kind})`,
-              location: cls.location,
-              code: 'INVALID_SUPERCLASS_TYPE',
-            });
-          }
+          // Superclass is already guaranteed to be a class kind since
+          // it was found in the `classes` array filtered by isClassSymbol.
         }
       }
 
@@ -135,9 +120,7 @@ export const ClassHierarchyValidator: Validator = {
 
         for (const typeName of missingSuperclasses) {
           const symbols = symbolManager.findSymbolByName(typeName);
-          const classSymbol = symbols.find(
-            (s: ApexSymbol) => s.kind === SymbolKind.Class,
-          ) as TypeSymbol | undefined;
+          const classSymbol = symbols.find(isClassSymbol);
 
           if (classSymbol) {
             foundInManager.push(classSymbol);
@@ -170,9 +153,7 @@ export const ClassHierarchyValidator: Validator = {
             ...loadResult.alreadyLoaded,
           ]) {
             const symbols = symbolManager.findSymbolByName(typeName);
-            const classSymbol = symbols.find(
-              (s: ApexSymbol) => s.kind === SymbolKind.Class,
-            ) as TypeSymbol | undefined;
+            const classSymbol = symbols.find(isClassSymbol);
 
             if (classSymbol && !foundInManager.includes(classSymbol)) {
               loadedClasses.push(classSymbol);
@@ -193,9 +174,7 @@ export const ClassHierarchyValidator: Validator = {
         // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
         const allSymbolsFromManager =
           symbolManager.getAllSymbolsForCompletion();
-        const managerClasses = allSymbolsFromManager.filter(
-          (s: ApexSymbol) => s.kind === SymbolKind.Class,
-        ) as TypeSymbol[];
+        const managerClasses = allSymbolsFromManager.filter(isClassSymbol);
 
         // Merge with current classes, avoiding duplicates
         const classNames = new Set(allClasses.map((c) => c.name.toLowerCase()));
@@ -268,16 +247,8 @@ export const ClassHierarchyValidator: Validator = {
           });
         }
 
-        // Check invalid type (shouldn't happen if loaded correctly, but validate)
-        if (superClass.kind !== SymbolKind.Class) {
-          errors.push({
-            message:
-              `Class '${cls.name}' cannot extend '${superClass.name}' ` +
-              `(expected class, found ${superClass.kind})`,
-            location: cls.location,
-            code: 'INVALID_SUPERCLASS_TYPE',
-          });
-        }
+        // Superclass is already guaranteed to be a class kind since
+        // it was found in the `allClasses` array filtered by isClassSymbol.
       }
 
       yield* Effect.logDebug(
