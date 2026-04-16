@@ -1,7 +1,6 @@
 {
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
-  
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
@@ -104,7 +103,7 @@
     "jest": "^30.3.0",
     "jscpd": "^4.0.5",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.0.1",
+    "knip": "^6.4.1",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
     "rimraf": "^5.0.5",
