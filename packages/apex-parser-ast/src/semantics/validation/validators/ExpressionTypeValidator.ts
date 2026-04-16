@@ -52,6 +52,7 @@ import {
   isContextType,
   isMethodCallContext,
 } from '../../../utils/contextTypeGuards';
+import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -182,14 +183,13 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
       }
 
       // Check properties
-      if (symbol.kind === SymbolKind.Property) {
-        const property = symbol as VariableSymbol;
-        if (property.type) {
-          const typeName = property.type.name || '';
+      if (isPropertySymbol(symbol)) {
+        if (symbol.type) {
+          const typeName = symbol.type.name || '';
           if (isVoidType(typeName)) {
             voidErrors.push({
               code: ErrorCodes.INVALID_VOID_PROPERTY,
-              symbolLocation: property.location,
+              symbolLocation: symbol.location,
             });
           }
         }

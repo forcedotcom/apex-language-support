@@ -45,6 +45,7 @@ import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
+import { isFieldSymbol } from '../../../utils/symbolNarrowing';
 import {
   resolveExpressionTypeRecursive,
   isNumericType,
@@ -1123,7 +1124,7 @@ function validateListIndexType(
       if (
         variable.kind === SymbolKind.Variable ||
         variable.kind === SymbolKind.Parameter ||
-        variable.kind === SymbolKind.Field
+        isFieldSymbol(variable)
       ) {
         const varSymbol = variable as VariableSymbol;
         if (varSymbol.type?.name) {

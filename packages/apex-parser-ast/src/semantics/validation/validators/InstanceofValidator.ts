@@ -22,7 +22,7 @@ import {
   CastExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import { inTypeSymbolGroup } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -268,11 +268,7 @@ export const InstanceofValidator: Validator = {
 
         // For non-Object RHS, ensure we can resolve (allSymbols has same-file types)
         const rightInAll = allSymbols.find(
-          (s) =>
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum) &&
-            s.name.toLowerCase() === rightBase,
+          (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === rightBase,
         );
         const rightSymbols = rightInAll
           ? [rightInAll]

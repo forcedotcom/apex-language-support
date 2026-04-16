@@ -27,7 +27,10 @@ import type {
   SymbolLocation,
   MethodSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isMethodSymbol,
+  isTriggerSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -347,7 +350,7 @@ export const ReturnStatementValidator: Validator = {
         const allSymbols = symbolTable.getAllSymbols();
         const methods = allSymbols.filter(
           (symbol): symbol is MethodSymbol =>
-            symbol.kind === SymbolKind.Method && 'returnType' in symbol,
+            isMethodSymbol(symbol) && 'returnType' in symbol,
         );
 
         // Build a set of void method names and map of method return types
@@ -382,9 +385,7 @@ export const ReturnStatementValidator: Validator = {
         );
 
         // Check if this is a trigger file
-        const triggers = allSymbols.filter(
-          (symbol) => symbol.kind === SymbolKind.Trigger,
-        );
+        const triggers = allSymbols.filter(isTriggerSymbol);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const hasTrigger = triggers.length > 0 || isTriggerFile;
 

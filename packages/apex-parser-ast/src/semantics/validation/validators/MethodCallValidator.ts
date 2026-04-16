@@ -48,6 +48,12 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import {
   isBlockSymbol,
   isVariableSymbol,
+  isClassSymbol,
+  isMethodSymbol,
+  isConstructorSymbol,
+  isEnumSymbol,
+  isInterfaceSymbol,
+  inTypeSymbolGroup,
 } from '../../../utils/symbolNarrowing';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
@@ -238,11 +244,7 @@ function findTypeByName(
     normalizedName.split('<')[0].split('.').pop() || normalizedName;
 
   const sameFile = allSymbols.find(
-    (s) =>
-      (s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum) &&
-      s.name.toLowerCase() === baseName,
+    (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
   ) as TypeSymbol | undefined;
 
   if (sameFile) return sameFile;
@@ -251,10 +253,7 @@ function findTypeByName(
     const symbols = symbolManager.findSymbolByName(typeName);
     const found = symbols?.find(
       (s: ApexSymbol) =>
-        (s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum) &&
-        s.name.toLowerCase() === baseName,
+        inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
     );
     if (found) return found as TypeSymbol;
   }
@@ -274,8 +273,7 @@ function findClassByName(
 
   // First, try to find in same file
   const classSymbol = allSymbols.find(
-    (s) =>
-      s.kind === SymbolKind.Class && s.name.toLowerCase() === normalizedName,
+    (s) => isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
   ) as TypeSymbol | undefined;
 
   if (classSymbol) {
@@ -287,7 +285,7 @@ function findClassByName(
     const symbols = symbolManager.findSymbolByName(className);
     const crossFileClass = symbols.find(
       (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class && s.name.toLowerCase() === normalizedName,
+        isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
     ) as TypeSymbol | undefined;
 
     if (crossFileClass) {
@@ -347,7 +345,7 @@ function findMethodInClass(
   // Find methods in the class from same-file symbols
   let methods = allSymbols.filter(
     (s) =>
-      s.kind === SymbolKind.Method &&
+      isMethodSymbol(s) &&
       s.name.toLowerCase() === normalizedName &&
       methodParentIdMatches(s.parentId, classSymbol, validParentIds),
   ) as MethodSymbol[];
@@ -367,7 +365,7 @@ function findMethodInClass(
       );
       methods = fileSymbols.filter(
         (s: ApexSymbol) =>
-          s.kind === SymbolKind.Method &&
+          isMethodSymbol(s) &&
           s.name.toLowerCase() === normalizedName &&
           methodParentIdMatches(s.parentId, classSymbol, fileValidParentIds),
       ) as MethodSymbol[];
@@ -427,7 +425,7 @@ function findContainingClassForCall(
   methodCallLine?: number,
 ): TypeSymbol | null {
   const classes = allSymbols.filter(
-    (s) => s.kind === SymbolKind.Class && s.fileUri === fileUri,
+    (s) => isClassSymbol(s) && s.fileUri === fileUri,
   ) as TypeSymbol[];
 
   if (classes.length === 0) {
@@ -653,8 +651,8 @@ export const MethodCallValidator: Validator = {
                 code: ErrorCodes.INVALID_NEW_ABSTRACT,
               });
             } else if (
-              typeSymbol.kind === SymbolKind.Enum ||
-              typeSymbol.kind === SymbolKind.Interface
+              isEnumSymbol(typeSymbol) ||
+              isInterfaceSymbol(typeSymbol)
             ) {
               errors.push({
                 message: localizeTyped(
@@ -854,7 +852,7 @@ export const MethodCallValidator: Validator = {
             // Find constructors for this class
             const constructors = allSymbols.filter(
               (s) =>
-                s.kind === SymbolKind.Constructor &&
+                isConstructorSymbol(s) &&
                 s.name === classSymbol.name &&
                 (s.parentId === classSymbol.id ||
                   (s.parentId && s.parentId.startsWith(classSymbol.id + ':'))),

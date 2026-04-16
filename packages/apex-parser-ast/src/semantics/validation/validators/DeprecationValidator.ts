@@ -9,12 +9,17 @@
 import { Effect } from 'effect';
 import type {
   SymbolTable,
-  TypeSymbol,
   MethodSymbol,
   VariableSymbol,
   SymbolLocation,
 } from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import { SymbolVisibility } from '../../../types/symbol';
+import {
+  isMethodSymbol,
+  isFieldSymbol,
+  isPropertySymbol,
+  inTypeSymbolGroup,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -64,8 +69,8 @@ function loadCrossFileDeprecatedTypes(
 
   // Collect type names from method return types and parameters
   for (const symbol of allSymbols) {
-    if (symbol.kind === SymbolKind.Method) {
-      const method = symbol as MethodSymbol;
+    if (isMethodSymbol(symbol)) {
+      const method = symbol;
       if (method.returnType?.name) {
         const returnTypeName = method.returnType.name.toLowerCase();
         typeNames.add(returnTypeName);
@@ -86,11 +91,8 @@ function loadCrossFileDeprecatedTypes(
           }
         }
       }
-    } else if (
-      symbol.kind === SymbolKind.Field ||
-      symbol.kind === SymbolKind.Property
-    ) {
-      const field = symbol as VariableSymbol;
+    } else if (isFieldSymbol(symbol) || isPropertySymbol(symbol)) {
+      const field = symbol;
       if (field.type?.name) {
         const fieldTypeName = field.type.name.toLowerCase();
         typeNames.add(fieldTypeName);
@@ -133,12 +135,7 @@ function loadCrossFileDeprecatedTypes(
     // Try to find the type in other files
     // findSymbolByName is case-insensitive, so either case should work
     const foundSymbols = symbolManager.findSymbolByName(typeName);
-    const foundSymbol = foundSymbols.find(
-      (s) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
-    ) as TypeSymbol | undefined;
+    const foundSymbol = foundSymbols.find(inTypeSymbolGroup);
 
     if (foundSymbol && hasDeprecatedAnnotation(foundSymbol)) {
       deprecatedTypes.add(normalizedTypeName);
@@ -183,12 +180,7 @@ function checkIfTypeIsDeprecated(
   // Try to find the type in other files
   // findSymbolByName is case-insensitive, so either case should work
   const foundSymbols = symbolManager.findSymbolByName(typeName);
-  const foundSymbol = foundSymbols.find(
-    (s) =>
-      s.kind === SymbolKind.Class ||
-      s.kind === SymbolKind.Interface ||
-      s.kind === SymbolKind.Enum,
-  ) as TypeSymbol | undefined;
+  const foundSymbol = foundSymbols.find(inTypeSymbolGroup);
 
   if (foundSymbol && hasDeprecatedAnnotation(foundSymbol)) {
     deprecatedTypes.add(normalizedName);
@@ -238,15 +230,9 @@ export const DeprecationValidator: Validator = {
       // Find all deprecated types in the same file
       const deprecatedTypes = new Set<string>();
       for (const symbol of allSymbols) {
-        if (
-          (symbol.kind === SymbolKind.Class ||
-            symbol.kind === SymbolKind.Interface ||
-            symbol.kind === SymbolKind.Enum) &&
-          'annotations' in symbol
-        ) {
-          const typeSymbol = symbol as TypeSymbol;
-          if (hasDeprecatedAnnotation(typeSymbol)) {
-            deprecatedTypes.add(typeSymbol.name.toLowerCase());
+        if (inTypeSymbolGroup(symbol) && 'annotations' in symbol) {
+          if (hasDeprecatedAnnotation(symbol)) {
+            deprecatedTypes.add(symbol.name.toLowerCase());
           }
         }
       }
@@ -266,9 +252,7 @@ export const DeprecationValidator: Validator = {
       // Validate global methods
       const globalMethods = allSymbols.filter(
         (s): s is MethodSymbol =>
-          s.kind === SymbolKind.Method &&
-          'parameters' in s &&
-          'returnType' in s &&
+          isMethodSymbol(s) &&
           s.modifiers?.visibility === SymbolVisibility.Global,
       );
 
@@ -364,8 +348,7 @@ export const DeprecationValidator: Validator = {
       // Validate global fields
       const globalFields = allSymbols.filter(
         (s): s is VariableSymbol =>
-          (s.kind === SymbolKind.Field || s.kind === SymbolKind.Property) &&
-          'type' in s &&
+          (isFieldSymbol(s) || isPropertySymbol(s)) &&
           s.modifiers?.visibility === SymbolVisibility.Global,
       );
 
@@ -417,8 +400,7 @@ export const DeprecationValidator: Validator = {
       // Validate WebService fields
       const webserviceFields = allSymbols.filter(
         (s): s is VariableSymbol =>
-          (s.kind === SymbolKind.Field || s.kind === SymbolKind.Property) &&
-          'type' in s &&
+          (isFieldSymbol(s) || isPropertySymbol(s)) &&
           s.modifiers?.isWebService === true,
       );
 

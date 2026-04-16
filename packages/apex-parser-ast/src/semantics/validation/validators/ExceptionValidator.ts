@@ -29,7 +29,12 @@ import type {
   MethodSymbol,
   ApexSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isClassSymbol,
+  isClassOrInterfaceSymbol,
+  isConstructorSymbol,
+  inTypeSymbolGroup,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -303,8 +308,8 @@ export const ExceptionValidator: Validator = {
         const exceptionClasses = listener.getExceptionClasses();
         for (const { ctx, name } of exceptionClasses) {
           const classSymbol = allSymbols.find(
-            (s) => s.kind === SymbolKind.Class && s.name === name,
-          ) as TypeSymbol | undefined;
+            (s): s is TypeSymbol => isClassSymbol(s) && s.name === name,
+          );
 
           if (classSymbol) {
             const isExceptionClass = extendsException(classSymbol);
@@ -343,10 +348,9 @@ export const ExceptionValidator: Validator = {
             ) {
               // Check if superclass extends Exception
               const superClassSymbol = allSymbols.find(
-                (s) =>
-                  s.kind === SymbolKind.Class &&
-                  s.name === classSymbol.superClass,
-              ) as TypeSymbol | undefined;
+                (s): s is TypeSymbol =>
+                  isClassSymbol(s) && s.name === classSymbol.superClass,
+              );
 
               if (!superClassSymbol || !extendsException(superClassSymbol)) {
                 errors.push({
@@ -372,17 +376,17 @@ export const ExceptionValidator: Validator = {
 
         for (const { ctx, className } of constructors) {
           const classSymbol = allSymbols.find(
-            (s) => s.kind === SymbolKind.Class && s.name === className,
-          ) as TypeSymbol | undefined;
+            (s): s is TypeSymbol => isClassSymbol(s) && s.name === className,
+          );
 
           // Only check exception classes
           if (classSymbol && extendsException(classSymbol)) {
             const constructorSymbol = allSymbols.find(
-              (s) =>
-                s.kind === SymbolKind.Constructor &&
+              (s): s is MethodSymbol =>
+                isConstructorSymbol(s) &&
                 s.name === className &&
                 s.parentId === classSymbol.id,
-            ) as MethodSymbol | undefined;
+            );
 
             if (constructorSymbol) {
               const paramCount = constructorSymbol.parameters.length;
@@ -508,11 +512,10 @@ export const ExceptionValidator: Validator = {
             } else {
               // Check if the type symbol extends Exception
               const typeSymbol = allSymbols.find(
-                (s) =>
-                  (s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface) &&
+                (s): s is TypeSymbol =>
+                  isClassOrInterfaceSymbol(s) &&
                   s.name.toLowerCase() === normalizedType,
-              ) as TypeSymbol | undefined;
+              );
 
               // If type symbol found and it doesn't extend Exception, report error
               if (typeSymbol && !extendsException(typeSymbol)) {
@@ -596,12 +599,9 @@ function findTypeSymbolByName(
   return Effect.gen(function* () {
     // First, try to find in same file
     const sameFileType = allSymbols.find(
-      (s) =>
-        (s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum) &&
-        s.name.toLowerCase() === typeName.toLowerCase(),
-    ) as TypeSymbol | undefined;
+      (s): s is TypeSymbol =>
+        inTypeSymbolGroup(s) && s.name.toLowerCase() === typeName.toLowerCase(),
+    );
 
     if (sameFileType) {
       return sameFileType;
@@ -609,12 +609,9 @@ function findTypeSymbolByName(
 
     // Try to find via symbol manager (cross-file)
     const symbols = symbolManager.findSymbolByName(typeName);
-    const typeSymbol = symbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
-    ) as TypeSymbol | undefined;
+    const typeSymbol = symbols.find((s: ApexSymbol): s is TypeSymbol =>
+      inTypeSymbolGroup(s),
+    );
 
     if (typeSymbol) {
       return typeSymbol;
@@ -622,13 +619,8 @@ function findTypeSymbolByName(
 
     // Try FQN lookup
     const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-    if (
-      fqnSymbol &&
-      (fqnSymbol.kind === SymbolKind.Class ||
-        fqnSymbol.kind === SymbolKind.Interface ||
-        fqnSymbol.kind === SymbolKind.Enum)
-    ) {
-      return fqnSymbol as TypeSymbol;
+    if (inTypeSymbolGroup(fqnSymbol)) {
+      return fqnSymbol;
     }
 
     return null;

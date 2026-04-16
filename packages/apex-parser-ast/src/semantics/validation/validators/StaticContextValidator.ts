@@ -23,16 +23,21 @@ import type {
   SymbolLocation,
   ApexSymbol,
   TypeSymbol,
-  MethodSymbol,
   VariableSymbol,
-  ScopeSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import {
   ReferenceContext,
   type SymbolReference,
 } from '../../../types/symbolReference';
-import { isChainedSymbolReference } from '../../../utils/symbolNarrowing';
+import {
+  isChainedSymbolReference,
+  isMethodSymbol,
+  isBlockSymbol,
+  isClassOrInterfaceSymbol,
+  isFieldSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -101,8 +106,8 @@ function findStaticContextRanges(
   const ranges: Array<{ startLine: number; endLine: number }> = [];
 
   for (const symbol of allSymbols) {
-    if (symbol.kind === SymbolKind.Method) {
-      const method = symbol as MethodSymbol;
+    if (isMethodSymbol(symbol)) {
+      const method = symbol;
       if (method.modifiers?.isStatic && method.location) {
         // Use symbolRange to include full method body (super/this can appear inside body)
         const start = method.location.symbolRange?.startLine;
@@ -110,8 +115,8 @@ function findStaticContextRanges(
         if (start && end) ranges.push({ startLine: start, endLine: end });
       }
     }
-    if (symbol.kind === SymbolKind.Block) {
-      const block = symbol as ScopeSymbol;
+    if (isBlockSymbol(symbol)) {
+      const block = symbol;
       if (block.modifiers?.isStatic && block.location) {
         const start =
           block.location.symbolRange?.startLine ??
@@ -217,13 +222,10 @@ export const StaticContextValidator: Validator = {
 
       // Prefer top-level class (parentId null) when file has inner classes
       const containingClass = (allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
-          s.parentId === null,
-      ) ??
-        allSymbols.find(
-          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        )) as TypeSymbol | undefined;
+        (s) => isClassOrInterfaceSymbol(s) && s.parentId === null,
+      ) ?? allSymbols.find((s) => isClassOrInterfaceSymbol(s))) as
+        | TypeSymbol
+        | undefined;
 
       if (!containingClass) {
         return { isValid: true, errors, warnings };
@@ -352,9 +354,7 @@ export const StaticContextValidator: Validator = {
               firstNode.resolvedSymbolId,
             );
             if (firstSymbol) {
-              receiverIsStatic =
-                firstSymbol.kind === SymbolKind.Class ||
-                firstSymbol.kind === SymbolKind.Interface;
+              receiverIsStatic = isClassOrInterfaceSymbol(firstSymbol);
             } else {
               // Symbol ID exists but symbol not found - this shouldn't happen, but default to instance
               receiverIsStatic = false;
@@ -372,9 +372,9 @@ export const StaticContextValidator: Validator = {
         if (!ref.resolvedSymbolId) continue;
 
         const symbol = symbolManager.getSymbol(ref.resolvedSymbolId);
-        if (!symbol || symbol.kind !== SymbolKind.Method) continue;
+        if (!symbol || !isMethodSymbol(symbol)) continue;
 
-        const method = symbol as MethodSymbol;
+        const method = symbol;
         const methodIsStatic = method.modifiers?.isStatic ?? false;
 
         // Skip when calling instance method on instance (e.g. response.getStatusCode())
@@ -600,11 +600,7 @@ export const StaticContextValidator: Validator = {
         if (!ref.resolvedSymbolId) continue;
 
         const symbol = symbolManager.getSymbol(ref.resolvedSymbolId);
-        if (
-          !symbol ||
-          (symbol.kind !== SymbolKind.Field &&
-            symbol.kind !== SymbolKind.Property)
-        )
+        if (!symbol || (!isFieldSymbol(symbol) && !isPropertySymbol(symbol)))
           continue;
 
         const field = symbol as VariableSymbol;
@@ -618,8 +614,7 @@ export const StaticContextValidator: Validator = {
             allSymbols.find((s) => s.id === field.parentId);
           if (
             fieldParent &&
-            (fieldParent.kind === SymbolKind.Class ||
-              fieldParent.kind === SymbolKind.Interface) &&
+            isClassOrInterfaceSymbol(fieldParent) &&
             fieldParent.id !== containingClass.id
           ) {
             continue; // Field is on another type - instance access, valid

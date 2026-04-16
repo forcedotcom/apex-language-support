@@ -33,7 +33,7 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-import { SymbolKind } from '../../../types/symbol';
+import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -222,7 +222,7 @@ export const PropertyAccessorValidator: Validator = {
           // Find the property symbol to check if it's final
           const propertySymbol = allSymbols.find(
             (s) =>
-              s.kind === SymbolKind.Property &&
+              isPropertySymbol(s) &&
               s.name?.toLowerCase() === prop.propertyName.toLowerCase(),
           ) as VariableSymbol | undefined;
 
