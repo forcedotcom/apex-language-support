@@ -311,31 +311,52 @@ export class ApexEditorPage extends BasePage {
 
   /**
    * Get the current cursor position (line and column).
+   * Searches the status bar DOM for the "Ln X, Col Y" text across
+   * both web and desktop (Electron) environments.
    * @returns An object with line and column numbers
    */
   async getCursorPosition(): Promise<{ line: number; column: number }> {
-    // Get the cursor position from the status bar
-    const statusBarPosition = this.page.locator(
-      '.statusbar-item[title*="Line"], .statusbar-item[aria-label*="Line"]',
-    );
+    const result = await this.page.evaluate(() => {
+      const statusBar = document.querySelector(
+        '[id="workbench.parts.statusbar"]',
+      );
+      if (!statusBar) return null;
 
-    try {
-      const text = await statusBarPosition.textContent();
-      if (text) {
-        // Parse "Ln X, Col Y" format
-        const match = text.match(/Ln\s*(\d+),\s*Col\s*(\d+)/i);
-        if (match) {
-          return {
-            line: parseInt(match[1], 10),
-            column: parseInt(match[2], 10),
-          };
-        }
+      const allText = statusBar.textContent ?? '';
+      const match = allText.match(/Ln\s*(\d+),\s*Col\s*(\d+)/i);
+      if (match) {
+        return { line: parseInt(match[1], 10), column: parseInt(match[2], 10) };
       }
-    } catch {
-      // Fallback if status bar parsing fails
-    }
+      return null;
+    });
 
-    return { line: 1, column: 1 }; // Default fallback
+    return result ?? { line: 1, column: 1 };
+  }
+
+  /**
+   * Assert the cursor is at the expected line, polling until it arrives.
+   * Use after goToDefinition() to verify F12 actually navigated.
+   * @param expectedLine - The 1-indexed line where the cursor should be
+   * @param timeout - Max ms to wait (mode-aware default)
+   */
+  async expectCursorAtLine(
+    expectedLine: number,
+    timeout?: number,
+  ): Promise<void> {
+    const { expect } = await import('@playwright/test');
+    const effectiveTimeout = timeout ?? (this.isDesktopMode ? 8000 : 5000);
+    let lastLine = -1;
+    try {
+      await expect(async () => {
+        const { line } = await this.getCursorPosition();
+        lastLine = line;
+        expect(line).toBe(expectedLine);
+      }).toPass({ timeout: effectiveTimeout });
+    } catch {
+      throw new Error(
+        `Expected cursor at line ${expectedLine} but cursor was at line ${lastLine}`,
+      );
+    }
   }
 
   /**

@@ -31,7 +31,6 @@ test.describe('Apex Go-to-Definition', () => {
     apexEditor,
   }) => {
     await test.step('Position cursor on class name', async () => {
-      // Position on a class reference in the code
       await apexEditor.positionCursorOnWord('ApexClassExample');
     });
 
@@ -40,14 +39,9 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation occurred', async () => {
+      // LSP resolves the class name to the first constructor (line 13)
+      await apexEditor.expectCursorAtLine(13);
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      const content = await apexEditor.findAndGetViewportContent(
-        'public with sharing class ApexClassExample',
-      );
-      expect(content).toMatch(
-        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
-      );
 
       console.log('✅ Navigated to class definition');
     });
@@ -59,7 +53,7 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to method definition from call site', async ({
     apexEditor,
   }) => {
-    await test.step('Position cursor on method call', async () => {
+    await test.step('Position cursor on method name', async () => {
       await apexEditor.positionCursorOnWord('sayHello');
     });
 
@@ -68,12 +62,8 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to method', async () => {
+      await apexEditor.expectCursorAtLine(31);
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      const content = await apexEditor.findAndGetViewportContent(
-        'public static void sayHello',
-      );
-      expect(content).toMatch(/public\s+static\s+void\s+sayHello/);
 
       console.log('✅ Navigated to method definition');
     });
@@ -88,10 +78,7 @@ test.describe('Apex Go-to-Definition', () => {
     await apexEditor.positionCursorOnWord('add');
     await apexEditor.goToDefinition();
 
-    const content = await apexEditor.findAndGetViewportContent(
-      'public static Integer add',
-    );
-    expect(content).toMatch(/public\s+static\s+Integer\s+add/);
+    await apexEditor.expectCursorAtLine(42);
 
     console.log('✅ Navigated to static method definition');
   });
@@ -100,8 +87,9 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to field definition from field usage.
    */
   test('should navigate to field definition', async ({ apexEditor }) => {
-    await test.step('Position cursor on field name', async () => {
-      await apexEditor.positionCursorOnWord('instanceId');
+    await test.step('Position cursor on field usage', async () => {
+      // Line 24: this.instanceId = instanceId — usage in constructor body
+      await apexEditor.goToPosition(24, 14);
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -109,10 +97,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to field declaration', async () => {
-      const content = await apexEditor.findAndGetViewportContent(
-        'private String instanceId',
-      );
-      expect(content).toMatch(/private\s+String\s+instanceId/);
+      await apexEditor.expectCursorAtLine(7);
 
       console.log('✅ Navigated to field definition');
     });
@@ -124,15 +109,11 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to static constant definition', async ({
     apexEditor,
   }) => {
-    await apexEditor.positionCursorOnWord('DEFAULT_STATUS');
+    // Line 94: acc.Type = DEFAULT_STATUS — usage site, declaration is line 3
+    await apexEditor.goToPosition(94, 35);
     await apexEditor.goToDefinition();
 
-    const content = await apexEditor.findAndGetViewportContent(
-      'private static final String DEFAULT_STATUS',
-    );
-    expect(content).toMatch(
-      /private\s+static\s+final\s+String\s+DEFAULT_STATUS/,
-    );
+    await apexEditor.expectCursorAtLine(3);
 
     console.log('✅ Navigated to static constant definition');
   });
@@ -150,10 +131,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to inner class', async () => {
-      const content = await apexEditor.findAndGetViewportContent(
-        'public class Configuration',
-      );
-      expect(content).toMatch(/public\s+class\s+Configuration/);
+      await apexEditor.expectCursorAtLine(151);
 
       console.log('✅ Navigated to inner class definition');
     });
@@ -163,13 +141,11 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to inner enum definition.
    */
   test('should navigate to inner enum definition', async ({ apexEditor }) => {
-    await apexEditor.positionCursorOnWord('StatusType');
+    // Line 190: method parameter uses StatusType (cols 59-68) — declaration is line 183
+    await apexEditor.goToPosition(190, 63);
     await apexEditor.goToDefinition();
 
-    const content = await apexEditor.findAndGetViewportContent(
-      'public enum StatusType',
-    );
-    expect(content).toMatch(/public\s+enum\s+StatusType/);
+    await apexEditor.expectCursorAtLine(183);
 
     console.log('✅ Navigated to inner enum definition');
   });
@@ -199,10 +175,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to constructor', async () => {
-      const content = await apexEditor.getContent();
-      expect(content).toMatch(
-        /public\s+ApexClassExample\s*\(\s*String\s+instanceId\s*\)/,
-      );
+      await apexEditor.expectCursorAtLine(20);
 
       console.log('✅ Navigated to constructor definition');
     });
@@ -214,8 +187,7 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to local variable definition', async ({
     apexEditor,
   }) => {
-    await test.step('Position cursor on local variable usage', async () => {
-      // Find a local variable in a method
+    await test.step('Position cursor on local variable', async () => {
       await apexEditor.positionCursorOnWord('accountMap');
     });
 
@@ -224,8 +196,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to variable declaration', async () => {
-      const content = await apexEditor.findAndGetViewportContent('accountMap');
-      expect(content).toMatch(/Map<Id,\s*Account>\s+accountMap/);
+      await apexEditor.expectCursorAtLine(79);
 
       console.log('✅ Navigated to local variable definition');
     });
@@ -236,8 +207,10 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should navigate to parameter definition', async ({ apexEditor }) => {
     await test.step('Position cursor on parameter usage in method body', async () => {
-      // Line 59: validateAccounts(inputAccounts) — usage site, not declaration
-      await apexEditor.goToPosition(59, 25);
+      // Line 129: return principal * compoundFactor — usage of 'principal' param
+      // Navigate past the declaration (line 123) so Find lands on a usage site
+      await apexEditor.goToPosition(129);
+      await apexEditor.positionCursorOnWord('principal');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -245,10 +218,8 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to parameter declaration', async () => {
-      const content =
-        await apexEditor.findAndGetViewportContent('inputAccounts');
-      expect(content).toMatch(/inputAccounts/);
-      expect(content).toMatch(/processAccounts/);
+      // principal parameter is declared on line 123 in calculateCompoundInterest
+      await apexEditor.expectCursorAtLine(123);
 
       console.log('✅ Navigated to parameter definition');
     });
@@ -260,13 +231,12 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to private method definition', async ({
     apexEditor,
   }) => {
+    // positionCursorOnWord finds the first match: line 59 (usage in processAccounts)
+    // Declaration is at line 67
     await apexEditor.positionCursorOnWord('validateAccounts');
     await apexEditor.goToDefinition();
 
-    const content = await apexEditor.findAndGetViewportContent(
-      'private void validateAccounts',
-    );
-    expect(content).toMatch(/private\s+void\s+validateAccounts/);
+    await apexEditor.expectCursorAtLine(67);
 
     console.log('✅ Navigated to private method definition');
   });
@@ -278,10 +248,7 @@ test.describe('Apex Go-to-Definition', () => {
     await apexEditor.positionCursorOnWord('processAccounts');
     await apexEditor.goToDefinition();
 
-    const content = await apexEditor.findAndGetViewportContent(
-      'public void processAccounts',
-    );
-    expect(content).toMatch(/public\s+void\s+processAccounts/);
+    await apexEditor.expectCursorAtLine(58);
 
     console.log('✅ Navigated to method with parameters');
   });
@@ -290,9 +257,9 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to generic type declaration (List, Map, etc.).
    */
   test('should handle generic type references', async ({ apexEditor }) => {
-    await test.step('Position cursor on generic type', async () => {
-      // Use single-word search; 'List<Account>' won't reliably position via Find
-      await apexEditor.positionCursorOnWord('accounts');
+    await test.step('Position cursor on generic type usage', async () => {
+      // Line 25: this.accounts = new List<Account>() — usage, declaration at line 8
+      await apexEditor.goToPosition(25, 14);
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -300,8 +267,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to variable declaration', async () => {
-      const content = await apexEditor.findAndGetViewportContent('accounts');
-      expect(content).toMatch(/List<Account>\s+accounts/);
+      await apexEditor.expectCursorAtLine(8);
     });
   });
 
@@ -330,33 +296,22 @@ test.describe('Apex Go-to-Definition', () => {
   test('should handle multiple sequential go-to-definition operations', async ({
     apexEditor,
   }) => {
-    await test.step('First navigation', async () => {
+    await test.step('First navigation: class definition', async () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
       await apexEditor.goToDefinition();
-      const content1 = await apexEditor.findAndGetViewportContent(
-        'public with sharing class ApexClassExample',
-      );
-      expect(content1).toMatch(
-        /public\s+with\s+sharing\s+class\s+ApexClassExample/,
-      );
+      await apexEditor.expectCursorAtLine(13);
     });
 
-    await test.step('Second navigation', async () => {
+    await test.step('Second navigation: inner class definition', async () => {
       await apexEditor.positionCursorOnWord('Configuration');
       await apexEditor.goToDefinition();
-      const content2 = await apexEditor.findAndGetViewportContent(
-        'public class Configuration',
-      );
-      expect(content2).toMatch(/public\s+class\s+Configuration/);
+      await apexEditor.expectCursorAtLine(151);
     });
 
-    await test.step('Third navigation', async () => {
+    await test.step('Third navigation: inner enum definition', async () => {
       await apexEditor.positionCursorOnWord('StatusType');
       await apexEditor.goToDefinition();
-      const content3 = await apexEditor.findAndGetViewportContent(
-        'public enum StatusType',
-      );
-      expect(content3).toMatch(/public\s+enum\s+StatusType/);
+      await apexEditor.expectCursorAtLine(183);
     });
 
     console.log('✅ Multiple sequential go-to-definitions succeeded');
@@ -377,10 +332,8 @@ test.describe('Apex Go-to-Definition', () => {
       await apexEditor.positionCursorOnWord('sayHello');
       await apexEditor.goToDefinition();
 
-      const content = await apexEditor.findAndGetViewportContent(
-        'public static void sayHello',
-      );
-      expect(content).toMatch(/public\s+static\s+void\s+sayHello/);
+      // Line 31 in original file + 1 for the added comment line = line 32
+      await apexEditor.expectCursorAtLine(32);
 
       console.log('✅ Go-to-definition works after file edit');
     });
@@ -406,8 +359,8 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation', async () => {
-      const content = await apexEditor.findAndGetViewportContent('StatusType');
-      expect(content).toMatch(/StatusType/);
+      // SUSPENDED is defined on line 184 within the enum
+      await apexEditor.expectCursorAtLine(184);
 
       console.log('✅ Navigated from enum value to enum definition');
     });
@@ -524,8 +477,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
       await apexEditor.positionCursorOnWord('execute');
       await apexEditor.goToDefinition();
 
-      const content = await apexEditor.findAndGetViewportContent('execute');
-      expect(content).toMatch(/execute/);
+      // execute override is declared at line 19 in AccountHandler.cls
+      await apexEditor.expectCursorAtLine(19);
     });
   });
 
@@ -568,9 +521,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
       await apexEditor.positionCursorOnWord('processRecords');
       await apexEditor.goToDefinition();
 
-      const content =
-        await apexEditor.findAndGetViewportContent('processRecords');
-      expect(content).toMatch(/processRecords/);
+      // processRecords is declared at line 20 in AccountProcessor.cls
+      await apexEditor.expectCursorAtLine(20);
     });
   });
 
@@ -588,10 +540,8 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
       await apexEditor.positionCursorOnWord('Configuration');
       await apexEditor.goToDefinition();
 
-      const content = await apexEditor.findAndGetViewportContent(
-        'class Configuration',
-      );
-      expect(content).toMatch(/class\s+Configuration/);
+      // Configuration inner class is declared at line 102 in ComplexClass.cls
+      await apexEditor.expectCursorAtLine(102);
     });
   });
 });
