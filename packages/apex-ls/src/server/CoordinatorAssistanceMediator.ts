@@ -57,20 +57,23 @@ export class CoordinatorAssistanceMediator {
       const worker = workers[i];
       const port = assistancePorts?.[i];
 
-      // Log forwarding stays on the main worker channel
-      worker.on('message', (data: unknown) => {
-        if (isLogMessage(data)) {
-          this.forwardLogMessage(data, workerIdx);
-        }
-      });
-
       if (port) {
-        // Assistance on dedicated port — isolated from Effect protocol
+        // Log forwarding and assistance on dedicated port
         port.on('message', (data: unknown) => {
+          if (isLogMessage(data)) {
+            this.forwardLogMessage(data, workerIdx);
+            return;
+          }
           if (!isAssistanceRequest(data)) return;
           Effect.runFork(this.handleRequest(data, port));
         });
       } else {
+        // Fallback: log forwarding on main worker channel (browser workers)
+        worker.on('message', (data: unknown) => {
+          if (isLogMessage(data)) {
+            this.forwardLogMessage(data, workerIdx);
+          }
+        });
         // Fallback: assistance on main channel (browser workers)
         worker.on('message', (data: unknown) => {
           if (!isAssistanceRequest(data)) return;

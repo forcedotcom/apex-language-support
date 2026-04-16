@@ -2127,19 +2127,23 @@ export class LCSAdapter {
 
       const enableResourceLoader =
         (workerCfg as Record<string, unknown>).resourceLoader !== false;
-      const workerLogLevel =
-        (apexSettings?.worker as Record<string, unknown>)?.logLevel ?? 'error';
 
       const serverMode = LSPConfigurationManager.getInstance()
         .getCapabilitiesManager()
         .getMode();
+
+      // Use the main apex.logLevel for workers (no separate worker.logLevel setting)
+      const mainLogLevel =
+        LSPConfigurationManager.getInstance()
+          .getSettingsManager()
+          .getLogLevel() ?? 'error';
 
       const config = {
         poolSize:
           ((workerCfg as Record<string, unknown>).poolSize as number) ?? 2,
         enableResourceLoader,
         logger: this.logger,
-        logLevel: workerLogLevel as string,
+        logLevel: mainLogLevel,
         serverMode,
       };
 

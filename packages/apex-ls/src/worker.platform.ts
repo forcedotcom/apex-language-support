@@ -703,6 +703,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
           ` logLevel=${currentWorkerLogLevel}`,
       );
+      yield* Effect.logDebug('[WorkerInit] Testing debug log after init');
     }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
 
@@ -913,11 +914,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
 
-            yield* Effect.logDebug(
+            // Log to both Effect logger and console for debugging
+            const logMsg =
               `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
-                `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
-                `(from ${req.sourceWorkerId})`,
-            );
+              `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
+              `(from ${req.sourceWorkerId})`;
+            console.log(logMsg);
+            yield* Effect.logDebug(logMsg);
 
             return {
               accepted: true,
@@ -1388,7 +1391,9 @@ function effectLogLevelToWire(level: LogLevel.LogLevel): WorkerLogLevel | null {
 }
 
 const workerLogger = Logger.make(({ logLevel, message }) => {
-  if (!parentPort) return;
+  // Use assistance port to avoid colliding with @effect/platform protocol
+  const port = assistPort ?? parentPort;
+  if (!port) return;
   const wireLevel = effectLogLevelToWire(logLevel);
   if (!wireLevel) return;
   if (LOG_LEVEL_PRIORITY[wireLevel] < LOG_LEVEL_PRIORITY[currentWorkerLogLevel])
@@ -1399,13 +1404,17 @@ const workerLogger = Logger.make(({ logLevel, message }) => {
     level: wireLevel,
     message: typeof message === 'string' ? message : String(message),
   };
-  parentPort.postMessage(msg);
+  port.postMessage(msg);
 });
 
-// Disabled: posting WorkerLogMessage to parentPort collides with the
-// @effect/platform worker protocol on the same MessagePort, crashing
-// the worker fiber runtime. Needs a dedicated MessageChannel for logs.
-const _WorkerLoggerLayer = Logger.replace(Logger.defaultLogger, workerLogger);
+// Re-enabled: We now use the dedicated assistance port for logging
+// to avoid collisions with the @effect/platform worker protocol.
+// Set minimum log level to Debug so all messages reach our custom logger,
+// which does its own filtering based on currentWorkerLogLevel.
+const WorkerLoggerLayer = Layer.merge(
+  Logger.replace(Logger.defaultLogger, workerLogger),
+  Logger.minimumLogLevel(LogLevel.Debug),
+);
 
 // Disabled: coordinator-side WorkerLogLevelChange posting is disabled
 // (same parentPort protocol collision as WorkerLogMessage). The listener
@@ -1432,6 +1441,6 @@ function _listenForLogLevelChanges(): void {
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
 WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
-  // Effect.provide(_WorkerLoggerLayer), // see comment above
+  Effect.provide(WorkerLoggerLayer),
   Effect.runFork,
 );

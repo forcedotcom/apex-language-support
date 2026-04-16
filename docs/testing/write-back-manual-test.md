@@ -5,7 +5,7 @@
 1. **Build the extension:**
    ```bash
    npm run compile
-   npm run package:vscode
+   npm run bundle
    ```
 
 2. **Launch VS Code Extension Host:**
@@ -46,7 +46,7 @@ public class CallerClass {
 1. **Enable debug logging:**
    - Open VS Code settings (Cmd+,)
    - Search for "apex log level"
-   - Set to "debug"
+   - Set `apex.logLevel` to "debug"
 
 2. **Open both files** in the editor
 
