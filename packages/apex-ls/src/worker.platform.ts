@@ -670,10 +670,32 @@ const enrichmentHandlers = {
   ),
   DispatchDiagnostic: enrichmentHandler<DocOnlyReq>(
     'DispatchDiagnostic',
-    (svc, req) =>
-      svc.diagnosticService.processDiagnostic({
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.diagnosticService.processDiagnostic({
         textDocument: { uri: req.textDocument.uri },
-      }),
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
 };
 
