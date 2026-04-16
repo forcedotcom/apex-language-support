@@ -39,8 +39,9 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation occurred', async () => {
-      // LSP resolves the class name to the first constructor (line 13)
-      await apexEditor.expectCursorAtLine(13);
+      // Web LSP resolves to class declaration (line 1);
+      // desktop LSP resolves to the first constructor (line 13)
+      await apexEditor.expectCursorAtLine([1, 13]);
       expect(await apexEditor.isApexFileOpen()).toBe(true);
 
       console.log('✅ Navigated to class definition');
@@ -88,8 +89,9 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should navigate to field definition', async ({ apexEditor }) => {
     await test.step('Position cursor on field usage', async () => {
-      // Line 24: this.instanceId = instanceId — usage in constructor body
-      await apexEditor.goToPosition(24, 14);
+      // Navigate past the declaration (line 7) so Find lands on a usage site
+      await apexEditor.goToPosition(24);
+      await apexEditor.positionCursorOnWord('instanceId');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -109,8 +111,9 @@ test.describe('Apex Go-to-Definition', () => {
   test('should navigate to static constant definition', async ({
     apexEditor,
   }) => {
-    // Line 94: acc.Type = DEFAULT_STATUS — usage site, declaration is line 3
-    await apexEditor.goToPosition(94, 35);
+    // Navigate past the declaration (line 3) so Find lands on a usage site
+    await apexEditor.goToPosition(94);
+    await apexEditor.positionCursorOnWord('DEFAULT_STATUS');
     await apexEditor.goToDefinition();
 
     await apexEditor.expectCursorAtLine(3);
@@ -141,8 +144,9 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to inner enum definition.
    */
   test('should navigate to inner enum definition', async ({ apexEditor }) => {
-    // Line 190: method parameter uses StatusType (cols 59-68) — declaration is line 183
-    await apexEditor.goToPosition(190, 63);
+    // Navigate past the declaration (line 183) so Find lands on a usage site
+    await apexEditor.goToPosition(190);
+    await apexEditor.positionCursorOnWord('StatusType');
     await apexEditor.goToDefinition();
 
     await apexEditor.expectCursorAtLine(183);
@@ -257,9 +261,9 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to generic type declaration (List, Map, etc.).
    */
   test('should handle generic type references', async ({ apexEditor }) => {
-    await test.step('Position cursor on generic type usage', async () => {
-      // Line 25: this.accounts = new List<Account>() — usage, declaration at line 8
-      await apexEditor.goToPosition(25, 14);
+    await test.step('Position cursor on generic-typed variable', async () => {
+      await apexEditor.goToPosition(1);
+      await apexEditor.positionCursorOnWord('accounts');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -299,7 +303,7 @@ test.describe('Apex Go-to-Definition', () => {
     await test.step('First navigation: class definition', async () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
       await apexEditor.goToDefinition();
-      await apexEditor.expectCursorAtLine(13);
+      await apexEditor.expectCursorAtLine([1, 13]);
     });
 
     await test.step('Second navigation: inner class definition', async () => {

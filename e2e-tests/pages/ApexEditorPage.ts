@@ -340,21 +340,24 @@ export class ApexEditorPage extends BasePage {
    * @param timeout - Max ms to wait (mode-aware default)
    */
   async expectCursorAtLine(
-    expectedLine: number,
+    expectedLine: number | number[],
     timeout?: number,
   ): Promise<void> {
     const { expect } = await import('@playwright/test');
     const effectiveTimeout = timeout ?? (this.isDesktopMode ? 8000 : 5000);
+    const validLines = Array.isArray(expectedLine)
+      ? expectedLine
+      : [expectedLine];
     let lastLine = -1;
     try {
       await expect(async () => {
         const { line } = await this.getCursorPosition();
         lastLine = line;
-        expect(line).toBe(expectedLine);
+        expect(validLines).toContain(line);
       }).toPass({ timeout: effectiveTimeout });
     } catch {
       throw new Error(
-        `Expected cursor at line ${expectedLine} but cursor was at line ${lastLine}`,
+        `Expected cursor at line ${validLines.join(' or ')} but cursor was at line ${lastLine}`,
       );
     }
   }

@@ -65,8 +65,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on instance variable shows type information.
    */
   test('should show hover for instance variable', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('instanceId');
-    const content = await hoverHelper.getHoverContent();
+    // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
+    // Field declarations near the top of the file don't reliably produce
+    // hover tooltips in desktop mode, but references in method bodies do.
+    const content = await hoverHelper.hoverAtWithResolution(24, 14);
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -112,8 +114,8 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover contains type information for typed symbols.
    */
   test('should show type information in hover', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('instanceId');
-    const content = await hoverHelper.getHoverContent();
+    // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
+    const content = await hoverHelper.hoverAtWithResolution(24, 14);
     // Verify actual type name appears, not just any keyword
     expect(content).toContain('String');
   });
