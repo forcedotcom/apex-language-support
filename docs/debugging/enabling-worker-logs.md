@@ -88,6 +88,14 @@ Worker Process                  Coordinator Process
 [worker:1] [ENRICHMENT] Write-back rejected: ... [version mismatch]
 ```
 
+### Which Requests Trigger Enrichment?
+
+The following LSP requests are dispatched to enrichment workers and can trigger write-back:
+- **Hover** (`textDocument/hover`) - Enriches symbols when hovering over code
+- **Diagnostics** (`textDocument/diagnostic`) - Enriches symbols during pull diagnostics
+
+Other requests (definition, completion, references, etc.) currently run on the coordinator thread.
+
 ## Implementation Details
 
 ### Effect Logger Minimum Level

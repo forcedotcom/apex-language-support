@@ -360,7 +360,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   references: 'coordinatorOnly',
   documentSymbol: 'coordinatorOnly',
   workspaceSymbol: 'coordinatorOnly',
-  diagnostics: 'coordinatorOnly',
+  diagnostics: 'enrichmentPool', // Enable worker-based enrichment for diagnostics
   codeAction: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',
   rename: 'coordinatorOnly',
