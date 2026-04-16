@@ -70,15 +70,21 @@ export class ServiceFactory {
   }
 
   /**
-   * Create hover processing service
+   * Create hover processing service.
+   * When skipPrerequisites is true, the service skips on-demand
+   * prerequisite orchestration — used in worker contexts where
+   * enrichment is handled by the data-owner.
    */
-  createHoverService(): HoverProcessingService {
+  createHoverService(options?: {
+    skipPrerequisites?: boolean;
+  }): HoverProcessingService {
     const service = new HoverProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
-      // No need to create MissingArtifactResolutionService - MissingArtifactUtils will create it on-demand
     );
-    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    if (!options?.skipPrerequisites) {
+      service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    }
     return service;
   }
 

@@ -32,6 +32,7 @@ import { Effect, Layer, Schema, Queue, Deferred, Fiber } from 'effect';
 import {
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
@@ -51,6 +52,7 @@ import {
   DispatchGenericLspRequest,
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
+  ApexCapabilitiesManager,
 } from '@salesforce/apex-lsp-shared';
 import type { WorkerRole } from '@salesforce/apex-lsp-shared';
 
@@ -61,6 +63,7 @@ import type { WorkerRole } from '@salesforce/apex-lsp-shared';
 const AllWorkerRequests = Schema.Union(
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
@@ -189,7 +192,12 @@ const ensureDataOwnerServices = Effect.gen(function* () {
   const { bootstrapDataOwnerServices } = yield* Effect.promise(
     () => import('@salesforce/apex-lsp-compliant-services'),
   );
-  dataOwnerServices = yield* Effect.promise(() => bootstrapDataOwnerServices());
+  const { ResourceLoaderNoOpLive } = yield* Effect.promise(
+    () => import('@salesforce/apex-lsp-parser-ast'),
+  );
+  dataOwnerServices = yield* Effect.promise(() =>
+    bootstrapDataOwnerServices(ResourceLoaderNoOpLive),
+  );
   yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
   return dataOwnerServices;
 });
@@ -199,12 +207,54 @@ const ensureEnrichmentServices = Effect.gen(function* () {
   const { bootstrapEnrichmentServices } = yield* Effect.promise(
     () => import('@salesforce/apex-lsp-compliant-services'),
   );
+  const { ResourceLoaderNoOpLive } = yield* Effect.promise(
+    () => import('@salesforce/apex-lsp-parser-ast'),
+  );
   enrichmentServices = yield* Effect.promise(() =>
-    bootstrapEnrichmentServices(),
+    bootstrapEnrichmentServices(ResourceLoaderNoOpLive),
   );
   yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
   return enrichmentServices;
 });
+
+// ---------------------------------------------------------------------------
+// Symbol data loading for enrichment workers (browser variant)
+// ---------------------------------------------------------------------------
+
+async function loadSymbolDataForEnrichmentWeb(
+  svc: EnrichmentServices,
+  uri: string,
+  content?: string,
+): Promise<void> {
+  if (content) {
+    svc.storageManager.getStorage().setDocument(uri, {
+      uri,
+      getText: () => content,
+      languageId: 'apex',
+      version: 0,
+    } as any);
+  }
+  try {
+    const response = (await requestCoordinatorAssistance(
+      'dataOwner:QuerySymbolSubset',
+      { uris: [uri] },
+      true,
+    )) as { entries: Record<string, unknown> };
+    if (response?.entries) {
+      const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+      for (const [fileUri, stData] of Object.entries(response.entries)) {
+        if (stData) {
+          const symbolTable = SymbolTable.fromSerializedData(stData as any);
+          await Effect.runPromise(
+            svc.symbolManager.addSymbolTable(symbolTable, fileUri),
+          );
+        }
+      }
+    }
+  } catch {
+    // Best-effort for the vertical slice
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Handlers — one per _tag in AllWorkerRequests
@@ -220,6 +270,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       );
     }
     assignedRole = req.role;
+    const resolvedServerMode = req.serverMode ?? 'production';
+    ApexCapabilitiesManager.getInstance().setMode(resolvedServerMode);
+    (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
+      resolvedServerMode;
     console.log(
       `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}`,
     );
@@ -251,20 +305,38 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   PingWorker: (req) =>
     guardRole('PingWorker').pipe(Effect.map(() => ({ echo: req.echo }))),
 
+  WorkerRemoteStdlibWarmup: (_req) =>
+    guardRole('WorkerRemoteStdlibWarmup').pipe(
+      Effect.map(() => ({ ok: true as const })),
+    ),
+
   QuerySymbolSubset: (req) =>
     guardRole('QuerySymbolSubset').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
             const entries: Record<string, unknown> = {};
+            const versions: Record<string, number> = {};
+            const detailLevels: Record<
+              string,
+              'public-api' | 'protected' | 'private' | 'full'
+            > = {};
+
             for (const uri of req.uris) {
               const st = yield* Effect.promise(() =>
                 svc.symbolManager.getSymbolTableForFile(uri),
               );
               entries[uri] = st ? JSON.parse(JSON.stringify(st)) : null;
+
+              const doc = yield* Effect.promise(() => storage.getDocument(uri));
+              versions[uri] = doc?.version ?? -1;
+
+              // Web workers don't have DocumentStateCache, default to public-api
+              detailLevels[uri] = 'public-api';
             }
-            return { entries };
+            return { entries, versions, detailLevels };
           }),
         ),
       ),
@@ -395,6 +467,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       Effect.flatMap(() =>
         Effect.gen(function* () {
           const svc = yield* ensureEnrichmentServices;
+          yield* Effect.promise(() =>
+            loadSymbolDataForEnrichmentWeb(
+              svc,
+              req.textDocument.uri,
+              (req as any).content,
+            ),
+          );
           const result = yield* Effect.promise(() =>
             svc.hoverService.processHover({
               textDocument: { uri: req.textDocument.uri },

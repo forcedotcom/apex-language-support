@@ -27,7 +27,8 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
     priority: Priority.Immediate,
-    timeout: 1000,
+    /** Worker hover = data-owner QuerySymbolSubset + enrichment; 1s was too tight. */
+    timeout: 8000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },

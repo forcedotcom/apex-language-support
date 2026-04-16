@@ -11,6 +11,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { CompilerService } from '../../src/parser/compilerService';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import {
@@ -35,7 +36,9 @@ describe('System.debug Resolution Bug Fix', () => {
     );
     await initializeResourceLoaderForTests();
 
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
   });
 

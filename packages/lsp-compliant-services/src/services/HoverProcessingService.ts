@@ -153,6 +153,31 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'a509d3',
+          },
+          body: JSON.stringify({
+            sessionId: 'a509d3',
+            location: 'HoverProcessingService.ts:hover-entry',
+            message: 'hover entry state',
+            data: {
+              uri: params.textDocument.uri,
+              refCount: references?.length ?? 0,
+              workspaceLoaded: isWorkspaceLoaded(),
+              position: `${parserPosition.line}:${parserPosition.character}`,
+            },
+            hypothesisId: 'H-A,H-B,H-C',
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
@@ -230,6 +255,37 @@ export class HoverProcessingService implements IHoverProcessor {
             ref.location.identifierRange.endColumn >= parserPosition.character,
         );
 
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              location: 'HoverProcessingService.ts:233',
+              message: 'methodCallRef check',
+              data: {
+                found: !!methodCallRef,
+                methodCallRefName: methodCallRef?.name,
+                position: `${parserPosition.line}:${parserPosition.character}`,
+                allRefs: references.map((r) => ({
+                  name: r.name,
+                  ctx: ReferenceContext[r.context],
+                  start: `${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}`,
+                  end: r.location.identifierRange.endColumn,
+                })),
+              },
+              hypothesisId: 'H1,H4',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+
         if (methodCallRef) {
           // Try to resolve the METHOD_CALL reference first
           // This may require enrichment if standard library classes aren't loaded yet
@@ -239,9 +295,47 @@ export class HoverProcessingService implements IHoverProcessor {
             'precise',
           );
 
-          // If we got a symbol but it's not a method, and we have a METHOD_CALL reference,
-          // reject the variable symbol and try enrichment to resolve the method call
-          if (symbol && !isMethodSymbol(symbol) && methodCallRef.name) {
+          // #region agent log
+          fetch(
+            'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': 'a509d3',
+              },
+              body: JSON.stringify({
+                sessionId: 'a509d3',
+                location: 'HoverProcessingService.ts:246',
+                message: 'getSymbolAtPosition result in methodCallRef block',
+                data: {
+                  isMethod: symbol ? (symbol as any).kind : 'null',
+                  methodCallRefName: methodCallRef.name,
+                },
+                hypothesisId: 'H1',
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+
+          // Detect when precise resolved the qualifier class rather than the method:
+          // the ChainedRef's identifierRange spans the whole expression, so methodCallRef
+          // matches even when the cursor is on the qualifier (e.g. FileUtilities in
+          // FileUtilities.createFile). In that case the class symbol is correct — keep it.
+          const isQualifierClass =
+            symbol !== null &&
+            isClassSymbol(symbol) &&
+            symbol.name.toLowerCase() !== methodCallRef.name.toLowerCase();
+
+          // If we got a non-method symbol and it is NOT the qualifier class, reject it
+          // and try enrichment to resolve the actual method call.
+          if (
+            symbol &&
+            !isMethodSymbol(symbol) &&
+            methodCallRef.name &&
+            !isQualifierClass
+          ) {
             const symbolKind = symbol.kind;
             this.logger.debug(
               () =>
@@ -249,7 +343,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 `Rejecting ${symbolKind} symbol and attempting enrichment to resolve method call.`,
             );
 
-            // Reject the variable symbol - we need to resolve the METHOD_CALL
+            // Reject the non-method symbol - we need to resolve the METHOD_CALL
             symbol = null;
 
             // Try enrichment to resolve the method call
@@ -263,15 +357,21 @@ export class HoverProcessingService implements IHoverProcessor {
                   documentText,
                   async () => {
                     // After enrichment, try getSymbolAtPosition again
-                    // This should now resolve the METHOD_CALL since standard library classes are loaded
                     const resolvedSymbol =
                       await this.symbolManager.getSymbolAtPosition(
                         params.textDocument.uri,
                         parserPosition,
                         'precise',
                       );
-                    // Only accept method symbols - reject variables
-                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
+                    // Accept a method symbol or the qualifier class (cold-start: class
+                    // file was not loaded until enrichment ran)
+                    if (
+                      resolvedSymbol &&
+                      (isMethodSymbol(resolvedSymbol) ||
+                        (isClassSymbol(resolvedSymbol) &&
+                          resolvedSymbol.name.toLowerCase() !==
+                            methodCallRef.name.toLowerCase()))
+                    ) {
                       return resolvedSymbol;
                     }
                     return null;
@@ -279,7 +379,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 ),
               );
 
-              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
+              if (enrichedSymbol) {
                 symbol = enrichedSymbol;
                 this.logger.debug(
                   () =>
@@ -297,51 +397,90 @@ export class HoverProcessingService implements IHoverProcessor {
               () =>
                 `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" without enrichment.`,
             );
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': 'a509d3',
+                },
+                body: JSON.stringify({
+                  sessionId: 'a509d3',
+                  location: 'HoverProcessingService.ts:323',
+                  message: 'branch: method resolved without enrichment',
+                  data: {
+                    symbolName: symbol.name,
+                    symbolKind: symbol.kind,
+                    methodCallRefName: methodCallRef.name,
+                  },
+                  hypothesisId: 'H1',
+                  timestamp: Date.now(),
+                }),
+              },
+            ).catch(() => {});
+            // #endregion
           } else if (!symbol) {
-            // No symbol found - try enrichment to resolve the METHOD_CALL
+            // 'precise' failed for this METHOD_CALL — try 'scope' which prioritizes
+            // chained FIELD_ACCESS refs (e.g. Assert.isNotNull) and can resolve
+            // cross-file symbols via resolveStandardApexClass on the resource loader.
             this.logger.debug(
               () =>
                 `[HOVER] No symbol found but METHOD_CALL reference exists for "${methodCallRef.name}". ` +
-                'Attempting enrichment to resolve method call.',
+                'Trying scope strategy for chained reference resolution.',
             );
 
-            const storage = ApexStorageManager.getInstance().getStorage();
-            const document = await storage.getDocument(params.textDocument.uri);
-            if (document) {
-              const documentText = document.getText();
-              const enrichedSymbol = await Effect.runPromise(
-                this.symbolManager.resolveWithEnrichment(
-                  params.textDocument.uri,
-                  documentText,
-                  async () => {
-                    const resolvedSymbol =
-                      await this.symbolManager.getSymbolAtPosition(
-                        params.textDocument.uri,
-                        parserPosition,
-                        'precise',
-                      );
-                    // Only accept method symbols
-                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
-                      return resolvedSymbol;
-                    }
-                    return null;
+            const scopeSymbol = await this.symbolManager.getSymbolAtPosition(
+              params.textDocument.uri,
+              parserPosition,
+              'scope',
+            );
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': 'a509d3',
+                },
+                body: JSON.stringify({
+                  sessionId: 'a509d3',
+                  location: 'HoverProcessingService.ts:scope-methodcall',
+                  message: 'scope fallback result for METHOD_CALL',
+                  data: {
+                    methodCallRefName: methodCallRef.name,
+                    scopeSymbol: scopeSymbol
+                      ? { name: scopeSymbol.name, kind: scopeSymbol.kind }
+                      : null,
                   },
-                ),
+                  hypothesisId: 'H-scope',
+                  timestamp: Date.now(),
+                }),
+              },
+            ).catch(() => {});
+            // #endregion
+            if (
+              scopeSymbol &&
+              (isMethodSymbol(scopeSymbol) ||
+                (isClassSymbol(scopeSymbol) &&
+                  scopeSymbol.name.toLowerCase() !==
+                    methodCallRef.name.toLowerCase()))
+            ) {
+              symbol = scopeSymbol;
+              this.logger.debug(
+                () =>
+                  `[HOVER] Resolved METHOD_CALL "${methodCallRef.name}" via scope strategy.`,
               );
-
-              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
-                symbol = enrichedSymbol;
-                this.logger.debug(
-                  () =>
-                    `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" after enrichment.`,
-                );
-              }
             }
           }
         }
       }
 
-      // If no symbol found yet (or METHOD_CALL wasn't found), use getSymbolAtPosition
+      // If no symbol found yet (or METHOD_CALL wasn't found), use getSymbolAtPosition.
+      // Try 'precise' first, then fall back to 'scope' which handles chained refs and
+      // stdlib resolution via resolveStandardApexClass on the resource loader.
       if (!symbol) {
         symbol = await this.symbolManager.getSymbolAtPosition(
           params.textDocument.uri,
@@ -349,9 +488,61 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
+      if (!symbol) {
+        symbol = await this.symbolManager.getSymbolAtPosition(
+          params.textDocument.uri,
+          parserPosition,
+          'scope',
+        );
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              location: 'HoverProcessingService.ts:final-scope-fallback',
+              message: 'final scope fallback result',
+              data: {
+                position: `${parserPosition.line}:${parserPosition.character}`,
+                symbol: symbol
+                  ? { name: symbol.name, kind: symbol.kind }
+                  : null,
+              },
+              hypothesisId: 'H-scope',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+      }
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              location: 'HoverProcessingService.ts:392',
+              message: 'symbol resolved - entering hover creation',
+              data: { symbolName: symbol.name, symbolKind: symbol.kind },
+              hypothesisId: 'H1',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
         const resolvedSymbol = symbol;
         // Symbol found - check if we're hovering over a class name in a constructor call context
         // If so, try to find the constructor symbol instead
@@ -510,7 +701,10 @@ export class HoverProcessingService implements IHoverProcessor {
               'hover',
             );
 
-            const searchingHover = await this.createSearchingHover(params);
+            const searchingHover = await this.createSearchingHover(
+              params,
+              'path1-refs-no-symbol-early',
+            );
             return searchingHover;
           }
         }
@@ -704,21 +898,56 @@ export class HoverProcessingService implements IHoverProcessor {
           }
         }
 
-        // Check if this is a variable reference - skip missing artifact resolution
-        const variableRef =
-          references.find(
-            (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
-          ) ||
-          references.find(
-            (ref) =>
-              ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
-          );
+        // Only skip missing-artifact resolution for true in-file declarations.
+        // VARIABLE_USAGE is the parser's conservative default for chain qualifiers
+        // (e.g. `FileUtilities` in `FileUtilities.createFile`) that could not be
+        // semantically resolved. Enrichment just proved there is no local variable
+        // with that name, so it may be a cross-file class reference — proceed to
+        // missing-artifact resolution rather than silently returning null.
+        const declarationRef = references.find(
+          (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+        );
 
-        if (variableRef) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              runId: 'post-fix',
+              location: 'HoverProcessingService.ts:750',
+              message: 'Call Site B reached',
+              data: {
+                declarationRefName: declarationRef?.name,
+                declarationRefCtx: declarationRef
+                  ? ReferenceContext[declarationRef.context]
+                  : 'none',
+                findMissingArtifactEnabled:
+                  ApexSettingsManager.getInstance().getSettings()?.apex
+                    ?.findMissingArtifact?.enabled,
+                refCount: references.length,
+                allRefs: references.map((r) => ({
+                  name: r.name,
+                  ctx: ReferenceContext[r.context],
+                })),
+              },
+              hypothesisId: 'H2,H3,H5',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
+
+        if (declarationRef) {
           this.logger.debug(
             () =>
-              'Skipping missing artifact resolution for variable reference - ' +
-              'symbol should be in same file',
+              'Skipping missing artifact resolution for variable declaration - ' +
+              'symbol is in the same file',
           );
           return null;
         }
@@ -740,7 +969,10 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          const searchingHover = await this.createSearchingHover(params);
+          const searchingHover = await this.createSearchingHover(
+            params,
+            'path2-after-enrichment-no-symbol',
+          );
           return searchingHover;
         }
 
@@ -833,7 +1065,10 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          return await this.createSearchingHover(params);
+          return await this.createSearchingHover(
+            params,
+            'path3-workspace-not-loaded-no-refs',
+          );
         }
       }
 
@@ -1055,7 +1290,31 @@ export class HoverProcessingService implements IHoverProcessor {
   /**
    * Create a hover that shows the user we're searching for a missing artifact
    */
-  private async createSearchingHover(params: HoverParams): Promise<Hover> {
+  private async createSearchingHover(
+    params: HoverParams,
+    callerTag?: string,
+  ): Promise<Hover> {
+    // #region agent log
+    fetch('http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a509d3',
+      },
+      body: JSON.stringify({
+        sessionId: 'a509d3',
+        location: 'HoverProcessingService.ts:createSearchingHover',
+        message: 'Searching... triggered',
+        data: {
+          callerTag,
+          uri: params.textDocument.uri,
+          workspaceLoaded: isWorkspaceLoaded(),
+        },
+        hypothesisId: 'H-A,H-B,H-C,H-D',
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const content: string[] = [];
 
     // Extract the symbol name from the text at the hover position

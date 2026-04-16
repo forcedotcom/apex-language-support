@@ -38,6 +38,10 @@ export type WorkerRole = Schema.Schema.Type<typeof WorkerRole>;
 // WorkerInit — sent once after spawn to assign role + negotiate version
 // ---------------------------------------------------------------------------
 
+/** Matches `apex.environment.serverMode` — forwarded so workers mirror coordinator mode (e.g. dev hover metrics). */
+export const WorkerServerMode = Schema.Literal('production', 'development');
+export type WorkerServerMode = Schema.Schema.Type<typeof WorkerServerMode>;
+
 export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
   'WorkerInit',
   {
@@ -47,6 +51,7 @@ export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
       role: WorkerRole,
       protocolVersion: Schema.Number,
       logLevel: Schema.optional(Schema.String),
+      serverMode: Schema.optional(WorkerServerMode),
     },
   },
 ) {}
@@ -75,6 +80,23 @@ export type PingWorkerSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
+// WorkerRemoteStdlibWarmup — coordinator asks DO/enrichment workers to
+// await-fill remote stdlib namespace cache after assistance mediation is live
+// ---------------------------------------------------------------------------
+
+export class WorkerRemoteStdlibWarmup extends Schema.TaggedRequest<WorkerRemoteStdlibWarmup>()(
+  'WorkerRemoteStdlibWarmup',
+  {
+    success: Schema.Struct({ ok: Schema.Literal(true) }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('WorkerRemoteStdlibWarmupError'),
+      message: Schema.String,
+    }),
+    payload: {},
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QuerySymbolSubset — enrichment worker asks data-owner for symbol tables
 // ---------------------------------------------------------------------------
 
@@ -84,6 +106,13 @@ export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()
     success: Schema.Struct({
       /** JSON-encoded symbol table entries keyed by URI */
       entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+      /** Document version for each URI (for write-back validation) */
+      versions: Schema.Record({ key: Schema.String, value: Schema.Number }),
+      /** Current detail level for each URI */
+      detailLevels: Schema.Record({
+        key: Schema.String,
+        value: Schema.Literal('public-api', 'protected', 'private', 'full'),
+      }),
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('QuerySymbolSubsetError'),
@@ -272,6 +301,27 @@ export class ResourceLoaderResolveClass extends Schema.TaggedRequest<ResourceLoa
 ) {}
 
 // ---------------------------------------------------------------------------
+// ResourceLoaderGetStandardNamespaces — fetch the full namespace→classFiles map
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetStandardNamespaces extends Schema.TaggedRequest<ResourceLoaderGetStandardNamespaces>()(
+  'ResourceLoaderGetStandardNamespaces',
+  {
+    success: Schema.Struct({
+      namespaces: Schema.Record({
+        key: Schema.String,
+        value: Schema.Array(Schema.String),
+      }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {},
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Canonical LSP request type list — single source of truth
 //
 // Both the plain TS union (LSPRequestType) and the Effect Schema literal
@@ -409,6 +459,7 @@ export class DispatchHover extends Schema.TaggedRequest<DispatchHover>()(
     payload: {
       textDocument: WireTextDocumentId,
       position: WirePosition,
+      content: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -497,6 +548,41 @@ export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGene
 ) {}
 
 // ---------------------------------------------------------------------------
+// UpdateSymbolSubset — enrichment worker writes back enriched symbols
+// ---------------------------------------------------------------------------
+
+export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>()(
+  'UpdateSymbolSubset',
+  {
+    success: Schema.Struct({
+      accepted: Schema.Boolean,
+      merged: Schema.Number, // Count of symbols merged
+      versionMismatch: Schema.Boolean, // Rejected due to stale version
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('UpdateSymbolSubsetError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      documentVersion: Schema.Number, // Version this enrichment is based on
+      enrichedSymbolTable: Schema.Unknown, // Serialized SymbolTable
+      enrichedDetailLevel: Schema.Literal(
+        'public-api',
+        'protected',
+        'private',
+        'full',
+      ),
+      sourceWorkerId: Schema.String, // For debugging/metrics
+    },
+  },
+) {}
+
+export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
+  (typeof UpdateSymbolSubset)['success']
+>;
+
+// ---------------------------------------------------------------------------
 // Role-partitioned tag unions
 // ---------------------------------------------------------------------------
 
@@ -504,7 +590,9 @@ export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGene
 export const DataOwnerTags = [
   'WorkerInit',
   'PingWorker',
+  'WorkerRemoteStdlibWarmup',
   'QuerySymbolSubset',
+  'UpdateSymbolSubset',
   'WorkspaceBatchIngest',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
@@ -517,6 +605,7 @@ export type DataOwnerTag = (typeof DataOwnerTags)[number];
 export const EnrichmentSearchTags = [
   'WorkerInit',
   'PingWorker',
+  'WorkerRemoteStdlibWarmup',
   'DispatchHover',
   'DispatchDefinition',
   'DispatchReferences',
@@ -535,6 +624,7 @@ export const ResourceLoaderTags = [
   'ResourceLoaderGetSymbolTable',
   'ResourceLoaderGetFile',
   'ResourceLoaderResolveClass',
+  'ResourceLoaderGetStandardNamespaces',
 ] as const;
 export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
 
@@ -556,7 +646,9 @@ export type WorkerTag = (typeof AllWorkerTags)[number];
 export type DataOwnerRequest =
   | WorkerInit
   | PingWorker
+  | WorkerRemoteStdlibWarmup
   | QuerySymbolSubset
+  | UpdateSymbolSubset
   | WorkspaceBatchIngest
   | DispatchDocumentOpen
   | DispatchDocumentChange
@@ -567,6 +659,7 @@ export type DataOwnerRequest =
 export type EnrichmentSearchRequest =
   | WorkerInit
   | PingWorker
+  | WorkerRemoteStdlibWarmup
   | DispatchHover
   | DispatchDefinition
   | DispatchReferences
@@ -582,7 +675,8 @@ export type ResourceLoaderRequest =
   | PingWorker
   | ResourceLoaderGetSymbolTable
   | ResourceLoaderGetFile
-  | ResourceLoaderResolveClass;
+  | ResourceLoaderResolveClass
+  | ResourceLoaderGetStandardNamespaces;
 
 /** Current wire protocol version — bump on breaking schema changes */
 export const WIRE_PROTOCOL_VERSION = 1;

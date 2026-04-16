@@ -136,6 +136,9 @@ export {
   type EnrichmentServices,
 } from './workers/WorkerBackendBootstrap';
 
+// Export missing-artifact assistance proxy setter (used by enrichment worker platform)
+export { EnhancedMissingArtifactResolutionService } from './services/MissingArtifactResolutionService';
+
 // Export worker transport isolation (Step 12)
 export type {
   WorkerTransport,

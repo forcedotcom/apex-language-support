@@ -22,6 +22,7 @@ import {
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
+  ResourceLoaderGetStandardNamespaces,
 } from '@salesforce/apex-lsp-shared';
 import type {
   ResourceLoaderRequest,
@@ -51,5 +52,21 @@ export class ResourceLoaderProxy {
     return Effect.runPromise(this.worker.executeEffect(msg)).then((r) =>
       r.found ? (r.fqn ?? null) : null,
     );
+  }
+
+  async getStandardNamespaces(): Promise<Record<string, string[]>> {
+    try {
+      const msg = new ResourceLoaderGetStandardNamespaces({});
+      const result = await Effect.runPromise(this.worker.executeEffect(msg));
+      return (
+        (result as { namespaces?: Record<string, string[]> }).namespaces ?? {}
+      );
+    } catch (err) {
+      this.logger.warn(
+        () =>
+          `[ResourceLoaderProxy] getStandardNamespaces failed: ${String(err)}`,
+      );
+      return {};
+    }
   }
 }

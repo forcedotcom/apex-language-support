@@ -2047,6 +2047,9 @@ export class SymbolTable {
     position: Position,
     location: SymbolLocation,
   ): boolean {
+    if (!location?.identifierRange) {
+      return false;
+    }
     return (
       position.line >= location.identifierRange.startLine &&
       position.line <= location.identifierRange.endLine &&
@@ -2122,9 +2125,50 @@ export class SymbolTable {
    * @param json The JSON representation of a symbol table
    * @returns A new symbol table
    */
-  static fromJSON(json: any): SymbolTable {
+  /**
+   * Reconstruct a SymbolTable from wire-serialized data (JSON round-trip).
+   * Rebuilds internal HashMap index from the flat symbol array.
+   */
+  static fromSerializedData(data: {
+    symbols: ApexSymbol[];
+    references?: SymbolReference[];
+    hierarchicalReferences?: HierarchicalReference[];
+    metadata?: Partial<SymbolTableMetadata>;
+    fileUri?: string;
+  }): SymbolTable {
     const table = new SymbolTable();
-    // TODO: Implement reconstruction of symbol table from JSON
+    const uri = data.fileUri ?? data.metadata?.fileUri ?? 'unknown';
+    table.setFileUri(uri);
+    if (data.metadata) {
+      table.setMetadata(data.metadata);
+    }
+
+    for (const sym of data.symbols) {
+      const key = sym.key?.unifiedId ?? sym.id;
+      table.symbolMap.set(key, sym);
+      table.symbolArray.push(sym);
+      if (sym.parentId === null || sym.parentId === undefined) {
+        table.root = sym;
+      }
+    }
+
+    if (data.references) {
+      table.references = data.references;
+    }
+    if (data.hierarchicalReferences) {
+      table.hierarchicalReferences = data.hierarchicalReferences;
+    }
+
     return table;
+  }
+
+  static fromJSON(json: any): SymbolTable {
+    return SymbolTable.fromSerializedData({
+      symbols: json.symbolArray ?? json.symbols ?? [],
+      references: json.references ?? [],
+      hierarchicalReferences: json.hierarchicalReferences ?? [],
+      metadata: json.metadata,
+      fileUri: json.fileUri,
+    });
   }
 }

@@ -22,6 +22,7 @@ import { Effect } from 'effect';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
+  getResourceLoaderServiceShapeFromSingleton,
 } from '../helpers/testHelpers';
 import { ReferenceContext } from '../../src/types/symbolReference';
 
@@ -67,7 +68,9 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     // Enable console logging with debug level for tests
     enableConsoleLogging();
     setLogLevel('error');
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
   });
 

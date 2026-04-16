@@ -1017,10 +1017,7 @@ export async function resolveFirstNodeAsClass(
   // Try standard Apex class resolution first (for System, Database, etc.)
   // If it's a standard namespace, try both "Namespace" and "Namespace.Namespace"
   let standardClass = await self.resolveStandardApexClass(firstNodeName);
-  if (
-    !standardClass &&
-    self.resourceLoader?.isStdApexNamespace(firstNodeName)
-  ) {
+  if (!standardClass && self.stdlibProvider.isStdApexNamespace(firstNodeName)) {
     // Try resolving as "Namespace.Namespace" (e.g., "System.System")
     standardClass = await self.resolveStandardApexClass(
       `${firstNodeName}.${firstNodeName}`,
@@ -1085,10 +1082,7 @@ export async function resolveFirstNodeAsClass(
 
   // If no class found but it's a standard namespace, try to resolve the namespace class
   // Some namespaces have a class with the same name (e.g., System.System)
-  if (
-    self.resourceLoader &&
-    self.resourceLoader.isStdApexNamespace(firstNodeName)
-  ) {
+  if (self.stdlibProvider.isStdApexNamespace(firstNodeName)) {
     // Try resolving as "Namespace.Namespace" (e.g., "System.System")
     const namespaceClass = await self.resolveStandardApexClass(
       `${firstNodeName}.${firstNodeName}`,
@@ -1377,7 +1371,7 @@ function convertToStandardLibraryUri(
     classPath.endsWith('.cls')
   ) {
     const namespace = classPath.split('/')[0];
-    if (self.resourceLoader?.isStdApexNamespace(namespace)) {
+    if (self.stdlibProvider.isStdApexNamespace(namespace)) {
       return `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
     }
   }
@@ -1460,7 +1454,7 @@ export async function ensureClassSymbolsLoaded(
   self: SymbolManagerOps,
   classSymbol: ApexSymbol,
 ): Promise<void> {
-  if (!self.resourceLoader || !classSymbol.fileUri?.endsWith('.cls')) {
+  if (!classSymbol.fileUri?.endsWith('.cls')) {
     return;
   }
 
@@ -1470,7 +1464,7 @@ export async function ensureClassSymbolsLoaded(
       classPath = extractApexLibPath(classPath);
     }
 
-    const symbolTable = await self.resourceLoader.getSymbolTable(classPath);
+    const symbolTable = await self.stdlibProvider.getSymbolTable(classPath);
     if (symbolTable) {
       const fileUri = convertToStandardLibraryUri(self, classPath);
       await self.addSymbolTableAsync(symbolTable, fileUri);
@@ -1570,8 +1564,7 @@ export async function resolveSuperclassSymbol(
       if (
         !symbolTable &&
         superclassTypeSymbol.fileUri &&
-        isStandardApexUri(superclassTypeSymbol.fileUri) &&
-        self.resourceLoader
+        isStandardApexUri(superclassTypeSymbol.fileUri)
       ) {
         const classPath = extractApexLibPath(superclassTypeSymbol.fileUri);
         if (classPath) {
@@ -1583,7 +1576,7 @@ export async function resolveSuperclassSymbol(
               self.loadingSymbolTables.add(normalizedUri);
               try {
                 const loadedSymbolTable =
-                  await self.resourceLoader.getSymbolTable(classPath);
+                  await self.stdlibProvider.getSymbolTable(classPath);
                 if (loadedSymbolTable) {
                   await self.addSymbolTableAsync(
                     loadedSymbolTable,
@@ -1607,7 +1600,7 @@ export async function resolveSuperclassSymbol(
     return superclassTypeSymbol;
   }
 
-  if (self.resourceLoader) {
+  {
     const standardClass = await self.resolveStandardApexClass(superclassName);
     if (standardClass && standardClass.kind === SymbolKind.Class) {
       return standardClass as TypeSymbol;
@@ -1639,7 +1632,7 @@ export async function resolveObjectClass(
         objectTypeSymbol.fileUri,
       );
 
-      if (!symbolTable && self.resourceLoader) {
+      if (!symbolTable) {
         const classPath = extractApexLibPath(objectTypeSymbol.fileUri);
         if (classPath) {
           try {
@@ -1650,7 +1643,7 @@ export async function resolveObjectClass(
               self.loadingSymbolTables.add(normalizedUri);
               try {
                 const loadedSymbolTable =
-                  await self.resourceLoader.getSymbolTable(classPath);
+                  await self.stdlibProvider.getSymbolTable(classPath);
                 if (loadedSymbolTable) {
                   await self.addSymbolTableAsync(
                     loadedSymbolTable,
@@ -1674,7 +1667,7 @@ export async function resolveObjectClass(
     return objectTypeSymbol;
   }
 
-  if (self.resourceLoader) {
+  {
     let standardClass: ApexSymbol | null =
       await self.resolveStandardApexClass('Object');
     for (const candidate of getImplicitQualifiedCandidates('Object')) {
@@ -1725,11 +1718,7 @@ export async function resolveMemberInContext(
         }
       }
 
-      if (
-        !symbolTable &&
-        isStandardApexUri(contextFile) &&
-        self.resourceLoader
-      ) {
+      if (!symbolTable && isStandardApexUri(contextFile)) {
         const normalizedUri = extractFilePathFromUri(
           createFileUri(contextFile),
         );
@@ -1765,7 +1754,7 @@ export async function resolveMemberInContext(
               const classPath = extractApexLibPath(contextFile);
 
               const loadedSymbolTable =
-                await self.resourceLoader.getSymbolTable(classPath);
+                await self.stdlibProvider.getSymbolTable(classPath);
               if (loadedSymbolTable) {
                 symbolTable = loadedSymbolTable;
 
@@ -1805,16 +1794,14 @@ export async function resolveMemberInContext(
                 return resolvedMember;
               }
               if (
-                (typeInfo.isBuiltIn ||
-                  (typeSymbol.fileUri &&
-                    isStandardApexUri(typeSymbol.fileUri))) &&
-                self.resourceLoader
+                typeInfo.isBuiltIn ||
+                (typeSymbol.fileUri && isStandardApexUri(typeSymbol.fileUri))
               ) {
                 const classPath = extractApexLibPath(typeSymbol.fileUri);
                 if (classPath) {
                   try {
                     const st =
-                      await self.resourceLoader.getSymbolTable(classPath);
+                      await self.stdlibProvider.getSymbolTable(classPath);
                     if (st) {
                       await self.addSymbolTableAsync(st, typeSymbol.fileUri);
                       const retryResult = await resolveMemberInContext(
@@ -1871,8 +1858,7 @@ export async function resolveMemberInContext(
                   );
                   if (
                     standardClassSymbol.fileUri &&
-                    isStandardApexUri(standardClassSymbol.fileUri) &&
-                    self.resourceLoader
+                    isStandardApexUri(standardClassSymbol.fileUri)
                   ) {
                     const classPath = extractApexLibPath(
                       standardClassSymbol.fileUri,
@@ -1884,7 +1870,7 @@ export async function resolveMemberInContext(
                             `Loading class from path: ${classPath} for member resolution`,
                         );
                         const st =
-                          await self.resourceLoader.getSymbolTable(classPath);
+                          await self.stdlibProvider.getSymbolTable(classPath);
                         if (st) {
                           await self.addSymbolTableAsync(
                             st,
@@ -1937,7 +1923,7 @@ export async function resolveMemberInContext(
                           standardClassSymbol.fileUri
                             ? isStandardApexUri(standardClassSymbol.fileUri)
                             : false
-                        }, hasResourceLoader=${!!self.resourceLoader}`,
+                        }`,
                     );
                   }
                 } else {
@@ -1969,14 +1955,13 @@ export async function resolveMemberInContext(
                 }
                 if (
                   typeClassSymbol.fileUri &&
-                  isStandardApexUri(typeClassSymbol.fileUri) &&
-                  self.resourceLoader
+                  isStandardApexUri(typeClassSymbol.fileUri)
                 ) {
                   const classPath = extractApexLibPath(typeClassSymbol.fileUri);
                   if (classPath) {
                     try {
                       const st =
-                        await self.resourceLoader.getSymbolTable(classPath);
+                        await self.stdlibProvider.getSymbolTable(classPath);
                       if (st) {
                         await self.addSymbolTableAsync(
                           st,
@@ -2047,8 +2032,7 @@ export async function resolveMemberInContext(
                 }
                 if (
                   standardClassSymbol2.fileUri &&
-                  isStandardApexUri(standardClassSymbol2.fileUri) &&
-                  self.resourceLoader
+                  isStandardApexUri(standardClassSymbol2.fileUri)
                 ) {
                   const classPath = extractApexLibPath(
                     standardClassSymbol2.fileUri,
@@ -2056,7 +2040,7 @@ export async function resolveMemberInContext(
                   if (classPath) {
                     try {
                       const st =
-                        await self.resourceLoader.getSymbolTable(classPath);
+                        await self.stdlibProvider.getSymbolTable(classPath);
                       if (st) {
                         await self.addSymbolTableAsync(
                           st,
@@ -2401,8 +2385,7 @@ export async function resolveMemberInContext(
           }
           if (
             contextSymbol.fileUri &&
-            isStandardApexUri(contextSymbol.fileUri) &&
-            self.resourceLoader
+            isStandardApexUri(contextSymbol.fileUri)
           ) {
             const classPath = extractApexLibPath(contextSymbol.fileUri);
             if (classPath) {
@@ -2414,7 +2397,7 @@ export async function resolveMemberInContext(
                   self.loadingSymbolTables.add(normalizedUri);
                   try {
                     const st =
-                      await self.resourceLoader.getSymbolTable(classPath);
+                      await self.stdlibProvider.getSymbolTable(classPath);
                     if (st) {
                       await self.addSymbolTableAsync(st, contextSymbol.fileUri);
                       const reloadedSymbolTable =
@@ -3352,9 +3335,9 @@ export async function resolveSymbolReferenceToSymbol(
       }
     }
 
-    const isStandardNamespace =
-      self.resourceLoader &&
-      self.resourceLoader.isStdApexNamespace(typeReference.name);
+    const isStandardNamespace = self.stdlibProvider.isStdApexNamespace(
+      typeReference.name,
+    );
     if (isStandardNamespace) {
       // Let it continue to scope resolution
     }
@@ -3444,7 +3427,7 @@ export async function resolveSymbolReferenceToSymbol(
                 if (match) {
                   const classPath = match[1];
                   const st =
-                    await self.resourceLoader?.getSymbolTable(classPath);
+                    await self.stdlibProvider.getSymbolTable(classPath);
                   if (st) {
                     await self.addSymbolTableAsync(st, registryEntry.fileUri);
                     symbol = self.symbolRefManager.getSymbol(

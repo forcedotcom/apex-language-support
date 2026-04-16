@@ -74,8 +74,11 @@ import {
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
-import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
+import {
+  type ResourceLoaderServiceShape,
+  ResourceLoaderNoOpInstance,
+} from './services/ResourceLoaderService';
 import {
   GlobalTypeRegistry,
   GlobalTypeRegistryLive,
@@ -251,7 +254,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
   private readonly builtInTypeTables: BuiltInTypeTablesImpl;
 
-  private readonly resourceLoader: ResourceLoader | null = null;
+  private readonly stdlibProvider: ResourceLoaderServiceShape;
 
   private memoryStats = {
     totalSymbols: 0,
@@ -290,7 +293,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Compiler service for enrichment operations
   private readonly compilerService: CompilerService;
 
-  constructor() {
+  constructor(
+    stdlibProvider: ResourceLoaderServiceShape = ResourceLoaderNoOpInstance,
+  ) {
+    this.stdlibProvider = stdlibProvider;
     // Get settings from ApexSettingsManager (with fallback for test environments)
     let deferredReferenceSettings;
     let settingsManager: ApexSettingsManager | undefined;
@@ -376,14 +382,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       true,
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
-
-    // Initialize ResourceLoader for standard Apex classes (lazy loading from protobuf cache)
-    try {
-      this.resourceLoader = ResourceLoader.getInstance();
-    } catch (error) {
-      this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
-      this.resourceLoader = null;
-    }
   }
 
   /** Store per-file comment associations (normalized path). */
@@ -568,8 +566,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   async findSymbolByName(name: string): Promise<ApexSymbol[]> {
     // Don't short-circuit keywords that are also standard namespaces/classes
     // Check if it's a standard namespace or class before short-circuiting
-    const isStandardNamespace =
-      this.resourceLoader && this.resourceLoader.isStdApexNamespace(name);
+    const isStandardNamespace = this.stdlibProvider.isStdApexNamespace(name);
     const isStdlibPrimitiveTypeName = BUILTIN_TYPE_NAMES.has(
       name.toLowerCase(),
     );
@@ -680,7 +677,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const namespace = fileUri.split('/')[0];
 
     // Use the imported utility function to check if it's a standard namespace
-    return this.resourceLoader?.isStdApexNamespace(namespace) || false;
+    return this.stdlibProvider.isStdApexNamespace(namespace);
   }
 
   /**
@@ -4523,9 +4520,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return namespaceCandidates[0];
       }
 
-      // Last sync fallback: hydrate from stdlib protobuf cache in-memory.
-      if (this.resourceLoader?.isStdApexNamespace(namespace)) {
-        const stdlibTable = this.resourceLoader.getSymbolTableSync(
+      // Last fallback: hydrate from stdlib provider.
+      if (this.stdlibProvider.isStdApexNamespace(namespace)) {
+        const stdlibTable = await this.stdlibProvider.getSymbolTable(
           `${namespace}/${typeName}.cls`,
         );
         const classSymbol = stdlibTable
@@ -4613,7 +4610,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   async isBuiltInNamespace(namespaceName: string): Promise<boolean> {
     if (!namespaceName) return false;
-    if (this.resourceLoader?.isStdApexNamespace(namespaceName)) return true;
+    if (this.stdlibProvider.isStdApexNamespace(namespaceName)) return true;
     const normalized = namespaceName.toLowerCase();
     return normalized === 'system' || normalized === 'schema';
   }
@@ -4630,8 +4627,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     name: string,
     referencingType: ApexSymbol,
   ): Promise<ApexSymbol | null> {
-    if (!this.resourceLoader) return null;
-    const namespaces = this.resourceLoader.findNamespaceForClass(name);
+    const namespaces = this.stdlibProvider.findNamespaceForClass(name);
     if (!namespaces || namespaces.size === 0) return null;
     const namespaceOrder: string[] = [];
     const seen = new Set<string>();
@@ -4696,25 +4692,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns Array of standard Apex class namespaces
    */
   public getAvailableStandardClasses(): string[] {
-    if (!this.resourceLoader) {
-      // If ResourceLoader is not available, return empty array
-      // This ensures the method doesn't crash when ResourceLoader is not initialized
-      return [];
-    }
-
-    const namespaceStructure = this.resourceLoader.getStandardNamespaces();
+    const namespaceStructure = this.stdlibProvider.getStandardNamespaces();
     const availableClasses: string[] = [];
 
     for (const [namespace, classes] of namespaceStructure.entries()) {
-      // Only include namespaces that are in our generated constants
-      if (this.resourceLoader.isStdApexNamespace(namespace)) {
-        // Add the namespace itself
-        availableClasses.push(namespace.toString());
-
-        // Add the individual classes
+      if (this.stdlibProvider.isStdApexNamespace(namespace)) {
+        availableClasses.push(namespace);
         for (const className of classes ?? []) {
-          // Remove .cls extension
-          const cleanClassName = className.toString().replace(/\.cls$/, '');
+          const cleanClassName = className.replace(/\.cls$/, '');
           availableClasses.push(`${namespace}.${cleanClassName}`);
         }
       }
@@ -4731,12 +4716,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   public async findFQNForStandardClass(
     className: string,
   ): Promise<string | null> {
-    if (!this.resourceLoader) {
-      return null;
-    }
-
     try {
-      return this.resourceLoader.resolveStandardClassFqn(className);
+      return await this.stdlibProvider.resolveClassFqn(className);
     } catch (error) {
       this.logger.warn(
         () => `Error finding FQN for standard class ${className}: ${error}`,

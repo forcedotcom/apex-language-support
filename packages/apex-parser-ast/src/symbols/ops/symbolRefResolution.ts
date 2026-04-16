@@ -555,24 +555,15 @@ export function isStandardApexClass(
   const className = parts[1];
 
   if (parts.length === 2) {
-    if (!self.resourceLoader?.isStdApexNamespace(namespace)) {
+    if (!self.stdlibProvider.isStdApexNamespace(namespace)) {
       return false;
     }
-    return (
-      self.resourceLoader?.hasClass(`${namespace}.${className}.cls`) || false
-    );
+    return self.stdlibProvider.hasClass(`${namespace}.${className}.cls`);
   }
 
   if (parts.length === 1) {
-    const className = parts[0];
-
-    if (self.resourceLoader) {
-      const classNamespaces =
-        self.resourceLoader.findNamespaceForClass(className);
-      return classNamespaces.size > 0;
-    }
-
-    return false;
+    const classNamespaces = self.stdlibProvider.findNamespaceForClass(parts[0]);
+    return classNamespaces.size > 0;
   }
 
   return false;
@@ -637,13 +628,9 @@ export async function resolveStandardLibraryType(
     }
 
     const isStandard = self.isStandardApexClass(name);
-    const isStandardNamespace =
-      self.resourceLoader?.isStdApexNamespace(name) || false;
+    const isStandardNamespace = self.stdlibProvider.isStdApexNamespace(name);
 
     if (isStandard || isStandardNamespace) {
-      if (!self.resourceLoader) {
-        return null;
-      }
       let standardClass: ApexSymbol | null = null;
 
       if (name.includes('.')) {
@@ -709,10 +696,6 @@ export async function resolveStandardApexClass(
   self: SymbolManagerOps,
   name: string,
 ): Promise<ApexSymbol | null> {
-  if (!self.resourceLoader) {
-    return null;
-  }
-
   try {
     try {
       const registryLookup = Effect.gen(function* () {
@@ -797,11 +780,16 @@ export async function resolveStandardApexClass(
     let className: string;
 
     if (parts.length < 2) {
-      const classNamespaces = self.resourceLoader.findNamespaceForClass(
+      const classNamespaces = self.stdlibProvider.findNamespaceForClass(
         parts[0],
       );
 
       if (classNamespaces.size === 0) {
+        // Sync index empty (enrichment worker) — try async FQN resolution via provider
+        const fqn = await self.stdlibProvider.resolveClassFqn(parts[0]);
+        if (fqn) {
+          return resolveStandardApexClass(self, fqn);
+        }
         self.logger.debug(
           () => `Class "${parts[0]}" not found in any standard namespace`,
         );
@@ -831,7 +819,7 @@ export async function resolveStandardApexClass(
 
     let classPath = `${namespace}/${className}.cls`;
 
-    const namespaceStructure = self.resourceLoader.getStandardNamespaces();
+    const namespaceStructure = self.stdlibProvider.getStandardNamespaces();
     let classes = namespaceStructure.get(namespace);
     if (!classes) {
       for (const [nsKey, nsClasses] of namespaceStructure.entries()) {
@@ -861,18 +849,32 @@ export async function resolveStandardApexClass(
     } else {
       self.logger.debug(
         () =>
-          `Namespace "${namespace}" not found in ResourceLoader namespace structure`,
+          `Namespace "${namespace}" not found in stdlib provider namespace structure`,
       );
     }
 
     const isStandardNamespace =
-      self.resourceLoader.isStdApexNamespace(namespace);
-    const hasClass = self.resourceLoader.hasClass(classPath);
+      self.stdlibProvider.isStdApexNamespace(namespace);
+    const hasClass = self.stdlibProvider.hasClass(classPath);
 
     if (!hasClass && !isStandardNamespace) {
+      // Sync index empty (enrichment worker) — attempt direct async load
+      const symbolTable = await self.stdlibProvider.getSymbolTable(classPath);
+      if (symbolTable) {
+        const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
+        await self.addSymbolTableAsync(symbolTable, fileUri);
+        const found = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.name?.toLowerCase() === className.toLowerCase() &&
+              s.kind === SymbolKind.Class,
+          );
+        return found ?? null;
+      }
       self.logger.debug(
         () =>
-          `Class not found in ResourceLoader: ${classPath} (searched for ${name})`,
+          `Class not found in stdlib provider: ${classPath} (searched for ${name})`,
       );
       return null;
     }
@@ -1005,17 +1007,13 @@ export async function loadAndRegisterStdlibSymbolTable(
   fileUri: string,
   classPath: string,
 ): Promise<SymbolTable | null> {
-  if (!self.resourceLoader) {
-    return null;
-  }
-
   const inFlight = self.inFlightStdlibHydration.get(fileUri);
   if (inFlight) {
     return inFlight;
   }
 
   const hydrationPromise = (async () => {
-    const symbolTable = await self.resourceLoader!.getSymbolTable(classPath);
+    const symbolTable = await self.stdlibProvider.getSymbolTable(classPath);
     if (!symbolTable) {
       return null;
     }

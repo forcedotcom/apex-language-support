@@ -11,9 +11,9 @@ import type { ApexSymbol, SymbolTable } from '../../types/symbol';
 import type { SymbolReference } from '../../types/symbolReference';
 import type { GenericTypeSubstitutionMap } from '../../utils/genericTypeSubstitution';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import type { ResourceLoader } from '../../utils/resourceLoader';
 import type { BuiltInTypeTablesImpl } from '../../utils/BuiltInTypeTables';
 import type { UnifiedCache } from '../../utils/UnifiedCache';
+import type { ResourceLoaderServiceShape } from './ResourceLoaderService';
 
 /**
  * Context for chain resolution - discriminated union for type safety.
@@ -139,7 +139,12 @@ export interface SymbolManagerOps {
     findSymbolByName(name: string): ApexSymbol[];
     getStats(): { totalReferences: number };
   };
-  readonly resourceLoader: ResourceLoader | null;
+  /**
+   * Stdlib provider — always present, never null.
+   * Local workers use ResourceLoaderLive; enrichment workers use ResourceLoaderRemoteLive;
+   * tests that don't exercise stdlib use ResourceLoaderNoOpLive/ResourceLoaderNoOpInstance.
+   */
+  readonly stdlibProvider: ResourceLoaderServiceShape;
   readonly logger: LoggerInterface;
   readonly builtInTypeTables: BuiltInTypeTablesImpl;
   readonly unifiedCache: UnifiedCache;

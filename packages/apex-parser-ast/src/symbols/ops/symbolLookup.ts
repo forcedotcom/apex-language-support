@@ -15,17 +15,9 @@ import { createFileUri, extractFilePath } from '../../types/ProtocolHandler';
 import { extractFilePathFromUri } from '../../types/UriBasedIdGenerator';
 import { isApexKeyword, BUILTIN_TYPE_NAMES } from '../../utils/ApexKeywords';
 import type { ApexComment } from '../../parser/listeners/ApexCommentCollectorListener';
-import { ResourceLoader } from '../../utils/resourceLoader';
+import { ResourceLoaderService } from '../services/ResourceLoaderService';
 import { BuiltInTypeTablesImpl } from '../../utils/BuiltInTypeTables';
 import { CommentAssociator } from '../../utils/CommentAssociator';
-
-function tryGetResourceLoader(): ResourceLoader | undefined {
-  try {
-    return ResourceLoader.getInstance();
-  } catch {
-    return undefined;
-  }
-}
 
 /** Look up a symbol by ID, with cache layer */
 export const getSymbol = (
@@ -47,10 +39,14 @@ export const getSymbol = (
 /** Find all symbols with a given name, with keyword guard and cache */
 export const findByName = (
   name: string,
-): Effect.Effect<ApexSymbol[], never, SymbolIndexStore | CacheStore> =>
+): Effect.Effect<
+  ApexSymbol[],
+  never,
+  SymbolIndexStore | CacheStore | ResourceLoaderService
+> =>
   Effect.gen(function* () {
-    const loader = tryGetResourceLoader();
-    const isStandardNamespace = loader?.isStdApexNamespace(name);
+    const loader = yield* ResourceLoaderService;
+    const isStandardNamespace = loader.isStdApexNamespace(name);
     const isStdlibPrimitiveTypeName = BUILTIN_TYPE_NAMES.has(
       name.toLowerCase(),
     );
@@ -160,20 +156,21 @@ export const getSymbolTableForFile = (
 /** Get the FQN for a standard Apex class */
 export const findFQNForStandardClass = (
   className: string,
-): Effect.Effect<string | null> =>
-  Effect.sync(() => {
-    const loader = tryGetResourceLoader();
-    if (!loader) return null;
+): Effect.Effect<string | null, never, ResourceLoaderService> =>
+  Effect.gen(function* () {
+    const loader = yield* ResourceLoaderService;
     try {
-      return loader.resolveStandardClassFqn(className);
+      return yield* Effect.promise(() => loader.resolveClassFqn(className));
     } catch {
       return null;
     }
   });
 
 /** Check if a type name represents a standard library type */
-export const isStandardLibraryType = (name: string): Effect.Effect<boolean> =>
-  Effect.sync(() => {
+export const isStandardLibraryType = (
+  name: string,
+): Effect.Effect<boolean, never, ResourceLoaderService> =>
+  Effect.gen(function* () {
     try {
       const builtIn = BuiltInTypeTablesImpl.getInstance();
       if (builtIn.findType(name.toLowerCase())) return true;
@@ -181,14 +178,12 @@ export const isStandardLibraryType = (name: string): Effect.Effect<boolean> =>
       // BuiltInTypeTables not initialized
     }
 
-    const loader = tryGetResourceLoader();
-    if (!loader) return false;
-
+    const loader = yield* ResourceLoaderService;
     const parts = name.split('.');
     if (parts.length === 2) {
       const [namespace, cls] = parts;
       if (!loader.isStdApexNamespace(namespace)) return false;
-      return loader.hasClass(`${namespace}.${cls}.cls`) || false;
+      return loader.hasClass(`${namespace}.${cls}.cls`);
     }
     if (parts.length === 1) {
       return loader.findNamespaceForClass(parts[0]).size > 0;

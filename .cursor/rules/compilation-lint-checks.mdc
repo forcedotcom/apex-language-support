@@ -3,4 +3,4 @@ description: Deprecated — use verification skill
 alwaysApply: true
 ---
 
-Compilation and lint are part of the full verification checklist. See `.claude/skills/verification/SKILL.md` and `.cursor/rules/verification.mdc`.
+Full verification includes compile and lint. In **debug mode**, lint is deferred — see `.claude/skills/verification/SKILL.md` (Debug mode) and `.cursor/rules/verification.mdc`.

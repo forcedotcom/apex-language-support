@@ -9,15 +9,13 @@
 /**
  * Step 7 — Coordinator-side assistance mediator.
  *
- * Listens for WorkerAssistanceRequest messages on raw Worker handles.
- * Workers that need client RPCs (e.g. apex/findMissingArtifact) post
- * these messages via parentPort. The mediator delegates to the provided
- * handler (typically connection.sendRequest), deduplicates concurrent
- * requests, and sends WorkerAssistanceResponse back to the originating
- * worker.
+ * Listens for WorkerAssistanceRequest messages on dedicated MessagePorts
+ * (one per worker, created in makeNodeWorkerLayer). Workers post
+ * assistance requests via the dedicated port, keeping them off the main
+ * Worker message channel so they don't interfere with @effect/platform's
+ * wire protocol.
  *
- * Uses a side-channel on the same Worker MessagePort — safe because
- * @effect/platform's protocol uses a different message envelope format.
+ * Log forwarding still listens on the raw Worker handles.
  */
 
 import type * as WorkerThreads from 'node:worker_threads';
@@ -35,29 +33,57 @@ export type AssistanceHandler = (
   params: unknown,
 ) => Promise<unknown>;
 
+interface MessagePortLike {
+  postMessage(value: unknown): void;
+}
+
+const DATA_OWNER_METHOD_PREFIX = 'dataOwner:';
+
 export class CoordinatorAssistanceMediator {
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly handler: AssistanceHandler,
     private readonly logger: LoggerInterface,
+    private readonly dataOwnerHandler?: AssistanceHandler,
   ) {}
 
-  attachToWorkers(workers: WorkerThreads.Worker[]): void {
+  attachToWorkers(
+    workers: WorkerThreads.Worker[],
+    assistancePorts?: WorkerThreads.MessagePort[],
+  ): void {
     for (let i = 0; i < workers.length; i++) {
       const workerIdx = i;
       const worker = workers[i];
+      const port = assistancePorts?.[i];
+
+      // Log forwarding stays on the main worker channel
       worker.on('message', (data: unknown) => {
         if (isLogMessage(data)) {
           this.forwardLogMessage(data, workerIdx);
-          return;
         }
-        if (!isAssistanceRequest(data)) return;
-        Effect.runFork(this.handleRequest(data, worker));
       });
+
+      if (port) {
+        // Assistance on dedicated port — isolated from Effect protocol
+        port.on('message', (data: unknown) => {
+          if (!isAssistanceRequest(data)) return;
+          Effect.runFork(this.handleRequest(data, port));
+        });
+      } else {
+        // Fallback: assistance on main channel (browser workers)
+        worker.on('message', (data: unknown) => {
+          if (!isAssistanceRequest(data)) return;
+          Effect.runFork(
+            this.handleRequest(data, worker as unknown as MessagePortLike),
+          );
+        });
+      }
     }
     this.logger.debug(
-      () => `[AssistanceMediator] Attached to ${workers.length} worker(s)`,
+      () =>
+        `[AssistanceMediator] Attached to ${workers.length} worker(s)` +
+        (assistancePorts ? ' with dedicated assistance ports' : ''),
     );
   }
 
@@ -79,19 +105,38 @@ export class CoordinatorAssistanceMediator {
     }
   }
 
+  private resolveHandler(method: string): {
+    handler: AssistanceHandler;
+    effectiveMethod: string;
+  } {
+    if (method.startsWith(DATA_OWNER_METHOD_PREFIX) && this.dataOwnerHandler) {
+      return {
+        handler: this.dataOwnerHandler,
+        effectiveMethod: method.slice(DATA_OWNER_METHOD_PREFIX.length),
+      };
+    }
+    return { handler: this.handler, effectiveMethod: method };
+  }
+
   private handleRequest(
     req: AssistanceRequestPayload,
-    worker: WorkerThreads.Worker,
+    worker: MessagePortLike,
   ): Effect.Effect<void> {
     const { correlationId, method, params, blocking } = req;
+    const { handler, effectiveMethod } = this.resolveHandler(method);
 
     return Effect.gen(this, function* () {
       const result = yield* Effect.tryPromise({
         try: () => {
           if (blocking) {
-            return this.deduplicatedCall(correlationId, method, params);
+            return this.deduplicatedCall(
+              correlationId,
+              effectiveMethod,
+              params,
+              handler,
+            );
           }
-          this.handler(method, params).catch((err) => {
+          handler(effectiveMethod, params).catch((err) => {
             this.logger.warn(() => `[AssistanceMediator] BG ${method}: ${err}`);
           });
           return Promise.resolve({ accepted: true } as unknown);
@@ -123,6 +168,7 @@ export class CoordinatorAssistanceMediator {
     correlationId: string,
     method: string,
     params: unknown,
+    handler: AssistanceHandler = this.handler,
   ): Promise<unknown> {
     const existing = this.inFlight.get(correlationId);
     if (existing) {
@@ -132,7 +178,7 @@ export class CoordinatorAssistanceMediator {
       return existing;
     }
 
-    const promise = this.handler(method, params).finally(() => {
+    const promise = handler(method, params).finally(() => {
       this.inFlight.delete(correlationId);
     });
     this.inFlight.set(correlationId, promise);

@@ -43,6 +43,7 @@ import type { ReferenceStore } from './referenceStore';
 import type { CacheStore } from './cacheStore';
 import type { FileStateStore } from './fileStateStore';
 import type { ConcurrencyGuards } from './concurrencyGuards';
+import type { ResourceLoaderService } from './ResourceLoaderService';
 
 import {
   getSymbol,
@@ -284,7 +285,8 @@ type FacadeDeps =
   | ReferenceStore
   | CacheStore
   | FileStateStore
-  | ConcurrencyGuards;
+  | ConcurrencyGuards
+  | ResourceLoaderService;
 
 /**
  * Live implementation of IEffectSymbolManager.
@@ -319,7 +321,7 @@ export const iEffectSymbolManagerFromLegacy = (
           provide(findInImplicitFileNamespaceSlot(name, slot, ref)),
         findInExplicitNamespace: (ns, type, ref) =>
           provide(findInExplicitNamespace(ns, type, ref)),
-        isBuiltInNamespace: (name) => isBuiltInNamespace(name),
+        isBuiltInNamespace: (name) => provide(isBuiltInNamespace(name)),
         isSObjectContainerNamespace: (name) =>
           isSObjectContainerNamespace(name),
 
@@ -327,12 +329,12 @@ export const iEffectSymbolManagerFromLegacy = (
         getSymbol: (id) => provide(getSymbol(id)),
         findSymbolByName: (name) => provide(findByName(name)),
         findSymbolByFQN: (fqn) => provide(findByFQN(fqn)),
-        findFQNForStandardClass: (cls) => findFQNForStandardClass(cls),
+        findFQNForStandardClass: (cls) => provide(findFQNForStandardClass(cls)),
         findSymbolsInFile: (uri) => provide(findInFile(uri)),
         findFilesForSymbol: (name) => provide(findFilesForSymbol(name)),
         getAllSymbolsForCompletion: () => provide(getAllSymbolsForCompletion()),
         getSymbolTableForFile: (uri) => provide(getSymbolTableForFile(uri)),
-        isStandardLibraryType: (name) => isStandardLibraryType(name),
+        isStandardLibraryType: (name) => provide(isStandardLibraryType(name)),
         getBlockCommentsForSymbol: (sym) =>
           provide(getBlockCommentsForSymbol(sym)),
 

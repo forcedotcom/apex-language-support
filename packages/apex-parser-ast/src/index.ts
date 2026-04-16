@@ -185,6 +185,9 @@ export * from './symbols/ApexSymbolProcessingManager';
 // Export GlobalTypeRegistry Effect service
 export * from './services/GlobalTypeRegistryService';
 
+// Export ResourceLoaderService Effect service
+export * from './symbols/services/ResourceLoaderService';
+
 // Export i18n support
 export * from './i18n/messageInstance';
 export * from './generated/ErrorCodes';

@@ -23,6 +23,9 @@ import { Effect, Scope } from 'effect';
 import {
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
+  QuerySymbolSubset,
+  UpdateSymbolSubset,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   DispatchHover,
@@ -56,34 +59,57 @@ import type {
 // ---------------------------------------------------------------------------
 
 const rawWorkers: WorkerThreads.Worker[] = [];
+const assistancePorts: WorkerThreads.MessagePort[] = [];
 
 export const makeNodeWorkerLayer = (
   workerScript: string,
   workerOptions?: WorkerThreads.WorkerOptions,
 ) =>
   NodeWorker.layer((_id: number) => {
+    const { MessageChannel } = WorkerThreads;
+    const assistChannel = new MessageChannel();
     const w = new WorkerThreads.Worker(workerScript, {
       // Prevent worker stdout/stderr from leaking into the LSP stdio
       // transport, which corrupts the Content-Length framed protocol.
       stdout: true,
       stderr: true,
       ...workerOptions,
+      workerData: {
+        ...(workerOptions?.workerData as object | undefined),
+        assistPort: assistChannel.port1,
+      },
+      transferList: [
+        assistChannel.port1,
+        ...(workerOptions?.transferList ?? []),
+      ],
     });
     rawWorkers.push(w);
+    assistancePorts.push(assistChannel.port2);
     return w;
   });
 
 /**
  * Returns raw Worker handles captured during topology initialization.
- * Used by CoordinatorAssistanceMediator to attach message listeners
- * for worker→coordinator assistance requests (Step 7).
+ * Used by CoordinatorAssistanceMediator to attach log-forwarding listeners.
  */
 export function getRawWorkers(): WorkerThreads.Worker[] {
   return [...rawWorkers];
 }
 
+/**
+ * Returns dedicated assistance MessagePorts created during topology init.
+ * Each port corresponds to a worker in getRawWorkers() by index.
+ * Used by CoordinatorAssistanceMediator for worker→coordinator
+ * assistance requests — keeps them off the main Worker channel so
+ * they don't interfere with @effect/platform's protocol.
+ */
+export function getAssistancePorts(): WorkerThreads.MessagePort[] {
+  return [...assistancePorts];
+}
+
 export function clearRawWorkers(): void {
   rawWorkers.length = 0;
+  assistancePorts.length = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,16 +149,20 @@ export interface TopologyConfig {
   readonly enableResourceLoader: boolean;
   readonly logger: LoggerInterface;
   readonly logLevel?: string;
+  /** Mirrors LSP `apex.environment.serverMode` for worker-side capabilities (e.g. dev hover metrics). */
+  readonly serverMode?: 'production' | 'development';
 }
 
 const makeInitMessage = (
   role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader',
   logLevel?: string,
+  serverMode: 'production' | 'development' = 'production',
 ) =>
   new WorkerInit({
     role,
     protocolVersion: WIRE_PROTOCOL_VERSION,
     logLevel,
+    serverMode,
   });
 
 export function clampPoolSize(requested: number): number {
@@ -156,31 +186,34 @@ export const initializeTopology = (
 > =>
   Effect.gen(function* () {
     const { logger, logLevel } = config;
+    const serverMode = config.serverMode ?? 'production';
     const poolSize = clampPoolSize(config.poolSize);
 
+    let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
+      null;
+    if (config.enableResourceLoader) {
+      resourceLoader = yield* Worker.makeSerialized<ResourceLoaderRequest>({
+        initialMessage: () =>
+          makeInitMessage('resourceLoader', logLevel, serverMode),
+      });
+      logger.info(() => '[WorkerCoordinator] Resource loader initialized');
+    }
+
     const dataOwner = yield* Worker.makeSerialized<DataOwnerRequest>({
-      initialMessage: () => makeInitMessage('dataOwner', logLevel),
+      initialMessage: () => makeInitMessage('dataOwner', logLevel, serverMode),
     });
     logger.info(() => '[WorkerCoordinator] Data owner initialized');
 
     const enrichmentPool =
       yield* Worker.makePoolSerialized<EnrichmentSearchRequest>({
         size: poolSize,
-        initialMessage: () => makeInitMessage('enrichmentSearch', logLevel),
+        initialMessage: () =>
+          makeInitMessage('enrichmentSearch', logLevel, serverMode),
       });
     logger.info(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
     );
-
-    let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
-      null;
-    if (config.enableResourceLoader) {
-      resourceLoader = yield* Worker.makeSerialized<ResourceLoaderRequest>({
-        initialMessage: () => makeInitMessage('resourceLoader', logLevel),
-      });
-      logger.info(() => '[WorkerCoordinator] Resource loader initialized');
-    }
 
     return { dataOwner, enrichmentPool, resourceLoader } as WorkerTopology;
   });
@@ -253,6 +286,14 @@ export const initializeTransportTopology = (
     const { logger } = config;
     const poolSize = clampPoolSize(config.poolSize);
 
+    let resourceLoader: WorkerHandle | null = null;
+    if (config.enableResourceLoader) {
+      resourceLoader = yield* transport.spawn('resourceLoader');
+      logger.info(
+        () => '[WorkerCoordinator] Resource loader initialized (transport)',
+      );
+    }
+
     const dataOwner = yield* transport.spawn('dataOwner');
     logger.info(() => '[WorkerCoordinator] Data owner initialized (transport)');
 
@@ -265,16 +306,31 @@ export const initializeTransportTopology = (
         `[WorkerCoordinator] Enrichment pool initialized (transport, size=${poolSize})`,
     );
 
-    let resourceLoader: WorkerHandle | null = null;
-    if (config.enableResourceLoader) {
-      resourceLoader = yield* transport.spawn('resourceLoader');
-      logger.info(
-        () => '[WorkerCoordinator] Resource loader initialized (transport)',
-      );
-    }
-
     return { transport, dataOwner, enrichmentPool, resourceLoader };
   });
+
+/**
+ * Phase B — after `ResourceLoaderProxy` exists and assistance mediation is
+ * attached: each data-owner and enrichment worker that uses the remote
+ * stdlib layer runs an awaited namespace fill (see `WorkerRemoteStdlibWarmup`).
+ * No-op when the resource-loader worker was not spawned.
+ */
+export const runRemoteStdlibWarmupPhase = (
+  topology: WorkerTopology,
+  poolSize: number,
+) => {
+  const req = new WorkerRemoteStdlibWarmup({});
+  return Effect.gen(function* () {
+    if (!topology.resourceLoader) {
+      return;
+    }
+    const n = clampPoolSize(poolSize);
+    yield* topology.dataOwner.executeEffect(req);
+    for (let i = 0; i < n; i++) {
+      yield* topology.enrichmentPool.executeEffect(req);
+    }
+  });
+};
 
 // ---------------------------------------------------------------------------
 // Dispatcher factory — bridges LSPQueueManager → worker pool
@@ -297,7 +353,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   documentSave: 'dataOwner',
   documentClose: 'dataOwner',
   documentLoad: 'coordinatorOnly',
-  hover: 'coordinatorOnly',
+  hover: 'enrichmentPool',
   completion: 'coordinatorOnly',
   definition: 'coordinatorOnly',
   implementation: 'coordinatorOnly',
@@ -345,6 +401,7 @@ interface DispatcherCallbacks {
   ) => Promise<{ processedCount: number }>;
   readonly poolSize: number;
   readonly hasResourceLoader: boolean;
+  readonly getDocumentContent?: (uri: string) => string | undefined;
 }
 
 /**
@@ -360,6 +417,7 @@ function createDispatcher(
     sessionId: string,
     entries: BatchIngestEntry[],
   ) => Promise<{ processedCount: number }>;
+  queryDataOwner(method: string, params: unknown): Promise<unknown>;
 } {
   let available = true;
   let dispatchedCount = 0;
@@ -378,7 +436,11 @@ function createDispatcher(
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
         return callbacks.sendToDataOwner(msg);
       }
-      const msg = buildEnrichmentMessage(type, params);
+      const msg = buildEnrichmentMessage(
+        type,
+        params,
+        callbacks.getDocumentContent,
+      );
       logger.debug(() => `[WorkerDispatch] → enrichmentPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
       return (response as { result: unknown }).result;
@@ -407,6 +469,43 @@ function createDispatcher(
         );
       };
     },
+
+    async queryDataOwner(method: string, params: unknown): Promise<unknown> {
+      switch (method) {
+        case 'QuerySymbolSubset': {
+          const pqs = params as { uris?: string[] };
+          return callbacks.sendToDataOwner(
+            new QuerySymbolSubset({
+              uris: pqs.uris ?? [],
+            }),
+          );
+        }
+        case 'UpdateSymbolSubset': {
+          const pus = params as {
+            uri: string;
+            documentVersion: number;
+            enrichedSymbolTable: unknown;
+            enrichedDetailLevel:
+              | 'public-api'
+              | 'protected'
+              | 'private'
+              | 'full';
+            sourceWorkerId: string;
+          };
+          return callbacks.sendToDataOwner(
+            new UpdateSymbolSubset({
+              uri: pus.uri,
+              documentVersion: pus.documentVersion,
+              enrichedSymbolTable: pus.enrichedSymbolTable,
+              enrichedDetailLevel: pus.enrichedDetailLevel,
+              sourceWorkerId: pus.sourceWorkerId,
+            }),
+          );
+        }
+        default:
+          throw new Error(`Unknown data-owner query method: ${method}`);
+      }
+    },
   };
 }
 
@@ -416,6 +515,7 @@ function createDispatcher(
 export function makeWorkerDispatcher(
   topology: WorkerTopology,
   logger: LoggerInterface,
+  getDocumentContent?: (uri: string) => string | undefined,
 ) {
   return createDispatcher(
     {
@@ -439,6 +539,7 @@ export function makeWorkerDispatcher(
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
       poolSize: 0,
       hasResourceLoader: topology.resourceLoader !== null,
+      getDocumentContent,
     },
     logger,
   );
@@ -450,6 +551,7 @@ export function makeWorkerDispatcher(
 export function makeTransportDispatcher(
   topology: TransportTopology,
   logger: LoggerInterface,
+  getDocumentContent?: (uri: string) => string | undefined,
 ) {
   return createDispatcher(
     {
@@ -465,6 +567,7 @@ export function makeTransportDispatcher(
         ) as Promise<{ processedCount: number }>,
       poolSize: topology.enrichmentPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
+      getDocumentContent,
     },
     logger,
   );
@@ -554,6 +657,7 @@ function buildDataOwnerMessage(
 function buildEnrichmentMessage(
   type: LSPRequestType,
   params: unknown,
+  getDocumentContent?: (uri: string) => string | undefined,
 ): EnrichmentSearchRequest {
   const p = params as EnrichmentParams;
   switch (type) {
@@ -561,6 +665,7 @@ function buildEnrichmentMessage(
       return new DispatchHover({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'definition':
       return new DispatchDefinition({

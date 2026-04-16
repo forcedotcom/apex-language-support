@@ -17,6 +17,7 @@ import { ReferenceContext } from '../../src/types/symbolReference';
 import type { SymbolReference } from '../../src/types/symbolReference';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 
@@ -32,7 +33,9 @@ describe('ResourceLoader Integration', () => {
     resourceLoader = await initializeResourceLoaderForTests();
 
     // Initialize SymbolManager
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
   });
 
   afterAll(() => {

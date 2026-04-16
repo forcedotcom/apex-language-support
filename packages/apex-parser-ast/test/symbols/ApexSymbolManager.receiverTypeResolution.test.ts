@@ -18,6 +18,7 @@ import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import { Effect } from 'effect';
@@ -38,7 +39,9 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
     enableConsoleLogging();
     setLogLevel('error');

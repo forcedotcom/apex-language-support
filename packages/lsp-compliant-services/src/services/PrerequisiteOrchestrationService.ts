@@ -412,10 +412,33 @@ export class PrerequisiteOrchestrationService {
           });
       }
 
-      if (
-        requirements.requiresCrossFileResolution &&
-        needsCrossFileResolution
-      ) {
+      // For async (fire-and-forget) requests, bypass hasCrossFileResolution gate.
+      // The gate checks the data-owner's ref state (resolvedSymbolId set), but the
+      // enrichment worker may not have the actual cross-file symbol tables loaded.
+      // Cross-file resolution on the enrichment worker fetches those tables via
+      // QuerySymbolSubset, making getSymbol(resolvedSymbolId) work. Once loaded,
+      // subsequent runs are fast (refs already resolved locally).
+      if (requirements.requiresCrossFileResolution) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              location: 'PrerequisiteOrchestrationService.ts:async-cross-file',
+              message: 'firing async cross-file resolution',
+              data: { requestType, fileUri },
+              hypothesisId: 'H-cross-file',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
         Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         )
@@ -549,7 +572,9 @@ export class PrerequisiteOrchestrationService {
       (r) =>
         !r.resolvedSymbolId &&
         (r.context === ReferenceContext.TYPE_DECLARATION ||
-          r.context === ReferenceContext.CONSTRUCTOR_CALL),
+          r.context === ReferenceContext.CONSTRUCTOR_CALL ||
+          r.context === ReferenceContext.RETURN_TYPE ||
+          r.context === ReferenceContext.PARAMETER_TYPE),
     );
 
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
@@ -563,6 +588,30 @@ export class PrerequisiteOrchestrationService {
     const nonStdlibRefs = unresolvedTypeRefs.filter(
       (_r, i) => !stdlibChecks[i],
     );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a509d3',
+      },
+      body: JSON.stringify({
+        sessionId: 'a509d3',
+        location: 'PrerequisiteOrchestrationService.ts:handleMissingArtifacts',
+        message: 'stdlib filter result',
+        data: {
+          requestType,
+          unresolvedCount: unresolvedTypeRefs.length,
+          stdlibFiltered: unresolvedTypeRefs.length - nonStdlibRefs.length,
+          nonStdlibCount: nonStdlibRefs.length,
+          nonStdlibNames: nonStdlibRefs.map((r) => r.name),
+        },
+        hypothesisId: 'H-cross-file',
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     if (nonStdlibRefs.length === 0) {
       return;

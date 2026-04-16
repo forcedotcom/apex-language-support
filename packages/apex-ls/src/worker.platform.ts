@@ -36,11 +36,14 @@ import {
 import {
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  UpdateSymbolSubset,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
+  ResourceLoaderGetStandardNamespaces,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -55,6 +58,7 @@ import {
   DispatchGenericLspRequest,
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
+  ApexCapabilitiesManager,
 } from '@salesforce/apex-lsp-shared';
 import {
   isAssistanceResponse,
@@ -72,11 +76,14 @@ import {
 const AllWorkerRequests = Schema.Union(
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  UpdateSymbolSubset,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
+  ResourceLoaderGetStandardNamespaces,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -117,6 +124,52 @@ function cloneForWire<T>(value: T): T | null {
 // ---------------------------------------------------------------------------
 
 let assignedRole: WorkerRole | null = null;
+
+// ---------------------------------------------------------------------------
+// Worker ID for write-back tracking
+// ---------------------------------------------------------------------------
+
+let workerIdCounter = 0;
+const workerId = `worker-${process.pid}-${Date.now()}-${++workerIdCounter}`;
+
+export function getWorkerId(): string {
+  return workerId;
+}
+
+// ---------------------------------------------------------------------------
+// Write-back metrics tracking
+// ---------------------------------------------------------------------------
+
+interface WriteBackMetrics {
+  attempted: number;
+  accepted: number;
+  rejectedVersionMismatch: number;
+  rejectedDocumentMissing: number;
+  rejectedDetailLevel: number;
+  totalSymbolsMerged: number;
+}
+
+const writeBackMetrics: WriteBackMetrics = {
+  attempted: 0,
+  accepted: 0,
+  rejectedVersionMismatch: 0,
+  rejectedDocumentMissing: 0,
+  rejectedDetailLevel: 0,
+  totalSymbolsMerged: 0,
+};
+
+export function getWriteBackMetrics(): Readonly<WriteBackMetrics> {
+  return { ...writeBackMetrics };
+}
+
+export function resetWriteBackMetrics(): void {
+  writeBackMetrics.attempted = 0;
+  writeBackMetrics.accepted = 0;
+  writeBackMetrics.rejectedVersionMismatch = 0;
+  writeBackMetrics.rejectedDocumentMissing = 0;
+  writeBackMetrics.rejectedDetailLevel = 0;
+  writeBackMetrics.totalSymbolsMerged = 0;
+}
 
 /**
  * Defects on role violation — these are programming errors (coordinator
@@ -229,6 +282,23 @@ import type {
   DataOwnerServices,
   EnrichmentServices,
 } from '@salesforce/apex-lsp-compliant-services';
+import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
+
+/**
+ * Get numeric order index for detail levels.
+ * Matches LayerEnrichmentService's ordering.
+ */
+function getLayerOrderIndex(
+  level: 'public-api' | 'protected' | 'private' | 'full',
+): number {
+  const order: Record<string, number> = {
+    'public-api': 1,
+    protected: 2,
+    private: 3,
+    full: 4,
+  };
+  return order[level] || 0;
+}
 
 const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
   Effect.runSync(
@@ -237,7 +307,12 @@ const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
         const { bootstrapDataOwnerServices } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
-        const svc = yield* Effect.promise(() => bootstrapDataOwnerServices());
+        const resourceLoaderLayer = yield* Effect.promise(() =>
+          makeResourceLoaderRemoteLayer(),
+        );
+        const svc = yield* Effect.promise(() =>
+          bootstrapDataOwnerServices(resourceLoaderLayer),
+        );
         yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
         return svc;
       }),
@@ -248,10 +323,30 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
   Effect.runSync(
     Effect.cached(
       Effect.gen(function* () {
-        const { bootstrapEnrichmentServices } = yield* Effect.promise(
+        const {
+          bootstrapEnrichmentServices,
+          EnhancedMissingArtifactResolutionService,
+        } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
-        const svc = yield* Effect.promise(() => bootstrapEnrichmentServices());
+        const resourceLoaderLayer = yield* Effect.promise(() =>
+          makeResourceLoaderRemoteLayer(),
+        );
+        const svc = yield* Effect.promise(() =>
+          bootstrapEnrichmentServices(resourceLoaderLayer),
+        );
+
+        // Wire coordinator assistance so the enrichment worker can forward
+        // apex/findMissingArtifact to the coordinator (which holds the LSP
+        // client connection) rather than silently dropping the request.
+        EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
+          requestCoordinatorAssistancePromise(
+            'apex/findMissingArtifact',
+            params,
+            false,
+          ),
+        );
+
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
         return svc;
       }),
@@ -343,16 +438,196 @@ const enrichmentHandler =
 type PositionReq = {
   textDocument: { uri: string };
   position: { line: number; character: number };
+  content?: string;
 };
 type DocOnlyReq = { textDocument: { uri: string } };
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
 
+/**
+ * Load symbol data from the data-owner worker into the local enrichment
+ * worker's symbol manager. Stores the document text in local storage
+ * and queries the data-owner for the file's symbol table via the
+ * coordinator assistance proxy.
+ *
+ * Returns version and detail level metadata for the loaded URI.
+ */
+async function loadSymbolDataForEnrichment(
+  svc: EnrichmentServices,
+  uri: string,
+  content?: string,
+): Promise<{ version: number; detailLevel: string }> {
+  if (content) {
+    const doc: WorkerDocument = {
+      uri,
+      getText: () => content,
+      languageId: 'apex',
+      version: 0,
+    };
+    svc.storageManager.getStorage().setDocument(uri, doc as never);
+  }
+
+  let version = -1;
+  let detailLevel = 'public-api';
+
+  try {
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:QuerySymbolSubset',
+      { uris: [uri] },
+      true,
+    )) as {
+      entries: Record<string, unknown>;
+      versions: Record<string, number>;
+      detailLevels: Record<string, string>;
+    };
+
+    if (response?.entries) {
+      const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+      for (const [fileUri, stData] of Object.entries(response.entries)) {
+        if (stData) {
+          const raw = stData as {
+            symbols: any[];
+            references?: any[];
+            hierarchicalReferences?: any[];
+            metadata?: any;
+            fileUri?: string;
+          };
+          const symbolTable = SymbolTable.fromSerializedData(raw);
+          await Effect.runPromise(
+            svc.symbolManager.addSymbolTable(symbolTable, fileUri),
+          );
+        }
+      }
+      version = response.versions?.[uri] ?? -1;
+      detailLevel = response.detailLevels?.[uri] ?? 'public-api';
+    }
+  } catch {
+    // Subset load failed; caller may still proceed with partial graph.
+  }
+
+  return { version, detailLevel };
+}
+
+/**
+ * Determine if enrichment is needed based on current and required detail levels.
+ * Uses the same ordering as LayerEnrichmentService on origin/main.
+ */
+function shouldEnrich(
+  currentLevel: string,
+  requiredLevel: 'public-api' | 'protected' | 'private' | 'full',
+): boolean {
+  const levelOrder: Record<string, number> = {
+    'public-api': 1,
+    protected: 2,
+    private: 3,
+    full: 4,
+  };
+
+  const currentOrder = levelOrder[currentLevel] || 0;
+  const requiredOrder = levelOrder[requiredLevel] || 0;
+
+  return requiredOrder > currentOrder;
+}
+
+/**
+ * Write back enriched symbol data to the data-owner worker.
+ * Returns true if the write-back was accepted, false otherwise.
+ */
+async function writeBackEnrichedSymbols(
+  svc: EnrichmentServices,
+  uri: string,
+  documentVersion: number,
+  enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
+): Promise<boolean> {
+  const startTime = Date.now();
+  try {
+    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
+    if (!symbolTable) {
+      await Effect.runPromise(
+        Effect.logDebug(
+          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
+        ),
+      );
+      return false;
+    }
+
+    // Serialize symbol table to wire format
+    const enrichedSymbolTable = {
+      symbols: symbolTable.getAllSymbols(),
+      references: symbolTable.getAllReferences(),
+      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+      metadata: symbolTable.getMetadata(),
+      fileUri: symbolTable.getFileUri(),
+    };
+
+    const symbolCount = enrichedSymbolTable.symbols.length;
+
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:UpdateSymbolSubset',
+      {
+        uri,
+        documentVersion,
+        enrichedSymbolTable,
+        enrichedDetailLevel,
+        sourceWorkerId: workerId,
+      },
+      true,
+    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+    const elapsed = Date.now() - startTime;
+    const accepted = response?.accepted ?? false;
+
+    await Effect.runPromise(
+      Effect.logDebug(
+        `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+          `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
+          `(v${documentVersion}, ${elapsed}ms)` +
+          (response?.versionMismatch ? ' [version mismatch]' : ''),
+      ),
+    );
+
+    return accepted;
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    await Effect.runPromise(
+      Effect.logWarning(
+        `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
+      ),
+    );
+    return false;
+  }
+}
+
 const enrichmentHandlers = {
-  DispatchHover: enrichmentHandler<PositionReq>('DispatchHover', (svc, req) =>
-    svc.hoverService.processHover({
-      textDocument: { uri: req.textDocument.uri },
-      position: req.position,
-    }),
+  DispatchHover: enrichmentHandler<PositionReq>(
+    'DispatchHover',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.hoverService.processHover({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchDefinition: enrichmentHandler<PositionReq>(
     'DispatchDefinition',
@@ -419,6 +694,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     if (req.logLevel) {
       setWorkerLogLevel(req.logLevel);
     }
+    const resolvedServerMode = req.serverMode ?? 'production';
+    ApexCapabilitiesManager.getInstance().setMode(resolvedServerMode);
+    (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
+      resolvedServerMode;
     return Effect.gen(function* () {
       yield* Effect.logInfo(
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
@@ -430,6 +709,27 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   PingWorker: (req) =>
     guardRole('PingWorker').pipe(Effect.map(() => ({ echo: req.echo }))),
 
+  WorkerRemoteStdlibWarmup: (_req) =>
+    guardRole('WorkerRemoteStdlibWarmup').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          if (assignedRole === 'dataOwner') {
+            yield* ensureDataOwnerServices;
+          } else if (assignedRole === 'enrichmentSearch') {
+            yield* ensureEnrichmentServices;
+          }
+          yield* Effect.tryPromise({
+            try: () => warmRemoteStdlibNamespaceCache(),
+            catch: (e) => ({
+              _tag: 'WorkerRemoteStdlibWarmupError' as const,
+              message: e instanceof Error ? e.message : String(e),
+            }),
+          });
+          return { ok: true as const };
+        }),
+      ),
+    ),
+
   // -- Data-owner handlers (routed through internal tiered queue) ------------
 
   QuerySymbolSubset: (req) =>
@@ -438,14 +738,196 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+            const storage = svc.storageManager.getStorage();
+            const cache = getDocumentStateCache();
+
             const entries: Record<string, unknown> = {};
+            const versions: Record<string, number> = {};
+            const detailLevels: Record<
+              string,
+              'public-api' | 'protected' | 'private' | 'full'
+            > = {};
+
+            const serializeSt = (
+              st: Awaited<ReturnType<typeof sm.getSymbolTableForFile>> & object,
+            ) =>
+              cloneForWire({
+                symbols: st.getAllSymbols(),
+                references: st.getAllReferences(),
+                hierarchicalReferences: st.getAllHierarchicalReferences(),
+                metadata: st.getMetadata(),
+                fileUri: st.getFileUri(),
+              });
+
             for (const uri of req.uris) {
+              // Get symbol table
               const st = yield* Effect.promise(() =>
-                svc.symbolManager.getSymbolTableForFile(uri),
+                sm.getSymbolTableForFile(uri),
               );
-              entries[uri] = cloneForWire(st);
+              entries[uri] = st ? serializeSt(st) : null;
+
+              // Get document version
+              const doc = yield* Effect.promise(() => storage.getDocument(uri));
+              versions[uri] = doc?.version ?? -1;
+
+              // Get detail level from cache
+              const state = cache.getCurrentState(uri);
+              const level = state?.detailLevel ?? 'public-api';
+              // Ensure type safety
+              detailLevels[uri] =
+                level === 'public-api' ||
+                level === 'protected' ||
+                level === 'private' ||
+                level === 'full'
+                  ? level
+                  : 'public-api';
             }
-            return { entries };
+
+            // #region agent log
+            fetch(
+              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Debug-Session-Id': 'a509d3',
+                },
+                body: JSON.stringify({
+                  sessionId: 'a509d3',
+                  location: 'worker.platform.ts:QuerySymbolSubset',
+                  message: 'result',
+                  data: {
+                    requestedUris: req.uris,
+                    nullEntries: Object.entries(entries)
+                      .filter(([, v]) => v === null)
+                      .map(([k]) => k),
+                    versions,
+                    detailLevels,
+                  },
+                  hypothesisId: 'H9',
+                  timestamp: Date.now(),
+                }),
+              },
+            ).catch(() => {});
+            // #endregion
+
+            return { entries, versions, detailLevels };
+          }),
+        ),
+      ),
+    ),
+
+  UpdateSymbolSubset: (req) =>
+    guardRole('UpdateSymbolSubset').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            writeBackMetrics.attempted++;
+
+            const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
+            const cache = getDocumentStateCache();
+
+            // Version validation
+            const currentDoc = yield* Effect.promise(() =>
+              storage.getDocument(req.uri),
+            );
+
+            if (!currentDoc) {
+              writeBackMetrics.rejectedDocumentMissing++;
+              yield* Effect.logDebug(
+                `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
+              );
+              return {
+                accepted: false,
+                merged: 0,
+                versionMismatch: false,
+              };
+            }
+
+            if (currentDoc.version !== req.documentVersion) {
+              writeBackMetrics.rejectedVersionMismatch++;
+              yield* Effect.logDebug(
+                '[DATA-OWNER] Write-back rejected: version mismatch ' +
+                  `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
+                  `for ${req.uri} from ${req.sourceWorkerId}`,
+              );
+              return {
+                accepted: false,
+                merged: 0,
+                versionMismatch: true,
+              };
+            }
+
+            // Detail level validation
+            const currentState = cache.getCurrentState(req.uri);
+            const rawLevel = currentState?.detailLevel ?? 'public-api';
+            const currentLevel:
+              | 'public-api'
+              | 'protected'
+              | 'private'
+              | 'full' =
+              rawLevel === 'public-api' ||
+              rawLevel === 'protected' ||
+              rawLevel === 'private' ||
+              rawLevel === 'full'
+                ? rawLevel
+                : 'public-api';
+            const currentOrder = getLayerOrderIndex(currentLevel);
+            const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
+
+            if (enrichedOrder <= currentOrder) {
+              writeBackMetrics.rejectedDetailLevel++;
+              yield* Effect.logDebug(
+                `[DATA-OWNER] Write-back skipped: already have ${currentLevel} >= ${req.enrichedDetailLevel} ` +
+                  `for ${req.uri}`,
+              );
+              return { accepted: false, merged: 0, versionMismatch: false };
+            }
+
+            // Deserialize enriched symbol table
+            const { SymbolTable } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const enrichedSt = SymbolTable.fromSerializedData(
+              req.enrichedSymbolTable as never,
+            );
+
+            // Merge into symbol manager (returns Effect, so wrap in Effect.promise and run)
+            yield* Effect.promise(() =>
+              Effect.runPromise(
+                svc.symbolManager.addSymbolTable(
+                  enrichedSt,
+                  req.uri,
+                  req.documentVersion,
+                  false, // hasErrors
+                ),
+              ),
+            );
+
+            // Update cache with new detail level
+            cache.merge(req.uri, {
+              documentVersion: req.documentVersion,
+              detailLevel: req.enrichedDetailLevel,
+              timestamp: Date.now(),
+            });
+
+            const mergedCount = enrichedSt.getAllSymbols().length;
+            writeBackMetrics.accepted++;
+            writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            yield* Effect.logDebug(
+              `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
+                `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
+                `(from ${req.sourceWorkerId})`,
+            );
+
+            return {
+              accepted: true,
+              merged: mergedCount,
+              versionMismatch: false,
+            };
           }),
         ),
       ),
@@ -620,6 +1102,25 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         }),
       ),
     ),
+
+  ResourceLoaderGetStandardNamespaces: () =>
+    guardRole('ResourceLoaderGetStandardNamespaces').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const raw = ResourceLoader.getInstance().getStandardNamespaces();
+          const namespaces: Record<string, string[]> = {};
+          for (const [k, v] of raw) {
+            namespaces[k] = v.map((cis) =>
+              typeof cis === 'string' ? cis : (cis as { value: string }).value,
+            );
+          }
+          return { namespaces };
+        }),
+      ),
+    ),
 };
 
 // ---------------------------------------------------------------------------
@@ -631,7 +1132,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 // responds with WorkerAssistanceResponse carrying the same correlationId.
 // ---------------------------------------------------------------------------
 
-import { parentPort } from 'node:worker_threads';
+import { parentPort, workerData } from 'node:worker_threads';
+
+// Dedicated port for assistance requests — avoids polluting the main
+// Worker channel that @effect/platform uses for its wire protocol.
+const assistPort: import('node:worker_threads').MessagePort | null =
+  ((workerData as Record<string, unknown> | undefined)?.assistPort as
+    | import('node:worker_threads').MessagePort
+    | null) ?? null;
 
 const pendingAssistanceCallbacks = new Map<
   string,
@@ -641,10 +1149,12 @@ let assistanceListenerAttached = false;
 let assistanceIdCounter = 0;
 
 function ensureAssistanceListener(): void {
-  if (assistanceListenerAttached || !parentPort) return;
+  if (assistanceListenerAttached) return;
+  const port = assistPort ?? parentPort;
+  if (!port) return;
   assistanceListenerAttached = true;
 
-  parentPort.on('message', (data: unknown) => {
+  port.on('message', (data: unknown) => {
     if (!isAssistanceResponse(data)) return;
 
     const pending = pendingAssistanceCallbacks.get(data.correlationId);
@@ -679,9 +1189,10 @@ export function requestCoordinatorAssistance(
   return Effect.gen(function* () {
     ensureAssistanceListener();
 
-    if (!parentPort) {
+    const port = assistPort ?? parentPort;
+    if (!port) {
       return yield* Effect.fail(
-        new AssistanceError('no parentPort (not a worker)'),
+        new AssistanceError('no assistPort or parentPort (not a worker)'),
       );
     }
 
@@ -694,7 +1205,7 @@ export function requestCoordinatorAssistance(
           resume(Effect.fail(new AssistanceError(error.message))),
       });
 
-      parentPort!.postMessage({
+      port.postMessage({
         _tag: 'WorkerAssistanceRequest',
         correlationId,
         method,
@@ -719,6 +1230,134 @@ export function requestCoordinatorAssistancePromise(
   return Effect.runPromise(
     requestCoordinatorAssistance(method, params, blocking),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Remote stdlib provider — ResourceLoaderRemoteLive
+//
+// Enrichment and data-owner workers don't load the stdlib archive locally.
+// This Layer forwards stdlib queries to the coordinator via the assistance
+// channel; the coordinator proxies to the resourceLoader worker.
+//
+// Sync methods (isStdApexNamespace, hasClass, findNamespaceForClass,
+// getStandardNamespaces) are served from a cached namespace map filled in
+// phase B (`WorkerRemoteStdlibWarmup`) after assistance mediation is live.
+// Async methods forward via IPC on each call regardless.
+// ---------------------------------------------------------------------------
+
+let remoteStdlibNamespaceMap: Map<string, Set<string>> | null = null;
+
+async function warmRemoteStdlibNamespaceCache(): Promise<void> {
+  if (!remoteStdlibNamespaceMap) {
+    throw new Error(
+      'Remote stdlib namespace map not initialized (ResourceLoader layer missing)',
+    );
+  }
+  const raw = (await requestCoordinatorAssistancePromise(
+    'resourceLoader:getStandardNamespaces',
+    {},
+    true,
+  )) as Record<string, string[]> | null;
+  if (!raw || typeof raw !== 'object') {
+    return;
+  }
+  for (const [ns, classes] of Object.entries(raw)) {
+    remoteStdlibNamespaceMap.set(
+      ns.toLowerCase(),
+      new Set(classes.map((c) => c.toLowerCase())),
+    );
+  }
+}
+
+async function makeResourceLoaderRemoteLayer(): Promise<
+  import('effect').Layer.Layer<
+    import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
+  >
+> {
+  const { ResourceLoaderService } =
+    await import('@salesforce/apex-lsp-parser-ast');
+  const { Layer: L } = await import('effect');
+
+  remoteStdlibNamespaceMap = new Map<string, Set<string>>();
+  const namespaceMap = remoteStdlibNamespaceMap;
+
+  const impl: import('@salesforce/apex-lsp-parser-ast').ResourceLoaderServiceShape =
+    {
+      isStdApexNamespace(namespace: string): boolean {
+        return namespaceMap.has(namespace.toLowerCase());
+      },
+
+      hasClass(classPath: string): boolean {
+        const parts = classPath.split('/');
+        if (parts.length < 2) return false;
+        const ns = parts[0].toLowerCase();
+        const classFile = parts.slice(1).join('/').toLowerCase();
+        return namespaceMap.get(ns)?.has(classFile) ?? false;
+      },
+
+      findNamespaceForClass(className: string): Set<string> {
+        const lower = className.toLowerCase();
+        const result = new Set<string>();
+        for (const [ns, classes] of namespaceMap) {
+          for (const cls of classes) {
+            const base = cls.replace(/\.cls$/i, '').toLowerCase();
+            if (base === lower) {
+              result.add(ns);
+              break;
+            }
+          }
+        }
+        return result;
+      },
+
+      getStandardNamespaces(): Map<string, string[]> {
+        const result = new Map<string, string[]>();
+        for (const [ns, classes] of namespaceMap) {
+          result.set(ns, [...classes]);
+        }
+        return result;
+      },
+
+      async resolveClassFqn(className: string): Promise<string | null> {
+        try {
+          return (await requestCoordinatorAssistancePromise(
+            'resourceLoader:resolveClass',
+            { name: className },
+            true,
+          )) as string | null;
+        } catch {
+          return null;
+        }
+      },
+
+      async getSymbolTable(
+        classPath: string,
+      ): Promise<import('@salesforce/apex-lsp-parser-ast').SymbolTable | null> {
+        try {
+          return (await requestCoordinatorAssistancePromise(
+            'resourceLoader:getSymbolTable',
+            { classPath },
+            true,
+          )) as import('@salesforce/apex-lsp-parser-ast').SymbolTable | null;
+        } catch {
+          return null;
+        }
+      },
+
+      async getFile(path: string): Promise<string | undefined> {
+        try {
+          return (await requestCoordinatorAssistancePromise(
+            'resourceLoader:getFile',
+            { path },
+            true,
+          )) as string | undefined;
+        } catch {
+          return undefined;
+        }
+      },
+    };
+
+  return L.succeed(ResourceLoaderService, impl);
 }
 
 // ---------------------------------------------------------------------------

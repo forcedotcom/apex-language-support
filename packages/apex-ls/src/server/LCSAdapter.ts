@@ -32,6 +32,7 @@ import {
   ExecuteCommandParams,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { URI } from 'vscode-uri';
 import { HashMap } from 'data-structure-typed';
 
 import {
@@ -2002,6 +2003,27 @@ export class LCSAdapter {
   }
 
   /**
+   * Text for worker hover dispatch. Match `TextDocuments` keys: some clients
+   * send URIs that differ slightly from `didOpen` (encoding/casing).
+   */
+  private getDocumentTextForWorker(uri: string): string | undefined {
+    const exact = this.documents.get(uri);
+    if (exact) {
+      return exact.getText();
+    }
+    try {
+      const normalized = URI.parse(uri).toString(true);
+      const byNorm = this.documents.get(normalized);
+      if (byNorm) {
+        return byNorm.getText();
+      }
+    } catch {
+      // ignore malformed URI
+    }
+    return undefined;
+  }
+
+  /**
    * Register the hover handler (only when capability is enabled)
    */
   private registerHoverHandler(): void {
@@ -2068,7 +2090,8 @@ export class LCSAdapter {
   /**
    * Initialize worker topology and wire the dispatch strategy into
    * LSPQueueManager so queued LSP requests are dispatched to workers.
-   * Runs as a forked fiber; failures are logged but non-fatal.
+   * Failures are logged and the process exits with code 1 (unless
+   * `APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT` is set, e.g. in tests).
    */
   private initializeWorkerTopology(): void {
     this.logger.info(
@@ -2088,6 +2111,8 @@ export class LCSAdapter {
         makeNodeWorkerLayer,
         makeWorkerDispatcher,
         getRawWorkers,
+        getAssistancePorts,
+        runRemoteStdlibWarmupPhase,
       } = coordinatorModule;
       const { CoordinatorAssistanceMediator } = mediatorModule;
       const { ResourceLoaderProxy } = resourceLoaderModule;
@@ -2105,12 +2130,17 @@ export class LCSAdapter {
       const workerLogLevel =
         (apexSettings?.worker as Record<string, unknown>)?.logLevel ?? 'error';
 
+      const serverMode = LSPConfigurationManager.getInstance()
+        .getCapabilitiesManager()
+        .getMode();
+
       const config = {
         poolSize:
           ((workerCfg as Record<string, unknown>).poolSize as number) ?? 2,
         enableResourceLoader,
         logger: this.logger,
         logLevel: workerLogLevel as string,
+        serverMode,
       };
 
       const path = yield* Effect.promise(() => import('path'));
@@ -2147,16 +2177,14 @@ export class LCSAdapter {
         scope,
       );
 
-      const dispatcher = makeWorkerDispatcher(topology, this.logger);
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        this.logger,
+        (uri: string) => this.getDocumentTextForWorker(uri),
+      );
       LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
-
-      const mediator = new CoordinatorAssistanceMediator(
-        (method, params) => this.connection.sendRequest(method, params),
-        this.logger,
-      );
-      mediator.attachToWorkers(getRawWorkers());
 
       if (topology.resourceLoader) {
         this.resourceLoaderProxy = new ResourceLoaderProxy(
@@ -2170,22 +2198,59 @@ export class LCSAdapter {
         );
       }
 
+      const mediator = new CoordinatorAssistanceMediator(
+        async (method, params) => {
+          if (method === 'apex/findMissingArtifact') {
+            // Workers have no LSP client connection; route their findMissingArtifact
+            // requests directly through the coordinator's queue instead of trying
+            // to reverse-call the VS Code client (which has no handler for that direction).
+            return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
+              params as import('@salesforce/apex-lsp-shared').FindMissingArtifactParams,
+            );
+          }
+          if (method === 'resourceLoader:resolveClass') {
+            const p = params as { name: string };
+            if (!this.resourceLoaderProxy) return null;
+            return this.resourceLoaderProxy.resolveStandardClassFqn(p.name);
+          }
+          if (method === 'resourceLoader:getSymbolTable') {
+            const p = params as { classPath: string };
+            if (!this.resourceLoaderProxy) return null;
+            return this.resourceLoaderProxy.getSymbolTable(p.classPath);
+          }
+          if (method === 'resourceLoader:getFile') {
+            const p = params as { path: string };
+            if (!this.resourceLoaderProxy) return undefined;
+            return this.resourceLoaderProxy.getFile(p.path);
+          }
+          if (method === 'resourceLoader:getStandardNamespaces') {
+            if (!this.resourceLoaderProxy) return {};
+            return this.resourceLoaderProxy.getStandardNamespaces();
+          }
+          return this.connection.sendRequest(method, params);
+        },
+        this.logger,
+        async (method, params) => dispatcher.queryDataOwner(method, params),
+      );
+      mediator.attachToWorkers(getRawWorkers(), getAssistancePorts());
+
+      yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
+
       this.logger.info(
         () =>
           '[WorkerCoordinator] Topology active — ' +
-          'queue dispatch, batch ingestion, assistance mediation',
+          'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
       );
-    }).pipe(
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
-          this.logger.error(
-            () =>
-              `❌ Failed to initialize worker topology: ${formattedError(error)}`,
-          );
-        }),
-      ),
-    );
+    });
 
-    Effect.runFork(pipeline);
+    void Effect.runPromise(pipeline).catch((error: unknown) => {
+      this.logger.error(
+        () =>
+          `❌ Failed to initialize worker topology: ${formattedError(error)}`,
+      );
+      if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {
+        process.exit(1);
+      }
+    });
   }
 }

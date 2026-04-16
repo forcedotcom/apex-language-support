@@ -15,9 +15,14 @@ import type {
 import { SymbolIndexStore } from '../services/symbolIndexStore';
 import { CacheStore } from '../services/cacheStore';
 import { FileStateStore } from '../services/fileStateStore';
+import { ResourceLoaderService } from '../services/ResourceLoaderService';
 import { findByName, findInFile } from './symbolLookup';
 
-type ResolutionDeps = SymbolIndexStore | CacheStore | FileStateStore;
+type ResolutionDeps =
+  | SymbolIndexStore
+  | CacheStore
+  | FileStateStore
+  | ResourceLoaderService;
 
 /** Resolve a symbol by name with context */
 export const resolveSymbol = (

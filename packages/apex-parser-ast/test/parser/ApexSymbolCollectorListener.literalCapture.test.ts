@@ -25,6 +25,7 @@ import { EffectTestLoggerLive } from '../../src/utils/EffectLspLoggerLayer';
 import type { ValidationResult } from '../../src/semantics/validation/ValidationResult';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 
@@ -42,7 +43,9 @@ describe('ApexSymbolCollectorListener - Literal Capture and Resolution', () => {
 
   beforeEach(() => {
     compilerService = new CompilerService();
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     enableConsoleLogging();
     setLogLevel('error');
   });

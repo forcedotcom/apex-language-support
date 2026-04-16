@@ -10,27 +10,20 @@ import { Effect } from 'effect';
 import type { SymbolTable } from '../../types/symbol';
 import { ConcurrencyGuards } from '../services/concurrencyGuards';
 import { SymbolIndexStore } from '../services/symbolIndexStore';
-import { ResourceLoader } from '../../utils/resourceLoader';
-
-function tryGetResourceLoader(): ResourceLoader | undefined {
-  try {
-    return ResourceLoader.getInstance();
-  } catch {
-    return undefined;
-  }
-}
+import { ResourceLoaderService } from '../services/ResourceLoaderService';
 
 /** Check if a type name represents a standard Apex class */
-export const isStandardApexClass = (name: string): Effect.Effect<boolean> =>
-  Effect.sync(() => {
-    const loader = tryGetResourceLoader();
-    if (!loader) return false;
+export const isStandardApexClass = (
+  name: string,
+): Effect.Effect<boolean, never, ResourceLoaderService> =>
+  Effect.gen(function* () {
+    const loader = yield* ResourceLoaderService;
 
     const parts = name.split('.');
     if (parts.length === 2) {
       const [namespace, className] = parts;
       if (!loader.isStdApexNamespace(namespace)) return false;
-      return loader.hasClass(`${namespace}.${className}.cls`) || false;
+      return loader.hasClass(`${namespace}.${className}.cls`);
     }
     if (parts.length === 1) {
       return loader.findNamespaceForClass(parts[0]).size > 0;
@@ -39,15 +32,21 @@ export const isStandardApexClass = (name: string): Effect.Effect<boolean> =>
   });
 
 /** Get available standard classes from the resource loader */
-export const getAvailableStandardClasses = (): Effect.Effect<string[]> =>
-  Effect.sync(() => {
-    const loader = tryGetResourceLoader();
-    if (!loader) return [];
-    try {
-      return loader.getAvailableClasses();
-    } catch {
-      return [];
+export const getAvailableStandardClasses = (): Effect.Effect<
+  string[],
+  never,
+  ResourceLoaderService
+> =>
+  Effect.gen(function* () {
+    const loader = yield* ResourceLoaderService;
+    const namespaces = loader.getStandardNamespaces();
+    const result: string[] = [];
+    for (const [ns, classes] of namespaces) {
+      for (const cls of classes) {
+        result.push(`${ns}/${cls}`);
+      }
     }
+    return result;
   });
 
 /**
@@ -59,11 +58,10 @@ export const resolveStandardApexClass = (
 ): Effect.Effect<
   SymbolTable | null,
   never,
-  SymbolIndexStore | ConcurrencyGuards
+  ResourceLoaderService | SymbolIndexStore | ConcurrencyGuards
 > =>
   Effect.gen(function* () {
-    const loader = tryGetResourceLoader();
-    if (!loader) return null;
+    const loader = yield* ResourceLoaderService;
 
     const guards = yield* ConcurrencyGuards;
     const isLoading = yield* guards.isLoadingSymbolTable(name);
@@ -76,13 +74,7 @@ export const resolveStandardApexClass = (
         return yield* Effect.promise(() => existing);
       }
 
-      const promise = Promise.resolve().then(() => {
-        try {
-          return loader.getSymbolTableSync(`${name}.cls`);
-        } catch {
-          return null;
-        }
-      });
+      const promise = loader.getSymbolTable(`${name}.cls`);
 
       yield* guards.setInFlightStdlibHydration(name, promise);
       try {

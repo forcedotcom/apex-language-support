@@ -10,6 +10,7 @@ import { Schema } from 'effect';
 import {
   WorkerInit,
   PingWorker,
+  WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   WorkerAssistanceRequest,
   WorkspaceBatchIngest,
@@ -46,6 +47,17 @@ describe('workerWireSchemas', () => {
       expect(decoded.protocolVersion).toBe(WIRE_PROTOCOL_VERSION);
     });
 
+    it('should encode and decode optional serverMode', () => {
+      const init = new WorkerInit({
+        role: 'enrichmentSearch',
+        protocolVersion: WIRE_PROTOCOL_VERSION,
+        serverMode: 'development',
+      });
+      const encoded = Schema.encodeSync(WorkerInit)(init);
+      const decoded = Schema.decodeSync(WorkerInit)(encoded);
+      expect(decoded.serverMode).toBe('development');
+    });
+
     it('should reject invalid role', () => {
       expect(() =>
         Schema.decodeSync(WorkerInit)({
@@ -67,6 +79,17 @@ describe('workerWireSchemas', () => {
       const decoded = Schema.decodeSync(PingWorker)(encoded);
       expect(decoded._tag).toBe('PingWorker');
       expect(decoded.echo).toBe('hello');
+    });
+  });
+
+  describe('WorkerRemoteStdlibWarmup', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new WorkerRemoteStdlibWarmup({});
+      expect(req._tag).toBe('WorkerRemoteStdlibWarmup');
+
+      const encoded = Schema.encodeSync(WorkerRemoteStdlibWarmup)(req);
+      const decoded = Schema.decodeSync(WorkerRemoteStdlibWarmup)(encoded);
+      expect(decoded._tag).toBe('WorkerRemoteStdlibWarmup');
     });
   });
 
@@ -289,6 +312,16 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('dataOwner', 'PingWorker')).toBe(true);
       expect(isAllowedTag('enrichmentSearch', 'PingWorker')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'PingWorker')).toBe(true);
+    });
+
+    it('should allow WorkerRemoteStdlibWarmup on dataOwner and enrichment only', () => {
+      expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'WorkerRemoteStdlibWarmup')).toBe(
+        true,
+      );
+      expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
+        false,
+      );
     });
 
     it('should restrict QuerySymbolSubset to dataOwner', () => {

@@ -16,7 +16,7 @@ import {
   shutdown,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect, Deferred, Fiber, Context } from 'effect';
+import { Effect, Deferred, Fiber, Context, Queue, Chunk } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
 import type { WorkerDispatchStrategy } from './WorkerDispatchStrategy';
@@ -55,6 +55,12 @@ class QueueSubmitError {
   }
 }
 
+type PendingNotification = {
+  type: LSPRequestType;
+  params: unknown;
+  priority: Priority;
+};
+
 /**
  * LSP Queue Manager
  *
@@ -64,9 +70,18 @@ class QueueSubmitError {
  */
 export class LSPQueueManager {
   private static instance: LSPQueueManager | null = null;
+  private static readonly BUFFERED_TYPES = new Set<LSPRequestType>([
+    'documentOpen',
+    'documentChange',
+    'documentSave',
+    'documentClose',
+  ]);
+
   private readonly logger = getLogger();
   private readonly symbolManager: ISymbolManager;
   private readonly serviceRegistry: ServiceRegistry;
+  private readonly preInitQueue: Queue.Queue<PendingNotification> =
+    Effect.runSync(Queue.unbounded<PendingNotification>());
   private schedulerInitialized = false;
   private isShutdown = false;
   private workerDispatcher: WorkerDispatchStrategy | null = null;
@@ -101,6 +116,10 @@ export class LSPQueueManager {
    * Inject a worker dispatch strategy. When set and available,
    * createQueuedItem wraps worker dispatch instead of local handler
    * execution. Pass null to revert to local-only.
+   *
+   * When a dispatcher is provided, any textDocument lifecycle notifications
+   * that were buffered before workers were ready are drained to the dispatcher
+   * in their original arrival order.
    */
   setWorkerDispatcher(dispatcher: WorkerDispatchStrategy | null): void {
     this.workerDispatcher = dispatcher;
@@ -108,6 +127,28 @@ export class LSPQueueManager {
       () =>
         `Worker dispatcher ${dispatcher ? 'set' : 'cleared'} on LSPQueueManager`,
     );
+
+    if (dispatcher) {
+      Effect.runFork(
+        Queue.takeAll(this.preInitQueue).pipe(
+          Effect.flatMap((chunk) => {
+            const items = Chunk.toReadonlyArray(chunk);
+            this.logger.debug(
+              () =>
+                `Draining ${items.length} pre-init buffered notifications to worker`,
+            );
+            return Effect.forEach(
+              items,
+              ({ type, params, priority }) =>
+                Effect.sync(() =>
+                  this.submitNotification(type, params, { priority }),
+                ),
+              { discard: true },
+            );
+          }),
+        ),
+      );
+    }
   }
 
   getWorkerDispatcher(): WorkerDispatchStrategy | null {
@@ -376,7 +417,11 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit a notification (fire-and-forget, doesn't wait for completion)
+   * Submit a notification (fire-and-forget, doesn't wait for completion).
+   *
+   * If workers are not yet ready and the notification type is a textDocument
+   * lifecycle event, it is buffered in the pre-init Effect queue and replayed
+   * to the data-owner worker once setWorkerDispatcher is called.
    */
   submitNotification(
     type: LSPRequestType,
@@ -390,6 +435,17 @@ export class LSPQueueManager {
     if (this.isShutdown) {
       const error = new Error('LSP Queue Manager is shutdown');
       options.errorCallback?.(error);
+      return;
+    }
+
+    if (!this.workerDispatcher && LSPQueueManager.BUFFERED_TYPES.has(type)) {
+      const item: PendingNotification = {
+        type,
+        params,
+        priority: options.priority ?? Priority.Normal,
+      };
+      Effect.runFork(Queue.offer(this.preInitQueue, item));
+      this.logger.debug(() => `Pre-init buffer: queued ${type}`);
       return;
     }
 

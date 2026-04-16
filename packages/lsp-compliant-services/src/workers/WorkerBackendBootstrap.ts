@@ -20,8 +20,9 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   type ISymbolManager,
   ApexSymbolProcessingManager,
+  ResourceLoaderService,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { ApexStorage } from '../storage/ApexStorage';
 import {
@@ -60,8 +61,13 @@ const bootstrapSharedDeps = Effect.gen(function* () {
   );
   yield* Effect.promise(() => storageManager.initialize());
 
+  // ResourceLoaderService is a required bootstrap dependency.
+  // Workers provide ResourceLoaderLive (local), ResourceLoaderRemoteLive (IPC),
+  // or ResourceLoaderNoOpLive (tests) via Effect.provide() at the call site.
+  const stdlibProvider = yield* ResourceLoaderService;
+
   const spm = yield* Effect.sync(() =>
-    ApexSymbolProcessingManager.getInstance(),
+    ApexSymbolProcessingManager.getInstance(stdlibProvider),
   );
   yield* Effect.promise(() => spm.initialize());
   const symbolManager = spm.getSymbolManager();
@@ -79,30 +85,39 @@ const bootstrapSharedDeps = Effect.gen(function* () {
 
 /**
  * Bootstrap services for the data-owner worker role as an Effect.
+ * Requires ResourceLoaderService to be provided by the caller.
  */
-export const bootstrapDataOwnerServicesEffect: Effect.Effect<DataOwnerServices> =
-  Effect.gen(function* () {
-    const { logger, symbolManager, storageManager, factory } =
-      yield* bootstrapSharedDeps;
+export const bootstrapDataOwnerServicesEffect: Effect.Effect<
+  DataOwnerServices,
+  never,
+  ResourceLoaderService
+> = Effect.gen(function* () {
+  const { logger, symbolManager, storageManager, factory } =
+    yield* bootstrapSharedDeps;
 
-    const { DocumentCloseProcessingService: DocClose } = yield* Effect.promise(
-      () => import('../services/DocumentCloseProcessingService'),
-    );
+  const { DocumentCloseProcessingService: DocClose } = yield* Effect.promise(
+    () => import('../services/DocumentCloseProcessingService'),
+  );
 
-    return {
-      symbolManager,
-      storageManager,
-      documentProcessingService: factory.createDocumentProcessingService(),
-      documentCloseProcessingService: new DocClose(logger),
-      factory,
-    };
-  });
+  return {
+    symbolManager,
+    storageManager,
+    documentProcessingService: factory.createDocumentProcessingService(),
+    documentCloseProcessingService: new DocClose(logger),
+    factory,
+  };
+});
 
 /**
- * Promise-based wrapper for backward compatibility.
+ * Promise-based bootstrap for data-owner workers.
+ * Caller must supply the appropriate ResourceLoaderService layer.
  */
-export function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
-  return Effect.runPromise(bootstrapDataOwnerServicesEffect);
+export function bootstrapDataOwnerServices(
+  resourceLoaderLayer: Layer.Layer<ResourceLoaderService>,
+): Promise<DataOwnerServices> {
+  return Effect.runPromise(
+    Effect.provide(bootstrapDataOwnerServicesEffect, resourceLoaderLayer),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +126,7 @@ export function bootstrapDataOwnerServices(): Promise<DataOwnerServices> {
 
 export interface EnrichmentServices {
   readonly symbolManager: ISymbolManager;
+  readonly storageManager: ApexStorageManager;
   readonly hoverService: HoverProcessingService;
   readonly definitionService: DefinitionProcessingService;
   readonly referencesService: ReferencesProcessingService;
@@ -123,27 +139,37 @@ export interface EnrichmentServices {
 
 /**
  * Bootstrap services for enrichment/search pool workers as an Effect.
+ * Requires ResourceLoaderService to be provided by the caller.
  */
-export const bootstrapEnrichmentServicesEffect: Effect.Effect<EnrichmentServices> =
-  Effect.gen(function* () {
-    const { symbolManager, factory } = yield* bootstrapSharedDeps;
+export const bootstrapEnrichmentServicesEffect: Effect.Effect<
+  EnrichmentServices,
+  never,
+  ResourceLoaderService
+> = Effect.gen(function* () {
+  const { symbolManager, storageManager, factory } = yield* bootstrapSharedDeps;
 
-    return {
-      symbolManager,
-      hoverService: factory.createHoverService(),
-      definitionService: factory.createDefinitionService(),
-      referencesService: factory.createReferencesService(),
-      implementationService: factory.createImplementationService(),
-      documentSymbolService: factory.createDocumentSymbolService(),
-      codeLensService: factory.createCodeLensService(),
-      diagnosticService: factory.createDiagnosticService(),
-      factory,
-    };
-  });
+  return {
+    symbolManager,
+    storageManager,
+    hoverService: factory.createHoverService(),
+    definitionService: factory.createDefinitionService(),
+    referencesService: factory.createReferencesService(),
+    implementationService: factory.createImplementationService(),
+    documentSymbolService: factory.createDocumentSymbolService(),
+    codeLensService: factory.createCodeLensService(),
+    diagnosticService: factory.createDiagnosticService(),
+    factory,
+  };
+});
 
 /**
- * Promise-based wrapper for backward compatibility.
+ * Promise-based bootstrap for enrichment/search pool workers.
+ * Caller must supply the appropriate ResourceLoaderService layer.
  */
-export function bootstrapEnrichmentServices(): Promise<EnrichmentServices> {
-  return Effect.runPromise(bootstrapEnrichmentServicesEffect);
+export function bootstrapEnrichmentServices(
+  resourceLoaderLayer: Layer.Layer<ResourceLoaderService>,
+): Promise<EnrichmentServices> {
+  return Effect.runPromise(
+    Effect.provide(bootstrapEnrichmentServicesEffect, resourceLoaderLayer),
+  );
 }

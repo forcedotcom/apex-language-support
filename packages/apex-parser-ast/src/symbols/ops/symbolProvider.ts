@@ -10,19 +10,11 @@ import { Effect } from 'effect';
 import { type ApexSymbol, SymbolKind } from '../../types/symbol';
 import { SymbolIndexStore } from '../services/symbolIndexStore';
 import { CacheStore } from '../services/cacheStore';
-import { ResourceLoader } from '../../utils/resourceLoader';
+import { ResourceLoaderService } from '../services/ResourceLoaderService';
 import { BuiltInTypeTablesImpl } from '../../utils/BuiltInTypeTables';
 import { findByName, findByFQN } from './symbolLookup';
 
-type ProviderDeps = SymbolIndexStore | CacheStore;
-
-function tryGetResourceLoader(): ResourceLoader | undefined {
-  try {
-    return ResourceLoader.getInstance();
-  } catch {
-    return undefined;
-  }
-}
+type ProviderDeps = SymbolIndexStore | CacheStore | ResourceLoaderService;
 
 function tryGetBuiltInTypes(): BuiltInTypeTablesImpl | undefined {
   try {
@@ -61,10 +53,10 @@ export const find = (
       if (typeMatch) return typeMatch;
       if (namespaceCandidates.length > 0) return namespaceCandidates[0];
 
-      const loader = tryGetResourceLoader();
-      if (loader?.isStdApexNamespace(namespace)) {
-        const stdlibTable = loader.getSymbolTableSync(
-          `${namespace}/${typeName}.cls`,
+      const loader = yield* ResourceLoaderService;
+      if (loader.isStdApexNamespace(namespace)) {
+        const stdlibTable = yield* Effect.promise(() =>
+          loader.getSymbolTable(`${namespace}/${typeName}.cls`),
         );
         const classSymbol = stdlibTable
           ?.getAllSymbols()
@@ -155,11 +147,11 @@ export const findInExplicitNamespace = (
 /** Whether the namespace token is a known built-in namespace alias */
 export const isBuiltInNamespace = (
   namespaceName: string,
-): Effect.Effect<boolean> =>
-  Effect.sync(() => {
+): Effect.Effect<boolean, never, ResourceLoaderService> =>
+  Effect.gen(function* () {
     if (!namespaceName) return false;
-    const loader = tryGetResourceLoader();
-    if (loader?.isStdApexNamespace(namespaceName)) return true;
+    const loader = yield* ResourceLoaderService;
+    if (loader.isStdApexNamespace(namespaceName)) return true;
     const n = namespaceName.toLowerCase();
     return n === 'system' || n === 'schema';
   });

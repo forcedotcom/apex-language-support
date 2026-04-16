@@ -21,6 +21,7 @@ import {
 } from './helpers/validation-test-helpers';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../../../helpers/testHelpers';
 import {
@@ -46,7 +47,9 @@ describe('MethodResolutionValidator', () => {
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
 
     // Enable console logging and set to debug level while debugging
