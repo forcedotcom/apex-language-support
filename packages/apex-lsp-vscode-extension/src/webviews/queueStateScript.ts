@@ -80,6 +80,13 @@ class QueueStateDashboard {
   private setupMessageListener(): void {
     // Single message listener for all messages from the extension
     window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) {
+        console.warn(
+          '[QueueStateDashboard] Ignoring message from unexpected origin:',
+          event.origin,
+        );
+        return;
+      }
       const message = event.data;
       console.log('[QueueStateDashboard] Received message:', message.type);
       switch (message.type) {
