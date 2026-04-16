@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to release from"
+        description: 'Branch to release from'
         required: false
-        default: "main"
+        default: 'main'
         type: string
       extensions:
-        description: "VS Code extensions to release"
+        description: 'VS Code extensions to release'
         required: false
-        default: "none"
+        default: 'none'
         type: choice
         options:
           - none
@@ -19,17 +19,17 @@ on:
           - changed
           - apex-lsp-vscode-extension
       dry-run:
-        description: "Run in dry-run mode (no actual publishing)"
+        description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: "false"
+        default: 'false'
         type: choice
         options:
-          - "true"
-          - "false"
+          - 'true'
+          - 'false'
 
   schedule:
     # Nightly pre-release build at 4 AM UTC for main branch
-    - cron: "0 4 * * *"
+    - cron: '0 4 * * *'
 
 concurrency:
   group: nightly-${{ github.workflow }}-${{ github.event.inputs.branch || 'main' }}
@@ -50,8 +50,10 @@ jobs:
     steps:
       - name: Determine target branch
         id: determine-branch
+        env:
+          TARGET_BRANCH_INPUT: ${{ github.event.inputs.branch || 'main' }}
         run: |
-          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          TARGET_BRANCH="$TARGET_BRANCH_INPUT"
           echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           echo "Building from branch: $TARGET_BRANCH"
 
@@ -63,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22.x"
+          node-version: '22.x'
 
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
@@ -82,10 +84,10 @@ jobs:
     uses: ./.github/workflows/nightly-extensions.yml
     with:
       branch: ${{ needs.get-extensions.outputs.target-branch }}
-      registries: "all"
+      registries: 'all'
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-      pre-release: "true"
-      version-bump: "auto"
+      pre-release: 'true'
+      version-bump: 'auto'
       extensions: ${{ github.event.inputs.extensions || (github.event_name == 'schedule' && 'changed') || 'none' }}
       available-extensions: ${{ needs.get-extensions.outputs.extensions }}
     secrets: inherit
