@@ -34,6 +34,7 @@
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
+        "../apex-lsp-shared:compile",
         "../apex-parser-ast:compile"
       ],
       "output": [

@@ -38,6 +38,7 @@
       "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
       "clean": "if-file-deleted",
       "dependencies": [
+        "../apex-lsp-shared:compile",
         "../apex-parser-ast:compile:tsc",
         "../lsp-compliant-services:compile"
       ],
