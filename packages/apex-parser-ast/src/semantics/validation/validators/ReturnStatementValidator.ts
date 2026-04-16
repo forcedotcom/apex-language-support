@@ -27,7 +27,10 @@ import type {
   SymbolLocation,
   MethodSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isMethodSymbol,
+  isTriggerSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -38,6 +41,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 import {
@@ -86,7 +90,7 @@ function isVoidReturnType(method: MethodSymbol): boolean {
 class ReturnStatementListener extends BaseApexParserListener<void> {
   private errors: Array<{
     ctx: ReturnStatementContext;
-    code: string;
+    code: ErrorCodeKey;
     returnType?: string;
     expressionType?: string;
   }> = [];
@@ -170,7 +174,7 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
   }
 
   // Track trigger context (for trigger files)
-  enterTriggerUnit(ctx: any): void {
+  enterTriggerUnit(ctx: TriggerUnitContext): void {
     this.isInTrigger = true;
   }
 
@@ -273,7 +277,7 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
 
   getErrors(): Array<{
     ctx: ReturnStatementContext;
-    code: string;
+    code: ErrorCodeKey;
     returnType?: string;
     expressionType?: string;
   }> {
@@ -346,7 +350,7 @@ export const ReturnStatementValidator: Validator = {
         const allSymbols = symbolTable.getAllSymbols();
         const methods = allSymbols.filter(
           (symbol): symbol is MethodSymbol =>
-            symbol.kind === SymbolKind.Method && 'returnType' in symbol,
+            isMethodSymbol(symbol) && 'returnType' in symbol,
         );
 
         // Build a set of void method names and map of method return types
@@ -381,9 +385,7 @@ export const ReturnStatementValidator: Validator = {
         );
 
         // Check if this is a trigger file
-        const triggers = allSymbols.filter(
-          (symbol) => symbol.kind === SymbolKind.Trigger,
-        );
+        const triggers = allSymbols.filter(isTriggerSymbol);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const hasTrigger = triggers.length > 0 || isTriggerFile;
 
@@ -439,9 +441,9 @@ export const ReturnStatementValidator: Validator = {
         for (const { ctx, code } of returnErrors) {
           const location = getLocationFromContext(ctx);
           errors.push({
-            message: localizeTyped(code as any),
+            message: localizeTyped(code),
             location,
-            code: code as any,
+            code,
           });
         }
 

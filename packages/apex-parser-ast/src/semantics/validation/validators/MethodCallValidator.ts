@@ -7,7 +7,12 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream, DefaultErrorStrategy } from 'antlr4ts';
+import {
+  CharStreams,
+  CommonTokenStream,
+  DefaultErrorStrategy,
+  ParserRuleContext,
+} from 'antlr4ts';
 import {
   ApexLexer,
   ApexParser,
@@ -40,9 +45,22 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isVariableSymbol,
+  isClassSymbol,
+  isMethodSymbol,
+  isConstructorSymbol,
+  isEnumSymbol,
+  isInterfaceSymbol,
+  inTypeSymbolGroup,
+} from '../../../utils/symbolNarrowing';
+import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  getTypeNameFromCreatedName,
+} from '../../../utils/contextTypeGuards';
 import { ReferenceContext } from '../../../types/symbolReference';
 import { extractBaseTypeForResolution } from '../utils/typeUtils';
 
@@ -63,7 +81,7 @@ interface MethodCallInfo {
   methodName: string;
   line: number;
   column: number;
-  ctx: MethodCallExpressionContext | DotMethodCallContext;
+  ctx: MethodCallExpressionContext | DotMethodCallContext | null;
   receiverName?: string; // Name of the receiver variable (e.g., "obj" in "obj.method()")
   /** True if receiver is a dot expression (obj.field), required for addError */
   receiverIsFieldAccess?: boolean;
@@ -87,33 +105,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
     if (creator) {
       const createdName = creator.createdName();
       if (createdName) {
-        // Try to get type name from createdName
-        let typeName: string | null = null;
-
-        // Check for typeName() directly (for collection types like List, Set, Map)
-        const typeNameNode = (createdName as any).typeName?.();
-        if (typeNameNode) {
-          typeName = typeNameNode.text || null;
-        }
-
-        // If not found, check idCreatedNamePair() structure (for regular types)
-        if (!typeName) {
-          const idCreatedNamePairs = createdName.idCreatedNamePair();
-          if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
-            const firstPair = idCreatedNamePairs[0];
-            const pairTypeName = (firstPair as any).typeName?.();
-            if (pairTypeName) {
-              typeName = pairTypeName.text || null;
-            }
-            // Also check for anyId() in the pair
-            if (!typeName) {
-              const anyId = firstPair.anyId?.();
-              if (anyId) {
-                typeName = anyId.text || null;
-              }
-            }
-          }
-        }
+        const typeName = getTypeNameFromCreatedName(createdName);
 
         if (typeName) {
           const start = ctx.start;
@@ -191,7 +183,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
         methodName: methodName.trim(),
         line: start.line,
         column: start.charPositionInLine,
-        ctx: ctx as any,
+        ctx,
         receiverName,
         receiverIsFieldAccess,
         hasSafeNavigationBeforeCall,
@@ -202,7 +194,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
   /**
    * Extract receiver name from an expression (for dot expressions like obj.method())
    */
-  private extractReceiverName(expr: any): string | undefined {
+  private extractReceiverName(expr: ParserRuleContext): string | undefined {
     if (!expr) return undefined;
 
     // Handle IdPrimaryContext (simple identifier like "obj")
@@ -245,18 +237,14 @@ class MethodCallListener extends BaseApexParserListener<void> {
 function findTypeByName(
   typeName: string,
   allSymbols: ApexSymbol[],
-  symbolManager?: any,
+  symbolManager?: ISymbolManagerInterface,
 ): TypeSymbol | null {
   const normalizedName = typeName.toLowerCase().trim();
   const baseName =
     normalizedName.split('<')[0].split('.').pop() || normalizedName;
 
   const sameFile = allSymbols.find(
-    (s) =>
-      (s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum) &&
-      s.name.toLowerCase() === baseName,
+    (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
   ) as TypeSymbol | undefined;
 
   if (sameFile) return sameFile;
@@ -265,10 +253,7 @@ function findTypeByName(
     const symbols = symbolManager.findSymbolByName(typeName);
     const found = symbols?.find(
       (s: ApexSymbol) =>
-        (s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum) &&
-        s.name.toLowerCase() === baseName,
+        inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
     );
     if (found) return found as TypeSymbol;
   }
@@ -282,14 +267,13 @@ function findTypeByName(
 function findClassByName(
   className: string,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): TypeSymbol | null {
   const normalizedName = className.toLowerCase().trim();
 
   // First, try to find in same file
   const classSymbol = allSymbols.find(
-    (s) =>
-      s.kind === SymbolKind.Class && s.name.toLowerCase() === normalizedName,
+    (s) => isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
   ) as TypeSymbol | undefined;
 
   if (classSymbol) {
@@ -301,7 +285,7 @@ function findClassByName(
     const symbols = symbolManager.findSymbolByName(className);
     const crossFileClass = symbols.find(
       (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class && s.name.toLowerCase() === normalizedName,
+        isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
     ) as TypeSymbol | undefined;
 
     if (crossFileClass) {
@@ -353,7 +337,7 @@ function findMethodInClass(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): MethodSymbol | null {
   const normalizedName = methodName.toLowerCase().trim();
   const validParentIds = buildValidParentIdsForClass(classSymbol, allSymbols);
@@ -361,7 +345,7 @@ function findMethodInClass(
   // Find methods in the class from same-file symbols
   let methods = allSymbols.filter(
     (s) =>
-      s.kind === SymbolKind.Method &&
+      isMethodSymbol(s) &&
       s.name.toLowerCase() === normalizedName &&
       methodParentIdMatches(s.parentId, classSymbol, validParentIds),
   ) as MethodSymbol[];
@@ -381,7 +365,7 @@ function findMethodInClass(
       );
       methods = fileSymbols.filter(
         (s: ApexSymbol) =>
-          s.kind === SymbolKind.Method &&
+          isMethodSymbol(s) &&
           s.name.toLowerCase() === normalizedName &&
           methodParentIdMatches(s.parentId, classSymbol, fileValidParentIds),
       ) as MethodSymbol[];
@@ -399,9 +383,8 @@ function findMethodInClassHierarchy(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
-  symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
+  symbolManager?: ISymbolManagerInterface,
 ): MethodSymbol | null {
-  // First check the class itself (this now checks symbol manager if needed)
   let method = findMethodInClass(
     methodName,
     classSymbol,
@@ -442,7 +425,7 @@ function findContainingClassForCall(
   methodCallLine?: number,
 ): TypeSymbol | null {
   const classes = allSymbols.filter(
-    (s) => s.kind === SymbolKind.Class && s.fileUri === fileUri,
+    (s) => isClassSymbol(s) && s.fileUri === fileUri,
   ) as TypeSymbol[];
 
   if (classes.length === 0) {
@@ -604,7 +587,7 @@ export const MethodCallValidator: Validator = {
                 location?.identifierRange?.startColumn ??
                 location?.symbolRange?.startColumn ??
                 0,
-              ctx: null as any, // Not available from references
+              ctx: null,
               receiverName,
               receiverIsFieldAccess,
               receiverChain,
@@ -668,8 +651,8 @@ export const MethodCallValidator: Validator = {
                 code: ErrorCodes.INVALID_NEW_ABSTRACT,
               });
             } else if (
-              typeSymbol.kind === SymbolKind.Enum ||
-              typeSymbol.kind === SymbolKind.Interface
+              isEnumSymbol(typeSymbol) ||
+              isInterfaceSymbol(typeSymbol)
             ) {
               errors.push({
                 message: localizeTyped(
@@ -738,11 +721,10 @@ export const MethodCallValidator: Validator = {
                   s.fileUri === fileUri,
               );
 
-              if (receiverSymbol) {
-                const varSymbol = receiverSymbol as any;
-                if (varSymbol.type?.name) {
+              if (receiverSymbol && isVariableSymbol(receiverSymbol)) {
+                if (receiverSymbol.type?.name) {
                   const baseType = extractBaseTypeForResolution(
-                    varSymbol.type.name,
+                    receiverSymbol.type.name,
                   );
                   targetClass = findClassByName(
                     baseType,
@@ -870,7 +852,7 @@ export const MethodCallValidator: Validator = {
             // Find constructors for this class
             const constructors = allSymbols.filter(
               (s) =>
-                s.kind === SymbolKind.Constructor &&
+                isConstructorSymbol(s) &&
                 s.name === classSymbol.name &&
                 (s.parentId === classSymbol.id ||
                   (s.parentId && s.parentId.startsWith(classSymbol.id + ':'))),

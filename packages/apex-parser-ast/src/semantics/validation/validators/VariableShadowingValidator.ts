@@ -9,6 +9,13 @@
 import { Effect } from 'effect';
 import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import {
+  isMethodSymbol,
+  isConstructorSymbol,
+  isClassOrInterfaceSymbol,
+  isFieldSymbol,
+  isBlockSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -86,9 +93,7 @@ export const VariableShadowingValidator: Validator = {
       );
 
       // Get all fields for shadowing checks
-      const fields = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Field,
-      );
+      const fields = allSymbols.filter((symbol) => isFieldSymbol(symbol));
 
       // Check each variable for cross-scope shadowing (WARNINGS only)
       for (const variable of variables) {
@@ -156,21 +161,14 @@ function findContainingMethod(
 
   while (current) {
     // Check if current is a method/constructor
-    if (
-      current.kind === SymbolKind.Method ||
-      current.kind === SymbolKind.Constructor
-    ) {
+    if (isMethodSymbol(current) || isConstructorSymbol(current)) {
       return current;
     }
 
     // Check if current's parent is a method/constructor
     if (current.parentId) {
       const parent = allSymbols.find((s) => s.id === current!.parentId);
-      if (
-        parent &&
-        (parent.kind === SymbolKind.Method ||
-          parent.kind === SymbolKind.Constructor)
-      ) {
+      if (parent && (isMethodSymbol(parent) || isConstructorSymbol(parent))) {
         return parent;
       }
       current = parent ?? null;
@@ -193,21 +191,14 @@ function findContainingClass(
 
   while (current) {
     // Check if current is a class/interface
-    if (
-      current.kind === SymbolKind.Class ||
-      current.kind === SymbolKind.Interface
-    ) {
+    if (isClassOrInterfaceSymbol(current)) {
       return current;
     }
 
     // Check if current's parent is a class/interface
     if (current.parentId) {
       const parent = allSymbols.find((s) => s.id === current!.parentId);
-      if (
-        parent &&
-        (parent.kind === SymbolKind.Class ||
-          parent.kind === SymbolKind.Interface)
-      ) {
+      if (parent && isClassOrInterfaceSymbol(parent)) {
         return parent;
       }
       current = parent ?? null;
@@ -242,7 +233,7 @@ function findShadowedSymbol(
     // Fields might be direct children of class or children of class block
     // Find all blocks that are children of the class
     const classBlocks = allSymbols.filter(
-      (s) => s.kind === SymbolKind.Block && s.parentId === containingClass.id,
+      (s) => isBlockSymbol(s) && s.parentId === containingClass.id,
     );
 
     // Check fields that are children of the class or class blocks

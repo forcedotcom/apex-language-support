@@ -23,6 +23,7 @@ import {
   MethodCallExpressionContext,
   DotExpressionContext,
   DotMethodCallContext,
+  TypeRefContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -44,6 +45,7 @@ import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
+import { isFieldSymbol } from '../../../utils/symbolNarrowing';
 import {
   resolveExpressionTypeRecursive,
   isNumericType,
@@ -185,121 +187,56 @@ class CollectionListener extends BaseApexParserListener<void> {
       return;
     }
 
-    // Check for collection types (List, Set, Map)
-    let createdNameTypeName = (createdName as any).typeName?.();
-    let listToken: any = null;
-    let setToken: any = null;
-    let mapToken: any = null;
-
-    if (createdNameTypeName) {
-      listToken = createdNameTypeName.LIST?.() || null;
-      setToken = createdNameTypeName.SET?.() || null;
-      mapToken = createdNameTypeName.MAP?.() || null;
+    // Grammar: createdName : idCreatedNamePair (DOT idCreatedNamePair)*
+    // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
+    // Grammar: anyId : Identifier | LIST | SET | MAP | ...
+    const idCreatedNamePairs = createdName.idCreatedNamePair();
+    if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) {
+      return;
     }
 
-    // If not found, check idCreatedNamePair structure
-    if (!listToken && !setToken && !mapToken) {
-      const idCreatedNamePairs = createdName.idCreatedNamePair();
-      if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
-        const firstPair = idCreatedNamePairs[0];
-        const anyId = firstPair.anyId?.();
-        const pairTypeName = (firstPair as any).typeName?.();
-        if (pairTypeName) {
-          listToken = pairTypeName.LIST?.() || null;
-          setToken = pairTypeName.SET?.() || null;
-          mapToken = pairTypeName.MAP?.() || null;
-        } else if (anyId) {
-          // For idCreatedNamePair, check anyId directly using parser methods
-          // Grammar: anyId : Identifier | LIST | SET | MAP | ...
-          // AnyIdContext should expose LIST(), SET(), MAP() methods
-          listToken = (anyId as any).LIST?.() || null;
-          setToken = (anyId as any).SET?.() || null;
-          mapToken = (anyId as any).MAP?.() || null;
-        }
-      }
+    const firstPair = idCreatedNamePairs[0];
+    const anyId = firstPair.anyId();
+    if (!anyId) {
+      return;
     }
+
+    const listToken = anyId.LIST() ?? null;
+    const setToken = anyId.SET() ?? null;
+    const mapToken = anyId.MAP() ?? null;
 
     if (listToken || setToken || mapToken) {
       const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
 
-      // Extract element type from type arguments
       let elementType: string | undefined;
       let keyType: string | undefined;
       let valueType: string | undefined;
 
-      // Helper to extract type name from TypeRefContext
-      const extractTypeName = (typeRef: any): string | undefined => {
-        if (!typeRef) return undefined;
-        // Try typeName() first (more accurate)
-        const typeNames = typeRef.typeName?.();
+      const extractTypeName = (typeRef: TypeRefContext): string | undefined => {
+        const typeNames = typeRef.typeName();
         if (typeNames && typeNames.length > 0) {
           const typeName = typeNames[0];
-          const ids = typeName.id?.();
-          if (ids) {
-            if (Array.isArray(ids) && ids.length > 0) {
-              return ids.map((id: any) => id.text).join('.');
-            } else if (!Array.isArray(ids) && ids.text) {
-              return ids.text;
-            }
+          const id = typeName.id();
+          if (id) {
+            return id.text;
           }
         }
-        // Fallback to text
         return typeRef.text?.trim() || undefined;
       };
 
-      // Try to get type arguments from createdNameTypeName first
-      let typeRefs: any[] = [];
-      if (createdNameTypeName) {
-        const typeArguments = createdNameTypeName.typeArguments();
-        const typeList = typeArguments?.typeList();
-        typeRefs = typeList?.typeRef() || [];
-      } else {
-        // For idCreatedNamePair, check if createdName has typeArguments directly
-        const createdNameTypeArgs = (createdName as any).typeArguments?.();
-        if (createdNameTypeArgs) {
-          const typeList = createdNameTypeArgs.typeList?.();
-          typeRefs = typeList?.typeRef() || [];
-        } else {
-          // Check if firstPair has typeArguments
-          const idCreatedNamePairs = createdName.idCreatedNamePair();
-          if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
-            const firstPair = idCreatedNamePairs[0];
-            const pairTypeName = (firstPair as any).typeName?.();
-            if (pairTypeName) {
-              const typeArguments = pairTypeName.typeArguments();
-              const typeList = typeArguments?.typeList();
-              typeRefs = typeList?.typeRef() || [];
-            } else {
-              // Check if firstPair itself has typeArguments
-              const pairTypeArgs = (firstPair as any).typeArguments?.();
-              if (pairTypeArgs) {
-                const typeList = pairTypeArgs.typeList?.();
-                typeRefs = typeList?.typeRef() || [];
-              } else {
-                // For idCreatedNamePair, use parser method: typeList() from grammar rule
-                // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
-                const typeList = firstPair.typeList?.();
-                if (typeList) {
-                  typeRefs = typeList.typeRef() || [];
-                }
-              }
-            }
-          }
-        }
-      }
+      // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
+      const typeList = firstPair.typeList();
+      const typeRefs: TypeRefContext[] = typeList?.typeRef() ?? [];
 
       if (collectionType === 'Map' && typeRefs.length >= 2) {
-        // Map has key and value types
         keyType = extractTypeName(typeRefs[0]);
         valueType = extractTypeName(typeRefs[1]);
       } else if (typeRefs.length > 0) {
-        // List/Set has element type
         elementType = extractTypeName(typeRefs[0]);
       }
 
-      // Extract initializer text (if any)
-      const classCreatorRest = (creator as any).classCreatorRest?.();
-      const arguments_ = classCreatorRest?.arguments?.();
+      const classCreatorRest = creator.classCreatorRest();
+      const arguments_ = classCreatorRest?.arguments();
       const initializerText = arguments_?.text || '';
 
       this.collectionInitializers.push({
@@ -349,14 +286,12 @@ class CollectionListener extends BaseApexParserListener<void> {
         let baseExpression: ExpressionContext | null = null;
         const parent = ctx.parent;
         if (parent instanceof DotExpressionContext) {
-          const dotExpr = parent as DotExpressionContext;
-          const baseExpr = dotExpr.expression();
+          const baseExpr = parent.expression();
           if (baseExpr) {
             baseExpression = baseExpr;
           }
         }
 
-        // If we couldn't get base from parent, use the ctx itself as fallback
         if (!baseExpression) {
           baseExpression = ctx as ExpressionContext;
         }
@@ -402,8 +337,7 @@ class CollectionListener extends BaseApexParserListener<void> {
       let baseExpression: ExpressionContext | null = null;
       const parent = ctx.parent;
       if (parent instanceof DotExpressionContext) {
-        const dotExpr = parent as DotExpressionContext;
-        const baseExpr = dotExpr.expression();
+        const baseExpr = parent.expression();
         if (baseExpr) {
           baseExpression = baseExpr;
         }
@@ -1190,7 +1124,7 @@ function validateListIndexType(
       if (
         variable.kind === SymbolKind.Variable ||
         variable.kind === SymbolKind.Parameter ||
-        variable.kind === SymbolKind.Field
+        isFieldSymbol(variable)
       ) {
         const varSymbol = variable as VariableSymbol;
         if (varSymbol.type?.name) {

@@ -14,8 +14,11 @@ import type {
   MethodSymbol,
   ScopeSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
-import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isMethodSymbol,
+  isBlockSymbol,
+  isClassSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -43,7 +46,7 @@ function findParentClassInSameFile(
   const childFileUri = childClass.fileUri;
 
   const allClasses = allSymbols.filter(
-    (s) => s.kind === SymbolKind.Class && s.fileUri === childFileUri,
+    (s) => isClassSymbol(s) && s.fileUri === childFileUri,
   ) as TypeSymbol[];
 
   // Check if child class is an inner class extending its outer class
@@ -103,7 +106,6 @@ function findMethodsInClass(
   for (const symbol of allSymbols) {
     if (
       isMethodSymbol(symbol) &&
-      symbol.kind === SymbolKind.Method &&
       (symbol.parentId === classBlock?.id || symbol.parentId === classSymbol.id)
     ) {
       methods.push(symbol);
@@ -211,9 +213,7 @@ export const AbstractMethodImplementationValidator: Validator = {
       const tier = options.tier || ValidationTier.IMMEDIATE;
 
       // Get all classes in the file
-      const classes = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Class,
-      ) as TypeSymbol[];
+      const classes = allSymbols.filter(isClassSymbol);
 
       // Check each concrete class
       for (const cls of classes) {
@@ -238,7 +238,7 @@ export const AbstractMethodImplementationValidator: Validator = {
         ) as ScopeSymbol | undefined;
 
         const classMethods = allSymbols.filter((s) => {
-          if (s.kind !== SymbolKind.Method) {
+          if (!isMethodSymbol(s)) {
             return false;
           }
           return (

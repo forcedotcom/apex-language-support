@@ -7,11 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import type {
-  SymbolTable,
-  TypeSymbol,
-  Annotation,
-} from '../../../types/symbol';
+import type { SymbolTable, Annotation } from '../../../types/symbol';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -23,6 +19,12 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { SymbolKind } from '../../../types/symbol';
+import {
+  isClassOrInterfaceSymbol,
+  isMethodSymbol,
+  isFieldSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 import { AnnotationValidator } from '../../annotations/AnnotationValidator';
 
 function getBaseAnnotationName(annotationName: string): string {
@@ -70,16 +72,12 @@ export const UnknownAnnotationValidator: Validator = {
         let annotations: Annotation[] | undefined;
 
         // Extract annotations based on symbol type
-        if (
-          symbol.kind === SymbolKind.Class ||
-          symbol.kind === SymbolKind.Interface
-        ) {
-          const typeSymbol = symbol as TypeSymbol;
-          annotations = typeSymbol.annotations;
+        if (isClassOrInterfaceSymbol(symbol)) {
+          annotations = symbol.annotations;
         } else if (
-          symbol.kind === SymbolKind.Method ||
-          symbol.kind === SymbolKind.Property ||
-          symbol.kind === SymbolKind.Field ||
+          isMethodSymbol(symbol) ||
+          isFieldSymbol(symbol) ||
+          isPropertySymbol(symbol) ||
           symbol.kind === SymbolKind.Parameter
         ) {
           // Methods, properties, fields, and parameters can have annotations
