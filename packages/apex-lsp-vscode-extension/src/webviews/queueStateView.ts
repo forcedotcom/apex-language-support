@@ -18,7 +18,7 @@ export function getQueueStateWebviewContent(
   queueStateData: any,
 ): string {
   const nonce = getNonce();
-  const encodedData = JSON.stringify(queueStateData);
+  const encodedData = stringifyForInlineScript(queueStateData);
 
   // Use proper webview URI construction - script is in dist/webview/
   const scriptPath = vscode.Uri.joinPath(
@@ -354,4 +354,10 @@ function getNonce(): string {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
+}
+
+function stringifyForInlineScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
 }
