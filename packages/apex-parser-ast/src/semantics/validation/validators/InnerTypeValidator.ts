@@ -24,8 +24,10 @@ import type {
   ApexSymbol,
   ScopeSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
-import { isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isClassOrInterfaceSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -63,7 +65,7 @@ class StaticBlockListener extends BaseApexParserListener<void> {
     this.classStack.pop();
   }
 
-  enterBlock(ctx: any): void {
+  enterBlock(ctx: BlockContext): void {
     if (ctx.parent && this.isStaticBlock(ctx) && this.classStack.length > 0) {
       const currentClass = this.classStack[this.classStack.length - 1];
       if (currentClass.isInner) {
@@ -76,7 +78,7 @@ class StaticBlockListener extends BaseApexParserListener<void> {
     }
   }
 
-  private isStaticBlock(ctx: any): boolean {
+  private isStaticBlock(ctx: BlockContext): boolean {
     const parent = ctx.parent;
     if (!parent) return false;
     const children = parent.children ?? [];
@@ -122,9 +124,7 @@ export const InnerTypeValidator: Validator = {
 
       const allSymbols = symbolTable.getAllSymbols();
 
-      const typeSymbols = allSymbols.filter(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol[];
+      const typeSymbols = allSymbols.filter(isClassOrInterfaceSymbol);
 
       for (const typeSymbol of typeSymbols) {
         if (!typeSymbol.parentId) continue;
@@ -135,9 +135,7 @@ export const InnerTypeValidator: Validator = {
 
         if (!parent) continue;
 
-        const parentIsType =
-          parent.kind === SymbolKind.Class ||
-          parent.kind === SymbolKind.Interface;
+        const parentIsType = isClassOrInterfaceSymbol(parent);
         const parentIsInner =
           parentIsType && (parent as TypeSymbol).parentId != null;
 
@@ -149,7 +147,7 @@ export const InnerTypeValidator: Validator = {
         );
         const hasInnerTypes = allSymbols.some(
           (s) =>
-            (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
+            isClassOrInterfaceSymbol(s) &&
             s.id !== typeSymbol.id &&
             (s.parentId === typeSymbol.id || s.parentId === typeBlock?.id),
         );

@@ -45,9 +45,14 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  isMethodCallContext,
+} from '../../../utils/contextTypeGuards';
+import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -125,7 +130,7 @@ function isValidAssignmentTarget(
  */
 interface ExpressionValidationError {
   ctx?: ParserRuleContext;
-  code: string;
+  code: ErrorCodeKey;
   symbolLocation?: SymbolLocation;
 }
 
@@ -178,14 +183,13 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
       }
 
       // Check properties
-      if (symbol.kind === SymbolKind.Property) {
-        const property = symbol as VariableSymbol;
-        if (property.type) {
-          const typeName = property.type.name || '';
+      if (isPropertySymbol(symbol)) {
+        if (symbol.type) {
+          const typeName = symbol.type.name || '';
           if (isVoidType(typeName)) {
             voidErrors.push({
               code: ErrorCodes.INVALID_VOID_PROPERTY,
-              symbolLocation: property.location,
+              symbolLocation: symbol.location,
             });
           }
         }
@@ -421,12 +425,10 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
             const primary = expr as PrimaryExpressionContext;
             // Check if primary contains a method call
             const primaryCtx = primary.primary();
-            // Check if primary context has a method call
-            // PrimaryContext doesn't have methodCall() directly, so we check the structure
             const hasMethodCall =
               primaryCtx &&
               (isContextType(primaryCtx, IdPrimaryContext) ||
-                (primaryCtx as any).methodCall !== undefined);
+                isMethodCallContext(primaryCtx));
             if (!hasMethodCall) {
               // Primary expression without method call is invalid as statement
               // (unless it's increment/decrement which we already checked)
@@ -591,7 +593,7 @@ export const ExpressionTypeValidator: Validator = {
           }
 
           errors.push({
-            message: localizeTyped(errorInfo.code as any),
+            message: localizeTyped(errorInfo.code),
             location,
             code: errorInfo.code,
           });
@@ -615,7 +617,7 @@ export const ExpressionTypeValidator: Validator = {
           };
 
           errors.push({
-            message: localizeTyped(errorInfo.code as any),
+            message: localizeTyped(errorInfo.code),
             location,
             code: errorInfo.code,
           });

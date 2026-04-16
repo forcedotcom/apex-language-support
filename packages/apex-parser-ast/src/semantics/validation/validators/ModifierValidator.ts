@@ -15,7 +15,17 @@ import type {
   MethodSymbol,
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
-import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isMethodSymbol,
+  isBlockSymbol,
+  isClassSymbol,
+  isInterfaceSymbol,
+  isEnumSymbol,
+  isTriggerSymbol,
+  inTypeSymbolGroup,
+  isFieldSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -41,12 +51,7 @@ import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
  * Check if a symbol is an inner type (class, interface, enum)
  */
 function isInnerType(symbol: ApexSymbol): boolean {
-  return (
-    (symbol.kind === SymbolKind.Class ||
-      symbol.kind === SymbolKind.Interface ||
-      symbol.kind === SymbolKind.Enum) &&
-    symbol.parentId !== null
-  );
+  return inTypeSymbolGroup(symbol) && symbol.parentId !== null;
 }
 
 /**
@@ -57,7 +62,7 @@ function findContainingClass(
   allSymbols: ApexSymbol[],
 ): TypeSymbol | undefined {
   let parentClass: TypeSymbol | undefined = allSymbols.find(
-    (s) => s.id === symbol.parentId && s.kind === SymbolKind.Class,
+    (s) => s.id === symbol.parentId && isClassSymbol(s),
   ) as TypeSymbol | undefined;
 
   if (!parentClass) {
@@ -66,7 +71,7 @@ function findContainingClass(
     ) as ScopeSymbol | undefined;
     if (block && block.scopeType === 'class') {
       parentClass = allSymbols.find(
-        (s) => s.id === block.parentId && s.kind === SymbolKind.Class,
+        (s) => s.id === block.parentId && isClassSymbol(s),
       ) as TypeSymbol | undefined;
     }
   }
@@ -81,14 +86,8 @@ function findContainingType(
   symbol: ApexSymbol,
   allSymbols: ApexSymbol[],
 ): TypeSymbol | undefined {
-  const typeKinds = [
-    SymbolKind.Class,
-    SymbolKind.Interface,
-    SymbolKind.Enum,
-    SymbolKind.Trigger,
-  ];
   let parent = allSymbols.find(
-    (s) => s.id === symbol.parentId && typeKinds.includes(s.kind),
+    (s) => s.id === symbol.parentId && inTypeSymbolGroup(s),
   ) as TypeSymbol | undefined;
   if (!parent) {
     const block = allSymbols.find(
@@ -96,7 +95,7 @@ function findContainingType(
     ) as ScopeSymbol | undefined;
     if (block && block.scopeType === 'class') {
       parent = allSymbols.find(
-        (s) => s.id === block.parentId && typeKinds.includes(s.kind),
+        (s) => s.id === block.parentId && inTypeSymbolGroup(s),
       ) as TypeSymbol | undefined;
     }
   }
@@ -110,10 +109,10 @@ function getUnitTypeForSymbol(
   typeSymbol: TypeSymbol,
   fileUri: string,
 ): UnitType {
-  if (typeSymbol.kind === SymbolKind.Trigger) return 'TRIGGER';
-  if (typeSymbol.kind === SymbolKind.Interface) return 'INTERFACE';
-  if (typeSymbol.kind === SymbolKind.Enum) return 'ENUM';
-  if (typeSymbol.kind === SymbolKind.Class) return 'CLASS';
+  if (isTriggerSymbol(typeSymbol)) return 'TRIGGER';
+  if (isInterfaceSymbol(typeSymbol)) return 'INTERFACE';
+  if (isEnumSymbol(typeSymbol)) return 'ENUM';
+  if (isClassSymbol(typeSymbol)) return 'CLASS';
   if (fileUri.endsWith('.trigger')) return 'TRIGGER';
   if (fileUri.endsWith('.apex')) return 'ANONYMOUS';
   return 'CLASS';
@@ -427,9 +426,7 @@ export const ModifierValidator: Validator = {
         // For interfaces, the listener may sanitize Default→Public; use source when available
         if (
           symbol.parentId === null &&
-          (kind === SymbolKind.Class ||
-            kind === SymbolKind.Interface ||
-            kind === SymbolKind.Enum) &&
+          inTypeSymbolGroup(symbol) &&
           symbol.location
         ) {
           let hasPublicOrGlobal =
@@ -441,7 +438,7 @@ export const ModifierValidator: Validator = {
 
           // Interfaces: listener sanitizes Default to Public; check source for explicit modifier
           if (
-            kind === SymbolKind.Interface &&
+            isInterfaceSymbol(symbol) &&
             hasPublicOrGlobal &&
             options.sourceContent &&
             symbol.location.symbolRange
@@ -477,7 +474,7 @@ export const ModifierValidator: Validator = {
 
         // Check 4c: TYPE_MUST_BE_TOP_LEVEL - inner class cannot implement Database.Batchable/InboundEmailHandler
         if (
-          kind === SymbolKind.Class &&
+          isClassSymbol(symbol) &&
           symbol.parentId !== null &&
           symbol.location
         ) {
@@ -504,7 +501,7 @@ export const ModifierValidator: Validator = {
 
         // Check 4d: DEFINING_TYPE_REQUIRES - abstract method in global class must be global (API 14+)
         if (
-          kind === SymbolKind.Method &&
+          isMethodSymbol(symbol) &&
           modifiers.isAbstract &&
           symbol.location &&
           options.enableVersionSpecificValidation &&
@@ -512,7 +509,7 @@ export const ModifierValidator: Validator = {
         ) {
           const containingType = findContainingType(symbol, allSymbols);
           if (
-            containingType?.kind === SymbolKind.Class &&
+            isClassSymbol(containingType) &&
             containingType.modifiers?.visibility === SymbolVisibility.Global &&
             modifiers.visibility !== SymbolVisibility.Global
           ) {
@@ -530,7 +527,7 @@ export const ModifierValidator: Validator = {
 
         // Check 4e: API 65+ - abstract/override methods require protected, public, or global
         if (
-          kind === SymbolKind.Method &&
+          isMethodSymbol(symbol) &&
           (modifiers.isAbstract || modifiers.isOverride) &&
           symbol.location &&
           options.enableVersionSpecificValidation &&
@@ -570,14 +567,14 @@ export const ModifierValidator: Validator = {
           }
 
           // webService also requires global class
-          if (kind === SymbolKind.Method || kind === SymbolKind.Property) {
+          if (isMethodSymbol(symbol) || isPropertySymbol(symbol)) {
             // Find parent class
             // Methods/properties have parentId pointing to class blocks, not class symbols
             let parentClass: TypeSymbol | undefined;
 
             // First, try direct match (in case parentId points to class symbol)
             parentClass = allSymbols.find(
-              (s) => s.id === symbol.parentId && s.kind === SymbolKind.Class,
+              (s) => s.id === symbol.parentId && isClassSymbol(s),
             ) as TypeSymbol | undefined;
 
             // If not found, symbol.parentId points to a class block
@@ -589,9 +586,7 @@ export const ModifierValidator: Validator = {
               if (methodBlock && methodBlock.scopeType === 'class') {
                 // Class block's parentId points to the class symbol
                 parentClass = allSymbols.find(
-                  (s) =>
-                    s.id === methodBlock.parentId &&
-                    s.kind === SymbolKind.Class,
+                  (s) => s.id === methodBlock.parentId && isClassSymbol(s),
                 ) as TypeSymbol | undefined;
               }
             }
@@ -615,7 +610,7 @@ export const ModifierValidator: Validator = {
         }
 
         // Check 6: Invalid modifier combinations for specific symbol types
-        if (kind === SymbolKind.Field || kind === SymbolKind.Property) {
+        if (isFieldSymbol(symbol) || isPropertySymbol(symbol)) {
           // Protected only for instance member variables per Apex doc
           if (
             modifiers.visibility === SymbolVisibility.Protected &&
@@ -634,7 +629,7 @@ export const ModifierValidator: Validator = {
 
           // Check source content for invalid modifiers on fields
           // (parser sanitizes these, so we need to check source directly)
-          if (options.sourceContent && kind === SymbolKind.Field) {
+          if (options.sourceContent && isFieldSymbol(symbol)) {
             const location = symbol.location;
             if (location && location.symbolRange) {
               const lineIndex = location.symbolRange.startLine - 1;
@@ -689,7 +684,7 @@ export const ModifierValidator: Validator = {
           }
 
           // Virtual not allowed on fields (check symbol table as fallback)
-          if (modifiers.isVirtual && kind === SymbolKind.Field) {
+          if (modifiers.isVirtual && isFieldSymbol(symbol)) {
             errors.push({
               message: localizeTyped(
                 ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
@@ -729,7 +724,7 @@ export const ModifierValidator: Validator = {
         }
 
         // Check 7: Invalid modifiers on methods
-        if (isMethodSymbol(symbol) && symbol.kind === SymbolKind.Method) {
+        if (isMethodSymbol(symbol)) {
           // Protected only for instance methods per Apex doc
           if (
             modifiers.visibility === SymbolVisibility.Protected &&
@@ -819,7 +814,7 @@ export const ModifierValidator: Validator = {
         }
 
         // Check 8: Invalid modifiers on classes
-        if (kind === SymbolKind.Class) {
+        if (isClassSymbol(symbol)) {
           // Final redundant on classes (classes are final by default)
           if (modifiers.isFinal) {
             warnings.push({
@@ -848,7 +843,7 @@ export const ModifierValidator: Validator = {
         }
 
         // Check 9: Invalid modifiers on interfaces
-        if (kind === SymbolKind.Interface) {
+        if (isInterfaceSymbol(symbol)) {
           // Final not allowed on interfaces
           if (modifiers.isFinal) {
             errors.push({
@@ -958,9 +953,9 @@ export const ModifierValidator: Validator = {
 
       // MODIFIER_REQUIRE_AT_LEAST: Test class must have at least one test method
       const classes = allSymbols.filter(
-        (s) => s.kind === SymbolKind.Class && s.parentId === null,
+        (s) => isClassSymbol(s) && s.parentId === null,
       ) as TypeSymbol[];
-      const methods = allSymbols.filter((s) => s.kind === SymbolKind.Method);
+      const methods = allSymbols.filter((s) => isMethodSymbol(s));
 
       for (const classSymbol of classes) {
         const hasIsTestClass =

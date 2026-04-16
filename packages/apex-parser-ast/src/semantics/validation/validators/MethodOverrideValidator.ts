@@ -14,8 +14,12 @@ import type {
   ApexSymbol,
   ScopeSymbol,
 } from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
-import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
+import { SymbolVisibility } from '../../../types/symbol';
+import {
+  isClassSymbol,
+  isMethodSymbol,
+  isBlockSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -70,7 +74,7 @@ function findParentClassInSameFile(
 
   // Get all classes in the same file
   const allClasses = allSymbols.filter(
-    (s) => s.kind === SymbolKind.Class && s.fileUri === childFileUri, // Same file check
+    (s) => isClassSymbol(s) && s.fileUri === childFileUri, // Same file check
   ) as TypeSymbol[];
 
   // First, check if child class is an inner class extending its outer class
@@ -120,7 +124,6 @@ function findMethodsInClass(
   for (const symbol of allSymbols) {
     if (
       isMethodSymbol(symbol) &&
-      symbol.kind === SymbolKind.Method &&
       (symbol.parentId === classBlock?.id || symbol.parentId === classSymbol.id)
     ) {
       methods.push(symbol);
@@ -169,7 +172,7 @@ function findParentMethod(
   for (const parentMethod of parentMethods) {
     if (
       areMethodSignaturesIdentical(method, parentMethod, tier) &&
-      parentMethod.kind === SymbolKind.Method
+      isMethodSymbol(parentMethod)
     ) {
       return parentMethod;
     }
@@ -231,14 +234,10 @@ export const MethodOverrideValidator: Validator = {
       const tier = options.tier || ValidationTier.IMMEDIATE;
 
       // Get all classes in the file
-      const classes = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Class,
-      ) as TypeSymbol[];
+      const classes = allSymbols.filter(isClassSymbol);
 
       // Get all methods
-      const methods = allSymbols.filter(
-        (symbol) => isMethodSymbol(symbol) && symbol.kind === SymbolKind.Method,
-      ) as MethodSymbol[];
+      const methods = allSymbols.filter(isMethodSymbol);
 
       // For each method, check override rules
       for (const method of methods) {

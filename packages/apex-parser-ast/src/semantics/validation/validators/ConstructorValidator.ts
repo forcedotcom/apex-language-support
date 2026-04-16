@@ -44,10 +44,15 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { isContextType } from '../../../utils/contextTypeGuards';
-import { isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isClassSymbol,
+  isConstructorSymbol,
+} from '../../../utils/symbolNarrowing';
 
 /**
  * Information about a super()/this() call found in a constructor
@@ -135,21 +140,19 @@ class ConstructorListener extends BaseApexParserListener<void> {
     }
 
     // Check if this is a super() or this() call
-    const superToken = (methodCall as any).SUPER?.();
-    const thisToken = (methodCall as any).THIS?.();
+    const superToken = methodCall.SUPER?.();
+    const thisToken = methodCall.THIS?.();
 
     if (superToken || thisToken) {
       const isSuper = !!superToken;
       const line = ctx.start.line;
       const column = ctx.start.charPositionInLine;
 
-      // Get arguments from expressionList
       const expressionList = methodCall.expressionList?.();
       const args = expressionList
         ? this.extractArgumentsAsString(expressionList)
         : '';
 
-      // Get the statement containing this call
       const statementContext: StatementContext =
         this.statementStack.length > 0
           ? this.statementStack[this.statementStack.length - 1]
@@ -202,7 +205,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
  */
 interface ConstructorBodyCheckResult {
   errors: Array<{
-    code: string;
+    code: ErrorCodeKey;
     line: number;
     column: number;
     message?: string;
@@ -230,7 +233,7 @@ function checkConstructorBody(
   symbolTable: SymbolTable,
 ): ConstructorBodyCheckResult {
   const errors: Array<{
-    code: string;
+    code: ErrorCodeKey;
     line: number;
     column: number;
     message?: string;
@@ -423,8 +426,8 @@ function extractMethodName(
         return id.text || null;
       }
       // For this() and super() calls, return null (they're constructor calls, not instance methods)
-      const thisToken = (methodCall as any).THIS?.();
-      const superToken = (methodCall as any).SUPER?.();
+      const thisToken = methodCall.THIS?.();
+      const superToken = methodCall.SUPER?.();
       if (thisToken || superToken) {
         return null; // Constructor calls are allowed
       }
@@ -551,16 +554,8 @@ function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
           return !!literal.StringLiteral?.();
         }
       }
-      // Also check if primary has literalPrimary() method (alternative structure)
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.() as
-          | LiteralContext
-          | undefined;
-        if (literal) {
-          return !!literal.StringLiteral?.();
-        }
-      }
+      // LiteralPrimaryContext extends PrimaryContext — the instanceof check
+      // above already covers this case; no fallback needed.
     }
   }
 
@@ -585,23 +580,18 @@ function isNumericLiteral(
 ): boolean {
   if (!expr) return false;
 
-  // Check for PrimaryExpressionContext -> literalPrimary -> literal -> INTEGER_LITERAL or DECIMAL_LITERAL
   if (isContextType(expr, PrimaryExpressionContext)) {
     const primaryExpr = expr as PrimaryExpressionContext;
     const primary = primaryExpr.primary?.();
-    if (primary) {
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.() as
-          | LiteralContext
-          | undefined;
-        if (literal) {
-          // Use method calls like StringLiteral(), not properties like INTEGER_LITERAL
-          const intLiteral = literal.IntegerLiteral?.();
-          const longLiteral = literal.LongLiteral?.();
-          const numberLiteral = literal.NumberLiteral?.();
-          return !!(intLiteral || longLiteral || numberLiteral);
-        }
+    if (primary && isContextType(primary, LiteralPrimaryContext)) {
+      const literal = (primary as LiteralPrimaryContext).literal?.() as
+        | LiteralContext
+        | undefined;
+      if (literal) {
+        const intLiteral = literal.IntegerLiteral?.();
+        const longLiteral = literal.LongLiteral?.();
+        const numberLiteral = literal.NumberLiteral?.();
+        return !!(intLiteral || longLiteral || numberLiteral);
       }
     }
   }
@@ -627,18 +617,13 @@ function isBooleanLiteral(
 ): boolean {
   if (!expr) return false;
 
-  // Check for PrimaryExpressionContext -> literalPrimary -> literal -> BOOLEAN_LITERAL
   if (isContextType(expr, PrimaryExpressionContext)) {
     const primaryExpr = expr as PrimaryExpressionContext;
     const primary = primaryExpr.primary?.();
-    if (primary) {
-      const literalPrimary = (primary as any).literalPrimary?.();
-      if (literalPrimary) {
-        const literal = literalPrimary.literal?.();
-        if (literal) {
-          const booleanLiteral = (literal as any).BOOLEAN_LITERAL?.();
-          return !!booleanLiteral;
-        }
+    if (primary && isContextType(primary, LiteralPrimaryContext)) {
+      const literal = (primary as LiteralPrimaryContext).literal?.();
+      if (literal) {
+        return !!literal.BooleanLiteral?.();
       }
     }
   }
@@ -857,9 +842,7 @@ function validateConstructorSignature(
 
     // Find the target class - try to find it from all available symbols
     const targetClassSymbols = symbolManager.findSymbolByName(targetClassName);
-    let targetClass = targetClassSymbols.find(
-      (s: ApexSymbol) => s.kind === SymbolKind.Class,
-    ) as TypeSymbol | undefined;
+    let targetClass = targetClassSymbols.find(isClassSymbol);
 
     if (!targetClass) {
       // Class not found - skip validation (may be in different file/package)
@@ -875,8 +858,7 @@ function validateConstructorSignature(
     // Find constructors by name - constructors have the same name as their class
     // First, get all constructors with matching name
     const allMatchingConstructors = allSymbolsForCompletion.filter(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Constructor && s.name === targetClassName,
+      (s: ApexSymbol) => isConstructorSymbol(s) && s.name === targetClassName,
     ) as MethodSymbol[];
 
     // Build set of valid parent IDs for constructors.
@@ -910,7 +892,7 @@ function validateConstructorSignature(
     // This is more reliable than getAllSymbolsForCompletion which may not include all constructors
     if (targetClass.fileUri) {
       // Try to get SymbolTable directly for more complete symbol access
-      const parentSymbolTable = (symbolManager as any).getSymbolTableForFile?.(
+      const parentSymbolTable = symbolManager.getSymbolTableForFile(
         targetClass.fileUri,
       );
       const fileSymbols = parentSymbolTable
@@ -919,8 +901,7 @@ function validateConstructorSignature(
 
       // Find the class symbol from this file (might have different ID)
       const fileClass = fileSymbols.find(
-        (s: ApexSymbol) =>
-          s.kind === SymbolKind.Class && s.name === targetClassName,
+        (s: ApexSymbol) => isClassSymbol(s) && s.name === targetClassName,
       ) as TypeSymbol | undefined;
 
       if (fileClass) {
@@ -938,7 +919,7 @@ function validateConstructorSignature(
 
         // Use constructors from the file, matching by fileClass.id or class block id
         const fileConstructors = fileSymbols.filter((s: ApexSymbol) => {
-          if (s.kind === SymbolKind.Constructor && s.name === targetClassName) {
+          if (isConstructorSymbol(s) && s.name === targetClassName) {
             return parentIdMatches(s.parentId);
           }
           return false;
@@ -978,8 +959,7 @@ function validateConstructorSignature(
     // Also include same-file symbols
     const sameFileSymbols = symbolTable.getAllSymbols();
     const sameFileConstructors = sameFileSymbols.filter(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Constructor && s.name === targetClassName,
+      (s: ApexSymbol) => isConstructorSymbol(s) && s.name === targetClassName,
     ) as MethodSymbol[];
 
     // Merge, avoiding duplicates and matching by parentId if available
@@ -1146,22 +1126,19 @@ function findContainingClass(
   let current: ApexSymbol | null = constructor;
 
   while (current) {
-    // Check if current is a class
-    if (current.kind === SymbolKind.Class) {
-      return current as TypeSymbol;
+    if (isClassSymbol(current)) {
+      return current;
     }
 
-    // Check if current's parent is a class
     if (current.parentId) {
       const parent = allSymbols.find((s) => s.id === current!.parentId);
-      if (parent && parent.kind === SymbolKind.Class) {
-        return parent as TypeSymbol;
+      if (isClassSymbol(parent)) {
+        return parent;
       }
-      // If parent is a block, check its parent
-      if (parent && parent.kind === SymbolKind.Block && parent.parentId) {
+      if (isBlockSymbol(parent) && parent.parentId) {
         const grandParent = allSymbols.find((s) => s.id === parent!.parentId);
-        if (grandParent && grandParent.kind === SymbolKind.Class) {
-          return grandParent as TypeSymbol;
+        if (isClassSymbol(grandParent)) {
+          return grandParent;
         }
       }
       current = parent ?? null;
@@ -1187,9 +1164,9 @@ function findParentClassInSameFile(
   const superClassName = childClass.superClass.trim().toLowerCase();
   const childFileUri = childClass.fileUri;
 
-  const allClasses = allSymbols.filter(
-    (s) => s.kind === SymbolKind.Class && s.fileUri === childFileUri,
-  ) as TypeSymbol[];
+  const allClasses = allSymbols
+    .filter(isClassSymbol)
+    .filter((s) => s.fileUri === childFileUri);
 
   // Check if child class is an inner class extending its outer class
   if (childClass.parentId) {
@@ -1220,7 +1197,7 @@ function hasDefaultConstructor(
   // Find all constructors for this class
   const constructors = allSymbols.filter(
     (s) =>
-      s.kind === SymbolKind.Constructor &&
+      isConstructorSymbol(s) &&
       s.name === classSymbol.name &&
       (s.parentId === classSymbol.id ||
         (s.parentId && s.parentId.startsWith(classSymbol.id + ':'))),
@@ -1317,9 +1294,7 @@ export const ConstructorValidator: Validator = {
 
         // Check each constructor for violations
         const allSymbols = symbolTable.getAllSymbols();
-        const constructors = allSymbols.filter(
-          (s) => s.kind === SymbolKind.Constructor,
-        ) as MethodSymbol[];
+        const constructors = allSymbols.filter(isConstructorSymbol);
 
         const constructorInfos = listener.getConstructorInfos();
 
@@ -1461,8 +1436,8 @@ export const ConstructorValidator: Validator = {
               for (const bodyError of bodyCheckResult.errors) {
                 errors.push({
                   message: bodyError.message
-                    ? localizeTyped(bodyError.code as any, bodyError.message)
-                    : localizeTyped(bodyError.code as any),
+                    ? localizeTyped(bodyError.code, bodyError.message)
+                    : localizeTyped(bodyError.code),
                   location: {
                     symbolRange: {
                       startLine: bodyError.line,
@@ -1477,7 +1452,7 @@ export const ConstructorValidator: Validator = {
                       endColumn: bodyError.column + 10,
                     },
                   },
-                  code: bodyError.code as any,
+                  code: bodyError.code,
                 });
               }
             }
@@ -1518,9 +1493,7 @@ export const ConstructorValidator: Validator = {
         // Check for INVALID_CONSTRUCTOR: When a constructor is required but not defined
         // This happens when a class extends another class that has no default constructor
         // and the subclass doesn't define any constructors
-        const classes = allSymbols.filter(
-          (s) => s.kind === SymbolKind.Class,
-        ) as TypeSymbol[];
+        const classes = allSymbols.filter(isClassSymbol);
 
         for (const classSymbol of classes) {
           // Skip if class has no superclass

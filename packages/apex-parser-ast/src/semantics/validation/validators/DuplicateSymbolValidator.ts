@@ -9,6 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import {
+  isFieldSymbol,
+  isMethodSymbol,
+  isConstructorSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -83,9 +88,7 @@ export const DuplicateSymbolValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Check for duplicate fields (existing logic)
-      const fields = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Field,
-      );
+      const fields = allSymbols.filter(isFieldSymbol);
 
       // Group fields by parent (class/type)
       const fieldsByParent = new Map<string, ApexSymbol[]>();
@@ -251,10 +254,7 @@ function findContainingMethod(
     visited.add(current.id);
 
     // Check if current is a method/constructor
-    if (
-      current.kind === SymbolKind.Method ||
-      current.kind === SymbolKind.Constructor
-    ) {
+    if (isMethodSymbol(current) || isConstructorSymbol(current)) {
       return current;
     }
 
@@ -265,11 +265,7 @@ function findContainingMethod(
         break;
       }
 
-      // Check if parent is a method/constructor
-      if (
-        parent.kind === SymbolKind.Method ||
-        parent.kind === SymbolKind.Constructor
-      ) {
+      if (isMethodSymbol(parent) || isConstructorSymbol(parent)) {
         return parent;
       }
 

@@ -7,12 +7,9 @@
  */
 
 import { Effect } from 'effect';
-import type {
-  SymbolTable,
-  MethodSymbol,
-  TypeSymbol,
-} from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
+import { SymbolVisibility } from '../../../types/symbol';
+import { isMethodSymbol, isClassSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -98,7 +95,7 @@ export const DuplicateAnnotationMethodValidator: Validator = {
       // Filter to method symbols only
       const methods = allSymbols.filter(
         (symbol): symbol is MethodSymbol =>
-          symbol.kind === 'method' && 'parameters' in symbol,
+          isMethodSymbol(symbol) && 'parameters' in symbol,
       );
 
       // Group methods by parent
@@ -130,9 +127,8 @@ export const DuplicateAnnotationMethodValidator: Validator = {
         if (remoteActionMethods.length > 0) {
           // Check if parent is a global class
           const isGlobalClass =
-            parent.kind === SymbolKind.Class &&
-            (parent as TypeSymbol).modifiers?.visibility ===
-              SymbolVisibility.Global;
+            isClassSymbol(parent) &&
+            parent.modifiers?.visibility === SymbolVisibility.Global;
 
           if (isGlobalClass) {
             for (const method of remoteActionMethods) {

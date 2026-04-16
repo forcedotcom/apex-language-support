@@ -8,7 +8,7 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import { isMethodSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -69,9 +69,7 @@ export const MethodSignatureEquivalenceValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to method symbols only (not constructors)
-      const allMethods = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Method,
-      ) as MethodSymbol[];
+      const allMethods = allSymbols.filter(isMethodSymbol);
 
       // Deduplicate methods: for each unique unifiedId, keep only one method
       // This prevents duplicate error reports when duplicate methods are stored

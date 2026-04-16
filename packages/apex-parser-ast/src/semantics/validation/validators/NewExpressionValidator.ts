@@ -15,7 +15,14 @@ import type {
   ScopeSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import { isBlockSymbol } from '../../../utils/symbolNarrowing';
+import {
+  inTypeSymbolGroup,
+  isBlockSymbol,
+  isClassOrInterfaceSymbol,
+  isFieldSymbol,
+  isMethodSymbol,
+  isPropertySymbol,
+} from '../../../utils/symbolNarrowing';
 import { ReferenceContext } from '../../../types/symbolReference';
 import type {
   ValidationResult,
@@ -51,20 +58,19 @@ function extendsException(
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
     if (current.superClass) {
-      const superName = current.superClass.toLowerCase();
+      const superName: string = current.superClass.toLowerCase();
       if (superName === 'exception') {
         return true;
       }
       const superSymbols = symbolManager.findSymbolByName(current.superClass);
-      const fromAll = allSymbols.filter(
-        (s) =>
-          (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
-          s.name.toLowerCase() === superName,
+      const fromAll: TypeSymbol[] = allSymbols.filter(
+        (s): s is TypeSymbol =>
+          isClassOrInterfaceSymbol(s) && s.name.toLowerCase() === superName,
       );
-      const superSymbol = [...fromAll, ...superSymbols].find(
-        (s: ApexSymbol) =>
-          s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const superSymbol: TypeSymbol | undefined = [
+        ...fromAll,
+        ...superSymbols,
+      ].find(isClassOrInterfaceSymbol);
       current = superSymbol;
     } else if (
       current.interfaces?.some((i) => i.toLowerCase() === 'exception')
@@ -120,9 +126,7 @@ export const NewExpressionValidator: Validator = {
         (r) => r.context === ReferenceContext.CONSTRUCTOR_CALL,
       );
 
-      const containingClass = allSymbols.find(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const containingClass = allSymbols.find(isClassOrInterfaceSymbol);
 
       if (!containingClass) {
         return { isValid: true, errors, warnings };
@@ -133,23 +137,18 @@ export const NewExpressionValidator: Validator = {
         const innerName = extractInnerTypeName(typeName);
 
         let resolvedType = allSymbols.find(
-          (s) =>
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum) &&
+          (s): s is TypeSymbol =>
+            inTypeSymbolGroup(s) &&
             (s.name === innerName ||
               s.name === typeName ||
               typeName.endsWith('.' + s.name)),
-        ) as TypeSymbol | undefined;
+        );
 
         if (!resolvedType) {
           const symbols = symbolManager.findSymbolByName(typeName);
-          resolvedType = symbols.find(
-            (s: ApexSymbol) =>
-              s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum,
-          ) as TypeSymbol | undefined;
+          resolvedType = symbols.find((s: ApexSymbol): s is TypeSymbol =>
+            inTypeSymbolGroup(s),
+          );
         }
 
         if (!resolvedType) continue;
@@ -183,24 +182,19 @@ export const NewExpressionValidator: Validator = {
         if (outerType && isBlockSymbol(outerType)) {
           const block = outerType as ScopeSymbol;
           const typeSymbol = allSymbols.find(
-            (s) =>
-              s.id === block.parentId &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum),
+            (s): s is TypeSymbol =>
+              s.id === block.parentId && inTypeSymbolGroup(s),
           );
-          outerType = (typeSymbol as TypeSymbol | undefined) ?? null;
+          outerType = typeSymbol ?? null;
         }
 
         if (!outerType && typeName.includes('.')) {
           const outerName = typeName.split('.')[0];
           outerType =
-            (allSymbols.find(
-              (s) =>
-                (s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface) &&
-                s.name === outerName,
-            ) as TypeSymbol | undefined) ?? null;
+            allSymbols.find(
+              (s): s is TypeSymbol =>
+                isClassOrInterfaceSymbol(s) && s.name === outerName,
+            ) ?? null;
         }
 
         if (outerType) {
@@ -240,8 +234,7 @@ export const NewExpressionValidator: Validator = {
 
           const otherInnerTypes = allSymbols.filter(
             (s) =>
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface) &&
+              isClassOrInterfaceSymbol(s) &&
               s.parentId === outerType.id &&
               s.name.toLowerCase() === innerName.toLowerCase() &&
               s.id !== resolvedType.id,
@@ -257,13 +250,13 @@ export const NewExpressionValidator: Validator = {
           const outerClassBlock = allSymbols.find(
             (s) =>
               isBlockSymbol(s) &&
-              (s as any).scopeType === 'class' &&
+              s.scopeType === 'class' &&
               s.parentId === outerType.id,
           );
           const innerClassBlock = allSymbols.find(
             (s) =>
               isBlockSymbol(s) &&
-              (s as any).scopeType === 'class' &&
+              s.scopeType === 'class' &&
               s.parentId === resolvedType.id,
           );
           const memberParentIds = [
@@ -274,9 +267,7 @@ export const NewExpressionValidator: Validator = {
           ].filter(Boolean) as string[];
           const members = allSymbols.filter(
             (s) =>
-              (s.kind === SymbolKind.Field ||
-                s.kind === SymbolKind.Property ||
-                s.kind === SymbolKind.Method) &&
+              (isFieldSymbol(s) || isPropertySymbol(s) || isMethodSymbol(s)) &&
               memberParentIds.includes(s.parentId ?? '') &&
               s.name.toLowerCase() === innerName.toLowerCase(),
           );
