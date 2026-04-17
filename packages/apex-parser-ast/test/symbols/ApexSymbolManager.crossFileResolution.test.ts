@@ -16,6 +16,7 @@ import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import {
@@ -43,14 +44,16 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
     enableConsoleLogging();
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   afterAll(async () => {
@@ -238,7 +241,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
         );
       }
 
-      const refs = symbolManager.getAllReferencesInFile(
+      const refs = await symbolManager.getAllReferencesInFile(
         'file:///test/TestClass.cls',
       );
       const stringRef = refs.find((r) => r.name === 'String.isNotBlank');
@@ -600,7 +603,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       }
 
       // Use TypeReferences to find exact FIELD_ACCESS position
-      const refs = symbolManager.getAllReferencesInFile(
+      const refs = await symbolManager.getAllReferencesInFile(
         'file:///test/TestClass.cls',
       );
       const target = refs.find((r) => r.name === 'acc.Name');
@@ -823,7 +826,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       }
 
       // Test finding the processData method at the exact TypeReference position
-      const refs = symbolManager.getAllReferencesInFile(
+      const refs = await symbolManager.getAllReferencesInFile(
         'file:///test/TestClass.cls',
       );
       const processDataRef = refs.find(

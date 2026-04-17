@@ -151,6 +151,15 @@ async function saveSettingsToConfig(
       );
     }
   }
+
+  // Update experimental workers settings
+  if (settings.experimental?.workers) {
+    await apexConfig.update(
+      'experimental.workers',
+      settings.experimental.workers,
+      configTarget,
+    );
+  }
 }
 
 /**

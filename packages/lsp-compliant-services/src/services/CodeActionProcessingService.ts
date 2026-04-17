@@ -184,7 +184,9 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     try {
       // Find symbol in ApexSymbolManager
-      const symbols = this.symbolManager.findSymbolByName(context.symbolName);
+      const symbols = await this.symbolManager.findSymbolByName(
+        context.symbolName,
+      );
 
       for (const symbol of symbols) {
         // Rename symbol action
@@ -246,7 +248,9 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     try {
       // Find symbol in ApexSymbolManager
-      const symbols = this.symbolManager.findSymbolByName(context.symbolName);
+      const symbols = await this.symbolManager.findSymbolByName(
+        context.symbolName,
+      );
 
       for (const symbol of symbols) {
         // Add import statement action
@@ -356,11 +360,13 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     try {
       // Find symbol in ApexSymbolManager
-      const symbols = this.symbolManager.findSymbolByName(context.symbolName);
+      const symbols = await this.symbolManager.findSymbolByName(
+        context.symbolName,
+      );
 
       for (const symbol of symbols) {
         // Get references to this symbol to determine relationship statistics
-        const referencesTo = this.symbolManager.findReferencesTo(symbol);
+        const referencesTo = await this.symbolManager.findReferencesTo(symbol);
         const totalReferences = referencesTo.length;
 
         // Show references action
@@ -379,7 +385,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
         // Get dependency analysis
         const dependencyAnalysis =
-          this.symbolManager.analyzeDependencies(symbol);
+          await this.symbolManager.analyzeDependencies(symbol);
 
         // Show dependencies action
         if (dependencyAnalysis.dependencies.length > 0) {

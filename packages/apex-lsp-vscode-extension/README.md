@@ -167,14 +167,7 @@ Control logging verbosity and output.
 **Type**: `"error"` | `"warning"` | `"info"` | `"log"` | `"debug"`  
 **Default**: `"info"`
 
-Extension log level for the main extension process.
-
-#### `apex.worker.logLevel`
-
-**Type**: `"error"` | `"warning"` | `"info"` | `"debug"`  
-**Default**: `"info"`
-
-Log level for the language server worker process.
+Extension log level for the main extension process and all worker processes.
 
 #### `apex.worker.enablePerformanceLogs`
 

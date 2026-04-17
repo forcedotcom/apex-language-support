@@ -119,7 +119,9 @@ export const ClassHierarchyValidator: Validator = {
         const stillMissing: string[] = [];
 
         for (const typeName of missingSuperclasses) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const classSymbol = symbols.find(isClassSymbol);
 
           if (classSymbol) {
@@ -152,7 +154,9 @@ export const ClassHierarchyValidator: Validator = {
             ...loadResult.loaded,
             ...loadResult.alreadyLoaded,
           ]) {
-            const symbols = symbolManager.findSymbolByName(typeName);
+            const symbols = yield* Effect.promise(() =>
+              symbolManager.findSymbolByName(typeName),
+            );
             const classSymbol = symbols.find(isClassSymbol);
 
             if (classSymbol && !foundInManager.includes(classSymbol)) {
@@ -172,8 +176,9 @@ export const ClassHierarchyValidator: Validator = {
         const symbolManager = yield* ISymbolManager;
         // Get all symbols from symbol manager and filter to classes
         // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
-        const allSymbolsFromManager =
-          symbolManager.getAllSymbolsForCompletion();
+        const allSymbolsFromManager = yield* Effect.promise(() =>
+          symbolManager.getAllSymbolsForCompletion(),
+        );
         const managerClasses = allSymbolsFromManager.filter(isClassSymbol);
 
         // Merge with current classes, avoiding duplicates

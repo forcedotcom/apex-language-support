@@ -49,14 +49,8 @@ rm -f "$SESSION_MARKER"
 run_step "compile" "npm run compile" && echo "[verify-stop] compile ok" >&2
 run_step "lint" "npm run lint" && echo "[verify-stop] lint ok" >&2
 
-# Effect LS: only uncommitted .ts files
-ts_files=$(git diff --name-only HEAD 2>/dev/null | grep '\.ts$' || true)
-if [ -n "$ts_files" ]; then
-  for f in $ts_files; do
-    [ -f "$f" ] && run_step "effect LS ($f)" "npx -y effect-language-service diagnostics --file $f"
-  done
-fi
-[ -z "$ts_files" ] && echo "[verify-stop] effect LS skipped (no uncommitted .ts)" >&2
+# Effect LS: disabled — npx ephemeral install lacks TypeScript peer dep
+echo "[verify-stop] effect LS skipped (disabled)" >&2
 
 run_step "test" "npm run test" && echo "[verify-stop] test ok" >&2
 run_step "bundle" "npm run bundle" && echo "[verify-stop] bundle ok" >&2

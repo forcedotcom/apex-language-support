@@ -11,6 +11,8 @@ import {
   handleProcessWorkspaceBatchesRequest,
   clearBatchStorage,
   clearCleanupInterval,
+  setBatchIngestionDispatcher,
+  getBatchIngestionDispatcher,
 } from '../../src/server/WorkspaceBatchHandler';
 import { SendWorkspaceBatchParams } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -219,4 +221,197 @@ describe('WorkspaceBatchHandler', () => {
       expect(result.error).toBeDefined();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Step 8 — Batch ingestion dispatcher
+  // ---------------------------------------------------------------------------
+
+  // Worker batch dispatch is Node-only (coordinator thread, never browser).
+  // fflate crashes in jsdom because setup-web.js reassigns TextDecoder.
+  const isJsdom =
+    typeof navigator !== 'undefined' && /jsdom/.test(navigator.userAgent);
+
+  (isJsdom ? describe.skip : describe)(
+    'batch ingestion dispatcher (Step 8)',
+    () => {
+      /**
+       * Build valid compressed batch data: a ZIP with __metadata.json and
+       * one content file per entry.  Uses lazy require to avoid loading
+       * fflate at module init time (breaks in jsdom).
+       */
+      function makeCompressedBatch(
+        files: Array<{ uri: string; version: number; content: string }>,
+        batchIndex = 0,
+        totalBatches = 1,
+      ): string {
+        const { zipSync: zip, strToU8: s2u } = require('fflate') as {
+          zipSync: (data: Record<string, Uint8Array>) => Uint8Array;
+          strToU8: (s: string) => Uint8Array;
+        };
+        const metadata = {
+          batchIndex,
+          totalBatches,
+          isLastBatch: batchIndex === totalBatches - 1,
+          fileMetadata: files.map((f) => ({ uri: f.uri, version: f.version })),
+        };
+
+        const archive: Record<string, Uint8Array> = {
+          '__metadata.json': s2u(JSON.stringify(metadata)),
+        };
+        for (const f of files) {
+          archive[f.uri] = s2u(f.content);
+        }
+        const zipped = zip(archive);
+        return Buffer.from(zipped).toString('base64');
+      }
+
+      afterEach(() => {
+        setBatchIngestionDispatcher(null);
+      });
+
+      it('setBatchIngestionDispatcher / getBatchIngestionDispatcher round-trip', () => {
+        expect(getBatchIngestionDispatcher()).toBeNull();
+        const fn = jest.fn();
+        setBatchIngestionDispatcher(fn);
+        expect(getBatchIngestionDispatcher()).toBe(fn);
+        setBatchIngestionDispatcher(null);
+        expect(getBatchIngestionDispatcher()).toBeNull();
+      });
+
+      it('dispatches decoded entries to data-owner when dispatcher is set', async () => {
+        const dispatcher = jest.fn().mockResolvedValue({ processedCount: 2 });
+        setBatchIngestionDispatcher(dispatcher);
+
+        const compressedData = makeCompressedBatch([
+          {
+            uri: 'file:///Foo.cls',
+            version: 1,
+            content: 'public class Foo {}',
+          },
+          {
+            uri: 'file:///Bar.cls',
+            version: 1,
+            content: 'public class Bar {}',
+          },
+        ]);
+
+        await handleWorkspaceBatchRequest({
+          batchIndex: 0,
+          totalBatches: 1,
+          isLastBatch: true,
+          compressedData,
+          fileMetadata: [
+            { uri: 'file:///Foo.cls', version: 1 },
+            { uri: 'file:///Bar.cls', version: 1 },
+          ],
+        });
+
+        const result = await handleProcessWorkspaceBatchesRequest({
+          totalBatches: 1,
+        });
+        expect(result.success).toBe(true);
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(dispatcher).toHaveBeenCalledTimes(1);
+        const [sessionId, entries] = dispatcher.mock.calls[0];
+        expect(typeof sessionId).toBe('string');
+        expect(entries).toHaveLength(2);
+        expect(entries[0]).toMatchObject({
+          uri: 'file:///Foo.cls',
+          content: 'public class Foo {}',
+          languageId: 'apex',
+          version: 1,
+        });
+      });
+
+      it('falls back to local processing when no dispatcher is set', async () => {
+        const { offer } = jest.requireMock(
+          '@salesforce/apex-lsp-parser-ast',
+        ) as {
+          offer: jest.Mock;
+        };
+        offer.mockClear();
+
+        const compressedData = makeCompressedBatch([
+          { uri: 'file:///A.cls', version: 1, content: 'class A {}' },
+        ]);
+
+        await handleWorkspaceBatchRequest({
+          batchIndex: 0,
+          totalBatches: 1,
+          isLastBatch: true,
+          compressedData,
+          fileMetadata: [{ uri: 'file:///A.cls', version: 1 }],
+        });
+
+        const result = await handleProcessWorkspaceBatchesRequest({
+          totalBatches: 1,
+        });
+        expect(result.success).toBe(true);
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        expect(offer).toHaveBeenCalled();
+      });
+
+      it('dispatches multiple batches sequentially to data-owner', async () => {
+        const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
+        setBatchIngestionDispatcher(dispatcher);
+
+        for (let i = 0; i < 3; i++) {
+          const compressedData = makeCompressedBatch(
+            [
+              {
+                uri: `file:///File${i}.cls`,
+                version: 1,
+                content: `class File${i} {}`,
+              },
+            ],
+            i,
+            3,
+          );
+          await handleWorkspaceBatchRequest({
+            batchIndex: i,
+            totalBatches: 3,
+            isLastBatch: i === 2,
+            compressedData,
+            fileMetadata: [{ uri: `file:///File${i}.cls`, version: 1 }],
+          });
+        }
+
+        await handleProcessWorkspaceBatchesRequest({ totalBatches: 3 });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        expect(dispatcher).toHaveBeenCalledTimes(3);
+      });
+
+      it('handles dispatcher rejection gracefully', async () => {
+        const dispatcher = jest
+          .fn()
+          .mockRejectedValue(new Error('Worker died'));
+        setBatchIngestionDispatcher(dispatcher);
+
+        const compressedData = makeCompressedBatch([
+          { uri: 'file:///Err.cls', version: 1, content: 'class Err {}' },
+        ]);
+
+        await handleWorkspaceBatchRequest({
+          batchIndex: 0,
+          totalBatches: 1,
+          isLastBatch: true,
+          compressedData,
+          fileMetadata: [{ uri: 'file:///Err.cls', version: 1 }],
+        });
+
+        const result = await handleProcessWorkspaceBatchesRequest({
+          totalBatches: 1,
+        });
+        expect(result.success).toBe(true);
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(dispatcher).toHaveBeenCalledTimes(1);
+      });
+    },
+  );
 });

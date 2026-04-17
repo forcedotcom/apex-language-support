@@ -214,10 +214,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       if (this.layerEnrichmentService) {
         try {
           // Select files in dependency graph that might reference this symbol
-          const filesToEnrich = this.layerEnrichmentService.selectFilesToEnrich(
-            { fileUri: params.textDocument.uri },
-            'dependency-graph',
-          );
+          const filesToEnrich =
+            await this.layerEnrichmentService.selectFilesToEnrich(
+              { fileUri: params.textDocument.uri },
+              'dependency-graph',
+            );
 
           if (filesToEnrich.length > 0) {
             // Enrich asynchronously - return partial results immediately
@@ -277,7 +278,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
 
     // Check if there's a TypeReference at the position
     // If no TypeReference exists, the position is on a keyword, whitespace, or nothing of interest
-    const references = this.symbolManager.getReferencesAtPosition(
+    const references = await this.symbolManager.getReferencesAtPosition(
       params.textDocument.uri,
       parserPosition,
     );
@@ -304,10 +305,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     // Create resolution context
-    const context = this.createResolutionContext(document, params);
+    const context = await this.createResolutionContext(document, params);
 
     // Use ApexSymbolManager for context-aware symbol resolution
-    const result = this.symbolManager.resolveSymbol(symbolName, context);
+    const result = await this.symbolManager.resolveSymbol(symbolName, context);
 
     if (!result.symbol) {
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
@@ -358,12 +359,12 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Create resolution context for symbol lookup
    */
-  private createResolutionContext(
+  private async createResolutionContext(
     document: TextDocument,
     params: ReferenceParams,
   ) {
     // Use shared context analysis from ApexSymbolManager
-    return this.symbolManager.createResolutionContext(
+    return await this.symbolManager.createResolutionContext(
       document.getText(),
       params.position,
       document.uri,
@@ -396,14 +397,18 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       try {
         // Include the declaration if requested
         if (includeDeclaration) {
-          const declarationLocation = self.createLocationFromSymbol(symbol);
+          const declarationLocation = yield* Effect.promise(() =>
+            self.createLocationFromSymbol(symbol),
+          );
           if (declarationLocation) {
             locations.push(declarationLocation);
           }
         }
 
         // Get references to this symbol
-        const referencesTo = self.symbolManager.findReferencesTo(symbol);
+        const referencesTo = yield* Effect.promise(() =>
+          self.symbolManager.findReferencesTo(symbol),
+        );
         const batchSize = 50;
         for (let i = 0; i < referencesTo.length; i++) {
           const reference = referencesTo[i];
@@ -418,7 +423,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
 
         // Get references from this symbol (for bidirectional analysis)
-        const referencesFrom = self.symbolManager.findReferencesFrom(symbol);
+        const referencesFrom = yield* Effect.promise(() =>
+          self.symbolManager.findReferencesFrom(symbol),
+        );
         for (let i = 0; i < referencesFrom.length; i++) {
           const reference = referencesFrom[i];
           const location = self.createLocationFromReference(reference);
@@ -446,12 +453,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Create location from symbol
    */
-  private createLocationFromSymbol(symbol: any): Location | null {
+  private async createLocationFromSymbol(
+    symbol: any,
+  ): Promise<Location | null> {
     if (!symbol.location) {
       return null;
     }
 
-    const uri = this.getSymbolFileUri(symbol);
+    const uri = await this.getSymbolFileUri(symbol);
     if (!uri) {
       return null;
     }
@@ -521,9 +530,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
 
       try {
         // Get method calls using findRelatedSymbols with METHOD_CALL type
-        const methodCalls = self.symbolManager.findRelatedSymbols(
-          symbol,
-          ReferenceType.METHOD_CALL,
+        const methodCalls = yield* Effect.promise(() =>
+          self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.METHOD_CALL,
+          ),
         );
         for (let i = 0; i < methodCalls.length; i++) {
           const call = methodCalls[i];
@@ -537,9 +548,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
 
         // Get field access using findRelatedSymbols with FIELD_ACCESS type
-        const fieldAccess = self.symbolManager.findRelatedSymbols(
-          symbol,
-          ReferenceType.FIELD_ACCESS,
+        const fieldAccess = yield* Effect.promise(() =>
+          self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.FIELD_ACCESS,
+          ),
         );
         for (let i = 0; i < fieldAccess.length; i++) {
           const access = fieldAccess[i];
@@ -553,9 +566,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
 
         // Get type references using findRelatedSymbols with TYPE_REFERENCE type
-        const typeReferences = self.symbolManager.findRelatedSymbols(
-          symbol,
-          ReferenceType.TYPE_REFERENCE,
+        const typeReferences = yield* Effect.promise(() =>
+          self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.TYPE_REFERENCE,
+          ),
         );
         for (let i = 0; i < typeReferences.length; i++) {
           const ref = typeReferences[i];
@@ -570,9 +585,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
 
         // Get constructor calls (if it's a class) using findRelatedSymbols with CONSTRUCTOR_CALL type
         if (symbol.kind === 'class') {
-          const constructorCalls = self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.CONSTRUCTOR_CALL,
+          const constructorCalls = yield* Effect.promise(() =>
+            self.symbolManager.findRelatedSymbols(
+              symbol,
+              ReferenceType.CONSTRUCTOR_CALL,
+            ),
           );
           for (let i = 0; i < constructorCalls.length; i++) {
             const call = constructorCalls[i];
@@ -587,9 +604,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
 
         // Get static access using findRelatedSymbols with STATIC_ACCESS type
-        const staticAccess = self.symbolManager.findRelatedSymbols(
-          symbol,
-          ReferenceType.STATIC_ACCESS,
+        const staticAccess = yield* Effect.promise(() =>
+          self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.STATIC_ACCESS,
+          ),
         );
         for (let i = 0; i < staticAccess.length; i++) {
           const access = staticAccess[i];
@@ -603,9 +622,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
 
         // Get import references using findRelatedSymbols with IMPORT_REFERENCE type
-        const importReferences = self.symbolManager.findRelatedSymbols(
-          symbol,
-          ReferenceType.IMPORT_REFERENCE,
+        const importReferences = yield* Effect.promise(() =>
+          self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.IMPORT_REFERENCE,
+          ),
         );
         for (let i = 0; i < importReferences.length; i++) {
           const ref = importReferences[i];
@@ -630,7 +651,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Get the file URI for a symbol
    */
-  private getSymbolFileUri(symbol: any): string | null {
+  private async getSymbolFileUri(symbol: any): Promise<string | null> {
     // Try to get from symbol's file path
     if (symbol.filePath) {
       return `file://${symbol.filePath}`;
@@ -638,7 +659,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
 
     // Try to find in symbol manager
     try {
-      const files = this.symbolManager.findFilesForSymbol(symbol.name);
+      const files = await this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
         return `file://${files[0]}`;
       }

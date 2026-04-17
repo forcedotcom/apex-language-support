@@ -21,6 +21,7 @@ import {
 } from './helpers/validation-test-helpers';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../../../helpers/testHelpers';
 import {
@@ -46,7 +47,9 @@ describe('MethodResolutionValidator', () => {
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
 
     // Enable console logging and set to debug level while debugging
@@ -54,8 +57,8 @@ describe('MethodResolutionValidator', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const VALIDATOR_CATEGORY = 'method-resolution';
@@ -581,7 +584,7 @@ private class FileUtilitiesTest {
         );
       expect(containingClass).toBeDefined();
 
-      const resolutionResult = resolveTypeName(
+      const resolutionResult = await resolveTypeName(
         ['Test'],
         {
           namespace: null,
