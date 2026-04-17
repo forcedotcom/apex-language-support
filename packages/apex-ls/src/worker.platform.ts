@@ -1377,11 +1377,15 @@ async function makeResourceLoaderRemoteLayer(): Promise<
         classPath: string,
       ): Promise<import('@salesforce/apex-lsp-parser-ast').SymbolTable | null> {
         try {
-          return (await requestCoordinatorAssistancePromise(
+          const raw = await requestCoordinatorAssistancePromise(
             'resourceLoader:getSymbolTable',
             { classPath },
             true,
-          )) as import('@salesforce/apex-lsp-parser-ast').SymbolTable | null;
+          );
+          if (!raw || typeof raw !== 'object') return null;
+          const { SymbolTable: ST } =
+            await import('@salesforce/apex-lsp-parser-ast');
+          return ST.fromJSON(raw);
         } catch {
           return null;
         }

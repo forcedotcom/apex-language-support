@@ -2163,8 +2163,19 @@ export class SymbolTable {
   }
 
   static fromJSON(json: any): SymbolTable {
+    let symbols: ApexSymbol[] = json.symbolArray ?? [];
+    if (symbols.length === 0 && Array.isArray(json.symbols)) {
+      const first = json.symbols[0];
+      if (first && 'symbol' in first) {
+        symbols = json.symbols
+          .map((entry: { symbol?: ApexSymbol }) => entry.symbol)
+          .filter(Boolean) as ApexSymbol[];
+      } else {
+        symbols = json.symbols;
+      }
+    }
     return SymbolTable.fromSerializedData({
-      symbols: json.symbolArray ?? json.symbols ?? [],
+      symbols,
       references: json.references ?? [],
       hierarchicalReferences: json.hierarchicalReferences ?? [],
       metadata: json.metadata,
