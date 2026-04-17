@@ -402,6 +402,7 @@ export {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  ResolveDepUris,
   WorkerAssistanceRequest,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,

@@ -26,6 +26,7 @@ import {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  ResolveDepUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   DispatchHover,
@@ -501,6 +502,14 @@ function createDispatcher(
               enrichedSymbolTable: pus.enrichedSymbolTable,
               enrichedDetailLevel: pus.enrichedDetailLevel,
               sourceWorkerId: pus.sourceWorkerId,
+            }),
+          );
+        }
+        case 'ResolveDepUris': {
+          const prd = params as { classNames?: string[] };
+          return callbacks.sendToDataOwner(
+            new ResolveDepUris({
+              classNames: prd.classNames ?? [],
             }),
           );
         }

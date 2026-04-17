@@ -39,6 +39,7 @@ import {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  ResolveDepUris,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
@@ -79,6 +80,7 @@ const AllWorkerRequests = Schema.Union(
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  ResolveDepUris,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
@@ -481,24 +483,77 @@ async function loadSymbolDataForEnrichment(
     };
 
     if (response?.entries) {
-      const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
-      for (const [fileUri, stData] of Object.entries(response.entries)) {
-        if (stData) {
-          const raw = stData as {
-            symbols: any[];
-            references?: any[];
-            hierarchicalReferences?: any[];
-            metadata?: any;
-            fileUri?: string;
-          };
-          const symbolTable = SymbolTable.fromSerializedData(raw);
-          await Effect.runPromise(
-            svc.symbolManager.addSymbolTable(symbolTable, fileUri),
-          );
+      const { SymbolTable, ReferenceContext } =
+        await import('@salesforce/apex-lsp-parser-ast');
+      const ingestEntries = (entries: Record<string, unknown>) => {
+        const tables: Array<{ fileUri: string; st: any }> = [];
+        for (const [fileUri, stData] of Object.entries(entries)) {
+          if (stData) {
+            const raw = stData as {
+              symbols: any[];
+              references?: any[];
+              hierarchicalReferences?: any[];
+              metadata?: any;
+              fileUri?: string;
+            };
+            tables.push({
+              fileUri,
+              st: SymbolTable.fromSerializedData(raw),
+            });
+          }
         }
+        return tables;
+      };
+
+      const loaded = ingestEntries(response.entries);
+      for (const { fileUri, st } of loaded) {
+        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
       }
       version = response.versions?.[uri] ?? -1;
       detailLevel = response.detailLevels?.[uri] ?? 'public-api';
+
+      // Phase 2: pre-fetch cross-file dependencies.
+      // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
+      // loaded file and ask the data-owner to resolve them to symbol tables.
+      const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
+      if (currentSt) {
+        const refs = currentSt.getAllReferences() as Array<{
+          name: string;
+          context: number;
+          resolvedSymbolId?: string;
+        }>;
+        const classNames = new Set<string>();
+        for (const ref of refs) {
+          if (
+            !ref.resolvedSymbolId &&
+            (ref.context === ReferenceContext.CLASS_REFERENCE ||
+              ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+              ref.context === ReferenceContext.TYPE_DECLARATION)
+          ) {
+            classNames.add(ref.name);
+          }
+        }
+        if (classNames.size > 0) {
+          try {
+            const depResponse = (await requestCoordinatorAssistancePromise(
+              'dataOwner:ResolveDepUris',
+              { classNames: [...classNames] },
+              true,
+            )) as { entries: Record<string, unknown> };
+            if (depResponse?.entries) {
+              for (const { fileUri: depUri, st: depSt } of ingestEntries(
+                depResponse.entries,
+              )) {
+                await Effect.runPromise(
+                  svc.symbolManager.addSymbolTable(depSt, depUri),
+                );
+              }
+            }
+          } catch {
+            // Dep pre-fetch is best-effort; resolution can still work on-demand.
+          }
+        }
+      }
     }
   } catch {
     // Subset load failed; caller may still proceed with partial graph.
@@ -971,6 +1026,44 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDepUris: (req) =>
+    guardRole('ResolveDepUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            const uris = new Set<string>();
+            for (const name of req.classNames) {
+              const files = yield* Effect.promise(() =>
+                sm.findFilesForSymbol(name),
+              );
+              for (const f of files) uris.add(f);
+            }
+
+            const entries: Record<string, unknown> = {};
+            for (const uri of uris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                entries[uri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: st.getFileUri(),
+                });
+              }
+            }
+
+            return { entries };
           }),
         ),
       ),

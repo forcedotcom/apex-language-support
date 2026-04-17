@@ -583,6 +583,27 @@ export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
+// ResolveDepUris — enrichment worker asks data-owner to resolve class names
+// to file URIs and return the corresponding symbol tables in one round trip
+// ---------------------------------------------------------------------------
+
+export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
+  'ResolveDepUris',
+  {
+    success: Schema.Struct({
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveDepUrisError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classNames: Schema.Array(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Role-partitioned tag unions
 // ---------------------------------------------------------------------------
 
@@ -593,6 +614,7 @@ export const DataOwnerTags = [
   'WorkerRemoteStdlibWarmup',
   'QuerySymbolSubset',
   'UpdateSymbolSubset',
+  'ResolveDepUris',
   'WorkspaceBatchIngest',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
@@ -649,6 +671,7 @@ export type DataOwnerRequest =
   | WorkerRemoteStdlibWarmup
   | QuerySymbolSubset
   | UpdateSymbolSubset
+  | ResolveDepUris
   | WorkspaceBatchIngest
   | DispatchDocumentOpen
   | DispatchDocumentChange
