@@ -1,19 +1,41 @@
+/**
+ * Order summary lookup output.
+ */
 global class OrderSummaryLookupOutput {
-	global ConnectApi.OrderSummaryAdjustmentAggregates adjustmentAggregates;
-	global List<ConnectApi.OrderSummaryAdjustment> adjustments;
-	global String currencyIsoCode;
-	global List<ConnectApi.OrderDeliveryGroupSummaryLookupOutput> deliveryGroups;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String id;
-	global String orderNumber;
-	global ConnectApi.BuyerProfileDetail owner;
-	global List<ConnectApi.OrderPayments> payments;
-	global String status;
-	global OrderSummaryLookupOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Adjustment aggregates associated with the order summary.
+   */
+  global ConnectApi.OrderSummaryAdjustmentAggregates adjustmentAggregates;
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the order summary.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Delivery groups associated with the order summary.
+   */
+  global List < ConnectApi.OrderDeliveryGroupSummaryLookupOutput > deliveryGroups;
+
+  /**
+   * Map of requested order summary fields.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * ID of the order summary.
+   */
+  global String id;
+
+  /**
+   * Reference number of the order summary.
+   */
+  global String orderNumber;
+
+  /**
+   * Status associated with the order summary.
+   */
+  global String status;
 
 }

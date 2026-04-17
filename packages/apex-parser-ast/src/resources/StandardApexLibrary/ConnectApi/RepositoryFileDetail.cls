@@ -1,9 +1,6 @@
-global class RepositoryFileDetail {
-	global RepositoryFileDetail() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A detailed description of a repository file.
+ */
+global class RepositoryFileDetail extends ConnectApi.AbstractRepositoryFile {
 
 }

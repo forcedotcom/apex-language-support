@@ -1,9 +1,11 @@
+/**
+ * Promotions for a cart item.
+ */
 global class CartItemPromotionCollectionInputRepresentation {
-	global List<ConnectApi.CartItemPromotionInputRepresentation> items;
-	global CartItemPromotionCollectionInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of cart items to get the associated promotions.
+   */
+  global List < ConnectApi.CartItemPromotionInputRepresentation > items;
 
 }

@@ -1,11 +1,21 @@
+/**
+ * Create or update the members of a direct message.
+ */
 global class DirectMessageCapabilityInput {
-	global List<String> membersToAdd;
-	global List<String> membersToRemove;
-	global String subject;
-	global DirectMessageCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of user IDs for members to include in the direct message.
+   */
+  global List < String > membersToAdd;
+
+  /**
+   * List of user IDs for members to remove from the direct message.
+   */
+  global List < String > membersToRemove;
+
+  /**
+   * Subject of the direct message.
+   */
+  global String subject;
 
 }

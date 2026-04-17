@@ -1,10 +1,11 @@
+/**
+ * Result of setting the visibility for cart messages.
+ */
 global class CartMessagesVisibilityResult {
-	global Boolean visibility;
-	global CartMessagesVisibilityResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether cart messages are set to visible ( true ) or not ( false ).
+   */
+  global Boolean visibility;
 
 }

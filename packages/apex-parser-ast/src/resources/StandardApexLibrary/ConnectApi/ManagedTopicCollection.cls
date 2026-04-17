@@ -1,12 +1,21 @@
+/**
+ * A collection of managed topics.
+ */
 global class ManagedTopicCollection {
-	global String currentPageUrl;
-	global List<ConnectApi.ManagedTopic> managedTopics;
-	global String nextPageUrl;
-	global ManagedTopicCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * List of managed topics.
+   */
+  global List < ConnectApi.ManagedTopic > managedTopics;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
 
 }

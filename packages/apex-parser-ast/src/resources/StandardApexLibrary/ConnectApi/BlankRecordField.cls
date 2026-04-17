@@ -1,9 +1,6 @@
-global class BlankRecordField {
-	global BlankRecordField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Record field displayed as a place holder in a grid of fields.
+ */
+global class BlankRecordField extends ConnectApi.AbstractRecordField {
 
 }

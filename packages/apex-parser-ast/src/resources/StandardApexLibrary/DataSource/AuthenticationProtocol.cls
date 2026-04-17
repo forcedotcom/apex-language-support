@@ -1,6 +1,8 @@
+/**
+ * Determines what type of credentials are used to authenticate to the external system.
+ */
 global enum AuthenticationProtocol {
-CERTIFICATE,
-NONE,
-OAUTH,
-PASSWORD
+  NONE,
+  OAUTH,
+  PASSWORD
 }

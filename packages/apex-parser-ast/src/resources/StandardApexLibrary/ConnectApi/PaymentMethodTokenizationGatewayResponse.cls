@@ -1,10 +1,11 @@
-global class PaymentMethodTokenizationGatewayResponse {
-	global String gatewayToken;
-	global PaymentMethodTokenizationGatewayResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Payment method tokenization gateway response representation.
+ */
+global class PaymentMethodTokenizationGatewayResponse extends ConnectApi.AbstractGatewayResponse {
+
+  /**
+   * The payment method token sent from the gateway.
+   */
+  global String gatewayToken;
 
 }

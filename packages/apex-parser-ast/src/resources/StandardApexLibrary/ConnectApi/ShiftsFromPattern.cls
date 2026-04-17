@@ -1,13 +1,26 @@
+/**
+ * Shifts created from a pattern.
+ */
 global class ShiftsFromPattern {
-	global Integer count;
-	global ConnectApi.ShiftsFromPatternError error;
-	global Boolean isSuccess;
-	global List<String> recordIds;
-	global ShiftsFromPattern() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Total count of created shifts.
+   */
+  global Integer count;
+
+  /**
+   * Error details for shifts from a pattern.
+   */
+  global ConnectApi.ShiftsFromPatternError error;
+
+  /**
+   * Indicates if the request is successful ( true ) or not ( false ).
+   */
+  global Boolean isSuccess;
+
+  /**
+   * Collection of created shift IDs.
+   */
+  global List < String > recordIds;
 
 }

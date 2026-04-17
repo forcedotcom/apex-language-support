@@ -1,15 +1,36 @@
-global class QuestionAndAnswersCapability {
-	global ConnectApi.Comment bestAnswer;
-	global ConnectApi.UserSummary bestAnswerSelectedBy;
-	global Boolean canCurrentUserSelectOrRemoveBestAnswer;
-	global ConnectApi.CandidateAnswersStatus candidateAnswers;
-	global ConnectApi.Reference escalatedCase;
-	global String questionTitle;
-	global QuestionAndAnswersCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it has a question and comments on the feed element are answers to the question.
+ */
+global class QuestionAndAnswersCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Comment selected as the best answer for the question.
+   */
+  global ConnectApi.Comment bestAnswer;
+
+  /**
+   * User who selected the best answer for the question.
+   */
+  global ConnectApi.UserSummary bestAnswerSelectedBy;
+
+  /**
+   * Indicates whether the context user can select or remove a best answer ( true ) or not ( false ).
+   */
+  global Boolean canCurrentUserSelectOrRemoveBestAnswer;
+
+  /**
+   * Status of candidate answers for the question.
+   */
+  global ConnectApi.CandidateAnswersStatus candidateAnswers;
+
+  /**
+   * If a question post is escalated, this is the case to which it was escalated.
+   */
+  global ConnectApi.Reference escalatedCase;
+
+  /**
+   * Title for the question.
+   */
+  global String questionTitle;
 
 }

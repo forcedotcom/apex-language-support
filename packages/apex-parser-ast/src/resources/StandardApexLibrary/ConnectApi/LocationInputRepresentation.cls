@@ -1,11 +1,21 @@
+/**
+ * Inventory location data used to calculate shipping distance.
+ */
 global class LocationInputRepresentation {
-	global String countryCode;
-	global String locationIdentifier;
-	global String postalCode;
-	global LocationInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The country code of the location.
+   */
+  global String countryCode;
+
+  /**
+   * The identifier of the location.
+   */
+  global String locationIdentifier;
+
+  /**
+   * The postal code of the location.
+   */
+  global String postalCode;
 
 }

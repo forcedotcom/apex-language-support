@@ -1,15 +1,31 @@
+/**
+ * Order item summary.
+ */
 global class OrderItemSummary {
-	global ConnectApi.OrderItemSummaryAdjustmentAggregates adjustmentAggregates;
-	global String currencyIsoCode;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String orderItemSummaryId;
-	global String orderSummaryId;
-	global ConnectApi.OrderItemSummaryProduct product;
-	global OrderItemSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Adjustment aggregates associated with an order item summary.
+   */
+  global ConnectApi.OrderItemSummaryAdjustmentAggregates adjustmentAggregates;
+
+  /**
+   * Map of fields from order item summary and other related objects that were queried.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * ID of the order item summary.
+   */
+  global String orderItemSummaryId;
+
+  /**
+   * ID of the order summary.
+   */
+  global String orderSummaryId;
+
+  /**
+   * Associated product item information.
+   */
+  global ConnectApi.OrderItemSummaryProduct product;
 
 }

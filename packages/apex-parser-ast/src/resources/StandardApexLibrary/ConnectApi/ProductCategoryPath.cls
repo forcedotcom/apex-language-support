@@ -1,10 +1,11 @@
+/**
+ * List of product categories in a path.
+ */
 global class ProductCategoryPath {
-	global List<ConnectApi.ProductCategoryData> path;
-	global ProductCategoryPath() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of product categories in a path.
+   */
+  global List < ConnectApi.ProductCategoryData > path;
 
 }

@@ -1,10 +1,11 @@
-global class AuthorizationGatewayResponse {
-	global String gatewayAuthorizationCode;
-	global AuthorizationGatewayResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Payment gateway authorization response representation.
+ */
+global class AuthorizationGatewayResponse extends ConnectApi.AbstractGatewayResponse {
+
+  /**
+   * Gateway authorization code.
+   */
+  global String gatewayAuthorizationCode;
 
 }

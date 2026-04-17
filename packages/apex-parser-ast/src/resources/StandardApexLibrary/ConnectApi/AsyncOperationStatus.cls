@@ -1,5 +1,5 @@
 global enum AsyncOperationStatus {
-COMPLETED,
-ERRORED,
-PROCESSING
+  Completed,
+  Errored,
+  Processing
 }

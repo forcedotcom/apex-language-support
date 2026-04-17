@@ -1,9 +1,11 @@
+/**
+ * A set of inventory locations that together can fulfill an order.
+ */
 global class TargetLocationInputRepresentation {
-	global List<ConnectApi.LocationInputRepresentation> locations;
-	global TargetLocationInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of locations with information about their country and postal codes.
+   */
+  global List < ConnectApi.LocationInputRepresentation > locations;
 
 }

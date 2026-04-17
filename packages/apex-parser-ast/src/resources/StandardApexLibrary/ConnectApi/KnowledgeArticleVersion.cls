@@ -1,16 +1,41 @@
+/**
+ * A knowledge article version.
+ */
 global class KnowledgeArticleVersion {
-	global String articleType;
-	global String id;
-	global String knowledgeArticleId;
-	global Datetime lastPublishedDate;
-	global String summary;
-	global String title;
-	global String urlName;
-	global KnowledgeArticleVersion() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of the knowledge article.
+   */
+  global String articleType;
+
+  /**
+   * ID of the knowledge article version.
+   */
+  global String id;
+
+  /**
+   * ID of the corresponding knowledge article.
+   */
+  global String knowledgeArticleId;
+
+  /**
+   * Last published date of the knowledge article.
+   */
+  global Datetime lastPublishedDate;
+
+  /**
+   * Summary of the knowledge article contents.
+   */
+  global String summary;
+
+  /**
+   * Title of the knowledge article.
+   */
+  global String title;
+
+  /**
+   * URL name of the knowledge article.
+   */
+  global String urlName;
 
 }

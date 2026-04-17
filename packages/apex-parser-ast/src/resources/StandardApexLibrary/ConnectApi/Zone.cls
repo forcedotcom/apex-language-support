@@ -1,17 +1,46 @@
+/**
+ * Information about a Chatter Answers zone.
+ */
 global class Zone {
-	global String description;
-	global String id;
-	global Boolean isActive;
-	global Boolean isChatterAnswers;
-	global String name;
-	global String url;
-	global ConnectApi.ZoneShowIn visibility;
-	global String visibilityId;
-	global Zone() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The description of the zone.
+   */
+  global String description;
+
+  /**
+   * The zone ID.
+   */
+  global String id;
+
+  /**
+   * Indicates whether or not the zone is active.
+   */
+  global Boolean isActive;
+
+  /**
+   * Indicates whether or not the zone is available for Chatter Answers.
+   */
+  global Boolean isChatterAnswers;
+
+  /**
+   * Name of the zone.
+   */
+  global String name;
+
+  /**
+   * The URL of the zone.
+   */
+  global String url;
+
+  /**
+   * Zone visibility type. Community —Available in an Experience Cloud site. Internal —Available internally only. Portal —Available in a portal.
+   */
+  global ConnectApi.ZoneShowIn visibility;
+
+  /**
+   * If the zone is available in a site, this property contains the ID of the site. If the zone is available to all sites, this property contains the value All .
+   */
+  global String visibilityId;
 
 }

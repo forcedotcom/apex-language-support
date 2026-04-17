@@ -275,8 +275,6 @@
     "lint": {
       "command": "prettier --check \"packages/**/*.ts\"",
       "dependencies": [
-        "compile",
-        "typecheck",
         "./packages/apex-ls:lint",
         "./packages/apex-lsp-shared:lint",
         "./packages/apex-parser-ast:lint",

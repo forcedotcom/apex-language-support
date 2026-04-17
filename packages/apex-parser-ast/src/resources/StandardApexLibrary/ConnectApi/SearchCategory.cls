@@ -1,12 +1,21 @@
+/**
+ * Search category.
+ */
 global class SearchCategory {
-	global ConnectApi.ProductCategoryData category;
-	global List<ConnectApi.SearchCategory> children;
-	global Long productCount;
-	global SearchCategory() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Information about the category.
+   */
+  global ConnectApi.ProductCategoryData category;
+
+  /**
+   * First-level child categories of the category searched with non-empty search results.
+   */
+  global List < ConnectApi.SearchCategory > children;
+
+  /**
+   * Number of products in the search results that belong to the category.
+   */
+  global Long productCount;
 
 }

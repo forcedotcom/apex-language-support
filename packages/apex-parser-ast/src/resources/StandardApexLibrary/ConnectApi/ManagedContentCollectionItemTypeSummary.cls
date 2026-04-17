@@ -1,11 +1,16 @@
+/**
+ * Summary of a collection item type.
+ */
 global class ManagedContentCollectionItemTypeSummary {
-	global String fullyQualifiedName;
-	global String name;
-	global ManagedContentCollectionItemTypeSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Fully qualified name of the collection item type.
+   */
+  global String fullyQualifiedName;
+
+  /**
+   * Name of the collection item type.
+   */
+  global String name;
 
 }

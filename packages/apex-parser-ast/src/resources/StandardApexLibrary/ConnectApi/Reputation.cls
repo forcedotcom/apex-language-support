@@ -1,12 +1,21 @@
+/**
+ * Reputation for a user.
+ */
 global class Reputation {
-	global ConnectApi.ReputationLevel reputationLevel;
-	global Double reputationPoints;
-	global String url;
-	global Reputation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * User’s reputation level.
+   */
+  global ConnectApi.ReputationLevel reputationLevel;
+
+  /**
+   * User's reputation points, which can be earned by performing different activities.
+   */
+  global Double reputationPoints;
+
+  /**
+   * Connect REST API URL to the reputation.
+   */
+  global String url;
 
 }

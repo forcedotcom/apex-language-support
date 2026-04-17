@@ -1,14 +1,31 @@
+/**
+ * Externally managed account.
+ */
 global class ExternalManagedAccountOutput {
-	global String accountId;
-	global String accountName;
-	global ConnectApi.ExternalManagedAccountAddressOutput address;
-	global String externalManagedAccountId;
-	global Boolean isMyAccount;
-	global ExternalManagedAccountOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the account managed by another account.
+   */
+  global String accountId;
+
+  /**
+   * Name of the external managed account record.
+   */
+  global String accountName;
+
+  /**
+   * Default shipping address of the external managed account.
+   */
+  global ConnectApi.ExternalManagedAccountAddressOutput address;
+
+  /**
+   * ID of the external managed account record.
+   */
+  global String externalManagedAccountId;
+
+  /**
+   * Specifies whether the account is the context user’s account ( true ) or not ( false ).
+   */
+  global Boolean isMyAccount;
 
 }

@@ -1,10 +1,11 @@
-global class LikeSummary {
-	global String likeId;
-	global LikeSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Summary of a like.
+ */
+global class LikeSummary extends ConnectApi.UserFeedEntityActivitySummary {
+
+  /**
+   * ID of the like.
+   */
+  global String likeId;
 
 }

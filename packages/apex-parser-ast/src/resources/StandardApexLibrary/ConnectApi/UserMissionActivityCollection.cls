@@ -1,13 +1,26 @@
+/**
+ * List of mission activities for a user.
+ */
 global class UserMissionActivityCollection {
-	global ConnectApi.CommunitySummary community;
-	global String userId;
-	global List<ConnectApi.AbstractUserMissionActivity> userMissionActivities;
-	global String userName;
-	global UserMissionActivityCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Experience Cloud site in which the user performed activities.
+   */
+  global ConnectApi.CommunitySummary community;
+
+  /**
+   * ID of the user.
+   */
+  global String userId;
+
+  /**
+   * List of mission activities performed by the user.
+   */
+  global List < ConnectApi.AbstractUserMissionActivity > userMissionActivities;
+
+  /**
+   * Name of the user.
+   */
+  global String userName;
 
 }

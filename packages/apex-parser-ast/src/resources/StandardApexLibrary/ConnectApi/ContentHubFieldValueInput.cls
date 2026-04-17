@@ -1,10 +1,16 @@
+/**
+ * Fields of the item type.
+ */
 global class ContentHubFieldValueInput {
-	global String name;
-	global String value;
-	global ContentHubFieldValueInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the item field. When updating the metadata of a repository file, only the name field can be updated.
+   */
+  global String name;
+
+  /**
+   * Value of the item field.
+   */
+  global String value;
 
 }

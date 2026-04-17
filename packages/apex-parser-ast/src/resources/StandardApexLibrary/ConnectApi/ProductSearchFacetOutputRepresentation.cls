@@ -1,16 +1,41 @@
+/**
+ * Product search facet value.
+ */
 global class ProductSearchFacetOutputRepresentation {
-	global String attributeType;
-	global String displayName;
-	global Integer displayRank;
-	global String displayType;
-	global String facetType;
-	global String nameOrId;
-	global List<ConnectApi.ProductSearchFacetValueOutputRepresentation> values;
-	global ProductSearchFacetOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Attribute type of the facet value.
+   */
+  global String attributeType;
+
+  /**
+   * Display name of the facet value.
+   */
+  global String displayName;
+
+  /**
+   * Display rank of the facet value.
+   */
+  global Integer displayRank;
+
+  /**
+   * Display type of the facet value.
+   */
+  global String displayType;
+
+  /**
+   * Type of the facet.
+   */
+  global String facetType;
+
+  /**
+   * Name or ID of the facet.
+   */
+  global String nameOrId;
+
+  /**
+   * A list of facet values for the search.
+   */
+  global List < ConnectApi.ProductSearchFacetValueOutputRepresentation > values;
 
 }

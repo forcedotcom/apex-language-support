@@ -1,11 +1,16 @@
+/**
+ * Instructions showing the sequence in which credits and refunds were issued to the customer.
+ */
 global class RefundInstructionsHintOutputRepresentation {
-	global List<ConnectApi.PaymentCreditSequenceItemOutputRepresentation> paymentCreditSequence;
-	global List<ConnectApi.RefundSequenceItemOutputRepresentation> refundSequence;
-	global RefundInstructionsHintOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The representation of individual payment credit items. Each item represents a specific payment method and the amount of credit to be applied to it.
+   */
+  global List < ConnectApi.PaymentCreditSequenceItemOutputRepresentation > paymentCreditSequence;
+
+  /**
+   * The order payment summary ID and value of the processed refund items.
+   */
+  global List < ConnectApi.RefundSequenceItemOutputRepresentation > refundSequence;
 
 }

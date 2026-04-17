@@ -1,12 +1,21 @@
+/**
+ * Represents the fields of the Data Model Object (DMO) that contains the ID table for the data graph.
+ */
 global class DataGraphIdsDmoField {
-	global List<Integer> capabilities;
-	global String dataType;
-	global String developerName;
-	global DataGraphIdsDmoField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of capabilities for the DMO field.
+   */
+  global List < Integer > capabilities;
+
+  /**
+   * Data type of the DMO field.
+   */
+  global String dataType;
+
+  /**
+   * Developer name of the DMO field.
+   */
+  global String developerName;
 
 }

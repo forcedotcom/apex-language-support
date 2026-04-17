@@ -1,13 +1,31 @@
+/**
+ * Create a managed content space.
+ */
 global class ManagedContentSpaceInput {
-	global String apiName;
-	global String defaultLanguage;
-	global String description;
-	global String name;
-	global ConnectApi.ConnectManagedContentSpaceType spaceType;
-	global ManagedContentSpaceInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API name of the managed content space.
+   */
+  global String apiName;
+
+  /**
+   * Default language of the managed content space.
+   */
+  global String defaultLanguage;
+
+  /**
+   * Description of the managed content space.
+   */
+  global String description;
+
+  /**
+   * Name of the managed content space.
+   */
+  global String name;
+
+  /**
+   * Type of managed content space. Values are: Content Marketing
+   */
+  global ConnectApi.ManagedContentSpaceType spaceType;
 
 }

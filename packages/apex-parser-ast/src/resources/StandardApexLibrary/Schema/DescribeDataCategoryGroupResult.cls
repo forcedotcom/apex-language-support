@@ -1,16 +1,36 @@
+/**
+ * Contains the list of the category groups associated with KnowledgeArticleVersion and Question.
+ */
 global class DescribeDataCategoryGroupResult {
-	global Integer categorycount;
-	global String description;
-	global String label;
-	global String name;
-	global String sobject;
-	global Boolean equals(Object obj) { }
-	global Integer getCategoryCount() { }
-	global String getDescription() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String getSobject() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Returns the number of visible data categories in the data category group.
+   * @return Integer
+   */
+  public Integer getCategoryCount() {}
+
+  /**
+   * Returns the description of the data category group.
+   * @return String
+   */
+  public String getDescription() {}
+
+  /**
+   * Returns the label for the data category group used in the Salesforce user interface.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * Returns the unique name used by the API to access to the data category group.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * Returns the object name associated with the data category group.
+   * @return String
+   */
+  public String getSobject() {}
 
 }

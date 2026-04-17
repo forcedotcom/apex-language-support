@@ -1,13 +1,26 @@
+/**
+ * A collection of repositories.
+ */
 global class ContentHubRepositoryCollection {
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global List<ConnectApi.ContentHubRepository> repositories;
-	global ContentHubRepositoryCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the current page of repositories.
+   */
+  global String currentPageUrl;
+
+  /**
+   * URL to the next page of repositories, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page of repositories, or null if there isn’t a previous page.
+   */
+  global String previousPageUrl;
+
+  /**
+   * Collection of repositories.
+   */
+  global List < ConnectApi.ContentHubRepository > repositories;
 
 }

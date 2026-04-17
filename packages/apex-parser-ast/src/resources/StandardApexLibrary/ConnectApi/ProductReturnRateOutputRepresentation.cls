@@ -1,11 +1,16 @@
+/**
+ * Return rate of a product (units returned divided by units sold).
+ */
 global class ProductReturnRateOutputRepresentation {
-	global String productId;
-	global Double returnRate;
-	global ProductReturnRateOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the product.
+   */
+  global String productId;
+
+  /**
+   * Return rate of specified product. Values range from 0 to 1.
+   */
+  global Double returnRate;
 
 }

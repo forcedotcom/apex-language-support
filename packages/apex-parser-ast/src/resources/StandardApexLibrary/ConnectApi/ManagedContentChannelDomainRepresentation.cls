@@ -1,12 +1,21 @@
+/**
+ * Domain associated with a managed content channel.
+ */
 global class ManagedContentChannelDomainRepresentation {
-	global Boolean isLocked;
-	global String name;
-	global String value;
-	global ManagedContentChannelDomainRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the domain is locked and can’t be changed ( true ) or not ( false ).
+   */
+  global Boolean isLocked;
+
+  /**
+   * Name of the domain assigned to the channel.
+   */
+  global String name;
+
+  /**
+   * Value of the domain (name or ID) associated with the channel.
+   */
+  global String value;
 
 }

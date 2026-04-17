@@ -1,15 +1,36 @@
+/**
+ * Payment sale response.
+ */
 global class SaleResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.SaleGatewayResponse gatewayResponse;
-	global ConnectApi.PaymentResponse payment;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global ConnectApi.PaymentGroupResponse paymentGroup;
-	global ConnectApi.PaymentMethodResponse paymentMethod;
-	global SaleResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error representation for the payment sale.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Information from the payment gateway following the sale request.
+   */
+  global ConnectApi.SaleGatewayResponse gatewayResponse;
+
+  /**
+   * Information about the payment used in the sale request.
+   */
+  global ConnectApi.PaymentResponse payment;
+
+  /**
+   * Collection of responses from the gateway following the sale request.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  /**
+   * Payment group used in the sale request.
+   */
+  global ConnectApi.PaymentGroupResponse paymentGroup;
+
+  /**
+   * Payment method used in the sale request.
+   */
+  global ConnectApi.PaymentMethodResponse paymentMethod;
 
 }

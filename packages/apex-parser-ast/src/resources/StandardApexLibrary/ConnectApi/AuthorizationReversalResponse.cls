@@ -1,13 +1,26 @@
+/**
+ * Authorization Reversal output representation.
+ */
 global class AuthorizationReversalResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.AuthReversalGatewayResponse gatewayResponse;
-	global ConnectApi.PaymentAuthAdjustmentResponse paymentAuthAdjustment;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global AuthorizationReversalResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error response representation for the authorization reversal.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Gateway response representation for authorization reversal.
+   */
+  global ConnectApi.AuthReversalGatewayResponse gatewayResponse;
+
+  /**
+   * Payment authorization adjustment response representation for the authorization reversal.
+   */
+  global ConnectApi.PaymentAuthAdjustmentResponse paymentAuthAdjustment;
+
+  /**
+   * Gateway log collection representation for the authorization reversal.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
 
 }

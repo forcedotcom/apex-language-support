@@ -1,19 +1,41 @@
+/**
+ * A cart, its items, and its adjustment groups.
+ */
 global class PromotionCart {
-	global List<ConnectApi.PromotionApproachingDiscount> approachingDiscounts;
-	global List<ConnectApi.PromotionBonusProduct> bonusProducts;
-	global List<ConnectApi.PromotionCartAdjustmentGroup> cartAdjustmentGroups;
-	global List<ConnectApi.PromotionCartDeliveryGroup> cartDeliveryGroups;
-	global List<ConnectApi.PromotionCartItem> cartItems;
-	global String currencyIsoCode;
-	global String id;
-	global String totalAdjustmentBaseAmount;
-	global String totalNetAmount;
-	global String totalProductBaseAmount;
-	global PromotionCart() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Cart adjustment groups belonging to the cart.
+   */
+  global List < ConnectApi.PromotionCartAdjustmentGroup > cartAdjustmentGroups;
+
+  /**
+   * Cart items belonging to the cart.
+   */
+  global List < ConnectApi.PromotionCartItem > cartItems;
+
+  /**
+   * Currency code of the cart.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * ID of the cart.
+   */
+  global String id;
+
+  /**
+   * Total adjustment base amount for the cart.
+   */
+  global String totalAdjustmentBaseAmount;
+
+  /**
+   * Total price of the cart, including adjustments.
+   */
+  global String totalNetAmount;
+
+  /**
+   * Total price of all cart items in the cart.
+   */
+  global String totalProductBaseAmount;
 
 }

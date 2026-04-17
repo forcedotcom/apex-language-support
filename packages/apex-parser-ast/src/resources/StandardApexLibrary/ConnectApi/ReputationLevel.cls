@@ -1,12 +1,21 @@
+/**
+ * Reputation level for a user.
+ */
 global class ReputationLevel {
-	global String levelImageUrl;
-	global String levelName;
-	global Integer levelNumber;
-	global ReputationLevel() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the reputation level image.
+   */
+  global String levelImageUrl;
+
+  /**
+   * Name of the reputation level.
+   */
+  global String levelName;
+
+  /**
+   * Reputation level number, which is the numerical rank of the level, with the lowest level at 1. Administrators define the reputation level point ranges.
+   */
+  global Integer levelNumber;
 
 }

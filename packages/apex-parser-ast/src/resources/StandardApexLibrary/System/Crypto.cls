@@ -1,23 +1,40 @@
+/**
+ * Provides methods for creating digests, message authentication codes, and signatures, as well as encrypting and decrypting information.
+ */
 global class Crypto {
-	global Crypto() { }
-	global Object clone() { }
-	global static Blob decrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob encryptedData) { }
-	global static Blob decryptWithManagedIV(String algorithmName, Blob secretKey, Blob encryptedData, Blob aaData) { }
-	global static Blob decryptWithManagedIV(String algorithmName, Blob secretKey, Blob encryptedData) { }
-	global static Blob encrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob clearData) { }
-	global static Blob encryptWithManagedIV(String algorithmName, Blob secretKey, Blob clearData, Blob aaData) { }
-	global static Blob encryptWithManagedIV(String algorithmName, Blob secretKey, Blob clearData) { }
-	global static Blob generateAesKey(Integer size) { }
-	global static Blob generateDigest(String algorithmName, Blob input) { }
-	global static Blob generateMac(String algorithmName, Blob input, Blob privateKey) { }
-	global static Integer getRandomInteger() { }
-	global static Long getRandomLong() { }
-	global static Blob sign(String algorithmName, Blob input, Blob privateKey) { }
-	global static Blob signWithCertificate(String algorithmName, Blob input, String certDevName) { }
-	global static void signXml(String algorithmName, dom.XmlNode node, String idAttributeName, String certDevName, dom.XmlNode refChild) { }
-	global static void signXml(String algorithmName, dom.XmlNode node, String idAttributeName, String certDevName) { }
-	global static Boolean verify(String algorithmName, Blob data, Blob signature, Blob publicKey) { }
-	global static Boolean verify(String algorithmName, Blob data, Blob signature, String certDevName) { }
-	global static Boolean verifyHmac(String algorithmName, Blob data, Blob privateKey, Blob hmacToVerify) { }
+
+  public static Blob decrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob cipherText) {}
+
+  public static Blob decryptWithManagedIV(String algorithmName, Blob secretKey, Blob IVAndCipherText) {}
+
+  public static Blob decryptWithManagedIV(String algorithmName, Blob secretKey, Blob IVAndCipherText, Blob aaData) {}
+
+  public static Blob encrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob clearText) {}
+
+  public static Blob encryptWithManagedIV(String algorithmName, Blob secretKey, Blob clearText) {}
+
+  public static Blob encryptWithManagedIV(String algorithmName, Blob secretKey, Blob clearText, Blob aaData) {}
+
+  public static Blob generateDigest(String algorithmName, Blob input) {}
+
+  public static Blob generateMac(String algorithmName, Blob input, Blob privateKey) {}
+
+  public static Integer getRandomInteger() {}
+
+  public static Long getRandomLong() {}
+
+  public static Blob sign(String algorithmName, Blob input, Blob privateKey) {}
+
+  public static Blob signWithCertificate(String algorithmName, Blob input, String certDevName) {}
+
+  public void signXML(String algorithmName, Dom.XmlNode node, String idAttributeName, String certDevName) {}
+
+  public static void signXml(String algorithmName, Dom.XmlNode node, String idAttributeName, String certDevName, Dom.XmlNode refChild) {}
+
+  public static Boolean verify(String algorithmName, Blob data, Blob signature, Blob publicKey) {}
+
+  public static Boolean verify(String algorithmName, Blob data, Blob signature, String certDevName) {}
+
+  public static Boolean verifyHMac(String algorithmName, Blob data, Blob privateKey, Blob macToVerify) {}
 
 }

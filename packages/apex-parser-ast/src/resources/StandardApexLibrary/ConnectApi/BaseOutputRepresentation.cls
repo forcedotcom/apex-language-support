@@ -1,10 +1,16 @@
+/**
+ * Base Order Management output class.
+ */
 global class BaseOutputRepresentation {
-	global List<ConnectApi.ErrorResponse> errors;
-	global Boolean success;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Any errors that were returned.
+   */
+  global List < ConnectApi.ErrorResponse > errors;
+
+  /**
+   * Indicates whether the transaction was successful.
+   */
+  global Boolean success;
 
 }

@@ -1158,7 +1158,6 @@ The following 15 classes are **essential build inputs** stored in `src/resources
 - These classes provide the foundation for type resolution in the Apex language server
 - They enable proper symbol resolution for primitive types and collections
 - Removing them will break type checking, code completion, and symbol resolution
-- The `Date.cls` and `Time.cls` files contain important instance methods that differ from the static-only versions
 
 **Maintenance Guidelines:**
 
@@ -1175,26 +1174,27 @@ The following 15 classes are **essential build inputs** stored in `src/resources
 ```
 src/resources/
 ├── builtins/
-│   ├── Blob.cls
-│   ├── Boolean.cls
-│   ├── Date.cls
-│   ├── DateTime.cls
-│   ├── Decimal.cls
-│   ├── Double.cls
-│   ├── Id.cls
-│   ├── Integer.cls
-│   ├── List.cls
-│   ├── Long.cls
-│   ├── Map.cls
-│   ├── Object.cls
-│   ├── Set.cls
-│   ├── String.cls
-│   └── Time.cls
+│   ├── Blob.cls          (hand-crafted)
+│   ├── DateTime.cls      (temporary, until added to StandardApexLibrary)
+│   ├── Integer.cls       (hand-crafted)
+│   ├── Long.cls          (hand-crafted)
+│   └── Object.cls        (hand-crafted)
 └── StandardApexLibrary/
     ├── System/
+    │   ├── Boolean.cls   (from public docs)
+    │   ├── Date.cls      (from public docs)
+    │   ├── Decimal.cls    (from public docs)
+    │   ├── Double.cls    (from public docs)
+    │   ├── Id.cls         (from public docs)
+    │   ├── Integer.cls    (filtered out - uses builtins version)
+    │   ├── List.cls      (from public docs)
+    │   ├── Map.cls       (from public docs)
+    │   ├── Set.cls       (from public docs)
+    │   ├── String.cls    (from public docs)
+    │   ├── Time.cls      (from public docs)
     │   ├── Assert.cls
     │   ├── Database.cls
-    │   └── [other System namespace classes, NO builtin classes]
+    │   └── [other System namespace classes]
     ├── Database/
     │   └── [Database namespace classes]
     ├── Schema/

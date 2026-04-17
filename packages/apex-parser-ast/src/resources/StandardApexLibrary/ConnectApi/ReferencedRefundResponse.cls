@@ -1,14 +1,31 @@
+/**
+ * Refund comprehensive output.
+ */
 global class ReferencedRefundResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.RefundGatewayResponse gatewayResponse;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global ConnectApi.PaymentGroupResponse paymentGroup;
-	global ConnectApi.RefundResponse refund;
-	global ReferencedRefundResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error response representation for the refund.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Gateway response received for the processed refund request.
+   */
+  global ConnectApi.RefundGatewayResponse gatewayResponse;
+
+  /**
+   * Gateway log collection representation for the refund.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  /**
+   * Payment group associated with the refund.
+   */
+  global ConnectApi.PaymentGroupResponse paymentGroup;
+
+  /**
+   * Refund response representation.
+   */
+  global ConnectApi.RefundResponse refund;
 
 }

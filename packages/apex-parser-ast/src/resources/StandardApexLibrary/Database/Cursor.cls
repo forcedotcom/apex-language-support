@@ -1,12 +1,10 @@
+/**
+ * Contains methods to fetch records and to get the number of cursor rows returned from a SOQL query.
+ */
 global class Cursor {
-	global Object clone() { }
-	global List<SObject> fetch(Integer start, Integer advanceBy) { }
-	global Integer getNumRecords() { }
-global enum DeleteFilter {
-DELETED_ROWS_ONLY,
-NO_DELETED_ROWS,
-NO_DELETED_SHARING_ROWS,
-NO_FILTER
-}
+
+  public static List<SObject> fetch(Integer position, Integer count) {}
+
+  public static Integer getNumRecords() {}
 
 }

@@ -1,13 +1,26 @@
+/**
+ * Delivery estimation information for products.
+ */
 global class DeliveryEstimateOutputRepresentation {
-	global ConnectApi.DeliveryEstimationErrorOutputRepresentation error;
-	global String location;
-	global List<ConnectApi.ProductDeliverEstimationOutputRepresentation> productDeliverEstimations;
-	global String shippingCarrierMethodExternalReference;
-	global DeliveryEstimateOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Any error that was returned, including the error code and error message.
+   */
+  global ConnectApi.DeliveryEstimationErrorOutputRepresentation error;
+
+  /**
+   * Location external reference.
+   */
+  global String location;
+
+  /**
+   * List of product delivery estimations.
+   */
+  global List ConnectApi.ProductDeliverEstimationOutputRepresentation productDeliverEstimations;
+
+  /**
+   * Shipping carrier method external reference.
+   */
+  global String shippingCarrierMethodExternalReference;
 
 }

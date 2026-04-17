@@ -1,10 +1,16 @@
+/**
+ * Assign topics to a feed element.
+ */
 global class TopicsCapabilityInput {
-	global String contextTopicName;
-	global List<String> topics;
-	global TopicsCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the parent topic in the site to which the feed element belongs.
+   */
+  global String contextTopicName;
+
+  /**
+   * List of topics to assign to the feed element.
+   */
+  global List < String > topics;
 
 }

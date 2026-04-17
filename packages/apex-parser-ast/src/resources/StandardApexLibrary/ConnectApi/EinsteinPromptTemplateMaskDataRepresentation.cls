@@ -1,12 +1,21 @@
+/**
+ * Information about masked data for a prompt template.
+ */
 global class EinsteinPromptTemplateMaskDataRepresentation {
-	global String originalValue;
-	global String placeHolder;
-	global List<String> recognizers;
-	global EinsteinPromptTemplateMaskDataRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Original value of the masked data.
+   */
+  global String originalValue;
+
+  /**
+   * Placeholder value of the masked data.
+   */
+  global String placeHolder;
+
+  /**
+   * Reserved for internal use.
+   */
+  global List < String > recognizers;
 
 }

@@ -1,38 +1,56 @@
+/**
+ * Product search.
+ */
 global class ProductSearchInput {
-	global String categoryId;
-	global List<String> fields;
-	global ConnectApi.ProductSearchGroupingInput grouping;
-	global Boolean includePrices;
-	global Boolean includeQuantityRule;
-	global Integer page;
-	global Integer pageSize;
-	global List<ConnectApi.RefinementInput> refinements;
-	global String searchTerm;
-	global String sortRuleId;
-	global ProductSearchInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global String getCategoryId() { }
-	global List<String> getFields() { }
-	global ConnectApi.ProductSearchGroupingInput getGrouping() { }
-	global Boolean getIncludePrices() { }
-	global Boolean getIncludeQuantityRule() { }
-	global Integer getPage() { }
-	global Integer getPageSize() { }
-	global List<ConnectApi.RefinementInput> getRefinements() { }
-	global String getSearchTerm() { }
-	global String getSortRuleId() { }
-	global Integer hashCode() { }
-	global void setCategoryId(String value) { }
-	global void setFields(List<String> value) { }
-	global void setGrouping(ConnectApi.ProductSearchGroupingInput value) { }
-	global void setIncludePrices(Boolean value) { }
-	global void setIncludeQuantityRule(Boolean value) { }
-	global void setPage(Integer value) { }
-	global void setPageSize(Integer value) { }
-	global void setRefinements(List<ConnectApi.RefinementInput> value) { }
-	global void setSearchTerm(String value) { }
-	global void setSortRuleId(String value) { }
-	global String toString() { }
+
+  /**
+   * Category ID returns results for products in this category or its subcategories. If you omit categoryId from the request, all categories are searched. If you specify categoryId and searchTerm , only products in the specified category are searched.
+   */
+  global String categoryId;
+
+  /**
+   * Product fields to return in search results. Search results include fields you have access to. If unspecified, returns the Name , Description , StockKeepingUnit , ProductCode , and Family fields.
+   */
+  global List < String > fields;
+
+  /**
+   * Specifies whether to group products in search results and how to group them. If unspecified, the default is the value specified in Search | Results Display Settings | Results Grouping .
+   */
+  global ConnectApi.ProductSearchGroupingInput grouping;
+
+  /**
+   * Specifies whether to include prices for products in search results ( true ) or not ( false ). If unspecified, defaults to false .
+   */
+  global Boolean includePrices;
+
+  /**
+   * Specifies whether to include purchase quantity rule information for products in search results ( true ) or not ( false ). If unspecified, defaults to false .
+   */
+  global Boolean includeQuantityRule;
+
+  /**
+   * Number of the page you want returned. Starts at 0. If you pass in null or 0, the first page is returned.
+   */
+  global Integer page;
+
+  /**
+   * Specifies the number of items per page. Valid values are from 1 through 200. If unspecified, the default is the value specified in Results per Page in Search | Results Display Settings .
+   */
+  global Integer pageSize;
+
+  /**
+   * List up to nine refinements (facets) for search results. Buyers or shoppers can select up to 20 values for each refinement.
+   */
+  global List < ConnectApi.RefinementInput > refinements;
+
+  /**
+   * List of up to 32 space-separated search terms.
+   */
+  global String searchTerm;
+
+  /**
+   * ID of the sort rule that specifies the order of products in the search results.
+   */
+  global String sortRuleId;
 
 }

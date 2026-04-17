@@ -1,12 +1,21 @@
+/**
+ * Personalization audience assigned to a target.
+ */
 global class AudienceTarget {
-	global String audienceName;
-	global String id;
-	global String url;
-	global AudienceTarget() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the audience assigned to the target.
+   */
+  global String audienceName;
+
+  /**
+   * ID of the audience assigned to the target.
+   */
+  global String id;
+
+  /**
+   * URL to the audience assigned to the target.
+   */
+  global String url;
 
 }

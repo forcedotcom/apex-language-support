@@ -1,6 +1,12 @@
+/**
+ * Wraps the information related to a gateway notification.
+ */
 global class PaymentGatewayNotificationContext {
-	global PaymentGatewayNotificationContext(commercepayments.PaymentGatewayNotificationRequest request) { }
-	global Object clone() { }
-	global commercepayments.PaymentGatewayNotificationRequest getPaymentGatewayNotificationRequest() { }
+
+  /**
+   * Returns the payment gateway’s notification request.
+   * @return commercepayments.PaymentGatewayNotificationRequest
+   */
+  global commercepayments.PaymentGatewayNotificationRequest getPaymentGatewayNotificationRequest() {}
 
 }

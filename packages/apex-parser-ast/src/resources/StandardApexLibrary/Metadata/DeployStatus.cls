@@ -1,9 +1,14 @@
+/**
+ * The result status of a deployment.
+ */
 global enum DeployStatus {
-CANCELED,
-CANCELING,
-FAILED,
-INPROGRESS,
-PENDING,
-SUCCEEDED,
-SUCCEEDEDPARTIAL
+  Canceled,
+  Canceling,
+  Failed,
+  FinalizingDeploy,
+  FinalizingDeployFailed,
+  InProgress,
+  Pending,
+  Succeeded,
+  SucceededPartial
 }

@@ -41,10 +41,10 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
   };
 
   describe('Dotted Type Name Location Tracking', () => {
-    it('should track precise locations for each part of System.Url', async () => {
+    it('should track precise locations for each part of System.URL', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getUrl() {
+          public System.URL getUrl() {
             return null;
           }
         }
@@ -53,9 +53,9 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the chained type reference for System.Url
+      // Find the chained type reference for System.URL
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -67,9 +67,9 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const urlNode = chainedRef.chainNodes[1];
 
       expect(systemNode.name).toBe('System');
-      expect(urlNode.name).toBe('Url');
+      expect(urlNode.name).toBe('URL');
 
-      // Verify that the locations are different (System and Url should be at different positions)
+      // Verify that the locations are different (System and URL should be at different positions)
       expect(systemNode.location.identifierRange.startColumn).not.toBe(
         urlNode.location.identifierRange.startColumn,
       );
@@ -78,7 +78,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
     it('should track precise locations for parameter types', async () => {
       const testClass = `
         public class TestClass {
-          public void processUrl(System.Url inputUrl) {
+          public void processUrl(System.URL inputUrl) {
             // Method body
           }
         }
@@ -87,9 +87,9 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the chained type reference for System.Url parameter
+      // Find the chained type reference for System.URL parameter
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -101,7 +101,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const urlNode = chainedRef.chainNodes[1];
 
       expect(systemNode.name).toBe('System');
-      expect(urlNode.name).toBe('Url');
+      expect(urlNode.name).toBe('URL');
 
       // Verify that the locations are different
       expect(systemNode.location.identifierRange.startColumn).not.toBe(
@@ -112,16 +112,16 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
     it('should track precise locations for field types', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
         }
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the chained type reference for System.Url field
+      // Find the chained type reference for System.URL field
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -133,7 +133,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const urlNode = chainedRef.chainNodes[1];
 
       expect(systemNode.name).toBe('System');
-      expect(urlNode.name).toBe('Url');
+      expect(urlNode.name).toBe('URL');
 
       // Verify that the locations are different
       expect(systemNode.location.identifierRange.startColumn).not.toBe(
@@ -144,8 +144,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
     it('should track precise locations for complex dotted types', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getUrl() {
-            return System.Url.getOrgDomainUrl();
+          public System.URL getUrl() {
+            return System.URL.getOrgDomainUrl();
           }
         }
       `;
@@ -153,9 +153,9 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find all chained type references for System.Url (return type and method call)
+      // Find all chained type references for System.URL (return type and method call)
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -168,14 +168,14 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       const urlNode = chainedRef.chainNodes[1];
 
       expect(systemNode.name).toBe('System');
-      expect(urlNode.name).toBe('Url');
+      expect(urlNode.name).toBe('URL');
 
       // Verify that the locations are different
       expect(systemNode.location.identifierRange.startColumn).not.toBe(
         urlNode.location.identifierRange.startColumn,
       );
 
-      // Verify that the locations are in the correct order (System before Url)
+      // Verify that the locations are in the correct order (System before URL)
       expect(systemNode.location.identifierRange.startColumn).toBeLessThan(
         urlNode.location.identifierRange.startColumn,
       );

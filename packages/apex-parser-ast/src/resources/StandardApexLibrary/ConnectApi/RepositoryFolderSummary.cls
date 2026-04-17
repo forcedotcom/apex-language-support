@@ -1,9 +1,6 @@
-global class RepositoryFolderSummary {
-	global RepositoryFolderSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A summary of a repository folder.
+ */
+global class RepositoryFolderSummary extends ConnectApi.AbstractRepositoryFolder {
 
 }

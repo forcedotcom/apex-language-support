@@ -1,9 +1,11 @@
+/**
+ * Invoice for a fee.
+ */
 global class InvoiceToPayInputRepresentation {
-	global String invoiceId;
-	global InvoiceToPayInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the invoice for a fee.
+   */
+  global String invoiceId;
 
 }

@@ -114,7 +114,7 @@ export * from './services/commands/FindApexTestsCommandHandler';
 // Export factories
 export * from './factories/HandlerFactory';
 
-export type { ApexReference } from './storage/ApexStorageInterface';
+// Export storage interfaces and types
 export * from './storage/ApexStorageInterface';
 
 // Settings and capabilities management are now exported from @salesforce/apex-lsp-shared

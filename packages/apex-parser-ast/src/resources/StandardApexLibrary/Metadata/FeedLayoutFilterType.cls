@@ -1,5 +1,8 @@
+/**
+ * The type of feed layout filter.
+ */
 global enum FeedLayoutFilterType {
-ALLUPDATES,
-CUSTOM,
-FEEDITEMTYPE
+  AllUpdates,
+  Custom,
+  FeedItemType
 }

@@ -1,16 +1,41 @@
+/**
+ * Orchestration instance.
+ */
 global class OrchestrationInstance {
-	global String flowDefinitionDeveloperName;
-	global String flowDefinitionId;
-	global String flowDefinitionName;
-	global String id;
-	global String interviewId;
-	global List<ConnectApi.OrchestrationStageInstance> stageInstances;
-	global ConnectApi.OrchestrationInstanceStatus status;
-	global OrchestrationInstance() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Developer name of the flow definition.
+   */
+  global String flowDefinitionDeveloperName;
+
+  /**
+   * ID of the flow definition.
+   */
+  global String flowDefinitionId;
+
+  /**
+   * Name of the flow definition.
+   */
+  global String flowDefinitionName;
+
+  /**
+   * ID of the orchestration instance.
+   */
+  global String id;
+
+  /**
+   * ID of the interview to resume.
+   */
+  global String interviewId;
+
+  /**
+   * Orchestration stage instances.
+   */
+  global List < ConnectApi.OrchestrationStageInstance > stageInstances;
+
+  /**
+   * Status of the orchestration instance. Values are: Canceled Completed Discontinued Error InProgress NotStarted Suspended
+   */
+  global ConnectApi.OrchestrationStatus status;
 
 }

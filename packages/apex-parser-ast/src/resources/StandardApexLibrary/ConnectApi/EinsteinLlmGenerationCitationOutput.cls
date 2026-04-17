@@ -1,11 +1,16 @@
+/**
+ * Source information associated with a generated response.
+ */
 global class EinsteinLlmGenerationCitationOutput {
-	global List<ConnectApi.EinsteinLlmGenerationGenAiCitedReference> citedReferences;
-	global List<ConnectApi.EinsteinLlmGenAiSourceReference> sourceReferences;
-	global EinsteinLlmGenerationCitationOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of metadata for the sources that are cited in the generated response.
+   */
+  global List < ConnectApi.EinsteinLlmGenerationGenAiCitedReference > citedReferences;
+
+  /**
+   * List of sources from one or more data providers.
+   */
+  global List < ConnectApi.EinsteinLlmGenAiSourceReference > sourceReferences;
 
 }

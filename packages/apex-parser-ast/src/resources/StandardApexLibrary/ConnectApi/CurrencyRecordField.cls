@@ -1,9 +1,6 @@
-global class CurrencyRecordField {
-	global CurrencyRecordField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Record field containing a currency value.
+ */
+global class CurrencyRecordField extends ConnectApi.LabeledRecordField {
 
 }

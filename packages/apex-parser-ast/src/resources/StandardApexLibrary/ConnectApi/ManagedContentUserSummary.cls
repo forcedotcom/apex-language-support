@@ -1,12 +1,21 @@
+/**
+ * Information about the user who created or modified the content.
+ */
 global class ManagedContentUserSummary {
-	global String id;
-	global String name;
-	global String resourceUrl;
-	global ManagedContentUserSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the user.
+   */
+  global String id;
+
+  /**
+   * Reserved for future use.
+   */
+  global String name;
+
+  /**
+   * Resource URL of the user.
+   */
+  global String resourceUrl;
 
 }

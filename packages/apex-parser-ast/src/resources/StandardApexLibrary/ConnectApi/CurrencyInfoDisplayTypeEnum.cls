@@ -1,3 +1,3 @@
 global enum CurrencyInfoDisplayTypeEnum {
-ISOCODE
+  IsoCode
 }

@@ -1,11 +1,16 @@
+/**
+ * Topic suggestion.
+ */
 global class TopicSuggestion {
-	global ConnectApi.Topic existingTopic;
-	global String name;
-	global TopicSuggestion() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Topic that already exists or null for a new topic
+   */
+  global ConnectApi.Topic existingTopic;
+
+  /**
+   * Topic name
+   */
+  global String name;
 
 }

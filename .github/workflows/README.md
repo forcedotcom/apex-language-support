@@ -313,19 +313,18 @@ graph LR
 
 **Triggers:**
 
-- Pull request events
-- Check suite completion
-- Status events
+- Scheduled (four times daily during off-hours UTC: 02:42, 05:42, 08:42, 11:42)
+- Manual dispatch (`workflow_dispatch`)
 
-**Purpose:** Enable GitHub auto-merge for eligible Dependabot PRs.
+**Purpose:** Merge eligible Dependabot PRs using `svc-idee-bot` via the shared `salesforcecli/github-workflows` reusable workflow.
 
 **Features:**
 
-- Only applies to PRs opened by `dependabot[bot]`
-- Only applies to same-repository PRs (fork-origin PRs are excluded)
+- Uses `IDEE_GH_TOKEN` (svc-idee-bot), which is in the branch-protection bypass list — no human review required for bot merges
+- Does **not** use GitHub's repo-level auto-merge toggle (which cannot be restricted to Dependabot only)
+- Only merges minor and patch version bumps (`maxVersionBump: minor`); major bumps are skipped
 - Uses squash merge method
-- Skips major version bumps
-- Requires repository-level auto-merge to be enabled in GitHub settings
+- `skipCI` input available on manual dispatch for emergency use
 
 #### Stale (`stale.yml`)
 

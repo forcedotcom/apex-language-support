@@ -1,10 +1,16 @@
+/**
+ * Chatter group information input.
+ */
 global class GroupInformationInput {
-	global String text;
-	global String title;
-	global GroupInformationInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The text in the “Information” section of a group.
+   */
+  global String text;
+
+  /**
+   * The title of the “Information” section of a group.
+   */
+  global String title;
 
 }
