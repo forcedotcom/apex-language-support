@@ -1,10 +1,11 @@
+/**
+ * A collection of supported emoji.
+ */
 global class SupportedEmojis {
-	global ConnectApi.EmojiCollection supportedEmojis;
-	global SupportedEmojis() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A collection of supported emoji.
+   */
+  global ConnectApi.EmojiCollection supportedEmojis;
 
 }

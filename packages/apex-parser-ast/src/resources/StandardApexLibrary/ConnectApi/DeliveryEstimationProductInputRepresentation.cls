@@ -1,12 +1,26 @@
+/**
+ * Delivery estimation product information.
+ */
 global class DeliveryEstimationProductInputRepresentation {
-	global String name;
-	global String productId;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global DeliveryEstimationProductInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Product name.
+   */
+  global String name;
+
+  /**
+   * ID of the product.
+   */
+  global String productId;
+
+  /**
+   * Product quantity.
+   */
+  global Double quantity;
+
+  /**
+   * Product's stock keeping unit (SKU).
+   */
+  global String stockKeepingUnit;
 
 }

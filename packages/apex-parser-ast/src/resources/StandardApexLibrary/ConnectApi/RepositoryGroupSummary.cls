@@ -1,11 +1,16 @@
-global class RepositoryGroupSummary {
-	global ConnectApi.ContentHubGroupType groupType;
-	global String name;
-	global RepositoryGroupSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A group summary.
+ */
+global class RepositoryGroupSummary extends ConnectApi.AbstractDirectoryEntrySummary {
+
+  /**
+   * Type of group. Values are: Everybody —Group is public to everybody. EverybodyInDomain —Group is public to everybody in the same domain. Unknown —Group type is unknown.
+   */
+  global ConnectApi.ContentHubGroupType groupType;
+
+  /**
+   * Name of the group.
+   */
+  global String name;
 
 }

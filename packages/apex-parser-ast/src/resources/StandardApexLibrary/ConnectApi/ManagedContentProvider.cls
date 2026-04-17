@@ -1,17 +1,41 @@
+/**
+ * Information about a managed content provider.
+ */
 global class ManagedContentProvider {
-	global String componentDefinition;
-	global String icon;
-	global String label;
-	global String name;
-	global String providerId;
-	global List<ConnectApi.ManagedContentProviderInstance> providerInstances;
-	global String providerLightningComponentId;
-	global ConnectApi.ConnectManagedContentProviderType type;
-	global ManagedContentProvider() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Provider lightning component definition.
+   */
+  global String componentDefinition;
+
+  /**
+   * Icon of the dropdown menu item.
+   */
+  global String icon;
+
+  /**
+   * Label of the dropdown menu item.
+   */
+  global String label;
+
+  /**
+   * ID of the provider.
+   */
+  global String providerId;
+
+  /**
+   * Instances of the provider.
+   */
+  global List < ConnectApi.ManagedContentProviderInstance > providerInstances;
+
+  /**
+   * ID of the dropdown menu item.
+   */
+  global String providerLightningComponentId;
+
+  /**
+   * Type of managed content provider. Values are: DigitalAssetManager
+   */
+  global ConnectApi.ManagedContentProviderType type;
 
 }

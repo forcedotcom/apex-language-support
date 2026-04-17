@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.46",
+  "version": "0.5.47",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -714,7 +714,7 @@
       "clean": "if-file-deleted",
       "dependencies": [
         "precompile",
-        "../apex-parser-ast:compile:tsc"
+        "../apex-parser-ast:compile"
       ],
       "output": [
         "out/**/*.js",

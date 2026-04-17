@@ -1,9 +1,16 @@
+/**
+ * Represents the base comparison input.
+ */
 global class BaseComparisonInput {
-	global List<ConnectApi.TypeAndFilterInput> filtersConfig;
-	global String operator;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Logical comparison input list wrapper.
+   */
+  global List < ConnectApi.TypeAndFilterInput > filtersConfig;
+
+  /**
+   * Operator of the comparison.
+   */
+  global String operator;
 
 }

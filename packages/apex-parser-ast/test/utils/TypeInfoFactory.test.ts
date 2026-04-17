@@ -151,9 +151,9 @@ describe('TypeInfoFactory', () => {
         expect(nestedType.originalTypeString).toBe('List<List<String>>');
 
         // Qualified type with generics
-        const qualifiedGeneric = createTypeInfo('List<System.Url>');
+        const qualifiedGeneric = createTypeInfo('List<System.URL>');
         expect(qualifiedGeneric.name).toBe('List');
-        expect(qualifiedGeneric.originalTypeString).toBe('List<System.Url>');
+        expect(qualifiedGeneric.originalTypeString).toBe('List<System.URL>');
       });
     });
   });

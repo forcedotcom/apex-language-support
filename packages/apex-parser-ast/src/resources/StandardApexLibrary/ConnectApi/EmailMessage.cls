@@ -1,14 +1,31 @@
-global class EmailMessage {
-	global ConnectApi.EmailMessageDirection direction;
-	global String emailMessageId;
-	global String subject;
-	global String textBody;
-	global List<ConnectApi.EmailAddress> toAddresses;
-	global EmailMessage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Email message from a case.
+ */
+global class EmailMessage extends ConnectApi.FeedItemAttachment {
+
+  /**
+   * The direction of the email message. Inbound —An inbound message (sent by a customer). Outbound —An outbound message (sent to a customer by a support agent).
+   */
+  global ConnectApi.EmailMessageDirection Enum direction;
+
+  /**
+   * The ID of the email message.
+   */
+  global String emailMessageId;
+
+  /**
+   * The subject of the email message.
+   */
+  global String subject;
+
+  /**
+   * The body of the email message.
+   */
+  global String textBody;
+
+  /**
+   * A list of email addresses to send the message to.
+   */
+  global List < ConnectApi.EmailAddress > toAddresses;
 
 }

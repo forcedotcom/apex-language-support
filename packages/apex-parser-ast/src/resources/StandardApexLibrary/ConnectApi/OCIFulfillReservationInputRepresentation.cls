@@ -1,10 +1,16 @@
+/**
+ * A list of inventory reservations to fulfill.
+ */
 global class OCIFulfillReservationInputRepresentation {
-	global List<ConnectApi.OCIFulfillReservationSingleInputRepresentation> fulfillmentRecords;
-	global String reservationId;
-	global OCIFulfillReservationInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of inventory reservations. The list can include up to 100 elements.
+   */
+  global List < ConnectApi.OCIFulfillReservationSingleInputRepresentation > fulfillmentRecords;
+
+  /**
+   * The ID of the inventory reservation.
+   */
+  global String reservationId;
 
 }

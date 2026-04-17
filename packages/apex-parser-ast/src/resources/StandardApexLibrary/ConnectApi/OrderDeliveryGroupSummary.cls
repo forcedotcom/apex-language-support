@@ -1,10 +1,11 @@
+/**
+ * Order delivery group summary.
+ */
 global class OrderDeliveryGroupSummary {
-	global Map<String,ConnectApi.RecordField> fields;
-	global OrderDeliveryGroupSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Map of fields from order delivery group summary and other related objects that were queried.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
 
 }

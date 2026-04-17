@@ -1,5 +1,5 @@
 global enum CdpIdentityResolutionReconciliationRuleType {
-LASTUPDATED,
-MOSTFREQUENT,
-SOURCESEQUENCE
+  LastUpdated,
+  MostFrequent,
+  SourceSequence
 }

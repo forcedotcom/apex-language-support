@@ -1,11 +1,16 @@
-global class LinkAttachment {
-	global String title;
-	global String url;
-	global LinkAttachment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Link attached to a feed item.
+ */
+global class LinkAttachment extends ConnectApi.FeedItemAttachment {
+
+  /**
+   * Title given to the link if available, otherwise, null .
+   */
+  global String title;
+
+  /**
+   * The link URL.
+   */
+  global String url;
 
 }

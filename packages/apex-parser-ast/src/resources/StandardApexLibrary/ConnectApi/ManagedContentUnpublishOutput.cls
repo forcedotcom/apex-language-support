@@ -1,12 +1,21 @@
+/**
+ * Managed content unpublish action.
+ */
 global class ManagedContentUnpublishOutput {
-	global String deploymentId;
-	global String description;
-	global Datetime unpublishDate;
-	global ManagedContentUnpublishOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the Managed content deployment.
+   */
+  global String deploymentId;
+
+  /**
+   * Unpublish description.
+   */
+  global String description;
+
+  /**
+   * Unpublish date.
+   */
+  global Datetime unpublishDate;
 
 }

@@ -1,12 +1,21 @@
+/**
+ * Valid value for a product variation attribute.
+ */
 global class ProductVariationAttributeValueOutputRepresentation {
-	global String name;
-	global Boolean orderable;
-	global String value;
-	global ProductVariationAttributeValueOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * API Name of the attribute this value belongs to.
+   */
+  global String name;
+
+  /**
+   * Whether the value defines an orderable product variation.
+   */
+  global Boolean orderable;
+
+  /**
+   * Value of the value.
+   */
+  global String value;
 
 }

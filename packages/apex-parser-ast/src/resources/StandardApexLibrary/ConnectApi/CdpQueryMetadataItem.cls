@@ -1,12 +1,21 @@
+/**
+ * Metadata item.
+ */
 global class CdpQueryMetadataItem {
-	global Integer placeInOrder;
-	global String type;
-	global Integer typeCode;
-	global CdpQueryMetadataItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Attribute place order in the result.
+   */
+  global Integer placeInOrder;
+
+  /**
+   * Metadata type for column.
+   */
+  global String type;
+
+  /**
+   * Metadata type code.
+   */
+  global Integer typeCode;
 
 }

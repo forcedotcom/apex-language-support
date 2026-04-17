@@ -1,12 +1,21 @@
+/**
+ * Survey invitation email.
+ */
 global class SurveyInvitationEmailOutput {
-	global Integer errorCode;
-	global String errorMessage;
-	global ConnectApi.SurveyEmailStatusEnum status;
-	global SurveyInvitationEmailOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error code for the failed call.
+   */
+  global Integer errorCode;
+
+  /**
+   * Details explaining why the call failed.
+   */
+  global String errorMessage;
+
+  /**
+   * Status of a survey invitation email. Values are: Failed —The survey invitation email wasn't sent. Queued —The survey invitation email is queued for sending.
+   */
+  global ConnectApi.SurveyEmailStatusEnum status;
 
 }

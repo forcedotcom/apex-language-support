@@ -1,15 +1,26 @@
+/**
+ * Data for file attachments to prompts.
+ */
 global class EinsteinPromptTemplateAttachment {
-	global ConnectApi.EinsteinPromptTemplateAttachmentExclusionInfo exclusionInfo;
-	global String fileExtension;
-	global String id;
-	global String latestPublishedVersion;
-	global String parentName;
-	global String title;
-	global EinsteinPromptTemplateAttachment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Extension of the file attachment.
+   */
+  global String fileExtension;
+
+  /**
+   * Content document ID of the file attachment.
+   */
+  global String id;
+
+  /**
+   * Content version ID of the file attachment.
+   */
+  global String latestPublishedVersion;
+
+  /**
+   * Title of the file attachment.
+   */
+  global String title;
 
 }

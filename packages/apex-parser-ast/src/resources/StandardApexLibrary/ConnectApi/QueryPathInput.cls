@@ -1,12 +1,26 @@
+/**
+ * Represents the query path input.
+ */
 global class QueryPathInput {
-	global String fieldLabel;
-	global String fieldName;
-	global String objectLabel;
-	global String objectName;
-	global QueryPathInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Label of the field.
+   */
+  global String fieldLabel;
+
+  /**
+   * Name of the field.
+   */
+  global String fieldName;
+
+  /**
+   * Label of the object.
+   */
+  global String objectLabel;
+
+  /**
+   * Name of the object.
+   */
+  global String objectName;
 
 }

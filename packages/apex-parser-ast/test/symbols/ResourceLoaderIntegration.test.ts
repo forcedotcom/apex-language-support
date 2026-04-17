@@ -246,7 +246,7 @@ describe('ResourceLoader Integration', () => {
         'Database.Batchable',
       );
       expect(symbolManager.findFQNForStandardClass('Error')).toBe(
-        'ConnectApi.Error',
+        'Database.Error',
       );
       expect(symbolManager.findFQNForStandardClass('System')).toBe(
         'System.System',

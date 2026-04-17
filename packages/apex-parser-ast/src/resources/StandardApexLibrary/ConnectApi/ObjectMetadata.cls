@@ -1,15 +1,36 @@
+/**
+ * Search metadata related to the object.
+ */
 global class ObjectMetadata {
-	global Map<String,ConnectApi.DataCategoryMetadata> dataCategories;
-	global Map<String,ConnectApi.FieldMetadata> fields;
-	global String label;
-	global String labelPlural;
-	global String objectApiName;
-	global ConnectApi.ThemeInfo themeInfo;
-	global ObjectMetadata() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Metadata on each data category for the object.
+   */
+  global Map < String , ConnectApi.DataCategoryMetadata > dataCategories;
+
+  /**
+   * Metadata on each field of the object.
+   */
+  global Map < String , ConnectApi.FieldMetadata > fields;
+
+  /**
+   * Name of the object.
+   */
+  global String label;
+
+  /**
+   * Plural name of the object.
+   */
+  global String labelPlural;
+
+  /**
+   * API name of the object
+   */
+  global String objectApiName;
+
+  /**
+   * Theme related to the object.
+   */
+  global ConnectApi.ThemeInfo themeInfo;
 
 }

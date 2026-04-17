@@ -1,11 +1,16 @@
+/**
+ * Text classifications result.
+ */
 global class TextClassificationsResultOutputRepresentation {
-	global List<ConnectApi.ClassificationsOutputRepresentation> classifications;
-	global String classificationsId;
-	global TextClassificationsResultOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of classifications that each text string was given after analysis.
+   */
+  global List < ConnectApi.ClassificationsOutputRepresentation > classifications;
+
+  /**
+   * Response ID to receive feedback for classification.
+   */
+  global String classificationsId;
 
 }

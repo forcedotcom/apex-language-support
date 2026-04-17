@@ -1,10 +1,11 @@
-global class CancelAllOrderItemsAsyncOutputRepresentation {
-	global String asyncOperationLogId;
-	global CancelAllOrderItemsAsyncOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * ID of the asynchronous background operation.
+ */
+global class CancelAllOrderItemsAsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
+
+  /**
+   * ID of the background operation.
+   */
+  global String asyncOperationLogId;
 
 }

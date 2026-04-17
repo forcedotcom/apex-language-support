@@ -1,10 +1,16 @@
+/**
+ * Attach a file that has already been uploaded or remove a file from a feed element.
+ */
 global class FileIdInput {
-	global String id;
-	global ConnectApi.OperationType operationType;
-	global FileIdInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of a file that has already been uploaded.
+   */
+  global String id;
+
+  /**
+   * Operation to carry out on the file. Values are: Add —Adds the file to the feed element. Remove —Removes the file from the feed element. Remove operations are processed before Add operations. Adding content that is already added and removing content that is already removed result in no operation.
+   */
+  global ConnectApi.OperationType operationType;
 
 }

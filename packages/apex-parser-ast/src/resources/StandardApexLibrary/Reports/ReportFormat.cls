@@ -1,6 +1,8 @@
+/**
+ * Contains the possible report format types.
+ */
 global enum ReportFormat {
-MATRIX,
-MULTI_BLOCK,
-SUMMARY,
-TABULAR
+  MATRIX,
+  SUMMARY,
+  TABULAR
 }

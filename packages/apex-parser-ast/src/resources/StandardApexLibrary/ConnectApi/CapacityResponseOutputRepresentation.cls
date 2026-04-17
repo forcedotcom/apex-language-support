@@ -1,12 +1,21 @@
+/**
+ * Response to a request related to a location’s fulfillment capacity.
+ */
 global class CapacityResponseOutputRepresentation {
-	global String actionRequestId;
-	global ConnectApi.ErrorResponse error;
-	global Boolean success;
-	global CapacityResponseOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Unique string that identifies the original capacity request.
+   */
+  global String actionRequestId;
+
+  /**
+   * Error returned by the request, if any.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Indicates whether the request was successful.
+   */
+  global Boolean success;
 
 }

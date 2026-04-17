@@ -1,12 +1,15 @@
+/**
+ * Describes the highlights panel style for a SummaryLayout .
+ */
 global enum SummaryLayoutStyleEnum {
-CASEINTERACTION,
-CHILDSERVICEREPORTTEMPLATESTYLE,
-DEFAULTQUOTETEMPLATE,
-DEFAULTSERVICEREPORTTEMPLATE,
-DEFAULT_X,
-PATHASSISTANT,
-QUICKACTIONLAYOUTLEFTRIGHT,
-QUICKACTIONLAYOUTTOPDOWN,
-QUOTETEMPLATE,
-SERVICEREPORTTEMPLATE
+  CaseInteraction,
+  ChildServiceReportTemplateStyle,
+  DefaultQuoteTemplate,
+  DefaultServiceReportTemplate,
+  Default_x,
+  PathAssistant,
+  QuickActionLayoutLeftRight,
+  QuickActionLayoutTopDown,
+  QuoteTemplate,
+  ServiceReportTemplate
 }

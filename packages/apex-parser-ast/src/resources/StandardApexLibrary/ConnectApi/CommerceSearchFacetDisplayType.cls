@@ -1,7 +1,0 @@
-global enum CommerceSearchFacetDisplayType {
-CATEGORYTREE,
-DATEPICKER,
-MULTISELECT,
-RANGE,
-SINGLESELECT
-}

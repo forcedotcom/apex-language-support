@@ -1,6 +1,6 @@
 global enum CommunityFlagReasonType {
-FLAGGEDBYRULE,
-FLAGGEDBYSYSTEM,
-FLAGGEDBYUSERASINAPPROPRIATE,
-FLAGGEDBYUSERASSPAM
+  FlaggedByRule,
+  FlaggedBySystem,
+  FlaggedByUserAsInappropriate,
+  FlaggedByUserAsSpam
 }

@@ -1,12 +1,21 @@
+/**
+ * Following counts.
+ */
 global class FollowingCounts {
-	global Integer people;
-	global Integer records;
-	global Integer total;
-	global FollowingCounts() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Number of people user is following.
+   */
+  global Integer people;
+
+  /**
+   * Number of records user is following. Topics are a type of record that can be followed as of version 29.0.
+   */
+  global Integer records;
+
+  /**
+   * Total number of items user is following.
+   */
+  global Integer total;
 
 }

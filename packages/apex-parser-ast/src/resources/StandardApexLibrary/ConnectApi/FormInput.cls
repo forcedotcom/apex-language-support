@@ -1,11 +1,21 @@
+/**
+ * Marketing integration form.
+ */
 global class FormInput {
-	global List<ConnectApi.FormFieldInput> formFieldsList;
-	global String formName;
-	global String memberIdentificationCode;
-	global FormInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Fields for the marketing integration form.
+   */
+  global List < ConnectApi.FormFieldInput > formFieldsList;
+
+  /**
+   * Name of the marketing integration form.
+   */
+  global String formName;
+
+  /**
+   * The member identification code (MID) of the Marketing Cloud Engagement account associated with the form.
+   */
+  global String memberIdentificationCode;
 
 }

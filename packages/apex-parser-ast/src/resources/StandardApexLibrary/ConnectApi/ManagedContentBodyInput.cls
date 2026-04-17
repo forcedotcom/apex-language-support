@@ -1,9 +1,11 @@
+/**
+ * Input representation for the body of a piece of managed content.
+ */
 global class ManagedContentBodyInput {
-	global Object nodeMap;
-	global ManagedContentBodyInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Body of the managed content version. The format must be Map<String, Object> , where map values are either primitive values like String, Integer, Double, Boolean, or another Map<String, Object>.
+   */
+  global Object nodeMap;
 
 }

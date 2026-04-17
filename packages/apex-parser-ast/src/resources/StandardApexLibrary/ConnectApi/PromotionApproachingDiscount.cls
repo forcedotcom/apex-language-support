@@ -1,13 +1,26 @@
+/**
+ * Qualifier for a promotion with an approaching discount.
+ */
 global class PromotionApproachingDiscount {
-	global String promotionId;
-	global String qualifyingAmount;
-	global String qualifyingProductTotal;
-	global ConnectApi.TargetType targetType;
-	global PromotionApproachingDiscount() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the promotion with an approaching discount.
+   */
+  global String promotionId;
+
+  /**
+   * Qualifying amount when promotion is applied.
+   */
+  global String qualifyingAmount;
+
+  /**
+   * Qualifying product total.
+   */
+  global String qualifyingProductTotal;
+
+  /**
+   * Target type of a promotion discount. Shipping —Promotion discounts shipping amount. Transaction —Promotion discounts total transaction amount.
+   */
+  global ConnectApi.TargetType targetType;
 
 }

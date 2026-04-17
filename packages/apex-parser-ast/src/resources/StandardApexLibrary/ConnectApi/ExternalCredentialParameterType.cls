@@ -1,14 +1,12 @@
 global enum ExternalCredentialParameterType {
-ADDITIONALREFRESHSTATUSCODE,
-AUTHPARAMETER,
-AUTHPROVIDER,
-AUTHPROVIDERURL,
-AUTHPROVIDERURLQUERYPARAMETER,
-EXTERNALAUTHIDENTITYPROVIDER,
-JWTBODYCLAIM,
-JWTHEADERCLAIM,
-MANAGEDBYCOMPONENT,
-MANAGEDBYFEATURE,
-SFHTTPREQUESTEXTENSIONNAME,
-SIGNINGCERTIFICATE
+  AdditionalRefreshStatusCode,
+  AuthParameter,
+  AuthProvider,
+  AuthProviderUrl,
+  AuthProviderUrlQueryParameter,
+  JwtBodyClaim,
+  JwtHeaderClaim,
+  ManagedByComponent,
+  ManagedByFeature,
+  SigningCertificate
 }

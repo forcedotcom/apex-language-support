@@ -1,9 +1,21 @@
+/**
+ * Model asset reference used as part of the prediction request.
+ */
 global class CdpAssetReference {
-	global CdpAssetReference() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the asset.
+   */
+  global String id;
+
+  /**
+   * Name of the asset.
+   */
+  global String name;
+
+  /**
+   * Namespace of the asset.
+   */
+  global String namespace;
 
 }

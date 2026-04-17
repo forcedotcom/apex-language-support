@@ -45,22 +45,15 @@ const CACHE_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz');
 const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
 
 // List of builtin classes that should be loaded from builtins/ folder
+// Only classes that are physically present in src/resources/builtins/ should be here.
+// Classes in this set are excluded from StandardApexLibrary/System/ and loaded from builtins/ instead.
+// If a class is not in builtins/, do NOT add it here or it will disappear from the stdlib entirely.
 const BUILTIN_CLASSES = new Set([
-  'Blob.cls',
-  'Boolean.cls',
-  'Date.cls',
-  'DateTime.cls',
-  'Decimal.cls',
-  'Double.cls',
-  'Id.cls',
-  'Integer.cls',
-  'List.cls',
-  'Long.cls',
-  'Map.cls',
-  'Object.cls',
-  'Set.cls',
-  'String.cls',
-  'Time.cls',
+  'Blob.cls',     // hand-crafted: methods not fully covered in docs
+  'DateTime.cls', // temporarily in builtins until added to StandardApexLibrary
+  'Integer.cls',  // hand-crafted: conversion methods not in docs
+  'Long.cls',     // hand-crafted: conversion methods not in docs
+  'Object.cls',   // hand-crafted: equals(), hashCode(), toString()
 ]);
 
 /**
@@ -402,6 +395,7 @@ async function main() {
           if (parsedCount % 500 === 0) {
             console.log(`   Parsed ${parsedCount}/${totalClasses} classes...`);
           }
+
         } else {
           // result.result is null - should never happen as parser always returns SymbolTable
           // This indicates a critical parser failure

@@ -1,14 +1,31 @@
+/**
+ * A social account on a social network.
+ */
 global class SocialAccount {
-	global String externalSocialAccountId;
-	global String handle;
-	global String name;
-	global String profileUrl;
-	global String socialPersonaId;
-	global SocialAccount() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the external social account, if available.
+   */
+  global String externalSocialAccountId;
+
+  /**
+   * Social handle, screen name, or alias that identifies this account.
+   */
+  global String handle;
+
+  /**
+   * Name of the account as defined by the account's owner.
+   */
+  global String name;
+
+  /**
+   * URL to the account's profile.
+   */
+  global String profileUrl;
+
+  /**
+   * ID of the social persona account, if the external social account ID isn’t available.
+   */
+  global String socialPersonaId;
 
 }

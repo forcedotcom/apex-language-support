@@ -1,17 +1,41 @@
+/**
+ * Line item price for the product.
+ */
 global class ProductPriceEntry {
-	global ConnectApi.ErrorResponse error;
-	global String listPrice;
-	global String lowestUnitPrice;
-	global ConnectApi.PriceAdjustmentSchedule priceAdjustment;
-	global String pricebookEntryId;
-	global String productSellingModelId;
-	global Boolean success;
-	global String unitPrice;
-	global ProductPriceEntry() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error code and error message.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * List price for the product entry.
+   */
+  global String listPrice;
+
+  /**
+   * Price adjustment schedule.
+   */
+  global ConnectApi.PriceAdjustmentSchedule priceAdjustment;
+
+  /**
+   * ID of the pricebook entry.
+   */
+  global String pricebookEntryId;
+
+  /**
+   * ID of the product selling model. If no product selling model ID is specified in a request parameter, this property is empty.
+   */
+  global String productSellingModelId;
+
+  /**
+   * Specifies whether execution was successful ( true ) or not ( false ).
+   */
+  global Boolean success;
+
+  /**
+   * Unit price for the product entry.
+   */
+  global String unitPrice;
 
 }

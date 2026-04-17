@@ -1,16 +1,41 @@
+/**
+ * Collection of order delivery group summaries.
+ */
 global class OrderDeliveryGroupSummaryCollection {
-	global String currentPageToken;
-	global String currentPageUrl;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global List<ConnectApi.OrderDeliveryGroupSummary> orderDeliveryGroups;
-	global String previousPageToken;
-	global String previousPageUrl;
-	global OrderDeliveryGroupSummaryCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Token identifying the current page of order delivery group summaries.
+   */
+  global String currentPageToken;
+
+  /**
+   * URL to the current page of order delivery group summaries.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Token identifying the next page of order delivery group summaries.
+   */
+  global String nextPageToken;
+
+  /**
+   * URL to the next page of order delivery group summaries.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Collection of order delivery group summaries.
+   */
+  global List < ConnectApi.OrderDeliveryGroupSummary > orderDeliveryGroups;
+
+  /**
+   * Token identifying previous page of order delivery group summaries.
+   */
+  global String previousPageToken;
+
+  /**
+   * URL to the previous page of order delivery group summaries.
+   */
+  global String previousPageUrl;
 
 }

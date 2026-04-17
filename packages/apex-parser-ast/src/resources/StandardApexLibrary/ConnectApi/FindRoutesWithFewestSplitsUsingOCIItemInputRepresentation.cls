@@ -1,12 +1,21 @@
+/**
+ * A quantity of a product and a location group or location assigned to fulfill it.
+ */
 global class FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation {
-	global List<String> expand;
-	global String locationGroupIdentifier;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The External Reference of the location group or location assigned to the order item. If you specify a location group, inventory is considered for all locations belonging to that group.
+   */
+  global String locationGroupIdentifier;
+
+  /**
+   * Quantity of the product.
+   */
+  global Double quantity;
+
+  /**
+   * SKU of the product.
+   */
+  global String stockKeepingUnit;
 
 }

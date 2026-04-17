@@ -1,11 +1,16 @@
+/**
+ * Chatter influence.
+ */
 global class GlobalInfluence {
-	global String percentile;
-	global Integer rank;
-	global GlobalInfluence() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Percentile value for the user’s influence rank within the org or Experience Cloud site.
+   */
+  global String percentile;
+
+  /**
+   * Number indicating the user’s influence rank, relative to all other users within the org or Experience Cloud site.
+   */
+  global Integer rank;
 
 }

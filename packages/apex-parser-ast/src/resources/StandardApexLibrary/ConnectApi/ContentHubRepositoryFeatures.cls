@@ -1,11 +1,16 @@
+/**
+ * The features of a repository.
+ */
 global class ContentHubRepositoryFeatures {
-	global Boolean canBrowse;
-	global Boolean canSearch;
-	global ContentHubRepositoryFeatures() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the repository’s folder hierarchy can be browsed ( true ) or not ( false ).
+   */
+  global Boolean canBrowse;
+
+  /**
+   * Specifies whether the repository can be searched ( true ) or not ( false ).
+   */
+  global Boolean canSearch;
 
 }

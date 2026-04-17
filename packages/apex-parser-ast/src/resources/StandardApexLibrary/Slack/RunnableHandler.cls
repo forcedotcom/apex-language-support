@@ -1,4 +1,5 @@
-global interface RunnableHandler {
-	void run();
+global class RunnableHandler {
+
+  global void run() {}
 
 }

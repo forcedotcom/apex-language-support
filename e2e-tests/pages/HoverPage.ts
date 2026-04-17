@@ -241,6 +241,10 @@ export class HoverPage extends BasePage {
       'public',
       'private',
       'static',
+      // Hover on generic type (e.g. List) shows "class System.List" not "List<"
+      'class ',
+      'interface ',
+      'enum ',
     ];
 
     return typeIndicators.some((indicator) => content.includes(indicator));

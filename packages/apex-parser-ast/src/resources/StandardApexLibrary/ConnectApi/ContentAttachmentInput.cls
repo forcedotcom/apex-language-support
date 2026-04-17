@@ -1,9 +1,11 @@
-global class ContentAttachmentInput {
-	global String contentDocumentId;
-	global ContentAttachmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Used to attach existing content to a comment or feed item.
+ */
+global class ContentAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
+
+  /**
+   * ID of the existing content.
+   */
+  global String contentDocumentId;
 
 }

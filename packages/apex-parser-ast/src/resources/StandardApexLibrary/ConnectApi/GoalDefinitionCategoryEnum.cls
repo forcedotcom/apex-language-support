@@ -1,3 +1,3 @@
 global enum GoalDefinitionCategoryEnum {
-WEBSTORE
+  Webstore
 }

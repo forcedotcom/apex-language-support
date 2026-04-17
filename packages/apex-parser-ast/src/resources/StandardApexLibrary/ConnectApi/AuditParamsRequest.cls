@@ -1,11 +1,26 @@
+/**
+ * Audit Parameters input.
+ */
 global class AuditParamsRequest {
-	global String email;
-	global String ipAddress;
-	global String macAddress;
-	global String phone;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Email of the client that made the request.
+   */
+  global String email;
+
+  /**
+   * IP address of the client that made the request.
+   */
+  global String ipAddress;
+
+  /**
+   * Mac address of the client that made the request.
+   */
+  global String macAddress;
+
+  /**
+   * Phone number of the client that made the request.
+   */
+  global String phone;
 
 }

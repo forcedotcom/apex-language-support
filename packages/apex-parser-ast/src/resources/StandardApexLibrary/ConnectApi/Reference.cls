@@ -1,11 +1,16 @@
+/**
+ * Reference to a record.
+ */
 global class Reference {
-	global String id;
-	global String url;
-	global Reference() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The ID of the record being referenced, which could be an 18-character ID or some other string identifier.
+   */
+  global String id;
+
+  /**
+   * The URL to the resource endpoint.
+   */
+  global String url;
 
 }

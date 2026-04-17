@@ -1,10 +1,18 @@
+/**
+ * Contains information about a deleted record.
+ */
 global class DeletedRecord {
-	global Date deleteddate;
-	global Id id;
-	global Boolean equals(Object obj) { }
-	global Date getDeletedDate() { }
-	global Id getId() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Returns the deleted date of this record.
+   * @return Date
+   */
+  public Date getDeletedDate() {}
+
+  /**
+   * Returns the ID of a record deleted within the time window specified in the Database.getDeleted method.
+   * @return Id
+   */
+  public Id getId() {}
 
 }

@@ -1,10 +1,16 @@
+/**
+ * IDs of a product and associated category.
+ */
 global class PromotionProductCategoriesInput {
-	global String categoryId;
-	global String productId;
-	global PromotionProductCategoriesInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the category.
+   */
+  global String categoryId;
+
+  /**
+   * ID of the product.
+   */
+  global String productId;
 
 }

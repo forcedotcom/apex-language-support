@@ -1,17 +1,30 @@
+/**
+ * Contains methods to add zip entries, generate a zipped archive, and return the result as an Apex blob.
+ */
 global class ZipWriter {
-	global ZipWriter() { }
-	global compression.ZipEntry addEntry(String name, String comment, Datetime modTime, compression.Method m, Blob data) { }
-	global compression.ZipEntry addEntry(String name, Blob data) { }
-	global compression.ZipEntry addEntry(compression.ZipEntry prototype) { }
-	global Object clone() { }
-	global Blob getArchive() { }
-	global List<compression.ZipEntry> getEntries() { }
-	global compression.ZipEntry getEntry(String name) { }
-	global Set<String> getEntryNames() { }
-	global compression.Level getLevel() { }
-	global compression.Method getMethod() { }
-	global void removeEntry(String name) { }
-	global compression.ZipWriter setLevel(compression.Level value) { }
-	global compression.ZipWriter setMethod(compression.Method value) { }
+
+  public Compression.ZipEntry addEntry(string name, blob data) {}
+
+  public Compression.ZipEntry addEntry(compression.ZipEntry prototype) {}
+
+  public Compression.ZipEntry addEntry(String name, String comment, Datetime modTime, Compression.Method method, Blob data) {}
+
+  public blob getArchive() {}
+
+  public List<Compression.ZipEntry> getEntries() {}
+
+  public compression.ZipEntry getEntry(string name) {}
+
+  public Set<String> getEntryNames() {}
+
+  public Compression.Level getLevel() {}
+
+  public Compression.Method getMethod() {}
+
+  public void removeEntry(string name) {}
+
+  public Compression.ZipWriter setLevel(compression.Level value) {}
+
+  public Compression.ZipWriter setMethod(compression.Method value) {}
 
 }

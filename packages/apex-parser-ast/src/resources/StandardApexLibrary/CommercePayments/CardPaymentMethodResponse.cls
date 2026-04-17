@@ -1,23 +1,42 @@
+/**
+ * This class contains details about the card payment method.
+ */
 global class CardPaymentMethodResponse {
-	global CardPaymentMethodResponse() { }
-	global Object clone() { }
-	global void setAccountId(Id accountId) { }
-	global void setAutoPay(Boolean autoPay) { }
-	global void setCardBin(String cardBin) { }
-	global void setCardCategory(commercepayments.CardCategory cardCategory) { }
-	global void setCardHolderFirstName(String cardHolderFirstName) { }
-	global void setCardHolderLastName(String cardHolderLastName) { }
-	global void setCardHolderName(String cardHolderName) { }
-	global void setCardLastFour(String cardLastFour) { }
-	global void setCardType(String cardType) { }
-	global void setCardTypeCategory(commercepayments.CardType cardTypeCategory) { }
-	global void setComments(String comments) { }
-	global void setDisplayCardNumber(String displayCardNumber) { }
-	global void setEmail(String email) { }
-	global void setExpiryMonth(Integer expiryMonth) { }
-	global void setExpiryYear(Integer expiryYear) { }
-	global void setNickName(String nickName) { }
-	global void setStartMonth(Integer startMonth) { }
-	global void setStartYear(Integer startYear) { }
+
+  public void setAccountId(Id accountId) {}
+
+  public void setAutoPay(Boolean autoPay) {}
+
+  public void setCardBin(String cardBin) {}
+
+  public void setCardCategory(commercepayments.CardCategory cardCategory) {}
+
+  public void setCardHolderFirstName(String cardHolderFirstName) {}
+
+  public void setCardHolderLastName(String cardHolderLastName) {}
+
+  public void setCardHolderName(String cardHolderName) {}
+
+  public void setCardLastFour(String cardLastFour) {}
+
+  public void setCardType(String cardType) {}
+
+  public void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
+
+  public void setComments(String comments) {}
+
+  public void setDisplayCardNumber(String displayCardNumber) {}
+
+  public void setEmail(String email) {}
+
+  public void setExpiryMonth(Integer expiryMonth) {}
+
+  public void setExpiryYear(Integer expiryYear) {}
+
+  public void setNickName(String nickName) {}
+
+  public void setStartMonth(Integer startMonth) {}
+
+  public void setStartYear(Integer startYear) {}
 
 }

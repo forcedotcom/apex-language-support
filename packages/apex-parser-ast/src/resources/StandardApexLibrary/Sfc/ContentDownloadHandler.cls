@@ -1,8 +1,12 @@
+/**
+ * Use ContentDownloadHandler to define a custom download handler that controls how content is downloaded.
+ */
 global class ContentDownloadHandler {
-	global String downloadErrorMessage;
-	global Boolean isDownloadAllowed;
-	global String redirectUrl;
-	global ContentDownloadHandler() { }
-	global Object clone() { }
+
+  global String downloadErrorMessage;
+
+  global Boolean isDownloadAllowed;
+
+  global String redirectUrl;
 
 }

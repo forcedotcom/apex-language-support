@@ -1,18 +1,46 @@
+/**
+ * Search index log information.
+ */
 global class CommerceSearchIndexLog {
-	global Datetime catalogSnapshotTime;
-	global Datetime completionDate;
-	global String createdById;
-	global ConnectApi.CommerceSearchIndexStatus indexBuildStatus;
-	global ConnectApi.CommerceSearchIndexBuildType indexBuildType;
-	global ConnectApi.CommerceSearchIndexCreationType indexCreationType;
-	global String indexId;
-	global String message;
-	global Integer numberOfProducts;
-	global CommerceSearchIndexLog() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Catalog snapshot time of the index build.
+   */
+  global Datetime catalogSnapshotTime;
+
+  /**
+   * Completion date of the index build.
+   */
+  global Datetime completionDate;
+
+  /**
+   * ID of the user who initiated the index build.
+   */
+  global String createdById;
+
+  /**
+   * Status of the index. Values are: Completed Failed InProgress
+   */
+  global ConnectApi.CommerceSearchIndexStatus indexBuildStatus;
+
+  /**
+   * Build type of the index. Values are: Full Incremental
+   */
+  global ConnectApi.CommerceSearchIndexBuildType indexBuildType;
+
+  /**
+   * ID of the index build.
+   */
+  global String indexId;
+
+  /**
+   * Detailed message for the index build status.
+   */
+  global String message;
+
+  /**
+   * Number of new or changed products in the index build.
+   */
+  global Integer numberOfProducts;
 
 }

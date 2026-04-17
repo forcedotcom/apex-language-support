@@ -1,10 +1,11 @@
-global class DashboardComponentSnapshotCapability {
-	global ConnectApi.DashboardComponentSnapshot dashboardComponentSnapshot;
-	global DashboardComponentSnapshotCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it has a dashboard component snapshot. A snapshot is a static image of a dashboard component at a specific point in time.
+ */
+global class DashboardComponentSnapshotCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * The dashboard component snapshot.
+   */
+  global ConnectApi.DashboardComponentSnapshot dashboardComponentSnapshot;
 
 }

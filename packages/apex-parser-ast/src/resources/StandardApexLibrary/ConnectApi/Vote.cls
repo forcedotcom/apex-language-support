@@ -1,12 +1,21 @@
+/**
+ * An upvote or downvote on a feed element or comment.
+ */
 global class Vote {
-	global ConnectApi.UpDownVoteValue type;
-	global ConnectApi.UserSummary user;
-	global ConnectApi.Reference votedItem;
-	global Vote() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of vote for a feed element or comment. Down Up
+   */
+  global ConnectApi.UpDownVoteValue type;
+
+  /**
+   * User who voted on the feed element or comment.
+   */
+  global ConnectApi.UserSummary user;
+
+  /**
+   * Reference to the feed element or comment that was voted on.
+   */
+  global ConnectApi.Reference votedItem;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Chatter conversation summary.
+ */
 global class ChatterConversationSummary {
-	global String id;
-	global ConnectApi.ChatterMessage latestMessage;
-	global List<ConnectApi.UserSummary> members;
-	global Boolean read;
-	global String url;
-	global ChatterConversationSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID for the conversation summary.
+   */
+  global String id;
+
+  /**
+   * Contents of the latest message.
+   */
+  global ConnectApi.ChatterMessage latestMessage;
+
+  /**
+   * List of members in the conversation.
+   */
+  global List < ConnectApi.UserSummary > members;
+
+  /**
+   * Specifies if the conversation is read ( true ) or not read ( false ).
+   */
+  global Boolean read;
+
+  /**
+   * Connect REST API URL to the conversation summary.
+   */
+  global String url;
 
 }

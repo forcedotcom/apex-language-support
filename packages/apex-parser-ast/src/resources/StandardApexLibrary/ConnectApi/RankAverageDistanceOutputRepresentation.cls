@@ -1,11 +1,16 @@
-global class RankAverageDistanceOutputRepresentation {
-	global String distanceUnit;
-	global List<ConnectApi.AverageDistanceResultOutputRepresentation> results;
-	global RankAverageDistanceOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * The results of calculating the average distances from sets of inventory locations to an order recipient.
+ */
+global class RankAverageDistanceOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * The specified unit of distance (miles or kilometers).
+   */
+  global String distanceUnit;
+
+  /**
+   * The results of the shipping distance calculations.
+   */
+  global List < ConnectApi.AverageDistanceResultOutputRepresentation > results;
 
 }

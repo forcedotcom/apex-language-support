@@ -1,10 +1,11 @@
-global class ReleaseHeldFOCapacityOutputRepresentation {
-	global List<ConnectApi.ReleaseHeldFOCapacityResponseOutputRepresentation> releaseHeldFOCapacityResponses;
-	global ReleaseHeldFOCapacityOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Response to a request to confirm held fulfillment order capacity at one or more locations. Can correspond to one action call.
+ */
+global class ReleaseHeldFOCapacityOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * List of responses to the requests to confirm held fulfillment order capacity at one or more locations.
+   */
+  global List < ConnectApi.ReleaseHeldFOCapacityResponseOutputRepresentation > releaseHeldFOCapacityResponses;
 
 }

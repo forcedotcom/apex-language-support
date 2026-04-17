@@ -1,10 +1,11 @@
+/**
+ * HTTP headers containing URLs associating text strings and classifications.
+ */
 global class TextClassificationsOutputRepresentation {
-	global List<ConnectApi.HttpHeaderOutputRepresentation> httpHeaders;
-	global TextClassificationsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * HTTP headers for text classifications output. Each header provides a URL you can use to get the result of the classification. The URL takes a list of text strings and classifiers that each text string can be classified in.
+   */
+  global List < ConnectApi.HttpHeaderOutputRepresentation > httpHeaders;
 
 }

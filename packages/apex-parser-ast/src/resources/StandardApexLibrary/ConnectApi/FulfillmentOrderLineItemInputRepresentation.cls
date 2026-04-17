@@ -1,10 +1,16 @@
+/**
+ * A FulfillmentOrderLineItem and quantity to cancel. You can cancel less than the full quantity, in which case you reallocate the canceled quantity to a different FulfillmentOrder.
+ */
 global class FulfillmentOrderLineItemInputRepresentation {
-	global String fulfillmentOrderLineItemId;
-	global Double quantity;
-	global FulfillmentOrderLineItemInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the FulfillmentOrderLineItem.
+   */
+  global String fulfillmentOrderLineItemId;
+
+  /**
+   * Quantity to cancel.
+   */
+  global Double quantity;
 
 }

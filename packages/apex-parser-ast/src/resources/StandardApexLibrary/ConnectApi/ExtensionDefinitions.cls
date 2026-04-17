@@ -1,15 +1,36 @@
+/**
+ * A collection of extension definitions.
+ */
 global class ExtensionDefinitions {
-	global String currentPageToken;
-	global String currentPageUrl;
-	global List<ConnectApi.ExtensionDefinition> extensionDefinitions;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global Integer total;
-	global ExtensionDefinitions() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Token identifying the current page.
+   */
+  global String currentPageToken;
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Collection of extension definitions.
+   */
+  global List < ConnectApi.ExtensionDefinition > extensionDefinitions;
+
+  /**
+   * Token identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageToken;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Total number of extensions returned.
+   */
+  global Integer total;
 
 }

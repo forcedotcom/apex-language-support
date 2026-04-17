@@ -1,12 +1,21 @@
+/**
+ * Alternative representation for an extension on a feed element.
+ */
 global class Alternative {
-	global String textRepresentation;
-	global String thumbnailUrl;
-	global String title;
-	global Alternative() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Text representation of the extension.
+   */
+  global String textRepresentation;
+
+  /**
+   * Thumbnail URL to the extension.
+   */
+  global String thumbnailUrl;
+
+  /**
+   * Title of the extension.
+   */
+  global String title;
 
 }

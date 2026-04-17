@@ -1,11 +1,16 @@
+/**
+ * Error output representation for the update inventory reservation.
+ */
 global class OCIUpdateReservationErrorOutputRepresentation {
-	global String errorCode;
-	global String message;
-	global OCIUpdateReservationErrorOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The error code.
+   */
+  global String errorCode;
+
+  /**
+   * Details of the error, if available.
+   */
+  global String message;
 
 }

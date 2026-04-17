@@ -1,5 +1,5 @@
 global enum CommerceSearchSortRuleDirection {
-ASCENDING,
-DEFAULT,
-DESCENDING
+  Ascending,
+  Default,
+  Descending
 }

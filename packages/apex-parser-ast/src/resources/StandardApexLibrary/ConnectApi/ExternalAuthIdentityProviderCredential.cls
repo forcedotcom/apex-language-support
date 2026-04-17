@@ -1,12 +1,21 @@
+/**
+ * External auth identity provider credential.
+ */
 global class ExternalAuthIdentityProviderCredential {
-	global String credentialName;
-	global String credentialValue;
-	global Boolean encrypted;
-	global ExternalAuthIdentityProviderCredential() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the external auth identity provider credential.
+   */
+  global String credentialName;
+
+  /**
+   * Value of the external auth identity provider credential.
+   */
+  global String credentialValue;
+
+  /**
+   * Indicates whether the external auth identity provider credential is encrypted ( true ) or not ( false ).
+   */
+  global Boolean encrypted;
 
 }
