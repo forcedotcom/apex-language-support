@@ -61,6 +61,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          submodules: false
           ref: ${{ steps.determine-branch.outputs.branch }}
 
       - name: Setup Node.js
