@@ -877,7 +877,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@salesforce/vscode-services": "^66.2.2",
+    "@salesforce/vscode-services": "^66.6.0",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "^2.0.3",
