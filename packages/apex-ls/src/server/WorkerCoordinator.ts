@@ -348,28 +348,30 @@ export const runRemoteStdlibWarmupPhase = (
 type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
 
 const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
+  // document lifecycle
   documentOpen: 'dataOwner',
   documentChange: 'dataOwner',
   documentSave: 'dataOwner',
   documentClose: 'dataOwner',
   documentLoad: 'coordinatorOnly',
-  hover: 'enrichmentPool',
-  completion: 'coordinatorOnly',
-  definition: 'coordinatorOnly',
-  implementation: 'coordinatorOnly',
-  references: 'coordinatorOnly',
-  documentSymbol: 'coordinatorOnly',
-  workspaceSymbol: 'coordinatorOnly',
-  diagnostics: 'enrichmentPool', // Enable worker-based enrichment for diagnostics
+  // LSP protocol operations
   codeAction: 'coordinatorOnly',
-  signatureHelp: 'coordinatorOnly',
-  rename: 'coordinatorOnly',
   codeLens: 'coordinatorOnly',
-  foldingRange: 'coordinatorOnly',
-  findMissingArtifact: 'coordinatorOnly',
+  completion: 'coordinatorOnly',
+  definition: 'enrichmentPool',
+  diagnostics: 'enrichmentPool',
+  documentSymbol: 'coordinatorOnly',
   executeCommand: 'coordinatorOnly',
+  findMissingArtifact: 'coordinatorOnly',
+  foldingRange: 'coordinatorOnly',
+  hover: 'enrichmentPool',
+  implementation: 'coordinatorOnly',
   prerequisiteEnrichment: 'coordinatorOnly',
+  references: 'coordinatorOnly',
+  rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
+  signatureHelp: 'coordinatorOnly',
+  workspaceSymbol: 'coordinatorOnly',
 };
 
 const DATA_OWNER_TYPES = new Set(

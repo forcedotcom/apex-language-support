@@ -631,11 +631,33 @@ const enrichmentHandlers = {
   ),
   DispatchDefinition: enrichmentHandler<PositionReq>(
     'DispatchDefinition',
-    (svc, req) =>
-      svc.definitionService.processDefinition({
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.definitionService.processDefinition({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
-      }),
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchReferences: enrichmentHandler<RefsReq>(
     'DispatchReferences',
