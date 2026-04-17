@@ -1390,6 +1390,8 @@ export class ApexSymbolRefManager {
       this.pendingDeferredReferences.has(symbol.name) &&
       this.MAX_RETRY_ATTEMPTS > 0
     ) {
+      // Sync Refs with class fields before queueing
+      this.syncRefsToClassFields();
       try {
         // Use new queueing function that creates individual tasks
         const queueEffect = queuePendingReferencesForSymbol(
@@ -2793,20 +2795,39 @@ export class ApexSymbolRefManager {
   /**
    * Sync Refs with class fields (call before queueing to ensure latest state)
    */
-  /**
-   * @deprecated Sync bridges are no-ops — Refs and class fields share the same instances.
-   * Retained temporarily as no-op for call-site compatibility during migration.
-   */
   private syncRefsToClassFields(): void {
-    // No-op: Refs share the same object instances as class fields.
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+    Effect.runSync(
+      Ref.set(
+        this.pendingDeferredReferencesRef,
+        this.pendingDeferredReferences,
+      ),
+    );
+    Effect.runSync(
+      Ref.set(
+        this.deferredProcessingMetricsRef,
+        this.deferredProcessingMetrics,
+      ),
+    );
+    Effect.runSync(Ref.set(this.memoryStatsRef, this.memoryStats));
   }
 
   /**
-   * @deprecated Sync bridges are no-ops — Refs and class fields share the same instances.
-   * Retained temporarily as no-op for call-site compatibility during migration.
+   * Sync class fields with Refs (call after processing to update class state)
    */
   private syncClassFieldsFromRefs(): void {
-    // No-op: Refs share the same object instances as class fields.
+    this.deferredReferences = Effect.runSync(
+      Ref.get(this.deferredReferencesRef),
+    );
+    this.pendingDeferredReferences = Effect.runSync(
+      Ref.get(this.pendingDeferredReferencesRef),
+    );
+    this.deferredProcessingMetrics = Effect.runSync(
+      Ref.get(this.deferredProcessingMetricsRef),
+    );
+    this.memoryStats = Effect.runSync(Ref.get(this.memoryStatsRef));
   }
 
   /**
@@ -2927,6 +2948,11 @@ export class ApexSymbolRefManager {
       context,
     });
     this.deferredReferences.set(targetSymbolName, existing);
+
+    // Sync to Ref
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
 
     // Log when references are deferred for debugging
     this.logger.debug(
@@ -3169,6 +3195,8 @@ export class ApexSymbolRefManager {
         };
       }>
     | undefined {
+    // Sync class fields from Refs to ensure we have the latest state
+    this.syncClassFieldsFromRefs();
     return this.deferredReferences.get(symbolName);
   }
 
@@ -3181,8 +3209,16 @@ export class ApexSymbolRefManager {
   public processDeferredReferencesBatchEffect(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
+    // Sync class fields to Refs before processing
+    this.syncRefsToClassFields();
     return processDeferredReferencesBatchEffect(symbolName).pipe(
       Effect.provide(this.deferredProcessorLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          // Sync Refs back to class fields after processing
+          this.syncClassFieldsFromRefs();
+        }),
+      ),
     );
   }
   /**
@@ -3194,8 +3230,16 @@ export class ApexSymbolRefManager {
   private retryPendingDeferredReferencesBatchEffect(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
+    // Sync class fields to Refs before processing
+    this.syncRefsToClassFields();
     return retryPendingDeferredReferencesBatchEffect(symbolName).pipe(
       Effect.provide(this.deferredProcessorLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          // Sync Refs back to class fields after processing
+          this.syncClassFieldsFromRefs();
+        }),
+      ),
     );
   }
   /**
@@ -3353,6 +3397,8 @@ export class ApexSymbolRefManager {
    * Log periodic summary of deferred processing metrics
    */
   private logDeferredProcessingSummary(): Effect.Effect<void, never, never> {
+    // Sync class fields to Refs before logging
+    this.syncRefsToClassFields();
     return logDeferredProcessingSummary().pipe(
       Effect.provide(this.deferredProcessorLayer),
     );
