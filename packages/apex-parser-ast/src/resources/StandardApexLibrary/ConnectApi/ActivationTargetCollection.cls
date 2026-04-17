@@ -1,13 +1,26 @@
+/**
+ * Represents a collection of activation targets.
+ */
 global class ActivationTargetCollection {
-	global List<ConnectApi.ActivationTarget> activationTargets;
-	global Integer batchSize;
-	global Integer offset;
-	global String orderByExpression;
-	global ActivationTargetCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of activation targets.
+   */
+  global List < ConnectApi.ActivationTarget > activationTargets;
+
+  /**
+   * Number of results returned. Values are from 1 through 200 .
+   */
+  global Integer batchSize;
+
+  /**
+   * Start offset of the next batch of results.
+   */
+  global Integer offset;
+
+  /**
+   * Expression that determines the order of the results.
+   */
+  global String orderByExpression;
 
 }

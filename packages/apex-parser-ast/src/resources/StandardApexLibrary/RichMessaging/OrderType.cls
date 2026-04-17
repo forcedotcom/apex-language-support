@@ -1,4 +1,0 @@
-global enum OrderType {
-DIGITALGOODS,
-PHYSICALGOODS
-}

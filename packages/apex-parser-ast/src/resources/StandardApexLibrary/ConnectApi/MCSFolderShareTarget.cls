@@ -1,12 +1,21 @@
+/**
+ * Target that a managed content space folder can be shared with.
+ */
 global class MCSFolderShareTarget {
-	global String id;
-	global String label;
-	global String resourceUrl;
-	global MCSFolderShareTarget() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the share target.
+   */
+  global String id;
+
+  /**
+   * Label of the share target.
+   */
+  global String label;
+
+  /**
+   * Resource URL of the share target that provides target details.
+   */
+  global String resourceUrl;
 
 }

@@ -1,15 +1,36 @@
+/**
+ * Order shipment.
+ */
 global class OrderShipment {
-	global Datetime expectedDeliveryDate;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String orderSummaryId;
-	global String shipmentId;
-	global String shipmentNumber;
-	global String status;
-	global OrderShipment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Expected delivery date for the shipment.
+   */
+  global Datetime expectedDeliveryDate;
+
+  /**
+   * Map of requested fields.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * ID of the order summary.
+   */
+  global String orderSummaryId;
+
+  /**
+   * ID of the shipment.
+   */
+  global String shipmentId;
+
+  /**
+   * Number of the shipment.
+   */
+  global String shipmentNumber;
+
+  /**
+   * Status of the shipment.
+   */
+  global String status;
 
 }

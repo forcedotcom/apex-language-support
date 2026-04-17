@@ -29,7 +29,12 @@ import type {
   MethodSymbol,
   ApexSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import {
+  isClassSymbol,
+  isClassOrInterfaceSymbol,
+  isConstructorSymbol,
+  inTypeSymbolGroup,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -45,7 +50,10 @@ import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { normalizeStandardTypeName } from '../utils/standardTypeIdentity';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  isContextType,
+  getTypeNameFromCreatedName,
+} from '../../../utils/contextTypeGuards';
 
 /**
  * Helper to check if a type extends Exception
@@ -300,8 +308,8 @@ export const ExceptionValidator: Validator = {
         const exceptionClasses = listener.getExceptionClasses();
         for (const { ctx, name } of exceptionClasses) {
           const classSymbol = allSymbols.find(
-            (s) => s.kind === SymbolKind.Class && s.name === name,
-          ) as TypeSymbol | undefined;
+            (s): s is TypeSymbol => isClassSymbol(s) && s.name === name,
+          );
 
           if (classSymbol) {
             const isExceptionClass = extendsException(classSymbol);
@@ -340,10 +348,9 @@ export const ExceptionValidator: Validator = {
             ) {
               // Check if superclass extends Exception
               const superClassSymbol = allSymbols.find(
-                (s) =>
-                  s.kind === SymbolKind.Class &&
-                  s.name === classSymbol.superClass,
-              ) as TypeSymbol | undefined;
+                (s): s is TypeSymbol =>
+                  isClassSymbol(s) && s.name === classSymbol.superClass,
+              );
 
               if (!superClassSymbol || !extendsException(superClassSymbol)) {
                 errors.push({
@@ -369,17 +376,17 @@ export const ExceptionValidator: Validator = {
 
         for (const { ctx, className } of constructors) {
           const classSymbol = allSymbols.find(
-            (s) => s.kind === SymbolKind.Class && s.name === className,
-          ) as TypeSymbol | undefined;
+            (s): s is TypeSymbol => isClassSymbol(s) && s.name === className,
+          );
 
           // Only check exception classes
           if (classSymbol && extendsException(classSymbol)) {
             const constructorSymbol = allSymbols.find(
-              (s) =>
-                s.kind === SymbolKind.Constructor &&
+              (s): s is MethodSymbol =>
+                isConstructorSymbol(s) &&
                 s.name === className &&
                 s.parentId === classSymbol.id,
-            ) as MethodSymbol | undefined;
+            );
 
             if (constructorSymbol) {
               const paramCount = constructorSymbol.parameters.length;
@@ -505,11 +512,10 @@ export const ExceptionValidator: Validator = {
             } else {
               // Check if the type symbol extends Exception
               const typeSymbol = allSymbols.find(
-                (s) =>
-                  (s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface) &&
+                (s): s is TypeSymbol =>
+                  isClassOrInterfaceSymbol(s) &&
                   s.name.toLowerCase() === normalizedType,
-              ) as TypeSymbol | undefined;
+              );
 
               // If type symbol found and it doesn't extend Exception, report error
               if (typeSymbol && !extendsException(typeSymbol)) {
@@ -562,11 +568,10 @@ function resolveThrowExpressionType(
     // Check for new expression: new MyException()
     if (isContextType(expression, NewExpressionContext)) {
       const newExpr = expression as NewExpressionContext;
-      const typeRef = (newExpr as any).typeRef?.();
-      if (typeRef) {
-        const typeName = extractTypeNameFromTypeRef(typeRef);
+      const createdName = newExpr.creator()?.createdName();
+      if (createdName) {
+        const typeName = getTypeNameFromCreatedName(createdName);
         if (typeName) {
-          // Try to find the type symbol
           const typeSymbol = yield* findTypeSymbolByName(
             symbolManager,
             typeName,
@@ -584,24 +589,6 @@ function resolveThrowExpressionType(
 }
 
 /**
- * Extract type name from TypeRefContext
- */
-function extractTypeNameFromTypeRef(typeRef: any): string | null {
-  try {
-    const qualifiedName = typeRef.qualifiedName?.();
-    if (qualifiedName) {
-      const ids = qualifiedName.id();
-      if (ids && ids.length > 0) {
-        return ids.map((id: any) => id.text).join('.');
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Find a type symbol by name (same file or cross-file)
  */
 function findTypeSymbolByName(
@@ -612,12 +599,9 @@ function findTypeSymbolByName(
   return Effect.gen(function* () {
     // First, try to find in same file
     const sameFileType = allSymbols.find(
-      (s) =>
-        (s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum) &&
-        s.name.toLowerCase() === typeName.toLowerCase(),
-    ) as TypeSymbol | undefined;
+      (s): s is TypeSymbol =>
+        inTypeSymbolGroup(s) && s.name.toLowerCase() === typeName.toLowerCase(),
+    );
 
     if (sameFileType) {
       return sameFileType;
@@ -627,12 +611,9 @@ function findTypeSymbolByName(
     const symbols = yield* Effect.promise(() =>
       symbolManager.findSymbolByName(typeName),
     );
-    const typeSymbol = symbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
-    ) as TypeSymbol | undefined;
+    const typeSymbol = symbols.find((s: ApexSymbol): s is TypeSymbol =>
+      inTypeSymbolGroup(s),
+    );
 
     if (typeSymbol) {
       return typeSymbol;
@@ -642,13 +623,8 @@ function findTypeSymbolByName(
     const fqnSymbol = yield* Effect.promise(() =>
       symbolManager.findSymbolByFQN(typeName),
     );
-    if (
-      fqnSymbol &&
-      (fqnSymbol.kind === SymbolKind.Class ||
-        fqnSymbol.kind === SymbolKind.Interface ||
-        fqnSymbol.kind === SymbolKind.Enum)
-    ) {
-      return fqnSymbol as TypeSymbol;
+    if (fqnSymbol && inTypeSymbolGroup(fqnSymbol)) {
+      return fqnSymbol;
     }
 
     return null;

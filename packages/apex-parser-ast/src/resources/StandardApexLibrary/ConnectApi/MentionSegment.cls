@@ -1,13 +1,26 @@
-global class MentionSegment {
-	global Boolean accessible;
-	global String name;
-	global ConnectApi.ActorWithId record;
-	global ConnectApi.UserSummary user;
-	global MentionSegment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Mention segment.
+ */
+global class MentionSegment extends ConnectApi.MessageSegment {
+
+  /**
+   * Specifies whether the mentioned user or group can see the post in which they are mentioned ( true ) or not ( false ).
+   */
+  global Boolean accessible;
+
+  /**
+   * Name of the mentioned user or group.
+   */
+  global String name;
+
+  /**
+   * Information about the mentioned user or group.
+   */
+  global ConnectApi.ActorWithId record;
+
+  /**
+   * Information about the mentioned user. Important In versions 29.0 and later, use the record property.
+   */
+  global ConnectApi.UserSummary user;
 
 }

@@ -1,11 +1,16 @@
+/**
+ * Estimated delivery dates.
+ */
 global class EstimateDeliveryDateOutputRepresentation {
-	global List<ConnectApi.DeliveryEstimateOutputRepresentation> deliveryEstimates;
-	global String estimatedDeliveryReference;
-	global EstimateDeliveryDateOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of delivery estimations.
+   */
+  global List ConnectApi.DeliveryEstimateOutputRepresentation deliveryEstimates;
+
+  /**
+   * Unique code, reference, or identifier for the estimated delivery used by external systems.
+   */
+  global String estimatedDeliveryReference;
 
 }

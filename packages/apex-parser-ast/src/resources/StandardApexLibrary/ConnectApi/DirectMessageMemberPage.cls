@@ -1,14 +1,31 @@
+/**
+ * A collection of direct message members.
+ */
 global class DirectMessageMemberPage {
-	global String currentPageToken;
-	global String currentPageUrl;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global List<ConnectApi.UserSummary> users;
-	global DirectMessageMemberPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Page token to access the current page of direct message members.
+   */
+  global String currentPageToken;
+
+  /**
+   * URL to the current page of direct message members.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Page token to access the next page of direct message members.
+   */
+  global String nextPageToken;
+
+  /**
+   * URL to the next page of direct message members.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Collection of direct message members.
+   */
+  global List < ConnectApi.UserSummary > users;
 
 }

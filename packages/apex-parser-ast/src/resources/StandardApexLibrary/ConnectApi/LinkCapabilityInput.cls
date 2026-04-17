@@ -1,10 +1,16 @@
-global class LinkCapabilityInput {
-	global String url;
-	global String urlName;
-	global LinkCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Create or update a link on a feed element.
+ */
+global class LinkCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
+
+  /**
+   * Link URL. The URL can be to an external site.
+   */
+  global String url;
+
+  /**
+   * Description of the link.
+   */
+  global String urlName;
 
 }

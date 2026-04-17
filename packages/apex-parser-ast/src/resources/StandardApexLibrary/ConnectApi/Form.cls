@@ -1,13 +1,26 @@
+/**
+ * Marketing integration form.
+ */
 global class Form {
-	global String dataExtensionId;
-	global ConnectApi.FormFields formFieldsList;
-	global String formId;
-	global String formName;
-	global Form() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the data extension associated with the marketing integration form.
+   */
+  global String dataExtensionId;
+
+  /**
+   * List of form fields associated with the marketing integration form.
+   */
+  global ConnectApi.FormFields formFieldsList;
+
+  /**
+   * ID of the marketing integration form.
+   */
+  global String formId;
+
+  /**
+   * Name of the marketing integration form.
+   */
+  global String formName;
 
 }

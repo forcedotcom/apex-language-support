@@ -1,9 +1,14 @@
+/**
+ * Contains methods to retrieve and update details that are required to evaluate a learning item.
+ */
 global class LearningEvaluation {
-	global LearningEvaluation(String learningItemId, Map<String,Object> details) { }
-	global Object clone() { }
-	global Map<String,Object> getDetails() { }
-	global String getLearningItemId() { }
-	global void setDetails(Map<String,Object> details) { }
-	global void setLearningItemId(String learningItemId) { }
+
+  public Map<String,Object> getDetails() {}
+
+  public String getLearningItemId() {}
+
+  public void setDetails(Map<String,Object> details) {}
+
+  public void setLearningItemId(String learningItemId) {}
 
 }

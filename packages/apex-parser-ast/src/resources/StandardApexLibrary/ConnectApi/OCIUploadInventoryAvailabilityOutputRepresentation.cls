@@ -1,10 +1,11 @@
-global class OCIUploadInventoryAvailabilityOutputRepresentation {
-	global String uploadId;
-	global OCIUploadInventoryAvailabilityOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Response to an upload inventory availability job.
+ */
+global class OCIUploadInventoryAvailabilityOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
+
+  /**
+   * Identifier of the upload job. Use this value to retrieve the status of the job.
+   */
+  global String uploadId;
 
 }

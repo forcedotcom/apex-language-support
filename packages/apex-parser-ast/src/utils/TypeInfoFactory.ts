@@ -60,7 +60,7 @@ export const createTypeInfo = (typeString: string): TypeInfo => {
  * Create TypeInfo for qualified type names (e.g., System.String, MyNamespace.MyClass)
  * @param typeString The full type string (may include generics)
  * @param baseTypeName The base type name without generics
- * (e.g., "System.Url" from "System.Url" or "System.Url" from "List<System.Url>")
+ * (e.g., "System.URL" from "System.URL" or "System.URL" from "List<System.URL>")
  */
 const createQualifiedTypeInfo = (
   typeString: string,

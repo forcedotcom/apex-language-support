@@ -1,15 +1,36 @@
+/**
+ * Details of a single released reservation.
+ */
 global class OCIReleaseReservationSingleOutputRepresentation {
-	global String actionRequestId;
-	global String externalRefId;
-	global String locationGroupIdentifier;
-	global String locationIdentifier;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global OCIReleaseReservationSingleOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The UUID that identifies the original release reservation request.
+   */
+  global String actionRequestId;
+
+  /**
+   * The external reference ID of the location that released the reservation.
+   */
+  global String externalRefId;
+
+  /**
+   * The identifier of the location group that released the reservation.
+   */
+  global String locationGroupIdentifier;
+
+  /**
+   * The identifier of the location that released the reservation.
+   */
+  global String locationIdentifier;
+
+  /**
+   * The released quantity.
+   */
+  global Double quantity;
+
+  /**
+   * The SKU of the released product.
+   */
+  global String stockKeepingUnit;
 
 }

@@ -1,13 +1,21 @@
+/**
+ * Credential value.
+ */
 global class CredentialValue {
-	global Boolean encrypted;
-	global String id;
-	global Integer revision;
-	global String value;
-	global CredentialValue() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the credential value is encrypted ( true ) or not ( false ).
+   */
+  global Boolean encrypted;
+
+  /**
+   * Revision number of a short-lived credential.
+   */
+  global Integer revision;
+
+  /**
+   * Value of the credential.
+   */
+  global String value;
 
 }

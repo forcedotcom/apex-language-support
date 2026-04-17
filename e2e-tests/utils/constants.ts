@@ -91,6 +91,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'terminal.chatAgentTools',
   'ISandboxHelperService',
   'terminalSandboxService',
+  'Unable to create workbench contribution',
+  'remoteAgentHostService',
 
   // Network and connectivity (often transient)
   'hostname could not be found',

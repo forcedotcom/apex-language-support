@@ -1,15 +1,36 @@
+/**
+ * Details about a product variation.
+ */
 global class ProductVariantOutputRepresentation {
-	global Double listPrice;
-	global Double price;
-	global String productId;
-	global String stockKeepingUnit;
-	global Double unitPrice;
-	global Map<String,String> variationValues;
-	global ProductVariantOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List price.
+   */
+  global Double listPrice;
+
+  /**
+   * Price.
+   */
+  global Double price;
+
+  /**
+   * Product ID.
+   */
+  global String productId;
+
+  /**
+   * Stock Keeping Unit.
+   */
+  global String stockKeepingUnit;
+
+  /**
+   * Unit price.
+   */
+  global Double unitPrice;
+
+  /**
+   * The variation attribute values that define the variation.
+   */
+  global Map < String , String > variationValues;
 
 }

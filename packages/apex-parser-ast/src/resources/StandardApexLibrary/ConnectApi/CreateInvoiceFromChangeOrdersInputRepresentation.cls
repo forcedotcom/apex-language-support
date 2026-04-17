@@ -1,10 +1,16 @@
+/**
+ * OrderSummary and associated change orders to create Invoices for.
+ */
 global class CreateInvoiceFromChangeOrdersInputRepresentation {
-	global List<String> changeOrderIds;
-	global String orderSummaryId;
-	global CreateInvoiceFromChangeOrdersInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of IDs of change orders to create Invoices for.
+   */
+  global List < String > changeOrderIds;
+
+  /**
+   * ID of the associated Order Summary.
+   */
+  global String orderSummaryId;
 
 }

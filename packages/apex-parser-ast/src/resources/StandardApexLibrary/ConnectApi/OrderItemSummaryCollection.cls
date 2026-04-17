@@ -1,16 +1,41 @@
+/**
+ * Collection of order item summaries.
+ */
 global class OrderItemSummaryCollection {
-	global String currentPageToken;
-	global String currentPageUrl;
-	global List<ConnectApi.OrderItemSummary> items;
-	global String nextPageToken;
-	global String nextPageUrl;
-	global String previousPageToken;
-	global String previousPageUrl;
-	global OrderItemSummaryCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Token identifying the current page of items.
+   */
+  global String currentPageToken;
+
+  /**
+   * URL to the current page of items.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Collection of order item summaries.
+   */
+  global List < ConnectApi.OrderItemSummary > items;
+
+  /**
+   * Token identifying the next page of items.
+   */
+  global String nextPageToken;
+
+  /**
+   * URL to the next page of items.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Token identifying the previous page of items.
+   */
+  global String previousPageToken;
+
+  /**
+   * URL to the previous page of items.
+   */
+  global String previousPageUrl;
 
 }

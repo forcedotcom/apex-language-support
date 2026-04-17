@@ -1,15 +1,21 @@
+/**
+ * Represents the parameter fields for an SQL query input.
+ */
 global class QuerySqlParameterItem {
-	global ConnectApi.QuerySqlParameterItem innerElement;
-	global Long length;
-	global String name;
-	global Integer precision;
-	global Integer scale;
-	global ConnectApi.TypeEnum type;
-	global String value;
-	global QuerySqlParameterItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the SQL parameter.
+   */
+  global String name;
+
+  /**
+   * Type of the SQL parameter. ArrayOfX BigInt Bool Char Date Double Foat Integer Numeric Oid SmallInt Time Timestamp TimestampTZ Unspecified Varchar
+   */
+  global TypeEnum type;
+
+  /**
+   * Value of the SQL parameter.
+   */
+  global String value;
 
 }

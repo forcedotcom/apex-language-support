@@ -157,7 +157,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
       expect(symbol).toBeDefined();
       expect(symbol?.kind).toBe(SymbolKind.Class);
-      expect(symbol?.name).toBe('Url');
+      expect(symbol?.name).toBe('URL');
     });
 
     it('should resolve middle node (getOrgDomainUrl) in URL.getOrgDomainUrl().toExternalForm()', async () => {

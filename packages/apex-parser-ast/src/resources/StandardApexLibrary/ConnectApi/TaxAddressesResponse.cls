@@ -1,12 +1,21 @@
+/**
+ * The Ship From, Ship To, and Sold To addresses used during tax calculation.
+ */
 global class TaxAddressesResponse {
-	global ConnectApi.TaxAddressResponse shipFrom;
-	global ConnectApi.TaxAddressResponse shipTo;
-	global ConnectApi.TaxAddressResponse soldTo;
-	global TaxAddressesResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The Ship From address used in tax calculation.
+   */
+  global ConnectApi.TaxAddressResponse shipFrom;
+
+  /**
+   * The Ship To address used in tax calculation.
+   */
+  global ConnectApi.TaxAddressResponse shipTo;
+
+  /**
+   * The Sold To address used in tax calculation.
+   */
+  global ConnectApi.TaxAddressResponse soldTo;
 
 }

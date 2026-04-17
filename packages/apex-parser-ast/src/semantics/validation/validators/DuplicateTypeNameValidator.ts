@@ -8,7 +8,7 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable, TypeSymbol } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import { inTypeSymbolGroup } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -66,13 +66,7 @@ export const DuplicateTypeNameValidator: Validator = {
 
       // Filter to types (classes, interfaces, enums)
       // Constructors have SymbolKind.Constructor, so they're automatically excluded
-      const types = allSymbols.filter(
-        (symbol): symbol is TypeSymbol =>
-          (symbol.kind === SymbolKind.Class ||
-            symbol.kind === SymbolKind.Interface ||
-            symbol.kind === SymbolKind.Enum) &&
-          'annotations' in symbol,
-      );
+      const types = allSymbols.filter(inTypeSymbolGroup);
 
       // Deduplicate by object reference - prevents same symbol object appearing multiple times
       // but allows legitimate duplicates (different objects with same ID) to both be checked

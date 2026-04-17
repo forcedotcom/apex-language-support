@@ -1,12 +1,21 @@
+/**
+ * Data 360 segment membership table.
+ */
 global class CdpSegmentMembershipTableOutput {
-	global String historyTable;
-	global String latestTable;
-	global String profileTable;
-	global CdpSegmentMembershipTableOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Segment membership history table.
+   */
+  global String historyTable;
+
+  /**
+   * Segment membership latest table.
+   */
+  global String latestTable;
+
+  /**
+   * Segment membership profile table.
+   */
+  global String profileTable;
 
 }

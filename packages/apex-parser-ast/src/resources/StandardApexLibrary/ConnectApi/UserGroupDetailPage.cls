@@ -1,14 +1,31 @@
+/**
+ * A page of groups that a user is a member of.
+ */
 global class UserGroupDetailPage {
-	global String currentPageUrl;
-	global List<ConnectApi.ChatterGroupDetail> groups;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global Integer total;
-	global UserGroupDetailPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Collection of groups that the user is a member of.
+   */
+  global List < ConnectApi.ChatterGroupDetail > groups;
+
+  /**
+   * URL to the next page, or null if there is no next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page, or null if there is no previous page.
+   */
+  global String previousPageUrl;
+
+  /**
+   * Total number of groups that the user is a member of.
+   */
+  global Integer total;
 
 }

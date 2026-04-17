@@ -1,7 +1,7 @@
 global enum ConnectInsightUnitEnum {
-COUNT,
-CURRENCY,
-DOLLAR,
-NUMBER,
-PERCENT
+  Count,
+  Currency,
+  Dollar,
+  Number,
+  Percent
 }

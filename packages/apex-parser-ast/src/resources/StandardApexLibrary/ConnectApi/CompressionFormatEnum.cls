@@ -1,5 +1,5 @@
 global enum CompressionFormatEnum {
-BZIP2,
-GZIP,
-NONE
+  Bzip2,
+  Gzip,
+  None
 }

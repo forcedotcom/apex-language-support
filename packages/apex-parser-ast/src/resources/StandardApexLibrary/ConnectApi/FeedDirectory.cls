@@ -1,11 +1,16 @@
+/**
+ * Directory of feeds and favorites.
+ */
 global class FeedDirectory {
-	global List<ConnectApi.FeedFavorite> favorites;
-	global List<ConnectApi.FeedDirectoryItem> feeds;
-	global FeedDirectory() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of feed favorites
+   */
+  global List < ConnectApi.FeedFavorite > favorites;
+
+  /**
+   * A list of feeds
+   */
+  global List < ConnectApi.FeedDirectoryItem > feeds;
 
 }

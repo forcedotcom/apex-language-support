@@ -1,12 +1,21 @@
+/**
+ * A banner photo.
+ */
 global class BannerPhoto {
-	global String bannerPhotoUrl;
-	global String bannerPhotoVersionId;
-	global String url;
-	global BannerPhoto() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the banner photo in a large format. This URL is available only to authenticated users.
+   */
+  global String bannerPhotoUrl;
+
+  /**
+   * 18-character version ID of the banner photo.
+   */
+  global String bannerPhotoVersionId;
+
+  /**
+   * URL to the banner photo.
+   */
+  global String url;
 
 }

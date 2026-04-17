@@ -1,0 +1,159 @@
+name: Generate Apex Stubs
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Mondays at 06:00 UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    name: Generate and Validate Stubs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Generate Apex stubs
+        # Always scrapes fresh from the Salesforce docs — no caching of the TOC or page
+        # content, so any additions/removals/changes in the docs are detected each run.
+        working-directory: packages/apex-stubs-generator
+        run: npm run generate
+
+      - name: Validate stub counts
+        working-directory: packages/apex-stubs-generator
+        run: |
+          set -euo pipefail
+          npm run validate | tee stub-validation-audit.txt
+
+      - name: Generate manifest
+        working-directory: packages/apex-stubs-generator
+        run: npm run validate:manifest
+
+      - name: Add audit to run summary
+        working-directory: packages/apex-stubs-generator
+        run: |
+          {
+            echo "## Stub Validation Audit"
+            echo ""
+            echo '```text'
+            cat stub-validation-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation audit artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: stub-validation-audit
+          path: packages/apex-stubs-generator/stub-validation-audit.txt
+          if-no-files-found: error
+
+      - name: Summarize deleted stubs by namespace
+        run: |
+          set -euo pipefail
+
+          OUTPUT="packages/apex-stubs-generator/stub-deletions-by-namespace.txt"
+
+          if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+            echo "No git HEAD available; skipping deletion summary." > "$OUTPUT"
+            exit 0
+          fi
+
+          # Collect deleted .cls files in StandardApexLibrary and group by namespace folder.
+          DELETED=$(git diff --name-status HEAD -- \
+            "packages/apex-parser-ast/src/resources/StandardApexLibrary/**/*.cls" \
+            | awk '$1 == "D" {print $2}')
+
+          {
+            echo "=== Deleted Stub Summary By Namespace ==="
+            echo ""
+            if [ -z "$DELETED" ]; then
+              echo "No deleted .cls stubs detected in this run."
+            else
+              echo "count | namespace"
+              echo "----------------------"
+              printf "%s\n" "$DELETED" \
+                | awk -F'/' '{print $(NF-1)}' \
+                | sort \
+                | uniq -c \
+                | awk '{printf "%5d | %s\n", $1, $2}'
+              echo ""
+              echo "Deleted files:"
+              printf "%s\n" "$DELETED" | sort
+            fi
+          } | tee "$OUTPUT"
+
+      - name: Add deletion summary to run summary
+        run: |
+          {
+            echo "## Stub Deletions By Namespace"
+            echo ""
+            echo '```text'
+            cat packages/apex-stubs-generator/stub-deletions-by-namespace.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload deletion summary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: stub-deletions-by-namespace
+          path: packages/apex-stubs-generator/stub-deletions-by-namespace.txt
+          if-no-files-found: error
+
+      - name: Recompile apex-parser-ast (rebuild ZIP and protobuf artifacts)
+        run: npm run compile -w packages/apex-parser-ast
+
+      - name: Update empty-stub snapshot
+        # Regenerates the snapshot against the freshly compiled stubs so the PR
+        # includes an updated baseline. --forceExit prevents Jest hanging after
+        # the long compile-all-stubs test completes.
+        working-directory: packages/apex-parser-ast
+        run: npx jest emptyStubDetection.snapshot --updateSnapshot --testTimeout=300000 --forceExit
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add packages/apex-parser-ast/src/resources/StandardApexLibrary/ \
+                  packages/apex-parser-ast/resources/ \
+                  packages/apex-parser-ast/test/generator/__snapshots__/emptyStubDetection.snapshot.test.ts.snap
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-apex-stubs
+          delete-branch: true
+          title: 'chore: update generated Apex standard library stubs'
+          body: |
+            Automated update of Apex standard library stubs generated from the
+            Salesforce Apex Reference Guide documentation.
+
+            **Changes:**
+            - Updated `.cls` stub files in `packages/apex-parser-ast/src/resources/StandardApexLibrary/`
+            - Rebuilt `StandardApexLibrary.zip` and protobuf artifacts
+            - Updated `manifest.json` with current namespace/class counts
+            - Updated empty-stub snapshot baseline (`emptyStubDetection.snapshot.test.ts.snap`)
+
+            **Triggered by:** ${{ github.event_name == 'schedule' && 'weekly schedule' || 'manual dispatch' }}
+          commit-message: 'chore: update generated Apex standard library stubs'
+          labels: automated, stubs

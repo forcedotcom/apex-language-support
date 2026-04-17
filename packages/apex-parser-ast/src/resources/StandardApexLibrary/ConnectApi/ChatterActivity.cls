@@ -1,13 +1,26 @@
+/**
+ * Chatter activity.
+ */
 global class ChatterActivity {
-	global Integer commentCount;
-	global Integer commentReceivedCount;
-	global Integer likeReceivedCount;
-	global Integer postCount;
-	global ChatterActivity() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Total number of comments in the org or site made by the user.
+   */
+  global Integer commentCount;
+
+  /**
+   * Total number of comments in the org or site received by the user.
+   */
+  global Integer commentReceivedCount;
+
+  /**
+   * Total number of likes and upvotes (in version 45.0 and later) on posts and comments in the org or site received by the user.
+   */
+  global Integer likeReceivedCount;
+
+  /**
+   * Total number of posts in the org or site made by the user.
+   */
+  global Integer postCount;
 
 }

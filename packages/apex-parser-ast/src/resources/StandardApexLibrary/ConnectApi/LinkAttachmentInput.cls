@@ -1,10 +1,16 @@
-global class LinkAttachmentInput {
-	global String url;
-	global String urlName;
-	global LinkAttachmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Add links to a feed item.
+ */
+global class LinkAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
+
+  /**
+   * URL to be used for the link
+   */
+  global String url;
+
+  /**
+   * Title of the link
+   */
+  global String urlName;
 
 }

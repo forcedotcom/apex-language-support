@@ -1,14 +1,31 @@
+/**
+ * A list of user references.
+ */
 global class UserReferencePage {
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global Integer userCount;
-	global List<ConnectApi.Reference> users;
-	global UserReferencePage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * URL to the next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page.
+   */
+  global String previousPageUrl;
+
+  /**
+   * Number of users in the collection.
+   */
+  global Integer userCount;
+
+  /**
+   * A collection of user references.
+   */
+  global List < ConnectApi.Reference > users;
 
 }

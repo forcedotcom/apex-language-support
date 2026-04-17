@@ -15,6 +15,9 @@ import {
   ApexLexer,
   ApexParser,
   CaseInsensitiveInputStream,
+  CompilationUnitContext,
+  TriggerUnitContext,
+  BlockContext,
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, VariableSymbol } from '../../../types/symbol';
@@ -30,7 +33,7 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-import { SymbolKind } from '../../../types/symbol';
+import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -176,7 +179,10 @@ export const PropertyAccessorValidator: Validator = {
 
       try {
         // Use cached parse tree if available, otherwise parse source content
-        let parseTree: any;
+        let parseTree:
+          | CompilationUnitContext
+          | TriggerUnitContext
+          | BlockContext;
         if (options.parseTree) {
           parseTree = options.parseTree;
         } else {
@@ -216,7 +222,7 @@ export const PropertyAccessorValidator: Validator = {
           // Find the property symbol to check if it's final
           const propertySymbol = allSymbols.find(
             (s) =>
-              s.kind === SymbolKind.Property &&
+              isPropertySymbol(s) &&
               s.name?.toLowerCase() === prop.propertyName.toLowerCase(),
           ) as VariableSymbol | undefined;
 

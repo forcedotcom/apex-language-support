@@ -1,21 +1,51 @@
+/**
+ * Product summary for a cart item.
+ */
 global class CartItemProduct {
-	global Map<String,ConnectApi.CommerceProductDynamicAttribute> dynamicAttributes;
-	global Map<String,String> fields;
-	global Boolean isConfigurationAllowed;
-	global String name;
-	global ConnectApi.ProductClass productClass;
-	global String productId;
-	global ConnectApi.ProductSellingModel productSubscriptionInformation;
-	global String productUrlName;
-	global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
-	global String sku;
-	global ConnectApi.ProductMedia thumbnailImage;
-	global Map<String,ConnectApi.CartProductAttribute> variationAttributes;
-	global CartItemProduct() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Map of product fields and values.
+   */
+  global Map < String , String > fields;
+
+  /**
+   * Name of the product.
+   */
+  global String name;
+
+  /**
+   * Class of product. Values are: Bundle Set Simple Variation VariationParent
+   */
+  global ConnectApi.ProductClass productClass;
+
+  /**
+   * ID of the product.
+   */
+  global String productId;
+
+  /**
+   * If one exists, purchase quantity rule for the product.
+   */
+  global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
+
+  /**
+   * SEO-friendly URL name for the product.
+   */
+  global String productUrlName;
+
+  /**
+   * SKU of the product.
+   */
+  global String sku;
+
+  /**
+   * Thumbnail image of the product.
+   */
+  global ConnectApi.ProductMedia thumbnailImage;
+
+  /**
+   * Variation attributes associated with the product.
+   */
+  global Map < String , ConnectApi.CartProductAttribute > variationAttributes;
 
 }

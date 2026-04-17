@@ -1,70 +1,180 @@
+/**
+ * Contains describe metadata information for a quick action.
+ */
 global class DescribeQuickActionResult {
-	global String accesslevelrequired;
-	global String canvasapplicationid;
-	global String canvasapplicationname;
-	global List<Schema.DescribeColorResult> colors;
-	global String contextsobjecttype;
-	global List<QuickAction.DescribeQuickActionDefaultValue> defaultvalues;
-	global String flowdevname;
-	global String flowrecordidvar;
-	global Integer height;
-	global String iconname;
-	global List<Schema.DescribeIconResult> icons;
-	global String iconurl;
-	global QuickAction.DescribeLayoutSection layout;
-	global String lightningcomponentbundleid;
-	global String lightningcomponentbundlename;
-	global String lightningcomponentqualifiedname;
-	global String lightningwebcomponentbundleid;
-	global String lightningwebcomponentbundlename;
-	global String lightningwebcomponentqualifiedname;
-	global String miniiconurl;
-	global String mobileextensionid;
-	global List<QuickAction.DescribeQuickActionParameter> parameters;
-	global Boolean showquickactionlcheader;
-	global Boolean showquickactionvfheader;
-	global String targetparentfield;
-	global String targetrecordtypeid;
-	global String targetsobjecttype;
-	global String visualforcepagename;
-	global String visualforcepageurl;
-	global Integer width;
-	global Boolean equals(Object obj) { }
-	global String getAccessLevelRequired() { }
-	global String getActionEnumOrId() { }
-	global String getCanvasApplicationId() { }
-	global String getCanvasApplicationName() { }
-	global List<Schema.DescribeColorResult> getColors() { }
-	global String getContextSobjectType() { }
-	global List<QuickAction.DescribeQuickActionDefaultValue> getDefaultValues() { }
-	global String getFlowDevName() { }
-	global String getFlowRecordIdVar() { }
-	global Integer getHeight() { }
-	global String getIconName() { }
-	global String getIconUrl() { }
-	global List<Schema.DescribeIconResult> getIcons() { }
-	global String getLabel() { }
-	global QuickAction.DescribeLayoutSection getLayout() { }
-	global String getLightningComponentBundleId() { }
-	global String getLightningComponentBundleName() { }
-	global String getLightningComponentQualifiedName() { }
-	global String getLightningWebComponentBundleId() { }
-	global String getLightningWebComponentBundleName() { }
-	global String getLightningWebComponentQualifiedName() { }
-	global String getMiniIconUrl() { }
-	global String getMobileExtensionId() { }
-	global String getName() { }
-	global List<QuickAction.DescribeQuickActionParameter> getParameters() { }
-	global Boolean getShowQuickActionLcHeader() { }
-	global Boolean getShowQuickActionVfHeader() { }
-	global String getTargetParentField() { }
-	global String getTargetRecordTypeId() { }
-	global String getTargetSobjectType() { }
-	global String getType() { }
-	global String getVisualforcePageName() { }
-	global String getVisualforcePageUrl() { }
-	global Integer getWidth() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
+   * @return String
+   */
+  public String getActionEnumOrId() {}
+
+  /**
+   * Returns the name of the Canvas application, if used.
+   * @return String
+   */
+  public String getCanvasApplicationName() {}
+
+  /**
+   * Returns an array of color information. Each color is associated with a theme.
+   * @return List<Schema.DescribeColorResult>
+   */
+  public List<Schema.DescribeColorResult> getColors() {}
+
+  /**
+   * Returns the object used for the action. Replaces getsourceSobjectType() in API version 30.0 and later.
+   * @return String
+   */
+  public String getContextSobjectType() {}
+
+  /**
+   * Returns the default values for a action.
+   * @return List<QuickAction.DescribeQuickActionDefaultValue>
+   */
+  public List<QuickAction.DescribeQuickActionDefaultValue> getDefaultValues() {}
+
+  /**
+   * If the custom action invokes a flow, returns the fully qualified name of the flow invoked by the custom action.
+   * @return String
+   */
+  public String getFlowDevName() {}
+
+  /**
+   * If the custom action invokes a flow, returns the input variable that the custom action passes the record’s ID to.
+   * @return String
+   */
+  public String getFlowRecordIdVar() {}
+
+  /**
+   * Returns the height in pixels of the action pane.
+   * @return Integer
+   */
+  public Integer getHeight() {}
+
+  /**
+   * Returns the actions’ icon name.
+   * @return String
+   */
+  public String getIconName() {}
+
+  /**
+   * Returns the URL of the 32x32 icon used for the action.
+   * @return String
+   */
+  public String getIconUrl() {}
+
+  /**
+   * Returns a list of Schema.DescribeIconResult objects that describe colors used in a tab.
+   * @return List<Schema.DescribeIconResult>
+   */
+  public List<Schema.DescribeIconResult> getIcons() {}
+
+  /**
+   * Returns the action label.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * Returns the layout sections that comprise an action.
+   * @return QuickAction.DescribeLayoutSection
+   */
+  public QuickAction.DescribeLayoutSection getLayout() {}
+
+  /**
+   * If the custom action invokes an Aura component, returns the ID of the Aura component bundle to which the component belongs.
+   * @return String
+   */
+  public String getLightningComponentBundleId() {}
+
+  /**
+   * If the custom action invokes an Aura component, returns the name of the Aura component bundle to which the component belongs.
+   * @return String
+   */
+  public String getLightningComponentBundleName() {}
+
+  /**
+   * If the custom action invokes an Aura component, returns the fully qualified name of the Aura component invoked by the custom action.
+   * @return String
+   */
+  public String getLightningComponentQualifiedName() {}
+
+  public String getLightningWebComponentBundleId() {}
+
+  public String getLightningWebComponentBundleName() {}
+
+  public String getLightningWebComponentQualifiedName() {}
+
+  /**
+   * Returns the 16x16 icon URL.
+   * @return String
+   */
+  public String getMiniIconUrl() {}
+
+  /**
+   * Returns the action name.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * Returns an indication of whether the Lightning component quick action header and footer are shown.
+   * @return Boolean
+   */
+  public Boolean getShowQuickActionLcHeader() {}
+
+  /**
+   * Returns an indication of whether the Visualforce quick action header and footer should be shown.
+   * @return Boolean
+   */
+  public Boolean getShowQuickActionVfHeader() {}
+
+  /**
+   * Returns the object type used for the action.
+   * @return String
+   */
+  public String getSourceSobjectType() {}
+
+  /**
+   * Returns the parent object’s type for the action.
+   * @return String
+   */
+  public String getTargetParentField() {}
+
+  /**
+   * Returns the record type of the targeted record.
+   * @return String
+   */
+  public String getTargetRecordTypeId() {}
+
+  /**
+   * Returns the action’s target object type.
+   * @return String
+   */
+  public String getTargetSobjectType() {}
+
+  /**
+   * Returns a create or custom Visualforce action.
+   * @return String
+   */
+  public String getType() {}
+
+  /**
+   * If Visualforce is used, returns the name of the associated page for the action.
+   * @return String
+   */
+  public String getVisualforcePageName() {}
+
+  /**
+   * Returns the URL of the Visualforce page associated with the action.
+   * @return String
+   */
+  public String getVisualforcePageUrl() {}
+
+  /**
+   * If a custom action is created, returns the width in pixels of the action pane.
+   * @return Integer
+   */
+  public Integer getWidth() {}
 
 }

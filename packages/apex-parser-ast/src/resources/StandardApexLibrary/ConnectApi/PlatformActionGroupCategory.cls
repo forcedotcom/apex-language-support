@@ -1,4 +1,4 @@
 global enum PlatformActionGroupCategory {
-OVERFLOW,
-PRIMARY
+  Primary,
+  Overflow
 }

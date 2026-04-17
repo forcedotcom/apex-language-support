@@ -1,14 +1,36 @@
-global class ContentHubRepository {
-	global ConnectApi.ContentHubRepositoryAuthentication authentication;
-	global ConnectApi.ContentHubRepositoryFeatures features;
-	global String label;
-	global ConnectApi.ContentHubProviderType providerType;
-	global String rootFolderItemsUrl;
-	global ContentHubRepository() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A repository.
+ */
+global class ContentHubRepository extends ConnectApi.ActorWithId {
+
+  /**
+   * Repository authentication information.
+   */
+  global ConnectApi.ContentHubRepositoryAuthentication authentication;
+
+  /**
+   * Repository features.
+   */
+  global ConnectApi.ContentHubRepositoryFeatures features;
+
+  /**
+   * Repository label.
+   */
+  global String label;
+
+  /**
+   * Repository name.
+   */
+  global String name;
+
+  /**
+   * Repository provider type.
+   */
+  global ConnectApi.ContentHubProviderType providerType;
+
+  /**
+   * URL to the list of items in the repository root folder.
+   */
+  global String rootFolderItemsUrl;
 
 }

@@ -1,11 +1,13 @@
+/**
+ * Specifies the logging level for the System.debug method.
+ */
 global enum LoggingLevel {
-DEBUG,
-ERROR,
-FINE,
-FINER,
-FINEST,
-INFO,
-INTERNAL,
-NONE,
-WARN
+  NONE,
+  ERROR,
+  WARN,
+  INFO,
+  DEBUG,
+  FINE,
+  FINER,
+  FINEST
 }

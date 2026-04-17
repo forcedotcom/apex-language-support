@@ -1,12 +1,21 @@
+/**
+ * List of prompt template records.
+ */
 global class EinsteinPromptRecordCollectionOutputRepresentation {
-	global Boolean hasMoreRecords;
-	global List<ConnectApi.EinsteinPromptRecordRepresentation> promptRecords;
-	global Integer totalPromptRecords;
-	global EinsteinPromptRecordCollectionOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the query returned more prompt template records (true) or not (false) .
+   */
+  global Boolean hasMoreRecords;
+
+  /**
+   * List of prompt template records returned.
+   */
+  global List < ConnectApi.EinsteinPromptRecordRepresentation > promptRecords;
+
+  /**
+   * Number of prompt template records returned.
+   */
+  global Integer totalPromptRecords;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Details of a single fulfilled reservation.
+ */
 global class OCIFulfillReservationSingleOutputRepresentation {
-	global String actionRequestId;
-	global String externalRefId;
-	global String locationIdentifier;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global OCIFulfillReservationSingleOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The UUID that identifies the original fulfill reservation request.
+   */
+  global String actionRequestId;
+
+  /**
+   * The external reference ID of the location that fulfilled the reservation.
+   */
+  global String externalRefId;
+
+  /**
+   * The identifier of the location that fulfilled the reservation.
+   */
+  global String locationIdentifier;
+
+  /**
+   * The fulfilled quantity.
+   */
+  global Double quantity;
+
+  /**
+   * The SKU of the fulfilled product.
+   */
+  global String stockKeepingUnit;
 
 }

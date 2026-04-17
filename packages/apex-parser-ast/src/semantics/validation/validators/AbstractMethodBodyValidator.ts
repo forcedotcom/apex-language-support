@@ -8,7 +8,7 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
-import { isMethodSymbol } from '../../../utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -82,9 +82,9 @@ export const AbstractMethodBodyValidator: Validator = {
         // Find class block first (if it exists)
         const classBlock = allSymbols.find(
           (s) =>
-            s.kind === 'block' &&
+            isBlockSymbol(s) &&
             s.parentId === method.parentId &&
-            (s as any).scopeType === 'class',
+            s.scopeType === 'class',
         );
         const classBlockId = classBlock?.id;
 
@@ -124,7 +124,8 @@ export const AbstractMethodBodyValidator: Validator = {
                   (s) => s.parentId === method.id && s.kind === 'block',
                 );
                 const methodBlock = childBlocks.find(
-                  (block) => (block as any).scopeType === 'method',
+                  (block) =>
+                    isBlockSymbol(block) && block.scopeType === 'method',
                 );
                 if (methodBlock) {
                   const methodBlockChildren = allSymbols.filter(

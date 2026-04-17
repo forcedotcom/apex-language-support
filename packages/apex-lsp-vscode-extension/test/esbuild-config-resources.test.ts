@@ -35,10 +35,10 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
       }
     });
 
-    it('should be appropriately sized (around 1.6MB)', () => {
+    it('should be appropriately sized (around 850KB)', () => {
       if (fs.existsSync(standardLibZipSrc)) {
         const stats = fs.statSync(standardLibZipSrc);
-        expect(stats.size).toBeGreaterThan(1000000);
+        expect(stats.size).toBeGreaterThan(500000);
         expect(stats.size).toBeLessThan(5000000);
       }
     });

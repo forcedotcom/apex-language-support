@@ -1,12 +1,21 @@
+/**
+ * Information about the bot associated with the conversation application.
+ */
 global class BotInfoRepresentation {
-	global String botId;
-	global String botName;
-	global Datetime lastModifiedDate;
-	global BotInfoRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the bot.
+   */
+  global String botId;
+
+  /**
+   * Name of the bot.
+   */
+  global String botName;
+
+  /**
+   * Last modified date of the bot definition.
+   */
+  global Datetime lastModifiedDate;
 
 }

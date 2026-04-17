@@ -1,10 +1,11 @@
+/**
+ * Response to a request to hold fulfillment order capacity at one or more locations.
+ */
 global class HoldFOCapacityResponseOutputRepresentation {
-	global List<ConnectApi.CapacityResponseOutputRepresentation> capacityResponses;
-	global HoldFOCapacityResponseOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of responses to the requests to hold fulfillment order capacity at individual locations.
+   */
+  global List < ConnectApi.CapacityResponseOutputRepresentation > capacityResponses;
 
 }

@@ -1,15 +1,36 @@
+/**
+ * Item in a wishlist.
+ */
 global class WishlistItem {
-	global String currencyIsoCode;
-	global ConnectApi.ErrorResponse error;
-	global Double listPrice;
-	global ConnectApi.CartItemProduct productSummary;
-	global Double salesPrice;
-	global String wishlistItemId;
-	global WishlistItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the product.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Error information.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * List price of the wishlist item.
+   */
+  global Double listPrice;
+
+  /**
+   * Product summary for the wishlist item.
+   */
+  global ConnectApi.CartItemProduct productSummary;
+
+  /**
+   * Sales price of the wishlist item.
+   */
+  global Double salesPrice;
+
+  /**
+   * ID of the wishlist item.
+   */
+  global String wishlistItemId;
 
 }

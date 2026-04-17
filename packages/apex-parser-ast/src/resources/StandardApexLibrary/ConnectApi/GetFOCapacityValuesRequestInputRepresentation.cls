@@ -1,9 +1,11 @@
+/**
+ * Locations to get fulfillment order capacity information for.
+ */
 global class GetFOCapacityValuesRequestInputRepresentation {
-	global List<String> locationIds;
-	global GetFOCapacityValuesRequestInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of IDs of the locations to get fulfillment order capacity information for.
+   */
+  global List < String > locationIds;
 
 }

@@ -1,11 +1,16 @@
+/**
+ * Represents the activation attribute filter expression.
+ */
 global class AttributeFilterExpression {
-	global ConnectApi.FilterConjunction conjunction;
-	global List<ConnectApi.AttributeFilter> filters;
-	global AttributeFilterExpression() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Conjunction for the activation attribute filter expression. FilterConjunctionAnd FilterConjunctionOr
+   */
+  global FilterConjunctionEnum conjunction;
+
+  /**
+   * List of attribute filters.
+   */
+  global List < ConnectApi.AttributeFilter > filters;
 
 }

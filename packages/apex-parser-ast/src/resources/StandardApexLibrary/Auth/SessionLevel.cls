@@ -1,5 +1,8 @@
+/**
+ * An Auth.SessionLevel enum value is used by the SessionManagement.setSessionLevel method.
+ */
 global enum SessionLevel {
-HIGH_ASSURANCE,
-LOW,
-STANDARD
+  LOW,
+  STANDARD,
+  HIGH_ASSURANCE
 }

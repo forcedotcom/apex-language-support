@@ -1,7 +1,18 @@
+/**
+ * Is an abstract base class for an object that provides standard filter information.
+ */
 global class StandardFilterInfo {
-	global Object clone() { }
-	global String getLabel() { }
-	global reports.StandardFilterType getType() { }
-	global String toString() { }
+
+  /**
+   * Returns the display label of the standard filter.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * Returns the type of standard filter.
+   * @return Reports.StandardFilterType
+   */
+  public Reports.StandardFilterType getType() {}
 
 }

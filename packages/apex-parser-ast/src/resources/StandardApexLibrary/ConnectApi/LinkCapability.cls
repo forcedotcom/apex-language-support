@@ -1,11 +1,16 @@
-global class LinkCapability {
-	global String url;
-	global String urlName;
-	global LinkCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it has a link.
+ */
+global class LinkCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Link URL. The URL can be to an external site.
+   */
+  global String url;
+
+  /**
+   * Description of the link.
+   */
+  global String urlName;
 
 }

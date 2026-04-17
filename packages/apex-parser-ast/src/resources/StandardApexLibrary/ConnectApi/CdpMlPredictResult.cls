@@ -1,14 +1,31 @@
+/**
+ * Represents a CDP machine-learning prediction result.
+ */
 global class CdpMlPredictResult {
-	global List<ConnectApi.CdpMlAggregatePrediction> aggregatePredictions;
-	global ConnectApi.CdpAssetReference model;
-	global ConnectApi.CdpMlModelPredictionTypeEnum predictionType;
-	global List<ConnectApi.CdpMlPredictionBase> predictions;
-	global ConnectApi.CdpMlPredictSettings settings;
-	global CdpMlPredictResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of aggregate results.
+   */
+  global List < ConnectApi.CdpMlAggregatePrediction > aggregatePredictions;
+
+  /**
+   * Model asset reference used as part of the prediction request.
+   */
+  global ConnectApi.CdpAssetReference model;
+
+  /**
+   * Type of the model prediction. BinaryClassification -Binary classification. Generic -Generic/unknown. MulticlassClassification -Multiclass classification. Regression -Regression.
+   */
+  global CdpMlModelPredictionTypeEnum predictionType;
+
+  /**
+   * A list of prediction results.
+   */
+  global List < ConnectApi.CdpMlPredictionBase > predictions;
+
+  /**
+   * Settings used for the prediction.
+   */
+  global ConnectApi.CdpMlPredictSettings settings;
 
 }

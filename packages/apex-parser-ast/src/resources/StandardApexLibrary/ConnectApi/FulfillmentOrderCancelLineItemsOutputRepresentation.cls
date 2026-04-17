@@ -1,9 +1,6 @@
-global class FulfillmentOrderCancelLineItemsOutputRepresentation {
-	global FulfillmentOrderCancelLineItemsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Wraps the base output.
+ */
+global class FulfillmentOrderCancelLineItemsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
 }

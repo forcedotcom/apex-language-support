@@ -1,12 +1,26 @@
+/**
+ * Credential custom header input.
+ */
 global class CredentialCustomHeaderInput {
-	global String headerName;
-	global String headerValue;
-	global String id;
-	global Integer sequenceNumber;
-	global CredentialCustomHeaderInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Header name.
+   */
+  global String headerName;
+
+  /**
+   * Header value.
+   */
+  global String headerValue;
+
+  /**
+   * Header ID.
+   */
+  global String id;
+
+  /**
+   * Sequence number.
+   */
+  global Integer sequenceNumber;
 
 }

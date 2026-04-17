@@ -1,10 +1,11 @@
+/**
+ * Output of the create service appointment request.
+ */
 global class ServiceAppointmentOutput {
-	global ConnectApi.ServiceAppointmentResult result;
-	global ServiceAppointmentOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Result of the create or update service appointment request.
+   */
+  global ConnectApi.ServiceAppointmentResult result;
 
 }

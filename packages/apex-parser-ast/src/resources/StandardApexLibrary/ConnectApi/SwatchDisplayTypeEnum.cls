@@ -1,3 +1,3 @@
 global enum SwatchDisplayTypeEnum {
-COLOR
+  Color
 }

@@ -1,11 +1,16 @@
+/**
+ * Messages and trace nodes for a recommendation strategy execution.
+ */
 global class StrategyTrace {
-	global List<String> messages;
-	global List<ConnectApi.StrategyTraceNode> nodes;
-	global StrategyTrace() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Messages and errors from the strategy execution.
+   */
+  global List < String > messages;
+
+  /**
+   * Nodes of the strategy execution used for debugging.
+   */
+  global List < ConnectApi.StrategyTraceNode > nodes;
 
 }

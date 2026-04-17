@@ -1,14 +1,31 @@
+/**
+ * Details necessary to render a view of a user profile.
+ */
 global class UserProfile {
-	global ConnectApi.UserCapabilities capabilities;
-	global String id;
-	global List<ConnectApi.UserProfileTab> tabs;
-	global String url;
-	global ConnectApi.UserDetail userDetail;
-	global UserProfile() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The context user’s capabilities specific to the subject user’s profile.
+   */
+  global ConnectApi.UserCapabilities capabilities;
+
+  /**
+   * The ID of the user attached to the profile.
+   */
+  global String id;
+
+  /**
+   * The tabs visible to the context user specific to the subject user’s profile.
+   */
+  global List < ConnectApi.UserProfileTab > tabs;
+
+  /**
+   * The URL of the user’s profile.
+   */
+  global String url;
+
+  /**
+   * The details about the user attached to the profile.
+   */
+  global ConnectApi.UserDetail userDetail;
 
 }

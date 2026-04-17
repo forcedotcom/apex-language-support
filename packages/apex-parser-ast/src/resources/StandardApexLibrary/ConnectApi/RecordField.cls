@@ -1,9 +1,6 @@
-global class RecordField {
-	global RecordField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Generic record field containing a label and text value.
+ */
+global class RecordField extends ConnectApi.LabeledRecordField {
 
 }

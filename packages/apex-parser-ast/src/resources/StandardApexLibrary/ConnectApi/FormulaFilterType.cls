@@ -1,5 +1,5 @@
 global enum FormulaFilterType {
-ALLCRITERIAMATCH,
-ANYCRITERIONMATCHES,
-CUSTOMLOGICMATCHES
+  AllCriteriaMatch,
+  AnyCriterionMatches,
+  CustomLogicMatches
 }

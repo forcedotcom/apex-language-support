@@ -1,10 +1,11 @@
-global class InteractionsCapability {
-	global Long count;
-	global InteractionsCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it has information about user interactions.
+ */
+global class InteractionsCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * The number of individual views, likes, and comments on a feed post. Note This count appears in the UI under the feed post as the number of views, for example, “5 views.”
+   */
+  global Long count;
 
 }

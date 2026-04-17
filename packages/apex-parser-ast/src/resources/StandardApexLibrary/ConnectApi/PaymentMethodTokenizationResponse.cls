@@ -1,13 +1,26 @@
+/**
+ * Payment method tokenization output representation.
+ */
 global class PaymentMethodTokenizationResponse {
-	global ConnectApi.ErrorResponse error;
-	global ConnectApi.PaymentMethodTokenizationGatewayResponse gatewayResponse;
-	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
-	global ConnectApi.PaymentMethodResponse paymentMethod;
-	global PaymentMethodTokenizationResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error representation for the payment method tokenization process. Sent only if the tokenization process encounters an error in the gateway.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Response containing the tokenized payment method value from the payment gateway.
+   */
+  global ConnectApi.PaymentMethodTokenizationGatewayResponse gatewayResponse;
+
+  /**
+   * Logs showing more details about the tokenization process that occurred in the gateway.
+   */
+  global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  /**
+   * Object representation of the payment method object that was tokenized.
+   */
+  global ConnectApi.PaymentMethodResponse paymentMethod;
 
 }

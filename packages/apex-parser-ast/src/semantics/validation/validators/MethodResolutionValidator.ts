@@ -16,8 +16,15 @@ import type {
   ScopeSymbol,
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
-import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
-import { ReferenceContext } from '../../../types/symbolReference';
+import {
+  isMethodSymbol,
+  isBlockSymbol,
+  isClassOrInterfaceSymbol,
+} from '../../../utils/symbolNarrowing';
+import {
+  ReferenceContext,
+  type SymbolReference,
+} from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -100,9 +107,9 @@ export const MethodResolutionValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Find the containing class for context
-      const containingClass = allSymbols.find(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-      ) as TypeSymbol | undefined;
+      const containingClass = allSymbols.find((s): s is TypeSymbol =>
+        isClassOrInterfaceSymbol(s),
+      );
 
       if (!containingClass) {
         // No class context - skip validation
@@ -158,8 +165,8 @@ export const MethodResolutionValidator: Validator = {
           // Find the class block (methods have parentId pointing to class block, not class symbol)
           const classBlock = allSymbols.find(
             (s) =>
-              s.kind === SymbolKind.Block &&
-              (s as any).scopeType === 'class' &&
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
               s.parentId === containingClass.id,
           );
 
@@ -167,7 +174,7 @@ export const MethodResolutionValidator: Validator = {
           // Methods can have parentId pointing to either the class block or the class symbol
           const allMethodsInClass = allSymbols.filter(
             (s): s is MethodSymbol =>
-              s.kind === SymbolKind.Method &&
+              isMethodSymbol(s) &&
               (s.parentId === classBlock?.id ||
                 s.parentId === containingClass.id),
           );
@@ -336,11 +343,9 @@ export const MethodResolutionValidator: Validator = {
               );
               if (
                 resolutionResult.isResolved &&
-                resolutionResult.symbol &&
-                (resolutionResult.symbol.kind === SymbolKind.Class ||
-                  resolutionResult.symbol.kind === SymbolKind.Interface)
+                isClassOrInterfaceSymbol(resolutionResult.symbol)
               ) {
-                targetClass = resolutionResult.symbol as TypeSymbol;
+                targetClass = resolutionResult.symbol;
                 isStaticCall = false;
               }
             } else {
@@ -352,10 +357,9 @@ export const MethodResolutionValidator: Validator = {
                 : null;
               if (
                 preResolvedSymbol &&
-                (preResolvedSymbol.kind === SymbolKind.Class ||
-                  preResolvedSymbol.kind === SymbolKind.Interface)
+                isClassOrInterfaceSymbol(preResolvedSymbol)
               ) {
-                targetClass = preResolvedSymbol as TypeSymbol;
+                targetClass = preResolvedSymbol;
                 if (!receiverType.includes('.') && options.namespace) {
                   const preResolvedNamespace =
                     typeof preResolvedSymbol.namespace === 'string'
@@ -386,11 +390,9 @@ export const MethodResolutionValidator: Validator = {
                     );
                     if (
                       namespacedResult.isResolved &&
-                      namespacedResult.symbol &&
-                      (namespacedResult.symbol.kind === SymbolKind.Class ||
-                        namespacedResult.symbol.kind === SymbolKind.Interface)
+                      isClassOrInterfaceSymbol(namespacedResult.symbol)
                     ) {
-                      targetClass = namespacedResult.symbol as TypeSymbol;
+                      targetClass = namespacedResult.symbol;
                     }
                   }
                 }
@@ -426,11 +428,9 @@ export const MethodResolutionValidator: Validator = {
                 );
                 if (
                   resolutionResult.isResolved &&
-                  resolutionResult.symbol &&
-                  (resolutionResult.symbol.kind === SymbolKind.Class ||
-                    resolutionResult.symbol.kind === SymbolKind.Interface)
+                  isClassOrInterfaceSymbol(resolutionResult.symbol)
                 ) {
-                  targetClass = resolutionResult.symbol as TypeSymbol;
+                  targetClass = resolutionResult.symbol;
                   isStaticCall = true;
                 } else {
                   continue;
@@ -741,7 +741,7 @@ function extractReceiverNameFromSource(
  * Returns the type name if found, null otherwise
  */
 function resolveMethodCallReceiverType(
-  methodCall: any,
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
@@ -842,8 +842,7 @@ function resolveMethodCallReceiverType(
           // Try class/interface lookup (e.g. for System from stdlib)
           const foundClass = symbolsByName.find(
             (s) =>
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface) &&
+              isClassOrInterfaceSymbol(s) &&
               s.name?.toLowerCase() === receiverName.toLowerCase(),
           );
           if (foundClass) {
@@ -985,7 +984,7 @@ function resolveMethodCallReceiverType(
       // Try class/interface lookup
       const foundClass = symbolsByName.find(
         (s) =>
-          (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
+          isClassOrInterfaceSymbol(s) &&
           s.name?.toLowerCase() === receiverName.toLowerCase(),
       );
       if (foundClass) {
@@ -1153,30 +1152,19 @@ async function findDeclaringClass(
 
   let current: ApexSymbol | null = method;
   while (current) {
-    if (
-      current.kind === SymbolKind.Class ||
-      current.kind === SymbolKind.Interface
-    ) {
-      return current as TypeSymbol;
+    if (isClassOrInterfaceSymbol(current)) {
+      return current;
     }
     if (current.parentId) {
       const parent = await resolveParent(current.parentId);
-      if (
-        parent &&
-        (parent.kind === SymbolKind.Class ||
-          parent.kind === SymbolKind.Interface)
-      ) {
-        return parent as TypeSymbol;
+      if (isClassOrInterfaceSymbol(parent)) {
+        return parent;
       }
       // If parent is a block, check its parent
-      if (parent && parent.kind === SymbolKind.Block && parent.parentId) {
+      if (parent && isBlockSymbol(parent) && parent.parentId) {
         const grandParent = await resolveParent(parent.parentId);
-        if (
-          grandParent &&
-          (grandParent.kind === SymbolKind.Class ||
-            grandParent.kind === SymbolKind.Interface)
-        ) {
-          return grandParent as TypeSymbol;
+        if (isClassOrInterfaceSymbol(grandParent)) {
+          return grandParent;
         }
       }
       current = parent ?? null;
@@ -1208,9 +1196,8 @@ async function isSubclassOf(
       childClass.superClass,
     );
     const superClassSymbol = superClassSymbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-    ) as TypeSymbol | undefined;
+      (s: ApexSymbol): s is TypeSymbol => isClassOrInterfaceSymbol(s),
+    );
 
     if (superClassSymbol) {
       return isSubclassOf(
@@ -1258,10 +1245,7 @@ async function findMethodsInClass(
 
   // First, try to get methods from allSymbols (same-file or already loaded)
   let methodsInFile = allSymbols.filter(
-    (s) =>
-      isMethodSymbol(s) &&
-      s.kind === SymbolKind.Method &&
-      s.fileUri === targetFileUri,
+    (s) => isMethodSymbol(s) && s.fileUri === targetFileUri,
   ) as MethodSymbol[];
 
   // If no methods found and this is a standard library class, try to get methods from symbol manager
@@ -1273,8 +1257,8 @@ async function findMethodsInClass(
     // For standard library classes, get all symbols from the file using findSymbolsInFile
     const fileSymbols = await symbolManager.findSymbolsInFile(targetFileUri);
 
-    methodsInFile = fileSymbols.filter(
-      (s: ApexSymbol) => isMethodSymbol(s) && s.kind === SymbolKind.Method,
+    methodsInFile = fileSymbols.filter((s: ApexSymbol) =>
+      isMethodSymbol(s),
     ) as MethodSymbol[];
   }
 
@@ -1291,11 +1275,8 @@ async function findMethodsInClass(
     // Traverse up the parentId chain to find the declaring class
     while (current && !visited.has(current.id)) {
       visited.add(current.id);
-      if (
-        current.kind === SymbolKind.Class ||
-        current.kind === SymbolKind.Interface
-      ) {
-        declaringClass = current as TypeSymbol;
+      if (isClassOrInterfaceSymbol(current)) {
+        declaringClass = current;
         break;
       }
       if (current.parentId) {
@@ -1351,19 +1332,13 @@ async function findMethodsInClass(
           const parentSymbol = await symbolManager.getSymbol(
             parentBlock.parentId,
           );
-          if (
-            parentSymbol &&
-            (parentSymbol.kind === SymbolKind.Class ||
-              parentSymbol.kind === SymbolKind.Interface)
-          ) {
+          if (isClassOrInterfaceSymbol(parentSymbol)) {
             blockParent = parentSymbol;
           }
         }
 
         if (
-          blockParent &&
-          (blockParent.kind === SymbolKind.Class ||
-            blockParent.kind === SymbolKind.Interface) &&
+          isClassOrInterfaceSymbol(blockParent) &&
           blockParent.name === classSymbol.name &&
           blockParent.fileUri === classSymbol.fileUri
         ) {
@@ -1386,7 +1361,7 @@ async function findMethodsInClass(
  * Checks if the method call's return type matches the variable it's assigned to
  */
 function validateMethodReturnType(
-  methodCall: any,
+  methodCall: SymbolReference,
   visibleMethods: MethodSymbol[],
   symbolTable: SymbolTable,
   sourceContent: string,
@@ -1421,9 +1396,10 @@ function validateMethodReturnType(
     }
 
     // Verify we have the right method (name match)
+    const chainNodes = methodCall.chainNodes;
     const actualMethodName =
-      methodCall.chainNodes?.length > 0
-        ? methodCall.chainNodes[methodCall.chainNodes.length - 1]?.name
+      chainNodes && chainNodes.length > 0
+        ? chainNodes[chainNodes.length - 1]?.name
         : methodCall.name?.split('.').pop();
     if (
       actualMethodName &&
@@ -1477,7 +1453,7 @@ function validateMethodReturnType(
  * Returns the variable name and type if the method call is on the RHS of an assignment
  */
 async function extractAssignmentContext(
-  methodCall: any,
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
@@ -1694,7 +1670,7 @@ function areReturnTypesCompatible(
  * Similar to constructor argument extraction but for method calls
  */
 function extractMethodCallArgumentTypes(
-  methodCall: any, // SymbolReference with METHOD_CALL context
+  methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
@@ -2018,9 +1994,8 @@ function findMethodsInSuperclass(
       symbolManager.findSymbolByName(superClassName),
     );
     const superClassSymbol = superClassSymbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-    ) as TypeSymbol | undefined;
+      (s: ApexSymbol): s is TypeSymbol => isClassOrInterfaceSymbol(s),
+    );
 
     if (!superClassSymbol) {
       // Superclass not found - might need artifact loading

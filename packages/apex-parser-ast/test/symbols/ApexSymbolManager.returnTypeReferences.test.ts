@@ -60,8 +60,8 @@ describe('ApexSymbolManager - Return Type References', () => {
     it('should capture dotted return type references', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getUrl() {
-            return System.Url.getOrgDomainUrl();
+          public System.URL getUrl() {
+            return System.URL.getOrgDomainUrl();
           }
         }
       `;
@@ -76,9 +76,9 @@ describe('ApexSymbolManager - Return Type References', () => {
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference (the return type)
+      // Should have at least one System.URL reference (the return type)
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
@@ -119,8 +119,8 @@ describe('ApexSymbolManager - Return Type References', () => {
     it('should capture dotted generic return type references', async () => {
       const testClass = `
         public class TestClass {
-          public List<System.Url> getUrlList() {
-            return new List<System.Url>();
+          public List<System.URL> getUrlList() {
+            return new List<System.URL>();
           }
         }
       `;
@@ -129,7 +129,7 @@ describe('ApexSymbolManager - Return Type References', () => {
       const references =
         await symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have return type references for List and System.Url
+      // Should have return type references for List and System.URL
       const returnTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.RETURN_TYPE,
       );
@@ -138,15 +138,15 @@ describe('ApexSymbolManager - Return Type References', () => {
       const typeNames = returnTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
 
-      // Should have generic parameter type references for System.Url
+      // Should have generic parameter type references for System.URL
       const genericParamRefs = references.filter(
         (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
       expect(genericParamRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference
+      // Should have at least one System.URL reference
       const systemUrlRefs = genericParamRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
@@ -154,7 +154,7 @@ describe('ApexSymbolManager - Return Type References', () => {
     it('should distinguish between return types and parameter types', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url processUrl(System.Url inputUrl) {
+          public System.URL processUrl(System.URL inputUrl) {
             return inputUrl;
           }
         }
@@ -170,9 +170,9 @@ describe('ApexSymbolManager - Return Type References', () => {
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference (the return type)
+      // Should have at least one System.URL reference (the return type)
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
@@ -182,7 +182,7 @@ describe('ApexSymbolManager - Return Type References', () => {
     it('should capture interface method return type references', async () => {
       const testClass = `
         public interface TestInterface {
-          System.Url getUrl();
+          System.URL getUrl();
         }
       `;
 
@@ -195,7 +195,7 @@ describe('ApexSymbolManager - Return Type References', () => {
         isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs).toHaveLength(1);
-      expect(chainedTypeRefs[0].name).toBe('System.Url');
+      expect(chainedTypeRefs[0].name).toBe('System.URL');
     });
   });
 });

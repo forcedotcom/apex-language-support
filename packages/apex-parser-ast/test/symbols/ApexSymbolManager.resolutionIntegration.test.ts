@@ -44,8 +44,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should resolve return type references to symbols', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getUrl() {
-            return System.Url.getOrgDomainUrl();
+          public System.URL getUrl() {
+            return System.URL.getOrgDomainUrl();
           }
         }
       `;
@@ -54,9 +54,9 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const references =
         await symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the chained type reference for System.Url return type
+      // Find the chained type reference for System.URL return type
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -71,7 +71,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should resolve parameter type references to symbols', async () => {
       const testClass = `
         public class TestClass {
-          public void processUrl(System.Url inputUrl) {
+          public void processUrl(System.URL inputUrl) {
             // Method body
           }
         }
@@ -86,7 +86,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(typeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -101,7 +101,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should resolve field type references to symbols', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
         }
       `;
 
@@ -109,9 +109,9 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const references =
         await symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the chained type reference for System.Url field
+      // Find the chained type reference for System.URL field
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -126,7 +126,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should handle mixed return and parameter type references', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url processUrl(System.Url inputUrl) {
+          public System.URL processUrl(System.URL inputUrl) {
             return inputUrl;
           }
         }
@@ -136,12 +136,12 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const references =
         await symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have multiple System.Url references (return type and parameter)
+      // Should have multiple System.URL references (return type and parameter)
       const systemUrlRefs = references.filter(
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(2);
 
@@ -157,8 +157,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should handle generic return type references', async () => {
       const testClass = `
         public class TestClass {
-          public List<System.Url> getUrlList() {
-            return new List<System.Url>();
+          public List<System.URL> getUrlList() {
+            return new List<System.URL>();
           }
         }
       `;
@@ -167,13 +167,13 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const references =
         await symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have type references for System.Url (return type and generic parameter)
+      // Should have type references for System.URL (return type and generic parameter)
       const systemUrlRefs = references.filter(
         (ref) =>
           (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -191,12 +191,12 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     it('should integrate with existing reference resolution patterns', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url getUrl() {
-            return System.Url.getOrgDomainUrl();
+          public System.URL getUrl() {
+            return System.URL.getOrgDomainUrl();
           }
           
           public void useUrl() {
-            System.Url url = getUrl();
+            System.URL url = getUrl();
             String urlString = url.toExternalForm();
           }
         }

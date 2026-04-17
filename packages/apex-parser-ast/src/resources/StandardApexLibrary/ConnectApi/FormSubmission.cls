@@ -1,10 +1,11 @@
+/**
+ * Marketing integration form submission.
+ */
 global class FormSubmission {
-	global String formSubmissionId;
-	global FormSubmission() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the form submission, representing the submission data that was saved.
+   */
+  global String formSubmissionId;
 
 }

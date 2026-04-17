@@ -1,13 +1,26 @@
+/**
+ * A collection of file previews.
+ */
 global class FilePreviewCollection {
-	global String fileId;
-	global List<ConnectApi.FilePreview> previews;
-	global String url;
-	global String versionNumber;
-	global FilePreviewCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the file.
+   */
+  global String fileId;
+
+  /**
+   * Previews supported for the file.
+   */
+  global List < ConnectApi.FilePreview > previews;
+
+  /**
+   * URL to the current page of file previews.
+   */
+  global String url;
+
+  /**
+   * Version number of the file.
+   */
+  global String versionNumber;
 
 }

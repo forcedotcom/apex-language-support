@@ -1,9 +1,11 @@
-global class DistinctValueRefinementInput {
-	global List<String> values;
-	global DistinctValueRefinementInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Attribute-based refinement with distinct values for product search.
+ */
+global class DistinctValueRefinementInput extends ConnectApi.RefinementInput {
+
+  /**
+   * Comma-separated list of attribute values. It considers attribute labels for localization.
+   */
+  global List < String > values;
 
 }

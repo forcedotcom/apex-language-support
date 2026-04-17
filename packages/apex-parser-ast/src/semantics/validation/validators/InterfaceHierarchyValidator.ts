@@ -13,7 +13,7 @@ import type {
   TypeSymbol,
   MethodSymbol,
 } from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import { SymbolVisibility } from '../../../types/symbol';
 import type {
   ValidationErrorInfo,
   ValidationWarningInfo,
@@ -25,6 +25,12 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
+import {
+  isBlockSymbol,
+  isClassSymbol,
+  isInterfaceSymbol,
+  isMethodSymbol,
+} from '../../../utils/symbolNarrowing';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 
@@ -72,13 +78,9 @@ export const InterfaceHierarchyValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to interface and class symbols from current file
-      const localInterfaces = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Interface,
-      ) as TypeSymbol[];
+      const localInterfaces = allSymbols.filter(isInterfaceSymbol);
 
-      const classes = allSymbols.filter(
-        (symbol) => symbol.kind === SymbolKind.Class,
-      ) as TypeSymbol[];
+      const classes = allSymbols.filter(isClassSymbol);
 
       // For TIER 2 validation, also get interfaces from symbol manager for cross-file detection
       let allInterfaces = [...localInterfaces];
@@ -89,9 +91,8 @@ export const InterfaceHierarchyValidator: Validator = {
         const allSymbolsFromManager = yield* Effect.promise(() =>
           symbolManager.getAllSymbolsForCompletion(),
         );
-        const crossFileInterfaces = allSymbolsFromManager.filter(
-          (s: ApexSymbol) => s.kind === SymbolKind.Interface,
-        ) as TypeSymbol[];
+        const crossFileInterfaces =
+          allSymbolsFromManager.filter(isInterfaceSymbol);
 
         // Merge with current interfaces, avoiding duplicates by ID
         const interfaceIds = new Set(localInterfaces.map((i) => i.id));
@@ -169,7 +170,7 @@ export const InterfaceHierarchyValidator: Validator = {
           } else if (iface) {
             // Check if interface type is valid (not array ref, is interface, not Java type)
             // This matches jorje's ParentTypeResolver.java checks
-            if (iface.kind !== SymbolKind.Interface) {
+            if (!isInterfaceSymbol(iface)) {
               const code = ErrorCodes.INVALID_INTERFACE;
               errors.push({
                 message: localizeTyped(code, ifaceName),
@@ -204,9 +205,7 @@ export const InterfaceHierarchyValidator: Validator = {
           const symbols = yield* Effect.promise(() =>
             symbolManager.findSymbolByName(typeName),
           );
-          const ifaceSymbol = symbols.find(
-            (s: ApexSymbol) => s.kind === SymbolKind.Interface,
-          ) as TypeSymbol | undefined;
+          const ifaceSymbol = symbols.find(isInterfaceSymbol);
 
           if (ifaceSymbol) {
             loadedInterfaces.push(ifaceSymbol);
@@ -286,7 +285,7 @@ export const InterfaceHierarchyValidator: Validator = {
 
           // Check if interface type is valid (not array ref, is interface, not Java type)
           // This matches jorje's ParentTypeResolver.java checks
-          if (iface.kind !== SymbolKind.Interface) {
+          if (!isInterfaceSymbol(iface)) {
             const code = ErrorCodes.INVALID_INTERFACE;
             errors.push({
               message: localizeTyped(code, ifaceName),
@@ -318,14 +317,14 @@ export const InterfaceHierarchyValidator: Validator = {
           // Find class block first (if it exists)
           const classBlock = allMethodsForValidation.find(
             (s) =>
-              s.kind === SymbolKind.Block &&
+              isBlockSymbol(s) &&
               s.parentId === cls.id &&
-              (s as any).scopeType === 'class',
+              s.scopeType === 'class',
           );
           const classBlockId = classBlock?.id;
 
           const classMethods = allMethodsForValidation.filter((s) => {
-            if (s.kind !== SymbolKind.Method) {
+            if (!isMethodSymbol(s)) {
               return false;
             }
             // Check if method belongs to this class (direct or via block)
@@ -519,15 +518,15 @@ function getAllInterfaceMethods(
     // Find interface block first (if it exists) - interface blocks use 'class' scopeType
     const interfaceBlock = allSymbols.find(
       (s) =>
-        s.kind === SymbolKind.Block &&
+        isBlockSymbol(s) &&
         s.parentId === currentIface.id &&
-        (s as any).scopeType === 'class',
+        s.scopeType === 'class',
     );
     const interfaceBlockId = interfaceBlock?.id;
 
     // Look for methods with parentId matching interface or interface block
     const ifaceMethods = allSymbols.filter((s) => {
-      if (s.kind !== SymbolKind.Method) {
+      if (!isMethodSymbol(s)) {
         return false;
       }
       // Check if method belongs to this interface (direct or via block)

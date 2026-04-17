@@ -1,14 +1,31 @@
+/**
+ * Information about a specific zone search result.
+ */
 global class ZoneSearchResult {
-	global Boolean hasBestAnswer;
-	global String id;
-	global String title;
-	global ConnectApi.ZoneSearchResultType type;
-	global Integer voteCount;
-	global ZoneSearchResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Indicates if the search result has a best answer.
+   */
+  global Boolean hasBestAnswer;
+
+  /**
+   * ID of the search result. The search result can be a question or an article.
+   */
+  global String id;
+
+  /**
+   * Title of the search result.
+   */
+  global String title;
+
+  /**
+   * Specifies the zone search result type. Article —Search results contain only articles. Question —Search results contain only questions.
+   */
+  global ConnectApi.ZoneSearchResultType Enum type;
+
+  /**
+   * Number of votes given to the search result.
+   */
+  global String voteCount;
 
 }

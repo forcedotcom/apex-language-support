@@ -1,5 +1,5 @@
 global enum MentionValidationStatus {
-DISALLOWED,
-INACCESSIBLE,
-OK
+  Disallowed,
+  Inaccessible,
+  Ok
 }

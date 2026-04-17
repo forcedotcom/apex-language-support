@@ -1,17 +1,46 @@
+/**
+ * Represents a custom recommendation definition.
+ */
 global class RecommendationDefinition {
-	global String actionUrl;
-	global String actionUrlName;
-	global String explanation;
-	global String id;
-	global String name;
-	global ConnectApi.Photo photo;
-	global String title;
-	global String url;
-	global RecommendationDefinition() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The URL for acting on this custom recommendation.
+   */
+  global String actionUrl;
+
+  /**
+   * The text label for the action URL in the user interface.
+   */
+  global String actionUrlName;
+
+  /**
+   * Explanation of the custom recommendation definition.
+   */
+  global String explanation;
+
+  /**
+   * 18-character ID of the custom recommendation definition.
+   */
+  global String id;
+
+  /**
+   * Name of the custom recommendation definition. The name is displayed in Setup.
+   */
+  global String name;
+
+  /**
+   * Photo of the custom recommendation definition.
+   */
+  global ConnectApi.Photo photo;
+
+  /**
+   * Title of the custom recommendation definition.
+   */
+  global String title;
+
+  /**
+   * URL to the Connect REST API resource for the custom recommendation definition.
+   */
+  global String url;
 
 }

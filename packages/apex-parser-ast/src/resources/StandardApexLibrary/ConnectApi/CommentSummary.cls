@@ -1,10 +1,11 @@
-global class CommentSummary {
-	global String commentId;
-	global CommentSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Summary of the comment.
+ */
+global class CommentSummary extends ConnectApi.UserActivitySummary {
+
+  /**
+   * ID of the comment.
+   */
+  global String commentId;
 
 }

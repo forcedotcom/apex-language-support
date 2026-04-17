@@ -154,9 +154,8 @@ function validateChainedWriteAccess(
 
     // Set validation state on final reference
     if (ref.accessValidationState === 'syntax_only') {
-      (ref as any).accessValidationState = 'fully_validated';
-      (ref as any).validatedAccess =
-        errors.length === 0 ? ref.access : 'invalid';
+      ref.accessValidationState = 'fully_validated';
+      ref.validatedAccess = errors.length === 0 ? ref.access : 'invalid';
     }
   });
 }

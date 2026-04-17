@@ -1,17 +1,46 @@
-global class ArticleSummary {
-	global String articleType;
-	global String knowledgeArticleVersionId;
-	global Datetime lastPublishedDate;
-	global Double rating;
-	global String summary;
-	global String title;
-	global String urlName;
-	global Integer viewCount;
-	global ArticleSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A knowledge article summary.
+ */
+global class ArticleSummary extends ConnectApi.ActorWithId {
+
+  /**
+   * Type of the knowledge article.
+   */
+  global String articleType;
+
+  /**
+   * ID of the knowledge article version.
+   */
+  global String knowledgeArticleVersionId;
+
+  /**
+   * Last published date of the knowledge article.
+   */
+  global Datetime lastPublishedDate;
+
+  /**
+   * The rating of the article.
+   */
+  global Double rating;
+
+  /**
+   * Summary of the knowledge article contents.
+   */
+  global String summary;
+
+  /**
+   * Title of the knowledge article.
+   */
+  global String title;
+
+  /**
+   * URL name of the knowledge article.
+   */
+  global String urlName;
+
+  /**
+   * Number of times the knowledge article has been viewed.
+   */
+  global Integer viewCount;
 
 }

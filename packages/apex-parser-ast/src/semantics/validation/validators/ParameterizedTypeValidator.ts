@@ -18,13 +18,12 @@ import {
   ParseTreeWalker,
   TypeRefContext,
 } from '@apexdevtools/apex-parser';
-import type {
-  SymbolTable,
-  SymbolLocation,
-  VariableSymbol,
-  MethodSymbol,
-} from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
+import {
+  isVariableSymbol,
+  isMethodSymbol,
+  isConstructorSymbol,
+} from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -279,21 +278,12 @@ export const ParameterizedTypeValidator: Validator = {
         let typeStr: string | undefined;
         let location: SymbolLocation | undefined;
 
-        if (
-          symbol.kind === SymbolKind.Field ||
-          symbol.kind === SymbolKind.Property ||
-          symbol.kind === SymbolKind.Variable ||
-          symbol.kind === SymbolKind.Parameter ||
-          symbol.kind === SymbolKind.EnumValue
-        ) {
-          const v = symbol as VariableSymbol;
+        if (isVariableSymbol(symbol)) {
+          const v = symbol;
           typeStr = v.type?.originalTypeString;
           location = v.location;
-        } else if (
-          symbol.kind === SymbolKind.Method ||
-          symbol.kind === SymbolKind.Constructor
-        ) {
-          const m = symbol as MethodSymbol;
+        } else if (isMethodSymbol(symbol) || isConstructorSymbol(symbol)) {
+          const m = symbol;
           typeStr = m.returnType?.originalTypeString;
           location = m.location;
         }

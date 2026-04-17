@@ -1,13 +1,26 @@
-global class LightningExtensionInformation {
-	global String compositionComponent;
-	global String headerTextLabel;
-	global String hoverTextLabel;
-	global String renderComponent;
-	global LightningExtensionInformation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Lightning extension information.
+ */
+global class LightningExtensionInformation extends ConnectApi.AbstractExtensionInformation {
+
+  /**
+   * Component to use in compose state.
+   */
+  global String compositionComponent;
+
+  /**
+   * Label for the extension’s header.
+   */
+  global String headerTextLabel;
+
+  /**
+   * Label for hovering over the extension.
+   */
+  global String hoverTextLabel;
+
+  /**
+   * Component to use in render or preview state.
+   */
+  global String renderComponent;
 
 }

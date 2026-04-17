@@ -26,7 +26,6 @@ import type {
   SymbolTable,
   SymbolLocation,
   ApexSymbol,
-  EnumSymbol,
   VariableSymbol,
 } from '../../../types/symbol';
 import type {
@@ -44,6 +43,7 @@ import type { ParserRuleContext } from 'antlr4ts';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
+import { isEnumSymbol, isVariableSymbol } from '../../../utils/symbolNarrowing';
 import {
   resolveExpressionTypeRecursive,
   type ExpressionTypeInfo,
@@ -187,9 +187,7 @@ class SwitchListener extends BaseApexParserListener<void> {
   }
 
   enterSwitchStatement(ctx: SwitchStatementContext): void {
-    const expression = (ctx as any).expression?.() as
-      | ExpressionContext
-      | undefined;
+    const expression = ctx.expression();
     const expressionText = expression?.text || '';
     this.switchStatements.push({ ctx, expression, expressionText });
   }
@@ -330,7 +328,7 @@ async function resolveIdentifierType(
     const parentId = enumVal.parentId;
     const allSymbols = symbolTable.getAllSymbols();
     const parent = allSymbols.find((s) => s.id === parentId);
-    if (parent && parent.kind === SymbolKind.Enum) {
+    if (isEnumSymbol(parent)) {
       return parent.name?.toLowerCase() ?? null;
     }
   }
@@ -377,14 +375,8 @@ async function findSymbolForWhenIdentifier(
   const allSymbols = symbolTable.getAllSymbols();
   const fileUri = symbolTable.getFileUri();
   symbol = allSymbols.find(
-    (s) =>
-      s.name?.toLowerCase() === nameLower &&
-      (s.kind === SymbolKind.Field ||
-        s.kind === SymbolKind.Variable ||
-        s.kind === SymbolKind.Parameter ||
-        s.kind === SymbolKind.Property ||
-        s.kind === SymbolKind.EnumValue),
-  ) as ApexSymbol | undefined;
+    (s) => s.name?.toLowerCase() === nameLower && isVariableSymbol(s),
+  );
   if (symbol) {
     return symbol;
   }
@@ -392,14 +384,8 @@ async function findSymbolForWhenIdentifier(
   // Try symbol manager (cross-file, e.g. enum values)
   const found = await symbolManager.findSymbolByName(name);
   return found.find(
-    (s: ApexSymbol) =>
-      s.fileUri === fileUri &&
-      (s.kind === SymbolKind.Field ||
-        s.kind === SymbolKind.Variable ||
-        s.kind === SymbolKind.Parameter ||
-        s.kind === SymbolKind.Property ||
-        s.kind === SymbolKind.EnumValue),
-  ) as ApexSymbol | undefined;
+    (s: ApexSymbol) => s.fileUri === fileUri && isVariableSymbol(s),
+  );
 }
 
 /**
@@ -930,9 +916,7 @@ function validateEnumSwitch(
     const enumSymbols = yield* Effect.promise(() =>
       symbolManager.findSymbolByName(enumTypeName),
     );
-    const enumSymbol = enumSymbols.find(
-      (s: ApexSymbol) => s.kind === SymbolKind.Enum,
-    ) as EnumSymbol | undefined;
+    const enumSymbol = enumSymbols.find(isEnumSymbol);
 
     if (!enumSymbol) {
       // Not an enum type - skip validation
@@ -1019,9 +1003,7 @@ function validateEnumSwitchText(
     const enumSymbols = yield* Effect.promise(() =>
       symbolManager.findSymbolByName(enumTypeName),
     );
-    const enumSymbol = enumSymbols.find(
-      (s: ApexSymbol) => s.kind === SymbolKind.Enum,
-    ) as EnumSymbol | undefined;
+    const enumSymbol = enumSymbols.find(isEnumSymbol);
 
     if (!enumSymbol) {
       // Not an enum type - skip validation

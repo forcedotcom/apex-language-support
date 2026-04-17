@@ -1,18 +1,51 @@
+/**
+ * Details of a webstore Meta configuration.
+ */
 global class WebStoreMetaConfig {
-	global String adAccountExtKey;
-	global String businessManagerExtKey;
-	global String catalogExtKey;
-	global String commerceMerchantSettingsExtKey;
-	global String id;
-	global String pageExtKey;
-	global String profileExtKey;
-	global String trackerExtKey;
-	global String webStoreId;
-	global WebStoreMetaConfig() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * External key for Meta Ad Account.
+   */
+  global String adAccountExtKey;
+
+  /**
+   * External key for Meta Business Manager.
+   */
+  global String businessManagerExtKey;
+
+  /**
+   * External key for Meta Catalog.
+   */
+  global String catalogExtKey;
+
+  /**
+   * External key for Meta Commerce Merchant Settings.
+   */
+  global String commerceMerchantSettingsExtKey;
+
+  /**
+   * ID of the Webstore Meta Config entity.
+   */
+  global String id;
+
+  /**
+   * External key for Meta Page.
+   */
+  global String pageExtKey;
+
+  /**
+   * External key for Meta Instagram Profile.
+   */
+  global String profileExtKey;
+
+  /**
+   * External key for Meta Pixel.
+   */
+  global String trackerExtKey;
+
+  /**
+   * ID of the webstore.
+   */
+  global String webStoreId;
 
 }

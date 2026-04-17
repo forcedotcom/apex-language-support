@@ -1,10 +1,21 @@
+/**
+ * Attribute-based refinement input for product search.
+ */
 global class RefinementInput {
-	global ConnectApi.CommerceSearchAttributeType attributeType;
-	global String nameOrId;
-	global ConnectApi.CommerceSearchFacetType type;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Search attribute type. Custom ProductAttribute Standard
+   */
+  global ConnectApi.CommerceSearchAttributeType attributeType;
+
+  /**
+   * Developer name of the attribute. In version 52.0 and later, the ID of the attribute isn’t supported.
+   */
+  global String nameOrId;
+
+  /**
+   * Search facet type. Value is: DistinctValue Range
+   */
+  global ConnectApi.CommerceSearchFacetType type;
 
 }

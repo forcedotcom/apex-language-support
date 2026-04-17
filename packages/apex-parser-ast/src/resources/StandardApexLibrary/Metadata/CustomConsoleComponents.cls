@@ -1,7 +1,12 @@
+/**
+ * Represents custom console components (Visualforce pages, lookup fields, or related lists) on a page layout.
+ */
 global class CustomConsoleComponents {
-	global Metadata.PrimaryTabComponents primaryTabComponents;
-	global Metadata.SubtabComponents subtabComponents;
-	global CustomConsoleComponents() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.CustomConsoleComponents .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

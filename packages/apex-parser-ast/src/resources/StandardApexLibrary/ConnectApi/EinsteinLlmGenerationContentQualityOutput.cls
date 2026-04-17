@@ -1,10 +1,11 @@
+/**
+ * Quality information about the generated response.
+ */
 global class EinsteinLlmGenerationContentQualityOutput {
-	global Boolean isToxicityDetected;
-	global EinsteinLlmGenerationContentQualityOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the generated response contains toxic language (true) or not (false) .
+   */
+  global Boolean isToxicityDetected;
 
 }

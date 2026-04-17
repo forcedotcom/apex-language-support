@@ -1,9 +1,11 @@
+/**
+ * Upvote or downvote a feed element or a comment.
+ */
 global class UpDownVoteCapabilityInput {
-	global ConnectApi.UpDownVoteValue vote;
-	global UpDownVoteCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of vote for a feed element or comment. Values are: Down None Up
+   */
+  global ConnectApi.UpDownVoteValue vote;
 
 }

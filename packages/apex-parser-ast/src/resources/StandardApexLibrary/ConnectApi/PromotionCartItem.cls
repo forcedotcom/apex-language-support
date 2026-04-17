@@ -1,25 +1,86 @@
+/**
+ * A cart item and its adjustments.
+ */
 global class PromotionCartItem {
-	global String cartDeliveryGroupId;
-	global String cartId;
-	global List<ConnectApi.PromotionCartItemPriceAdjustment> cartItemPriceAdjustments;
-	global String id;
-	global String itemDescription;
-	global String itemName;
-	global String listPrice;
-	global String product2Id;
-	global String quantity;
-	global String salesPrice;
-	global String sku;
-	global String totalAdjustmentBaseAmount;
-	global String totalLineBaseAmount;
-	global String totalListBaseAmount;
-	global String totalNetAmount;
-	global ConnectApi.CartItemType type;
-	global PromotionCartItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the associated cart delivery group.
+   */
+  global String cartDeliveryGroupId;
+
+  /**
+   * ID of the associated cart.
+   */
+  global String cartId;
+
+  /**
+   * List of price adjustments applied to the cart item.
+   */
+  global List < ConnectApi.PromotionCartItemPriceAdjustment > cartItemPriceAdjustments;
+
+  /**
+   * ID of the cart item.
+   */
+  global String id;
+
+  /**
+   * Description of the cart item.
+   */
+  global String itemDescription;
+
+  /**
+   * Name of the cart item.
+   */
+  global String itemName;
+
+  /**
+   * Unit list price of the cart item.
+   */
+  global String listPrice;
+
+  /**
+   * ID of the product.
+   */
+  global String product2Id;
+
+  /**
+   * Quantity of the cart item.
+   */
+  global String quantity;
+
+  /**
+   * Unit sales price of the cart item.
+   */
+  global String salesPrice;
+
+  /**
+   * Stock keeping unit of the cart item.
+   */
+  global String sku;
+
+  /**
+   * Total adjustment amount for the cart item.
+   */
+  global String totalAdjustmentBaseAmount;
+
+  /**
+   * Total amount for the cart item, based on sales price and quantity, not including adjustments.
+   */
+  global String totalLineBaseAmount;
+
+  /**
+   * Total amount for the cart item, based on list price and quantity, not including adjustments.
+   */
+  global String totalListBaseAmount;
+
+  /**
+   * Total amount for the cart item, based on list price and quantity, including adjustments.
+   */
+  global String totalNetAmount;
+
+  /**
+   * Type of item in a cart. Values are: DeliveryCharge Product
+   */
+  global ConnectApi.CartItemType type;
 
 }

@@ -1,10 +1,16 @@
+/**
+ * Context based on which the survey invitation is sent to a participant.
+ */
 global class RecipientEngagementContextInput {
-	global Map<String,String> recipientEngagementContext;
-	global String recipientId;
-	global RecipientEngagementContextInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Map each recipient with the context based on which the survey invitation is emailed.
+   */
+  global Map < String , String > recipientEngagementContext;
+
+  /**
+   * Participant ID with whom the engagement context should be associated.
+   */
+  global String recipientId;
 
 }

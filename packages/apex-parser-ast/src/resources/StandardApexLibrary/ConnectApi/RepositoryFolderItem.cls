@@ -1,12 +1,21 @@
+/**
+ * A folder item.
+ */
 global class RepositoryFolderItem {
-	global ConnectApi.RepositoryFileSummary file;
-	global ConnectApi.RepositoryFolderSummary folder;
-	global ConnectApi.FolderItemType type;
-	global RepositoryFolderItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * If the folder item is a file, the file summary. If the folder item is a folder, null .
+   */
+  global ConnectApi.RepositoryFileSummary file;
+
+  /**
+   * If the folder item is a folder, the folder summary. If the folder item is a file, null .
+   */
+  global ConnectApi.RepositoryFolderSummary folder;
+
+  /**
+   * Type of item in a folder. Values are: file folder
+   */
+  global ConnectApi.FolderItemType type;
 
 }

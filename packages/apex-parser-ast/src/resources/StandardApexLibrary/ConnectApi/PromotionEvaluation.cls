@@ -1,11 +1,16 @@
+/**
+ * Results of a promotion evaluation.
+ */
 global class PromotionEvaluation {
-	global ConnectApi.PromotionCart cart;
-	global List<ConnectApi.PromotionCoupon> coupons;
-	global PromotionEvaluation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Cart and its items.
+   */
+  global ConnectApi.PromotionCart cart;
+
+  /**
+   * Collection of coupon codes to enable promotions. A customer can apply a maximum of two coupons.
+   */
+  global List < ConnectApi.PromotionCoupon > coupons;
 
 }

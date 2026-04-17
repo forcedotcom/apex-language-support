@@ -1,11 +1,16 @@
+/**
+ * A set of inventory availability data for one inventory location.
+ */
 global class OCILocationAvailabilityOutputRepresentation {
-	global List<ConnectApi.OCIInventoryRecordOutputRepresentation> inventoryRecords;
-	global String locationIdentifier;
-	global OCILocationAvailabilityOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of availability data for individual products at this location.
+   */
+  global List < ConnectApi.OCIInventoryRecordOutputRepresentation > inventoryRecords;
+
+  /**
+   * The identifier of the location.
+   */
+  global String locationIdentifier;
 
 }

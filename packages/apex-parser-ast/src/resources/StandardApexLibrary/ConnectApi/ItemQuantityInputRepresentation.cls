@@ -1,10 +1,16 @@
+/**
+ * Representation for Item Quantity Input
+ */
 global class ItemQuantityInputRepresentation {
-	global String externalItemId;
-	global Double quantity;
-	global ItemQuantityInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the external item.
+   */
+  global String externalItemId;
+
+  /**
+   * Quantity of the external item.
+   */
+  global Double quantity;
 
 }

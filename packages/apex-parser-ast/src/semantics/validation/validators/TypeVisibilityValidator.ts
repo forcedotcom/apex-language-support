@@ -12,7 +12,11 @@ import type {
   TypeSymbol,
   ApexSymbol,
 } from '../../../types/symbol';
-import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import { SymbolVisibility } from '../../../types/symbol';
+import {
+  isClassOrInterfaceSymbol,
+  inTypeSymbolGroup,
+} from '../../../utils/symbolNarrowing';
 import { ReferenceContext } from '../../../types/symbolReference';
 import type {
   ValidationResult,
@@ -77,8 +81,8 @@ export const TypeVisibilityValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Find the containing class for context
-      const containingClass = allSymbols.find(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+      const containingClass = allSymbols.find((s) =>
+        isClassOrInterfaceSymbol(s),
       ) as TypeSymbol | undefined;
 
       if (!containingClass) {
@@ -326,10 +330,7 @@ function resolveTypeSymbol(
     // First, try to find in same file
     const sameFileType = allSymbols.find(
       (s) =>
-        (s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum) &&
-        s.name.toLowerCase() === typeName.toLowerCase(),
+        inTypeSymbolGroup(s) && s.name.toLowerCase() === typeName.toLowerCase(),
     ) as TypeSymbol | undefined;
 
     if (sameFileType) {
@@ -340,12 +341,9 @@ function resolveTypeSymbol(
     const symbols = yield* Effect.promise(() =>
       symbolManager.findSymbolByName(typeName),
     );
-    const typeSymbol = symbols.find(
-      (s: ApexSymbol) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
-    ) as TypeSymbol | undefined;
+    const typeSymbol = symbols.find((s: ApexSymbol) => inTypeSymbolGroup(s)) as
+      | TypeSymbol
+      | undefined;
 
     if (typeSymbol) {
       return typeSymbol;
@@ -355,13 +353,8 @@ function resolveTypeSymbol(
     const fqnSymbol = yield* Effect.promise(() =>
       symbolManager.findSymbolByFQN(typeName),
     );
-    if (
-      fqnSymbol &&
-      (fqnSymbol.kind === SymbolKind.Class ||
-        fqnSymbol.kind === SymbolKind.Interface ||
-        fqnSymbol.kind === SymbolKind.Enum)
-    ) {
-      return fqnSymbol as TypeSymbol;
+    if (fqnSymbol && inTypeSymbolGroup(fqnSymbol)) {
+      return fqnSymbol;
     }
 
     return null;

@@ -1,9 +1,11 @@
+/**
+ * A field on a record.
+ */
 global class AbstractRecordField {
-	global String type;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Type of the field. One of these values: Address Blank Boolean Compound CreatedBy Date DateTime Email LastModifiedBy Location Name Number Percent Phone Picklist Reference Text Time
+   */
+  global String type;
 
 }

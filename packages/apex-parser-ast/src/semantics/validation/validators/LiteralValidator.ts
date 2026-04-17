@@ -187,8 +187,8 @@ export const LiteralValidator: Validator = {
       );
 
       for (const ref of literalRefs) {
-        const literalType = (ref as any).literalType;
-        const literalValue = (ref as any).literalValue;
+        const literalType = ref.literalType;
+        const literalValue = ref.literalValue;
         const location = ref.location;
 
         if (!literalType || !location) continue;

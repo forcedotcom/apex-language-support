@@ -1,11 +1,21 @@
+/**
+ * Target to update.
+ */
 global class TargetUpdateInput {
-	global String audienceId;
-	global Integer priority;
-	global String targetId;
-	global TargetUpdateInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the audience to assign to the target.
+   */
+  global String audienceId;
+
+  /**
+   * Priority of the target. Within a group, priority determines which target is returned if the user matches more than one audience.
+   */
+  global Integer priority;
+
+  /**
+   * ID of the target to update.
+   */
+  global String targetId;
 
 }
