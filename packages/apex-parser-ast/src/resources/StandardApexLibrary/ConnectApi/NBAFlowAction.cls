@@ -1,13 +1,26 @@
-global class NBAFlowAction {
-	global String flowLabel;
-	global ConnectApi.NBAFlowType flowType;
-	global String id;
-	global String name;
-	global NBAFlowAction() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A recommended flow.
+ */
+global class NBAFlowAction extends ConnectApi.AbstractNBAAction {
+
+  /**
+   * Label of the recommended flow.
+   */
+  global String flowLabel;
+
+  /**
+   * Type of recommended flow. Values are: AutoLaunchedFlow —Autolaunched flow that runs in the background. Flow —Screen flow that accepts user inputs.
+   */
+  global ConnectApi.NBAFlowType flowType;
+
+  /**
+   * ID of the flow.
+   */
+  global String id;
+
+  /**
+   * Name of the flow.
+   */
+  global String name;
 
 }

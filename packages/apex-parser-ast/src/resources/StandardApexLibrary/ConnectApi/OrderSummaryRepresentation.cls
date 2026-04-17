@@ -1,21 +1,51 @@
+/**
+ * Order summary.
+ */
 global class OrderSummaryRepresentation {
-	global ConnectApi.OrderSummaryAdjustmentAggregates adjustmentAggregates;
-	global Datetime createdDate;
-	global String currencyIsoCode;
-	global Map<String,ConnectApi.RecordField> fields;
-	global String orderNumber;
-	global Integer orderProductTopLevelLineCount;
-	global String orderSummaryId;
-	global Datetime orderedDate;
-	global String ownerId;
-	global List<ConnectApi.OrderSummaryProductLookupOutput> products;
-	global String status;
-	global String totalAmount;
-	global OrderSummaryRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Adjustment aggregates associated with the order summary.
+   */
+  global ConnectApi.OrderSummaryAdjustmentAggregates adjustmentAggregates;
+
+  /**
+   * Created date of the order summary.
+   */
+  global Datetime createdDate;
+
+  /**
+   * Map of requested order summary fields.
+   */
+  global Map < String , ConnectApi.RecordField > fields;
+
+  /**
+   * Order number of the order summary.
+   */
+  global String orderNumber;
+
+  /**
+   * ID of the order summary.
+   */
+  global String orderSummaryId;
+
+  /**
+   * Ordered date of the order summary.
+   */
+  global Datetime orderedDate;
+
+  /**
+   * ID of the owner of the order summary.
+   */
+  global String ownerId;
+
+  /**
+   * Status of the order summary.
+   */
+  global String status;
+
+  /**
+   * Total amount of the order summary.
+   */
+  global String totalAmount;
 
 }

@@ -1,9 +1,11 @@
-global class FeedEntityShareCapabilityInput {
-	global String feedEntityId;
-	global FeedEntityShareCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Share a feed entity with a feed post or comment.
+ */
+global class FeedEntityShareCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
+
+  /**
+   * ID of the feed entity to share with the feed post or comment.
+   */
+  global String feedEntityId;
 
 }

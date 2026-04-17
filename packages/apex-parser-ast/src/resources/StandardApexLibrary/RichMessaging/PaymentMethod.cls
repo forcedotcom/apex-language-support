@@ -1,8 +1,8 @@
+/**
+ * Represents a payment method.
+ */
 global class PaymentMethod {
-	global String displayName;
-	global String network;
-	global String paymentType;
-	global PaymentMethod(String network, String paymentType, String displayName) { }
-	global Object clone() { }
+
+  public PaymentMethod(String network, String paymentType, String displayName) {}
 
 }

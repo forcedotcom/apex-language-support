@@ -1,4 +1,8 @@
+/**
+ * Use this interface to create a headless user discovery handler that you implement during headless login, passwordless login, and forgot password flows.
+ */
 global interface HeadlessUserDiscoveryHandler {
-	Auth.HeadlessUserDiscoveryResponse discoverUserFromLoginHint(Id param0, String param1, Auth.VerificationAction param2, String param3, Map<String,String> param4);
+
+  Auth.HeadlessUserDiscoveryResponse discoverUserFromLoginHint(Id networkId, String loginHint, Auth.VerificationAction verificationAction, String customDataJson, Map<String,String> requestAttributes);
 
 }

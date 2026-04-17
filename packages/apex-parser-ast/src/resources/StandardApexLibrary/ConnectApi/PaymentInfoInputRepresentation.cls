@@ -1,13 +1,31 @@
+/**
+ * Payment information about additional funds required for an order.
+ */
 global class PaymentInfoInputRepresentation {
-	global String lastPaymentGatewayLogId;
-	global String name;
-	global String paymentAuthorizationId;
-	global List<String> paymentIds;
-	global String paymentMethodId;
-	global PaymentInfoInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Last payment gateway log ID for the new order payment summary.
+   */
+  global String lastPaymentGatewayLogId;
+
+  /**
+   * Overrides the default name of the order payment summary created.
+   */
+  global String name;
+
+  /**
+   * Payment authorization ID to be used if needed to fund the exchange order.
+   */
+  global String paymentAuthorizationId;
+
+  /**
+   * Payment IDs for the new order payment summary.
+   */
+  global List < String > paymentIds;
+
+  /**
+   * Payment method ID for the new order payment summary.
+   */
+  global String paymentMethodId;
 
 }

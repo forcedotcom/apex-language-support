@@ -1,15 +1,36 @@
+/**
+ * Definition of a feed.
+ */
 global class FeedDirectoryItem {
-	global String feedElementsUrl;
-	global String feedItemsUrl;
-	global ConnectApi.FeedType feedType;
-	global String feedUrl;
-	global String keyPrefix;
-	global String label;
-	global FeedDirectoryItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Connect REST API resource URL for the feed elements.
+   */
+  global String feedElementsUrl;
+
+  /**
+   * Connect REST API resource URL for the feed items of a specific feed.
+   */
+  global String feedItemsUrl;
+
+  /**
+   * The feed type. One of these values: Bookmarks — Contains all feed items saved as bookmarks by the context user. Company — Contains all feed items except feed items of type TrackedChange . To see the feed item, the user must have sharing access to its parent. DirectMessageModeration — Contains all direct messages that are flagged for moderation. The Direct Message Moderation feed is available only to users with Moderate Experiences Chatter Messages permissions. DirectMessages — Contains all feed items of the context user’s direct messages. Draft —Contains all the feed items that the context user drafted. Files — Contains all feed items that contain files posted by people or groups that the context user follows. Filter —Contains the news feed filtered to contain feed items whose parent is a specified object type. Groups — Contains all feed items from all groups the context user either owns or is a member of. Home —Contains all feed items associated with any managed topic in an Experience Cloud site. Isolated —Contains all the feed items and comments that are isolated. Landing — Contains all feed items that best drive user engagement when the feed is requested. Allows clients to avoid an empty feed when there aren’t many personalized feed items. Moderation — Contains all feed items that are flagged for moderation, except direct messages. The moderation feed is available only to users with Moderate Experiences Feeds permissions. Mute —Contains all feed items that the context user muted. News — Contains all updates for people the context user follows, groups the user is a member of, and files and records the user is following. Contains all updates for records whose parent is the context user. PendingReview — Contains all feed items and comments that are pending review. People — Contains all feed items posted by all people the context user follows. Record — Contains all feed items whose parent is a specified record, which could be a group, user, object, file, or any other standard or custom object. When the record is a group, the feed also contains feed items that mention the group. When the record is a user, the feed contains only feed items on that user. You can get another user’s record feed. Streams — Contains all feed items for any combination of up to 25 feed-enabled entities that the context user subscribes to in a stream. Examples of feed-enabled entities include people, groups, and records, To — Contains all feed items with mentions of the context user. Contains feed items the context user commented on and feed items created by the context user that are commented on. Topics — Contains all feed items that include the specified topic. UserProfile —Contains feed items created when a user changes records that can be tracked in a feed. Contains feed items whose parent is the user and feed items that @mention the user. This feed is different than the news feed, which returns more feed items, including group updates. You can get another user’s user profile feed.
+   */
+  global ConnectApi.FeedType Enum feedType;
+
+  /**
+   * Connect REST API resource URL for a specific feed
+   */
+  global String feedUrl;
+
+  /**
+   * A key prefix is the first three characters of a record ID, which specifies the object type. For filter feeds, this value is the key prefix associated with the object type used to filter this feed. All feed items in this feed have a parent whose object type matches this key prefix value. For non-filter feeds, this value is null .
+   */
+  global String keyPrefix;
+
+  /**
+   * Localized label of the feed
+   */
+  global String label;
 
 }

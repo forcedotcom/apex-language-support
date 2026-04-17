@@ -1,12 +1,16 @@
+/**
+ * The order payment summary ID and amount of the processed refund items.
+ */
 global class RefundSequenceItemOutputRepresentation {
-	global Double amount;
-	global String orderPaymentSummaryId;
-	global Integer rank;
-	global RefundSequenceItemOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The amount that was refunded.
+   */
+  global Double amount;
+
+  /**
+   * The order payment summary’s ID.
+   */
+  global String orderPaymentSummaryId;
 
 }

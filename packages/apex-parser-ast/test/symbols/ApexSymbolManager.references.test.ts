@@ -421,7 +421,7 @@ describe('ApexSymbolManager Reference Processing', () => {
     it('should resolve System.Url using chain nodes when passed to resolveStandardLibraryType', async () => {
       const sourceCode = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
         }
       `;
 
@@ -440,9 +440,9 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const references = symbolManager.getAllReferencesInFile(fileUri);
 
-      // Find the ChainedSymbolReference for System.Url
+      // Find the ChainedSymbolReference for System.URL
       const systemUrlRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -450,7 +450,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       expect(systemUrlRef.chainNodes).toBeDefined();
       expect(systemUrlRef.chainNodes.length).toBe(2);
       expect(systemUrlRef.chainNodes[0].name).toBe('System');
-      expect(systemUrlRef.chainNodes[1].name).toBe('Url');
+      expect(systemUrlRef.chainNodes[1].name).toBe('URL');
 
       // Verify that the reference can be resolved using getSymbolAtPosition
       // This will use resolveStandardLibraryType internally, which should leverage the chain nodes

@@ -1,13 +1,26 @@
+/**
+ * A coupon used in a promotion.
+ */
 global class PromotionCoupon {
-	global String couponCode;
-	global String couponErrorCode;
-	global String id;
-	global Boolean isValidCoupon;
-	global PromotionCoupon() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Coupon code.
+   */
+  global String couponCode;
+
+  /**
+   * Error code returned if the coupon is invalid.
+   */
+  global String couponErrorCode;
+
+  /**
+   * ID of the coupon.
+   */
+  global String id;
+
+  /**
+   * Indicates whether the coupon is valid ( true ) or invalid ( false ).
+   */
+  global Boolean isValidCoupon;
 
 }

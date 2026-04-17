@@ -1,12 +1,21 @@
+/**
+ * Field value.
+ */
 global class RecordFieldValue {
-	global String displayValue;
-	global String highlight;
-	global Object value;
-	global RecordFieldValue() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Field display value.
+   */
+  global String displayValue;
+
+  /**
+   * Represents field highlighting in the results.
+   */
+  global String highlight;
+
+  /**
+   * Field raw value.
+   */
+  global Object value;
 
 }

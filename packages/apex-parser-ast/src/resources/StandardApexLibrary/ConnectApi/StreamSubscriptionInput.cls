@@ -1,9 +1,11 @@
+/**
+ * An entity to subscribe to for a Chatter feed stream.
+ */
 global class StreamSubscriptionInput {
-	global String entityId;
-	global StreamSubscriptionInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The ID of any feed-enabled entity, such as a group, record, or user, that the context user can access. When subscribed, the entity’s feed is included in the feed stream.
+   */
+  global String entityId;
 
 }

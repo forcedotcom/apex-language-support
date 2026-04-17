@@ -1,14 +1,31 @@
+/**
+ * Fulfillment order capacity values for a location.
+ */
 global class LocationCapacityOutputRepresentation {
-	global Integer assigned;
-	global Integer capacity;
-	global ConnectApi.ErrorResponse error;
-	global Integer heldCapacity;
-	global String locationId;
-	global LocationCapacityOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Value of the location’s Assigned Fulfillment Order Count.
+   */
+  global Integer assigned;
+
+  /**
+   * Value of the location’s Fulfillment Order Capacity. This property represents the location’s maximum capacity.
+   */
+  global Integer capacity;
+
+  /**
+   * Error returned by the request, if any.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * Number of fulfillment orders that the location is holding capacity for.
+   */
+  global Integer heldCapacity;
+
+  /**
+   * ID of the location.
+   */
+  global String locationId;
 
 }

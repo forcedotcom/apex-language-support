@@ -1,13 +1,21 @@
+/**
+ * Details of a composite product.
+ */
 global class CompositeCommerceProductOutputRepresentation {
-	global List<ConnectApi.CompositeErrorResponseRepresentation> errorDetails;
-	global List<ConnectApi.ErrorResponse> errors;
-	global String productId;
-	global Boolean success;
-	global CompositeCommerceProductOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of any errors that were returned, including the error code and error message.
+   */
+  global List < ConnectApi.ErrorResponse > errors;
+
+  /**
+   * ID of the product record created.
+   */
+  global String productId;
+
+  /**
+   * Indicates whether the product was successfully created ( true ) or not ( false ).
+   */
+  global Boolean success;
 
 }

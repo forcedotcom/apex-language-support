@@ -1,5 +1,0 @@
-global enum PaymentInitiationMode {
-EXTERNALPAYMENTAPP,
-GATEWAYCHECKOUT,
-HOSTEDLINK
-}

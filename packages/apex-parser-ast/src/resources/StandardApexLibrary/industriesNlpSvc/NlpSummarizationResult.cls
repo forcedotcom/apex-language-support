@@ -1,6 +1,8 @@
+/**
+ * Provides the summary obtained as result of NLP Operation.
+ */
 global class NlpSummarizationResult {
-	global String summary;
-	global NlpSummarizationResult() { }
-	global Object clone() { }
+
+  public String summary;
 
 }

@@ -394,9 +394,28 @@ jobs:
               console.log('Test summary is empty, skipping PR comment');
               return;
             }
-            await github.rest.issues.createComment({
+            const createComment = () => github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: summary
             });
+            const maxRetries = 3;
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                await createComment();
+                console.log(`PR comment posted successfully${attempt > 1 ? ` (attempt ${attempt})` : ''}`);
+                return;
+              } catch (err) {
+                const status = err?.status ?? err?.response?.status;
+                const isRetryable = status >= 500 || status === 408;
+                if (attempt < maxRetries && isRetryable) {
+                  const delayMs = 2000 * attempt;
+                  console.log(`Comment API failed (${status || err.message}), retrying in ${delayMs}ms...`);
+                  await new Promise(r => setTimeout(r, delayMs));
+                } else {
+                  console.warn('Failed to post PR comment (tests passed):', err.message);
+                  return;
+                }
+              }
+            }

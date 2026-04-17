@@ -1,9 +1,6 @@
+/**
+ * Create a ConnectApi.BinaryInput object to attach files to feed items and comments, to add repository files, to create managed content, and to replace managed content variants.
+ */
 global class BinaryInput {
-	global BinaryInput(Blob blobValue, String contentType, String filename) { }
-	global Object clone() { }
-	global Blob getBlobValue() { }
-	global String getContentType() { }
-	global String getFilename() { }
-	global String toString() { }
 
 }

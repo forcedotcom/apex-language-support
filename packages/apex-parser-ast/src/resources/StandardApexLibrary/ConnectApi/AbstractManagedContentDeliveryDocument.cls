@@ -1,19 +1,51 @@
+/**
+ * Managed content delivery document.
+ */
 global class AbstractManagedContentDeliveryDocument {
-	global String contentKey;
-	global ConnectApi.ManagedContentTypeSummary contentType;
-	global Integer contentVersion;
-	global Boolean isLatest;
-	global String language;
-	global String managedContentId;
-	global Datetime publishedDate;
-	global String resourceUrl;
-	global String title;
-	global String unauthenticatedUrl;
-	global String urlName;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Globally unique identifier (GUID) for the managed content.
+   */
+  global String contentKey;
+
+  /**
+   * Type of managed content.
+   */
+  global ConnectApi.ManagedContentTypeSummary contentType;
+
+  /**
+   * Language locale of the managed content.
+   */
+  global String language;
+
+  /**
+   * ID of the managed content.
+   */
+  global String managedContentId;
+
+  /**
+   * Most recent publish date of the managed content.
+   */
+  global Datetime publishedDate;
+
+  /**
+   * URL to the single content delivery resource.
+   */
+  global String resourceUrl;
+
+  /**
+   * Title of the managed content.
+   */
+  global String title;
+
+  /**
+   * Public URL for the managed content.
+   */
+  global String unauthenticatedUrl;
+
+  /**
+   * URL name of the managed content.
+   */
+  global String urlName;
 
 }

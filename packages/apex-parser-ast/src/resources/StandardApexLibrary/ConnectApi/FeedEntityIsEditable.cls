@@ -1,12 +1,21 @@
+/**
+ * Indicates if the context user can edit a feed element or comment.
+ */
 global class FeedEntityIsEditable {
-	global Boolean areAttachmentsEditableByMe;
-	global String feedEntityUrl;
-	global Boolean isEditableByMe;
-	global FeedEntityIsEditable() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * true if the context user can add and remove attachments on the feed element or comment, false otherwise.
+   */
+  global Boolean areAttachmentsEditableByMe;
+
+  /**
+   * URL of the feed element or comment.
+   */
+  global String feedEntityUrl;
+
+  /**
+   * true if the context user can edit the feed element or comment, false otherwise.
+   */
+  global Boolean isEditableByMe;
 
 }

@@ -1,15 +1,36 @@
+/**
+ * Adjustment associated with an order summary.
+ */
 global class OrderSummaryAdjustment {
-	global String amount;
-	global String basisReferenceDisplayName;
-	global String currencyIsoCode;
-	global String displayName;
-	global ConnectApi.OrderSummaryAdjustmentTargetType targetType;
-	global String type;
-	global OrderSummaryAdjustment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Amount associated with the adjustment.
+   */
+  global String amount;
+
+  /**
+   * Display name for secondary cause of the adjustment (for example, Null or the CouponCode that’s associated with a Coupon)
+   */
+  global String basisReferenceDisplayName;
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the adjustment.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Display name for the primary cause of the adjustment (for example, Display name of the Promotion)
+   */
+  global String displayName;
+
+  /**
+   * Type of price adjustment in promotions. Values are: SplitLine —Price adjustment on an order item. Header —Price adjustment on the entire order.
+   */
+  global ConnectApi.OrderSummaryAdjustmentTargetType targetType;
+
+  /**
+   * Type of adjustment (for example, Promotion, Other).
+   */
+  global String type;
 
 }

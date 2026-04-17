@@ -1,4 +1,4 @@
 global enum LinkMetadataSource {
-NONE,
-SFDC
+  None,
+  Sfdc
 }

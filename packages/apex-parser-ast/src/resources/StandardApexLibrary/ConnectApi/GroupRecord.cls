@@ -1,12 +1,21 @@
+/**
+ * A record associated with a group.
+ */
 global class GroupRecord {
-	global String id;
-	global ConnectApi.ActorWithId record;
-	global String url;
-	global GroupRecord() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Record’s 18-character ID.
+   */
+  global String id;
+
+  /**
+   * Information about the record associated with the group.
+   */
+  global ConnectApi.ActorWithId record;
+
+  /**
+   * Record URL.
+   */
+  global String url;
 
 }

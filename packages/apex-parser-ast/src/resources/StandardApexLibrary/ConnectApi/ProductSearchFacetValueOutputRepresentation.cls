@@ -1,13 +1,26 @@
+/**
+ * Output representation of a product search facet value.
+ */
 global class ProductSearchFacetValueOutputRepresentation {
-	global String displayName;
-	global String nameOrId;
-	global Integer productCount;
-	global String type;
-	global ProductSearchFacetValueOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Display name of the search facet.
+   */
+  global String displayName;
+
+  /**
+   * Unique name or ID of the search facet.
+   */
+  global String nameOrId;
+
+  /**
+   * Number of products found with the search facet.
+   */
+  global Integer productCount;
+
+  /**
+   * Type of the search facet.
+   */
+  global String type;
 
 }

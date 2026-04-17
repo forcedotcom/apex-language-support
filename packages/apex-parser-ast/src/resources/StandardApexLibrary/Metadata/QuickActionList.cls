@@ -1,6 +1,12 @@
+/**
+ * Represents the list of actions associated with the page layout.
+ */
 global class QuickActionList {
-	global List<Metadata.QuickActionListItem> quickActionListItems;
-	global QuickActionList() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.QuickActionList .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

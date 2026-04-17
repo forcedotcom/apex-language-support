@@ -1,10 +1,11 @@
-global class ManagedContentDateNodeValue {
-	global Datetime value;
-	global ManagedContentDateNodeValue() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Managed content node of date type.
+ */
+global class ManagedContentDateNodeValue extends ConnectApi.ManagedContentNodeValue {
+
+  /**
+   * Date value of the managed content node.
+   */
+  global Datetime value;
 
 }

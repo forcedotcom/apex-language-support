@@ -1,10 +1,11 @@
-global class FindRoutesWithFewestSplitsOutputRepresentation {
-	global List<ConnectApi.AvailableLocationOutputRepresentation> targetLocations;
-	global FindRoutesWithFewestSplitsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A list of inventory location combinations that can fulfill an order without exceeding the maximum number of shipments.
+ */
+global class FindRoutesWithFewestSplitsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * Each element of the list is a set of inventory locations that together can fulfill the order being routed.
+   */
+  global List < ConnectApi.AvailableLocationOutputRepresentation > targetLocations;
 
 }

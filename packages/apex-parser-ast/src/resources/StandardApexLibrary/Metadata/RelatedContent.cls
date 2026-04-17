@@ -1,6 +1,12 @@
+/**
+ * Represents the Mobile Cards section of the page layout.
+ */
 global class RelatedContent {
-	global List<Metadata.RelatedContentItem> relatedContentItems;
-	global RelatedContent() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.RelatedContent .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

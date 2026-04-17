@@ -1,4 +1,4 @@
 global enum CommunityFlagType {
-FLAGASINAPPROPRIATE,
-FLAGASSPAM
+  FlagAsInappropriate,
+  FlagAsSpam
 }

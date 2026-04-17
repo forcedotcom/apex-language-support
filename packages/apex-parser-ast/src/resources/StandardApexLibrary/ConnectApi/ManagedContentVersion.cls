@@ -1,20 +1,61 @@
+/**
+ * Managed content version.
+ */
 global class ManagedContentVersion {
-	global ConnectApi.ManagedContentAssociations associations;
-	global String contentKey;
-	global Map<String,ConnectApi.ManagedContentNodeValue> contentNodes;
-	global String contentUrlName;
-	global String language;
-	global String managedContentId;
-	global Datetime publishedDate;
-	global String title;
-	global String type;
-	global String typeLabel;
-	global String unauthenticatedUrl;
-	global ManagedContentVersion() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Content topics associated with the managed content.
+   */
+  global ConnectApi.ManagedContentAssociations associations;
+
+  /**
+   * Content key of the managed content.
+   */
+  global String contentKey;
+
+  /**
+   * Map of content nodes.
+   */
+  global Map < String , ConnectApi.ManagedContentNodeValue > contentNodes;
+
+  /**
+   * Content URL name of the managed content version.
+   */
+  global String contentUrlName;
+
+  /**
+   * Language of the managed content version.
+   */
+  global String language;
+
+  /**
+   * ID of the managed content.
+   */
+  global String managedContentId;
+
+  /**
+   * Date when the managed content version was last published.
+   */
+  global Datetime publishedDate;
+
+  /**
+   * Title of the managed content version.
+   */
+  global String title;
+
+  /**
+   * Type of managed content version.
+   */
+  global String type;
+
+  /**
+   * Type label of the managed content type.
+   */
+  global String typeLabel;
+
+  /**
+   * Unauthenticated delivery URL.
+   */
+  global String unauthenticatedUrl;
 
 }

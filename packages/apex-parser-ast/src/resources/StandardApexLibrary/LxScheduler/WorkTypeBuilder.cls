@@ -1,14 +1,24 @@
+/**
+ * Contains methods to build an instance of the lxscheduler.WorkType class.
+ */
 global class WorkTypeBuilder {
-	global WorkTypeBuilder() { }
-	global lxscheduler.WorkType build() { }
-	global Object clone() { }
-	global lxscheduler.WorkTypeBuilder setBlockTimeAfterAppointmentInMinutes(Integer blockTimeAfterAppointmentInMinutes) { }
-	global lxscheduler.WorkTypeBuilder setBlockTimeBeforeAppointmentInMinutes(Integer blockTimeBeforeAppointmentInMinutes) { }
-	global lxscheduler.WorkTypeBuilder setDurationInMinutes(Integer durationInMinutes) { }
-	global lxscheduler.WorkTypeBuilder setId(String id) { }
-	global lxscheduler.WorkTypeBuilder setOperatingHoursId(String operatingHoursId) { }
-	global lxscheduler.WorkTypeBuilder setSkillRequirements(List<lxscheduler.SkillRequirement> skillRequirements) { }
-	global lxscheduler.WorkTypeBuilder setTimeFrameEndInMinutes(Integer timeFrameEndInMinutes) { }
-	global lxscheduler.WorkTypeBuilder setTimeFrameStartInMinutes(Integer timeFrameStartInMinutes) { }
+
+  public lxscheduler.WorkType build() {}
+
+  public lxscheduler.WorkTypeBuilder setBlockTimeAfterAppointmentInMinutes(Integer blockTimeAfterAppointmentInMinutes) {}
+
+  public lxscheduler.WorkTypeBuilder setBlockTimeBeforeAppointmentInMinutes(Integer blockTimeBeforeAppointmentInMinutes) {}
+
+  public lxscheduler.WorkTypeBuilder setDurationInMinutes(Integer durationInMinutes) {}
+
+  public lxscheduler.WorkTypeBuilder setId(String id) {}
+
+  public lxscheduler.WorkTypeBuilder setOperatingHoursId(String operatingHoursId) {}
+
+  public lxscheduler.WorkTypeBuilder setSkillRequirements(List<lxscheduler.SkillRequirement> skillRequirements) {}
+
+  public lxscheduler.WorkTypeBuilder setTimeFrameEndInMinutes(Integer timeFrameEndInMinutes) {}
+
+  public lxscheduler.WorkTypeBuilder setTimeFrameStartInMinutes(Integer timeFrameStartInMinutes) {}
 
 }

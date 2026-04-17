@@ -1,15 +1,36 @@
+/**
+ * Cart delivery group method for a promotion.
+ */
 global class PromotionCartDeliveryGroupMethod {
-	global List<ConnectApi.PromotionCartDeliveryMethodAdjustment> cartDeliveryMethodAdjustments;
-	global String cartDeliveryMethodId;
-	global String price;
-	global String shippingRateId;
-	global String totalAdjustmentBaseAmount;
-	global String totalNetAmount;
-	global PromotionCartDeliveryGroupMethod() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of cart delivery method adjustments.
+   */
+  global List < ConnectApi.PromotionCartDeliveryMethodAdjustment > cartDeliveryMethodAdjustments;
+
+  /**
+   * ID of the cart delivery method.
+   */
+  global String cartDeliveryMethodId;
+
+  /**
+   * Price
+   */
+  global String price;
+
+  /**
+   * ID of the shipping rate.
+   */
+  global String shippingRateId;
+
+  /**
+   * Total amount of the adjustment.
+   */
+  global String totalAdjustmentBaseAmount;
+
+  /**
+   * Final price of the cart item after all adjustments.
+   */
+  global String totalNetAmount;
 
 }

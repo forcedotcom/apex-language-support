@@ -1,8 +1,0 @@
-global enum ObjectMappingStatus {
-ACTIVE,
-CREATING,
-DELETING,
-ERROR,
-INACTIVE,
-UPDATING
-}

@@ -1,9 +1,6 @@
-global class DownVoteSummary {
-	global DownVoteSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Summary of a downvote.
+ */
+global class DownVoteSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

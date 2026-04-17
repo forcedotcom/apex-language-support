@@ -1,14 +1,31 @@
+/**
+ * Delivery estimation information for each product.
+ */
 global class ProductDeliverEstimationOutputRepresentation {
-	global ConnectApi.DateEstimationOutputRepresentation estimatedDeliveryDate;
-	global ConnectApi.DateEstimationOutputRepresentation estimatedShipDate;
-	global Double quantity;
-	global String routingCalculationType;
-	global String stockKeepingUnit;
-	global ProductDeliverEstimationOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Estimated delivery date.
+   */
+  global Datetime ConnectApi.EstimateDeliveryDateOutputRepresentation estimatedDeliveryDate;
+
+  /**
+   * Estimated shipping date.
+   */
+  global Datetime estimatedShipDate;
+
+  /**
+   * Product quantity.
+   */
+  global Double quantity;
+
+  /**
+   * Routing calculation type.
+   */
+  global String routingCalculationType;
+
+  /**
+   * Product stock keeping unit (SKU).
+   */
+  global String stockKeepingUnit;
 
 }

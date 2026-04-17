@@ -1,11 +1,16 @@
+/**
+ * An entity's label.
+ */
 global class EntityLabel {
-	global String label;
-	global String labelPlural;
-	global EntityLabel() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Localized singular label of the entity.
+   */
+  global String label;
+
+  /**
+   * Localized plural label of the entity.
+   */
+  global String labelPlural;
 
 }

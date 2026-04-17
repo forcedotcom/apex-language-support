@@ -1,15 +1,36 @@
+/**
+ * Attribute set metadata.
+ */
 global class ProductAttributeSetInfo {
-	global Map<String,ConnectApi.ProductAttributeInfo> attributeInfo;
-	global String description;
-	global String developerName;
-	global String id;
-	global String masterLabel;
-	global Integer sequence;
-	global ProductAttributeSetInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Map of the API name of the attribute field to the attribute metadata.
+   */
+  global Map < String , ConnectApi.ProductAttributeInfo > attributeInfo;
+
+  /**
+   * Description of the attribute set.
+   */
+  global String description;
+
+  /**
+   * Developer name of the attribute set.
+   */
+  global String developerName;
+
+  /**
+   * ID of the attribute set.
+   */
+  global String id;
+
+  /**
+   * Label of the attribute set.
+   */
+  global String masterLabel;
+
+  /**
+   * Sequence of the attribute set for the product.
+   */
+  global Integer sequence;
 
 }

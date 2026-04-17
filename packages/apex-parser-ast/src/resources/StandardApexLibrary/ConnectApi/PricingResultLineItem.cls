@@ -1,16 +1,41 @@
+/**
+ * Pricing result line item.
+ */
 global class PricingResultLineItem {
-	global ConnectApi.ErrorResponse error;
-	global String listPrice;
-	global String lowestUnitPrice;
-	global String pricebookEntryId;
-	global String productId;
-	global Boolean success;
-	global String unitPrice;
-	global PricingResultLineItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Error code and message.
+   */
+  global ConnectApi.ErrorResponse error;
+
+  /**
+   * List price for the product.
+   */
+  global String listPrice;
+
+  /**
+   * Lowest unit price for the product.
+   */
+  global String lowestUnitPrice;
+
+  /**
+   * ID of the pricebook entry.
+   */
+  global String pricebookEntryId;
+
+  /**
+   * ID of the product to price.
+   */
+  global String productId;
+
+  /**
+   * Specifies whether the execution was successful ( true ) or not ( false ).
+   */
+  global Boolean success;
+
+  /**
+   * Unit price for the product.
+   */
+  global String unitPrice;
 
 }

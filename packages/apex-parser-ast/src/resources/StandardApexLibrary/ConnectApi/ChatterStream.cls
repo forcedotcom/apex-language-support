@@ -1,16 +1,41 @@
+/**
+ * A Chatter feed stream.
+ */
 global class ChatterStream {
-	global ConnectApi.CommunitySummary community;
-	global Datetime createdDate;
-	global String description;
-	global String id;
-	global String name;
-	global List<ConnectApi.FeedEnabledEntity> subscriptions;
-	global String url;
-	global ChatterStream() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Experience Cloud site where the stream is.
+   */
+  global ConnectApi.CommunitySummary community;
+
+  /**
+   * Date the stream was created.
+   */
+  global Datetime createdDate;
+
+  /**
+   * Description of the stream.
+   */
+  global String description;
+
+  /**
+   * 18-character ID of the stream.
+   */
+  global String id;
+
+  /**
+   * Name of the stream.
+   */
+  global String name;
+
+  /**
+   * List of entities whose feeds are included in the stream.
+   */
+  global List < ConnectApi.FeedEnabledEntity > subscriptions;
+
+  /**
+   * URL to the stream.
+   */
+  global String url;
 
 }

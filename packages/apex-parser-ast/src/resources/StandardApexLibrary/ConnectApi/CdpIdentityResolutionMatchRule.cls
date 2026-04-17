@@ -1,10 +1,16 @@
+/**
+ * Input representation for an identity resolution ruleset’s match rule.
+ */
 global class CdpIdentityResolutionMatchRule {
-	global List<ConnectApi.CdpIdentityResolutionMatchCriterion> criteria;
-	global String label;
-	global CdpIdentityResolutionMatchRule() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Object and field the match rule applies to and the match method applied.
+   */
+  global List < ConnectApi.CdpIdentityResolutionMatchCriterion > criteria;
+
+  /**
+   * User friendly name for the identity resolution match rule.
+   */
+  global String label;
 
 }

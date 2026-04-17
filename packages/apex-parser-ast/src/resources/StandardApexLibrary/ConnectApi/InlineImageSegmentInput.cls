@@ -1,10 +1,16 @@
-global class InlineImageSegmentInput {
-	global String altText;
-	global String fileId;
-	global InlineImageSegmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * An inline image segment.
+ */
+global class InlineImageSegmentInput extends ConnectApi.MessageSegmentInput {
+
+  /**
+   * Alt text for the inline image.
+   */
+  global String altText;
+
+  /**
+   * ID of the inline image file.
+   */
+  global String fileId;
 
 }

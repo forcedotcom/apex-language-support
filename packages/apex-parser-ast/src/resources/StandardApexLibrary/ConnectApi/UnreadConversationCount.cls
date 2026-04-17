@@ -1,11 +1,16 @@
+/**
+ * Unread count for a conversation.
+ */
 global class UnreadConversationCount {
-	global Boolean hasMore;
-	global Integer unreadCount;
-	global UnreadConversationCount() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies if there are more than 50 unread messages ( true ) or not ( false ).
+   */
+  global Boolean hasMore;
+
+  /**
+   * The total number of unread messages.
+   */
+  global Integer unreadCount;
 
 }

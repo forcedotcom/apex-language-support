@@ -1,4 +1,5 @@
 global enum DatacloudUserType {
-LISTPOOL,
-MONTHLY
+  Monthly,
+  DatacloudUserType,
+  Listpool
 }

@@ -1,12 +1,21 @@
+/**
+ * Page of zones.
+ */
 global class ZonePage {
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global List<ConnectApi.Zone> zones;
-	global ZonePage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * A list of one or more zones.
+   */
+  global List < ConnectApi.Zone > zones;
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
 
 }

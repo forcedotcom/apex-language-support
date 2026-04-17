@@ -1,40 +1,58 @@
+/**
+ * A SelectOption object specifies one of the possible values for a Visualforce selectCheckboxes , selectList , or selectRadio component.
+ */
 global class SelectOption {
-	global SelectOption(String value, String label, Boolean disabled) { }
-	global SelectOption(String value, String label) { }
-	global Boolean equals(Object obj) { }
-	/**
-	 * True if the SelectOption is disabled
-	 */
-	global Boolean getDisabled() { }
-	/**
-	 * True if the SelectOption label should be escaped
-	 */
-	global Boolean getEscapeItem() { }
-	/**
-	 * The label for this SelectOption
-	 */
-	global String getLabel() { }
-	/**
-	 * The value for this SelectOption
-	 */
-	global String getValue() { }
-	global Integer hashCode() { }
-	/**
-	 * Set the disabled value for this SelectOption
-	 */
-	global void setDisabled(Boolean disabled) { }
-	/**
-	 * Set the escapeItem value for this SelectOption
-	 */
-	global void setEscapeItem(Boolean disabled) { }
-	/**
-	 * Set the label for this SelectOption
-	 */
-	global void setLabel(String label) { }
-	/**
-	 * Set the value for this SelectOption
-	 */
-	global void setValue(String value) { }
-	global String toString() { }
+
+  public SelectOption(String value, String label) {}
+
+  public SelectOption(String value, String label, Boolean isDisabled) {}
+
+  /**
+   * Returns the current value of the SelectOption object's isDisabled attribute.
+   * @return Boolean
+   */
+  public Boolean getDisabled() {}
+
+  /**
+   * Returns the current value of the SelectOption object's itemEscaped attribute.
+   * @return Boolean
+   */
+  public Boolean getEscapeItem() {}
+
+  /**
+   * Returns the option label that is displayed to the user.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * Returns the option value that is returned to the controller if a user selects the option.
+   * @return String
+   */
+  public String getValue() {}
+
+  /**
+   * Sets the value of the SelectOption object's isDisabled attribute.
+   * @param isDisabled 
+   */
+  public void setDisabled(Boolean isDisabled) {}
+
+  /**
+   * Sets the value of the SelectOption object's itemEscaped attribute.
+   * @param itemsEscaped 
+   */
+  public void setEscapeItem(Boolean itemsEscaped) {}
+
+  /**
+   * Sets the value of the option label that is displayed to the user.
+   * @param label 
+   */
+  public void setLabel(String label) {}
+
+  /**
+   * Sets the value of the option value that is returned to the controller if a user selects the option.
+   * @param value 
+   */
+  public void setValue(String value) {}
 
 }

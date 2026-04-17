@@ -1,11 +1,16 @@
-global class ReferenceWithDateRecordField {
-	global Datetime dateValue;
-	global ConnectApi.RecordSummary reference;
-	global ReferenceWithDateRecordField() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Record field containing a referenced object that acted at a specific time, for example, “Created By...”.
+ */
+global class ReferenceWithDateRecordField extends ConnectApi.LabeledRecordField {
+
+  /**
+   * Time at which the referenced object acted.
+   */
+  global Datetime dateValue;
+
+  /**
+   * Object referenced by the record field.
+   */
+  global ConnectApi.RecordSummary reference;
 
 }

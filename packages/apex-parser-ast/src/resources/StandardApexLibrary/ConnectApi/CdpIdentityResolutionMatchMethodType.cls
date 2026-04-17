@@ -1,7 +1,7 @@
 global enum CdpIdentityResolutionMatchMethodType {
-EXACT,
-EXACTNORMALIZED,
-FUZZY,
-FUZZYHIGH,
-FUZZYLOW
+  Exact,
+  ExactNormalized,
+  Fuzzy,
+  FuzzyHigh,
+  FuzzyLow
 }

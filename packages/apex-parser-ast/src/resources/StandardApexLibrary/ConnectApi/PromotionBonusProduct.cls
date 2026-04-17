@@ -1,13 +1,26 @@
+/**
+ * Bonus product for a promotion.
+ */
 global class PromotionBonusProduct {
-	global String adjustmentBasisReference;
-	global String bonusProductId;
-	global String causeId;
-	global List<ConnectApi.PromotionCartItemKey> qualifyingItems;
-	global PromotionBonusProduct() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the associated coupon, if applicable.
+   */
+  global String adjustmentBasisReference;
+
+  /**
+   * ID of the bonus product.
+   */
+  global String bonusProductId;
+
+  /**
+   * ID of the related promotion.
+   */
+  global String causeId;
+
+  /**
+   * List of qualifying cart items and their related quantity.
+   */
+  global List < ConnectApi.PromotionCartItemKey > qualifyingItems;
 
 }

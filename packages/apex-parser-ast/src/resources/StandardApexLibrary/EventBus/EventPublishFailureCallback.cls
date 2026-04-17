@@ -1,4 +1,8 @@
+/**
+ * Implement this interface to track platform event messages that failed to publish. The onFailure() method in this interface is called when the final result of the asynchronous publish operation becomes available.
+ */
 global interface EventPublishFailureCallback {
-	void onFailure(eventbus.FailureResult param0);
+
+  void onFailure(eventbus.FailureResult result);
 
 }

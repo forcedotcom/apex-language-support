@@ -1,11 +1,16 @@
+/**
+ * Result of executing a commerce action.
+ */
 global class CommerceActionResult {
-	global Boolean isSuccess;
-	global String message;
-	global CommerceActionResult() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies whether the action is a success ( true ) or not ( false ).
+   */
+  global Boolean isSuccess;
+
+  /**
+   * Action result message.
+   */
+  global String message;
 
 }

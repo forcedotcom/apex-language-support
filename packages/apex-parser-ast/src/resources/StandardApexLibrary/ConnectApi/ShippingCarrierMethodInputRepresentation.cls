@@ -1,9 +1,11 @@
+/**
+ * Shipping carrier method external references.
+ */
 global class ShippingCarrierMethodInputRepresentation {
-	global String externalReference;
-	global ShippingCarrierMethodInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Unique code, reference, or identifier for the shipping carrier method used by external systems.
+   */
+  global String externalReference;
 
 }

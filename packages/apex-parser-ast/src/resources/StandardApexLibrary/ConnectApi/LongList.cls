@@ -1,9 +1,11 @@
-global class LongList {
-	global List<Long> values;
-	global LongList() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * List of long values.
+ */
+global class LongList extends ConnectApi.AbstractList {
+
+  /**
+   * List of Long values to filter on.
+   */
+  global List < Long > values;
 
 }

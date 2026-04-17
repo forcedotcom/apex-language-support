@@ -1,10 +1,11 @@
+/**
+ * Represents metadata from one or more data graphs.
+ */
 global class CdpDgMetadata {
-	global List<ConnectApi.CdpQueryDataGraphMetadata> dataGraphMetadata;
-	global CdpDgMetadata() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of metadata from data graphs.
+   */
+  global List < ConnectApi.CdpQueryDataGraphMetadata > dataGraphMetadata;
 
 }

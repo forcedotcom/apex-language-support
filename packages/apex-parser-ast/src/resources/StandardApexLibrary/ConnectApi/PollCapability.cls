@@ -1,12 +1,21 @@
-global class PollCapability {
-	global List<ConnectApi.FeedPollChoice> choices;
-	global String myChoiceId;
-	global Integer totalVoteCount;
-	global PollCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it includes a poll.
+ */
+global class PollCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Collection of poll choices that make up the poll.
+   */
+  global List < ConnectApi.FeedPollChoice > choices;
+
+  /**
+   * 18-character ID of the poll choice that the context user has voted for in this poll. Returns null if the context user has not voted.
+   */
+  global String myChoiceId;
+
+  /**
+   * Total number of votes cast on the feed poll element.
+   */
+  global Integer totalVoteCount;
 
 }

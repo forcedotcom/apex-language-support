@@ -9235,7 +9235,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const allSymbols = this.getAllSymbols();
     return allSymbols.filter((symbol: ApexSymbol) => {
       // Check if symbol is in the namespace by looking at its file path
-      // Standard Apex classes are in format: apexlib://System/Url.cls
+      // Standard Apex classes are in format: apexlib://System/URL.cls
       if (symbol.fileUri && isStandardApexUri(symbol.fileUri)) {
         const pathParts = symbol.fileUri.split('/');
         if (pathParts.length >= 2) {

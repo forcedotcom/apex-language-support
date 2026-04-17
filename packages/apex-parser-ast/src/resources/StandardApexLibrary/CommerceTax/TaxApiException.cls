@@ -1,7 +1,10 @@
-global class TaxApiException extends Exception {
-	global TaxApiException(String param0, Exception param1) { }
-	global TaxApiException(Exception param0) { }
-	global TaxApiException() { }
-	global Object clone() { }
+/**
+ * Contains details about any exceptions during the tax calculation process. Extends the ApexBaseException class.
+ */
+global class TaxApiException {
+
+  global TaxApiException(String var1, Exception var2) {}
+
+  global TaxApiException(Exception var1) {}
 
 }

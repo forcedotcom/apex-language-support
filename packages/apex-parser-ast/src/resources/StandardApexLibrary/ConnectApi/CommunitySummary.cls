@@ -1,11 +1,16 @@
+/**
+ * Summary of an Experience Cloud site.
+ */
 global class CommunitySummary {
-	global String id;
-	global String name;
-	global CommunitySummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * 18-character ID of the site.
+   */
+  global String id;
+
+  /**
+   * Localized name of the site.
+   */
+  global String name;
 
 }

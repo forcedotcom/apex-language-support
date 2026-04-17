@@ -1,9 +1,11 @@
-global class EntityLinkSegmentInput {
-	global String entityId;
-	global EntityLinkSegmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * An entity link segment.
+ */
+global class EntityLinkSegmentInput extends ConnectApi.MessageSegmentInput {
+
+  /**
+   * ID of the entity to link to. Only users with access to the entity see it. It’s hidden for users without access.
+   */
+  global String entityId;
 
 }

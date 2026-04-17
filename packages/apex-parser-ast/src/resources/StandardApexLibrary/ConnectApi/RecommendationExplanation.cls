@@ -1,10 +1,11 @@
-global class RecommendationExplanation {
-	global String detailsUrl;
-	global RecommendationExplanation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Explanation for a Chatter recommendation.
+ */
+global class RecommendationExplanation extends ConnectApi.AbstractRecommendationExplanation {
+
+  /**
+   * URL to explanation details or null if the Chatter recommendation doesn’t have a detailed explanation.
+   */
+  global String detailsUrl;
 
 }

@@ -1,18 +1,46 @@
+/**
+ * Tax details for each line item in a tax line item output.
+ */
 global class TaxDetailsResponse {
-	global ConnectApi.AdditionalDataResponse additionalData;
-	global Double exemptAmount;
-	global String exemptReason;
-	global ConnectApi.TaxImpositionResponse imposition;
-	global ConnectApi.TaxJurisdictionResponse jurisdiction;
-	global Double rate;
-	global Double tax;
-	global String taxId;
-	global Double taxableAmount;
-	global TaxDetailsResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Amount of the line item that is exempt from taxation.
+   */
+  global Double exemptAmount;
+
+  /**
+   * The reason that any tax exemption applied to the line item.
+   */
+  global String exemptReason;
+
+  /**
+   * The business justification for applying tax to a line item.
+   */
+  global ConnectApi.TaxImpositionResponse imposition;
+
+  /**
+   * Business address used to calculate the tax rate for the line item.
+   */
+  global ConnectApi.TaxJurisdictionResponse jurisdiction;
+
+  /**
+   * Tax rate for the line item.
+   */
+  global Double rate;
+
+  /**
+   * Total amount of tax on the line item.
+   */
+  global Double tax;
+
+  /**
+   * ID for the type of tax applied to the line item.
+   */
+  global String taxId;
+
+  /**
+   * Amount of line item that can be taxed.
+   */
+  global Double taxableAmount;
 
 }

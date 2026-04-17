@@ -1,12 +1,21 @@
+/**
+ * Subscription term rules.
+ */
 global class SubscriptionTermRule {
-	global Integer increment;
-	global Integer maximum;
-	global Integer minimum;
-	global SubscriptionTermRule() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Number of pricing term units that can be used to increase the subscription term.
+   */
+  global Integer increment;
+
+  /**
+   * Maximum number of pricing term units per subscription term.
+   */
+  global Integer maximum;
+
+  /**
+   * Minimum number of pricing term units per subscription term.
+   */
+  global Integer minimum;
 
 }

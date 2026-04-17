@@ -1,14 +1,31 @@
+/**
+ * Collection of managed content channels.
+ */
 global class ManagedContentChannelsRepresentation {
-	global List<ConnectApi.AbstractManagedContentChannelRepresentation> channels;
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global Integer totalChannels;
-	global ManagedContentChannelsRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of managed content channels.
+   */
+  global List < ConnectApi.AbstractManagedContentChannelRepresentation > channels;
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
+   */
+  global String previousPageUrl;
+
+  /**
+   * Total number of managed content channels.
+   */
+  global Integer totalChannels;
 
 }

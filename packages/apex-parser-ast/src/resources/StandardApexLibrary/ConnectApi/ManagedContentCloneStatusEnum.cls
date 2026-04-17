@@ -1,5 +1,4 @@
 global enum ManagedContentCloneStatusEnum {
-FAILURE,
-PARTIALSUCCESS,
-SUCCESS
+  PartialSuccess,
+  Success
 }

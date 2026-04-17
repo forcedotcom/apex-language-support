@@ -1,10 +1,11 @@
-global class TrackedChangesCapability {
-	global List<ConnectApi.TrackedChangeItem> changes;
-	global TrackedChangesCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * If a feed element has this capability, it contains all changes to a record for a single tracked change event.
+ */
+global class TrackedChangesCapability extends ConnectApi.FeedElementCapability {
+
+  /**
+   * Collection of feed tracked changes.
+   */
+  global List < ConnectApi.TrackedChangeItem > changes;
 
 }

@@ -1,10 +1,16 @@
+/**
+ * Input representation of a single element within the Distribute To Orders list.
+ */
 global class DistributeToOrdersInputRepresentation {
-	global String externalOrderId;
-	global List<ConnectApi.ItemQuantityInputRepresentation> itemQuantities;
-	global DistributeToOrdersInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the external order.
+   */
+  global String externalOrderId;
+
+  /**
+   * List of order item quantities.
+   */
+  global List < ConnectApi.ItemQuantityInputRepresentation > itemQuantities;
 
 }

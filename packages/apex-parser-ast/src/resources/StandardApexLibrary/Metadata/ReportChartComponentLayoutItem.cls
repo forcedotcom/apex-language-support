@@ -1,13 +1,12 @@
+/**
+ * Represents the settings for a report chart on a standard or custom page.
+ */
 global class ReportChartComponentLayoutItem {
-	global Boolean cacheData;
-	global String contextFilterableField;
-	global String error;
-	global Boolean hideOnError;
-	global Boolean includeContext;
-	global String reportName;
-	global Boolean showTitle;
-	global Metadata.ReportChartComponentSize size;
-	global ReportChartComponentLayoutItem() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.ReportChartComponentLayoutItem .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

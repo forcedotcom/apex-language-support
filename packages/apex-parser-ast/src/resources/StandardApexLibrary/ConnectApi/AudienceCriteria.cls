@@ -1,9 +1,11 @@
+/**
+ * Custom recommendation audience criteria.
+ */
 global class AudienceCriteria {
-	global ConnectApi.RecommendationAudienceCriteriaType type;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Specifies the custom recommendation audience criteria type. One of these values: CustomList —A custom list of users makes up the audience. MaxDaysInCommunity —New members make up the audience.
+   */
+  global ConnectApi.RecommendationAudienceCriteriaType type;
 
 }

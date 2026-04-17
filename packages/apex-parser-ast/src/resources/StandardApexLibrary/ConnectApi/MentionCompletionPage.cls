@@ -1,13 +1,26 @@
+/**
+ * Paginated list of Mention Completion response bodies.
+ */
 global class MentionCompletionPage {
-	global String currentPageUrl;
-	global List<ConnectApi.MentionCompletion> mentionCompletions;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global MentionCompletionPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * A list of mention completion proposals. Use these proposals to build a feed post body.
+   */
+  global List < ConnectApi.MentionCompletion > mentionCompletions;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
+   */
+  global String previousPageUrl;
 
 }

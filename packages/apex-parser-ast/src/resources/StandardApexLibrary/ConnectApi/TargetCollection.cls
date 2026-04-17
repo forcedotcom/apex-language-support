@@ -1,10 +1,11 @@
+/**
+ * List of personalization targets.
+ */
 global class TargetCollection {
-	global List<ConnectApi.Target> targets;
-	global TargetCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * List of personalization targets.
+   */
+  global List < ConnectApi.Target > targets;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * Represents limited details about a cart item.
+ */
 global class CartItemBasic {
-	global String cartItemId;
-	global String name;
-	global String productId;
-	global String quantity;
-	global ConnectApi.CartItemType type;
-	global CartItemBasic() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the cart item.
+   */
+  global String cartItemId;
+
+  /**
+   * Name of the cart item.
+   */
+  global String name;
+
+  /**
+   * ID of the product associated with the cart item.
+   */
+  global String productId;
+
+  /**
+   * Quantity of the cart item.
+   */
+  global String quantity;
+
+  /**
+   * Type of item in a cart. Value is Product.
+   */
+  global ConnectApi.CartItemType type;
 
 }

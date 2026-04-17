@@ -1,9 +1,11 @@
-global class UserFeedEntityActivitySummary {
-	global String feedEntityId;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * User feed entity activity summary.
+ */
+global class UserFeedEntityActivitySummary extends ConnectApi.UserActivitySummary {
+
+  /**
+   * ID of the feed entity.
+   */
+  global String feedEntityId;
 
 }
