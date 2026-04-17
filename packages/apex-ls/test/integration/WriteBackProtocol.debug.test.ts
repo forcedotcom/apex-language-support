@@ -50,6 +50,7 @@ describe('WriteBackProtocol Debug Test', () => {
         poolSize: 1,
         enableResourceLoader: false,
         logger: getLogger(),
+        logLevel: 'debug',
       });
       console.log('Step 1 DONE: Topology initialized');
 

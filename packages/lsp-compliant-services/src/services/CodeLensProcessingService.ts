@@ -138,25 +138,12 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    */
   private async provideTestCodeLenses(fileUri: string): Promise<CodeLens[]> {
     try {
-      this.logger.debug(() => `Accessing symbol manager for ${fileUri}`);
-
       // Get the symbols for this file
       const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
 
-      if (!symbols.length) {
-        this.logger.debug(
-          () => `No symbols found for ${fileUri} - file may not be parsed yet`,
-        );
-        return [];
-      }
       // Find test classes and methods
       const codeLenses: CodeLens[] = [];
       for (const symbol of symbols) {
-        this.logger.debug(
-          () =>
-            `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
-        );
-
         if (this.isTest(symbol)) {
           if (isClassSymbol(symbol)) {
             codeLenses.push(...this.createTestClassCodeLenses(symbol));
@@ -165,11 +152,6 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
           }
         }
       }
-
-      this.logger.debug(
-        () => `Total test code lenses created: ${codeLenses.length}`,
-      );
-
       return codeLenses;
     } catch (error) {
       this.logger.error(

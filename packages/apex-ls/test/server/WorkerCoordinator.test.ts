@@ -347,7 +347,6 @@ describe('WorkerCoordinator', () => {
         'implementation',
         'documentSymbol',
         'codeLens',
-        'diagnostics',
         'foldingRange',
       ] as const)('blocks coordinator-only type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(false);
@@ -359,6 +358,7 @@ describe('WorkerCoordinator', () => {
         'documentSave',
         'documentClose',
         'hover',
+        'diagnostics',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });

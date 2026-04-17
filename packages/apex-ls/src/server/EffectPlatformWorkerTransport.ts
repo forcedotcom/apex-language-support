@@ -56,12 +56,19 @@ export class EffectPlatformWorkerTransport implements WorkerTopologyTransport {
       Worker.WorkerManager | Worker.Spawner
     >,
     private readonly scope: Scope.Scope,
+    private readonly logLevel?: string,
+    private readonly serverMode: 'production' | 'development' = 'production',
   ) {}
 
   spawn(role: WorkerRole): Effect.Effect<WorkerHandle, TransportSpawnError> {
     return Worker.makeSerialized<any>({
       initialMessage: () =>
-        new WorkerInit({ role, protocolVersion: WIRE_PROTOCOL_VERSION }),
+        new WorkerInit({
+          role,
+          protocolVersion: WIRE_PROTOCOL_VERSION,
+          logLevel: this.logLevel,
+          serverMode: this.serverMode,
+        }),
     }).pipe(
       Effect.map(
         (worker): WorkerHandle =>
@@ -112,7 +119,12 @@ export class EffectPlatformWorkerTransport implements WorkerTopologyTransport {
     return Worker.makePoolSerialized<any>({
       size,
       initialMessage: () =>
-        new WorkerInit({ role, protocolVersion: WIRE_PROTOCOL_VERSION }),
+        new WorkerInit({
+          role,
+          protocolVersion: WIRE_PROTOCOL_VERSION,
+          logLevel: this.logLevel,
+          serverMode: this.serverMode,
+        }),
     }).pipe(
       Effect.map(
         (pool): PoolHandle =>
