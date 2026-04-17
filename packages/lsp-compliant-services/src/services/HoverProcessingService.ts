@@ -488,38 +488,8 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
-      if (!symbol) {
-        symbol = await this.symbolManager.getSymbolAtPosition(
-          params.textDocument.uri,
-          parserPosition,
-          'scope',
-        );
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'a509d3',
-            },
-            body: JSON.stringify({
-              sessionId: 'a509d3',
-              location: 'HoverProcessingService.ts:final-scope-fallback',
-              message: 'final scope fallback result',
-              data: {
-                position: `${parserPosition.line}:${parserPosition.character}`,
-                symbol: symbol
-                  ? { name: symbol.name, kind: symbol.kind }
-                  : null,
-              },
-              hypothesisId: 'H-scope',
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
-      }
+      // No scope fallback: if precise resolution failed, return no hover
+      // rather than showing the enclosing method/class container.
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
