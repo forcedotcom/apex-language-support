@@ -105,3 +105,4 @@ scripts/test-extensions/memfs-provider/workspace-files.json
 # Cursor/Claude session hook marker
 .claude/.edit-marker
 .claude/settings.json
+.session-files/
