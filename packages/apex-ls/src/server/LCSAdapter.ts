@@ -82,6 +82,7 @@ import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
   setBatchIngestionDispatcher,
+  setBatchCompileDispatcher,
 } from './WorkspaceBatchHandler';
 
 import {
@@ -222,6 +223,40 @@ export class LCSAdapter {
 
       // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
+
+      // Inject the real stdlib provider into the coordinator-side symbol manager.
+      // The singleton was created earlier (during queue manager init) with the
+      // NoOp default. Now that ResourceLoader is ready, wire it up so stdlib
+      // resolution (hover, definition, diagnostics) works on the coordinator thread.
+      const sm = ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      if (typeof (sm as any).setStdlibProvider === 'function') {
+        (sm as any).setStdlibProvider({
+          isStdApexNamespace: (ns: string) =>
+            resourceLoader.isStdApexNamespace(ns),
+          hasClass: (className: string) => resourceLoader.hasClass(className),
+          findNamespaceForClass: (className: string) =>
+            resourceLoader.findNamespaceForClass(className),
+          getStandardNamespaces: () => {
+            const original = resourceLoader.getStandardNamespaces();
+            const result = new Map<string, string[]>();
+            for (const [k, v] of original) {
+              result.set(
+                k,
+                v.map((cis) => cis.value),
+              );
+            }
+            return result;
+          },
+          resolveClassFqn: (className: string) =>
+            Promise.resolve(resourceLoader.resolveStandardClassFqn(className)),
+          getSymbolTable: (className: string) =>
+            resourceLoader.getSymbolTable(className),
+          getFile: (path: string) => resourceLoader.getFile(path),
+        });
+        this.logger.debug(
+          '✅ Stdlib provider injected into coordinator symbol manager',
+        );
+      }
 
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
@@ -2189,6 +2224,7 @@ export class LCSAdapter {
       LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
+      setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
 
       if (topology.resourceLoader) {
         this.resourceLoaderProxy = new ResourceLoaderProxy(

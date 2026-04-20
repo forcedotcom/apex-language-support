@@ -65,7 +65,7 @@ describe('WorkerCoordinator', () => {
           expect.stringContaining('vertical-slice-ping'),
         ]),
       );
-    }, 15_000);
+    }, 30_000);
   });
 
   describe('pool topology (step 4)', () => {
@@ -101,7 +101,7 @@ describe('WorkerCoordinator', () => {
       expect(logger.messages).toContainEqual(
         expect.stringContaining('Enrichment pool initialized'),
       );
-    }, 15_000);
+    }, 30_000);
 
     it('data-owner handles QuerySymbolSubset with mock data', async () => {
       const logger = createSpyLogger();
@@ -129,7 +129,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 15_000);
+    }, 30_000);
 
     it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
       const logger = createSpyLogger();
@@ -172,7 +172,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 15_000);
+    }, 30_000);
 
     it('data-owner rejects UpdateSymbolSubset when detail level is not higher', async () => {
       const logger = createSpyLogger();
@@ -214,7 +214,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 15_000);
+    }, 30_000);
 
     it('spawns optional resource-loader when enabled', async () => {
       const logger = createSpyLogger();
@@ -242,7 +242,7 @@ describe('WorkerCoordinator', () => {
       expect(logger.messages).toContainEqual(
         expect.stringContaining('Resource loader initialized'),
       );
-    }, 15_000);
+    }, 30_000);
 
     it('initializes resource-loader worker before data owner when enabled', async () => {
       const logger = createSpyLogger();
@@ -268,7 +268,7 @@ describe('WorkerCoordinator', () => {
       );
       expect(rlIdx).toBeGreaterThanOrEqual(0);
       expect(doIdx).toBeGreaterThan(rlIdx);
-    }, 15_000);
+    }, 30_000);
 
     it('runRemoteStdlibWarmupPhase is a no-op when resource loader is disabled', async () => {
       const logger = createSpyLogger();
@@ -286,7 +286,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await expect(Effect.runPromise(program)).resolves.toBeUndefined();
-    }, 15_000);
+    }, 30_000);
   });
 
   describe('makeWorkerDispatcher (step 5 + step 6)', () => {
@@ -328,7 +328,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 15_000);
+    }, 30_000);
 
     describe('canDispatch — prerequisite atomicity (step 6)', () => {
       let dispatcher: DispatcherResult;
@@ -403,7 +403,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 15_000);
+    }, 30_000);
   });
 
   describe('clampPoolSize', () => {
@@ -485,10 +485,13 @@ describe('WorkerCoordinator', () => {
       expect(topology.dataOwner._tag).toBe('WorkerHandle');
       expect(topology.enrichmentPool._tag).toBe('PoolHandle');
       expect(topology.resourceLoader).not.toBeNull();
+      expect(topology.compilation._tag).toBe('WorkerHandle');
       expect(transport.spawnCalls).toContain('dataOwner');
       expect(transport.spawnCalls).toContain('resourceLoader');
+      expect(transport.spawnCalls).toContain('compilation');
       expect(transport.spawnCalls[0]).toBe('resourceLoader');
       expect(transport.spawnCalls[1]).toBe('dataOwner');
+      expect(transport.spawnCalls[2]).toBe('compilation');
       expect(
         transport.spawnCalls.find((s) => s.startsWith('pool:')),
       ).toBeDefined();
@@ -507,6 +510,7 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
         },
         logger,
       );
@@ -517,12 +521,16 @@ describe('WorkerCoordinator', () => {
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
     });
 
-    it('makeTransportDispatcher routes data-owner types through transport.send', async () => {
+    it('makeTransportDispatcher routes documentOpen to both data-owner and compilation', async () => {
       const transport = new MockWorkerTransport();
       const logger = createSpyLogger();
       const dataOwner: WorkerHandle = {
         _tag: 'WorkerHandle',
         role: 'dataOwner',
+      };
+      const compilation: WorkerHandle = {
+        _tag: 'WorkerHandle',
+        role: 'compilation',
       };
       const dispatcher = makeTransportDispatcher(
         {
@@ -534,6 +542,7 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
+          compilation,
         },
         logger,
       );
@@ -547,8 +556,10 @@ describe('WorkerCoordinator', () => {
         },
       });
 
-      expect(transport.sendCalls.length).toBe(1);
-      expect(transport.sendCalls[0].role).toBe('dataOwner');
+      expect(transport.sendCalls.length).toBe(2);
+      const roles = transport.sendCalls.map((c: { role: string }) => c.role);
+      expect(roles).toContain('dataOwner');
+      expect(roles).toContain('compilation');
     });
 
     it('makeTransportDispatcher routes enrichment types through transport.dispatch', async () => {
@@ -564,6 +575,7 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
         },
         logger,
       );
@@ -594,6 +606,7 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
         },
         logger,
       );

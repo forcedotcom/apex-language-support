@@ -15,6 +15,7 @@
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
+    "test:web:debug": "wireit",
     "test:web:prod": "node scripts/test-web-ext.js --prod",
     "test:web:full": "wireit",
     "test:e2e": "wireit",
@@ -256,6 +257,13 @@
     },
     "test:web": {
       "command": "node scripts/test-web-ext.js",
+      "dependencies": [
+        "bundle"
+      ],
+      "cache": false
+    },
+    "test:web:debug": {
+      "command": "node scripts/test-web-ext.js --log-level=debug",
       "dependencies": [
         "bundle"
       ],

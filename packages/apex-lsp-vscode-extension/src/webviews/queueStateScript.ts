@@ -26,6 +26,7 @@ interface WorkerTopologyStatus {
   dataOwner: { active: boolean };
   enrichmentPool: { size: number; active: boolean };
   resourceLoader: { active: boolean } | null;
+  compilation: { active: boolean };
   dispatchedCount: number;
   coordinatorOnlyTypes: string[];
 }
@@ -426,8 +427,9 @@ class QueueStateDashboard {
       roleCard(
         'Data Owner',
         topology.dataOwner.active,
-        'x1 (writes + symbols)',
+        'x1 (storage + symbols)',
       ),
+      roleCard('Compilation', topology.compilation.active, 'x1 (public-api)'),
       roleCard('Enrichment Pool', topology.enrichmentPool.active, poolLabel),
     ];
     if (topology.resourceLoader) {

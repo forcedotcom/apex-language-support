@@ -254,7 +254,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
   private readonly builtInTypeTables: BuiltInTypeTablesImpl;
 
-  private readonly stdlibProvider: ResourceLoaderServiceShape;
+  private stdlibProvider: ResourceLoaderServiceShape;
 
   private memoryStats = {
     totalSymbols: 0,
@@ -382,6 +382,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       true,
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
+  }
+
+  /**
+   * Replace the stdlib provider after construction.
+   * Used by the coordinator to inject a real ResourceLoader-backed provider
+   * once the resource loader has finished async initialization.
+   */
+  public setStdlibProvider(provider: ResourceLoaderServiceShape): void {
+    this.stdlibProvider = provider;
   }
 
   /** Store per-file comment associations (normalized path). */

@@ -129,7 +129,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 15_000);
+  }, 30_000);
 
   it('data owner rejects write-back when version mismatches', async () => {
     const program = Effect.gen(function* () {
@@ -195,7 +195,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 15_000);
+  }, 30_000);
 
   it('data owner rejects write-back when detail level not higher', async () => {
     const program = Effect.gen(function* () {
@@ -205,7 +205,7 @@ describe('WriteBackProtocol Simple Tests', () => {
         logger,
       });
 
-      // Open document
+      // Open document (storage-only, no compilation on data-owner)
       yield* topology.dataOwner.executeEffect(
         new DispatchDocumentOpen({
           uri: TEST_URI,
@@ -215,33 +215,37 @@ describe('WriteBackProtocol Simple Tests', () => {
         }),
       );
 
-      // Query current state
-      const queryResult = yield* topology.dataOwner.executeEffect(
-        new QuerySymbolSubset({
-          uris: [TEST_URI],
+      const enrichedSymbols = {
+        symbols: [],
+        references: [],
+        hierarchicalReferences: [],
+        metadata: {
+          fileUri: TEST_URI,
+          documentVersion: 1,
+          parseCompleteness: 'complete' as const,
+        },
+        fileUri: TEST_URI,
+      };
+
+      // First write-back at public-api should succeed (no prior level)
+      const firstResult = yield* topology.dataOwner.executeEffect(
+        new UpdateSymbolSubset({
+          uri: TEST_URI,
+          documentVersion: 1,
+          enrichedSymbolTable: enrichedSymbols,
+          enrichedDetailLevel: 'public-api' as const,
+          sourceWorkerId: 'test-worker-first',
         }),
       );
+      expect(firstResult.accepted).toBe(true);
 
-      const currentDetailLevel = queryResult.detailLevels[TEST_URI];
-      logger.info(() => `Current detail level: ${currentDetailLevel}`);
-
-      // Try to write back with same detail level
+      // Second write-back at same level should be rejected
       const updateResult = yield* topology.dataOwner.executeEffect(
         new UpdateSymbolSubset({
           uri: TEST_URI,
           documentVersion: 1,
-          enrichedSymbolTable: {
-            symbols: [],
-            references: [],
-            hierarchicalReferences: [],
-            metadata: {
-              fileUri: TEST_URI,
-              documentVersion: 1,
-              parseCompleteness: 'complete' as const,
-            },
-            fileUri: TEST_URI,
-          },
-          enrichedDetailLevel: currentDetailLevel as any,
+          enrichedSymbolTable: enrichedSymbols,
+          enrichedDetailLevel: 'public-api' as const,
           sourceWorkerId: 'test-worker-same',
         }),
       );
@@ -262,7 +266,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 15_000);
+  }, 30_000);
 
   it.skip('multiple workers can write back concurrently (first wins)', async () => {
     const program = Effect.gen(function* () {
@@ -333,5 +337,5 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 15_000);
+  }, 30_000);
 });

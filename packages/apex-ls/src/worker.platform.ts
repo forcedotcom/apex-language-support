@@ -41,6 +41,8 @@ import {
   UpdateSymbolSubset,
   ResolveDepUris,
   WorkspaceBatchIngest,
+  CompileDocument,
+  WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
@@ -82,6 +84,8 @@ const AllWorkerRequests = Schema.Union(
   UpdateSymbolSubset,
   ResolveDepUris,
   WorkspaceBatchIngest,
+  CompileDocument,
+  WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
@@ -356,6 +360,106 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
   );
 
 // ---------------------------------------------------------------------------
+// Compilation services (lazy bootstrap)
+// ---------------------------------------------------------------------------
+
+interface CompilationServices {
+  readonly compile: (
+    content: string,
+    uri: string,
+  ) => {
+    symbolTable: unknown;
+    errors: unknown[];
+  } | null;
+}
+
+const ensureCompilationServices: Effect.Effect<CompilationServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const { CompilerService, VisibilitySymbolListener, SymbolTable } =
+          yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+        const compilerService = new CompilerService();
+
+        const compile = (content: string, uri: string) => {
+          const table = new SymbolTable();
+          const listener = new VisibilitySymbolListener('public-api', table);
+          const result = compilerService.compile(content, uri, listener, {
+            collectReferences: true,
+            resolveReferences: true,
+          });
+          if (!result) return null;
+          const symbolTable =
+            result.result instanceof SymbolTable ? result.result : table;
+          return { symbolTable, errors: result.errors };
+        };
+
+        yield* Effect.logInfo('[COMPILATION] services bootstrapped');
+        return { compile } as CompilationServices;
+      }),
+    ),
+  );
+
+async function writeBackCompiledSymbols(
+  symbolTable: {
+    getAllSymbols(): unknown[];
+    getAllReferences(): unknown[];
+    getAllHierarchicalReferences?(): unknown[];
+    getMetadata(): unknown;
+    getFileUri(): string;
+  },
+  uri: string,
+  documentVersion: number,
+): Promise<boolean> {
+  const startTime = Date.now();
+  try {
+    const enrichedSymbolTable = {
+      symbols: symbolTable.getAllSymbols(),
+      references: symbolTable.getAllReferences(),
+      hierarchicalReferences:
+        symbolTable.getAllHierarchicalReferences?.() ?? [],
+      metadata: symbolTable.getMetadata(),
+      fileUri: symbolTable.getFileUri(),
+    };
+    const symbolCount = enrichedSymbolTable.symbols.length;
+
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:UpdateSymbolSubset',
+      {
+        uri,
+        documentVersion,
+        enrichedSymbolTable,
+        enrichedDetailLevel: 'public-api',
+        sourceWorkerId: workerId,
+      },
+      true,
+    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+    const elapsed = Date.now() - startTime;
+    const accepted = response?.accepted ?? false;
+
+    await Effect.runPromise(
+      Effect.logDebug(
+        `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+          `${symbolCount} symbols for ${uri} (v${documentVersion}, ${elapsed}ms)` +
+          (response?.versionMismatch ? ' [version mismatch]' : ''),
+      ),
+    );
+    return accepted;
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    await Effect.runPromise(
+      Effect.logWarning(
+        `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
+      ),
+    );
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Role-specific initialization
 // ---------------------------------------------------------------------------
 
@@ -381,6 +485,12 @@ const handleWorkerInitRole = (
   if (req.role === 'enrichmentSearch') {
     return Effect.gen(function* () {
       yield* ensureEnrichmentServices;
+      return { ready: true };
+    });
+  }
+  if (req.role === 'compilation') {
+    return Effect.gen(function* () {
+      yield* ensureCompilationServices;
       return { ready: true };
     });
   }
@@ -817,6 +927,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             yield* ensureDataOwnerServices;
           } else if (assignedRole === 'enrichmentSearch') {
             yield* ensureEnrichmentServices;
+          } else if (assignedRole === 'compilation') {
+            yield* ensureCompilationServices;
           }
           yield* Effect.tryPromise({
             try: () => warmRemoteStdlibNamespaceCache(),
@@ -961,26 +1073,24 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             // Detail level validation
+            // When no cache entry exists (file not yet compiled on data-owner),
+            // currentOrder is 0 so any write-back level is accepted.
             const currentState = cache.getCurrentState(req.uri);
-            const rawLevel = currentState?.detailLevel ?? 'public-api';
-            const currentLevel:
-              | 'public-api'
-              | 'protected'
-              | 'private'
-              | 'full' =
+            const rawLevel = currentState?.detailLevel;
+            const currentOrder =
               rawLevel === 'public-api' ||
               rawLevel === 'protected' ||
               rawLevel === 'private' ||
               rawLevel === 'full'
-                ? rawLevel
-                : 'public-api';
-            const currentOrder = getLayerOrderIndex(currentLevel);
+                ? getLayerOrderIndex(rawLevel)
+                : 0;
             const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
 
             if (enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
               yield* Effect.logDebug(
-                `[DATA-OWNER] Write-back skipped: already have ${currentLevel} >= ${req.enrichedDetailLevel} ` +
+                `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
+                  `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
                   `for ${req.uri}`,
               );
               return { accepted: false, merged: 0, versionMismatch: false };
@@ -1074,9 +1184,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       Effect.flatMap(() =>
         dataOwnerWrite(
           Effect.gen(function* () {
+            const startTime = Date.now();
             const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
             for (const entry of req.entries) {
-              const storage = svc.storageManager.getStorage();
               const doc: WorkerDocument = {
                 uri: entry.uri,
                 getText: () => entry.content,
@@ -1085,9 +1196,22 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               };
               void storage.setDocument(entry.uri, doc as never);
             }
+            const elapsed = Date.now() - startTime;
+            const stats = (yield* Effect.promise(
+              () =>
+                (svc.symbolManager as any).getStats?.() ??
+                Promise.resolve(null),
+            )) as {
+              totalFiles: number;
+              totalSymbols: number;
+              totalReferences: number;
+            } | null;
+            const statsStr = stats
+              ? ` | graph: ${stats.totalFiles} files, ${stats.totalSymbols} symbols, ${stats.totalReferences} refs`
+              : '';
             yield* Effect.logDebug(
               `[DATA-OWNER] WorkspaceBatchIngest: session=${req.sessionId}, ` +
-                `entries=${req.entries.length}`,
+                `stored=${req.entries.length} files in ${elapsed}ms${statsStr}`,
             );
             return { processedCount: req.entries.length };
           }),
@@ -1106,15 +1230,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
-        const diagnostics = yield* Effect.promise(() =>
-          svc.documentProcessingService.processDocumentOpenInternal({
-            document: doc as never,
-          }),
-        );
-        return {
-          accepted: true,
-          diagnostics: cloneForWire(diagnostics) ?? undefined,
-        };
+        return { accepted: true };
       }),
   ),
 
@@ -1129,15 +1245,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
-        const diagnostics = yield* Effect.promise(() =>
-          svc.documentProcessingService.processDocumentOpenInternal({
-            document: doc as never,
-          }),
-        );
-        return {
-          accepted: true,
-          diagnostics: cloneForWire(diagnostics) ?? undefined,
-        };
+        return { accepted: true };
       }),
   ),
 
@@ -1168,6 +1276,84 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         return { accepted: true };
       }),
   ),
+
+  // -- Compilation worker handlers ---------------------------------------------
+
+  CompileDocument: (req) =>
+    guardRole('CompileDocument').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const startTime = Date.now();
+          const svc = yield* ensureCompilationServices;
+
+          const result = svc.compile(req.content, req.uri);
+          let compiledCount = 0;
+          if (result && result.symbolTable) {
+            compiledCount = 1;
+            yield* Effect.promise(() =>
+              writeBackCompiledSymbols(
+                result.symbolTable as any,
+                req.uri,
+                req.version,
+              ),
+            );
+          }
+
+          const elapsedMs = Date.now() - startTime;
+          yield* Effect.logDebug(
+            `[COMPILATION] CompileDocument: ${req.uri} (v${req.version}, ` +
+              `priority=${req.priority}, ${elapsedMs}ms)`,
+          );
+          return { compiledCount, elapsedMs };
+        }),
+      ),
+    ),
+
+  WorkspaceBatchCompile: (req) =>
+    guardRole('WorkspaceBatchCompile').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const batchStartTime = Date.now();
+          const svc = yield* ensureCompilationServices;
+
+          let compiledCount = 0;
+          let errorCount = 0;
+          const YIELD_INTERVAL = 10;
+
+          for (let i = 0; i < req.entries.length; i++) {
+            const entry = req.entries[i];
+            try {
+              const result = svc.compile(entry.content, entry.uri);
+              if (result && result.symbolTable) {
+                compiledCount++;
+                yield* Effect.promise(() =>
+                  writeBackCompiledSymbols(
+                    result.symbolTable as any,
+                    entry.uri,
+                    entry.version,
+                  ),
+                );
+              } else {
+                errorCount++;
+              }
+            } catch {
+              errorCount++;
+            }
+
+            if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < req.entries.length) {
+              yield* Effect.yieldNow();
+            }
+          }
+
+          const elapsedMs = Date.now() - batchStartTime;
+          yield* Effect.logInfo(
+            `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
+              `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
+          );
+          return { compiledCount, errorCount, elapsedMs };
+        }),
+      ),
+    ),
 
   // -- Enrichment/search pool handlers (Step 11) ----------------------------
   //

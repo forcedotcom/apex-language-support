@@ -29,6 +29,8 @@ import {
   ResolveDepUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  CompileDocument,
+  WorkspaceBatchCompile,
   DispatchHover,
   DispatchDefinition,
   DispatchReferences,
@@ -46,6 +48,7 @@ import {
   type DataOwnerRequest,
   type EnrichmentSearchRequest,
   type ResourceLoaderRequest,
+  type CompilationRequest,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
@@ -143,6 +146,7 @@ export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
   readonly enrichmentPool: Worker.SerializedWorkerPool<EnrichmentSearchRequest>;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
+  readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
 
 export interface TopologyConfig {
@@ -155,7 +159,7 @@ export interface TopologyConfig {
 }
 
 const makeInitMessage = (
-  role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader',
+  role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader' | 'compilation',
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
 ) =>
@@ -205,6 +209,12 @@ export const initializeTopology = (
     });
     logger.info(() => '[WorkerCoordinator] Data owner initialized');
 
+    const compilation = yield* Worker.makeSerialized<CompilationRequest>({
+      initialMessage: () =>
+        makeInitMessage('compilation', logLevel, serverMode),
+    });
+    logger.info(() => '[WorkerCoordinator] Compilation worker initialized');
+
     const enrichmentPool =
       yield* Worker.makePoolSerialized<EnrichmentSearchRequest>({
         size: poolSize,
@@ -216,7 +226,12 @@ export const initializeTopology = (
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
     );
 
-    return { dataOwner, enrichmentPool, resourceLoader } as WorkerTopology;
+    return {
+      dataOwner,
+      enrichmentPool,
+      resourceLoader,
+      compilation,
+    } as WorkerTopology;
   });
 
 // ---------------------------------------------------------------------------
@@ -273,6 +288,7 @@ export interface TransportTopology {
   readonly dataOwner: WorkerHandle;
   readonly enrichmentPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
+  readonly compilation: WorkerHandle;
 }
 
 /**
@@ -298,6 +314,11 @@ export const initializeTransportTopology = (
     const dataOwner = yield* transport.spawn('dataOwner');
     logger.info(() => '[WorkerCoordinator] Data owner initialized (transport)');
 
+    const compilation = yield* transport.spawn('compilation');
+    logger.info(
+      () => '[WorkerCoordinator] Compilation worker initialized (transport)',
+    );
+
     const enrichmentPool = yield* transport.makePool(
       'enrichmentSearch',
       poolSize,
@@ -307,7 +328,13 @@ export const initializeTransportTopology = (
         `[WorkerCoordinator] Enrichment pool initialized (transport, size=${poolSize})`,
     );
 
-    return { transport, dataOwner, enrichmentPool, resourceLoader };
+    return {
+      transport,
+      dataOwner,
+      enrichmentPool,
+      resourceLoader,
+      compilation,
+    };
   });
 
 /**
@@ -399,6 +426,7 @@ export interface BatchIngestEntry {
 interface DispatcherCallbacks {
   readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
   readonly dispatchToPool: (msg: EnrichmentSearchRequest) => Promise<unknown>;
+  readonly sendToCompilation: (msg: CompilationRequest) => Promise<unknown>;
   readonly sendBatch: (
     msg: WorkspaceBatchIngest,
   ) => Promise<{ processedCount: number }>;
@@ -420,6 +448,14 @@ function createDispatcher(
     sessionId: string,
     entries: BatchIngestEntry[],
   ) => Promise<{ processedCount: number }>;
+  createBatchCompileDispatcher(): (
+    sessionId: string,
+    entries: BatchIngestEntry[],
+  ) => Promise<{
+    compiledCount: number;
+    errorCount: number;
+    elapsedMs: number;
+  }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
 } {
   let available = true;
@@ -434,6 +470,21 @@ function createDispatcher(
 
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
+
+      if (type === 'documentOpen' || type === 'documentChange') {
+        const dataOwnerMsg = buildDataOwnerMessage(type, params);
+        const compileMsg = buildCompileMessage(type, params);
+        logger.debug(() => `[WorkerDispatch] → dataOwner+compilation: ${type}`);
+        callbacks
+          .sendToDataOwner(dataOwnerMsg)
+          .catch((err) =>
+            logger.error(
+              () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
+            ),
+          );
+        return callbacks.sendToCompilation(compileMsg);
+      }
+
       if (DATA_OWNER_TYPES.has(type)) {
         const msg = buildDataOwnerMessage(type, params);
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
@@ -456,6 +507,7 @@ function createDispatcher(
       resourceLoader: callbacks.hasResourceLoader
         ? { active: available }
         : null,
+      compilation: { active: available },
       dispatchedCount,
       coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
     }),
@@ -470,6 +522,23 @@ function createDispatcher(
         return callbacks.sendBatch(
           new WorkspaceBatchIngest({ sessionId, entries }),
         );
+      };
+    },
+
+    createBatchCompileDispatcher() {
+      return async (sessionId: string, entries: BatchIngestEntry[]) => {
+        logger.debug(
+          () =>
+            '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
+            `(session=${sessionId}, entries=${entries.length})`,
+        );
+        return callbacks.sendToCompilation(
+          new WorkspaceBatchCompile({ sessionId, entries }),
+        ) as Promise<{
+          compiledCount: number;
+          errorCount: number;
+          elapsedMs: number;
+        }>;
       };
     },
 
@@ -546,6 +615,14 @@ export function makeWorkerDispatcher(
         >;
         return Effect.runPromise(eff);
       },
+      sendToCompilation: (msg) => {
+        const eff = topology.compilation.executeEffect(msg) as Effect.Effect<
+          unknown,
+          unknown,
+          never
+        >;
+        return Effect.runPromise(eff);
+      },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
       poolSize: 0,
@@ -572,6 +649,8 @@ export function makeTransportDispatcher(
         Effect.runPromise(
           topology.transport.dispatch(topology.enrichmentPool, msg),
         ),
+      sendToCompilation: (msg) =>
+        Effect.runPromise(topology.transport.send(topology.compilation, msg)),
       sendBatch: (msg) =>
         Effect.runPromise(
           topology.transport.send(topology.dataOwner, msg),
@@ -663,6 +742,19 @@ function buildDataOwnerMessage(
     default:
       throw new Error(`No data-owner mapping for request type: ${type}`);
   }
+}
+
+function buildCompileMessage(
+  type: LSPRequestType,
+  params: unknown,
+): CompilationRequest {
+  const p = params as DocumentEventParams;
+  const uri = p.document?.uri ?? p.textDocument?.uri ?? '';
+  const content = p.document?.getText?.() ?? p.text ?? '';
+  const version = p.document?.version ?? 0;
+  const languageId = p.document?.languageId ?? 'apex';
+  const priority = type === 'documentOpen' ? 'high' : 'high';
+  return new CompileDocument({ uri, content, languageId, version, priority });
 }
 
 function buildEnrichmentMessage(

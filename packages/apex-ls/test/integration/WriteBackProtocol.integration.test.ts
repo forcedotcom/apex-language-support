@@ -212,7 +212,7 @@ describe('WriteBackProtocol Integration Tests', () => {
         logger,
       });
 
-      // Open document
+      // Open document (storage-only, no compilation on data-owner)
       yield* topology.dataOwner.executeEffect(
         new DispatchDocumentOpen({
           uri: TEST_URI,
@@ -222,33 +222,37 @@ describe('WriteBackProtocol Integration Tests', () => {
         }),
       );
 
-      // Query current state
-      const queryResult = yield* topology.dataOwner.executeEffect(
-        new QuerySymbolSubset({
-          uris: [TEST_URI],
+      const enrichedSymbols = {
+        symbols: [],
+        references: [],
+        hierarchicalReferences: [],
+        metadata: {
+          fileUri: TEST_URI,
+          documentVersion: 1,
+          parseCompleteness: 'complete' as const,
+        },
+        fileUri: TEST_URI,
+      };
+
+      // First write-back at public-api should succeed (no prior level)
+      const firstResult = yield* topology.dataOwner.executeEffect(
+        new UpdateSymbolSubset({
+          uri: TEST_URI,
+          documentVersion: 1,
+          enrichedSymbolTable: enrichedSymbols,
+          enrichedDetailLevel: 'public-api' as const,
+          sourceWorkerId: 'test-worker-first',
         }),
       );
+      expect(firstResult.accepted).toBe(true);
 
-      const currentDetailLevel = queryResult.detailLevels[TEST_URI];
-      logger.info(() => `Current detail level: ${currentDetailLevel}`);
-
-      // Try to write back with same or lower detail level
+      // Second write-back at same level should be rejected
       const updateResult = yield* topology.dataOwner.executeEffect(
         new UpdateSymbolSubset({
           uri: TEST_URI,
           documentVersion: 1,
-          enrichedSymbolTable: {
-            symbols: [],
-            references: [],
-            hierarchicalReferences: [],
-            metadata: {
-              fileUri: TEST_URI,
-              documentVersion: 1,
-              parseCompleteness: 'complete' as const,
-            },
-            fileUri: TEST_URI,
-          },
-          enrichedDetailLevel: currentDetailLevel as any,
+          enrichedSymbolTable: enrichedSymbols,
+          enrichedDetailLevel: 'public-api' as const,
           sourceWorkerId: 'test-worker-same-level',
         }),
       );

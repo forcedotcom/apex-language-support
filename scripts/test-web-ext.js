@@ -13,6 +13,7 @@
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
  *   --prod            : Run with apex.environment.serverMode=production
+ *   --log-level=<lvl> : Override apex.logLevel and apex.worker.logLevel (e.g. debug, info, error)
  *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
@@ -308,7 +309,7 @@ function ensureTestFilesExist(workspacePath) {
  * @param {string} workspacePath Path to the test workspace
  * @param {'development'|'production'} serverMode Apex server mode for test run
  */
-function ensureWorkspaceSettings(workspacePath, serverMode) {
+function ensureWorkspaceSettings(workspacePath, serverMode, logLevelOverride) {
   const vscodeDir = path.join(workspacePath, '.vscode');
   fs.mkdirSync(vscodeDir, { recursive: true });
 
@@ -325,12 +326,16 @@ function ensureWorkspaceSettings(workspacePath, serverMode) {
     }
   }
 
-  vscodeSettings['apex.logLevel'] = 'error';
-  vscodeSettings['apex.worker.logLevel'] = 'error';
+  if (logLevelOverride) {
+    vscodeSettings['apex.logLevel'] = logLevelOverride;
+  } else if (!vscodeSettings['apex.logLevel']) {
+    vscodeSettings['apex.logLevel'] = 'error';
+  }
   vscodeSettings['apex.environment.serverMode'] = serverMode;
 
   fs.writeFileSync(settingsPath, JSON.stringify(vscodeSettings, null, 2));
-  console.log(`✅ Configured .vscode/settings.json (serverMode=${serverMode})`);
+  const logInfo = logLevelOverride ? `, logLevel=${logLevelOverride}` : '';
+  console.log(`✅ Configured .vscode/settings.json (serverMode=${serverMode}${logInfo})`);
 }
 
 async function captureExtensionLogs(outputPath) {
@@ -463,7 +468,9 @@ async function runWebExtensionTests() {
     const serverMode = process.argv.includes('--prod')
       ? 'production'
       : 'development';
-    console.log(`⚙️  Running web extension tests in ${serverMode} mode`);
+    const logLevelArg = process.argv.find(a => a.startsWith('--log-level='));
+    const logLevelOverride = logLevelArg ? logLevelArg.slice('--log-level='.length) : undefined;
+    console.log(`⚙️  Running web extension tests in ${serverMode} mode${logLevelOverride ? ` (logLevel=${logLevelOverride})` : ''}`);
 
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
@@ -719,11 +726,11 @@ async function runWebExtensionTests() {
       // Create anonymous Apex file for testing anonymous execution
       createAnonymousApexFile(workspacePath);
 
-      ensureWorkspaceSettings(workspacePath, serverMode);
+      ensureWorkspaceSettings(workspacePath, serverMode, logLevelOverride);
     } else {
       // Workspace exists, but check if all test files are present
       ensureTestFilesExist(workspacePath);
-      ensureWorkspaceSettings(workspacePath, serverMode);
+      ensureWorkspaceSettings(workspacePath, serverMode, logLevelOverride);
     }
 
     // Check if extension is built
