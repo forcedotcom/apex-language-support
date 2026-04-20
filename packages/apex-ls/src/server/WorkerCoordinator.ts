@@ -19,7 +19,7 @@ import { WorkerError } from '@effect/platform/WorkerError';
 import * as NodeWorker from '@effect/platform-node/NodeWorker';
 import * as WorkerThreads from 'node:worker_threads';
 import * as os from 'node:os';
-import { Effect, Scope } from 'effect';
+import { Effect, Layer, Scope } from 'effect';
 import {
   WorkerInit,
   PingWorker,
@@ -49,6 +49,7 @@ import {
   type EnrichmentSearchRequest,
   type ResourceLoaderRequest,
   type CompilationRequest,
+  type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
@@ -64,6 +65,7 @@ import type {
 
 const rawWorkers: WorkerThreads.Worker[] = [];
 const assistancePorts: WorkerThreads.MessagePort[] = [];
+const workerNames: string[] = [];
 
 export const makeNodeWorkerLayer = (
   workerScript: string,
@@ -89,6 +91,7 @@ export const makeNodeWorkerLayer = (
     });
     rawWorkers.push(w);
     assistancePorts.push(assistChannel.port2);
+    workerNames.push(workerOptions?.name ?? '');
     return w;
   });
 
@@ -111,9 +114,14 @@ export function getAssistancePorts(): WorkerThreads.MessagePort[] {
   return [...assistancePorts];
 }
 
+export function getWorkerNames(): string[] {
+  return [...workerNames];
+}
+
 export function clearRawWorkers(): void {
   rawWorkers.length = 0;
   assistancePorts.length = 0;
+  workerNames.length = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +164,12 @@ export interface TopologyConfig {
   readonly logLevel?: string;
   /** Mirrors LSP `apex.environment.serverMode` for worker-side capabilities (e.g. dev hover metrics). */
   readonly serverMode?: 'production' | 'development';
+  /** Per-role worker layer factory. When provided, each worker spawn uses a role-specific layer
+   *  (e.g. with custom execArgv for profiling/debug). When omitted, the caller must provide
+   *  Worker.WorkerManager | Worker.Spawner externally (existing behavior). */
+  readonly workerLayerFactory?: (
+    role: WorkerRole,
+  ) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>;
 }
 
 const makeInitMessage = (
@@ -180,47 +194,97 @@ export function clampPoolSize(requested: number): number {
  * Spawn the full worker topology and return handles.
  *
  * The caller owns the `Scope` — workers stay alive until it closes.
- * Provide `WorkerManager | Spawner` via `makeNodeWorkerLayer(workerScript)`.
+ *
+ * When `config.workerLayerFactory` is provided, each worker spawn uses a
+ * role-specific layer (e.g. with per-role `execArgv` for profiling/debug).
+ * Otherwise the caller must provide `WorkerManager | Spawner` externally
+ * via `makeNodeWorkerLayer(workerScript)`.
  */
-export const initializeTopology = (
+export function initializeTopology(
+  config: TopologyConfig & {
+    workerLayerFactory: NonNullable<TopologyConfig['workerLayerFactory']>;
+  },
+): Effect.Effect<WorkerTopology, WorkerError, Scope.Scope>;
+export function initializeTopology(
   config: TopologyConfig,
 ): Effect.Effect<
   WorkerTopology,
   WorkerError,
   Worker.WorkerManager | Worker.Spawner | Scope.Scope
-> =>
-  Effect.gen(function* () {
+>;
+export function initializeTopology(
+  config: TopologyConfig,
+): Effect.Effect<
+  WorkerTopology,
+  WorkerError,
+  Worker.WorkerManager | Worker.Spawner | Scope.Scope
+> {
+  return Effect.gen(function* () {
     const { logger, logLevel } = config;
     const serverMode = config.serverMode ?? 'production';
     const poolSize = clampPoolSize(config.poolSize);
 
+    const withRoleLayer = <A, E>(
+      eff: Effect.Effect<
+        A,
+        E,
+        Worker.WorkerManager | Worker.Spawner | Scope.Scope
+      >,
+      role: WorkerRole,
+    ): Effect.Effect<
+      A,
+      E,
+      Worker.WorkerManager | Worker.Spawner | Scope.Scope
+    > =>
+      config.workerLayerFactory
+        ? (eff.pipe(
+            Effect.provide(config.workerLayerFactory(role)),
+          ) as Effect.Effect<
+            A,
+            E,
+            Worker.WorkerManager | Worker.Spawner | Scope.Scope
+          >)
+        : eff;
+
     let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
       null;
     if (config.enableResourceLoader) {
-      resourceLoader = yield* Worker.makeSerialized<ResourceLoaderRequest>({
-        initialMessage: () =>
-          makeInitMessage('resourceLoader', logLevel, serverMode),
-      });
+      resourceLoader = yield* withRoleLayer(
+        Worker.makeSerialized<ResourceLoaderRequest>({
+          initialMessage: () =>
+            makeInitMessage('resourceLoader', logLevel, serverMode),
+        }),
+        'resourceLoader',
+      );
       logger.info(() => '[WorkerCoordinator] Resource loader initialized');
     }
 
-    const dataOwner = yield* Worker.makeSerialized<DataOwnerRequest>({
-      initialMessage: () => makeInitMessage('dataOwner', logLevel, serverMode),
-    });
+    const dataOwner = yield* withRoleLayer(
+      Worker.makeSerialized<DataOwnerRequest>({
+        initialMessage: () =>
+          makeInitMessage('dataOwner', logLevel, serverMode),
+      }),
+      'dataOwner',
+    );
     logger.info(() => '[WorkerCoordinator] Data owner initialized');
 
-    const compilation = yield* Worker.makeSerialized<CompilationRequest>({
-      initialMessage: () =>
-        makeInitMessage('compilation', logLevel, serverMode),
-    });
+    const compilation = yield* withRoleLayer(
+      Worker.makeSerialized<CompilationRequest>({
+        initialMessage: () =>
+          makeInitMessage('compilation', logLevel, serverMode),
+      }),
+      'compilation',
+    );
     logger.info(() => '[WorkerCoordinator] Compilation worker initialized');
 
-    const enrichmentPool =
-      yield* Worker.makePoolSerialized<EnrichmentSearchRequest>({
+    const enrichmentPool = yield* withRoleLayer(
+      Worker.makePoolSerialized<EnrichmentSearchRequest>({
         size: poolSize,
         initialMessage: () =>
           makeInitMessage('enrichmentSearch', logLevel, serverMode),
-      });
+      }),
+      'enrichmentSearch',
+    );
     logger.info(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -233,6 +297,7 @@ export const initializeTopology = (
       compilation,
     } as WorkerTopology;
   });
+}
 
 // ---------------------------------------------------------------------------
 // Vertical slice (Step 3 — kept for backward compat + simple testing)

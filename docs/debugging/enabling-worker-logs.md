@@ -28,8 +28,8 @@ Worker debug logs using `Effect.logDebug` are **fully implemented** and working 
 
 6. **Look for logs like:**
    ```
-   [worker:0] [DATA-OWNER] Write-back accepted: 42 symbols merged at full level
-   [worker:1] [ENRICHMENT] Write-back accepted: 42 symbols, full level (v1, 123ms)
+   [apex-worker-dataOwner] [DATA-OWNER] Write-back accepted: 42 symbols merged at full level
+   [apex-worker-enrichmentSearch] [ENRICHMENT] Write-back accepted: 42 symbols, full level (v1, 123ms)
    ```
 
 ## How Worker Logging Works
@@ -45,15 +45,29 @@ Worker Process                  Coordinator Process
 │       ↓         │──Assist──→ │ user             │
 │ assistPort      │   Port     │                  │
 │ .postMessage()  │            │                  │
+│                 │            │                  │
+│ stderr          │──Stream──→ │ (debug port msgs,│
+│ (Node.js msgs)  │            │  profiling msgs) │
 └─────────────────┘            └──────────────────┘
 ```
 
+There are two log forwarding paths:
+
+**Assistance port (structured logs):**
 1. Worker calls `Effect.logDebug(message)`
 2. Effect logger forwards to `workerLogger`
 3. `workerLogger` posts `WorkerLogMessage` to assistance port
 4. Coordinator's `CoordinatorAssistanceMediator` receives message
-5. `forwardLogMessage` sends to main logger
+5. `forwardLogMessage` sends to main logger with role label
 6. Appears in VS Code Output panel
+
+**Stderr forwarding (Node.js system messages):**
+1. Worker stderr is captured (`stdout: true, stderr: true` in WorkerOptions)
+2. `CoordinatorAssistanceMediator.attachStderrForwarding()` line-buffers worker stderr
+3. Each line is logged with the worker's role label
+4. Captures Node.js debugger messages (e.g. `Debugger listening on ws://...`) and profiling output
+
+All worker logs are prefixed with the worker's name, e.g. `[apex-worker-dataOwner]`, `[apex-worker-enrichmentSearch]`.
 
 ### Code Locations
 
@@ -75,17 +89,25 @@ Worker Process                  Coordinator Process
 ### Data Owner Worker
 
 ```
-[worker:0] [DATA-OWNER] Write-back accepted: 42 symbols merged at full level for file:///Foo.cls (from worker-12345)
-[worker:0] [DATA-OWNER] Write-back rejected: version mismatch (current=2, update=1) for file:///Bar.cls
-[worker:0] [DATA-OWNER] Write-back skipped: already have full >= full for file:///Baz.cls
+[apex-worker-dataOwner] [DATA-OWNER] Write-back accepted: 42 symbols merged at full level for file:///Foo.cls (from worker-12345)
+[apex-worker-dataOwner] [DATA-OWNER] Write-back rejected: version mismatch (current=2, update=1) for file:///Bar.cls
+[apex-worker-dataOwner] [DATA-OWNER] Write-back skipped: already have full >= full for file:///Baz.cls
 ```
 
 ### Enrichment Worker
 
 ```
-[worker:1] [ENRICHMENT] Write-back skipped: no symbol table for file:///Missing.cls
-[worker:1] [ENRICHMENT] Write-back accepted: 42 symbols, full level, file:///Foo.cls (v1, 123ms)
-[worker:1] [ENRICHMENT] Write-back rejected: ... [version mismatch]
+[apex-worker-enrichmentSearch] [ENRICHMENT] Write-back skipped: no symbol table for file:///Missing.cls
+[apex-worker-enrichmentSearch] [ENRICHMENT] Write-back accepted: 42 symbols, full level, file:///Foo.cls (v1, 123ms)
+[apex-worker-enrichmentSearch] [ENRICHMENT] Write-back rejected: ... [version mismatch]
+```
+
+### Debug Port Assignment (when `apex.debug` is enabled)
+
+```
+[apex-worker-dataOwner] Debugger listening on ws://127.0.0.1:9230/abc-123
+[apex-worker-compilation] Debugger listening on ws://127.0.0.1:9231/def-456
+[apex-worker-enrichmentSearch] Debugger listening on ws://127.0.0.1:9232/ghi-789
 ```
 
 ### Which Requests Trigger Enrichment?
@@ -173,7 +195,7 @@ If hovers don't work at all, workers may have crashed. Check:
 
 ## Alternative: Temporary Console Logging
 
-If Effect logging doesn't work, add temporary console.error (goes to stderr):
+If Effect logging doesn't work, add temporary console.error (goes to stderr). Worker stderr is now forwarded to the Output panel with role labels:
 
 ```typescript
 // In packages/apex-ls/src/worker.platform.ts
@@ -186,10 +208,10 @@ console.error('[DATA-OWNER] Write-back accepted:', {
 });
 ```
 
-Then check:
-- VS Code Extension Host Debug Console
-- Terminal where extension was launched
-- `~/.vscode/extensions/logs/` directory
+This will appear in the Output panel as:
+```
+[apex-worker-dataOwner] [DATA-OWNER] Write-back accepted: { uri: '...', ... }
+```
 
 ## Metrics Without Logs
 

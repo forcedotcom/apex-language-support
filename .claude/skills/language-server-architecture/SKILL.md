@@ -89,10 +89,21 @@ Defined in `apex-ls/src/server/WorkerCoordinator.ts`.
 | diagnostics | enrichmentPool | With write-back |
 | completion, references, etc. | coordinatorOnly | Not yet moved to workers |
 
+## Worker Profiling & Debugging
+
+Workers inherit profiling, debug, and heap-size flags from the main process via `WorkerExecArgvBuilder`. Key behaviors:
+
+- **Profiling** (`apex.environment.profilingMode: "full"`): Workers get `--cpu-prof` / `--heap-prof` with role-specific subdirectories (e.g. `<output>/dataOwner/`)
+- **Debug** (`apex.debug: "inspect"`): Workers get `--inspect=0` (auto-assigned port). The main process keeps its fixed port (default 6009).
+- **Heap size**: `--max-old-space-size` passes through unchanged.
+- **Thread naming**: Workers are named `apex-worker-<role>` (visible in Chrome DevTools).
+- **Stderr forwarding**: Worker stderr is line-buffered and logged with role labels. Debug port assignments appear in the Output panel.
+
 ## Key Paths
 
 - Worker entry: `packages/apex-ls/src/worker.platform.ts`
 - Worker coordinator: `packages/apex-ls/src/server/WorkerCoordinator.ts`
+- Worker execArgv builder: `packages/apex-ls/src/server/WorkerExecArgvBuilder.ts`
 - Assistance mediator: `packages/apex-ls/src/server/CoordinatorAssistanceMediator.ts`
 - Symbol resolution ops: `packages/apex-parser-ast/src/symbols/ops/`
 - GlobalTypeRegistry: `packages/apex-parser-ast/src/services/GlobalTypeRegistryService.ts`

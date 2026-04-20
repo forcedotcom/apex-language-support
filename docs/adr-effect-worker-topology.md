@@ -79,6 +79,53 @@ These are distinct from:
 - `apex.loadWorkspace.*` — workspace file batch loading tuning
 - `apex.resources.loadMode` — stdlib lazy/full loading mode
 
+## Profiling, Debugging, and Heap Size
+
+The following settings apply to the main language server process. Workers automatically inherit these via `WorkerExecArgvBuilder`, which reads `process.execArgv` at spawn time and derives per-role flags.
+
+### Profiling (`apex.environment.profilingMode`)
+
+| Value | Behavior |
+|-------|----------|
+| `none` | Disabled (default) |
+| `full` | Continuous profiling from startup via Node.js `--cpu-prof` / `--heap-prof` flags. Both the main process and all workers are profiled. |
+| `interactive` | Manual start/stop via inspector API (desktop only). Currently coordinator-only. |
+
+When `full` mode is active:
+- `apex.environment.profilingType` selects `cpu`, `heap`, or `both`
+- Profile output is written to the workspace root (or system temp)
+- Worker profiles go into per-role subdirectories:
+
+```
+<output-dir>/
+  CPU.<PID>.<TIMESTAMP>.cpuprofile          ← main process
+  dataOwner/
+    CPU.<PID>.<TIMESTAMP>.cpuprofile
+  compilation/
+    CPU.<PID>.<TIMESTAMP>.cpuprofile
+  enrichmentSearch/
+    CPU.<PID>.<TIMESTAMP>.cpuprofile        ← one per pool member
+  resourceLoader/
+    CPU.<PID>.<TIMESTAMP>.cpuprofile
+```
+
+Subdirectories are created automatically by `WorkerExecArgvBuilder`.
+
+### Debugging (`apex.debug`, `apex.debugPort`)
+
+| Setting | Effect |
+|---------|--------|
+| `apex.debug: "off"` | No debug flags (default) |
+| `apex.debug: "inspect"` | Main process: `--inspect=<port>` (default 6009). Workers: `--inspect=0` (auto-assigned port). |
+| `apex.debug: "inspect-brk"` | Main process: `--inspect-brk=<port>`. Workers: `--inspect=0` (no brk — workers should not pause on start). |
+| `apex.debugPort` | Port for the main process only (default: 6009). Workers always use port 0. |
+
+Auto-assigned worker debug ports are logged to the Output panel with role labels (e.g. `[apex-worker-dataOwner] Debugger listening on ws://127.0.0.1:9230/...`). Workers are named `apex-worker-<role>` and appear with that name in Chrome DevTools and VS Code debugger.
+
+### Heap size (`apex.environment.jsHeapSizeGB`)
+
+The `--max-old-space-size` flag is passed through to workers unchanged. All workers get the same heap limit as the main process.
+
 ## Consequences
 
 **Positive:**

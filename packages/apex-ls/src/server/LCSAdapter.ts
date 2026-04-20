@@ -2134,12 +2134,17 @@ export class LCSAdapter {
     );
 
     const pipeline = Effect.gen(this, function* () {
-      const [coordinatorModule, mediatorModule, resourceLoaderModule] =
-        yield* Effect.all([
-          Effect.promise(() => import('./WorkerCoordinator')),
-          Effect.promise(() => import('./CoordinatorAssistanceMediator')),
-          Effect.promise(() => import('./ResourceLoaderProxy')),
-        ]);
+      const [
+        coordinatorModule,
+        mediatorModule,
+        resourceLoaderModule,
+        execArgvModule,
+      ] = yield* Effect.all([
+        Effect.promise(() => import('./WorkerCoordinator')),
+        Effect.promise(() => import('./CoordinatorAssistanceMediator')),
+        Effect.promise(() => import('./ResourceLoaderProxy')),
+        Effect.promise(() => import('./WorkerExecArgvBuilder')),
+      ]);
 
       const {
         initializeTopology,
@@ -2147,10 +2152,12 @@ export class LCSAdapter {
         makeWorkerDispatcher,
         getRawWorkers,
         getAssistancePorts,
+        getWorkerNames,
         runRemoteStdlibWarmupPhase,
       } = coordinatorModule;
       const { CoordinatorAssistanceMediator } = mediatorModule;
       const { ResourceLoaderProxy } = resourceLoaderModule;
+      const { buildWorkerExecArgv } = execArgvModule;
 
       const { Scope } = yield* Effect.promise(() => import('effect'));
 
@@ -2205,9 +2212,16 @@ export class LCSAdapter {
         () => `[WorkerCoordinator] Worker script: ${workerScript}`,
       );
 
-      const program = initializeTopology(config).pipe(
-        Effect.provide(makeNodeWorkerLayer(workerScript)),
-      );
+      const workerLayerFactory = (role: string) =>
+        makeNodeWorkerLayer(workerScript, {
+          name: `apex-worker-${role}`,
+          execArgv: buildWorkerExecArgv({ role }).execArgv,
+        });
+
+      const program = initializeTopology({
+        ...config,
+        workerLayerFactory,
+      });
 
       const scope = Effect.runSync(Scope.make());
       const topology = yield* Effect.provideService(
@@ -2272,7 +2286,11 @@ export class LCSAdapter {
         this.logger,
         async (method, params) => dispatcher.queryDataOwner(method, params),
       );
-      mediator.attachToWorkers(getRawWorkers(), getAssistancePorts());
+      mediator.attachToWorkers(
+        getRawWorkers(),
+        getAssistancePorts(),
+        getWorkerNames(),
+      );
 
       yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
 

@@ -15,6 +15,7 @@
     "src/server/WorkerCoordinator.ts",
     "src/server/CoordinatorAssistanceMediator.ts",
     "src/server/ResourceLoaderProxy.ts",
+    "src/server/WorkerExecArgvBuilder.ts",
     "src/server/WorkspaceBatchHandler.ts",
     "src/utils/EnvironmentUtils.ts",
     "src/profiling/ProfilingService.ts",

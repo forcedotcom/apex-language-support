@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
@@ -98,6 +99,19 @@ const getProfilingFlags = (runtimePlatform: 'desktop' | 'web'): string[] => {
   }
 
   if (flags.length > 0) {
+    // Pre-create per-role subdirectories so workers can write profiles
+    // immediately on startup (WorkerExecArgvBuilder rewrites the dir
+    // flags to <outputDir>/<role>).
+    const workerRoles = [
+      'dataOwner',
+      'enrichmentSearch',
+      'resourceLoader',
+      'compilation',
+    ];
+    for (const role of workerRoles) {
+      fs.mkdirSync(path.join(outputDir, role), { recursive: true });
+    }
+
     logToOutputChannel(
       `Profiling enabled: ${profilingType} (flags: ${flags.join(', ')})`,
       'info',

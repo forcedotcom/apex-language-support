@@ -51,17 +51,21 @@ export class CoordinatorAssistanceMediator {
   attachToWorkers(
     workers: WorkerThreads.Worker[],
     assistancePorts?: WorkerThreads.MessagePort[],
+    workerNames?: string[],
   ): void {
     for (let i = 0; i < workers.length; i++) {
       const workerIdx = i;
       const worker = workers[i];
       const port = assistancePorts?.[i];
+      const label = workerNames?.[i] || `worker:${workerIdx}`;
+
+      this.attachStderrForwarding(worker, label);
 
       if (port) {
         // Log forwarding and assistance on dedicated port
         port.on('message', (data: unknown) => {
           if (isLogMessage(data)) {
-            this.forwardLogMessage(data, workerIdx);
+            this.forwardLogMessage(data, label);
             return;
           }
           if (!isAssistanceRequest(data)) return;
@@ -71,7 +75,7 @@ export class CoordinatorAssistanceMediator {
         // Fallback: log forwarding on main worker channel (browser workers)
         worker.on('message', (data: unknown) => {
           if (isLogMessage(data)) {
-            this.forwardLogMessage(data, workerIdx);
+            this.forwardLogMessage(data, label);
           }
         });
         // Fallback: assistance on main channel (browser workers)
@@ -90,8 +94,26 @@ export class CoordinatorAssistanceMediator {
     );
   }
 
-  private forwardLogMessage(msg: WorkerLogMessage, workerIdx: number): void {
-    const prefixed = `[worker:${workerIdx}] ${msg.message}`;
+  private attachStderrForwarding(
+    worker: WorkerThreads.Worker,
+    label: string,
+  ): void {
+    if (!worker.stderr) return;
+    let buffer = '';
+    worker.stderr.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString();
+      let newlineIdx: number;
+      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIdx).trimEnd();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (line.length === 0) continue;
+        this.logger.info(() => `[${label}] ${line}`);
+      }
+    });
+  }
+
+  private forwardLogMessage(msg: WorkerLogMessage, label: string): void {
+    const prefixed = `[${label}] ${msg.message}`;
     switch (msg.level) {
       case 'error':
         this.logger.error(() => prefixed);
