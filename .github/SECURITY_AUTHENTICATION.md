@@ -108,11 +108,10 @@ permissions:
 
 ### **Automerge Workflow** (`automerge.yml`)
 
-- **Token**: `GITHUB_TOKEN`
-- **Operations**: Enables auto-merge for eligible Dependabot PRs
-- **Permissions**: `contents: write`, `pull-requests: write`, `actions: read`
-- **Guards**: Only same-repo `dependabot[bot]` PRs are eligible; fork-origin PRs are excluded
-- **Prerequisite**: Repository auto-merge must be enabled in GitHub settings
+- **Token**: `IDEE_GH_TOKEN` (`svc-idee-bot` service account)
+- **Operations**: Directly merges eligible Dependabot PRs via `salesforcecli/github-workflows` reusable workflow; does **not** use GitHub's repo-level auto-merge toggle
+- **Permissions**: `contents: write`, `pull-requests: write`, `checks: read`, `actions: read`
+- **Guards**: Only minor/patch version bumps are merged; major bumps are skipped; `svc-idee-bot` is in the branch-protection bypass list so no human review is required for bot merges
 
 ### **Validate PR Workflow** (`validatePR.yml`)
 

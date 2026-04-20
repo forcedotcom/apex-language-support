@@ -275,22 +275,9 @@ test.describe('Apex Outline View', () => {
     apexEditor,
     outlineView,
   }) => {
-    // Note: This test assumes ComplexClass.cls is available in test workspace
     await test.step('Open complex class file', async () => {
-      // Try to open ComplexClass if available, otherwise skip
-      try {
-        await apexEditor.openFile('ComplexClass.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log(
-          '⚠️ ComplexClass.cls not available, using default file',
-          errStr,
-        );
-      }
+      await apexEditor.openFile('ComplexClass.cls');
+      await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Open outline and verify structure', async () => {

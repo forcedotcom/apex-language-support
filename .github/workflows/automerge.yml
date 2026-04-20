@@ -1,71 +1,40 @@
 name: Dependabot Automerge
 
+# Merges eligible Dependabot PRs using svc-idee-bot via the shared Salesforce CLI
+# reusable workflow. This avoids GitHub's repo-level auto-merge toggle (which cannot
+# be restricted to Dependabot only) and instead uses a bot token that is already in
+# the branch-protection bypass list, so no human review is required for bot merges.
+#
+# Eligible PRs: same-repo Dependabot PRs with minor or patch version bumps where all
+# required status checks have passed.
+
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - ready_for_review
-      - reopened
+  # Scheduled runs sweep up any PRs whose checks finished between manual triggers.
+  # Timing mirrors salesforcedx-vscode: four windows per day during off-hours (UTC).
+  schedule:
+    - cron: '42 2,5,8,11 * * *'
+
+  # Manual trigger for ad-hoc runs or debugging (skipCI available for emergencies).
+  workflow_dispatch:
+    inputs:
+      skipCI:
+        description: 'Skip CI check requirement and merge immediately'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
+  actions: read
 
 jobs:
-  enable-automerge:
-    runs-on: ubuntu-latest
-    if: |
-      github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.draft == false
-    steps:
-      - name: Enable auto-merge for Dependabot PR
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pullRequest = context.payload.pull_request;
-            const title = context.payload.pull_request.title ?? "";
-            const pull_number = context.payload.pull_request.number;
-            const headRepoFullName = pullRequest.head?.repo?.full_name ?? "";
-            const baseRepoFullName = pullRequest.base?.repo?.full_name ?? "";
-
-            if (headRepoFullName !== baseRepoFullName) {
-              core.info(
-                `Skipping auto-merge for PR #${pull_number}: fork-origin PR detected (${headRepoFullName} -> ${baseRepoFullName}).`
-              );
-              return;
-            }
-
-            // Dependabot titles generally look like:
-            // "Bump <dep> from <old> to <new>".
-            // Skip auto-merge if this is a major version bump.
-            const bumpMatch = title.match(/ from v?(\d+)(?:\.[\w.-]+)? to v?(\d+)(?:\.[\w.-]+)?$/i);
-            if (bumpMatch) {
-              const fromMajor = Number.parseInt(bumpMatch[1], 10);
-              const toMajor = Number.parseInt(bumpMatch[2], 10);
-              if (Number.isFinite(fromMajor) && Number.isFinite(toMajor) && toMajor > fromMajor) {
-                core.info(`Skipping auto-merge for PR #${pull_number}: major version bump detected in title "${title}".`);
-                return;
-              }
-            }
-
-            await github.graphql(`
-              mutation($pullRequestId: ID!) {
-                enablePullRequestAutoMerge(input: {
-                  pullRequestId: $pullRequestId,
-                  mergeMethod: SQUASH
-                }) {
-                  pullRequest {
-                    number
-                    autoMergeRequest {
-                      enabledAt
-                    }
-                  }
-                }
-              }
-            `, {
-              pullRequestId: context.payload.pull_request.node_id
-            });
-            core.info(`Enabled auto-merge for PR #${pull_number}`);
+  automerge:
+    uses: salesforcecli/github-workflows/.github/workflows/automerge.yml@main
+    secrets:
+      SVC_CLI_BOT_GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+    with:
+      mergeMethod: squash
+      maxVersionBump: minor
+      skipCI: ${{ github.event.inputs.skipCI == 'true' }}

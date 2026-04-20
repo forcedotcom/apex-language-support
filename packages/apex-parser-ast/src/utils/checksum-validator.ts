@@ -6,7 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { createHash } from 'crypto';
+type SparkMd5Module = {
+  ArrayBuffer: {
+    hash(data: ArrayBuffer, raw?: boolean): string;
+  };
+};
+
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength,
+  ) as ArrayBuffer;
+}
 
 /**
  * Error thrown when MD5 checksum validation fails
@@ -48,7 +59,8 @@ export class ChecksumFileMissingError extends Error {
  * @returns MD5 checksum as hex string
  */
 export function calculateMD5(data: Buffer | Uint8Array): string {
-  return createHash('md5').update(data).digest('hex');
+  const sparkMd5 = require('spark-md5') as SparkMd5Module;
+  return sparkMd5.ArrayBuffer.hash(toArrayBuffer(data));
 }
 
 /**
