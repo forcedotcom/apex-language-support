@@ -219,7 +219,8 @@
     }
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "^1.58.2",
+    "playwright": "^1.58.2",
     "@types/node": "^20.19.39",
     "@vscode/test-electron": "2.5.2",
     "typescript": "^5.8.2"
