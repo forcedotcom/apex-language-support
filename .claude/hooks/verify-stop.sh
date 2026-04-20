@@ -49,14 +49,17 @@ rm -f "$SESSION_MARKER"
 run_step "compile" "npm run compile" && echo "[verify-stop] compile ok" >&2
 run_step "lint" "npm run lint" && echo "[verify-stop] lint ok" >&2
 
-# Effect LS: only uncommitted .ts files
-ts_files=$(git diff --name-only HEAD 2>/dev/null | grep '\.ts$' || true)
-if [ -n "$ts_files" ]; then
+# Effect LS: only uncommitted .ts files inside packages that use Effect
+ts_files=$(git diff --name-only HEAD 2>/dev/null | grep '\.ts$' | grep -v '^e2e-tests/' | grep -v '^scripts/' || true)
+if [ -n "$ts_files" ] && command -v effect-language-service >/dev/null 2>&1; then
   for f in $ts_files; do
     [ -f "$f" ] && run_step "effect LS ($f)" "npx -y effect-language-service diagnostics --file $f"
   done
+elif [ -n "$ts_files" ]; then
+  echo "[verify-stop] effect LS skipped (effect-language-service not available)" >&2
+else
+  echo "[verify-stop] effect LS skipped (no uncommitted .ts in packages)" >&2
 fi
-[ -z "$ts_files" ] && echo "[verify-stop] effect LS skipped (no uncommitted .ts)" >&2
 
 run_step "test" "npm run test" && echo "[verify-stop] test ok" >&2
 run_step "bundle" "npm run bundle" && echo "[verify-stop] bundle ok" >&2
