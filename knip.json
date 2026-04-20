@@ -9,9 +9,13 @@
       "entry": [
         "src/server.*.ts",
         "src/server.ts",
-        "src/server/webWorkerServer.ts"
+        "src/server/webWorkerServer.ts",
+        "src/worker.platform.ts"
       ],
       "ignoreDependencies": [
+        "@effect/platform",
+        "@effect/platform-browser",
+        "@effect/platform-node",
         "assert",
         "buffer",
         "crypto-browserify",

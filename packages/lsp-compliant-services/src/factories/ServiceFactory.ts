@@ -26,6 +26,9 @@ import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessin
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
+import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
+import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
+import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessingService';
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
 import { PrerequisiteEnrichmentService } from '../services/PrerequisiteEnrichmentService';
@@ -67,15 +70,21 @@ export class ServiceFactory {
   }
 
   /**
-   * Create hover processing service
+   * Create hover processing service.
+   * When skipPrerequisites is true, the service skips on-demand
+   * prerequisite orchestration — used in worker contexts where
+   * enrichment is handled by the data-owner.
    */
-  createHoverService(): HoverProcessingService {
+  createHoverService(options?: {
+    skipPrerequisites?: boolean;
+  }): HoverProcessingService {
     const service = new HoverProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
-      // No need to create MissingArtifactResolutionService - MissingArtifactUtils will create it on-demand
     );
-    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    if (!options?.skipPrerequisites) {
+      service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    }
     return service;
   }
 
@@ -181,6 +190,24 @@ export class ServiceFactory {
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
+  }
+
+  createImplementationService(): ImplementationProcessingService {
+    return new ImplementationProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+  }
+
+  createCodeLensService(): CodeLensProcessingService {
+    return new CodeLensProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+  }
+
+  createFoldingRangeService(): FoldingRangeProcessingService {
+    return new FoldingRangeProcessingService(this.dependencies.logger);
   }
 
   /**

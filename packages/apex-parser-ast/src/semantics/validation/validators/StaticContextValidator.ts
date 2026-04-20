@@ -350,8 +350,9 @@ export const StaticContextValidator: Validator = {
           // If first node is VARIABLE_USAGE or FIELD_ACCESS, it's an instance receiver
           // If first node resolves to a Class/Interface, it's a static receiver
           if (firstNode?.resolvedSymbolId) {
-            const firstSymbol = symbolManager.getSymbol(
-              firstNode.resolvedSymbolId,
+            const firstNodeId = firstNode.resolvedSymbolId;
+            const firstSymbol = yield* Effect.promise(() =>
+              symbolManager.getSymbol(firstNodeId),
             );
             if (firstSymbol) {
               receiverIsStatic = isClassOrInterfaceSymbol(firstSymbol);
@@ -371,7 +372,11 @@ export const StaticContextValidator: Validator = {
 
         if (!ref.resolvedSymbolId) continue;
 
-        const symbol = symbolManager.getSymbol(ref.resolvedSymbolId);
+        const resolvedId = ref.resolvedSymbolId;
+        if (!resolvedId) continue;
+        const symbol = yield* Effect.promise(() =>
+          symbolManager.getSymbol(resolvedId),
+        );
         if (!symbol || !isMethodSymbol(symbol)) continue;
 
         const method = symbol;
@@ -395,8 +400,9 @@ export const StaticContextValidator: Validator = {
           // Check if first node resolves to a variable/field (instance receiver)
           // Even if context is CLASS_REFERENCE, if it resolves to a VariableSymbol, it's an instance call
           if (firstNode?.resolvedSymbolId) {
-            const firstSymbol = symbolManager.getSymbol(
-              firstNode.resolvedSymbolId,
+            const firstNodeId = firstNode.resolvedSymbolId;
+            const firstSymbol = yield* Effect.promise(() =>
+              symbolManager.getSymbol(firstNodeId),
             );
             if (firstSymbol) {
               hasInstanceReceiver =
@@ -506,23 +512,24 @@ export const StaticContextValidator: Validator = {
         // use chainRefByFieldRef to get the parent chain.
         const chainRef = chainRefByFieldRef?.get(ref) ?? ref;
         const firstNode = chainRef.chainNodes?.[0];
+        let firstNodeIsInstanceKind = false;
+        if (firstNode?.resolvedSymbolId) {
+          const firstNodeId = firstNode.resolvedSymbolId;
+          const firstSymbol = yield* Effect.promise(() =>
+            symbolManager.getSymbol(firstNodeId),
+          );
+          firstNodeIsInstanceKind =
+            !!firstSymbol &&
+            (firstSymbol.kind === SymbolKind.Variable ||
+              firstSymbol.kind === SymbolKind.Field ||
+              firstSymbol.kind === SymbolKind.Parameter ||
+              firstSymbol.kind === SymbolKind.Property);
+        }
         let hasInstanceReceiver =
           chainRef.chainNodes &&
           chainRef.chainNodes.length > 1 &&
           (firstNode?.context !== ReferenceContext.CLASS_REFERENCE ||
-            (firstNode?.resolvedSymbolId &&
-              (() => {
-                const firstSymbol = symbolManager.getSymbol(
-                  firstNode.resolvedSymbolId,
-                );
-                return (
-                  firstSymbol &&
-                  (firstSymbol.kind === SymbolKind.Variable ||
-                    firstSymbol.kind === SymbolKind.Field ||
-                    firstSymbol.kind === SymbolKind.Parameter ||
-                    firstSymbol.kind === SymbolKind.Property)
-                );
-              })()));
+            firstNodeIsInstanceKind);
         // Fallback: base of chain is a variable (chainNodes may be [field] or [base,field])
         if (
           !hasInstanceReceiver &&
@@ -599,7 +606,10 @@ export const StaticContextValidator: Validator = {
 
         if (!ref.resolvedSymbolId) continue;
 
-        const symbol = symbolManager.getSymbol(ref.resolvedSymbolId);
+        const refId = ref.resolvedSymbolId;
+        const symbol = yield* Effect.promise(() =>
+          symbolManager.getSymbol(refId),
+        );
         if (!symbol || (!isFieldSymbol(symbol) && !isPropertySymbol(symbol)))
           continue;
 
@@ -609,9 +619,10 @@ export const StaticContextValidator: Validator = {
         // Skip when field belongs to a different type than containing class (e.g. address.street
         // where street is on GeocodingService.GeocodingAddress, not GeocodingServiceTest)
         if (field.parentId) {
+          const parentId = field.parentId;
           const fieldParent =
-            symbolManager.getSymbol(field.parentId) ??
-            allSymbols.find((s) => s.id === field.parentId);
+            (yield* Effect.promise(() => symbolManager.getSymbol(parentId))) ??
+            allSymbols.find((s) => s.id === parentId);
           if (
             fieldParent &&
             isClassOrInterfaceSymbol(fieldParent) &&

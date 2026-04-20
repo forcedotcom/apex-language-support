@@ -21,6 +21,16 @@ interface WindowWithVSCode extends Window {
 declare function acquireVsCodeApi(): any;
 declare const initialData: any;
 
+interface WorkerTopologyStatus {
+  enabled: boolean;
+  dataOwner: { active: boolean };
+  enrichmentPool: { size: number; active: boolean };
+  resourceLoader: { active: boolean } | null;
+  compilation: { active: boolean };
+  dispatchedCount: number;
+  coordinatorOnlyTypes: string[];
+}
+
 interface QueueStateData {
   metrics: {
     queueSizes: Record<number, number>;
@@ -33,6 +43,7 @@ interface QueueStateData {
     queueUtilization?: Record<number, number>;
     activeTasks?: Record<number, number>;
     queueCapacity?: number | Record<number, number>;
+    workerTopology?: WorkerTopologyStatus;
   };
   metadata: {
     timestamp: number;
@@ -215,6 +226,12 @@ class QueueStateDashboard {
       </div>
     `;
 
+    // Build set of coordinator-only types for dispatch indicator
+    const coordinatorOnlySet = new Set(
+      metrics.workerTopology?.coordinatorOnlyTypes || [],
+    );
+    const workersEnabled = !!metrics.workerTopology?.enabled;
+
     // Render priority sections in priority order (1-5: Immediate, High, Normal, Low, Background)
     const priorityOrder = [1, 2, 3, 4, 5]; // Priority enum values
     const prioritySectionsHtml = priorityOrder
@@ -278,9 +295,25 @@ class QueueStateDashboard {
               return '';
             }
 
+            const coordStyle =
+              'font-size:10px;color:var(--vscode-descriptionForeground)' +
+              ';margin-left:6px';
+            const coordSpan =
+              `<span style="${coordStyle}"` +
+              ' title="Runs on coordinator thread">coord</span>';
+
+            const workerSpan =
+              '<span style="font-size:10px;color:#4CAF50;margin-left:6px" title="Dispatched to worker">worker</span>';
+            let dispatchTag = '';
+            if (workersEnabled) {
+              dispatchTag = coordinatorOnlySet.has(type)
+                ? coordSpan
+                : workerSpan;
+            }
+
             return `
               <div class="request-type-item">
-                <span class="request-type-name">${this.escapeHtml(type)}</span>
+                <span class="request-type-name">${this.escapeHtml(type)}${dispatchTag}</span>
                 <span class="request-type-count">${queued}/${active}/${processed}</span>
               </div>
             `;
@@ -342,10 +375,85 @@ class QueueStateDashboard {
       })
       .join('');
 
-    content.innerHTML = overviewHtml + prioritySectionsHtml;
+    const workerTopologyHtml = this.renderWorkerTopology(
+      metrics.workerTopology,
+    );
+    content.innerHTML =
+      overviewHtml + workerTopologyHtml + prioritySectionsHtml;
 
     // Set up toggle handlers (try to set up if not already done)
     this.setupPriorityToggles();
+  }
+
+  private renderWorkerTopology(
+    topology: WorkerTopologyStatus | undefined,
+  ): string {
+    /* eslint-disable max-len */
+    if (!topology || !topology.enabled) {
+      return `
+        <div class="worker-topology-section" style="margin:16px 0;padding:12px 16px;background:var(--vscode-editor-background);border:1px solid var(--vscode-panel-border);border-radius:6px;opacity:0.6">
+          <div style="font-size:13px;color:var(--vscode-descriptionForeground)">Worker topology not active</div>
+        </div>
+      `;
+    }
+
+    const dot =
+      'display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px';
+    const activeDot = `${dot};background:#4CAF50`;
+    const inactiveDot = `${dot};background:#9E9E9E`;
+
+    const roleCard = (
+      label: string,
+      active: boolean,
+      detail: string,
+    ): string => {
+      const dotStyle = active ? activeDot : inactiveDot;
+      const state = active ? 'Active' : 'Inactive';
+      return [
+        '<div style="flex:1;min-width:140px;padding:10px 14px;background:var(--vscode-editor-background);border:1px solid var(--vscode-panel-border);border-radius:6px">',
+        `<div style="font-size:11px;color:var(--vscode-descriptionForeground);margin-bottom:4px">${label}</div>`,
+        `<div style="font-size:13px;display:flex;align-items:center"><span style="${dotStyle}"></span>${state}</div>`,
+        `<div style="font-size:11px;color:var(--vscode-descriptionForeground);margin-top:2px">${detail}</div>`,
+        '</div>',
+      ].join('');
+    };
+
+    const coordinatorOnly = topology.coordinatorOnlyTypes
+      .map((t) => this.escapeHtml(t))
+      .join(', ');
+
+    const poolLabel = 'x' + topology.enrichmentPool.size + ' (queries)';
+    const cards = [
+      roleCard(
+        'Data Owner',
+        topology.dataOwner.active,
+        'x1 (storage + symbols)',
+      ),
+      roleCard('Compilation', topology.compilation.active, 'x1 (public-api)'),
+      roleCard('Enrichment Pool', topology.enrichmentPool.active, poolLabel),
+    ];
+    if (topology.resourceLoader) {
+      cards.push(
+        roleCard(
+          'Resource Loader',
+          topology.resourceLoader.active,
+          'x1 (stdlib)',
+        ),
+      );
+    }
+
+    return [
+      '<div class="worker-topology-section" style="margin:16px 0">',
+      '<div style="display:flex;align-items:center;margin-bottom:10px">',
+      `<span style="${activeDot}"></span>`,
+      '<span style="font-size:14px;font-weight:600;color:var(--vscode-foreground)">Worker Topology</span>',
+      `<span style="margin-left:12px;font-size:12px;color:var(--vscode-descriptionForeground)">${topology.dispatchedCount.toLocaleString()} dispatched</span>`,
+      '</div>',
+      `<div style="display:flex;gap:10px;flex-wrap:wrap">${cards.join('')}</div>`,
+      `<div style="margin-top:8px;font-size:11px;color:var(--vscode-descriptionForeground)">Coordinator-only: ${coordinatorOnly}</div>`,
+      '</div>',
+    ].join('\n');
+    /* eslint-enable max-len */
   }
 
   private handlePriorityHeaderClick = (event: MouseEvent): void => {

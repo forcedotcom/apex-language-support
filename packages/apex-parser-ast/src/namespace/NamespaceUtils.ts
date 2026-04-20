@@ -206,7 +206,7 @@ export interface ResolutionRule {
   readonly resolve: (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ) => ApexSymbol | null;
+  ) => Promise<ApexSymbol | null>;
 }
 
 /**
@@ -214,44 +214,32 @@ export interface ResolutionRule {
  * Maps to Java SymbolProvider
  */
 export interface SymbolProvider {
-  find(referencingType: ApexSymbol, fullName: string): ApexSymbol | null;
-  /** Scalar keywords void/null (synthetic apexlib URIs); not wrapper types like String */
-  findScalarKeywordType(name: string): ApexSymbol | null;
-  findSObjectType(name: string): ApexSymbol | null;
-  findExternalType(name: string, packageName: string): ApexSymbol | null;
-  /**
-   * Resolve an unqualified name using provider-defined default namespace order.
-   * Rules delegate ordering details (e.g. System/Schema) to the provider.
-   */
+  find(
+    referencingType: ApexSymbol,
+    fullName: string,
+  ): Promise<ApexSymbol | null>;
+  findScalarKeywordType(name: string): Promise<ApexSymbol | null>;
+  findSObjectType(name: string): Promise<ApexSymbol | null>;
+  findExternalType(
+    name: string,
+    packageName: string,
+  ): Promise<ApexSymbol | null>;
   findInDefaultNamespaceOrder(
     name: string,
     referencingType: ApexSymbol,
-  ): ApexSymbol | null;
-  /**
-   * Resolve an unqualified name in provider-defined implicit file namespaces by slot.
-   * Slot 0 is highest precedence, slot 1 is next, etc.
-   */
+  ): Promise<ApexSymbol | null>;
   findInImplicitFileNamespaceSlot(
     name: string,
     slot: number,
     referencingType: ApexSymbol,
-  ): ApexSymbol | null;
-  /**
-   * Resolve a type by explicit namespace and unqualified type name.
-   */
+  ): Promise<ApexSymbol | null>;
   findInExplicitNamespace(
     namespaceName: string,
     typeName: string,
     referencingType: ApexSymbol,
-  ): ApexSymbol | null;
-  /**
-   * Whether the namespace token is a known built-in namespace alias.
-   */
-  isBuiltInNamespace(namespaceName: string): boolean;
-  /**
-   * Whether the namespace token should be treated as an SObject container namespace.
-   */
-  isSObjectContainerNamespace(namespaceName: string): boolean;
+  ): Promise<ApexSymbol | null>;
+  isBuiltInNamespace(namespaceName: string): Promise<boolean>;
+  isSObjectContainerNamespace(namespaceName: string): Promise<boolean>;
 }
 
 /**
@@ -263,7 +251,7 @@ export interface SymbolProviderWithStandardNamespace extends SymbolProvider {
   findInAnyStandardNamespace(
     name: string,
     referencingType: ApexSymbol,
-  ): ApexSymbol | null;
+  ): Promise<ApexSymbol | null>;
 }
 
 /**
@@ -521,23 +509,17 @@ const validateAndNormalizeInput = (
  * Step 4: Apply resolution rules in order
  * Maps to Apex rule application process
  */
-const applyResolutionRules = (
+const applyResolutionRules = async (
   context: NamespaceResolutionContext,
   rules: ResolutionRule[],
   symbolProvider: SymbolProvider,
-): NamespaceResolutionResult => {
-  // Apply rules in priority order
-  // Note: This is a synchronous function. For better performance with many rules,
-  // consider calling from an async context or converting to Effect-based resolution
+): Promise<NamespaceResolutionResult> => {
   for (const rule of rules) {
-    // Check if rule applies to this context
     if (!rule.appliesTo(context)) {
       continue;
     }
 
-    // Try to resolve using this rule
-    // Each rule.resolve() may perform symbol lookups which can be expensive
-    const symbol = rule.resolve(context, symbolProvider);
+    const symbol = await rule.resolve(context, symbolProvider);
 
     if (symbol) {
       return {
@@ -547,11 +529,8 @@ const applyResolutionRules = (
         confidence: calculateConfidence(rule, context),
       };
     }
-    // Note: Yielding between rules would require async/Effect conversion
-    // For now, this remains synchronous for backward compatibility
   }
 
-  // No rule matched - create unresolved result
   return createUnresolvedResult(
     'No resolution rule matched',
     context.adjustedNameParts,
@@ -562,15 +541,14 @@ const applyResolutionRules = (
  * Main namespace resolver implementing Java compiler's resolution process
  * Maps to Java TypeNameResolver
  */
-export const resolveTypeName = (
+export const resolveTypeName = async (
   nameParts: string[],
   compilationContext: CompilationContext,
   referenceType: ReferenceTypeValue,
   identifierContext: IdentifierContextValue,
   symbolProvider: SymbolProvider,
-): NamespaceResolutionResult => {
+): Promise<NamespaceResolutionResult> => {
   try {
-    // Step 1: Input Validation and Normalization
     const validationResult = validateAndNormalizeInput(
       nameParts,
       compilationContext,
@@ -581,7 +559,6 @@ export const resolveTypeName = (
 
     const adjustedNameParts = validationResult.adjustedNameParts;
 
-    // Step 2: Create resolution context
     const resolutionContext: NamespaceResolutionContext = {
       compilationContext,
       referenceType,
@@ -591,11 +568,9 @@ export const resolveTypeName = (
       isCaseInsensitive: true,
     };
 
-    // Step 3: Select resolution order based on reference type
     const resolutionRules = getResolutionOrder(referenceType);
 
-    // Step 4: Apply resolution rules in order
-    const resolutionResult = applyResolutionRules(
+    const resolutionResult = await applyResolutionRules(
       resolutionContext,
       resolutionRules,
       symbolProvider,

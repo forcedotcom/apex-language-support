@@ -80,7 +80,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
       const parserPosition = transformLspToParserPosition(params.position);
 
       // Get TypeReferences at position first
-      const references = this.symbolManager.getReferencesAtPosition(
+      const references = await this.symbolManager.getReferencesAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
@@ -165,10 +165,10 @@ export class ImplementationProcessingService implements IImplementationProcessor
       if (symbol.kind === SymbolKind.Interface) {
         const interfaceSymbol = symbol as TypeSymbol;
         const implementingClasses =
-          this.findImplementingClasses(interfaceSymbol);
+          await this.findImplementingClasses(interfaceSymbol);
 
         for (const classSymbol of implementingClasses) {
-          const location = this.createLocationFromSymbol(classSymbol);
+          const location = await this.createLocationFromSymbol(classSymbol);
           if (location) {
             locations.push(location);
           }
@@ -181,7 +181,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
           await this.findImplementingMethods(abstractMethod);
 
         for (const methodSymbol of implementingMethods) {
-          const location = this.createLocationFromSymbol(methodSymbol);
+          const location = await this.createLocationFromSymbol(methodSymbol);
           if (location) {
             locations.push(location);
           }
@@ -206,12 +206,15 @@ export class ImplementationProcessingService implements IImplementationProcessor
   /**
    * Find all classes that implement the given interface
    */
-  private findImplementingClasses(interfaceSymbol: TypeSymbol): ApexSymbol[] {
+  private async findImplementingClasses(
+    interfaceSymbol: TypeSymbol,
+  ): Promise<ApexSymbol[]> {
     const implementingClasses: ApexSymbol[] = [];
 
     try {
       // Find all references to this interface
-      const references = this.symbolManager.findReferencesTo(interfaceSymbol);
+      const references =
+        await this.symbolManager.findReferencesTo(interfaceSymbol);
 
       // Filter to only classes that implement this interface
       for (const ref of references) {
@@ -239,7 +242,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
 
       // Also search all classes to find ones that implement this interface
       // This catches classes that might not have references yet
-      const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
+      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
       const allClasses = allSymbols.filter(
         (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
       ) as TypeSymbol[];
@@ -282,7 +285,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
     try {
       // Get the containing class of the abstract method
       const containingType =
-        this.symbolManager.getContainingType(abstractMethod);
+        await this.symbolManager.getContainingType(abstractMethod);
       if (!containingType || !inTypeSymbolGroup(containingType)) {
         return implementingMethods;
       }
@@ -290,18 +293,20 @@ export class ImplementationProcessingService implements IImplementationProcessor
       const abstractClass = containingType as TypeSymbol;
 
       // Find all classes that extend this abstract class
-      const extendingClasses = this.findExtendingClasses(abstractClass);
+      const extendingClasses = await this.findExtendingClasses(abstractClass);
 
       // For each extending class, find methods with the same signature
       for (const extendingClass of extendingClasses) {
-        const methods = this.symbolManager
-          .findSymbolsInFile(extendingClass.fileUri || '')
-          .filter(
-            (s) =>
-              isMethodSymbol(s) &&
-              s.name === abstractMethod.name &&
-              !s.modifiers?.isAbstract,
-          );
+        const methods = (
+          await this.symbolManager.findSymbolsInFile(
+            extendingClass.fileUri || '',
+          )
+        ).filter(
+          (s) =>
+            isMethodSymbol(s) &&
+            s.name === abstractMethod.name &&
+            !s.modifiers?.isAbstract,
+        );
 
         for (const method of methods) {
           if (isMethodSymbol(method)) {
@@ -322,12 +327,14 @@ export class ImplementationProcessingService implements IImplementationProcessor
   /**
    * Find all classes that extend the given class
    */
-  private findExtendingClasses(baseClass: TypeSymbol): ApexSymbol[] {
+  private async findExtendingClasses(
+    baseClass: TypeSymbol,
+  ): Promise<ApexSymbol[]> {
     const extendingClasses: ApexSymbol[] = [];
 
     try {
       // Find all references to this class
-      const references = this.symbolManager.findReferencesTo(baseClass);
+      const references = await this.symbolManager.findReferencesTo(baseClass);
 
       // Filter to only classes that extend this class
       for (const ref of references) {
@@ -352,7 +359,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
 
       // Also search all classes to find ones that extend this class
       // This catches classes that might not have references yet
-      const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
+      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
       const allClasses = allSymbols.filter(
         (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
       ) as TypeSymbol[];
@@ -413,7 +420,9 @@ export class ImplementationProcessingService implements IImplementationProcessor
   /**
    * Create location from symbol
    */
-  private createLocationFromSymbol(symbol: ApexSymbol): Location | null {
+  private async createLocationFromSymbol(
+    symbol: ApexSymbol,
+  ): Promise<Location | null> {
     if (!symbol.location) {
       this.logger.debug(
         () => `Symbol has no location: ${JSON.stringify(symbol)}`,
@@ -421,7 +430,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
       return null;
     }
 
-    const uri = this.getSymbolFileUri(symbol);
+    const uri = await this.getSymbolFileUri(symbol);
     if (!uri) {
       this.logger.debug(() => `Could not get URI for symbol: ${symbol.name}`);
       return null;
@@ -475,7 +484,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
   /**
    * Get the file URI for a symbol
    */
-  private getSymbolFileUri(symbol: ApexSymbol): string | null {
+  private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
     // Try to get from symbol's file URI
     if (symbol.fileUri) {
       return symbol.fileUri;
@@ -483,7 +492,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
 
     // Try to find in symbol manager
     try {
-      const files = this.symbolManager.findFilesForSymbol(symbol.name);
+      const files = await this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
         return files[0];
       }

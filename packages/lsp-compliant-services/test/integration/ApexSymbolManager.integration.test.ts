@@ -165,27 +165,28 @@ describe('ApexSymbolManager Integration Tests', () => {
   });
 
   describe.skip('Completion Service Integration', () => {
-    it('should verify symbols are properly added to symbol manager', () => {
+    it('should verify symbols are properly added to symbol manager', async () => {
       // Verify symbols are in the symbol manager
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(4); // TestClass.cls, AnotherTestClass.cls, FileUtilities.cls, FileUtilitiesTest.cls
 
       // Verify symbols can be found by name
-      const testClassSymbols = symbolManager.findSymbolByName('TestClass');
+      const testClassSymbols =
+        await symbolManager.findSymbolByName('TestClass');
       expect(testClassSymbols.length).toBeGreaterThan(0);
 
       const fileUtilitiesSymbols =
-        symbolManager.findSymbolByName('FileUtilities');
+        await symbolManager.findSymbolByName('FileUtilities');
       expect(fileUtilitiesSymbols.length).toBeGreaterThan(0);
 
       // Verify symbols can be found in files
-      const testFileSymbols = symbolManager.findSymbolsInFile(
+      const testFileSymbols = await symbolManager.findSymbolsInFile(
         'file://TestClass.cls',
       );
       expect(testFileSymbols.length).toBeGreaterThan(0);
 
-      const fileUtilitiesFileSymbols = symbolManager.findSymbolsInFile(
+      const fileUtilitiesFileSymbols = await symbolManager.findSymbolsInFile(
         'file://FileUtilities.cls',
       );
       expect(fileUtilitiesFileSymbols.length).toBeGreaterThan(0);
@@ -247,7 +248,7 @@ describe('ApexSymbolManager Integration Tests', () => {
       const sourceFile = 'file://TestClass.cls';
 
       // Test the shared context analysis API
-      const context = (symbolManager as any).createResolutionContext(
+      const context = await (symbolManager as any).createResolutionContext(
         documentText,
         position,
         sourceFile,
@@ -269,14 +270,14 @@ describe('ApexSymbolManager Integration Tests', () => {
 
     it('should provide symbol resolution with context via resolveSymbol', async () => {
       // Test symbol resolution with context - use a symbol that actually exists
-      const context = (symbolManager as any).createResolutionContext(
+      const context = await (symbolManager as any).createResolutionContext(
         'public class TestClass { }',
         { line: 0, character: 7 },
         'file://test.cls',
       );
 
       // Test that services can resolve symbols with context
-      const result = symbolManager.resolveSymbol('TestClass', context);
+      const result = await symbolManager.resolveSymbol('TestClass', context);
 
       expect(result).toBeDefined();
       expect(result.symbol).toBeDefined();
@@ -286,7 +287,7 @@ describe('ApexSymbolManager Integration Tests', () => {
 
     it('should provide file-based symbol lookup via findSymbolsInFile', async () => {
       // Test that services can get all symbols in a file
-      const fileSymbols = symbolManager.findSymbolsInFile(
+      const fileSymbols = await symbolManager.findSymbolsInFile(
         'file://TestClass.cls',
       );
       expect(fileSymbols).toBeDefined();
@@ -296,7 +297,8 @@ describe('ApexSymbolManager Integration Tests', () => {
 
     it('should provide name-based symbol lookup via findSymbolByName', async () => {
       // Test that services can find symbols by name
-      const testClassSymbols = symbolManager.findSymbolByName('TestClass');
+      const testClassSymbols =
+        await symbolManager.findSymbolByName('TestClass');
       expect(testClassSymbols).toBeDefined();
       expect(Array.isArray(testClassSymbols)).toBe(true);
       expect(testClassSymbols.length).toBeGreaterThan(0);
@@ -304,7 +306,7 @@ describe('ApexSymbolManager Integration Tests', () => {
 
     it('should provide symbol manager statistics via getStats', async () => {
       // Test that services can get symbol manager statistics
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats).toBeDefined();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBeGreaterThan(0);
@@ -317,9 +319,9 @@ describe('ApexSymbolManager Integration Tests', () => {
 
       // Both should resolve to the same symbols
       const symbolsWithProtocol =
-        symbolManager.findSymbolsInFile(uriWithProtocol);
+        await symbolManager.findSymbolsInFile(uriWithProtocol);
       const symbolsWithoutProtocol =
-        symbolManager.findSymbolsInFile(uriWithoutProtocol);
+        await symbolManager.findSymbolsInFile(uriWithoutProtocol);
 
       expect(symbolsWithProtocol).toEqual(symbolsWithoutProtocol);
     });

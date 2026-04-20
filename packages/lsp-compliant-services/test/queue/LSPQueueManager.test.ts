@@ -267,6 +267,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         'hover',
         'completion',
         'definition',
+        'implementation',
         'references',
         'documentSymbol',
         'workspaceSymbol',
@@ -274,10 +275,14 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         'codeAction',
         'signatureHelp',
         'rename',
+        'codeLens',
+        'foldingRange',
         'documentOpen',
         'documentSave',
         'documentChange',
         'documentClose',
+        'findMissingArtifact',
+        'executeCommand',
       ].forEach((type) => {
         serviceRegistry.register({
           ...mockHandler,
@@ -388,6 +393,54 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(result).toEqual({ result: 'test' });
     });
 
+    it('should submit implementation request through queue', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit code lens request through queue', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitCodeLensRequest({
+        textDocument: { uri: 'test' },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit folding range request through queue', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitFoldingRangeRequest({
+        textDocument: { uri: 'test' },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit find missing artifact request through queue', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitFindMissingArtifactRequest({
+        identifiers: [{ name: 'TestClass' }],
+        origin: { uri: 'test', requestKind: 'definition' },
+        mode: 'default',
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit execute command request through queue', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitExecuteCommandRequest({
+        command: 'testCommand',
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
     it('should submit document open notification', () => {
       const manager = LSPQueueManager.getInstance();
       // Notifications are fire-and-forget, return void
@@ -487,6 +540,116 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
           position: { line: 0, character: 0 },
         }),
       ).rejects.toThrow('Handler error');
+    });
+  });
+
+  describe('Worker dispatch strategy (step 5)', () => {
+    beforeEach(() => {
+      const serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+
+      const mockHandler = {
+        requestType: 'hover' as LSPRequestType,
+        priority: Priority.Immediate,
+        timeout: 100,
+        maxRetries: 0,
+        process: jest.fn().mockResolvedValue({ local: true }),
+      };
+      serviceRegistry.register(mockHandler);
+    });
+
+    it('falls back to local handler when no dispatcher set', async () => {
+      const manager = LSPQueueManager.getInstance();
+      manager.setWorkerDispatcher(null);
+
+      const result = await manager.submitHoverRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ local: true });
+    });
+
+    it('uses dispatcher when set, available, and canDispatch', async () => {
+      const mockDispatcher = {
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatch: jest.fn().mockResolvedValue({ dispatched: true }),
+      };
+
+      const manager = LSPQueueManager.getInstance();
+      manager.setWorkerDispatcher(mockDispatcher);
+
+      const result = await manager.submitHoverRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ dispatched: true });
+      expect(mockDispatcher.dispatch).toHaveBeenCalledWith(
+        'hover',
+        expect.objectContaining({ textDocument: { uri: 'test' } }),
+      );
+    });
+
+    it('falls back to local handler when dispatcher is not available', async () => {
+      const mockDispatcher = {
+        isAvailable: () => false,
+        canDispatch: () => true,
+        dispatch: jest.fn(),
+      };
+
+      const manager = LSPQueueManager.getInstance();
+      manager.setWorkerDispatcher(mockDispatcher);
+
+      const result = await manager.submitHoverRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ local: true });
+      expect(mockDispatcher.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('falls back to local when dispatcher rejects', async () => {
+      const mockDispatcher = {
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatch: jest.fn().mockRejectedValue(new Error('worker died')),
+      };
+
+      const manager = LSPQueueManager.getInstance();
+      manager.setWorkerDispatcher(mockDispatcher);
+
+      await expect(
+        manager.submitHoverRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        }),
+      ).rejects.toThrow('worker died');
+    });
+
+    it('falls back to local when canDispatch returns false (step 6 atomicity)', async () => {
+      const mockDispatcher = {
+        isAvailable: () => true,
+        canDispatch: () => false,
+        dispatch: jest.fn(),
+      };
+
+      const manager = LSPQueueManager.getInstance();
+      manager.setWorkerDispatcher(mockDispatcher);
+
+      const result = await manager.submitHoverRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ local: true });
+      expect(mockDispatcher.dispatch).not.toHaveBeenCalled();
+    });
+
+    afterEach(() => {
+      LSPQueueManager.getInstance().setWorkerDispatcher(null);
     });
   });
 });

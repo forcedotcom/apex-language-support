@@ -813,6 +813,346 @@ exports[`Semantic Error Detection Class: abstract-method-body/InterfaceMethodWit
 }
 `;
 
+exports[`Semantic Error Detection Class: abstract-method-implementation/MissingAbstractMethod.cls should detect semantic errors in abstract-method-implementation/MissingAbstractMethod: abstract-method-implementation/MissingAbstractMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/abstract-method-implementation/MissingAbstractMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/AuraEnabledInvalid.cls should detect semantic errors in annotation-property/AuraEnabledInvalid: annotation-property/AuraEnabledInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/AuraEnabledInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/AuraEnabledValid.cls should detect semantic errors in annotation-property/AuraEnabledValid: annotation-property/AuraEnabledValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/AuraEnabledValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/AuraEnabledValueNotAllowed.cls should detect semantic errors in annotation-property/AuraEnabledValueNotAllowed: annotation-property/AuraEnabledValueNotAllowed-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/AuraEnabledValueNotAllowed.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/DeprecatedInvalidApiVersion.cls should detect semantic errors in annotation-property/DeprecatedInvalidApiVersion: annotation-property/DeprecatedInvalidApiVersion-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/DeprecatedInvalidApiVersion.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/DeprecatedValid.cls should detect semantic errors in annotation-property/DeprecatedValid: annotation-property/DeprecatedValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/DeprecatedValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/DuplicateParameters.cls should detect semantic errors in annotation-property/DuplicateParameters: annotation-property/DuplicateParameters-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/DuplicateParameters.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/EmptyPropertyValues.cls should detect semantic errors in annotation-property/EmptyPropertyValues: annotation-property/EmptyPropertyValues-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/EmptyPropertyValues.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/ExistingClass.cls should detect semantic errors in annotation-property/ExistingClass: annotation-property/ExistingClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/ExistingClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/FutureInvalid.cls should detect semantic errors in annotation-property/FutureInvalid: annotation-property/FutureInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/FutureInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/FutureValid.cls should detect semantic errors in annotation-property/FutureValid: annotation-property/FutureValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/FutureValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/HttpAnnotationsInvalid.cls should detect semantic errors in annotation-property/HttpAnnotationsInvalid: annotation-property/HttpAnnotationsInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/HttpAnnotationsInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/HttpAnnotationsValid.cls should detect semantic errors in annotation-property/HttpAnnotationsValid: annotation-property/HttpAnnotationsValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/HttpAnnotationsValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidLWCName.cls should detect semantic errors in annotation-property/InvalidLWCName: annotation-property/InvalidLWCName-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidLWCName.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidLWCNameLowercase.cls should detect semantic errors in annotation-property/InvalidLWCNameLowercase: annotation-property/InvalidLWCNameLowercase-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidLWCNameLowercase.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidLWCNameNumericStart.cls should detect semantic errors in annotation-property/InvalidLWCNameNumericStart: annotation-property/InvalidLWCNameNumericStart-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidLWCNameNumericStart.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidLWCNameSpace.cls should detect semantic errors in annotation-property/InvalidLWCNameSpace: annotation-property/InvalidLWCNameSpace-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidLWCNameSpace.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidStaticResourceName.cls should detect semantic errors in annotation-property/InvalidStaticResourceName: annotation-property/InvalidStaticResourceName-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidStaticResourceName.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidStaticResourceNameNumericStart.cls should detect semantic errors in annotation-property/InvalidStaticResourceNameNumericStart: annotation-property/InvalidStaticResourceNameNumericStart-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidStaticResourceNameNumericStart.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/InvalidStaticResourceNameSpace.cls should detect semantic errors in annotation-property/InvalidStaticResourceNameSpace: annotation-property/InvalidStaticResourceNameSpace-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvalidStaticResourceNameSpace.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: annotation-property/InvocableMethodInvalidAnnotation.cls should detect semantic errors in annotation-property/InvocableMethodInvalidAnnotation: annotation-property/InvocableMethodInvalidAnnotation-diagnostics 1`] = `
 {
   "request": {
@@ -966,6 +1306,159 @@ exports[`Semantic Error Detection Class: annotation-property/InvocableMethodVali
 }
 `;
 
+exports[`Semantic Error Detection Class: annotation-property/InvocableVariableValid.cls should detect semantic errors in annotation-property/InvocableVariableValid: annotation-property/InvocableVariableValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/InvocableVariableValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/IsTestValid.cls should detect semantic errors in annotation-property/IsTestValid: annotation-property/IsTestValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/IsTestValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/JsonAccessInvalid.cls should detect semantic errors in annotation-property/JsonAccessInvalid: annotation-property/JsonAccessInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/JsonAccessInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/JsonAccessMissingControl.cls should detect semantic errors in annotation-property/JsonAccessMissingControl: annotation-property/JsonAccessMissingControl-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/JsonAccessMissingControl.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/JsonAccessValid.cls should detect semantic errors in annotation-property/JsonAccessValid: annotation-property/JsonAccessValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/JsonAccessValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/ReadOnlyInvalid.cls should detect semantic errors in annotation-property/ReadOnlyInvalid: annotation-property/ReadOnlyInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/ReadOnlyInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/ReadOnlyValid.cls should detect semantic errors in annotation-property/ReadOnlyValid: annotation-property/ReadOnlyValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/ReadOnlyValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/ReferencedClass.cls should detect semantic errors in annotation-property/ReferencedClass: annotation-property/ReferencedClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/ReferencedClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/RemoteActionValid.cls should detect semantic errors in annotation-property/RemoteActionValid: annotation-property/RemoteActionValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/RemoteActionValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: annotation-property/RestResourceEmptyUrl.cls should detect semantic errors in annotation-property/RestResourceEmptyUrl: annotation-property/RestResourceEmptyUrl-diagnostics 1`] = `
 {
   "request": {
@@ -973,6 +1466,23 @@ exports[`Semantic Error Detection Class: annotation-property/RestResourceEmptyUr
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/annotation-property/RestResourceEmptyUrl.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/RestResourceInvalidUrl.cls should detect semantic errors in annotation-property/RestResourceInvalidUrl: annotation-property/RestResourceInvalidUrl-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/RestResourceInvalidUrl.cls",
       },
     },
   },
@@ -1041,6 +1551,210 @@ exports[`Semantic Error Detection Class: annotation-property/RestResourceValid.c
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/annotation-property/RestResourceValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/SuppressWarningsMissingValue.cls should detect semantic errors in annotation-property/SuppressWarningsMissingValue: annotation-property/SuppressWarningsMissingValue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/SuppressWarningsMissingValue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/SuppressWarningsValid.cls should detect semantic errors in annotation-property/SuppressWarningsValid: annotation-property/SuppressWarningsValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/SuppressWarningsValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForEmptySuffix.cls should detect semantic errors in annotation-property/TestForEmptySuffix: annotation-property/TestForEmptySuffix-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForEmptySuffix.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForExistingClass.cls should detect semantic errors in annotation-property/TestForExistingClass: annotation-property/TestForExistingClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForExistingClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForInvalidPrefix.cls should detect semantic errors in annotation-property/TestForInvalidPrefix: annotation-property/TestForInvalidPrefix-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForInvalidPrefix.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForMissingClass.cls should detect semantic errors in annotation-property/TestForMissingClass: annotation-property/TestForMissingClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForMissingClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForMissingTrigger.cls should detect semantic errors in annotation-property/TestForMissingTrigger: annotation-property/TestForMissingTrigger-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForMissingTrigger.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForMultipleFormatErrors.cls should detect semantic errors in annotation-property/TestForMultipleFormatErrors: annotation-property/TestForMultipleFormatErrors-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForMultipleFormatErrors.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForMultipleTypes.cls should detect semantic errors in annotation-property/TestForMultipleTypes: annotation-property/TestForMultipleTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForMultipleTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestForTrigger.cls should detect semantic errors in annotation-property/TestForTrigger: annotation-property/TestForTrigger-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestForTrigger.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TestSetupValid.cls should detect semantic errors in annotation-property/TestSetupValid: annotation-property/TestSetupValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TestSetupValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: annotation-property/TypeMismatch.cls should detect semantic errors in annotation-property/TypeMismatch: annotation-property/TypeMismatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/annotation-property/TypeMismatch.cls",
       },
     },
   },
@@ -1775,6 +2489,346 @@ exports[`Semantic Error Detection Class: class-hierarchy/StandaloneClass.cls sho
 }
 `;
 
+exports[`Semantic Error Detection Class: collection/InvalidListIndex.cls should detect semantic errors in collection/InvalidListIndex: collection/InvalidListIndex-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidListIndex.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidListInitializer.cls should detect semantic errors in collection/InvalidListInitializer: collection/InvalidListInitializer-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidListInitializer.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidMapInitializerKeyType.cls should detect semantic errors in collection/InvalidMapInitializerKeyType: collection/InvalidMapInitializerKeyType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidMapInitializerKeyType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidMapInitializerValueType.cls should detect semantic errors in collection/InvalidMapInitializerValueType: collection/InvalidMapInitializerValueType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidMapInitializerValueType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidMapPutAll.cls should detect semantic errors in collection/InvalidMapPutAll: collection/InvalidMapPutAll-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidMapPutAll.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidSObjectList.cls should detect semantic errors in collection/InvalidSObjectList: collection/InvalidSObjectList-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidSObjectList.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/InvalidSObjectMap.cls should detect semantic errors in collection/InvalidSObjectMap: collection/InvalidSObjectMap-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/InvalidSObjectMap.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/ListIndexWithInvalidTypes.cls should detect semantic errors in collection/ListIndexWithInvalidTypes: collection/ListIndexWithInvalidTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/ListIndexWithInvalidTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: collection/ListIndexWithValidTypes.cls should detect semantic errors in collection/ListIndexWithValidTypes: collection/ListIndexWithValidTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/collection/ListIndexWithValidTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/ChildWithCorrectSuperTypes.cls should detect semantic errors in constructor/ChildWithCorrectSuperTypes: constructor/ChildWithCorrectSuperTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/ChildWithCorrectSuperTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/ChildWithIncorrectSuperTypes.cls should detect semantic errors in constructor/ChildWithIncorrectSuperTypes: constructor/ChildWithIncorrectSuperTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/ChildWithIncorrectSuperTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/ClassWithTypedThisCalls.cls should detect semantic errors in constructor/ClassWithTypedThisCalls: constructor/ClassWithTypedThisCalls-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/ClassWithTypedThisCalls.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/ConstructorReturn.cls should detect semantic errors in constructor/ConstructorReturn: constructor/ConstructorReturn-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/ConstructorReturn.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/InstanceMethodInConstructor.cls should detect semantic errors in constructor/InstanceMethodInConstructor: constructor/InstanceMethodInConstructor-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/InstanceMethodInConstructor.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/InstanceVariableInConstructor.cls should detect semantic errors in constructor/InstanceVariableInConstructor: constructor/InstanceVariableInConstructor-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/InstanceVariableInConstructor.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/InvalidSuperCall.cls should detect semantic errors in constructor/InvalidSuperCall: constructor/InvalidSuperCall-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/InvalidSuperCall.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/InvalidThisCall.cls should detect semantic errors in constructor/InvalidThisCall: constructor/InvalidThisCall-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/InvalidThisCall.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/NoSuperType.cls should detect semantic errors in constructor/NoSuperType: constructor/NoSuperType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/NoSuperType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor/ParentWithTypedConstructors.cls should detect semantic errors in constructor/ParentWithTypedConstructors: constructor/ParentWithTypedConstructors-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor/ParentWithTypedConstructors.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: constructor-naming/InnerClassWithConstructor.cls should detect semantic errors in constructor-naming/InnerClassWithConstructor: constructor-naming/InnerClassWithConstructor-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/constructor-naming/InnerClassWithConstructor.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: constructor-naming/InvalidClass.cls should detect semantic errors in constructor-naming/InvalidClass: constructor-naming/InvalidClass-diagnostics 1`] = `
 {
   "request": {
@@ -2102,6 +3156,23 @@ exports[`Semantic Error Detection Class: constructor-naming/NonMatchingName.cls 
 }
 `;
 
+exports[`Semantic Error Detection Class: contextual-keyword-identifier/ContextualKeywordAsVariable.cls should detect semantic errors in contextual-keyword-identifier/ContextualKeywordAsVariable: contextual-keyword-identifier/ContextualKeywordAsVariable-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/contextual-keyword-identifier/ContextualKeywordAsVariable.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: control-flow/BreakInNestedLoop.cls should detect semantic errors in control-flow/BreakInNestedLoop: control-flow/BreakInNestedLoop-diagnostics 1`] = `
 {
   "request": {
@@ -2335,6 +3406,261 @@ exports[`Semantic Error Detection Class: control-flow/ReturnOutsideMethod.cls sh
         "source": "apex-semantic-validator",
       },
     ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: deprecation/DeprecatedType.cls should detect semantic errors in deprecation/DeprecatedType: deprecation/DeprecatedType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/deprecation/DeprecatedType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: deprecation/GlobalFieldDeprecatedType.cls should detect semantic errors in deprecation/GlobalFieldDeprecatedType: deprecation/GlobalFieldDeprecatedType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/deprecation/GlobalFieldDeprecatedType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: deprecation/GlobalMethodDeprecatedReturn.cls should detect semantic errors in deprecation/GlobalMethodDeprecatedReturn: deprecation/GlobalMethodDeprecatedReturn-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/deprecation/GlobalMethodDeprecatedReturn.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: deprecation/GlobalMethodWithDeprecatedReturn.cls should detect semantic errors in deprecation/GlobalMethodWithDeprecatedReturn: deprecation/GlobalMethodWithDeprecatedReturn-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/deprecation/GlobalMethodWithDeprecatedReturn.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: deprecation/GlobalMethodWithDeprecatedReturnCorrect.cls should detect semantic errors in deprecation/GlobalMethodWithDeprecatedReturnCorrect: deprecation/GlobalMethodWithDeprecatedReturnCorrect-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/deprecation/GlobalMethodWithDeprecatedReturnCorrect.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/InvalidDmlStatements.cls should detect semantic errors in dml-statement/InvalidDmlStatements: dml-statement/InvalidDmlStatements-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/InvalidDmlStatements.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/LoopVariableConcreteMismatch.cls should detect semantic errors in dml-statement/LoopVariableConcreteMismatch: dml-statement/LoopVariableConcreteMismatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/LoopVariableConcreteMismatch.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/LoopVariableMismatch.cls should detect semantic errors in dml-statement/LoopVariableMismatch: dml-statement/LoopVariableMismatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/LoopVariableMismatch.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/LoopVariableValid.cls should detect semantic errors in dml-statement/LoopVariableValid: dml-statement/LoopVariableValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/LoopVariableValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/LoopWithQueryEmptyBody.cls should detect semantic errors in dml-statement/LoopWithQueryEmptyBody: dml-statement/LoopWithQueryEmptyBody-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/LoopWithQueryEmptyBody.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/LoopWithQueryValidBody.cls should detect semantic errors in dml-statement/LoopWithQueryValidBody: dml-statement/LoopWithQueryValidBody-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/LoopWithQueryValidBody.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/MergeConcreteType.cls should detect semantic errors in dml-statement/MergeConcreteType: dml-statement/MergeConcreteType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/MergeConcreteType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/MergeInvalidTypes.cls should detect semantic errors in dml-statement/MergeInvalidTypes: dml-statement/MergeInvalidTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/MergeInvalidTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/UpsertInvalidFieldSpec.cls should detect semantic errors in dml-statement/UpsertInvalidFieldSpec: dml-statement/UpsertInvalidFieldSpec-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/UpsertInvalidFieldSpec.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: dml-statement/UpsertWithFieldSpec.cls should detect semantic errors in dml-statement/UpsertWithFieldSpec: dml-statement/UpsertWithFieldSpec-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/dml-statement/UpsertWithFieldSpec.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
     "kind": "full",
   },
 }
@@ -3344,6 +4670,40 @@ exports[`Semantic Error Detection Class: duplicate-field/UniqueFields.cls should
 }
 `;
 
+exports[`Semantic Error Detection Class: duplicate-field-init/InvalidConstructorExpressions.cls should detect semantic errors in duplicate-field-init/InvalidConstructorExpressions: duplicate-field-init/InvalidConstructorExpressions-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-field-init/InvalidConstructorExpressions.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-field-init/NameValuePairInvalid.cls should detect semantic errors in duplicate-field-init/NameValuePairInvalid: duplicate-field-init/NameValuePairInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-field-init/NameValuePairInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: duplicate-method/DuplicateConstructors.cls should detect semantic errors in duplicate-method/DuplicateConstructors: duplicate-method/DuplicateConstructors-diagnostics 1`] = `
 {
   "request": {
@@ -3595,6 +4955,23 @@ exports[`Semantic Error Detection Class: duplicate-method/FQNDup.cls should dete
 }
 `;
 
+exports[`Semantic Error Detection Class: duplicate-method/StaticTestMethods.cls should detect semantic errors in duplicate-method/StaticTestMethods: duplicate-method/StaticTestMethods-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-method/StaticTestMethods.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: duplicate-method/UniqueMethods.cls should detect semantic errors in duplicate-method/UniqueMethods: duplicate-method/UniqueMethods-diagnostics 1`] = `
 {
   "request": {
@@ -3619,6 +4996,108 @@ exports[`Semantic Error Detection Class: duplicate-method/UnresolvedTypeDup.cls 
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/duplicate-method/UnresolvedTypeDup.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/CaseInsensitiveDuplicate.cls should detect semantic errors in duplicate-type-name/CaseInsensitiveDuplicate: duplicate-type-name/CaseInsensitiveDuplicate-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/CaseInsensitiveDuplicate.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/ClassWithConstructorSameName.cls should detect semantic errors in duplicate-type-name/ClassWithConstructorSameName: duplicate-type-name/ClassWithConstructorSameName-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/ClassWithConstructorSameName.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/DuplicateInnerClass.cls should detect semantic errors in duplicate-type-name/DuplicateInnerClass: duplicate-type-name/DuplicateInnerClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/DuplicateInnerClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/DuplicateInnerInterface.cls should detect semantic errors in duplicate-type-name/DuplicateInnerInterface: duplicate-type-name/DuplicateInnerInterface-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/DuplicateInnerInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/SameNameDifferentScopes.cls should detect semantic errors in duplicate-type-name/SameNameDifferentScopes: duplicate-type-name/SameNameDifferentScopes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/SameNameDifferentScopes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: duplicate-type-name/UniqueTypes.cls should detect semantic errors in duplicate-type-name/UniqueTypes: duplicate-type-name/UniqueTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/duplicate-type-name/UniqueTypes.cls",
       },
     },
   },
@@ -3790,6 +5269,74 @@ exports[`Semantic Error Detection Class: enum-limit/SmallEnum.cls should detect 
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/enum-limit/SmallEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: exception/DuplicateCatchException.cls should detect semantic errors in exception/DuplicateCatchException: exception/DuplicateCatchException-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/exception/DuplicateCatchException.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: exception/InvalidCatchType.cls should detect semantic errors in exception/InvalidCatchType: exception/InvalidCatchType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/exception/InvalidCatchType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: exception/InvalidExceptionInheritance.cls should detect semantic errors in exception/InvalidExceptionInheritance: exception/InvalidExceptionInheritance-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/exception/InvalidExceptionInheritance.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: exception/InvalidExceptionName.cls should detect semantic errors in exception/InvalidExceptionName: exception/InvalidExceptionName-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/exception/InvalidExceptionName.cls",
       },
     },
   },
@@ -4222,6 +5769,125 @@ exports[`Semantic Error Detection Class: forward-reference/ForwardReference.cls 
 }
 `;
 
+exports[`Semantic Error Detection Class: geocoding/GeocodingService.cls should detect semantic errors in geocoding/GeocodingService: geocoding/GeocodingService-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/geocoding/GeocodingService.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: geocoding/GeocodingServiceTest.cls should detect semantic errors in geocoding/GeocodingServiceTest: geocoding/GeocodingServiceTest-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/geocoding/GeocodingServiceTest.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: inner-type/InnerWithInner.cls should detect semantic errors in inner-type/InnerWithInner: inner-type/InnerWithInner-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/inner-type/InnerWithInner.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: inner-type/InnerWithStaticBlock.cls should detect semantic errors in inner-type/InnerWithStaticBlock: inner-type/InnerWithStaticBlock-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/inner-type/InnerWithStaticBlock.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: instanceof/AlwaysFalse.cls should detect semantic errors in instanceof/AlwaysFalse: instanceof/AlwaysFalse-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/instanceof/AlwaysFalse.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: instanceof/AlwaysTrue.cls should detect semantic errors in instanceof/AlwaysTrue: instanceof/AlwaysTrue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/instanceof/AlwaysTrue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: instanceof/InvalidType.cls should detect semantic errors in instanceof/InvalidType: instanceof/InvalidType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/instanceof/InvalidType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: integration/EnumWithInvalidConstant.cls should detect semantic errors in integration/EnumWithInvalidConstant: integration/EnumWithInvalidConstant-diagnostics 1`] = `
 {
   "request": {
@@ -4495,6 +6161,40 @@ exports[`Semantic Error Detection Class: interface-hierarchy/CircularInterfaceC.
 }
 `;
 
+exports[`Semantic Error Detection Class: interface-hierarchy/ClassWithDeprecatedImpl.cls should detect semantic errors in interface-hierarchy/ClassWithDeprecatedImpl: interface-hierarchy/ClassWithDeprecatedImpl-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/interface-hierarchy/ClassWithDeprecatedImpl.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: interface-hierarchy/ClassWithPrivateImpl.cls should detect semantic errors in interface-hierarchy/ClassWithPrivateImpl: interface-hierarchy/ClassWithPrivateImpl-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/interface-hierarchy/ClassWithPrivateImpl.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: interface-hierarchy/DuplicateExtends.cls should detect semantic errors in interface-hierarchy/DuplicateExtends: interface-hierarchy/DuplicateExtends-diagnostics 1`] = `
 {
   "request": {
@@ -4540,6 +6240,23 @@ exports[`Semantic Error Detection Class: interface-hierarchy/DuplicateExtends.cl
         "source": "apex-semantic-validator",
       },
     ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: interface-hierarchy/GlobalInterface.cls should detect semantic errors in interface-hierarchy/GlobalInterface: interface-hierarchy/GlobalInterface-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/interface-hierarchy/GlobalInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
     "kind": "full",
   },
 }
@@ -4705,6 +6422,346 @@ exports[`Semantic Error Detection Class: interface-hierarchy/MyInterface.cls sho
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/interface-hierarchy/MyInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: invalid-keyword-identifier/InvalidKeywordAsVariable.cls should detect semantic errors in invalid-keyword-identifier/InvalidKeywordAsVariable: invalid-keyword-identifier/InvalidKeywordAsVariable-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/invalid-keyword-identifier/InvalidKeywordAsVariable.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: literal/InvalidDoubleLiteral.cls should detect semantic errors in literal/InvalidDoubleLiteral: literal/InvalidDoubleLiteral-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/literal/InvalidDoubleLiteral.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: literal/InvalidEscapeSequence.cls should detect semantic errors in literal/InvalidEscapeSequence: literal/InvalidEscapeSequence-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/literal/InvalidEscapeSequence.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: literal/InvalidUnicodeHex.cls should detect semantic errors in literal/InvalidUnicodeHex: literal/InvalidUnicodeHex-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/literal/InvalidUnicodeHex.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: literal/InvalidUnicodeShort.cls should detect semantic errors in literal/InvalidUnicodeShort: literal/InvalidUnicodeShort-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/literal/InvalidUnicodeShort.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/AbstractClass.cls should detect semantic errors in method-call/AbstractClass: method-call/AbstractClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/AbstractClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/AddErrorInvalid.cls should detect semantic errors in method-call/AddErrorInvalid: method-call/AddErrorInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/AddErrorInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/AddErrorValid.cls should detect semantic errors in method-call/AddErrorValid: method-call/AddErrorValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/AddErrorValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/ConcreteClass.cls should detect semantic errors in method-call/ConcreteClass: method-call/ConcreteClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/ConcreteClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/MyEnum.cls should detect semantic errors in method-call/MyEnum: method-call/MyEnum-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/MyEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/NewAbstractClassAbstractClass.cls should detect semantic errors in method-call/NewAbstractClassAbstractClass: method-call/NewAbstractClassAbstractClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/NewAbstractClassAbstractClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/NewAbstractClassConcreteClass.cls should detect semantic errors in method-call/NewAbstractClassConcreteClass: method-call/NewAbstractClassConcreteClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/NewAbstractClassConcreteClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/NewEnum.cls should detect semantic errors in method-call/NewEnum: method-call/NewEnum-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/NewEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/NewSObject.cls should detect semantic errors in method-call/NewSObject: method-call/NewSObject-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/NewSObject.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/SObjectRecalculateFormulas.cls should detect semantic errors in method-call/SObjectRecalculateFormulas: method-call/SObjectRecalculateFormulas-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/SObjectRecalculateFormulas.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/SafeNavAddErrorInvalid.cls should detect semantic errors in method-call/SafeNavAddErrorInvalid: method-call/SafeNavAddErrorInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/SafeNavAddErrorInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-call/SafeNavGetSObjectTypeInvalid.cls should detect semantic errors in method-call/SafeNavGetSObjectTypeInvalid: method-call/SafeNavGetSObjectTypeInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-call/SafeNavGetSObjectTypeInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-clash/MethodTypesClash.cls should detect semantic errors in method-clash/MethodTypesClash: method-clash/MethodTypesClash-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-clash/MethodTypesClash.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-modifier-restriction/MultipleTestSetup.cls should detect semantic errors in method-modifier-restriction/MultipleTestSetup: method-modifier-restriction/MultipleTestSetup-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-modifier-restriction/MultipleTestSetup.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-modifier-restriction/ProtectedMethodInNonVirtual.cls should detect semantic errors in method-modifier-restriction/ProtectedMethodInNonVirtual: method-modifier-restriction/ProtectedMethodInNonVirtual-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-modifier-restriction/ProtectedMethodInNonVirtual.cls",
       },
     },
   },
@@ -4968,6 +7025,329 @@ exports[`Semantic Error Detection Class: method-override/ReducedVisibility.cls s
 }
 `;
 
+exports[`Semantic Error Detection Class: method-resolution/AssertDreamhouseStyle.cls should detect semantic errors in method-resolution/AssertDreamhouseStyle: method-resolution/AssertDreamhouseStyle-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/AssertDreamhouseStyle.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/AssertObjectParams.cls should detect semantic errors in method-resolution/AssertObjectParams: method-resolution/AssertObjectParams-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/AssertObjectParams.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/CallerWithCorrectReturnTypes.cls should detect semantic errors in method-resolution/CallerWithCorrectReturnTypes: method-resolution/CallerWithCorrectReturnTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/CallerWithCorrectReturnTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/CallerWithCorrectTypes.cls should detect semantic errors in method-resolution/CallerWithCorrectTypes: method-resolution/CallerWithCorrectTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/CallerWithCorrectTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/CallerWithIncorrectReturnTypes.cls should detect semantic errors in method-resolution/CallerWithIncorrectReturnTypes: method-resolution/CallerWithIncorrectReturnTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/CallerWithIncorrectReturnTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/CallerWithIncorrectTypes.cls should detect semantic errors in method-resolution/CallerWithIncorrectTypes: method-resolution/CallerWithIncorrectTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/CallerWithIncorrectTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/ClassWithTestVisibleMethod.cls should detect semantic errors in method-resolution/ClassWithTestVisibleMethod: method-resolution/ClassWithTestVisibleMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/ClassWithTestVisibleMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/ClassWithTypedMethods.cls should detect semantic errors in method-resolution/ClassWithTypedMethods: method-resolution/ClassWithTypedMethods-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/ClassWithTypedMethods.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/GeocodingServiceListAdd.cls should detect semantic errors in method-resolution/GeocodingServiceListAdd: method-resolution/GeocodingServiceListAdd-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/GeocodingServiceListAdd.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/ListAddGeneric.cls should detect semantic errors in method-resolution/ListAddGeneric: method-resolution/ListAddGeneric-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/ListAddGeneric.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/MapPutGeneric.cls should detect semantic errors in method-resolution/MapPutGeneric: method-resolution/MapPutGeneric-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/MapPutGeneric.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/MethodWithReturnType.cls should detect semantic errors in method-resolution/MethodWithReturnType: method-resolution/MethodWithReturnType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/MethodWithReturnType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/NonTestClassAccessingTestVisibleMethod.cls should detect semantic errors in method-resolution/NonTestClassAccessingTestVisibleMethod: method-resolution/NonTestClassAccessingTestVisibleMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/NonTestClassAccessingTestVisibleMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/OuterWithProtectedInnerAccess.cls should detect semantic errors in method-resolution/OuterWithProtectedInnerAccess: method-resolution/OuterWithProtectedInnerAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/OuterWithProtectedInnerAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/ParentWithDefaultMethod.cls should detect semantic errors in method-resolution/ParentWithDefaultMethod: method-resolution/ParentWithDefaultMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/ParentWithDefaultMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/SubclassAccessingDefaultMethod.cls should detect semantic errors in method-resolution/SubclassAccessingDefaultMethod: method-resolution/SubclassAccessingDefaultMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/SubclassAccessingDefaultMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/TestClassAccessingTestVisibleMethod.cls should detect semantic errors in method-resolution/TestClassAccessingTestVisibleMethod: method-resolution/TestClassAccessingTestVisibleMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/TestClassAccessingTestVisibleMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/TestClassWithInnerAccessingTestVisibleMethod.cls should detect semantic errors in method-resolution/TestClassWithInnerAccessingTestVisibleMethod: method-resolution/TestClassWithInnerAccessingTestVisibleMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/TestClassWithInnerAccessingTestVisibleMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: method-resolution/TestSetMockDefaultNamespace.cls should detect semantic errors in method-resolution/TestSetMockDefaultNamespace: method-resolution/TestSetMockDefaultNamespace-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/method-resolution/TestSetMockDefaultNamespace.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: method-signature-equivalence/DifferentParameterTypes.cls should detect semantic errors in method-signature-equivalence/DifferentParameterTypes: method-signature-equivalence/DifferentParameterTypes-diagnostics 1`] = `
 {
   "request": {
@@ -4992,6 +7372,57 @@ exports[`Semantic Error Detection Class: method-signature-equivalence/DuplicateS
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/method-signature-equivalence/DuplicateSignature.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/AbstractMethodInGlobalClassWithoutGlobal.cls should detect semantic errors in modifier/AbstractMethodInGlobalClassWithoutGlobal: modifier/AbstractMethodInGlobalClassWithoutGlobal-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/AbstractMethodInGlobalClassWithoutGlobal.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/AbstractOverridePrivateApi65.cls should detect semantic errors in modifier/AbstractOverridePrivateApi65: modifier/AbstractOverridePrivateApi65-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/AbstractOverridePrivateApi65.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/ClassWithoutVisibility.cls should detect semantic errors in modifier/ClassWithoutVisibility: modifier/ClassWithoutVisibility-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/ClassWithoutVisibility.cls",
       },
     },
   },
@@ -5300,6 +7731,74 @@ exports[`Semantic Error Detection Class: modifier/ConflictingModifiers.cls shoul
 }
 `;
 
+exports[`Semantic Error Detection Class: modifier/GlobalMethodInInnerClass.cls should detect semantic errors in modifier/GlobalMethodInInnerClass: modifier/GlobalMethodInInnerClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/GlobalMethodInInnerClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/InnerClassImplementsBatchable.cls should detect semantic errors in modifier/InnerClassImplementsBatchable: modifier/InnerClassImplementsBatchable-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/InnerClassImplementsBatchable.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/InnerGlobalClassWithoutGlobalEnclosing.cls should detect semantic errors in modifier/InnerGlobalClassWithoutGlobalEnclosing: modifier/InnerGlobalClassWithoutGlobalEnclosing-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/InnerGlobalClassWithoutGlobalEnclosing.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/InterfaceWithoutVisibility.cls should detect semantic errors in modifier/InterfaceWithoutVisibility: modifier/InterfaceWithoutVisibility-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/InterfaceWithoutVisibility.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: modifier/InvalidFieldModifiers.cls should detect semantic errors in modifier/InvalidFieldModifiers: modifier/InvalidFieldModifiers-diagnostics 1`] = `
 {
   "request": {
@@ -5482,6 +7981,142 @@ exports[`Semantic Error Detection Class: modifier/InvalidInnerTypeModifier.cls s
 }
 `;
 
+exports[`Semantic Error Detection Class: modifier/NamespaceAccessibleOldVersion.cls should detect semantic errors in modifier/NamespaceAccessibleOldVersion: modifier/NamespaceAccessibleOldVersion-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/NamespaceAccessibleOldVersion.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/OverridePrivateApi65.cls should detect semantic errors in modifier/OverridePrivateApi65: modifier/OverridePrivateApi65-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/OverridePrivateApi65.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/ProtectedStaticInvalid.cls should detect semantic errors in modifier/ProtectedStaticInvalid: modifier/ProtectedStaticInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/ProtectedStaticInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/ReadOnlyInvalid.cls should detect semantic errors in modifier/ReadOnlyInvalid: modifier/ReadOnlyInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/ReadOnlyInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/ReadOnlyUseReplicaNotStatic.cls should detect semantic errors in modifier/ReadOnlyUseReplicaNotStatic: modifier/ReadOnlyUseReplicaNotStatic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/ReadOnlyUseReplicaNotStatic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/ReadOnlyValid.cls should detect semantic errors in modifier/ReadOnlyValid: modifier/ReadOnlyValid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/ReadOnlyValid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/TestClassWithoutTestMethod.cls should detect semantic errors in modifier/TestClassWithoutTestMethod: modifier/TestClassWithoutTestMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/TestClassWithoutTestMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: modifier/TestMethodWithoutIsTest.cls should detect semantic errors in modifier/TestMethodWithoutIsTest: modifier/TestMethodWithoutIsTest-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/modifier/TestMethodWithoutIsTest.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: modifier/WebServiceRequiresGlobal.cls should detect semantic errors in modifier/WebServiceRequiresGlobal: modifier/WebServiceRequiresGlobal-diagnostics 1`] = `
 {
   "request": {
@@ -5595,6 +8230,499 @@ exports[`Semantic Error Detection Class: modifier/WebServiceRequiresGlobal.cls s
         "source": "apex-semantic-validator",
       },
     ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/ConflictOuter.cls should detect semantic errors in new-expression/ConflictOuter: new-expression/ConflictOuter-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/ConflictOuter.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/InterfaceConflict.cls should detect semantic errors in new-expression/InterfaceConflict: new-expression/InterfaceConflict-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/InterfaceConflict.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/InterfaceConflictInterface.cls should detect semantic errors in new-expression/InterfaceConflictInterface: new-expression/InterfaceConflictInterface-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/InterfaceConflictInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/LocalConflict.cls should detect semantic errors in new-expression/LocalConflict: new-expression/LocalConflict-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/LocalConflict.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/MemberConflict.cls should detect semantic errors in new-expression/MemberConflict: new-expression/MemberConflict-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/MemberConflict.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/NewExceptionNameInvalid.cls should detect semantic errors in new-expression/NewExceptionNameInvalid: new-expression/NewExceptionNameInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/NewExceptionNameInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/NewNonExceptionNameEndsException.cls should detect semantic errors in new-expression/NewNonExceptionNameEndsException: new-expression/NewNonExceptionNameEndsException-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/NewNonExceptionNameEndsException.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/SuperConflict.cls should detect semantic errors in new-expression/SuperConflict: new-expression/SuperConflict-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/SuperConflict.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: new-expression/SuperConflictParent.cls should detect semantic errors in new-expression/SuperConflictParent: new-expression/SuperConflictParent-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/new-expression/SuperConflictParent.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/AllExpressionTypes.cls should detect semantic errors in operator/AllExpressionTypes: operator/AllExpressionTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/AllExpressionTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/BitwiseNegateInvalid.cls should detect semantic errors in operator/BitwiseNegateInvalid: operator/BitwiseNegateInvalid-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/BitwiseNegateInvalid.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/BitwiseOperations.cls should detect semantic errors in operator/BitwiseOperations: operator/BitwiseOperations-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/BitwiseOperations.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/BooleanArithmetic.cls should detect semantic errors in operator/BooleanArithmetic: operator/BooleanArithmetic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/BooleanArithmetic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/DateDateTimeTimeArithmetic.cls should detect semantic errors in operator/DateDateTimeTimeArithmetic: operator/DateDateTimeTimeArithmetic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/DateDateTimeTimeArithmetic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/ForLoopConditions.cls should detect semantic errors in operator/ForLoopConditions: operator/ForLoopConditions-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/ForLoopConditions.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidArithmetic.cls should detect semantic errors in operator/InvalidArithmetic: operator/InvalidArithmetic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidArithmetic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidCastExpressions.cls should detect semantic errors in operator/InvalidCastExpressions: operator/InvalidCastExpressions-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidCastExpressions.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidComparison.cls should detect semantic errors in operator/InvalidComparison: operator/InvalidComparison-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidComparison.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidExactEquality.cls should detect semantic errors in operator/InvalidExactEquality: operator/InvalidExactEquality-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidExactEquality.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidInequality.cls should detect semantic errors in operator/InvalidInequality: operator/InvalidInequality-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidInequality.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidLogicalOperators.cls should detect semantic errors in operator/InvalidLogicalOperators: operator/InvalidLogicalOperators-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidLogicalOperators.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidLoopType.cls should detect semantic errors in operator/InvalidLoopType: operator/InvalidLoopType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidLoopType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidNullCoalescing.cls should detect semantic errors in operator/InvalidNullCoalescing: operator/InvalidNullCoalescing-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidNullCoalescing.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidShiftOperators.cls should detect semantic errors in operator/InvalidShiftOperators: operator/InvalidShiftOperators-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidShiftOperators.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/InvalidUnaryOperators.cls should detect semantic errors in operator/InvalidUnaryOperators: operator/InvalidUnaryOperators-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/InvalidUnaryOperators.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/OperatorWithInvalidTypes.cls should detect semantic errors in operator/OperatorWithInvalidTypes: operator/OperatorWithInvalidTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/OperatorWithInvalidTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/OperatorWithValidTypes.cls should detect semantic errors in operator/OperatorWithValidTypes: operator/OperatorWithValidTypes-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/OperatorWithValidTypes.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/StringArithmetic.cls should detect semantic errors in operator/StringArithmetic: operator/StringArithmetic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/StringArithmetic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: operator/StringConcatenation.cls should detect semantic errors in operator/StringConcatenation: operator/StringConcatenation-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/operator/StringConcatenation.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
     "kind": "full",
   },
 }
@@ -5718,6 +8846,176 @@ exports[`Semantic Error Detection Class: parameter-limit/MethodWithNoParams.cls 
 }
 `;
 
+exports[`Semantic Error Detection Class: parameterized-type/InvalidCount.cls should detect semantic errors in parameterized-type/InvalidCount: parameterized-type/InvalidCount-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/parameterized-type/InvalidCount.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: parameterized-type/MaximumTypeDepthExceeded.cls should detect semantic errors in parameterized-type/MaximumTypeDepthExceeded: parameterized-type/MaximumTypeDepthExceeded-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/parameterized-type/MaximumTypeDepthExceeded.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: parameterized-type/NoTypeArgs.cls should detect semantic errors in parameterized-type/NoTypeArgs: parameterized-type/NoTypeArgs-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/parameterized-type/NoTypeArgs.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: parameterized-type/TooDeep.cls should detect semantic errors in parameterized-type/TooDeep: parameterized-type/TooDeep-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/parameterized-type/TooDeep.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: parameterized-type/TypeArgsForNonParameterized.cls should detect semantic errors in parameterized-type/TypeArgsForNonParameterized: parameterized-type/TypeArgsForNonParameterized-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/parameterized-type/TypeArgsForNonParameterized.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: property/IllegalAccessorOnProperty.cls should detect semantic errors in property/IllegalAccessorOnProperty: property/IllegalAccessorOnProperty-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/property/IllegalAccessorOnProperty.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: return-statement/NonVoidMethodReturnsValue.cls should detect semantic errors in return-statement/NonVoidMethodReturnsValue: return-statement/NonVoidMethodReturnsValue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/return-statement/NonVoidMethodReturnsValue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: return-statement/VoidMethodReturnsCorrectly.cls should detect semantic errors in return-statement/VoidMethodReturnsCorrectly: return-statement/VoidMethodReturnsCorrectly-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/return-statement/VoidMethodReturnsCorrectly.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: return-statement/VoidMethodReturnsValue.cls should detect semantic errors in return-statement/VoidMethodReturnsValue: return-statement/VoidMethodReturnsValue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/return-statement/VoidMethodReturnsValue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: runas-statement/InvalidRunAsStatements.cls should detect semantic errors in runas-statement/InvalidRunAsStatements: runas-statement/InvalidRunAsStatements-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/runas-statement/InvalidRunAsStatements.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: source-size/SmallClass.cls should detect semantic errors in source-size/SmallClass: source-size/SmallClass-diagnostics 1`] = `
 {
   "request": {
@@ -5776,6 +9074,516 @@ exports[`Semantic Error Detection Class: source-size/SmallInterface.cls should d
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/source-size/SmallInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/ChainedStaticCall.cls should detect semantic errors in static-context/ChainedStaticCall: static-context/ChainedStaticCall-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/ChainedStaticCall.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/HasIdField.cls should detect semantic errors in static-context/HasIdField: static-context/HasIdField-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/HasIdField.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/InstanceFieldAndProps.cls should detect semantic errors in static-context/InstanceFieldAndProps: static-context/InstanceFieldAndProps-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/InstanceFieldAndProps.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/NonStaticFromStatic.cls should detect semantic errors in static-context/NonStaticFromStatic: static-context/NonStaticFromStatic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/NonStaticFromStatic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/PropertyIdAccess.cls should detect semantic errors in static-context/PropertyIdAccess: static-context/PropertyIdAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/PropertyIdAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/StaticAccessesInstance.cls should detect semantic errors in static-context/StaticAccessesInstance: static-context/StaticAccessesInstance-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/StaticAccessesInstance.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/StaticMethodFromInstance.cls should detect semantic errors in static-context/StaticMethodFromInstance: static-context/StaticMethodFromInstance-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/StaticMethodFromInstance.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/SuperInStatic.cls should detect semantic errors in static-context/SuperInStatic: static-context/SuperInStatic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/SuperInStatic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/SuperInStaticParent.cls should detect semantic errors in static-context/SuperInStaticParent: static-context/SuperInStaticParent-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/SuperInStaticParent.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: static-context/ThisInStatic.cls should detect semantic errors in static-context/ThisInStatic: static-context/ThisInStatic-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/static-context/ThisInStatic.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/DuplicateWhenValues.cls should detect semantic errors in switch-statement/DuplicateWhenValues: switch-statement/DuplicateWhenValues-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/DuplicateWhenValues.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/EnumWithValues.cls should detect semantic errors in switch-statement/EnumWithValues: switch-statement/EnumWithValues-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/EnumWithValues.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidAlreadyMatchType.cls should detect semantic errors in switch-statement/InvalidAlreadyMatchType: switch-statement/InvalidAlreadyMatchType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidAlreadyMatchType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidLiteralOnSObject.cls should detect semantic errors in switch-statement/InvalidLiteralOnSObject: switch-statement/InvalidLiteralOnSObject-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidLiteralOnSObject.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidWhenExpressionType.cls should detect semantic errors in switch-statement/InvalidWhenExpressionType: switch-statement/InvalidWhenExpressionType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidWhenExpressionType.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidWhenFieldConstant.cls should detect semantic errors in switch-statement/InvalidWhenFieldConstant: switch-statement/InvalidWhenFieldConstant-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidWhenFieldConstant.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidWhenFieldLiteral.cls should detect semantic errors in switch-statement/InvalidWhenFieldLiteral: switch-statement/InvalidWhenFieldLiteral-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidWhenFieldLiteral.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidWhenLiteralExpression.cls should detect semantic errors in switch-statement/InvalidWhenLiteralExpression: switch-statement/InvalidWhenLiteralExpression-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidWhenLiteralExpression.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/InvalidWhenTypeVariableOnString.cls should detect semantic errors in switch-statement/InvalidWhenTypeVariableOnString: switch-statement/InvalidWhenTypeVariableOnString-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/InvalidWhenTypeVariableOnString.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/SwitchQualifiedEnum.cls should detect semantic errors in switch-statement/SwitchQualifiedEnum: switch-statement/SwitchQualifiedEnum-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/SwitchQualifiedEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/SwitchWithInvalidEnum.cls should detect semantic errors in switch-statement/SwitchWithInvalidEnum: switch-statement/SwitchWithInvalidEnum-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/SwitchWithInvalidEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/SwitchWithValidEnum.cls should detect semantic errors in switch-statement/SwitchWithValidEnum: switch-statement/SwitchWithValidEnum-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/SwitchWithValidEnum.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: switch-statement/WhenElseNotLast.cls should detect semantic errors in switch-statement/WhenElseNotLast: switch-statement/WhenElseNotLast-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/switch-statement/WhenElseNotLast.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/MismatchedSyntax.cls should detect semantic errors in syntax-error/MismatchedSyntax: syntax-error/MismatchedSyntax-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/MismatchedSyntax.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/MissingClosingMark.cls should detect semantic errors in syntax-error/MissingClosingMark: syntax-error/MissingClosingMark-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/MissingClosingMark.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/MissingClosingQuote.cls should detect semantic errors in syntax-error/MissingClosingQuote: syntax-error/MissingClosingQuote-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/MissingClosingQuote.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/MissingSemicolon.cls should detect semantic errors in syntax-error/MissingSemicolon: syntax-error/MissingSemicolon-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/MissingSemicolon.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/UnexpectedEof.cls should detect semantic errors in syntax-error/UnexpectedEof: syntax-error/UnexpectedEof-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/UnexpectedEof.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/UnexpectedToken.cls should detect semantic errors in syntax-error/UnexpectedToken: syntax-error/UnexpectedToken-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/UnexpectedToken.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: syntax-error/UnmatchedSyntax.cls should detect semantic errors in syntax-error/UnmatchedSyntax: syntax-error/UnmatchedSyntax-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/syntax-error/UnmatchedSyntax.cls",
       },
     },
   },
@@ -5967,6 +9775,108 @@ exports[`Semantic Error Detection Class: test-method/TestSetupWithParams.cls sho
         "source": "apex-semantic-validator",
       },
     ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/MultipleTryStatements.cls should detect semantic errors in try-catch-finally/MultipleTryStatements: try-catch-finally/MultipleTryStatements-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/MultipleTryStatements.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/NestedTryStatements.cls should detect semantic errors in try-catch-finally/NestedTryStatements: try-catch-finally/NestedTryStatements-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/NestedTryStatements.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/NoCatchOrFinally.cls should detect semantic errors in try-catch-finally/NoCatchOrFinally: try-catch-finally/NoCatchOrFinally-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/NoCatchOrFinally.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/TryWithCatch.cls should detect semantic errors in try-catch-finally/TryWithCatch: try-catch-finally/TryWithCatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/TryWithCatch.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/TryWithCatchAndFinally.cls should detect semantic errors in try-catch-finally/TryWithCatchAndFinally: try-catch-finally/TryWithCatchAndFinally-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/TryWithCatchAndFinally.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: try-catch-finally/TryWithFinally.cls should detect semantic errors in try-catch-finally/TryWithFinally: try-catch-finally/TryWithFinally-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/try-catch-finally/TryWithFinally.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
     "kind": "full",
   },
 }
@@ -6218,6 +10128,74 @@ exports[`Semantic Error Detection Class: type-assignment/Property.cls should det
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/type-assignment/Property.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-resolution/GenericUnresolved.cls should detect semantic errors in type-resolution/GenericUnresolved: type-resolution/GenericUnresolved-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-resolution/GenericUnresolved.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-resolution/InterfaceUsedAsClass.cls should detect semantic errors in type-resolution/InterfaceUsedAsClass: type-resolution/InterfaceUsedAsClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-resolution/InterfaceUsedAsClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-resolution/NewInterface.cls should detect semantic errors in type-resolution/NewInterface: type-resolution/NewInterface-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-resolution/NewInterface.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-resolution/UnresolvedType.cls should detect semantic errors in type-resolution/UnresolvedType: type-resolution/UnresolvedType-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-resolution/UnresolvedType.cls",
       },
     },
   },
@@ -6505,6 +10483,57 @@ exports[`Semantic Error Detection Class: type-self-reference/SelfImplementing.cl
         "source": "apex-semantic-validator",
       },
     ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-visibility/DeprecatedRemoved57.cls should detect semantic errors in type-visibility/DeprecatedRemoved57: type-visibility/DeprecatedRemoved57-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-visibility/DeprecatedRemoved57.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: type-visibility/DeprecatedRemoved57Consumer.cls should detect semantic errors in type-visibility/DeprecatedRemoved57Consumer: type-visibility/DeprecatedRemoved57Consumer-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/type-visibility/DeprecatedRemoved57Consumer.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: unknown-annotation/UnresolvedAnnotation.cls should detect semantic errors in unknown-annotation/UnresolvedAnnotation: unknown-annotation/UnresolvedAnnotation-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/unknown-annotation/UnresolvedAnnotation.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
     "kind": "full",
   },
 }
@@ -6830,6 +10859,193 @@ exports[`Semantic Error Detection Class: unreachable-statement/UnreachableMultip
 }
 `;
 
+exports[`Semantic Error Detection Class: variable-resolution/CallerWithInvalidQualifiedAccess.cls should detect semantic errors in variable-resolution/CallerWithInvalidQualifiedAccess: variable-resolution/CallerWithInvalidQualifiedAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/CallerWithInvalidQualifiedAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/CallerWithQualifiedAccess.cls should detect semantic errors in variable-resolution/CallerWithQualifiedAccess: variable-resolution/CallerWithQualifiedAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/CallerWithQualifiedAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/CastExpressionFieldAccess.cls should detect semantic errors in variable-resolution/CastExpressionFieldAccess: variable-resolution/CastExpressionFieldAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/CastExpressionFieldAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/ClassWithFields.cls should detect semantic errors in variable-resolution/ClassWithFields: variable-resolution/ClassWithFields-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/ClassWithFields.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/ClassWithTestVisibleField.cls should detect semantic errors in variable-resolution/ClassWithTestVisibleField: variable-resolution/ClassWithTestVisibleField-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/ClassWithTestVisibleField.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/NonTestClassAccessingTestVisibleField.cls should detect semantic errors in variable-resolution/NonTestClassAccessingTestVisibleField: variable-resolution/NonTestClassAccessingTestVisibleField-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/NonTestClassAccessingTestVisibleField.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/OuterWithProtectedFieldInnerAccess.cls should detect semantic errors in variable-resolution/OuterWithProtectedFieldInnerAccess: variable-resolution/OuterWithProtectedFieldInnerAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/OuterWithProtectedFieldInnerAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/SubExpressionFieldAccess.cls should detect semantic errors in variable-resolution/SubExpressionFieldAccess: variable-resolution/SubExpressionFieldAccess-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/SubExpressionFieldAccess.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/TestClassAccessingTestVisibleField.cls should detect semantic errors in variable-resolution/TestClassAccessingTestVisibleField: variable-resolution/TestClassAccessingTestVisibleField-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/TestClassAccessingTestVisibleField.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-resolution/TestClassWithInnerAccessingTestVisible.cls should detect semantic errors in variable-resolution/TestClassWithInnerAccessingTestVisible: variable-resolution/TestClassWithInnerAccessingTestVisible-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-resolution/TestClassWithInnerAccessingTestVisible.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-shadowing/Class0001.cls should detect semantic errors in variable-shadowing/Class0001: variable-shadowing/Class0001-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-shadowing/Class0001.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: variable-shadowing/DifferentNames.cls should detect semantic errors in variable-shadowing/DifferentNames: variable-shadowing/DifferentNames-diagnostics 1`] = `
 {
   "request": {
@@ -6837,6 +11053,23 @@ exports[`Semantic Error Detection Class: variable-shadowing/DifferentNames.cls s
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/variable-shadowing/DifferentNames.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: variable-shadowing/MultipleMethodsSameVarName.cls should detect semantic errors in variable-shadowing/MultipleMethodsSameVarName: variable-shadowing/MultipleMethodsSameVarName-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/variable-shadowing/MultipleMethodsSameVarName.cls",
       },
     },
   },

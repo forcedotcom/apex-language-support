@@ -21,6 +21,7 @@ import {
   ResourceLoader,
   ApexSymbolProcessingManager,
   STANDARD_APEX_LIBRARY_URI,
+  type ResourceLoaderServiceShape,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   enableConsoleLogging,
@@ -91,18 +92,29 @@ describe('HoverProcessingService Integration Tests', () => {
       await resourceLoader.initialize();
     }
 
-    // Create a real symbol manager for integration testing
-    // This will use the ResourceLoader singleton initialized above
-    // The ResourceLoader.getInstance() call in ApexSymbolManager constructor
-    // should return the same singleton instance we initialized in beforeAll
-    symbolManager = new ApexSymbolManager();
+    // Build a ResourceLoaderServiceShape wrapping the initialized singleton.
+    const stdlibProvider: ResourceLoaderServiceShape = {
+      isStdApexNamespace: (ns) => resourceLoader.isStdApexNamespace(ns),
+      hasClass: (cp) => resourceLoader.hasClass(cp),
+      findNamespaceForClass: (cn) => resourceLoader.findNamespaceForClass(cn),
+      getStandardNamespaces: () => {
+        const orig = resourceLoader.getStandardNamespaces();
+        const result = new Map<string, string[]>();
+        for (const [k, v] of orig)
+          result.set(
+            k,
+            v.map((c) => c.value),
+          );
+        return result;
+      },
+      resolveClassFqn: (cn) =>
+        Promise.resolve(resourceLoader.resolveStandardClassFqn(cn)),
+      getSymbolTable: (cp) => resourceLoader.getSymbolTable(cp),
+      getFile: (p) => resourceLoader.getFile(p),
+    };
 
-    // Verify that the symbol manager's ResourceLoader is the same instance
-    // This ensures the standard library is accessible
-    const managerResourceLoader = (symbolManager as any).resourceLoader;
-    if (managerResourceLoader !== resourceLoader) {
-      // If they're different, we have a problem but continue
-    }
+    // Create a real symbol manager for integration testing.
+    symbolManager = new ApexSymbolManager(stdlibProvider);
 
     // Preload the System class to ensure it's available for resolution
     // This is needed because lazy loading might not have loaded it yet
@@ -302,10 +314,10 @@ describe('HoverProcessingService Integration Tests', () => {
     hoverService = new HoverProcessingService(getLogger(), symbolManager);
 
     // Debug: Verify symbols are added correctly
-    const testClassSymbols = symbolManager.findSymbolsInFile(
+    const testClassSymbols = await symbolManager.findSymbolsInFile(
       'file:///TestClass.cls',
     );
-    const anotherTestClassSymbols = symbolManager.findSymbolsInFile(
+    const anotherTestClassSymbols = await symbolManager.findSymbolsInFile(
       'file:///AnotherTestClass.cls',
     );
 
@@ -2676,6 +2688,239 @@ public class RecordTypeModel {}`;
       // Should NOT show "searching" message (which would indicate missing artifact resolution)
       expect(content).not.toContain('searching');
       expect(content).not.toContain('Searching');
+    });
+  });
+
+  describe('On-demand Enrichment Tests', () => {
+    // These tests exercise two fixes for chained-ref hover:
+    //   1. isQualifierClass guard: qualifier class symbol is accepted, not rejected.
+    //   2. Call Site B fix: VARIABLE_USAGE (parser's conservative default for chain
+    //      qualifiers) no longer blocks missing-artifact resolution after enrichment.
+    //
+    // EnrichmentTestClass.cls uses a *standalone* call (no LHS variable declaration)
+    // so the `result` variable's symbolRange from ComplexTestClass.cls does not
+    // shadow the FileUtilities qualifier position.
+
+    let coldStartSymbolManager: ApexSymbolManager;
+    let coldStartHoverService: HoverProcessingService;
+    let coldStartStorage: any;
+    let enrichmentClassContent: string;
+    let enrichmentClassDoc: TextDocument;
+
+    const fixturesDir = join(__dirname, '../fixtures/classes');
+
+    beforeEach(async () => {
+      enrichmentClassContent = readFileSync(
+        join(fixturesDir, 'EnrichmentTestClass.cls'),
+        'utf8',
+      );
+      enrichmentClassDoc = TextDocument.create(
+        'file:///EnrichmentTestClass.cls',
+        'apex',
+        1,
+        enrichmentClassContent,
+      );
+
+      // Minimal symbol manager: EnrichmentTestClass.cls only. FileUtilities.cls is
+      // intentionally absent to simulate cold-start / lazy-load.
+      coldStartSymbolManager = new ApexSymbolManager({
+        isStdApexNamespace: (ns) => resourceLoader.isStdApexNamespace(ns),
+        hasClass: (cp) => resourceLoader.hasClass(cp),
+        findNamespaceForClass: (cn) => resourceLoader.findNamespaceForClass(cn),
+        getStandardNamespaces: () => {
+          const orig = resourceLoader.getStandardNamespaces();
+          const result = new Map<string, string[]>();
+          for (const [k, v] of orig)
+            result.set(
+              k,
+              v.map((c) => c.value),
+            );
+          return result;
+        },
+        resolveClassFqn: (cn) =>
+          Promise.resolve(resourceLoader.resolveStandardClassFqn(cn)),
+        getSymbolTable: (cp) => resourceLoader.getSymbolTable(cp),
+        getFile: (p) => resourceLoader.getFile(p),
+      });
+      const cs = new CompilerService();
+      const table = new SymbolTable();
+      cs.compile(
+        enrichmentClassContent,
+        'file:///EnrichmentTestClass.cls',
+        new FullSymbolCollectorListener(table),
+        {},
+      );
+      await Effect.runPromise(
+        coldStartSymbolManager.addSymbolTable(
+          table,
+          'file:///EnrichmentTestClass.cls',
+        ),
+      );
+
+      coldStartStorage = { getDocument: jest.fn() };
+      (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
+        getStorage: jest.fn().mockReturnValue(coldStartStorage),
+      });
+
+      coldStartHoverService = new HoverProcessingService(
+        getLogger(),
+        coldStartSymbolManager,
+      );
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    const chainedRefPosition = (token: string) => {
+      const lines = enrichmentClassContent.split('\n');
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('FileUtilities.createFile'),
+      );
+      return {
+        line: lineIndex,
+        character: lines[lineIndex].indexOf(token),
+      };
+    };
+
+    it('should trigger missing-artifact resolution for qualifier when cross-file class is not pre-loaded', async () => {
+      // FileUtilities.cls is not loaded. The parser marks `FileUtilities` as
+      // VARIABLE_USAGE (conservative default for chain qualifiers). After enrichment
+      // finds no local variable, Call Site B proceeds to missing-artifact resolution.
+      coldStartStorage.getDocument.mockResolvedValue(enrichmentClassDoc);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///EnrichmentTestClass.cls' },
+        position: chainedRefPosition('FileUtilities'),
+      };
+
+      const result = await coldStartHoverService.processHover(params);
+
+      // Missing-artifact resolution returns a "searching" hover, not null.
+      expect(result).not.toBeNull();
+      const content =
+        typeof result?.contents === 'object' && 'value' in result!.contents
+          ? (result!.contents as { value: string }).value
+          : '';
+      expect(content).toContain('Searching for symbol');
+    });
+
+    it('should trigger missing-artifact resolution for method when cross-file class is not pre-loaded', async () => {
+      // Same path — cursor is on `createFile` but the qualifier class is absent.
+      coldStartStorage.getDocument.mockResolvedValue(enrichmentClassDoc);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///EnrichmentTestClass.cls' },
+        position: chainedRefPosition('createFile'),
+      };
+
+      const result = await coldStartHoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      const content =
+        typeof result?.contents === 'object' && 'value' in result!.contents
+          ? (result!.contents as { value: string }).value
+          : '';
+      expect(content).toContain('Searching for symbol');
+    });
+
+    it('should not fall back to enclosing-method hover when qualifier class is not loaded', async () => {
+      // Before the scope-fallback removal, hover on a cold-start qualifier would
+      // incorrectly return the enclosing method (testColdStartQualifier).
+      coldStartStorage.getDocument.mockResolvedValue(enrichmentClassDoc);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///EnrichmentTestClass.cls' },
+        position: chainedRefPosition('FileUtilities'),
+      };
+
+      const result = await coldStartHoverService.processHover(params);
+
+      const content =
+        typeof result?.contents === 'object' && 'value' in result!.contents
+          ? (result!.contents as { value: string }).value
+          : '';
+      expect(content).not.toContain(
+        'void EnrichmentTestClass.testColdStartQualifier()',
+      );
+    });
+
+    it('should return class hover for qualifier when cross-file class is loaded (isQualifierClass guard)', async () => {
+      // Load FileUtilities.cls to simulate a file indexed after initial workspace load.
+      // The isQualifierClass guard must keep the class symbol rather than rejecting it.
+      const fileUtilitiesContent = readFileSync(
+        join(fixturesDir, 'FileUtilities.cls'),
+        'utf8',
+      );
+      const cs = new CompilerService();
+      const fuTable = new SymbolTable();
+      cs.compile(
+        fileUtilitiesContent,
+        'file:///FileUtilities.cls',
+        new FullSymbolCollectorListener(fuTable),
+        {},
+      );
+      await Effect.runPromise(
+        coldStartSymbolManager.addSymbolTable(
+          fuTable,
+          'file:///FileUtilities.cls',
+        ),
+      );
+
+      coldStartStorage.getDocument.mockResolvedValue(enrichmentClassDoc);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///EnrichmentTestClass.cls' },
+        position: chainedRefPosition('FileUtilities'),
+      };
+
+      const result = await coldStartHoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      const content =
+        typeof result?.contents === 'object' && 'value' in result!.contents
+          ? (result!.contents as { value: string }).value
+          : '';
+      expect(content).toContain('class FileUtilities');
+    });
+
+    it('should return method hover for method name when cross-file class is loaded', async () => {
+      // With FileUtilities.cls loaded, cursor on `createFile` should resolve to
+      // the method — not null, not the enclosing class.
+      const fileUtilitiesContent = readFileSync(
+        join(fixturesDir, 'FileUtilities.cls'),
+        'utf8',
+      );
+      const cs = new CompilerService();
+      const fuTable = new SymbolTable();
+      cs.compile(
+        fileUtilitiesContent,
+        'file:///FileUtilities.cls',
+        new FullSymbolCollectorListener(fuTable),
+        {},
+      );
+      await Effect.runPromise(
+        coldStartSymbolManager.addSymbolTable(
+          fuTable,
+          'file:///FileUtilities.cls',
+        ),
+      );
+
+      coldStartStorage.getDocument.mockResolvedValue(enrichmentClassDoc);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///EnrichmentTestClass.cls' },
+        position: chainedRefPosition('createFile'),
+      };
+
+      const result = await coldStartHoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      const content =
+        typeof result?.contents === 'object' && 'value' in result!.contents
+          ? (result!.contents as { value: string }).value
+          : '';
+      expect(content).toContain('String FileUtilities.createFile(');
     });
   });
 });

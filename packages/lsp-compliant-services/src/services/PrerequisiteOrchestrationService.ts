@@ -161,9 +161,22 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
 }
 
 /**
- * Service for orchestrating prerequisite fulfillment for LSP request types
- * This service uses the well-defined mapping from LSP request types to prerequisites
+ * Service for orchestrating prerequisite fulfillment for LSP request types.
+ *
+ * Uses the well-defined mapping from LSP request types to prerequisites
  * and coordinates enrichment, reference collection, and cross-file resolution.
+ *
+ * **Atomicity contract (Step 6):**
+ * `runCoordinatedPrerequisites` for a given (fileUri, documentVersion) is
+ * one atomic schedulable unit. It must never be split across different
+ * workers — the entire chain (enrichment → cross-file resolution →
+ * missing artifact handling → revision stabilization) runs on a single
+ * thread where `InFlightPrerequisiteRegistry` provides dedup via
+ * `acquireOrJoin`.
+ *
+ * When worker dispatch is active, `WorkerTopologyDispatcher.canDispatch()`
+ * returns false for prerequisite-requiring types, forcing them to run
+ * locally on the coordinator thread.
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;
@@ -222,10 +235,10 @@ export class PrerequisiteOrchestrationService {
     const cacheDetailLevel =
       getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
     const currentDetailLevel = pickHighestDetailLevel(
-      this.symbolManager.getDetailLevelForFile(fileUri),
+      await this.symbolManager.getDetailLevelForFile(fileUri),
       cacheDetailLevel,
     );
-    const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
 
     // Determine what needs to be done.
     // Skip enrichment when a previous attempt failed (e.g. missing superclass); the failure flag
@@ -399,10 +412,33 @@ export class PrerequisiteOrchestrationService {
           });
       }
 
-      if (
-        requirements.requiresCrossFileResolution &&
-        needsCrossFileResolution
-      ) {
+      // For async (fire-and-forget) requests, bypass hasCrossFileResolution gate.
+      // The gate checks the data-owner's ref state (resolvedSymbolId set), but the
+      // enrichment worker may not have the actual cross-file symbol tables loaded.
+      // Cross-file resolution on the enrichment worker fetches those tables via
+      // QuerySymbolSubset, making getSymbol(resolvedSymbolId) work. Once loaded,
+      // subsequent runs are fast (refs already resolved locally).
+      if (requirements.requiresCrossFileResolution) {
+        // #region agent log
+        fetch(
+          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': 'a509d3',
+            },
+            body: JSON.stringify({
+              sessionId: 'a509d3',
+              location: 'PrerequisiteOrchestrationService.ts:async-cross-file',
+              message: 'firing async cross-file resolution',
+              data: { requestType, fileUri },
+              hypothesisId: 'H-cross-file',
+              timestamp: Date.now(),
+            }),
+          },
+        ).catch(() => {});
+        // #endregion
         Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         )
@@ -448,10 +484,11 @@ export class PrerequisiteOrchestrationService {
       const cacheDetailLevel =
         getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
       const currentDetailLevel = pickHighestDetailLevel(
-        this.symbolManager.getDetailLevelForFile(fileUri) ?? null,
+        (await this.symbolManager.getDetailLevelForFile(fileUri)) ?? null,
         cacheDetailLevel,
       );
-      const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+      const symbolTable =
+        await this.symbolManager.getSymbolTableForFile(fileUri);
       const needsEnrichment =
         !!entry.targetDetailLevel &&
         (!currentDetailLevel ||
@@ -525,7 +562,7 @@ export class PrerequisiteOrchestrationService {
     requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
     forceBlocking = false,
   ): Promise<void> {
-    const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
     if (!symbolTable) {
       return;
     }
@@ -535,15 +572,46 @@ export class PrerequisiteOrchestrationService {
       (r) =>
         !r.resolvedSymbolId &&
         (r.context === ReferenceContext.TYPE_DECLARATION ||
-          r.context === ReferenceContext.CONSTRUCTOR_CALL),
+          r.context === ReferenceContext.CONSTRUCTOR_CALL ||
+          r.context === ReferenceContext.RETURN_TYPE ||
+          r.context === ReferenceContext.PARAMETER_TYPE),
     );
 
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
     // artifacts. Stdlib (String, List, System, etc.) is loaded by the symbol manager
     // via resolveStandardApexClass, not via the client's artifact resolution.
-    const nonStdlibRefs = unresolvedTypeRefs.filter(
-      (r) => !this.symbolManager.isStandardLibraryType(r.name),
+    const stdlibChecks = await Promise.all(
+      unresolvedTypeRefs.map((r) =>
+        this.symbolManager.isStandardLibraryType(r.name),
+      ),
     );
+    const nonStdlibRefs = unresolvedTypeRefs.filter(
+      (_r, i) => !stdlibChecks[i],
+    );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a509d3',
+      },
+      body: JSON.stringify({
+        sessionId: 'a509d3',
+        location: 'PrerequisiteOrchestrationService.ts:handleMissingArtifacts',
+        message: 'stdlib filter result',
+        data: {
+          requestType,
+          unresolvedCount: unresolvedTypeRefs.length,
+          stdlibFiltered: unresolvedTypeRefs.length - nonStdlibRefs.length,
+          nonStdlibCount: nonStdlibRefs.length,
+          nonStdlibNames: nonStdlibRefs.map((r) => r.name),
+        },
+        hypothesisId: 'H-cross-file',
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     if (nonStdlibRefs.length === 0) {
       return;
@@ -584,10 +652,14 @@ export class PrerequisiteOrchestrationService {
           const maxWaitMs = 500;
           const start = Date.now();
           while (Date.now() - start < maxWaitMs) {
-            const allIndexed = missingTypes.every((name) => {
-              const symbols = this.symbolManager.findSymbolByName(name);
-              return symbols.length > 0;
-            });
+            const indexResults = await Promise.all(
+              missingTypes.map((name) =>
+                this.symbolManager.findSymbolByName(name),
+              ),
+            );
+            const allIndexed = indexResults.every(
+              (symbols) => symbols.length > 0,
+            );
             if (allIndexed) {
               break;
             }

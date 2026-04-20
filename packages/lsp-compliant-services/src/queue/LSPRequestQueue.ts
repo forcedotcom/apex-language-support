@@ -7,30 +7,9 @@
  */
 
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import type { Priority } from '@salesforce/apex-lsp-shared';
+import type { Priority, LSPRequestType } from '@salesforce/apex-lsp-shared';
 
-/**
- * LSP request types with their priority levels
- */
-export type LSPRequestType =
-  | 'hover'
-  | 'completion'
-  | 'definition'
-  | 'references'
-  | 'documentSymbol'
-  | 'workspaceSymbol'
-  | 'diagnostics'
-  | 'codeAction'
-  | 'signatureHelp'
-  | 'rename'
-  | 'documentOpen'
-  | 'documentSave'
-  | 'documentChange'
-  | 'documentClose'
-  | 'documentLoad'
-  | 'findMissingArtifact'
-  | 'executeCommand'
-  | 'prerequisiteEnrichment';
+export type { LSPRequestType };
 
 /**
  * LSP request task interface

@@ -22,6 +22,7 @@ import { Effect } from 'effect';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
+  getResourceLoaderServiceShapeFromSingleton,
 } from '../helpers/testHelpers';
 import { ReferenceContext } from '../../src/types/symbolReference';
 
@@ -67,12 +68,14 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     // Enable console logging with debug level for tests
     enableConsoleLogging();
     setLogLevel('error');
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   describe('same-file symbol resolution', () => {
@@ -648,7 +651,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Find List symbols to determine the correct file URI
-      const listSymbols = symbolManager.findSymbolByName('List');
+      const listSymbols = await symbolManager.findSymbolByName('List');
 
       // Try to find List.cls symbol table using the fileUri from the symbol
       const listSymbol = listSymbols.find((s) =>
@@ -752,7 +755,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Find String symbols to determine the correct file URI
-      const stringSymbols = symbolManager.findSymbolByName('String');
+      const stringSymbols = await symbolManager.findSymbolByName('String');
 
       const stringSymbol = stringSymbols.find((s) =>
         s.fileUri?.includes('String.cls'),
@@ -769,7 +772,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       }
 
       // Check Map and Set (both are generic classes like List)
-      const mapSymbols = symbolManager.findSymbolByName('Map');
+      const mapSymbols = await symbolManager.findSymbolByName('Map');
       const mapSymbol = mapSymbols.find((s) => s.fileUri?.includes('Map.cls'));
       if (mapSymbol) {
         const mapFileUri = mapSymbol.fileUri;
@@ -787,7 +790,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         }
       }
 
-      const setSymbols = symbolManager.findSymbolByName('Set');
+      const setSymbols = await symbolManager.findSymbolByName('Set');
       const setSymbol = setSymbols.find((s) => s.fileUri?.includes('Set.cls'));
       if (setSymbol) {
         const setFileUri = setSymbol.fileUri;
@@ -848,7 +851,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         character: charIndex,
       };
 
-      const references = symbolManager.getReferencesAtPosition(
+      const references = await symbolManager.getReferencesAtPosition(
         'file:///test/MethodCallWithSameNameVariable.cls',
         parserPosition,
       );
@@ -859,7 +862,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
       expect(methodCallRef).toBeDefined();
 
-      const symbolsInFile = symbolManager.findSymbolsInFile(
+      const symbolsInFile = await symbolManager.findSymbolsInFile(
         'file:///test/MethodCallWithSameNameVariable.cls',
       );
       const variableSymbol = symbolsInFile.find(

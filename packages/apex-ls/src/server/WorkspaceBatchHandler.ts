@@ -246,6 +246,70 @@ export function clearBatchStorage(): void {
   batchStorage['sessions'].clear();
 }
 
+// ---------------------------------------------------------------------------
+// Step 8 — Data-owner batch dispatch
+// ---------------------------------------------------------------------------
+
+/**
+ * Dispatch function for routing decoded batch entries to the data-owner
+ * worker via WorkspaceBatchIngest. When set, processStoredBatches
+ * decodes+unzips on the coordinator and forwards entries to the worker.
+ * When null, falls back to local processing.
+ */
+export type BatchIngestionDispatcher = (
+  sessionId: string,
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>,
+) => Promise<{ processedCount: number }>;
+
+let batchIngestionDispatcher: BatchIngestionDispatcher | null = null;
+
+export function setBatchIngestionDispatcher(
+  dispatcher: BatchIngestionDispatcher | null,
+): void {
+  batchIngestionDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Batch ingestion dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getBatchIngestionDispatcher(): BatchIngestionDispatcher | null {
+  return batchIngestionDispatcher;
+}
+
+/**
+ * Optional dispatcher for sending workspace files to the compilation worker
+ * for public-api compilation after batch ingest completes.
+ */
+export type BatchCompileDispatcher = (
+  sessionId: string,
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>,
+) => Promise<{ compiledCount: number; errorCount: number; elapsedMs: number }>;
+
+let batchCompileDispatcher: BatchCompileDispatcher | null = null;
+
+export function setBatchCompileDispatcher(
+  dispatcher: BatchCompileDispatcher | null,
+): void {
+  batchCompileDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Batch compile dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getBatchCompileDispatcher(): BatchCompileDispatcher | null {
+  return batchCompileDispatcher;
+}
+
 /**
  * Decode base64 string to Uint8Array
  */
@@ -262,6 +326,48 @@ function decodeBase64(base64: string): Uint8Array {
     }
     return bytes;
   }
+}
+
+/**
+ * Decode and unzip a compressed batch, returning plain entries suitable
+ * for WorkspaceBatchIngest. Used by both the local processing path and
+ * the data-owner dispatch path (Step 8).
+ */
+type BatchEntry = {
+  uri: string;
+  content: string;
+  languageId: string;
+  version: number;
+};
+
+function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
+  const compressedData = decodeBase64(compressedDataBase64);
+  const decompressedFiles = unzipSync(compressedData);
+
+  const metadataEntry = decompressedFiles['__metadata.json'];
+  if (!metadataEntry) {
+    throw new Error('Missing __metadata.json in compressed batch');
+  }
+
+  const decoder = new TextDecoder();
+  const metadata = JSON.parse(decoder.decode(metadataEntry)) as {
+    fileMetadata: Array<{ uri: string; version: number }>;
+  };
+
+  const entries: BatchEntry[] = [];
+
+  for (const fileMeta of metadata.fileMetadata) {
+    const fileContent = decompressedFiles[fileMeta.uri];
+    if (!fileContent) continue;
+    entries.push({
+      uri: fileMeta.uri,
+      content: decoder.decode(fileContent),
+      languageId: 'apex',
+      version: fileMeta.version,
+    });
+  }
+
+  return entries;
 }
 
 /**
@@ -406,26 +512,169 @@ function processWorkspaceBatchBackground(
 }
 
 /**
- * Process all stored batches for a session
- * This is called when all batches have been received
+ * Process all stored batches for a session.
+ *
+ * When a BatchIngestionDispatcher is set (Step 8), each batch is
+ * decoded+unzipped on the coordinator, then the plain entries are
+ * dispatched to the data-owner worker via WorkspaceBatchIngest.
+ *
+ * When no dispatcher is set, falls back to local processing via
+ * the priority scheduler (pre-Step 8 behavior).
  */
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
+  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
+    const totalFiles = batches.reduce(
+      (sum, b) => sum + (b.fileMetadata?.length ?? 0),
+      0,
+    );
+    const batchStartTime = Date.now();
     logger.debug(
       () =>
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
     );
 
-    // Ensure scheduler is initialized
+    if (dispatcher) {
+      yield* processViaDataOwner(sessionId, batches, dispatcher, logger);
+    } else {
+      yield* processLocally(sessionId, batches, logger);
+    }
+
+    batchStorage.removeSession(sessionId);
+    const totalElapsed = Date.now() - batchStartTime;
+    const actualFiles = totalFiles || batches.length * 100;
+    const throughput =
+      totalElapsed > 0 ? ((actualFiles / totalElapsed) * 1000).toFixed(0) : '∞';
+    logger.info(
+      () =>
+        `[BATCH-PROCESSING] Completed session ${sessionId}: ` +
+        `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
+        `(${throughput} files/sec)`,
+    );
+  }).pipe(
+    Effect.catchAll((error: unknown) =>
+      Effect.gen(function* () {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          () =>
+            `[BATCH-PROCESSING] Error for session ${sessionId}: ${errorMessage}`,
+        );
+        batchStorage.removeSession(sessionId);
+        return undefined;
+      }),
+    ),
+  );
+}
+
+function processViaDataOwner(
+  sessionId: string,
+  batches: SendWorkspaceBatchParams[],
+  dispatcher: BatchIngestionDispatcher,
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
+    const allEntries: Array<{
+      uri: string;
+      content: string;
+      languageId: string;
+      version: number;
+    }>[] = [];
+
+    for (const batchParams of batches) {
+      const t0 = Date.now();
+      const entries = yield* Effect.try({
+        try: () => extractBatchEntries(batchParams.compressedData),
+        catch: (e) =>
+          new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
+      });
+      const decodeMs = Date.now() - t0;
+
+      allEntries.push(entries);
+
+      const t1 = Date.now();
+      const result = yield* Effect.tryPromise({
+        try: () => dispatcher(sessionId, entries),
+        catch: (e) => e as Error,
+      });
+      const ingestMs = Date.now() - t1;
+
+      logger.debug(
+        () =>
+          '[BATCH-PROCESSING] Batch ' +
+          `${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
+          `${result.processedCount} files (decode=${decodeMs}ms, ingest=${ingestMs}ms)`,
+      );
+    }
+
+    const compileDispatcher = batchCompileDispatcher;
+    if (compileDispatcher) {
+      const flat = allEntries.flat();
+      const CHUNK_SIZE = 100;
+      const totalChunks = Math.ceil(flat.length / CHUNK_SIZE);
+
+      logger.info(
+        () =>
+          `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
+          `${flat.length} files in ${totalChunks} chunks`,
+      );
+
+      const compileStartTime = Date.now();
+      let totalCompiled = 0;
+      let totalErrors = 0;
+
+      for (let i = 0; i < flat.length; i += CHUNK_SIZE) {
+        const chunk = flat.slice(i, i + CHUNK_SIZE);
+        const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
+        try {
+          const result = yield* Effect.tryPromise({
+            try: () => compileDispatcher(sessionId, chunk),
+            catch: (e) => e as Error,
+          });
+          totalCompiled += result.compiledCount;
+          totalErrors += result.errorCount;
+          logger.debug(
+            () =>
+              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
+              `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+          );
+        } catch (err) {
+          logger.error(
+            () =>
+              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks} failed: ${err}`,
+          );
+        }
+      }
+
+      const totalElapsed = Date.now() - compileStartTime;
+      const throughput =
+        totalElapsed > 0
+          ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
+          : '∞';
+      logger.info(
+        () =>
+          `[BATCH-COMPILE] Completed session ${sessionId}: ` +
+          `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
+          `(${throughput} files/sec)`,
+      );
+    }
+  });
+}
+
+function processLocally(
+  _sessionId: string,
+  batches: SendWorkspaceBatchParams[],
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
     const schedulerService = SchedulerInitializationService.getInstance();
     yield* Effect.promise(() => schedulerService.ensureInitialized());
 
-    // Process each batch via scheduler
     for (const batchParams of batches) {
       const backgroundProcessingEffect = processWorkspaceBatchBackground(
         batchParams,
@@ -440,32 +689,12 @@ function processStoredBatches(
 
       logger.debug(
         () =>
-          `[BATCH-PROCESSING] Enqueued batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
-          `(${batchParams.fileMetadata.length} files) for processing`,
+          '[BATCH-PROCESSING] Enqueued batch ' +
+          `${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
+          `(${batchParams.fileMetadata.length} files) for local processing`,
       );
     }
-
-    // Remove session after processing
-    batchStorage.removeSession(sessionId);
-    logger.debug(
-      () =>
-        `[BATCH-PROCESSING] Completed processing all batches for session ${sessionId}`,
-    );
-  }).pipe(
-    Effect.catchAll((error: unknown) =>
-      Effect.gen(function* () {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logger.error(
-          () =>
-            `[BATCH-PROCESSING] Error processing batches for session ${sessionId}: ${errorMessage}`,
-        );
-        // Remove session even on error to prevent memory leak
-        batchStorage.removeSession(sessionId);
-        return undefined;
-      }),
-    ),
-  );
+  });
 }
 
 /**

@@ -199,14 +199,18 @@ class PerformanceSettingsUI {
 
     const settings = this.currentSettings?.apex || {};
 
-    content.innerHTML = `
-      <div id="status-message" class="status-message"></div>
-      ${this.renderQueueSettings(settings.queueProcessing, settings.scheduler)}
-      ${this.renderDeferredReferenceProcessing(settings.deferredReferenceProcessing)}
-      ${this.renderLoadWorkspace(settings.loadWorkspace)}
-      ${this.renderPerformance(settings.performance)}
-      ${this.renderCommentCollection(settings.commentCollection)}
-    `;
+    const sections = [
+      '<div id="status-message" class="status-message"></div>',
+      this.renderQueueSettings(settings.queueProcessing, settings.scheduler),
+      this.renderDeferredReferenceProcessing(
+        settings.deferredReferenceProcessing,
+      ),
+      this.renderLoadWorkspace(settings.loadWorkspace),
+      this.renderPerformance(settings.performance),
+      this.renderCommentCollection(settings.commentCollection),
+      this.renderExperimentalWorkers(settings.experimental),
+    ];
+    content.innerHTML = sections.join('\n');
 
     // Re-attach event listeners and update button state after render
     this.setupInputListeners();
@@ -898,6 +902,59 @@ class PerformanceSettingsUI {
                        ${def.enableForFoldingRanges ? 'checked' : ''}>
                 <span class="setting-label-text">Enable for Folding Ranges</span>
               </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderExperimentalWorkers(experimentalSettings: any): string {
+    const expanded = this.expandedSections.has('experimentalWorkers');
+    const workers = experimentalSettings?.workers || {
+      enabled: true,
+      poolSize: 2,
+      resourceLoader: true,
+    };
+
+    return `
+      <div class="settings-section" id="experimentalWorkers">
+        <div class="section-header">
+          <div class="section-title">Experimental Workers</div>
+          <div class="section-toggle">${expanded ? '▼' : '▶'}</div>
+        </div>
+        <div class="section-content ${expanded ? 'expanded' : ''}">
+          <div class="setting-help" style="margin-bottom: 12px; color: var(--vscode-descriptionForeground);">
+            Offload LSP processing to internal worker threads for improved responsiveness in large workspaces.
+            Changes require a server restart to take effect.
+          </div>
+          <div class="setting-group">
+            <div class="setting-item">
+              <label class="setting-label">
+                <input type="checkbox"
+                       data-path="experimental.workers.enabled"
+                       ${workers.enabled ? 'checked' : ''}>
+                <span class="setting-label-text">Enable Worker Threads</span>
+              </label>
+              <div class="setting-help">Master switch for internal worker thread topology (default: off)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Enrichment Pool Size</span>
+              </label>
+              <input type="number" class="setting-input"
+                     data-path="experimental.workers.poolSize"
+                     value="${workers.poolSize}" min="1" max="14">
+              <div class="setting-help">Number of enrichment/search worker threads (default: 2, max: cpus-2)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <input type="checkbox"
+                       data-path="experimental.workers.resourceLoader"
+                       ${workers.resourceLoader ? 'checked' : ''}>
+                <span class="setting-label-text">Dedicated Resource Loader</span>
+              </label>
+              <div class="setting-help">Spawn a dedicated worker for stdlib/library loading (default: on)</div>
             </div>
           </div>
         </div>

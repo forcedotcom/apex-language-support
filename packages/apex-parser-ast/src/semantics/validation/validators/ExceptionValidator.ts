@@ -608,7 +608,9 @@ function findTypeSymbolByName(
     }
 
     // Try to find via symbol manager (cross-file)
-    const symbols = symbolManager.findSymbolByName(typeName);
+    const symbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(typeName),
+    );
     const typeSymbol = symbols.find((s: ApexSymbol): s is TypeSymbol =>
       inTypeSymbolGroup(s),
     );
@@ -618,8 +620,10 @@ function findTypeSymbolByName(
     }
 
     // Try FQN lookup
-    const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-    if (inTypeSymbolGroup(fqnSymbol)) {
+    const fqnSymbol = yield* Effect.promise(() =>
+      symbolManager.findSymbolByFQN(typeName),
+    );
+    if (fqnSymbol && inTypeSymbolGroup(fqnSymbol)) {
       return fqnSymbol;
     }
 
