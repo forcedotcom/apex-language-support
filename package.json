@@ -99,7 +99,7 @@
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
     "jest": "^30.3.0",
-    "jscpd": "^4.0.5",
+    "jscpd": "^4.0.9",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.4.1",
     "playwright": "^1.58.2",
