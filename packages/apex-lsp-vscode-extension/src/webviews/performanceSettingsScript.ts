@@ -92,6 +92,13 @@ class PerformanceSettingsUI {
 
   private setupMessageListener(): void {
     window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) {
+        console.warn(
+          '[PerformanceSettingsUI] Ignoring message from unexpected origin:',
+          event.origin,
+        );
+        return;
+      }
       const message = event.data;
       switch (message.type) {
         case 'settingsLoaded':
