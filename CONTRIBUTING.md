@@ -355,15 +355,11 @@ fix(apex-lsp-compliant-services): Correct hover information display
 docs(repo): Update README with new installation instructions
 ```
 
-### Using the Commit Tool
+### Creating Commits
 
-We've integrated Commitizen to help you format your commits correctly:
-
-```bash
-npm run commit
-```
-
-This will start an interactive prompt that guides you through creating a properly formatted commit message.
+Create commits with `git commit` and use the conventional commit format shown above.
+The repo's Husky hooks validate commit messages so mistakes are caught before the
+commit is accepted.
 
 ### Commit Types
 

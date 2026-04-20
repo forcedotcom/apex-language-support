@@ -18,7 +18,7 @@ export function getGraphWebviewContent(
   graphData: any,
 ): string {
   const nonce = getNonce();
-  const encodedData = JSON.stringify(graphData);
+  const encodedData = stringifyForInlineScript(graphData);
 
   // Use proper webview URI construction - script is in dist/webview/
   // Use bundled script that includes graphRenderer
@@ -336,11 +336,15 @@ export function getGraphWebviewContent(
 }
 
 function getNonce(): string {
-  let text = '';
-  const possible =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    '',
+  );
+}
+
+function stringifyForInlineScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
 }
