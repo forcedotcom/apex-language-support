@@ -427,8 +427,16 @@ export async function showGraph(context: vscode.ExtensionContext) {
   if (fileUri && isApexFile) {
     const picked = await vscode.window.showQuickPick(
       [
-        { label: 'Current File', description: activeEditor!.document.fileName, value: 'file' as const },
-        { label: 'All Types', description: 'Show the entire type graph', value: 'all' as const },
+        {
+          label: 'Current File',
+          description: activeEditor!.document.fileName,
+          value: 'file' as const,
+        },
+        {
+          label: 'All Types',
+          description: 'Show the entire type graph',
+          value: 'all' as const,
+        },
       ],
       { placeHolder: 'Graph scope', title: 'Symbol Graph' },
     );

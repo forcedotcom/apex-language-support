@@ -428,6 +428,7 @@ export {
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
+  QueryGraphData,
   DataOwnerTags,
   EnrichmentSearchTags,
   ResourceLoaderTags,

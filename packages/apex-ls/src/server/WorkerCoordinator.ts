@@ -29,6 +29,7 @@ import {
   ResolveDepUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
   DispatchHover,
@@ -527,6 +528,13 @@ function createDispatcher(
     fileUris: string[],
   ) => Promise<{ resolved: number; failed: number }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
+  queryGraphData(params: {
+    type: 'all' | 'file' | 'type';
+    fileUri?: string;
+    symbolType?: string;
+    includeMetadata?: boolean;
+    includeDiagnostics?: boolean;
+  }): Promise<unknown>;
 } {
   let available = true;
   let dispatchedCount = 0;
@@ -674,6 +682,18 @@ function createDispatcher(
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
       }
+    },
+
+    queryGraphData(params): Promise<unknown> {
+      return callbacks.sendToDataOwner(
+        new QueryGraphData({
+          type: params.type,
+          fileUri: params.fileUri,
+          symbolType: params.symbolType,
+          includeMetadata: params.includeMetadata,
+          includeDiagnostics: params.includeDiagnostics,
+        }),
+      );
     },
   };
 }

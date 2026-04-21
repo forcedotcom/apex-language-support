@@ -19,6 +19,7 @@ import {
 } from '../../src/server/WorkerCoordinator';
 import {
   PingWorker,
+  QueryGraphData,
   QuerySymbolSubset,
   UpdateSymbolSubset,
 } from '@salesforce/apex-lsp-shared';
@@ -330,6 +331,32 @@ describe('WorkerCoordinator', () => {
       await Effect.runPromise(program);
     }, 30_000);
 
+    it('queryGraphData routes to data-owner and returns graph payload', async () => {
+      const logger = createSpyLogger();
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: false,
+          logger,
+        });
+
+        const dispatcher = makeWorkerDispatcher(topology, logger);
+        const result = yield* Effect.promise(() =>
+          dispatcher.queryGraphData({ type: 'all' }),
+        );
+
+        // With no symbols ingested the graph should be structurally valid but empty
+        expect(result).toBeDefined();
+        expect(typeof result).toBe('object');
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+      );
+
+      await Effect.runPromise(program);
+    }, 30_000);
+
     describe('canDispatch — prerequisite atomicity (step 6)', () => {
       let dispatcher: DispatcherResult;
 
@@ -587,6 +614,37 @@ describe('WorkerCoordinator', () => {
 
       expect(transport.poolDispatchCalls.length).toBe(1);
       expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+    });
+
+    it('makeTransportDispatcher queryGraphData routes to data-owner via transport.send', async () => {
+      const transport = new MockWorkerTransport();
+      const logger = createSpyLogger();
+      const dataOwner: WorkerHandle = {
+        _tag: 'WorkerHandle',
+        role: 'dataOwner',
+      };
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner,
+          enrichmentPool: {
+            _tag: 'PoolHandle',
+            role: 'enrichmentSearch',
+            size: 2,
+          },
+          resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+        },
+        logger,
+      );
+
+      await dispatcher.queryGraphData({ type: 'all' });
+
+      expect(transport.sendCalls.length).toBe(1);
+      expect(transport.sendCalls[0].role).toBe('dataOwner');
+      expect((transport.sendCalls[0].request as QueryGraphData)._tag).toBe(
+        'QueryGraphData',
+      );
     });
 
     it('createBatchIngestionDispatcher routes through transport.send', async () => {

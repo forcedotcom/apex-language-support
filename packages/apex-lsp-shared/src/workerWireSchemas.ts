@@ -671,6 +671,30 @@ export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// QueryGraphData — coordinator asks data-owner to compute graph data
+// using the data-owner's own symbol manager (which holds all workspace symbols
+// after compilation and enrichment write-backs).
+// ---------------------------------------------------------------------------
+
+export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
+  'QueryGraphData',
+  {
+    success: Schema.Unknown,
+    failure: Schema.Struct({
+      _tag: Schema.Literal('QueryGraphDataError'),
+      message: Schema.String,
+    }),
+    payload: {
+      type: Schema.Literal('all', 'file', 'type'),
+      fileUri: Schema.optional(Schema.String),
+      symbolType: Schema.optional(Schema.String),
+      includeMetadata: Schema.optional(Schema.Boolean),
+      includeDiagnostics: Schema.optional(Schema.Boolean),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Role-partitioned tag unions
 // ---------------------------------------------------------------------------
 
@@ -683,6 +707,7 @@ export const DataOwnerTags = [
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'WorkspaceBatchIngest',
+  'QueryGraphData',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
   'DispatchDocumentSave',
@@ -752,6 +777,7 @@ export type DataOwnerRequest =
   | UpdateSymbolSubset
   | ResolveDepUris
   | WorkspaceBatchIngest
+  | QueryGraphData
   | DispatchDocumentOpen
   | DispatchDocumentChange
   | DispatchDocumentSave

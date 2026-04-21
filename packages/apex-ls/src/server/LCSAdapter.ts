@@ -116,6 +116,16 @@ export class LCSAdapter {
   private hasWorkspaceFolderCapability = false;
   private hoverHandlerRegistered = false;
   private resourceLoaderProxy?: import('./ResourceLoaderProxy').ResourceLoaderProxy;
+  private workerDispatcher?: {
+    queryGraphData(params: {
+      type: 'all' | 'file' | 'type';
+      fileUri?: string;
+      symbolType?: string;
+      includeMetadata?: boolean;
+      includeDiagnostics?: boolean;
+    }): Promise<unknown>;
+    isAvailable(): boolean;
+  };
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
   private readonly aggregator = new CommandPerformanceAggregator();
@@ -369,8 +379,6 @@ export class LCSAdapter {
       );
     }
   }
-
-
 
   /**
    * Basic event handlers (initialize, initialized, config changes)
@@ -961,10 +969,18 @@ export class LCSAdapter {
       );
 
       // Register apex/graphData handler (development mode only)
-      this.connection.onRequest(
-        'apex/graphData',
-        async (params: any) => await dispatchProcessOnGraphData(params),
-      );
+      this.connection.onRequest('apex/graphData', async (params: any) => {
+        if (this.workerDispatcher?.isAvailable()) {
+          return this.workerDispatcher.queryGraphData({
+            type: params?.type ?? 'all',
+            fileUri: params?.fileUri,
+            symbolType: params?.symbolType,
+            includeMetadata: params?.includeMetadata,
+            includeDiagnostics: params?.includeDiagnostics,
+          });
+        }
+        return dispatchProcessOnGraphData(params);
+      });
       this.logger.debug(
         '✅ apex/graphData handler registered (development mode)',
       );
@@ -2239,6 +2255,7 @@ export class LCSAdapter {
         (uri: string) => this.getDocumentTextForWorker(uri),
       );
       LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
+      this.workerDispatcher = dispatcher;
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
       setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
