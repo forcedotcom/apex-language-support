@@ -9,13 +9,8 @@ This directory contains Git hooks managed by [husky](https://typicode.github.io/
 
 ## Using Conventional Commits
 
-Instead of creating commits with `git commit`, use:
-
-```bash
-npm run commit
-```
-
-This will start an interactive prompt that helps you create properly formatted commit messages.
+Create commits with `git commit` and follow the conventional commit format below.
+The `commit-msg` hook validates the message before the commit is accepted.
 
 ## Commit Format
 
