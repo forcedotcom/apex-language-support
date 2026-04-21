@@ -25,6 +25,7 @@ import {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchGenericLspRequest,
+  DispatchCrossFileEnrichment,
   WIRE_PROTOCOL_VERSION,
   isAllowedTag,
 } from '../src/workerWireSchemas';
@@ -277,6 +278,19 @@ describe('workerWireSchemas', () => {
     });
   });
 
+  describe('DispatchCrossFileEnrichment', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new DispatchCrossFileEnrichment({
+        textDocument: { uri: 'file:///MyClass.cls' },
+      });
+      expect(req._tag).toBe('DispatchCrossFileEnrichment');
+
+      const encoded = Schema.encodeSync(DispatchCrossFileEnrichment)(req);
+      const decoded = Schema.decodeSync(DispatchCrossFileEnrichment)(encoded);
+      expect(decoded.textDocument.uri).toBe('file:///MyClass.cls');
+    });
+  });
+
   describe('DispatchGenericLspRequest', () => {
     it('should encode and decode round-trip', () => {
       const req = new DispatchGenericLspRequest({
@@ -380,6 +394,7 @@ describe('workerWireSchemas', () => {
         'DispatchDocumentSymbol',
         'DispatchCodeLens',
         'DispatchDiagnostic',
+        'DispatchCrossFileEnrichment',
         'DispatchGenericLspRequest',
       ]) {
         expect(isAllowedTag('enrichmentSearch', tag)).toBe(true);

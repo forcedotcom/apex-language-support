@@ -38,6 +38,7 @@ import {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -465,6 +466,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   resolve: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',
   workspaceSymbol: 'coordinatorOnly',
+  crossFileEnrichment: 'enrichmentPool',
 };
 
 const DATA_OWNER_TYPES = new Set(
@@ -521,6 +523,9 @@ function createDispatcher(
     errorCount: number;
     elapsedMs: number;
   }>;
+  createCrossFileEnrichmentDispatcher(): (
+    fileUris: string[],
+  ) => Promise<{ resolved: number; failed: number }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
 } {
   let available = true;
@@ -604,6 +609,25 @@ function createDispatcher(
           errorCount: number;
           elapsedMs: number;
         }>;
+      };
+    },
+
+    createCrossFileEnrichmentDispatcher() {
+      return async (fileUris: string[]) => {
+        let resolved = 0;
+        let failed = 0;
+        for (const uri of fileUris) {
+          try {
+            const msg = new DispatchCrossFileEnrichment({
+              textDocument: { uri },
+            });
+            await callbacks.dispatchToPool(msg);
+            resolved++;
+          } catch {
+            failed++;
+          }
+        }
+        return { resolved, failed };
       };
     },
 
@@ -865,6 +889,10 @@ function buildEnrichmentMessage(
       });
     case 'diagnostics':
       return new DispatchDiagnostic({
+        textDocument: { uri: p.textDocument.uri },
+      });
+    case 'crossFileEnrichment':
+      return new DispatchCrossFileEnrichment({
         textDocument: { uri: p.textDocument.uri },
       });
     default:

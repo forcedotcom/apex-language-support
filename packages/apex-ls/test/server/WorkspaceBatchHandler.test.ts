@@ -13,6 +13,8 @@ import {
   clearCleanupInterval,
   setBatchIngestionDispatcher,
   getBatchIngestionDispatcher,
+  setCrossFileEnrichmentDispatcher,
+  getCrossFileEnrichmentDispatcher,
 } from '../../src/server/WorkspaceBatchHandler';
 import { SendWorkspaceBatchParams } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -22,6 +24,14 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock dependencies
+const mockGetSettings = jest.fn(() => ({
+  apex: {
+    deferredReferenceProcessing: {
+      enableCrossFileDeferral: false,
+    },
+  },
+}));
+
 jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(() => ({
     debug: jest.fn(),
@@ -29,6 +39,11 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     warn: jest.fn(),
     error: jest.fn(),
   })),
+  ApexSettingsManager: {
+    getInstance: jest.fn(() => ({
+      getSettings: mockGetSettings,
+    })),
+  },
 }));
 
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
@@ -355,7 +370,7 @@ describe('WorkspaceBatchHandler', () => {
         expect(offer).toHaveBeenCalled();
       });
 
-      it('dispatches multiple batches sequentially to data-owner', async () => {
+      it('dispatches all decoded entries from multiple batches to data-owner', async () => {
         const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
         setBatchIngestionDispatcher(dispatcher);
 
@@ -383,7 +398,10 @@ describe('WorkspaceBatchHandler', () => {
         await handleProcessWorkspaceBatchesRequest({ totalBatches: 3 });
         await new Promise((resolve) => setTimeout(resolve, 300));
 
-        expect(dispatcher).toHaveBeenCalledTimes(3);
+        // 3 files < chunk size (100), so all ingested in 1 call
+        expect(dispatcher).toHaveBeenCalledTimes(1);
+        const [, entries] = dispatcher.mock.calls[0];
+        expect(entries).toHaveLength(3);
       });
 
       it('handles dispatcher rejection gracefully', async () => {
@@ -411,6 +429,196 @@ describe('WorkspaceBatchHandler', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 200));
         expect(dispatcher).toHaveBeenCalledTimes(1);
+      });
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Cross-file enrichment (deferred reference processing)
+  // ---------------------------------------------------------------------------
+
+  const isJsdomEnv =
+    typeof navigator !== 'undefined' && /jsdom/.test(navigator.userAgent);
+
+  (isJsdomEnv ? describe.skip : describe)(
+    'cross-file enrichment after batch processing',
+    () => {
+      function makeCompressedBatch(
+        files: Array<{ uri: string; version: number; content: string }>,
+        batchIndex = 0,
+        totalBatches = 1,
+      ): string {
+        const { zipSync: zip, strToU8: s2u } = require('fflate') as {
+          zipSync: (data: Record<string, Uint8Array>) => Uint8Array;
+          strToU8: (s: string) => Uint8Array;
+        };
+        const metadata = {
+          batchIndex,
+          totalBatches,
+          isLastBatch: batchIndex === totalBatches - 1,
+          fileMetadata: files.map((f) => ({ uri: f.uri, version: f.version })),
+        };
+        const archive: Record<string, Uint8Array> = {
+          '__metadata.json': s2u(JSON.stringify(metadata)),
+        };
+        for (const f of files) {
+          archive[f.uri] = s2u(f.content);
+        }
+        const zipped = zip(archive);
+        return Buffer.from(zipped).toString('base64');
+      }
+
+      const testFiles = [
+        { uri: 'file:///A.cls', version: 1, content: 'public class A {}' },
+        { uri: 'file:///B.cls', version: 1, content: 'public class B {}' },
+        { uri: 'file:///C.cls', version: 1, content: 'public class C {}' },
+      ];
+
+      async function storeBatchAndProcess(files = testFiles) {
+        const compressedData = makeCompressedBatch(files);
+        await handleWorkspaceBatchRequest({
+          batchIndex: 0,
+          totalBatches: 1,
+          isLastBatch: true,
+          compressedData,
+          fileMetadata: files.map((f) => ({
+            uri: f.uri,
+            version: f.version,
+          })),
+        });
+        await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      afterEach(() => {
+        setBatchIngestionDispatcher(null);
+        setCrossFileEnrichmentDispatcher(null);
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: false },
+          },
+        });
+      });
+
+      it('setCrossFileEnrichmentDispatcher / getCrossFileEnrichmentDispatcher round-trip', () => {
+        expect(getCrossFileEnrichmentDispatcher()).toBeNull();
+        const fn = jest.fn();
+        setCrossFileEnrichmentDispatcher(fn);
+        expect(getCrossFileEnrichmentDispatcher()).toBe(fn);
+        setCrossFileEnrichmentDispatcher(null);
+        expect(getCrossFileEnrichmentDispatcher()).toBeNull();
+      });
+
+      it('dispatches enrichment for all workspace files when enableCrossFileDeferral is true', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 3, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        expect(enrichmentDispatcher).toHaveBeenCalledTimes(1);
+        const [fileUris] = enrichmentDispatcher.mock.calls[0];
+        expect(fileUris).toHaveLength(3);
+        expect(fileUris).toEqual(
+          expect.arrayContaining([
+            'file:///A.cls',
+            'file:///B.cls',
+            'file:///C.cls',
+          ]),
+        );
+      });
+
+      it('does NOT dispatch enrichment when enableCrossFileDeferral is false', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 0, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: false },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        expect(enrichmentDispatcher).not.toHaveBeenCalled();
+      });
+
+      it('does NOT dispatch enrichment when no enrichment dispatcher is set', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+        // No setCrossFileEnrichmentDispatcher call
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+        // No assertion needed — if it tried to call null, it would throw
+      });
+
+      it('handles enrichment dispatcher failure gracefully', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 1 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockRejectedValue(new Error('Enrichment pool crashed'));
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        // Should not throw — error is caught and logged
+        await storeBatchAndProcess([testFiles[0]]);
+
+        expect(enrichmentDispatcher).toHaveBeenCalledTimes(1);
+      });
+
+      it('does NOT dispatch enrichment on local processing path (no ingestion dispatcher)', async () => {
+        // No setBatchIngestionDispatcher — uses local processLocally path
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 0, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        // Local path doesn't produce a file URI list, so enrichment is skipped
+        expect(enrichmentDispatcher).not.toHaveBeenCalled();
       });
     },
   );

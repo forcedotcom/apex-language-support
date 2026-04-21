@@ -423,6 +423,25 @@ export async function showGraph(context: vscode.ExtensionContext) {
   const fileUri = activeEditor?.document.uri.toString();
   const isApexFile = activeEditor?.document.languageId === 'apex';
 
+  let scopeChoice: 'file' | 'all';
+  if (fileUri && isApexFile) {
+    const picked = await vscode.window.showQuickPick(
+      [
+        { label: 'Current File', description: activeEditor!.document.fileName, value: 'file' as const },
+        { label: 'All Types', description: 'Show the entire type graph', value: 'all' as const },
+      ],
+      { placeHolder: 'Graph scope', title: 'Symbol Graph' },
+    );
+    if (!picked) {
+      return;
+    }
+    scopeChoice = picked.value;
+  } else {
+    scopeChoice = 'all';
+  }
+
+  const useFile = scopeChoice === 'file' && fileUri && isApexFile;
+
   // Get graph data from language server (custom request)
   let graphData: GraphData & {
     diagnostics?: unknown[];
@@ -432,11 +451,11 @@ export async function showGraph(context: vscode.ExtensionContext) {
   try {
     // Try to get data from language server, include diagnostics when viewing Apex file
     const requestParams: Record<string, unknown> = {
-      type: fileUri && isApexFile ? 'file' : 'all',
+      type: useFile ? 'file' : 'all',
       includeMetadata: true,
-      includeDiagnostics: !!fileUri && isApexFile,
+      includeDiagnostics: !!useFile,
     };
-    if (fileUri && isApexFile) {
+    if (useFile) {
       requestParams.fileUri = fileUri;
     }
 

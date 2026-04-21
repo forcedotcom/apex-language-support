@@ -409,6 +409,7 @@ export const LSP_REQUEST_TYPES = [
   'executeCommand',
   'prerequisiteEnrichment',
   'resolve',
+  'crossFileEnrichment',
 ] as const;
 
 export type LSPRequestType = (typeof LSP_REQUEST_TYPES)[number];
@@ -587,6 +588,15 @@ export class DispatchDiagnostic extends Schema.TaggedRequest<DispatchDiagnostic>
   },
 ) {}
 
+export class DispatchCrossFileEnrichment extends Schema.TaggedRequest<DispatchCrossFileEnrichment>()(
+  'DispatchCrossFileEnrichment',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: { textDocument: WireTextDocumentId },
+  },
+) {}
+
 /**
  * Catch-all for less common LSP requests that don't warrant a dedicated
  * schema yet. Params and result are opaque — both are already
@@ -692,6 +702,7 @@ export const EnrichmentSearchTags = [
   'DispatchDocumentSymbol',
   'DispatchCodeLens',
   'DispatchDiagnostic',
+  'DispatchCrossFileEnrichment',
   'DispatchGenericLspRequest',
 ] as const;
 export type EnrichmentSearchTag = (typeof EnrichmentSearchTags)[number];
@@ -758,6 +769,7 @@ export type EnrichmentSearchRequest =
   | DispatchDocumentSymbol
   | DispatchCodeLens
   | DispatchDiagnostic
+  | DispatchCrossFileEnrichment
   | DispatchGenericLspRequest;
 
 /** Request types the coordinator may send to a resource-loader worker */

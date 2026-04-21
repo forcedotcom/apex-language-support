@@ -426,6 +426,7 @@ export {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
   DataOwnerTags,
   EnrichmentSearchTags,

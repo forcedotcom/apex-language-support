@@ -83,6 +83,7 @@ import {
   handleProcessWorkspaceBatchesRequest,
   setBatchIngestionDispatcher,
   setBatchCompileDispatcher,
+  setCrossFileEnrichmentDispatcher,
 } from './WorkspaceBatchHandler';
 
 import {
@@ -368,6 +369,8 @@ export class LCSAdapter {
       );
     }
   }
+
+
 
   /**
    * Basic event handlers (initialize, initialized, config changes)
@@ -2239,6 +2242,9 @@ export class LCSAdapter {
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
       setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
+      setCrossFileEnrichmentDispatcher(
+        dispatcher.createCrossFileEnrichmentDispatcher(),
+      );
 
       if (topology.resourceLoader) {
         this.resourceLoaderProxy = new ResourceLoaderProxy(

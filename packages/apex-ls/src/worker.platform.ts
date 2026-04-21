@@ -58,6 +58,7 @@ import {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
@@ -101,6 +102,7 @@ const AllWorkerRequests = Schema.Union(
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
 );
 
@@ -882,6 +884,27 @@ const enrichmentHandlers = {
       }
 
       return result;
+    },
+  ),
+  DispatchCrossFileEnrichment: enrichmentHandler<DocOnlyReq>(
+    'DispatchCrossFileEnrichment',
+    async (svc, req) => {
+      const { version } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+      await writeBackEnrichedSymbols(
+        svc,
+        req.textDocument.uri,
+        version,
+        'public-api',
+      );
+      return { resolved: true };
     },
   ),
 };
