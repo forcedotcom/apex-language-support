@@ -118,6 +118,7 @@ describe('Configuration Module', () => {
             circuitBreakerResetThreshold: 50,
             maxDeferredTasksPerSecond: 5,
             yieldTimeThresholdMs: 50,
+            enableCrossFileDeferral: false,
           },
           performance: {
             commentCollectionMaxFileSize: 102400,

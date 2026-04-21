@@ -239,6 +239,35 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.apex.environment.runtimePlatform).toBe('web');
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
     });
+
+    it('should default enableCrossFileDeferral to false', () => {
+      const result = mergeWithDefaults({}, 'desktop');
+
+      expect(
+        result.apex.deferredReferenceProcessing?.enableCrossFileDeferral,
+      ).toBe(false);
+    });
+
+    it('should allow user to enable enableCrossFileDeferral', () => {
+      const result = mergeWithDefaults(
+        {
+          apex: {
+            deferredReferenceProcessing: {
+              enableCrossFileDeferral: true,
+            },
+          },
+        } as Partial<ApexLanguageServerSettings>,
+        'desktop',
+      );
+
+      expect(
+        result.apex.deferredReferenceProcessing?.enableCrossFileDeferral,
+      ).toBe(true);
+      // Other defaults should still be present
+      expect(
+        result.apex.deferredReferenceProcessing?.deferredBatchSize,
+      ).toBeDefined();
+    });
   });
 
   describe('mergeWithExisting', () => {

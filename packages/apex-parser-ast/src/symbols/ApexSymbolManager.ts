@@ -2088,6 +2088,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
   }
 
+  getAllFileUris(): string[] {
+    return Array.from(this.fileMetadata.keys());
+  }
+
   private getSymbolTableStateSignature(symbolTable: SymbolTable): string {
     const metadata = symbolTable.getMetadata();
     return [

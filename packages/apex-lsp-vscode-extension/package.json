@@ -386,6 +386,10 @@
               "type": "boolean",
               "default": false,
               "description": "%configuration.apex-ls-ts.loadWorkspace.includeSfdxToolsCustomObjects.description%"
+            },
+            "maxFileCount": {
+              "type": "number",
+              "description": "%configuration.apex-ls-ts.loadWorkspace.maxFileCount.description%"
             }
           }
         },
@@ -565,6 +569,11 @@
               "type": "number",
               "default": 10,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
+            },
+            "enableCrossFileDeferral": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.enableCrossFileDeferral.description%"
             }
           }
         },

@@ -174,6 +174,9 @@ export interface LoadWorkspaceSettings {
 
   /** When true, include .sfdx/tools/sobjects/customObjects in workspace scan (default: false) */
   includeSfdxToolsCustomObjects?: boolean;
+
+  /** Maximum number of files to discover during workspace loading (development mode only, default: no limit) */
+  maxFileCount?: number;
 }
 
 /**
@@ -218,6 +221,9 @@ export interface DeferredReferenceProcessingSettings {
 
   /** Time threshold in milliseconds - if batch processing exceeds this, yield more frequently (default: 50) */
   yieldTimeThresholdMs?: number;
+
+  /** Enable deferred processing of cross-file references during workspace load (default: false) */
+  enableCrossFileDeferral?: boolean;
 }
 
 /**

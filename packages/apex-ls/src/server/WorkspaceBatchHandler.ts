@@ -14,7 +14,7 @@ import type {
   SendWorkspaceBatchParams,
   SendWorkspaceBatchResult,
 } from '@salesforce/apex-lsp-shared';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   createQueuedItem,
   offer,
@@ -311,6 +311,29 @@ export function getBatchCompileDispatcher(): BatchCompileDispatcher | null {
 }
 
 /**
+ * Dispatcher for scheduling cross-file enrichment (deferred reference processing)
+ * after workspace batch compilation completes.
+ */
+export type CrossFileEnrichmentDispatcher = (
+  fileUris: string[],
+) => Promise<{ resolved: number; failed: number }>;
+
+let crossFileEnrichmentDispatcher: CrossFileEnrichmentDispatcher | null = null;
+
+export function setCrossFileEnrichmentDispatcher(
+  dispatcher: CrossFileEnrichmentDispatcher | null,
+): void {
+  crossFileEnrichmentDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Cross-file enrichment dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getCrossFileEnrichmentDispatcher(): CrossFileEnrichmentDispatcher | null {
+  return crossFileEnrichmentDispatcher;
+}
+
+/**
  * Decode base64 string to Uint8Array
  */
 function decodeBase64(base64: string): Uint8Array {
@@ -514,12 +537,12 @@ function processWorkspaceBatchBackground(
 /**
  * Process all stored batches for a session.
  *
- * When a BatchIngestionDispatcher is set (Step 8), each batch is
- * decoded+unzipped on the coordinator, then the plain entries are
- * dispatched to the data-owner worker via WorkspaceBatchIngest.
+ * Pipeline: decode → ingest+compile → schedule deferred ref processing.
  *
- * When no dispatcher is set, falls back to local processing via
- * the priority scheduler (pre-Step 8 behavior).
+ * When a BatchIngestionDispatcher is set, decoded entries are dispatched
+ * to the data-owner worker for storage and the compilation worker for
+ * public-api compilation. When no dispatcher is set, falls back to local
+ * processing via the priority scheduler.
  */
 function processStoredBatches(
   sessionId: string,
@@ -539,8 +562,12 @@ function processStoredBatches(
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
     );
 
+    let fileUris: string[] = [];
+
     if (dispatcher) {
-      yield* processViaDataOwner(sessionId, batches, dispatcher, logger);
+      const entries = yield* decodeBatches(batches, logger);
+      yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
+      fileUris = entries.map((e) => e.uri);
     } else {
       yield* processLocally(sessionId, batches, logger);
     }
@@ -556,6 +583,31 @@ function processStoredBatches(
         `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
         `(${throughput} files/sec)`,
     );
+
+    // Schedule deferred reference processing for workspace files
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    if (
+      settings.apex.deferredReferenceProcessing?.enableCrossFileDeferral &&
+      crossFileEnrichmentDispatcher &&
+      fileUris.length > 0
+    ) {
+      logger.info(
+        () =>
+          `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
+      );
+      try {
+        const result = yield* Effect.tryPromise({
+          try: () => crossFileEnrichmentDispatcher!(fileUris),
+          catch: (e) => e as Error,
+        });
+        logger.info(
+          () =>
+            `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
+        );
+      } catch (err) {
+        logger.error(() => `[CROSS-FILE] Enrichment dispatch failed: ${err}`);
+      }
+    }
   }).pipe(
     Effect.catchAll((error: unknown) =>
       Effect.gen(function* () {
@@ -572,19 +624,12 @@ function processStoredBatches(
   );
 }
 
-function processViaDataOwner(
-  sessionId: string,
+function decodeBatches(
   batches: SendWorkspaceBatchParams[],
-  dispatcher: BatchIngestionDispatcher,
   logger: ReturnType<typeof getLogger>,
-): Effect.Effect<void, Error, never> {
+): Effect.Effect<BatchEntry[], Error, never> {
   return Effect.gen(function* () {
-    const allEntries: Array<{
-      uri: string;
-      content: string;
-      languageId: string;
-      version: number;
-    }>[] = [];
+    const allEntries: BatchEntry[] = [];
 
     for (const batchParams of batches) {
       const t0 = Date.now();
@@ -594,42 +639,62 @@ function processViaDataOwner(
           new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
       });
       const decodeMs = Date.now() - t0;
-
-      allEntries.push(entries);
-
-      const t1 = Date.now();
-      const result = yield* Effect.tryPromise({
-        try: () => dispatcher(sessionId, entries),
-        catch: (e) => e as Error,
-      });
-      const ingestMs = Date.now() - t1;
+      allEntries.push(...entries);
 
       logger.debug(
         () =>
-          '[BATCH-PROCESSING] Batch ' +
-          `${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
-          `${result.processedCount} files (decode=${decodeMs}ms, ingest=${ingestMs}ms)`,
+          `[BATCH-DECODE] Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
+          `${entries.length} files (${decodeMs}ms)`,
       );
     }
 
+    return allEntries;
+  });
+}
+
+function processViaDataOwner(
+  sessionId: string,
+  entries: BatchEntry[],
+  dispatcher: BatchIngestionDispatcher,
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
+    const CHUNK_SIZE = 100;
+
+    // Ingest into data-owner in chunks
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+      const chunk = entries.slice(i, i + CHUNK_SIZE);
+      const t0 = Date.now();
+      const result = yield* Effect.tryPromise({
+        try: () => dispatcher(sessionId, chunk),
+        catch: (e) => e as Error,
+      });
+      const ingestMs = Date.now() - t0;
+
+      logger.debug(
+        () =>
+          `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
+          `${result.processedCount} files (${ingestMs}ms)`,
+      );
+    }
+
+    // Compile via compilation worker
     const compileDispatcher = batchCompileDispatcher;
     if (compileDispatcher) {
-      const flat = allEntries.flat();
-      const CHUNK_SIZE = 100;
-      const totalChunks = Math.ceil(flat.length / CHUNK_SIZE);
+      const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
 
       logger.info(
         () =>
           `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
-          `${flat.length} files in ${totalChunks} chunks`,
+          `${entries.length} files in ${totalChunks} chunks`,
       );
 
       const compileStartTime = Date.now();
       let totalCompiled = 0;
       let totalErrors = 0;
 
-      for (let i = 0; i < flat.length; i += CHUNK_SIZE) {
-        const chunk = flat.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+        const chunk = entries.slice(i, i + CHUNK_SIZE);
         const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
         try {
           const result = yield* Effect.tryPromise({

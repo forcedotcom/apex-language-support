@@ -58,10 +58,12 @@ import {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
   isAllowedTag,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
+  QueryGraphData,
 } from '@salesforce/apex-lsp-shared';
 import {
   isAssistanceResponse,
@@ -84,6 +86,7 @@ const AllWorkerRequests = Schema.Union(
   UpdateSymbolSubset,
   ResolveDepUris,
   WorkspaceBatchIngest,
+  QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -101,6 +104,7 @@ const AllWorkerRequests = Schema.Union(
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
 );
 
@@ -884,6 +888,27 @@ const enrichmentHandlers = {
       return result;
     },
   ),
+  DispatchCrossFileEnrichment: enrichmentHandler<DocOnlyReq>(
+    'DispatchCrossFileEnrichment',
+    async (svc, req) => {
+      const { version } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+      await writeBackEnrichedSymbols(
+        svc,
+        req.textDocument.uri,
+        version,
+        'public-api',
+      );
+      return { resolved: true };
+    },
+  ),
 };
 
 // ---------------------------------------------------------------------------
@@ -1214,6 +1239,38 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 `stored=${req.entries.length} files in ${elapsed}ms${statsStr}`,
             );
             return { processedCount: req.entries.length };
+          }),
+        ),
+      ),
+    ),
+
+  QueryGraphData: (req) =>
+    guardRole('QueryGraphData').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const [{ GraphDataProcessingService }, { getLogger }] =
+              yield* Effect.promise(() =>
+                Promise.all([
+                  import('@salesforce/apex-lsp-compliant-services'),
+                  import('@salesforce/apex-lsp-shared'),
+                ]),
+              );
+            const service = new GraphDataProcessingService(
+              getLogger(),
+              svc.symbolManager,
+            );
+            const result = yield* Effect.promise(() =>
+              service.processGraphData({
+                type: req.type,
+                fileUri: req.fileUri,
+                symbolType: req.symbolType,
+                includeMetadata: req.includeMetadata ?? false,
+                includeDiagnostics: req.includeDiagnostics ?? false,
+              }),
+            );
+            return cloneForWire(result);
           }),
         ),
       ),

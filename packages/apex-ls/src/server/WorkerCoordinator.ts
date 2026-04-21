@@ -29,6 +29,7 @@ import {
   ResolveDepUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
   DispatchHover,
@@ -38,6 +39,7 @@ import {
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -465,6 +467,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   resolve: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',
   workspaceSymbol: 'coordinatorOnly',
+  crossFileEnrichment: 'enrichmentPool',
 };
 
 const DATA_OWNER_TYPES = new Set(
@@ -521,7 +524,17 @@ function createDispatcher(
     errorCount: number;
     elapsedMs: number;
   }>;
+  createCrossFileEnrichmentDispatcher(): (
+    fileUris: string[],
+  ) => Promise<{ resolved: number; failed: number }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
+  queryGraphData(params: {
+    type: 'all' | 'file' | 'type';
+    fileUri?: string;
+    symbolType?: string;
+    includeMetadata?: boolean;
+    includeDiagnostics?: boolean;
+  }): Promise<unknown>;
 } {
   let available = true;
   let dispatchedCount = 0;
@@ -607,6 +620,25 @@ function createDispatcher(
       };
     },
 
+    createCrossFileEnrichmentDispatcher() {
+      return async (fileUris: string[]) => {
+        let resolved = 0;
+        let failed = 0;
+        for (const uri of fileUris) {
+          try {
+            const msg = new DispatchCrossFileEnrichment({
+              textDocument: { uri },
+            });
+            await callbacks.dispatchToPool(msg);
+            resolved++;
+          } catch {
+            failed++;
+          }
+        }
+        return { resolved, failed };
+      };
+    },
+
     async queryDataOwner(method: string, params: unknown): Promise<unknown> {
       switch (method) {
         case 'QuerySymbolSubset': {
@@ -650,6 +682,18 @@ function createDispatcher(
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
       }
+    },
+
+    queryGraphData(params): Promise<unknown> {
+      return callbacks.sendToDataOwner(
+        new QueryGraphData({
+          type: params.type,
+          fileUri: params.fileUri,
+          symbolType: params.symbolType,
+          includeMetadata: params.includeMetadata,
+          includeDiagnostics: params.includeDiagnostics,
+        }),
+      );
     },
   };
 }
@@ -865,6 +909,10 @@ function buildEnrichmentMessage(
       });
     case 'diagnostics':
       return new DispatchDiagnostic({
+        textDocument: { uri: p.textDocument.uri },
+      });
+    case 'crossFileEnrichment':
+      return new DispatchCrossFileEnrichment({
         textDocument: { uri: p.textDocument.uri },
       });
     default:

@@ -82,6 +82,7 @@ export class GenericRequestHandler<
       executeCommand: 'processExecuteCommand',
       prerequisiteEnrichment: 'processPrerequisiteEnrichment',
       resolve: 'processResolve',
+      crossFileEnrichment: 'processCrossFileEnrichment',
     };
 
     return methodMap[requestType] || 'process';

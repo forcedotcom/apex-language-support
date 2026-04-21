@@ -28,6 +28,7 @@ import {
 export function getExcludeGlob(includeSfdxToolsCustomObjects: boolean): string {
   const exclude = [
     'node_modules',
+    '.sf/**',
     '.sfdx/tools/*/StandardApexLibrary',
     '.sfdx/tools/sobjects/standardObjects',
     ...(includeSfdxToolsCustomObjects
@@ -113,6 +114,12 @@ export async function loadWorkspaceForServer(
         const excludeGlob = getExcludeGlob(
           settings.apex.loadWorkspace.includeSfdxToolsCustomObjects ?? false,
         );
+        const isDevelopment =
+          settings.apex.environment.serverMode === 'development';
+        const maxFileCount =
+          isDevelopment && settings.apex.loadWorkspace.maxFileCount
+            ? settings.apex.loadWorkspace.maxFileCount
+            : undefined;
 
         // Send progress begin notification (LSP)
         if (workDoneToken) {
@@ -148,7 +155,11 @@ export async function loadWorkspaceForServer(
             const uris = yield* _(
               Effect.tryPromise({
                 try: () =>
-                  findFilesAcrossWorkspaceFolders(pattern, excludeGlob),
+                  findFilesAcrossWorkspaceFolders(
+                    pattern,
+                    excludeGlob,
+                    maxFileCount,
+                  ),
                 catch: (e: unknown) =>
                   new Error(
                     `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,
