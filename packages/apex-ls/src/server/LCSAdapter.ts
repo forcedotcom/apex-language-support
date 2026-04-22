@@ -136,6 +136,7 @@ export class LCSAdapter {
   private clientVscodeVersion = '';
   private clientWorkspaceFileCount = 0;
   private clientApexFileCount = 0;
+  private workerPlatformWebUrl: string | undefined;
   private readonly inFlightDocumentSymbolByUri = new HashMap<
     string,
     Promise<DocumentSymbol[] | SymbolInformation[] | null>
@@ -1265,6 +1266,9 @@ export class LCSAdapter {
     this.clientVscodeVersion = envSettings?.vscodeVersion ?? '';
     this.clientWorkspaceFileCount = envSettings?.workspaceFileCount ?? 0;
     this.clientApexFileCount = envSettings?.apexFileCount ?? 0;
+    this.workerPlatformWebUrl = envSettings?.workerPlatformWebUrl as
+      | string
+      | undefined;
 
     const serverModeAfter = configManager.getCapabilitiesManager().getMode();
 
@@ -1639,19 +1643,28 @@ export class LCSAdapter {
       );
     });
 
-    // Worker pool topology (Node/desktop only — web has no worker_threads)
-    try {
-      require.resolve('node:worker_threads');
-      const workerSettings = LSPConfigurationManager.getInstance().getSettings()
-        .apex as any;
-      const workersEnabled =
-        process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
-        workerSettings?.experimental?.workers?.enabled !== false;
-      if (workersEnabled) {
-        this.initializeWorkerTopology();
+    // Worker pool topology — supported on both Node.js and browser
+    const isNodeJs =
+      typeof process !== 'undefined' && process.versions?.node != null;
+
+    if (isNodeJs) {
+      // Node: gate on worker_threads availability + settings
+      try {
+        require.resolve('node:worker_threads');
+        const workerSettings =
+          LSPConfigurationManager.getInstance().getSettings().apex as any;
+        const workersEnabled =
+          process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
+          workerSettings?.experimental?.workers?.enabled !== false;
+        if (workersEnabled) {
+          this.initializeWorkerTopology();
+        }
+      } catch {
+        // worker_threads not available — skip
       }
-    } catch {
-      // Not in Node — skip worker topology
+    } else {
+      // Browser: always use multi-worker topology (Web Workers are always available)
+      this.initializeWorkerTopology();
     }
   }
 
@@ -2168,8 +2181,10 @@ export class LCSAdapter {
       const {
         initializeTopology,
         makeNodeWorkerLayer,
+        makeBrowserWorkerLayer,
         makeWorkerDispatcher,
         getRawWorkers,
+        getBrowserWorkers,
         getAssistancePorts,
         getWorkerNames,
         runRemoteStdlibWarmupPhase,
@@ -2195,9 +2210,8 @@ export class LCSAdapter {
 
       // Use the main apex.logLevel for workers (no separate worker.logLevel setting)
       const mainLogLevel =
-        LSPConfigurationManager.getInstance()
-          .getSettingsManager()
-          .getLogLevel() ?? 'error';
+        (LSPConfigurationManager.getInstance().getSettings()?.apex as any)
+          ?.logLevel ?? 'error';
 
       const config = {
         poolSize:
@@ -2208,46 +2222,74 @@ export class LCSAdapter {
         serverMode,
       };
 
-      const path = yield* Effect.promise(() => import('path'));
-      const fs = yield* Effect.promise(() => import('fs'));
+      const isNodeJs =
+        typeof process !== 'undefined' && process.versions?.node != null;
 
-      let pkgRoot = __dirname;
-      while (
-        !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
-        pkgRoot !== path.dirname(pkgRoot)
-      ) {
-        pkgRoot = path.dirname(pkgRoot);
-      }
-      const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
-      if (!fs.existsSync(workerScript)) {
-        return yield* Effect.fail(
-          new Error(
-            `worker.platform.js not found at ${workerScript}` +
-              ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
-          ),
-        );
-      }
-      this.logger.info(
-        () => `[WorkerCoordinator] Worker script: ${workerScript}`,
-      );
-
-      const workerLayerFactory = (role: string) =>
-        makeNodeWorkerLayer(workerScript, {
-          name: `apex-worker-${role}`,
-          execArgv: buildWorkerExecArgv({ role }).execArgv,
-        });
-
-      const program = initializeTopology({
-        ...config,
-        workerLayerFactory,
-      });
+      // Dynamic import prevents static WorkerTopology reference; any is safe here.
+      let topology: any = null;
 
       const scope = Effect.runSync(Scope.make());
-      const topology = yield* Effect.provideService(
-        program,
-        Scope.Scope,
-        scope,
-      );
+
+      if (isNodeJs) {
+        const path = yield* Effect.promise(() => import('path'));
+        const fs = yield* Effect.promise(() => import('fs'));
+
+        let pkgRoot = __dirname;
+        while (
+          !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
+          pkgRoot !== path.dirname(pkgRoot)
+        ) {
+          pkgRoot = path.dirname(pkgRoot);
+        }
+        const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
+        if (!fs.existsSync(workerScript)) {
+          return yield* Effect.fail(
+            new Error(
+              `worker.platform.js not found at ${workerScript}` +
+                ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
+            ),
+          );
+        }
+        this.logger.info(
+          () => `[WorkerCoordinator] Worker script (node): ${workerScript}`,
+        );
+        const workerLayerFactory = (role: string) =>
+          makeNodeWorkerLayer(workerScript, {
+            name: `apex-worker-${role}`,
+            execArgv: buildWorkerExecArgv({ role }).execArgv,
+          });
+
+        topology = yield* Effect.provideService(
+          initializeTopology({ ...config, workerLayerFactory }),
+          Scope.Scope,
+          scope,
+        );
+      } else {
+        // Browser: all workers share the same BrowserWorker layer.
+        // Per-role layer factory not needed — no execArgv in browser.
+        // In a Web Worker, globalThis.location.href is the URL of this script
+        // (server.web.js). worker.platform.web.js is co-located in dist/.
+        // Prefer the URL injected by the extension (blob: hrefs can't be URL bases)
+        const injectedUrl = this.workerPlatformWebUrl;
+        const selfHref =
+          injectedUrl ??
+          (globalThis as any).location?.href ??
+          'file:///server.web.js';
+        const workerUrl =
+          injectedUrl ?? new URL('./worker.platform.web.js', selfHref).href;
+        this.logger.info(
+          () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
+        );
+        const browserLayer = yield* Effect.promise(() =>
+          makeBrowserWorkerLayer(workerUrl),
+        );
+
+        topology = yield* Effect.provideService(
+          initializeTopology(config).pipe(Effect.provide(browserLayer as any)),
+          Scope.Scope,
+          scope,
+        );
+      }
 
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -2309,11 +2351,15 @@ export class LCSAdapter {
         this.logger,
         async (method, params) => dispatcher.queryDataOwner(method, params),
       );
-      mediator.attachToWorkers(
-        getRawWorkers(),
-        getAssistancePorts(),
-        getWorkerNames(),
-      );
+      if (isNodeJs) {
+        mediator.attachToWorkers(
+          getRawWorkers(),
+          getAssistancePorts(),
+          getWorkerNames(),
+        );
+      } else {
+        mediator.attachToBrowserWorkers(getBrowserWorkers());
+      }
 
       yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
 
@@ -2324,7 +2370,8 @@ export class LCSAdapter {
       );
     });
 
-    void Effect.runPromise(pipeline).catch((error: unknown) => {
+    const runnable = pipeline as Effect.Effect<void>;
+    void Effect.runPromise(runnable).catch((error: unknown) => {
       this.logger.error(
         () =>
           `❌ Failed to initialize worker topology: ${formattedError(error)}`,

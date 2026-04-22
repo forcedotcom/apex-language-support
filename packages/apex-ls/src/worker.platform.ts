@@ -18,8 +18,6 @@
  *   - Step 8:  WorkspaceBatchIngest (data-owner)
  *   - Step 9:  ResourceLoaderGetSymbolTable
  *   - Step 11: Dispatch* (pool / data-owner)
- *
- * Browser variant: worker.platform.web.ts (Step 10).
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
@@ -1020,34 +1018,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                   ? level
                   : 'public-api';
             }
-
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': 'a509d3',
-                },
-                body: JSON.stringify({
-                  sessionId: 'a509d3',
-                  location: 'worker.platform.ts:QuerySymbolSubset',
-                  message: 'result',
-                  data: {
-                    requestedUris: req.uris,
-                    nullEntries: Object.entries(entries)
-                      .filter(([, v]) => v === null)
-                      .map(([k]) => k),
-                    versions,
-                    detailLevels,
-                  },
-                  hypothesisId: 'H9',
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
 
             return { entries, versions, detailLevels };
           }),

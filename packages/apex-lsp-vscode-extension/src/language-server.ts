@@ -176,6 +176,15 @@ const createEnhancedInitializationOptions = async (
     }
   }
 
+  const workerPlatformWebUrl =
+    runtimePlatform === 'web'
+      ? vscode.Uri.joinPath(
+          context.extensionUri,
+          'dist',
+          'worker.platform.web.js',
+        ).toString()
+      : undefined;
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -187,6 +196,7 @@ const createEnhancedInitializationOptions = async (
         extensionVersion,
         workspaceFileCount,
         apexFileCount,
+        workerPlatformWebUrl,
       },
       resources: {
         ...safeSettings.apex?.resources,

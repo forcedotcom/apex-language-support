@@ -158,7 +158,7 @@ Worker messages use `@effect/schema` `TaggedRequest` classes defined in `apex-ls
 
 #### Transport isolation
 
-`WorkerTopologyTransport` abstracts spawn/send/dispatch/shutdown behind opaque `WorkerHandle`/`PoolHandle` types. The only production implementation is `EffectPlatformWorkerTransport`. A `MockWorkerTransport` enables unit testing without real threads.
+`WorkerTopologyTransport` abstracts spawn/send/dispatch/shutdown behind opaque `WorkerHandle`/`PoolHandle` types. Production uses `@effect/platform` directly via `makeNodeWorkerLayer`. A `MockWorkerTransport` enables unit testing without real threads.
 
 ### Worker Settings
 

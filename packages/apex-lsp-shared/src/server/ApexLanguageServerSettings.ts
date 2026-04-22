@@ -63,6 +63,12 @@ export interface EnvironmentSettings {
   /** Current environment (node, browser, web-worker) */
   runtimePlatform: RuntimePlatform;
 
+  /**
+   * Absolute URL of worker.platform.web.js, injected by the VS Code extension
+   * when running as a web worker (blob: origins cannot be used as URL bases).
+   */
+  workerPlatformWebUrl?: string;
+
   /** Current server mode */
   serverMode: ServerMode;
 

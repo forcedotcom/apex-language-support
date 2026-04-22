@@ -64,7 +64,8 @@ const WORKER_EXTERNAL: string[] = [
   'node:worker_threads',
   'node:os',
   '@effect/platform-node/NodeWorker',
-  '@effect/platform/WorkerError',
+  // NOTE: @effect/platform/WorkerError must NOT be external — it is a
+  // dependency of @effect/platform-browser/BrowserWorker which runs in browser.
 ];
 
 const builds: BuildOptions[] = [
@@ -128,8 +129,8 @@ const builds: BuildOptions[] = [
       '.gz': 'dataurl',
     },
   },
-  // Browser internal worker build — spawned by WorkerCoordinator in web extension (Step 10)
-  // IIFE format for nested Worker context; same polyfills as server.web.js
+  // Browser internal worker build — spawned by WorkerCoordinator in web extension
+  // IIFE format for nested Worker context; polyfills and BrowserWorkerRunner included
   {
     entryPoints: { 'worker.platform.web': 'src/worker.platform.web.ts' },
     outdir: 'dist',
@@ -137,7 +138,7 @@ const builds: BuildOptions[] = [
     format: 'iife',
     target: 'es2022',
     sourcemap: true,
-    minify: shouldMinifyEsbuild(),
+    minify: false, // DEBUG: keep unminified for stack trace readability
     metafile: true,
     external: [],
     keepNames: true,
@@ -160,7 +161,7 @@ const builds: BuildOptions[] = [
     format: 'iife',
     target: 'es2022',
     sourcemap: true,
-    minify: shouldMinifyEsbuild(),
+    minify: false, // DEBUG: keep unminified for stack trace readability
     metafile: true,
     external: WORKER_EXTERNAL,
     keepNames: true,
@@ -183,6 +184,26 @@ const builds: BuildOptions[] = [
 // Index 2 = browser internal worker, last = web server
 configureWebWorkerPolyfills(builds[2]);
 configureWebWorkerPolyfills(builds[builds.length - 1]);
+
+// Pre-define a minimal `process` global BEFORE the IIFE runs.
+// Some bundled node polyfills (e.g. `util`) reference bare `process` at
+// module-init time, before our entry-module body can run
+// `(globalThis as any).process = process`.  The banner executes in the
+// worker's global scope prior to the IIFE, so bare `process` lookups inside
+// the IIFE find this shim instead of throwing ReferenceError.
+(builds[2] as BuildOptions).banner = {
+  js:
+    'if(typeof process==="undefined"){' +
+    'self.process={' +
+    'env:{NODE_ENV:"production"},' +
+    'argv:[],version:"v18.0.0",versions:{},' +
+    'platform:"browser",' +
+    'exit:function(){},' +
+    'nextTick:function(fn){queueMicrotask(fn)},' +
+    'hrtime:function(){return[0,0]},' +
+    'pid:0,cwd:function(){return"/"},chdir:function(){}' +
+    '}}',
+};
 
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {

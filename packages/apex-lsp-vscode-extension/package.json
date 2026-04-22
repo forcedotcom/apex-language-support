@@ -106,6 +106,9 @@
     "sfWebConsoleAdditionalRequiredFiles": [
       {
         "uri": "./dist/server.web.js"
+      },
+      {
+        "uri": "./dist/worker.platform.web.js"
       }
     ],
     "configuration": {

@@ -16,9 +16,6 @@
 
 import * as Worker from '@effect/platform/Worker';
 import { WorkerError } from '@effect/platform/WorkerError';
-import * as NodeWorker from '@effect/platform-node/NodeWorker';
-import * as WorkerThreads from 'node:worker_threads';
-import * as os from 'node:os';
 import { Effect, Layer, Scope } from 'effect';
 import {
   WorkerInit,
@@ -62,21 +59,39 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 
 // ---------------------------------------------------------------------------
-// Worker Layer factory
+// Worker Layer factory (Node.js — dynamically imported to avoid bundling
+// node:worker_threads into the browser IIFE)
 // ---------------------------------------------------------------------------
 
-const rawWorkers: WorkerThreads.Worker[] = [];
-const assistancePorts: WorkerThreads.MessagePort[] = [];
+// Use `any` for Node types so the browser tsconfig doesn't need the node lib.
+const rawWorkers: any[] = [];
+const assistancePorts: any[] = [];
 const workerNames: string[] = [];
 
+/**
+ * Create a Node.js worker layer. All node-specific imports are dynamic so
+ * they are never evaluated in the browser bundle.
+ */
 export const makeNodeWorkerLayer = (
   workerScript: string,
-  workerOptions?: WorkerThreads.WorkerOptions,
-) =>
-  NodeWorker.layer((_id: number) => {
-    const { MessageChannel } = WorkerThreads;
-    const assistChannel = new MessageChannel();
-    const w = new WorkerThreads.Worker(workerScript, {
+  workerOptions?: {
+    name?: string;
+    execArgv?: string[];
+    workerData?: unknown;
+    transferList?: any[];
+    stdout?: boolean;
+    stderr?: boolean;
+  },
+) => {
+  // Lazily resolve NodeWorker at call time (Node.js path only).
+  const NodeWorker =
+    require('@effect/platform-node/NodeWorker') as typeof import('@effect/platform-node/NodeWorker');
+  const WT =
+    require('node:worker_threads') as typeof import('node:worker_threads');
+
+  return NodeWorker.layer((_id: number) => {
+    const assistChannel = new WT.MessageChannel();
+    const w = new WT.Worker(workerScript, {
       // Prevent worker stdout/stderr from leaking into the LSP stdio
       // transport, which corrupts the Content-Length framed protocol.
       stdout: true,
@@ -96,23 +111,21 @@ export const makeNodeWorkerLayer = (
     workerNames.push(workerOptions?.name ?? '');
     return w;
   });
+};
 
 /**
  * Returns raw Worker handles captured during topology initialization.
  * Used by CoordinatorAssistanceMediator to attach log-forwarding listeners.
  */
-export function getRawWorkers(): WorkerThreads.Worker[] {
+export function getRawWorkers(): any[] {
   return [...rawWorkers];
 }
 
 /**
  * Returns dedicated assistance MessagePorts created during topology init.
  * Each port corresponds to a worker in getRawWorkers() by index.
- * Used by CoordinatorAssistanceMediator for worker→coordinator
- * assistance requests — keeps them off the main Worker channel so
- * they don't interfere with @effect/platform's protocol.
  */
-export function getAssistancePorts(): WorkerThreads.MessagePort[] {
+export function getAssistancePorts(): any[] {
   return [...assistancePorts];
 }
 
@@ -130,23 +143,76 @@ export function clearRawWorkers(): void {
 // Browser Worker Layer factory (Step 10)
 // ---------------------------------------------------------------------------
 
+/** Minimal browser Worker interface (avoids DOM lib dependency in Node tsconfig). */
+export interface BrowserWorkerLike {
+  postMessage(data: unknown): void;
+  addEventListener(
+    type: 'message',
+    listener: (event: { data: unknown }) => void,
+  ): void;
+}
+
+const browserWorkers: BrowserWorkerLike[] = [];
+
 /**
  * Create a browser worker layer using native Web Worker API.
- * Uses dynamic import of @effect/platform-browser to avoid loading it
- * in Node.js environments.
+ * Tracks each spawned Worker so CoordinatorAssistanceMediator can attach
+ * message listeners for cross-worker IPC (assistance channel).
  */
 export async function makeBrowserWorkerLayer(
   workerScriptUrl: string,
-): Promise<unknown> {
+): Promise<Layer.Layer<Worker.WorkerManager | Worker.Spawner>> {
   const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
 
-  const W = (globalThis as any).Worker as new (url: string | URL) => unknown;
-  return BrowserWorker.layer((_id: number) => new W(workerScriptUrl) as never);
+  // Fetch the script and create a blob URL so the sub-worker shares the same
+  // origin as the parent (server.web.js). Direct HTTP URLs fail with a
+  // SecurityError when the parent runs from a different-origin blob context
+  // (e.g. VS Code web extension subdomain isolation).
+  const scriptText = await fetch(workerScriptUrl).then((r) => r.text());
+  const blobUrl = URL.createObjectURL(
+    new Blob([scriptText], { type: 'application/javascript' }),
+  );
+
+  const W = (globalThis as any).Worker as new (
+    url: string | URL,
+  ) => BrowserWorkerLike;
+  return BrowserWorker.layer((_id: number) => {
+    const rawWorker = new W(blobUrl);
+    // Push the unfiltered worker so the mediator can observe ALL messages
+    // (including WorkerLogMessage for log forwarding).
+    browserWorkers.push(rawWorker);
+    // Wrap the worker before handing it to Effect's BrowserWorker layer.
+    // The Effect protocol only uses arrays; block any non-array messages
+    // (WorkerLogMessage, WorkerAssistanceRequest, etc.) so they don't reach
+    // the protocol handler which would crash on plain objects.
+    const filteredWorker: BrowserWorkerLike = {
+      postMessage: rawWorker.postMessage.bind(rawWorker),
+      addEventListener: (
+        type: 'message',
+        listener: (event: { data: unknown }) => void,
+      ) => {
+        rawWorker.addEventListener(type, (event: { data: unknown }) => {
+          if (!Array.isArray(event.data)) return;
+          listener(event);
+        });
+      },
+    };
+    return filteredWorker as never;
+  });
 }
 
-// Safe in CJS bundles: __dirname resolves at runtime to the dist/ directory
-// where both server.node.js and worker.platform.js are co-located.
-const DEFAULT_WORKER_SCRIPT = __dirname + '/worker.platform.js';
+export function getBrowserWorkers(): BrowserWorkerLike[] {
+  return [...browserWorkers];
+}
+
+export function clearBrowserWorkers(): void {
+  browserWorkers.length = 0;
+}
+
+// __dirname is only defined in Node CJS bundles; browser bundles leave it
+// undefined (runVerticalSlice is Node-only so the default is never used there).
+const DEFAULT_WORKER_SCRIPT =
+  typeof __dirname !== 'undefined' ? __dirname + '/worker.platform.js' : '';
 
 // ---------------------------------------------------------------------------
 // Pool topology (Step 4)
@@ -187,8 +253,14 @@ const makeInitMessage = (
   });
 
 export function clampPoolSize(requested: number): number {
-  const cpus = os.cpus().length;
-  const max = Math.max(1, cpus - 2);
+  let cpuCount = 4; // reasonable default for browser or when os is unavailable
+  try {
+    const os = require('node:os') as typeof import('node:os');
+    cpuCount = os.cpus().length;
+  } catch {
+    // browser environment — use default
+  }
+  const max = Math.max(1, cpuCount - 2);
   return Math.max(1, Math.min(requested, max));
 }
 
@@ -313,7 +385,7 @@ type VerticalSliceRequests = WorkerInit | PingWorker;
 export function runVerticalSlice(
   logger: LoggerInterface,
   workerScript = DEFAULT_WORKER_SCRIPT,
-  workerOptions?: WorkerThreads.WorkerOptions,
+  workerOptions?: { execArgv?: string[]; workerData?: unknown },
 ): Promise<void> {
   const program = Effect.gen(function* () {
     const worker = yield* Worker.makeSerialized<VerticalSliceRequests>({});

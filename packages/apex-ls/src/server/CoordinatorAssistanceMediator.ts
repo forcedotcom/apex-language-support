@@ -94,6 +94,39 @@ export class CoordinatorAssistanceMediator {
     );
   }
 
+  /**
+   * Browser variant of attachToWorkers.
+   * Uses addEventListener instead of .on() since browser Workers are not
+   * Node.js EventEmitters. Assistance and log messages share the main channel
+   * (no dedicated MessagePort in browser workers).
+   */
+  attachToBrowserWorkers(
+    workers: import('./WorkerCoordinator').BrowserWorkerLike[],
+  ): void {
+    for (let i = 0; i < workers.length; i++) {
+      const worker = workers[i];
+      const label = `browser-worker:${i}`;
+
+      worker.addEventListener('message', (event: { data: unknown }) => {
+        const data = event.data;
+        if (isLogMessage(data)) {
+          this.forwardLogMessage(data, label);
+          return;
+        }
+        if (!isAssistanceRequest(data)) return;
+        Effect.runFork(
+          this.handleRequest(data, {
+            postMessage: (msg: unknown) => worker.postMessage(msg),
+          }),
+        );
+      });
+    }
+    this.logger.debug(
+      () =>
+        `[AssistanceMediator] Attached to ${workers.length} browser worker(s)`,
+    );
+  }
+
   private attachStderrForwarding(
     worker: WorkerThreads.Worker,
     label: string,
