@@ -424,6 +424,7 @@ const mockLogger = {
   error: jest.fn(),
   debug: jest.fn(),
   log: jest.fn(),
+  alwaysLog: jest.fn(),
 };
 
 jest.mock('@salesforce/apex-lsp-shared', () => ({

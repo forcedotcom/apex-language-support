@@ -87,7 +87,7 @@ export class CoordinatorAssistanceMediator {
         });
       }
     }
-    this.logger.debug(
+    this.logger.alwaysLog(
       () =>
         `[AssistanceMediator] Attached to ${workers.length} worker(s)` +
         (assistancePorts ? ' with dedicated assistance ports' : ''),
@@ -96,8 +96,8 @@ export class CoordinatorAssistanceMediator {
 
   /**
    * Browser variant of attachToWorkers.
-   * Each port is the coordinator end (port1) of the MessageChannel whose
-   * port2 was transferred to the worker via AssistancePortInit. Mirrors
+   * Each port is the coordinator end (port1Assist) of the MessageChannel whose
+   * port2 was transferred to the worker via WorkerPortsInit. Mirrors
    * the Node path exactly — dedicated channel, no main-channel pollution.
    */
   attachToBrowserAssistancePorts(
@@ -122,7 +122,7 @@ export class CoordinatorAssistanceMediator {
       });
       port.start();
     }
-    this.logger.debug(
+    this.logger.alwaysLog(
       () =>
         `[AssistanceMediator] Attached to ${ports.length} browser worker(s)`,
     );

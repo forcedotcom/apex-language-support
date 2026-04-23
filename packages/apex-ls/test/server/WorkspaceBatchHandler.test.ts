@@ -38,6 +38,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    alwaysLog: jest.fn(),
   })),
   ApexSettingsManager: {
     getInstance: jest.fn(() => ({

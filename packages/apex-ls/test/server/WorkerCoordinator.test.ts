@@ -51,6 +51,7 @@ function createSpyLogger(): LoggerInterface & { messages: string[] } {
     warn: noop,
     error: capture,
     log: noop,
+    alwaysLog: capture,
   } as unknown as LoggerInterface & { messages: string[] };
 }
 

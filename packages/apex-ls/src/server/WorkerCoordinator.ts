@@ -366,7 +366,7 @@ export function initializeTopology(
         }),
         'resourceLoader',
       );
-      logger.info(() => '[WorkerCoordinator] Resource loader initialized');
+      logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
 
     const dataOwner = yield* withRoleLayer(
@@ -376,7 +376,7 @@ export function initializeTopology(
       }),
       'dataOwner',
     );
-    logger.info(() => '[WorkerCoordinator] Data owner initialized');
+    logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
 
     const compilation = yield* withRoleLayer(
       Worker.makeSerialized<CompilationRequest>({
@@ -385,7 +385,7 @@ export function initializeTopology(
       }),
       'compilation',
     );
-    logger.info(() => '[WorkerCoordinator] Compilation worker initialized');
+    logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
 
     const enrichmentPool = yield* withRoleLayer(
       Worker.makePoolSerialized<EnrichmentSearchRequest>({
@@ -395,7 +395,7 @@ export function initializeTopology(
       }),
       'enrichmentSearch',
     );
-    logger.info(
+    logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
     );
@@ -481,24 +481,24 @@ export const initializeTransportTopology = (
     let resourceLoader: WorkerHandle | null = null;
     if (config.enableResourceLoader) {
       resourceLoader = yield* transport.spawn('resourceLoader');
-      logger.info(
-        () => '[WorkerCoordinator] Resource loader initialized (transport)',
+      logger.alwaysLog(
+        '[WorkerCoordinator] Resource loader initialized (transport)',
       );
     }
 
     const dataOwner = yield* transport.spawn('dataOwner');
-    logger.info(() => '[WorkerCoordinator] Data owner initialized (transport)');
+    logger.alwaysLog('[WorkerCoordinator] Data owner initialized (transport)');
 
     const compilation = yield* transport.spawn('compilation');
-    logger.info(
-      () => '[WorkerCoordinator] Compilation worker initialized (transport)',
+    logger.alwaysLog(
+      '[WorkerCoordinator] Compilation worker initialized (transport)',
     );
 
     const enrichmentPool = yield* transport.makePool(
       'enrichmentSearch',
       poolSize,
     );
-    logger.info(
+    logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (transport, size=${poolSize})`,
     );

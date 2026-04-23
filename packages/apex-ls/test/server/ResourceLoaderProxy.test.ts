@@ -27,6 +27,7 @@ function createSpyLogger(): LoggerInterface {
     warn: noop,
     error: noop,
     log: noop,
+    alwaysLog: noop,
   } as unknown as LoggerInterface;
 }
 

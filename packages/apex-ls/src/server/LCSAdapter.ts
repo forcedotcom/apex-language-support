@@ -2250,7 +2250,7 @@ export class LCSAdapter {
             ),
           );
         }
-        this.logger.info(
+        this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (node): ${workerScript}`,
         );
         const workerLayerFactory = (role: string) =>
@@ -2277,7 +2277,7 @@ export class LCSAdapter {
           'file:///server.web.js';
         const workerUrl =
           injectedUrl ?? new URL('./worker.platform.web.js', selfHref).href;
-        this.logger.info(
+        this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
         const browserLayer = yield* Effect.promise(() =>
@@ -2363,9 +2363,8 @@ export class LCSAdapter {
 
       yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
 
-      this.logger.info(
-        () =>
-          '[WorkerCoordinator] Topology active — ' +
+      this.logger.alwaysLog(
+        '[WorkerCoordinator] Topology active — ' +
           'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
       );
     });
