@@ -222,6 +222,15 @@ export const createApexServerStatusItem = (
   context.subscriptions.push(apexServerStatusItem);
 };
 
+export const updateApexServerStatusLoading = (message: string) => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = `$(sync~spin) ${message}`;
+    apexServerStatusItem.detail = 'Loading Apex workspace';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+    apexServerStatusItem.busy = true;
+  }
+};
+
 export const updateApexServerStatusStarting = () => {
   if (apexServerStatusItem) {
     const currentLogLevel = getLogLevel();

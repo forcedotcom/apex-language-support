@@ -334,6 +334,16 @@ export function getCrossFileEnrichmentDispatcher(): CrossFileEnrichmentDispatche
 }
 
 /**
+ * Callback invoked when a batch ingestion session completes (success or error).
+ * Used by LCSAdapter to send apex/workspaceIngestionComplete to the client.
+ */
+let ingestionCompleteCallback: (() => void) | null = null;
+
+export function setIngestionCompleteCallback(cb: () => void): void {
+  ingestionCompleteCallback = cb;
+}
+
+/**
  * Decode base64 string to Uint8Array
  */
 function decodeBase64(base64: string): Uint8Array {
@@ -583,6 +593,7 @@ function processStoredBatches(
         `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
         `(${throughput} files/sec)`,
     );
+    ingestionCompleteCallback?.();
 
     // Schedule deferred reference processing for workspace files
     const settings = ApexSettingsManager.getInstance().getSettings();
@@ -618,6 +629,7 @@ function processStoredBatches(
             `[BATCH-PROCESSING] Error for session ${sessionId}: ${errorMessage}`,
         );
         batchStorage.removeSession(sessionId);
+        ingestionCompleteCallback?.();
         return undefined;
       }),
     ),

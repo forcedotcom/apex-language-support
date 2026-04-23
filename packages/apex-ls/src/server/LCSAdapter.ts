@@ -84,6 +84,7 @@ import {
   setBatchIngestionDispatcher,
   setBatchCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
+  setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
 
 import {
@@ -846,6 +847,12 @@ export class LCSAdapter {
     this.logger.debug(
       '✅ apex/processWorkspaceBatches request handler registered',
     );
+
+    // Notify client when server-side batch ingestion completes so the
+    // status bar spinner can be cleared (apex/workspaceIngestionComplete).
+    setIngestionCompleteCallback(() => {
+      this.connection.sendNotification('apex/workspaceIngestionComplete', {});
+    });
 
     // Register workspace/executeCommand handler
     if (capabilities.executeCommandProvider) {
