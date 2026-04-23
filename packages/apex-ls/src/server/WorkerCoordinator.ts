@@ -143,21 +143,48 @@ export function clearRawWorkers(): void {
 // Browser Worker Layer factory (Step 10)
 // ---------------------------------------------------------------------------
 
-/** Minimal browser Worker interface (avoids DOM lib dependency in Node tsconfig). */
+/**
+ * Minimal browser Worker interface — avoids DOM lib dependency in Node tsconfig.
+ * Only the methods used by the coordinator and Effect's BrowserWorker.layer.
+ */
 export interface BrowserWorkerLike {
-  postMessage(data: unknown): void;
+  postMessage(data: unknown, transfer?: unknown[]): void;
   addEventListener(
     type: 'message',
     listener: (event: { data: unknown }) => void,
   ): void;
 }
 
-const browserWorkers: BrowserWorkerLike[] = [];
+/**
+ * Minimal MessagePort interface — avoids DOM lib dependency in Node tsconfig.
+ * Only the methods used by CoordinatorAssistanceMediator for side-channel IPC.
+ */
+export interface BrowserMessagePort {
+  postMessage(data: unknown): void;
+  addEventListener(
+    type: 'message',
+    listener: (event: { data: unknown }) => void,
+  ): void;
+  start(): void;
+}
+
+/**
+ * Dedicated side-channel ports for browser workers.
+ * port1 stays on the coordinator; port2 is transferred to the worker via
+ * WorkerPortsInit. Mirrors the Node `assistancePorts` pattern exactly.
+ */
+const browserAssistancePorts: BrowserMessagePort[] = [];
 
 /**
  * Create a browser worker layer using native Web Worker API.
- * Tracks each spawned Worker so CoordinatorAssistanceMediator can attach
- * message listeners for cross-worker IPC (assistance channel).
+ *
+ * Each spawned worker gets two dedicated `MessagePort` pairs via a
+ * `WorkerPortsInit` message posted to the worker's `self`:
+ *   - `mcEffect`: carries only Effect protocol arrays (coordinator port1,
+ *     worker port2). Effect never touches `self`, so no message-collision risk.
+ *   - `mcAssist`: side-channel for logs and assistance RPC (coordinator port1
+ *     stored in `browserAssistancePorts`, worker port2 used for all side-channel
+ *     traffic). Mirrors the Node `assistPort`-via-`workerData` pattern.
  */
 export async function makeBrowserWorkerLayer(
   workerScriptUrl: string,
@@ -176,37 +203,46 @@ export async function makeBrowserWorkerLayer(
   const W = (globalThis as any).Worker as new (
     url: string | URL,
   ) => BrowserWorkerLike;
+  // MessageChannel is a DOM API — use globalThis to avoid Node tsconfig errors.
+  const MC = (globalThis as any).MessageChannel as new () => {
+    port1: BrowserMessagePort;
+    port2: BrowserMessagePort;
+  };
   return BrowserWorker.layer((_id: number) => {
     const rawWorker = new W(blobUrl);
-    // Push the unfiltered worker so the mediator can observe ALL messages
-    // (including WorkerLogMessage for log forwarding).
-    browserWorkers.push(rawWorker);
-    // Wrap the worker before handing it to Effect's BrowserWorker layer.
-    // The Effect protocol only uses arrays; block any non-array messages
-    // (WorkerLogMessage, WorkerAssistanceRequest, etc.) so they don't reach
-    // the protocol handler which would crash on plain objects.
-    const filteredWorker: BrowserWorkerLike = {
-      postMessage: rawWorker.postMessage.bind(rawWorker),
-      addEventListener: (
-        type: 'message',
-        listener: (event: { data: unknown }) => void,
-      ) => {
-        rawWorker.addEventListener(type, (event: { data: unknown }) => {
-          if (!Array.isArray(event.data)) return;
-          listener(event);
-        });
+
+    // Two dedicated channels per worker:
+    //   mcEffect — Effect protocol (coordinator ↔ worker)
+    //   mcAssist — side-channel for logs + assistance RPC
+    const mcEffect = new MC();
+    const mcAssist = new MC();
+
+    // Transfer both port2s to the worker via rawWorker.postMessage on `self`.
+    // The worker listens on `self` for this one-time init message and never
+    // starts Effect's BrowserWorkerRunner on `self`, so there is no collision.
+    rawWorker.postMessage(
+      {
+        _tag: 'WorkerPortsInit',
+        effectPort: mcEffect.port2,
+        assistPort: mcAssist.port2,
       },
-    };
-    return filteredWorker as never;
+      [mcEffect.port2, mcAssist.port2],
+    );
+    browserAssistancePorts.push(mcAssist.port1);
+
+    // Return the Effect protocol port to BrowserWorker.layer.
+    // Effect will call port1Effect.postMessage([requestId, payload]) and listen
+    // for responses on it — never touching self.
+    return mcEffect.port1 as never;
   });
 }
 
-export function getBrowserWorkers(): BrowserWorkerLike[] {
-  return [...browserWorkers];
+export function getBrowserAssistancePorts(): BrowserMessagePort[] {
+  return [...browserAssistancePorts];
 }
 
-export function clearBrowserWorkers(): void {
-  browserWorkers.length = 0;
+export function clearBrowserAssistancePorts(): void {
+  browserAssistancePorts.length = 0;
 }
 
 // __dirname is only defined in Node CJS bundles; browser bundles leave it

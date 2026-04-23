@@ -153,31 +153,6 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-      // #region agent log
-      fetch(
-        'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': 'a509d3',
-          },
-          body: JSON.stringify({
-            sessionId: 'a509d3',
-            location: 'HoverProcessingService.ts:hover-entry',
-            message: 'hover entry state',
-            data: {
-              uri: params.textDocument.uri,
-              refCount: references?.length ?? 0,
-              workspaceLoaded: isWorkspaceLoaded(),
-              position: `${parserPosition.line}:${parserPosition.character}`,
-            },
-            hypothesisId: 'H-A,H-B,H-C',
-            timestamp: Date.now(),
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
       // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
@@ -255,37 +230,6 @@ export class HoverProcessingService implements IHoverProcessor {
             ref.location.identifierRange.endColumn >= parserPosition.character,
         );
 
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'a509d3',
-            },
-            body: JSON.stringify({
-              sessionId: 'a509d3',
-              location: 'HoverProcessingService.ts:233',
-              message: 'methodCallRef check',
-              data: {
-                found: !!methodCallRef,
-                methodCallRefName: methodCallRef?.name,
-                position: `${parserPosition.line}:${parserPosition.character}`,
-                allRefs: references.map((r) => ({
-                  name: r.name,
-                  ctx: ReferenceContext[r.context],
-                  start: `${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}`,
-                  end: r.location.identifierRange.endColumn,
-                })),
-              },
-              hypothesisId: 'H1,H4',
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
-
         if (methodCallRef) {
           // Try to resolve the METHOD_CALL reference first
           // This may require enrichment if standard library classes aren't loaded yet
@@ -294,30 +238,6 @@ export class HoverProcessingService implements IHoverProcessor {
             parserPosition,
             'precise',
           );
-
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'a509d3',
-              },
-              body: JSON.stringify({
-                sessionId: 'a509d3',
-                location: 'HoverProcessingService.ts:246',
-                message: 'getSymbolAtPosition result in methodCallRef block',
-                data: {
-                  isMethod: symbol ? (symbol as any).kind : 'null',
-                  methodCallRefName: methodCallRef.name,
-                },
-                hypothesisId: 'H1',
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
 
           // Detect when precise resolved the qualifier class rather than the method:
           // the ChainedRef's identifierRange spans the whole expression, so methodCallRef
@@ -397,30 +317,6 @@ export class HoverProcessingService implements IHoverProcessor {
               () =>
                 `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" without enrichment.`,
             );
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': 'a509d3',
-                },
-                body: JSON.stringify({
-                  sessionId: 'a509d3',
-                  location: 'HoverProcessingService.ts:323',
-                  message: 'branch: method resolved without enrichment',
-                  data: {
-                    symbolName: symbol.name,
-                    symbolKind: symbol.kind,
-                    methodCallRefName: methodCallRef.name,
-                  },
-                  hypothesisId: 'H1',
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
           } else if (!symbol) {
             // 'precise' failed for this METHOD_CALL — try 'scope' which prioritizes
             // chained FIELD_ACCESS refs (e.g. Assert.isNotNull) and can resolve
@@ -436,31 +332,6 @@ export class HoverProcessingService implements IHoverProcessor {
               parserPosition,
               'scope',
             );
-            // #region agent log
-            fetch(
-              'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Debug-Session-Id': 'a509d3',
-                },
-                body: JSON.stringify({
-                  sessionId: 'a509d3',
-                  location: 'HoverProcessingService.ts:scope-methodcall',
-                  message: 'scope fallback result for METHOD_CALL',
-                  data: {
-                    methodCallRefName: methodCallRef.name,
-                    scopeSymbol: scopeSymbol
-                      ? { name: scopeSymbol.name, kind: scopeSymbol.kind }
-                      : null,
-                  },
-                  hypothesisId: 'H-scope',
-                  timestamp: Date.now(),
-                }),
-              },
-            ).catch(() => {});
-            // #endregion
             if (
               scopeSymbol &&
               (isMethodSymbol(scopeSymbol) ||
@@ -493,26 +364,6 @@ export class HoverProcessingService implements IHoverProcessor {
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'a509d3',
-            },
-            body: JSON.stringify({
-              sessionId: 'a509d3',
-              location: 'HoverProcessingService.ts:392',
-              message: 'symbol resolved - entering hover creation',
-              data: { symbolName: symbol.name, symbolKind: symbol.kind },
-              hypothesisId: 'H1',
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
         const resolvedSymbol = symbol;
         // Symbol found - check if we're hovering over a class name in a constructor call context
         // If so, try to find the constructor symbol instead
@@ -878,41 +729,6 @@ export class HoverProcessingService implements IHoverProcessor {
           (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
         );
 
-        // #region agent log
-        fetch(
-          'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': 'a509d3',
-            },
-            body: JSON.stringify({
-              sessionId: 'a509d3',
-              runId: 'post-fix',
-              location: 'HoverProcessingService.ts:750',
-              message: 'Call Site B reached',
-              data: {
-                declarationRefName: declarationRef?.name,
-                declarationRefCtx: declarationRef
-                  ? ReferenceContext[declarationRef.context]
-                  : 'none',
-                findMissingArtifactEnabled:
-                  ApexSettingsManager.getInstance().getSettings()?.apex
-                    ?.findMissingArtifact?.enabled,
-                refCount: references.length,
-                allRefs: references.map((r) => ({
-                  name: r.name,
-                  ctx: ReferenceContext[r.context],
-                })),
-              },
-              hypothesisId: 'H2,H3,H5',
-              timestamp: Date.now(),
-            }),
-          },
-        ).catch(() => {});
-        // #endregion
-
         if (declarationRef) {
           this.logger.debug(
             () =>
@@ -1264,27 +1080,6 @@ export class HoverProcessingService implements IHoverProcessor {
     params: HoverParams,
     callerTag?: string,
   ): Promise<Hover> {
-    // #region agent log
-    fetch('http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': 'a509d3',
-      },
-      body: JSON.stringify({
-        sessionId: 'a509d3',
-        location: 'HoverProcessingService.ts:createSearchingHover',
-        message: 'Searching... triggered',
-        data: {
-          callerTag,
-          uri: params.textDocument.uri,
-          workspaceLoaded: isWorkspaceLoaded(),
-        },
-        hypothesisId: 'H-A,H-B,H-C,H-D',
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     const content: string[] = [];
 
     // Extract the symbol name from the text at the hover position

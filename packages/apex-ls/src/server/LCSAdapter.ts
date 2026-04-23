@@ -2184,7 +2184,7 @@ export class LCSAdapter {
         makeBrowserWorkerLayer,
         makeWorkerDispatcher,
         getRawWorkers,
-        getBrowserWorkers,
+        getBrowserAssistancePorts,
         getAssistancePorts,
         getWorkerNames,
         runRemoteStdlibWarmupPhase,
@@ -2358,7 +2358,7 @@ export class LCSAdapter {
           getWorkerNames(),
         );
       } else {
-        mediator.attachToBrowserWorkers(getBrowserWorkers());
+        mediator.attachToBrowserAssistancePorts(getBrowserAssistancePorts());
       }
 
       yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);

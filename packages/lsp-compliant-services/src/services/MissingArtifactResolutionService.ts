@@ -285,26 +285,6 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
             () =>
               `Forwarding background resolution via assistance proxy for: ${names}`,
           );
-          // #region agent log
-          fetch(
-            'http://127.0.0.1:7441/ingest/9fe9dff8-a20a-43b0-898c-ed89ba87e085',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': 'a509d3',
-              },
-              body: JSON.stringify({
-                sessionId: 'a509d3',
-                runId: 'post-fix-2',
-                location: 'MissingArtifactResolutionService.ts:proxy',
-                message: 'assistance proxy fired',
-                data: { names },
-                timestamp: Date.now(),
-              }),
-            },
-          ).catch(() => {});
-          // #endregion
           proxy(safeParams).catch((error) => {
             this.logger.debug(
               () => `Assistance proxy resolution failed for ${names}: ${error}`,

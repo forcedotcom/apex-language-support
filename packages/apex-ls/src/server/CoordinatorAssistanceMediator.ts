@@ -96,18 +96,18 @@ export class CoordinatorAssistanceMediator {
 
   /**
    * Browser variant of attachToWorkers.
-   * Uses addEventListener instead of .on() since browser Workers are not
-   * Node.js EventEmitters. Assistance and log messages share the main channel
-   * (no dedicated MessagePort in browser workers).
+   * Each port is the coordinator end (port1) of the MessageChannel whose
+   * port2 was transferred to the worker via AssistancePortInit. Mirrors
+   * the Node path exactly — dedicated channel, no main-channel pollution.
    */
-  attachToBrowserWorkers(
-    workers: import('./WorkerCoordinator').BrowserWorkerLike[],
+  attachToBrowserAssistancePorts(
+    ports: import('./WorkerCoordinator').BrowserMessagePort[],
   ): void {
-    for (let i = 0; i < workers.length; i++) {
-      const worker = workers[i];
+    for (let i = 0; i < ports.length; i++) {
+      const port = ports[i];
       const label = `browser-worker:${i}`;
 
-      worker.addEventListener('message', (event: { data: unknown }) => {
+      port.addEventListener('message', (event: { data: unknown }) => {
         const data = event.data;
         if (isLogMessage(data)) {
           this.forwardLogMessage(data, label);
@@ -116,14 +116,15 @@ export class CoordinatorAssistanceMediator {
         if (!isAssistanceRequest(data)) return;
         Effect.runFork(
           this.handleRequest(data, {
-            postMessage: (msg: unknown) => worker.postMessage(msg),
+            postMessage: (msg: unknown) => port.postMessage(msg),
           }),
         );
       });
+      port.start();
     }
     this.logger.debug(
       () =>
-        `[AssistanceMediator] Attached to ${workers.length} browser worker(s)`,
+        `[AssistanceMediator] Attached to ${ports.length} browser worker(s)`,
     );
   }
 

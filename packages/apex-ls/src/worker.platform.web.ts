@@ -9,8 +9,11 @@
 /**
  * Browser worker entry point — mirror of worker.platform.ts.
  *
- * Bootstrapped with BrowserWorkerRunner; assistance proxy uses
- * self.postMessage / self.addEventListener (no dedicated MessagePort).
+ * Bootstrapped via a WorkerPortsInit message on `self` (posted by the
+ * coordinator before Effect starts). Two MessagePorts are received:
+ *   effectPort — Effect protocol channel (BrowserWorkerRunner.layerMessagePort)
+ *   assistPort — side-channel for logs and assistance RPC
+ * Effect never touches `self`, so no message-collision risk.
  * Polyfills match webWorkerServer.ts (process, Buffer, global).
  *
  * Kept as a standalone file (no local imports) so each esbuild entry
@@ -1324,10 +1327,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 // ---------------------------------------------------------------------------
 // Worker→coordinator assistance proxy (browser variant)
 //
-// Uses self.postMessage / self.addEventListener on the main worker channel.
-// The coordinator's CoordinatorAssistanceMediator listens for these via
-// the browser worker's `message` event (no dedicated MessagePort).
+// Uses a dedicated MessagePort (port2Assist) received via WorkerPortsInit.
+// All assistance requests and responses travel on this side-channel port,
+// keeping the Effect protocol channel (port2Effect) clean.
 // ---------------------------------------------------------------------------
+
+let assistPort: MessagePort | null = null;
 
 const pendingAssistanceCallbacks = new Map<
   string,
@@ -1337,10 +1342,10 @@ let assistanceListenerAttached = false;
 let assistanceIdCounter = 0;
 
 function ensureAssistanceListener(): void {
-  if (assistanceListenerAttached) return;
+  if (assistanceListenerAttached || !assistPort) return;
   assistanceListenerAttached = true;
 
-  self.addEventListener('message', (event: MessageEvent) => {
+  assistPort.addEventListener('message', (event: MessageEvent) => {
     const data = event.data;
     if (!isAssistanceResponse(data)) return;
 
@@ -1354,6 +1359,7 @@ function ensureAssistanceListener(): void {
       pending.resolve(data.result);
     }
   });
+  // assistPort.start() already called in the WorkerPortsInit bootstrap below
 }
 
 class AssistanceError {
@@ -1381,7 +1387,7 @@ export function requestCoordinatorAssistance(
           resume(Effect.fail(new AssistanceError(error.message))),
       });
 
-      self.postMessage({
+      assistPort!.postMessage({
         _tag: 'WorkerAssistanceRequest',
         correlationId,
         method,
@@ -1508,9 +1514,9 @@ async function makeResourceLoaderRemoteLayer() {
 // ---------------------------------------------------------------------------
 // Worker→coordinator log transport (browser variant)
 //
-// Posts WorkerLogMessage on the main channel (self.postMessage).
-// The coordinator's mediator listens on the main worker channel when no
-// dedicated assistance port is available (browser fallback path).
+// Posts WorkerLogMessage to the dedicated assistPort side-channel.
+// Logs emitted before WorkerPortsInit arrives are buffered and flushed
+// once the port is set in the bootstrap listener below.
 // ---------------------------------------------------------------------------
 
 const LOG_LEVEL_PRIORITY: Record<WorkerLogLevel, number> = {
@@ -1536,6 +1542,9 @@ function effectLogLevelToWire(level: LogLevel.LogLevel): WorkerLogLevel | null {
   return null;
 }
 
+// Buffer for log messages emitted before assistPort is set.
+const preAssistBuffer: WorkerLogMessage[] = [];
+
 const workerLogger = Logger.make(({ logLevel, message }) => {
   const wireLevel = effectLogLevelToWire(logLevel);
   if (!wireLevel) return;
@@ -1547,7 +1556,11 @@ const workerLogger = Logger.make(({ logLevel, message }) => {
     level: wireLevel,
     message: typeof message === 'string' ? message : String(message),
   };
-  self.postMessage(msg);
+  if (assistPort) {
+    assistPort.postMessage(msg);
+  } else {
+    preAssistBuffer.push(msg);
+  }
 });
 
 const WorkerLoggerLayer = Layer.merge(
@@ -1556,12 +1569,35 @@ const WorkerLoggerLayer = Layer.merge(
 );
 
 // ---------------------------------------------------------------------------
-// Bootstrap — Browser worker runner
+// Bootstrap — Browser worker runner (deferred until WorkerPortsInit)
+//
+// The coordinator sends WorkerPortsInit on rawWorker.postMessage (i.e. self)
+// with two transferred MessagePorts:
+//   effectPort — Effect protocol channel (replaces self for BrowserWorkerRunner)
+//   assistPort — side-channel for logs and assistance RPC
+//
+// Effect is launched with BrowserWorkerRunner.layerMessagePort(effectPort) so
+// it never registers listeners on self, avoiding any message collision.
 // ---------------------------------------------------------------------------
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
-WorkerRunner.launch(Layer.provide(runnerLayer, BrowserWorkerRunner.layer)).pipe(
-  Effect.provide(WorkerLoggerLayer),
-  Effect.runFork,
-);
+self.addEventListener('message', (event: MessageEvent) => {
+  const data = event.data as Record<string, unknown> | null;
+  if (!data || data._tag !== 'WorkerPortsInit') return;
+
+  const effectPort = data.effectPort as MessagePort;
+  assistPort = data.assistPort as MessagePort;
+  assistPort.start();
+
+  // Flush any logs buffered before the port arrived
+  for (const msg of preAssistBuffer) assistPort.postMessage(msg);
+  preAssistBuffer.length = 0;
+
+  WorkerRunner.launch(
+    Layer.provide(
+      runnerLayer,
+      BrowserWorkerRunner.layerMessagePort(effectPort),
+    ),
+  ).pipe(Effect.provide(WorkerLoggerLayer), Effect.runFork);
+});
