@@ -101,7 +101,7 @@
     "jscpd": "^4.0.9",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.4.1",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.3",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.3",
     "semver": "^7.7.4",
