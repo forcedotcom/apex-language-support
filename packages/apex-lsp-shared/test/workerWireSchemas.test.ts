@@ -27,6 +27,7 @@ import {
   DispatchCrossFileEnrichment,
   WorkerAssistanceRequest,
   WIRE_PROTOCOL_VERSION,
+  isAllowedTag,
 } from '../src/workerWireSchemas';
 
 describe('workerWireSchemas', () => {
@@ -311,6 +312,111 @@ describe('workerWireSchemas', () => {
       const decoded = Schema.decodeSync(WorkerAssistanceRequest)(encoded);
       expect(decoded.correlationId).toBe('abc-123');
       expect(decoded.method).toBe('apex/findMissingArtifact');
+    });
+  });
+
+  describe('isAllowedTag', () => {
+    it('should allow WorkerInit for all roles', () => {
+      expect(isAllowedTag('dataOwner', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('resourceLoader', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('compilation', 'WorkerInit')).toBe(true);
+    });
+
+    it('should allow PingWorker for all roles', () => {
+      expect(isAllowedTag('dataOwner', 'PingWorker')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'PingWorker')).toBe(true);
+      expect(isAllowedTag('resourceLoader', 'PingWorker')).toBe(true);
+      expect(isAllowedTag('compilation', 'PingWorker')).toBe(true);
+    });
+
+    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and compilation', () => {
+      expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'WorkerRemoteStdlibWarmup')).toBe(
+        true,
+      );
+      expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
+        false,
+      );
+      expect(isAllowedTag('compilation', 'WorkerRemoteStdlibWarmup')).toBe(
+        true,
+      );
+    });
+
+    it('should restrict QuerySymbolSubset to dataOwner', () => {
+      expect(isAllowedTag('dataOwner', 'QuerySymbolSubset')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'QuerySymbolSubset')).toBe(false);
+      expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
+      expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
+    });
+
+    it('should restrict WorkspaceBatchIngest to dataOwner', () => {
+      expect(isAllowedTag('dataOwner', 'WorkspaceBatchIngest')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'WorkspaceBatchIngest')).toBe(
+        false,
+      );
+      expect(isAllowedTag('resourceLoader', 'WorkspaceBatchIngest')).toBe(
+        false,
+      );
+      expect(isAllowedTag('compilation', 'WorkspaceBatchIngest')).toBe(false);
+    });
+
+    it('should restrict ResourceLoaderGetSymbolTable to resourceLoader', () => {
+      expect(isAllowedTag('dataOwner', 'ResourceLoaderGetSymbolTable')).toBe(
+        false,
+      );
+      expect(
+        isAllowedTag('enrichmentSearch', 'ResourceLoaderGetSymbolTable'),
+      ).toBe(false);
+      expect(
+        isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTable'),
+      ).toBe(true);
+    });
+
+    it('should route document mutations to dataOwner only', () => {
+      for (const tag of [
+        'DispatchDocumentOpen',
+        'DispatchDocumentChange',
+        'DispatchDocumentSave',
+        'DispatchDocumentClose',
+      ]) {
+        expect(isAllowedTag('dataOwner', tag)).toBe(true);
+        expect(isAllowedTag('enrichmentSearch', tag)).toBe(false);
+        expect(isAllowedTag('resourceLoader', tag)).toBe(false);
+      }
+    });
+
+    it('should route query dispatches to enrichmentSearch only', () => {
+      for (const tag of [
+        'DispatchHover',
+        'DispatchDefinition',
+        'DispatchReferences',
+        'DispatchDocumentSymbol',
+        'DispatchCodeLens',
+        'DispatchDiagnostic',
+        'DispatchCrossFileEnrichment',
+        'DispatchGenericLspRequest',
+      ]) {
+        expect(isAllowedTag('enrichmentSearch', tag)).toBe(true);
+        expect(isAllowedTag('dataOwner', tag)).toBe(false);
+        expect(isAllowedTag('resourceLoader', tag)).toBe(false);
+      }
+    });
+
+    it('should route compilation tags to compilation only', () => {
+      for (const tag of ['CompileDocument', 'WorkspaceBatchCompile']) {
+        expect(isAllowedTag('compilation', tag)).toBe(true);
+        expect(isAllowedTag('dataOwner', tag)).toBe(false);
+        expect(isAllowedTag('enrichmentSearch', tag)).toBe(false);
+        expect(isAllowedTag('resourceLoader', tag)).toBe(false);
+      }
+    });
+
+    it('should reject unknown tags', () => {
+      expect(isAllowedTag('dataOwner', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('enrichmentSearch', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('resourceLoader', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('compilation', 'UnknownTag')).toBe(false);
     });
   });
 });

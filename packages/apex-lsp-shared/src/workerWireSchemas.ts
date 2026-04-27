@@ -719,3 +719,141 @@ export function isAssistanceResponse(
     (data as Record<string, unknown>)._tag === 'WorkerAssistanceResponse'
   );
 }
+
+// ---------------------------------------------------------------------------
+// Role-partitioned tag unions
+// ---------------------------------------------------------------------------
+
+/** Tags accepted by a data-owner worker */
+export const DataOwnerTags = [
+  'WorkerInit',
+  'PingWorker',
+  'WorkerRemoteStdlibWarmup',
+  'QuerySymbolSubset',
+  'UpdateSymbolSubset',
+  'ResolveDepUris',
+  'WorkspaceBatchIngest',
+  'QueryGraphData',
+  'DispatchDocumentOpen',
+  'DispatchDocumentChange',
+  'DispatchDocumentSave',
+  'DispatchDocumentClose',
+] as const;
+export type DataOwnerTag = (typeof DataOwnerTags)[number];
+
+/** Tags accepted by an enrichment/search pool worker */
+export const EnrichmentSearchTags = [
+  'WorkerInit',
+  'PingWorker',
+  'WorkerRemoteStdlibWarmup',
+  'DispatchHover',
+  'DispatchDefinition',
+  'DispatchReferences',
+  'DispatchImplementation',
+  'DispatchDocumentSymbol',
+  'DispatchCodeLens',
+  'DispatchDiagnostic',
+  'DispatchCrossFileEnrichment',
+  'DispatchGenericLspRequest',
+] as const;
+export type EnrichmentSearchTag = (typeof EnrichmentSearchTags)[number];
+
+/** Tags accepted by a resource-loader worker */
+export const ResourceLoaderTags = [
+  'WorkerInit',
+  'PingWorker',
+  'ResourceLoaderGetSymbolTable',
+  'ResourceLoaderGetFile',
+  'ResourceLoaderResolveClass',
+  'ResourceLoaderGetStandardNamespaces',
+] as const;
+export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
+
+/** Tags accepted by a compilation worker */
+export const CompilationTags = [
+  'WorkerInit',
+  'PingWorker',
+  'WorkerRemoteStdlibWarmup',
+  'CompileDocument',
+  'WorkspaceBatchCompile',
+] as const;
+export type CompilationTag = (typeof CompilationTags)[number];
+
+/** All known worker request tags */
+export const AllWorkerTags = [
+  ...new Set([
+    ...DataOwnerTags,
+    ...EnrichmentSearchTags,
+    ...ResourceLoaderTags,
+    ...CompilationTags,
+  ]),
+] as const;
+export type WorkerTag = (typeof AllWorkerTags)[number];
+
+// ---------------------------------------------------------------------------
+// Role-specific request union types (coordinator-side type safety)
+// ---------------------------------------------------------------------------
+
+/** Request types the coordinator may send to a data-owner worker */
+export type DataOwnerRequest =
+  | WorkerInit
+  | PingWorker
+  | WorkerRemoteStdlibWarmup
+  | QuerySymbolSubset
+  | UpdateSymbolSubset
+  | ResolveDepUris
+  | WorkspaceBatchIngest
+  | QueryGraphData
+  | DispatchDocumentOpen
+  | DispatchDocumentChange
+  | DispatchDocumentSave
+  | DispatchDocumentClose;
+
+/** Request types the coordinator may send to an enrichment/search pool worker */
+export type EnrichmentSearchRequest =
+  | WorkerInit
+  | PingWorker
+  | WorkerRemoteStdlibWarmup
+  | DispatchHover
+  | DispatchDefinition
+  | DispatchReferences
+  | DispatchImplementation
+  | DispatchDocumentSymbol
+  | DispatchCodeLens
+  | DispatchDiagnostic
+  | DispatchCrossFileEnrichment
+  | DispatchGenericLspRequest;
+
+/** Request types the coordinator may send to a resource-loader worker */
+export type ResourceLoaderRequest =
+  | WorkerInit
+  | PingWorker
+  | ResourceLoaderGetSymbolTable
+  | ResourceLoaderGetFile
+  | ResourceLoaderResolveClass
+  | ResourceLoaderGetStandardNamespaces;
+
+/** Request types the coordinator may send to a compilation worker */
+export type CompilationRequest =
+  | WorkerInit
+  | PingWorker
+  | WorkerRemoteStdlibWarmup
+  | CompileDocument
+  | WorkspaceBatchCompile;
+
+// ---------------------------------------------------------------------------
+// Guards
+// ---------------------------------------------------------------------------
+
+export function isAllowedTag(role: WorkerRole, tag: string): boolean {
+  switch (role) {
+    case 'dataOwner':
+      return (DataOwnerTags as readonly string[]).includes(tag);
+    case 'enrichmentSearch':
+      return (EnrichmentSearchTags as readonly string[]).includes(tag);
+    case 'resourceLoader':
+      return (ResourceLoaderTags as readonly string[]).includes(tag);
+    case 'compilation':
+      return (CompilationTags as readonly string[]).includes(tag);
+  }
+}
