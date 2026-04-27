@@ -267,3 +267,59 @@ export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
     },
   },
 ) {}
+
+// ---------------------------------------------------------------------------
+// CompileDocument — coordinator sends a single file to compilation worker
+// ---------------------------------------------------------------------------
+
+export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
+  'CompileDocument',
+  {
+    success: Schema.Struct({
+      compiledCount: Schema.Number,
+      elapsedMs: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('CompileDocumentError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      content: Schema.String,
+      languageId: Schema.String,
+      version: Schema.Number,
+      priority: Schema.Literal('high', 'low'),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// WorkspaceBatchCompile — coordinator sends a batch of files to compilation
+// worker for public-api compilation after workspace load ingest completes
+// ---------------------------------------------------------------------------
+
+export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCompile>()(
+  'WorkspaceBatchCompile',
+  {
+    success: Schema.Struct({
+      compiledCount: Schema.Number,
+      errorCount: Schema.Number,
+      elapsedMs: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('WorkspaceBatchCompileError'),
+      message: Schema.String,
+    }),
+    payload: {
+      sessionId: Schema.String,
+      entries: Schema.Array(
+        Schema.Struct({
+          uri: Schema.String,
+          content: Schema.String,
+          languageId: Schema.String,
+          version: Schema.Number,
+        }),
+      ),
+    },
+  },
+) {}

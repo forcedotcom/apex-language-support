@@ -403,6 +403,8 @@ export {
   UpdateSymbolSubset,
   ResolveDepUris,
   WorkspaceBatchIngest,
+  CompileDocument,
+  WorkspaceBatchCompile,
   QueryGraphData,
   WIRE_PROTOCOL_VERSION,
 } from './workerWireSchemas';
