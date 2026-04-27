@@ -11,6 +11,8 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  QuerySymbolSubset,
+  WorkspaceBatchIngest,
   WIRE_PROTOCOL_VERSION,
 } from '../src/workerWireSchemas';
 
@@ -75,6 +77,43 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(WorkerRemoteStdlibWarmup)(req);
       const decoded = Schema.decodeSync(WorkerRemoteStdlibWarmup)(encoded);
       expect(decoded._tag).toBe('WorkerRemoteStdlibWarmup');
+    });
+  });
+
+  describe('QuerySymbolSubset', () => {
+    it('should encode and decode round-trip', () => {
+      const query = new QuerySymbolSubset({
+        uris: ['file:///a.cls', 'file:///b.cls'],
+      });
+      expect(query._tag).toBe('QuerySymbolSubset');
+      expect(query.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+
+      const encoded = Schema.encodeSync(QuerySymbolSubset)(query);
+      const decoded = Schema.decodeSync(QuerySymbolSubset)(encoded);
+      expect(decoded.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+    });
+  });
+
+  describe('WorkspaceBatchIngest', () => {
+    it('should encode and decode round-trip', () => {
+      const batch = new WorkspaceBatchIngest({
+        sessionId: 'sess-1',
+        entries: [
+          {
+            uri: 'file:///MyClass.cls',
+            content: 'public class MyClass {}',
+            languageId: 'apex',
+            version: 1,
+          },
+        ],
+      });
+      expect(batch._tag).toBe('WorkspaceBatchIngest');
+      expect(batch.entries).toHaveLength(1);
+
+      const encoded = Schema.encodeSync(WorkspaceBatchIngest)(batch);
+      const decoded = Schema.decodeSync(WorkspaceBatchIngest)(encoded);
+      expect(decoded.sessionId).toBe('sess-1');
+      expect(decoded.entries[0].uri).toBe('file:///MyClass.cls');
     });
   });
 });

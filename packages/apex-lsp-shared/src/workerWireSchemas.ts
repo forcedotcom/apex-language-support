@@ -122,3 +122,148 @@ export interface WorkerLogLevelChange {
 }
 
 export type WorkerLogLevel = WorkerLogMessage['level'];
+
+// ---------------------------------------------------------------------------
+// QuerySymbolSubset — enrichment worker asks data-owner for symbol tables
+// ---------------------------------------------------------------------------
+
+export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()(
+  'QuerySymbolSubset',
+  {
+    success: Schema.Struct({
+      /** JSON-encoded symbol table entries keyed by URI */
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+      /** Document version for each URI (for write-back validation) */
+      versions: Schema.Record({ key: Schema.String, value: Schema.Number }),
+      /** Current detail level for each URI */
+      detailLevels: Schema.Record({
+        key: Schema.String,
+        value: Schema.Literal('public-api', 'protected', 'private', 'full'),
+      }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('QuerySymbolSubsetError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uris: Schema.Array(Schema.String),
+    },
+  },
+) {}
+
+export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
+  (typeof QuerySymbolSubset)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// UpdateSymbolSubset — enrichment worker writes back enriched symbols
+// ---------------------------------------------------------------------------
+
+export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>()(
+  'UpdateSymbolSubset',
+  {
+    success: Schema.Struct({
+      accepted: Schema.Boolean,
+      merged: Schema.Number, // Count of symbols merged
+      versionMismatch: Schema.Boolean, // Rejected due to stale version
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('UpdateSymbolSubsetError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      documentVersion: Schema.Number, // Version this enrichment is based on
+      enrichedSymbolTable: Schema.Unknown, // Serialized SymbolTable
+      enrichedDetailLevel: Schema.Literal(
+        'public-api',
+        'protected',
+        'private',
+        'full',
+      ),
+      sourceWorkerId: Schema.String, // For debugging/metrics
+    },
+  },
+) {}
+
+export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
+  (typeof UpdateSymbolSubset)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// ResolveDepUris — enrichment worker asks data-owner to resolve class names
+// to file URIs and return the corresponding symbol tables in one round trip
+// ---------------------------------------------------------------------------
+
+export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
+  'ResolveDepUris',
+  {
+    success: Schema.Struct({
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveDepUrisError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classNames: Schema.Array(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// WorkspaceBatchIngest — coordinator forwards decoded batch to data-owner
+// ---------------------------------------------------------------------------
+
+export class WorkspaceBatchIngest extends Schema.TaggedRequest<WorkspaceBatchIngest>()(
+  'WorkspaceBatchIngest',
+  {
+    success: Schema.Struct({
+      processedCount: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('WorkspaceBatchIngestError'),
+      message: Schema.String,
+    }),
+    payload: {
+      sessionId: Schema.String,
+      /** Base64-encoded batch data (ZIP contents already decompressed on coordinator) */
+      entries: Schema.Array(
+        Schema.Struct({
+          uri: Schema.String,
+          content: Schema.String,
+          languageId: Schema.String,
+          version: Schema.Number,
+        }),
+      ),
+    },
+  },
+) {}
+
+export type WorkspaceBatchIngestSuccess = Schema.Schema.Type<
+  (typeof WorkspaceBatchIngest)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// QueryGraphData — coordinator asks data-owner to compute graph data
+// using the data-owner's own symbol manager (which holds all workspace symbols
+// after compilation and enrichment write-backs).
+// ---------------------------------------------------------------------------
+
+export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
+  'QueryGraphData',
+  {
+    success: Schema.Unknown,
+    failure: Schema.Struct({
+      _tag: Schema.Literal('QueryGraphDataError'),
+      message: Schema.String,
+    }),
+    payload: {
+      type: Schema.Literal('all', 'file', 'type'),
+      fileUri: Schema.optional(Schema.String),
+      symbolType: Schema.optional(Schema.String),
+      includeMetadata: Schema.optional(Schema.Boolean),
+      includeDiagnostics: Schema.optional(Schema.Boolean),
+    },
+  },
+) {}
