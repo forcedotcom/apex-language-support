@@ -392,3 +392,19 @@ export type {
   WireParentContext,
   WireIdentifierSpec,
 } from './wireSchemas';
+
+// Worker wire schemas — internal worker IPC contract (Option B)
+export {
+  WorkerRole,
+  WorkerInit,
+  PingWorker,
+  WorkerRemoteStdlibWarmup,
+  WIRE_PROTOCOL_VERSION,
+} from './workerWireSchemas';
+export type {
+  WorkerInitSuccess,
+  PingWorkerSuccess,
+  WorkerLogMessage,
+  WorkerLogLevelChange,
+  WorkerLogLevel,
+} from './workerWireSchemas';
