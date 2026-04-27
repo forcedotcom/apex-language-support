@@ -395,6 +395,7 @@ export type {
 
 // Worker wire schemas — internal worker IPC contract (Option B)
 export {
+  LSP_REQUEST_TYPES,
   WorkerRole,
   WorkerInit,
   PingWorker,
@@ -409,10 +410,28 @@ export {
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
+  WireLspRequestType,
+  WirePosition,
+  WireRange,
+  WireContentChangeEvent,
+  DispatchDocumentOpen,
+  DispatchDocumentChange,
+  DispatchDocumentSave,
+  DispatchDocumentClose,
+  DispatchHover,
+  DispatchDefinition,
+  DispatchReferences,
+  DispatchImplementation,
+  DispatchDocumentSymbol,
+  DispatchCodeLens,
+  DispatchDiagnostic,
+  DispatchCrossFileEnrichment,
+  DispatchGenericLspRequest,
   QueryGraphData,
   WIRE_PROTOCOL_VERSION,
 } from './workerWireSchemas';
 export type {
+  LSPRequestType,
   WorkerInitSuccess,
   PingWorkerSuccess,
   QuerySymbolSubsetSuccess,

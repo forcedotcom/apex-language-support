@@ -412,3 +412,239 @@ export class ResourceLoaderGetStandardNamespaces extends Schema.TaggedRequest<Re
     payload: {},
   },
 ) {}
+
+// ---------------------------------------------------------------------------
+// Canonical LSP request type list — single source of truth
+//
+// Both the plain TS union (LSPRequestType) and the Effect Schema literal
+// (WireLspRequestType) are derived from this array, guaranteeing they
+// stay in sync.
+// ---------------------------------------------------------------------------
+
+export const LSP_REQUEST_TYPES = [
+  'hover',
+  'completion',
+  'definition',
+  'implementation',
+  'references',
+  'documentSymbol',
+  'workspaceSymbol',
+  'diagnostics',
+  'codeAction',
+  'signatureHelp',
+  'rename',
+  'codeLens',
+  'foldingRange',
+  'documentOpen',
+  'documentSave',
+  'documentChange',
+  'documentClose',
+  'documentLoad',
+  'findMissingArtifact',
+  'executeCommand',
+  'prerequisiteEnrichment',
+  'resolve',
+  'crossFileEnrichment',
+] as const;
+
+export type LSPRequestType = (typeof LSP_REQUEST_TYPES)[number];
+
+// ---------------------------------------------------------------------------
+// LSP request dispatch — coordinator sends queued work to workers
+// ---------------------------------------------------------------------------
+
+export const WireLspRequestType = Schema.Literal(...LSP_REQUEST_TYPES);
+export type WireLspRequestType = Schema.Schema.Type<typeof WireLspRequestType>;
+
+const DispatchError = Schema.Struct({
+  _tag: Schema.Literal('DispatchError'),
+  message: Schema.String,
+  requestType: Schema.String,
+});
+
+/**
+ * Position within a text document (mirrors LSP Position).
+ * Shared sub-schema for position-based requests.
+ */
+export const WirePosition = Schema.Struct({
+  line: Schema.Number,
+  character: Schema.Number,
+});
+
+/** LSP Range — start/end positions. */
+export const WireRange = Schema.Struct({
+  start: WirePosition,
+  end: WirePosition,
+});
+
+/**
+ * Mirrors LSP TextDocumentContentChangeEvent.
+ * Incremental: range + text; full: text only.
+ */
+export const WireContentChangeEvent = Schema.Struct({
+  range: Schema.optional(WireRange),
+  rangeLength: Schema.optional(Schema.Number),
+  text: Schema.String,
+});
+
+/**
+ * Text document identifier (mirrors LSP TextDocumentIdentifier).
+ */
+const WireTextDocumentId = Schema.Struct({ uri: Schema.String });
+
+// -- Data-owner dispatch (document mutations) --------------------------------
+
+export class DispatchDocumentOpen extends Schema.TaggedRequest<DispatchDocumentOpen>()(
+  'DispatchDocumentOpen',
+  {
+    success: Schema.Struct({ accepted: Schema.Boolean }),
+    failure: DispatchError,
+    payload: {
+      uri: Schema.String,
+      languageId: Schema.String,
+      version: Schema.Number,
+      content: Schema.String,
+    },
+  },
+) {}
+
+export class DispatchDocumentChange extends Schema.TaggedRequest<DispatchDocumentChange>()(
+  'DispatchDocumentChange',
+  {
+    success: Schema.Struct({ accepted: Schema.Boolean }),
+    failure: DispatchError,
+    payload: {
+      uri: Schema.String,
+      version: Schema.Number,
+      contentChanges: Schema.Array(WireContentChangeEvent),
+    },
+  },
+) {}
+
+export class DispatchDocumentSave extends Schema.TaggedRequest<DispatchDocumentSave>()(
+  'DispatchDocumentSave',
+  {
+    success: Schema.Struct({ accepted: Schema.Boolean }),
+    failure: DispatchError,
+    payload: {
+      uri: Schema.String,
+      version: Schema.Number,
+    },
+  },
+) {}
+
+export class DispatchDocumentClose extends Schema.TaggedRequest<DispatchDocumentClose>()(
+  'DispatchDocumentClose',
+  {
+    success: Schema.Struct({ accepted: Schema.Boolean }),
+    failure: DispatchError,
+    payload: { uri: Schema.String },
+  },
+) {}
+
+// -- Enrichment/search dispatch (position-based queries) ---------------------
+
+export class DispatchHover extends Schema.TaggedRequest<DispatchHover>()(
+  'DispatchHover',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      content: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>()(
+  'DispatchDefinition',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+    },
+  },
+) {}
+
+export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>()(
+  'DispatchReferences',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      context: Schema.Struct({
+        includeDeclaration: Schema.Boolean,
+      }),
+    },
+  },
+) {}
+
+export class DispatchImplementation extends Schema.TaggedRequest<DispatchImplementation>()(
+  'DispatchImplementation',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+    },
+  },
+) {}
+
+export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumentSymbol>()(
+  'DispatchDocumentSymbol',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: { textDocument: WireTextDocumentId },
+  },
+) {}
+
+export class DispatchCodeLens extends Schema.TaggedRequest<DispatchCodeLens>()(
+  'DispatchCodeLens',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: { textDocument: WireTextDocumentId },
+  },
+) {}
+
+export class DispatchDiagnostic extends Schema.TaggedRequest<DispatchDiagnostic>()(
+  'DispatchDiagnostic',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: { textDocument: WireTextDocumentId },
+  },
+) {}
+
+export class DispatchCrossFileEnrichment extends Schema.TaggedRequest<DispatchCrossFileEnrichment>()(
+  'DispatchCrossFileEnrichment',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: { textDocument: WireTextDocumentId },
+  },
+) {}
+
+/**
+ * Catch-all for less common LSP requests that don't warrant a dedicated
+ * schema yet. Params and result are opaque — both are already
+ * JSON-serializable since they originate from LSP JSON-RPC.
+ */
+export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGenericLspRequest>()(
+  'DispatchGenericLspRequest',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      requestType: WireLspRequestType,
+      params: Schema.Unknown,
+    },
+  },
+) {}
