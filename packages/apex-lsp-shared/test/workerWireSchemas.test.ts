@@ -25,6 +25,7 @@ import {
   DispatchCodeLens,
   DispatchGenericLspRequest,
   DispatchCrossFileEnrichment,
+  WorkerAssistanceRequest,
   WIRE_PROTOCOL_VERSION,
 } from '../src/workerWireSchemas';
 
@@ -291,6 +292,25 @@ describe('workerWireSchemas', () => {
           params: {},
         }),
       ).toThrow();
+    });
+  });
+
+  describe('WorkerAssistanceRequest', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new WorkerAssistanceRequest({
+        correlationId: 'abc-123',
+        method: 'apex/findMissingArtifact',
+        params: { name: 'MyClass' },
+        blocking: true,
+      });
+      expect(req._tag).toBe('WorkerAssistanceRequest');
+      expect(req.correlationId).toBe('abc-123');
+      expect(req.blocking).toBe(true);
+
+      const encoded = Schema.encodeSync(WorkerAssistanceRequest)(req);
+      const decoded = Schema.decodeSync(WorkerAssistanceRequest)(encoded);
+      expect(decoded.correlationId).toBe('abc-123');
+      expect(decoded.method).toBe('apex/findMissingArtifact');
     });
   });
 });

@@ -648,3 +648,74 @@ export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGene
     },
   },
 ) {}
+
+// ---------------------------------------------------------------------------
+// WorkerAssistanceRequest — worker asks coordinator for client RPC
+// (e.g. apex/findMissingArtifact)
+// ---------------------------------------------------------------------------
+
+export class WorkerAssistanceRequest extends Schema.TaggedRequest<WorkerAssistanceRequest>()(
+  'WorkerAssistanceRequest',
+  {
+    success: Schema.Struct({
+      correlationId: Schema.String,
+      result: Schema.Unknown,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('WorkerAssistanceError'),
+      correlationId: Schema.String,
+      message: Schema.String,
+    }),
+    payload: {
+      correlationId: Schema.String,
+      method: Schema.String,
+      params: Schema.Unknown,
+      blocking: Schema.Boolean,
+    },
+  },
+) {}
+
+export type WorkerAssistanceSuccess = Schema.Schema.Type<
+  (typeof WorkerAssistanceRequest)['success']
+>;
+
+/**
+ * Plain-object shapes for assistance messages exchanged over the
+ * worker MessagePort side-channel. These are NOT Schema-decoded —
+ * they flow as raw postMessage objects alongside the @effect/platform
+ * protocol.
+ */
+export interface AssistanceRequestPayload {
+  readonly _tag: 'WorkerAssistanceRequest';
+  readonly correlationId: string;
+  readonly method: string;
+  readonly params: unknown;
+  readonly blocking: boolean;
+}
+
+export interface AssistanceResponsePayload {
+  readonly _tag: 'WorkerAssistanceResponse';
+  readonly correlationId: string;
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export function isAssistanceRequest(
+  data: unknown,
+): data is AssistanceRequestPayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
+  );
+}
+
+export function isAssistanceResponse(
+  data: unknown,
+): data is AssistanceResponsePayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceResponse'
+  );
+}

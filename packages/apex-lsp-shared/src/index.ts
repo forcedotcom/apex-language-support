@@ -410,6 +410,9 @@ export {
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
+  WorkerAssistanceRequest,
+  isAssistanceRequest,
+  isAssistanceResponse,
   WireLspRequestType,
   WirePosition,
   WireRange,
@@ -432,10 +435,13 @@ export {
 } from './workerWireSchemas';
 export type {
   LSPRequestType,
+  AssistanceRequestPayload,
+  AssistanceResponsePayload,
   WorkerInitSuccess,
   PingWorkerSuccess,
   QuerySymbolSubsetSuccess,
   UpdateSymbolSubsetSuccess,
+  WorkerAssistanceSuccess,
   WorkspaceBatchIngestSuccess,
   ResourceLoaderGetSymbolTableSuccess,
   WorkerLogMessage,
