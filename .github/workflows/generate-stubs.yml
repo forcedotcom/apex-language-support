@@ -128,7 +128,6 @@ jobs:
         id: changes
         run: |
           git add packages/apex-parser-ast/src/resources/StandardApexLibrary/ \
-                  packages/apex-parser-ast/resources/ \
                   packages/apex-parser-ast/test/generator/__snapshots__/emptyStubDetection.snapshot.test.ts.snap
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -150,7 +149,6 @@ jobs:
 
             **Changes:**
             - Updated `.cls` stub files in `packages/apex-parser-ast/src/resources/StandardApexLibrary/`
-            - Rebuilt `StandardApexLibrary.zip` and protobuf artifacts
             - Updated `manifest.json` with current namespace/class counts
             - Updated empty-stub snapshot baseline (`emptyStubDetection.snapshot.test.ts.snap`)
 
