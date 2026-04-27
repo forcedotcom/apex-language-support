@@ -405,6 +405,10 @@ export {
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,
+  ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetFile,
+  ResourceLoaderResolveClass,
+  ResourceLoaderGetStandardNamespaces,
   QueryGraphData,
   WIRE_PROTOCOL_VERSION,
 } from './workerWireSchemas';
@@ -414,6 +418,7 @@ export type {
   QuerySymbolSubsetSuccess,
   UpdateSymbolSubsetSuccess,
   WorkspaceBatchIngestSuccess,
+  ResourceLoaderGetSymbolTableSuccess,
   WorkerLogMessage,
   WorkerLogLevelChange,
   WorkerLogLevel,

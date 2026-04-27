@@ -13,6 +13,7 @@ import {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   WorkspaceBatchIngest,
+  ResourceLoaderGetSymbolTable,
   WIRE_PROTOCOL_VERSION,
 } from '../src/workerWireSchemas';
 
@@ -114,6 +115,19 @@ describe('workerWireSchemas', () => {
       const decoded = Schema.decodeSync(WorkspaceBatchIngest)(encoded);
       expect(decoded.sessionId).toBe('sess-1');
       expect(decoded.entries[0].uri).toBe('file:///MyClass.cls');
+    });
+  });
+
+  describe('ResourceLoaderGetSymbolTable', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new ResourceLoaderGetSymbolTable({
+        classPath: 'System/String.cls',
+      });
+      expect(req._tag).toBe('ResourceLoaderGetSymbolTable');
+
+      const encoded = Schema.encodeSync(ResourceLoaderGetSymbolTable)(req);
+      const decoded = Schema.decodeSync(ResourceLoaderGetSymbolTable)(encoded);
+      expect(decoded.classPath).toBe('System/String.cls');
     });
   });
 });

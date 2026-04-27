@@ -323,3 +323,92 @@ export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCo
     },
   },
 ) {}
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderGetSymbolTable — pool/coordinator queries resource-loader
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetSymbolTable extends Schema.TaggedRequest<ResourceLoaderGetSymbolTable>()(
+  'ResourceLoaderGetSymbolTable',
+  {
+    success: Schema.Struct({
+      found: Schema.Boolean,
+      /** JSON-encoded symbol table, or undefined if not found */
+      symbolTable: Schema.optional(Schema.Unknown),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classPath: Schema.String,
+    },
+  },
+) {}
+
+export type ResourceLoaderGetSymbolTableSuccess = Schema.Schema.Type<
+  (typeof ResourceLoaderGetSymbolTable)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderGetFile — source code for goto-definition
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetFile extends Schema.TaggedRequest<ResourceLoaderGetFile>()(
+  'ResourceLoaderGetFile',
+  {
+    success: Schema.Struct({
+      found: Schema.Boolean,
+      content: Schema.optional(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      path: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderResolveClass — resolve class name to canonical FQN
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderResolveClass extends Schema.TaggedRequest<ResourceLoaderResolveClass>()(
+  'ResourceLoaderResolveClass',
+  {
+    success: Schema.Struct({
+      found: Schema.Boolean,
+      fqn: Schema.optional(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      className: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderGetStandardNamespaces — fetch the full namespace→classFiles map
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetStandardNamespaces extends Schema.TaggedRequest<ResourceLoaderGetStandardNamespaces>()(
+  'ResourceLoaderGetStandardNamespaces',
+  {
+    success: Schema.Struct({
+      namespaces: Schema.Record({
+        key: Schema.String,
+        value: Schema.Array(Schema.String),
+      }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {},
+  },
+) {}
