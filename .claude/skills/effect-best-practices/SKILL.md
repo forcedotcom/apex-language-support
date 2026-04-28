@@ -422,6 +422,74 @@ const config = Config.all({
 
 See `references/observability-patterns.md` for metrics and tracing patterns.
 
+## Project-Specific Patterns (Apex Language Server)
+
+### LSP Logging Integration
+
+Production code: provide `EffectLspLoggerLive` to bridge Effect logging to LSP `workspace/logMessage`:
+
+```typescript
+import { EffectLspLoggerLive } from '@salesforce/apex-lsp-parser-ast';
+
+await Effect.runPromise(
+  myEffect.pipe(Effect.provide(EffectLspLoggerLive))
+);
+```
+
+Tests: provide `EffectTestLoggerLive` instead:
+
+```typescript
+import { EffectTestLoggerLive } from '@salesforce/apex-lsp-parser-ast';
+
+await Effect.runPromise(
+  myEffect.pipe(Effect.provide(EffectTestLoggerLive))
+);
+```
+
+Avoid `getLogger()` directly in Effect code — use `Effect.logDebug` / `Effect.log` / `Effect.logWarning` / `Effect.logError`.
+
+### Validator Pattern
+
+Validators return `Effect<ValidationResult, ValidationError>`:
+
+```typescript
+export const MyValidator: Validator = {
+  id: 'my-validator',
+  name: 'My Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'public-api',
+    requiresReferences: false,
+    requiresCrossFileResolution: false,
+  },
+  validate: (symbolTable, options) =>
+    Effect.gen(function* () {
+      const errors: ValidationErrorInfo[] = [];
+      // ... validation logic ...
+      yield* Effect.logDebug(`MyValidator: found ${errors.length} errors`);
+      return { errors, warnings: [] };
+    }),
+};
+```
+
+### Yielding to Event Loop
+
+For long-running operations, yield to prevent blocking:
+
+```typescript
+import { yieldToEventLoop } from '../utils/effectUtils';
+
+const processLargeList = Effect.gen(function* () {
+  for (const item of largeList) {
+    processItem(item);
+    if (shouldYield) {
+      yield* yieldToEventLoop;
+    }
+  }
+});
+```
+
 ## Reference Files
 
 For detailed patterns, consult these reference files in the `references/` directory:
