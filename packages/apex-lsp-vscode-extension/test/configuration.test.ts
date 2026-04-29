@@ -118,6 +118,7 @@ describe('Configuration Module', () => {
             circuitBreakerResetThreshold: 50,
             maxDeferredTasksPerSecond: 5,
             yieldTimeThresholdMs: 50,
+            enableCrossFileDeferral: false,
           },
           performance: {
             commentCollectionMaxFileSize: 102400,
@@ -145,6 +146,7 @@ describe('Configuration Module', () => {
             profilingMode: 'none',
             profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
+            jsHeapSizeGB: undefined,
           },
           resources: {
             standardApexLibraryPath: undefined,

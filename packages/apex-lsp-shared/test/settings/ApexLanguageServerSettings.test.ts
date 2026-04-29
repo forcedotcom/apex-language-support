@@ -193,6 +193,48 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.isValid).toBe(true);
       expect(result.details).toHaveLength(0);
     });
+
+    it('should accept workerPlatformWebUrl in environment settings', () => {
+      const configWithUrl = {
+        environment: {
+          profilingMode: 'none',
+          profilingType: 'cpu',
+          workerPlatformWebUrl:
+            'https://example.salesforce.com/dist/worker.platform.web.js',
+        },
+      };
+
+      const result = validateApexSettings(configWithUrl);
+
+      expect(result.isValid).toBe(true);
+      expect(result.details).toHaveLength(0);
+    });
+
+    it('should accept maxFileCount in loadWorkspace settings', () => {
+      const configWithMaxFiles = {
+        loadWorkspace: {
+          maxFileCount: 500,
+        },
+      };
+
+      const result = validateApexSettings(configWithMaxFiles);
+
+      expect(result.isValid).toBe(true);
+      expect(result.details).toHaveLength(0);
+    });
+
+    it('should accept enableCrossFileDeferral in deferredReferenceProcessing', () => {
+      const configWithDeferral = {
+        deferredReferenceProcessing: {
+          enableCrossFileDeferral: true,
+        },
+      };
+
+      const result = validateApexSettings(configWithDeferral);
+
+      expect(result.isValid).toBe(true);
+      expect(result.details).toHaveLength(0);
+    });
   });
 
   describe('isValidApexSettings', () => {
@@ -238,6 +280,30 @@ describe('ApexLanguageServerSettings Validation', () => {
 
       expect(result.apex.environment.runtimePlatform).toBe('web');
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
+    });
+
+    it('should default enableCrossFileDeferral to false', () => {
+      const result = mergeWithDefaults({}, 'desktop');
+
+      expect(
+        result.apex.deferredReferenceProcessing.enableCrossFileDeferral,
+      ).toBe(false);
+    });
+
+    it('should preserve user-supplied enableCrossFileDeferral=true', () => {
+      const partialConfig = {
+        apex: {
+          deferredReferenceProcessing: {
+            enableCrossFileDeferral: true,
+          },
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'desktop');
+
+      expect(
+        result.apex.deferredReferenceProcessing.enableCrossFileDeferral,
+      ).toBe(true);
     });
   });
 
