@@ -128,6 +128,25 @@ export * from './queue';
 // Export registry components
 export * from './registry';
 
+// Export new folding range processing service (queue-compatible)
+export * from './services/FoldingRangeProcessingService';
+
+// Type-only re-exports of worker topology interfaces (W-22201098).
+// These are dead code today; concrete adapters live in apex-ls and
+// land in a later story. Re-exported here so consumers depend on the
+// abstract interfaces, not the platform-specific implementations.
+export type {
+  WorkerTransport,
+  WorkerPoolTransport,
+  WorkerTopologyTransport,
+  WorkerHandle,
+  PoolHandle,
+} from './workers/WorkerTransport';
+export type {
+  WorkerDispatchStrategy,
+  WorkerTopologyStatus,
+} from './queue/WorkerDispatchStrategy';
+
 /**
  * Initialize LSPQueueManager with required dependencies
  * This should be called during server initialization
