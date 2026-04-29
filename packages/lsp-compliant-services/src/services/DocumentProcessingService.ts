@@ -149,7 +149,7 @@ export class DocumentProcessingService {
         // Check if symbols exist in symbol manager (they should if cache hit)
         // If not, we need to recompile to get them
         const symbolManager = backgroundManager.getSymbolManager();
-        const existingSymbols = symbolManager.findSymbolsInFile(
+        const existingSymbols = await symbolManager.findSymbolsInFile(
           event.document.uri,
         );
         if (existingSymbols.length === 0) {
@@ -402,8 +402,8 @@ export class DocumentProcessingService {
         // Check if symbols exist in symbol manager (they should if cache hit)
         // If not, we need to recompile to get them
         const symbolManager = backgroundManager.getSymbolManager();
-        const existingSymbols = symbolManager.findSymbolsInFile(
-          event.document.uri,
+        const existingSymbols = yield* Effect.promise(() =>
+          symbolManager.findSymbolsInFile(event.document.uri),
         );
         if (existingSymbols.length === 0) {
           // Cache hit but no symbols in manager - need to recompile

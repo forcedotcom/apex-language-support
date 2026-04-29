@@ -138,7 +138,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       // Get TypeReferences at position first
       // This tells us if there's a parsed identifier at this position
-      const references = this.symbolManager.getReferencesAtPosition(
+      const references = await this.symbolManager.getReferencesAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
@@ -183,7 +183,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
               if (symbol) {
                 // Found symbol after resolution - return its definition location
-                const location = this.createLocationFromSymbol(symbol);
+                const location = await this.createLocationFromSymbol(symbol);
                 if (location) {
                   this.logger.debug(
                     () =>
@@ -326,7 +326,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       let allSymbols: ApexSymbol[] = [symbol];
       if (symbol.key?.unifiedId) {
         // Try to find duplicates by getting all symbols in the file and checking for same unifiedId
-        const fileSymbols = this.symbolManager.findSymbolsInFile(
+        const fileSymbols = await this.symbolManager.findSymbolsInFile(
           symbol.fileUri,
         );
         const duplicates = fileSymbols.filter(
@@ -380,7 +380,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
     try {
       // Get the definition location for this symbol
-      const primaryLocation = this.createLocationFromSymbol(symbol);
+      const primaryLocation = await this.createLocationFromSymbol(symbol);
       if (primaryLocation) {
         locations.push(primaryLocation);
       }
@@ -398,7 +398,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Create location from symbol
    */
-  private createLocationFromSymbol(symbol: ApexSymbol): Location | null {
+  private async createLocationFromSymbol(
+    symbol: ApexSymbol,
+  ): Promise<Location | null> {
     if (!symbol.location) {
       this.logger.debug(
         () => `Symbol has no location: ${JSON.stringify(symbol)}`,
@@ -406,7 +408,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       return null;
     }
 
-    const uri = this.getSymbolFileUri(symbol);
+    const uri = await this.getSymbolFileUri(symbol);
     if (!uri) {
       this.logger.debug(() => `Could not get URI for symbol: ${symbol.name}`);
       return null;
@@ -484,12 +486,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       try {
         // Find symbols that reference this symbol
-        const references = self.symbolManager.findReferencesTo(symbol);
+        const references = yield* Effect.promise(() =>
+          self.symbolManager.findReferencesTo(symbol),
+        );
 
         for (let i = 0; i < references.length; i++) {
           const reference = references[i];
           // Get the source symbol from the reference
-          const location = self.createLocationFromSymbol(reference.symbol);
+          const location = yield* Effect.promise(() =>
+            self.createLocationFromSymbol(reference.symbol),
+          );
           if (location) {
             locations.push(location);
           }
@@ -520,9 +526,10 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         if (typeSymbol.interfaces && Array.isArray(typeSymbol.interfaces)) {
           for (const interfaceName of typeSymbol.interfaces) {
             const interfaceSymbol =
-              this.symbolManager.findSymbolByFQN(interfaceName);
+              await this.symbolManager.findSymbolByFQN(interfaceName);
             if (interfaceSymbol) {
-              const location = this.createLocationFromSymbol(interfaceSymbol);
+              const location =
+                await this.createLocationFromSymbol(interfaceSymbol);
               if (location) {
                 locations.push(location);
               }
@@ -551,11 +558,12 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
         // Get superclass definition
         if (typeSymbol.superClass) {
-          const superClassSymbol = this.symbolManager.findSymbolByFQN(
+          const superClassSymbol = await this.symbolManager.findSymbolByFQN(
             typeSymbol.superClass,
           );
           if (superClassSymbol) {
-            const location = this.createLocationFromSymbol(superClassSymbol);
+            const location =
+              await this.createLocationFromSymbol(superClassSymbol);
             if (location) {
               locations.push(location);
             }
@@ -566,9 +574,10 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         if (symbol.kind === 'interface' && typeSymbol.interfaces) {
           for (const interfaceName of typeSymbol.interfaces) {
             const interfaceSymbol =
-              this.symbolManager.findSymbolByFQN(interfaceName);
+              await this.symbolManager.findSymbolByFQN(interfaceName);
             if (interfaceSymbol) {
-              const location = this.createLocationFromSymbol(interfaceSymbol);
+              const location =
+                await this.createLocationFromSymbol(interfaceSymbol);
               if (location) {
                 locations.push(location);
               }
@@ -610,7 +619,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       if (onQualifier) {
         // Cursor is on the qualifier class name — return the class symbol
-        const candidates = this.symbolManager.findSymbolByName(firstNode.name);
+        const candidates = await this.symbolManager.findSymbolByName(
+          firstNode.name,
+        );
         const cls = candidates.find(
           (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
         );
@@ -630,7 +641,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         if (!onMember) continue;
 
         // Find the qualifier class then find the member within it
-        const qualifierCandidates = this.symbolManager.findSymbolByName(
+        const qualifierCandidates = await this.symbolManager.findSymbolByName(
           firstNode.name,
         );
         const qualifierClass = qualifierCandidates.find(
@@ -638,7 +649,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         );
         if (!qualifierClass) break;
 
-        const memberCandidates = this.symbolManager.findSymbolByName(node.name);
+        const memberCandidates = await this.symbolManager.findSymbolByName(
+          node.name,
+        );
         const member = memberCandidates.find(
           (s) =>
             s.parentId === qualifierClass.id ||
@@ -656,7 +669,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Get the file URI for a symbol
    */
-  private getSymbolFileUri(symbol: ApexSymbol): string | null {
+  private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
     // Try to get from symbol's file URI
     if (symbol.fileUri) {
       return symbol.fileUri;
@@ -664,7 +677,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
     // Try to find in symbol manager
     try {
-      const files = this.symbolManager.findFilesForSymbol(symbol.name);
+      const files = await this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
         return files[0];
       }

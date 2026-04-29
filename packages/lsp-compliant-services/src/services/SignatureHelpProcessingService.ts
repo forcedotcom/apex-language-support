@@ -223,7 +223,7 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
       };
 
       // Find method symbols by name (with yielding)
-      const methodSymbols = this.symbolManager.findSymbolByName(
+      const methodSymbols = await this.symbolManager.findSymbolByName(
         context.methodName,
       );
 
@@ -350,7 +350,7 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
   private async findRelatedSignatures(
     context: SignatureHelpContext,
   ): Promise<SignatureInformation[]> {
-    const fileSymbols = this.symbolManager.findSymbolsInFile(
+    const fileSymbols = await this.symbolManager.findSymbolsInFile(
       context.document.uri,
     );
     return await Effect.runPromise(
@@ -378,9 +378,11 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
             symbol.name.includes(context.methodName)
           ) {
             // Get related methods through inheritance
-            const relatedSymbols = self.symbolManager.findRelatedSymbols(
-              symbol,
-              ReferenceType.INHERITANCE,
+            const relatedSymbols = yield* Effect.promise(() =>
+              self.symbolManager.findRelatedSymbols(
+                symbol,
+                ReferenceType.INHERITANCE,
+              ),
             );
 
             for (let j = 0; j < relatedSymbols.length; j++) {

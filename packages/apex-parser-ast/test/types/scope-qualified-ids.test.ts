@@ -922,7 +922,8 @@ describe('Scope-Qualified Symbol IDs', () => {
     // Verify resolved references in the graph
     // For method1: b should reference local variable a, NOT class field a
     if (method1LocalB && method1LocalA) {
-      const referencesFromB = symbolManager.findReferencesFrom(method1LocalB);
+      const referencesFromB =
+        await symbolManager.findReferencesFrom(method1LocalB);
       const refsToA = referencesFromB.filter(
         (ref) => ref.symbol && ref.symbol.name === 'a',
       );
@@ -959,7 +960,8 @@ describe('Scope-Qualified Symbol IDs', () => {
 
     // For method2: b should reference local variable a, NOT class field a
     if (method2LocalB && method2LocalA) {
-      const referencesFromB = symbolManager.findReferencesFrom(method2LocalB);
+      const referencesFromB =
+        await symbolManager.findReferencesFrom(method2LocalB);
       const refsToA = referencesFromB.filter(
         (ref) => ref.symbol && ref.symbol.name === 'a',
       );
@@ -996,7 +998,8 @@ describe('Scope-Qualified Symbol IDs', () => {
 
     // For method3: b should reference class field a (since there's no local variable)
     if (method3LocalB && classFieldA) {
-      const referencesFromB = symbolManager.findReferencesFrom(method3LocalB);
+      const referencesFromB =
+        await symbolManager.findReferencesFrom(method3LocalB);
       const refsToA = referencesFromB.filter(
         (ref) => ref.symbol && ref.symbol.name === 'a',
       );

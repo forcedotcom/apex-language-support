@@ -112,13 +112,13 @@ const createProvider = (): jest.Mocked<SymbolProvider> => ({
 });
 
 describe('ResolutionRules delegation', () => {
-  it('BuiltInSystemSchema delegates to findInDefaultNamespaceOrder', () => {
+  it('BuiltInSystemSchema delegates to findInDefaultNamespaceOrder', async () => {
     const context = createContext(['test']);
     const provider = createProvider();
     const resolved = createResolved('Test');
-    provider.findInDefaultNamespaceOrder.mockReturnValue(resolved);
+    provider.findInDefaultNamespaceOrder.mockResolvedValue(resolved);
 
-    const result = BuiltInSystemSchema.resolve(context, provider);
+    const result = await BuiltInSystemSchema.resolve(context, provider);
 
     expect(result).toBe(resolved);
     expect(provider.findInDefaultNamespaceOrder).toHaveBeenCalledWith(
@@ -127,13 +127,13 @@ describe('ResolutionRules delegation', () => {
     );
   });
 
-  it('FileBaseSystemNamespace delegates to implicit slot 0', () => {
+  it('FileBaseSystemNamespace delegates to implicit slot 0', async () => {
     const context = createContext(['test']);
     const provider = createProvider();
     const resolved = createResolved('Test');
-    provider.findInImplicitFileNamespaceSlot.mockReturnValue(resolved);
+    provider.findInImplicitFileNamespaceSlot.mockResolvedValue(resolved);
 
-    const result = FileBaseSystemNamespace.resolve(context, provider);
+    const result = await FileBaseSystemNamespace.resolve(context, provider);
 
     expect(result).toBe(resolved);
     expect(provider.findInImplicitFileNamespaceSlot).toHaveBeenCalledWith(
@@ -143,13 +143,13 @@ describe('ResolutionRules delegation', () => {
     );
   });
 
-  it('FileBaseSchemaNamespace delegates to implicit slot 1', () => {
+  it('FileBaseSchemaNamespace delegates to implicit slot 1', async () => {
     const context = createContext(['account']);
     const provider = createProvider();
     const resolved = createResolved('Account');
-    provider.findInImplicitFileNamespaceSlot.mockReturnValue(resolved);
+    provider.findInImplicitFileNamespaceSlot.mockResolvedValue(resolved);
 
-    const result = FileBaseSchemaNamespace.resolve(context, provider);
+    const result = await FileBaseSchemaNamespace.resolve(context, provider);
 
     expect(result).toBe(resolved);
     expect(provider.findInImplicitFileNamespaceSlot).toHaveBeenCalledWith(
@@ -159,18 +159,18 @@ describe('ResolutionRules delegation', () => {
     );
   });
 
-  it('BuiltInNamespace only resolves when provider says namespace is built-in', () => {
+  it('BuiltInNamespace only resolves when provider says namespace is built-in', async () => {
     const context = createContext(['system', 'assert']);
     const provider = createProvider();
     const resolved = createResolved('Assert');
 
-    provider.isBuiltInNamespace.mockReturnValue(false);
-    expect(BuiltInNamespace.resolve(context, provider)).toBeNull();
+    provider.isBuiltInNamespace.mockResolvedValue(false);
+    expect(await BuiltInNamespace.resolve(context, provider)).toBeNull();
     expect(provider.findInExplicitNamespace).not.toHaveBeenCalled();
 
-    provider.isBuiltInNamespace.mockReturnValue(true);
-    provider.findInExplicitNamespace.mockReturnValue(resolved);
-    expect(BuiltInNamespace.resolve(context, provider)).toBe(resolved);
+    provider.isBuiltInNamespace.mockResolvedValue(true);
+    provider.findInExplicitNamespace.mockResolvedValue(resolved);
+    expect(await BuiltInNamespace.resolve(context, provider)).toBe(resolved);
     expect(provider.findInExplicitNamespace).toHaveBeenCalledWith(
       'system',
       'assert',
@@ -178,18 +178,18 @@ describe('ResolutionRules delegation', () => {
     );
   });
 
-  it('SchemaSObject checks provider namespace classification before SObject lookup', () => {
+  it('SchemaSObject checks provider namespace classification before SObject lookup', async () => {
     const context = createContext(['schema', 'account']);
     const provider = createProvider();
     const resolved = createResolved('Account');
 
-    provider.isSObjectContainerNamespace.mockReturnValue(false);
-    expect(SchemaSObject.resolve(context, provider)).toBeNull();
+    provider.isSObjectContainerNamespace.mockResolvedValue(false);
+    expect(await SchemaSObject.resolve(context, provider)).toBeNull();
     expect(provider.findSObjectType).not.toHaveBeenCalled();
 
-    provider.isSObjectContainerNamespace.mockReturnValue(true);
-    provider.findSObjectType.mockReturnValue(resolved);
-    expect(SchemaSObject.resolve(context, provider)).toBe(resolved);
+    provider.isSObjectContainerNamespace.mockResolvedValue(true);
+    provider.findSObjectType.mockResolvedValue(resolved);
+    expect(await SchemaSObject.resolve(context, provider)).toBe(resolved);
     expect(provider.findSObjectType).toHaveBeenCalledWith('account');
   });
 });

@@ -50,7 +50,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockReturnValue([mockTypeReference] as any);
+        .mockResolvedValue([mockTypeReference] as any);
 
       // Mock symbol manager to return a symbol
       const mockSymbol = {
@@ -139,7 +139,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockReturnValue([mockTypeReference] as any);
+        .mockResolvedValue([mockTypeReference] as any);
 
       // Mock symbol manager to return no symbol
       jest
@@ -182,7 +182,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockReturnValue([mockTypeReference] as any);
+        .mockResolvedValue([mockTypeReference] as any);
 
       // Mock symbol manager to throw an error
       jest
@@ -213,7 +213,7 @@ describe('DefinitionProcessingService', () => {
       // Keywords don't have TypeReferences - getReferencesAtPosition returns empty array
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockReturnValue([]);
+        .mockResolvedValue([]);
 
       // Spy on getSymbolAtPosition to verify it's not called
       jest
@@ -266,7 +266,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockReturnValue([mockTypeReference] as any);
+        .mockResolvedValue([mockTypeReference] as any);
 
       // Mock symbol manager to return a symbol quickly
       const mockSymbol = {

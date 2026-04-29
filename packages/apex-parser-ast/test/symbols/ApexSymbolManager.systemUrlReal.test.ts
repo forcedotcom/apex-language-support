@@ -16,6 +16,7 @@ import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import { Effect } from 'effect';
@@ -36,14 +37,16 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
     enableConsoleLogging();
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   afterAll(() => {
@@ -79,7 +82,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the chained expression reference directly
     const target = refs.find(
@@ -114,7 +117,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the chained expression that contains getOrgDomainUrl
     const target = refs.find(
@@ -138,7 +141,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    const refs = symbolManager.getAllReferencesInFile(testClassUri);
+    const refs = await symbolManager.getAllReferencesInFile(testClassUri);
 
     // Find the System.URL chained reference
     const target = refs.find((r) => r.name === 'System.URL');

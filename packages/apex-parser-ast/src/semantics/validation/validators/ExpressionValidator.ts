@@ -2213,8 +2213,9 @@ function resolveExpressionType(
       );
 
       if (variableRef?.resolvedSymbolId) {
-        const resolvedSymbol = symbolManager.getSymbol(
-          variableRef.resolvedSymbolId,
+        const varRefId = variableRef.resolvedSymbolId;
+        const resolvedSymbol = yield* Effect.promise(() =>
+          symbolManager.getSymbol(varRefId),
         );
         if (
           resolvedSymbol &&
@@ -2231,7 +2232,9 @@ function resolveExpressionType(
 
       // Final fallback: use symbolManager.findSymbolByName (searches across all files)
       // Prefer same-file matches, but allow cross-file resolution
-      const symbolsByName = symbolManager.findSymbolByName(trimmed);
+      const symbolsByName = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(trimmed),
+      );
       const currentFileUri = symbolTable.getFileUri();
       // First try same-file match
       let foundVariable = symbolsByName.find(
