@@ -61,14 +61,115 @@ graph TD
 
 ## Language Server Implementation
 
-The repository provides an implementation of the language server that works across multiple environments:
+The `apex-ls` package implements the language server. It runs in Node.js (desktop), browser, and web worker environments, using the appropriate storage backend for each (file system for Node.js, IndexedDB for browser). Feature parity is maintained across all environments through the same LSP handlers and capabilities.
 
-**apex-ls**: Apex Language Server
+### Request Processing Pipeline
 
-- Runs in Node.js, browser, and web worker environments
-- Uses appropriate storage mechanisms (file system for Node.js, IndexedDB for browser)
-- Designed for both desktop IDE integration (VS Code) and web-based editors
-- Maintains feature parity across all environments by implementing the same set of LSP handlers and capabilities
+All LSP requests follow a single mandatory path regardless of whether workers are active:
+
+```
+LSP Client → LCSAdapter (connection handler)
+           → LSPQueueManager (priority scheduling)
+           → WorkerDispatcher (route to coordinator or worker)
+           → Response
+```
+
+The `LSPQueueManager` implements a five-level priority scheduler with starvation relief. Priority scheduling and worker dispatch are orthogonal concerns: the queue controls *when* a request runs; the dispatcher controls *where*.
+
+#### Coordinator-only request types
+
+Three request types always execute on the coordinator thread:
+
+| Type | Reason |
+|------|--------|
+| `completion` | Requires stateful session context |
+| `signatureHelp` | Coupled to the completion session |
+| `rename` | Requires cross-file coordination |
+
+All other types — hover, definition, diagnostics, documentOpen/Change/Save/Close, references, implementation, codeLens, documentSymbol, foldingRange — are dispatchable to workers when the topology is active.
+
+### Multi-Worker Topology
+
+When `apex.experimental.workers.enabled` is `true`, the language server spawns an internal worker topology using `@effect/platform` Worker primitives. The LSP client is unaware of workers; they are entirely internal to the server process.
+
+```mermaid
+graph TB
+    subgraph "VS Code Extension Host"
+        Client["LSP Client"]
+    end
+
+    subgraph "Coordinator Thread"
+        LCS["LCSAdapter\nLSP Connection Handler"]
+        Queue["LSPQueueManager\nPriority Scheduler"]
+        Dispatch["WorkerDispatcher\nRoute by request type"]
+        Mediator["AssistanceMediator\nCross-worker IPC router"]
+        RLProxy["ResourceLoaderProxy\nStdlib IPC bridge"]
+        LCS --> Queue
+        Queue --> Dispatch
+        LCS --- Mediator
+        Mediator --- RLProxy
+    end
+
+    subgraph "Resource-Loader Worker"
+        RL["ResourceLoader\nProtobuf cache · ZIP archive"]
+    end
+
+    subgraph "Data-Owner Worker"
+        DO["SymbolManager\nCanonical workspace symbol graph\nDocument lifecycle · Batch ingestion"]
+    end
+
+    subgraph "Enrichment Worker Pool (×N)"
+        EW1["Enrichment Worker #1"]
+        EW2["Enrichment Worker #2"]
+    end
+
+    Client <-->|"LSP protocol"| LCS
+    Dispatch -->|"DispatchHover · DispatchDefinition\nDispatchDiagnostic"| EW1
+    Dispatch -->|"DispatchHover · DispatchDefinition\nDispatchDiagnostic"| EW2
+    Dispatch -->|"DispatchDocumentOpen/Change\nWorkspaceBatchIngest\nQueryGraphData"| DO
+    EW1 <-.->|"QuerySymbolSubset\nUpdateSymbolSubset\nresourceLoader:*"| Mediator
+    EW2 <-.->|"QuerySymbolSubset\nUpdateSymbolSubset\nresourceLoader:*"| Mediator
+    Mediator <-.->|"read · write-back"| DO
+    Mediator <-.->|"stdlib queries"| RLProxy
+    RLProxy <-->|"@effect/platform\nWorker protocol"| RL
+```
+
+#### Worker roles
+
+| Role | Count | Responsibility |
+|------|-------|----------------|
+| **Coordinator** | 1 (main thread) | LSP connection, queue scheduling, worker dispatch, cross-worker IPC mediation |
+| **Data-owner** | 1 | Canonical `SymbolManager`; document lifecycle (open/change/save/close); workspace batch ingestion; `QuerySymbolSubset`; `QueryGraphData` |
+| **Enrichment pool** | N (default 2, max `cpus-2`) | Stateless handlers: hover, definition, diagnostics, references, implementation, documentSymbol, codeLens, foldingRange |
+| **Resource-loader** | 1 | Stdlib loading from protobuf cache and ZIP archive via `ResourceLoaderService` |
+
+#### Cross-worker IPC patterns
+
+Enrichment workers are stateless. For each request they:
+
+1. **Load** — send `QuerySymbolSubset` to data-owner via the coordinator's `AssistanceMediator` to fetch symbol data for the target file.
+2. **Process** — run the LSP handler (e.g. hover, definition) locally using a transient `SymbolManager`.
+3. **Resolve stdlib** — send `resourceLoader:resolveClass` / `resourceLoader:getSymbolTable` through the mediator to the resource-loader worker when a standard library type is encountered.
+4. **Write back** — send `UpdateSymbolSubset` to data-owner if enrichment produced new symbol data, advancing the detail level for subsequent requests.
+
+#### Wire protocol
+
+Worker messages use `@effect/schema` `TaggedRequest` classes defined in `apex-lsp-shared/workerWireSchemas.ts`. Each request/response pair is versioned (`WIRE_PROTOCOL_VERSION`), fully type-safe, and JSON round-trip safe (no structured-clone hazards).
+
+#### Transport isolation
+
+`WorkerTopologyTransport` abstracts spawn/send/dispatch/shutdown behind opaque `WorkerHandle`/`PoolHandle` types. Production uses `@effect/platform` directly via `makeNodeWorkerLayer`. A `MockWorkerTransport` enables unit testing without real threads.
+
+### Worker Settings
+
+```
+apex.experimental.workers.enabled   boolean   default: false
+apex.experimental.workers.poolSize  number    default: 2 (min: 1, max: cpus-2)
+```
+
+Workers inherit the main process heap size (`apex.environment.jsHeapSizeGB`), debug flags (`apex.debug`, `apex.debugPort`), and profiling mode (`apex.environment.profilingMode`) automatically via `WorkerExecArgvBuilder`. Worker debug ports are auto-assigned and logged to the Output panel with role labels (e.g. `[apex-worker-dataOwner]`).
+
+For full details see [`docs/adr-effect-worker-topology.md`](docs/adr-effect-worker-topology.md) and the sequence diagrams in [`.session-files/diagrams/worker-architecture.md`](.session-files/diagrams/worker-architecture.md).
 
 ## Server Mode Configuration
 

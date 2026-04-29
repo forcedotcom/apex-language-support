@@ -246,4 +246,3 @@ enableMetrics(Effect);
 
 - [Effect Metrics Documentation](https://effect.website/docs/observability/metrics)
 - [OpenTelemetry JavaScript](https://opentelemetry.io/docs/instrumentation/js/)
-- [Plan: Identify Synchronous Blocking Operations](../../../../.session-files/plans/identify-synchronous-blocking-ops.md)
