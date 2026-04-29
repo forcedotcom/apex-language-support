@@ -3,6 +3,9 @@
  * Sets up DOM globals and polyfills needed for browser-like testing
  */
 
+// Prevents LCSAdapter worker-topology init failures from terminating the Jest process
+process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT = '1';
+
 // TextEncoder/TextDecoder polyfill for Effect library (must be first)
 const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;

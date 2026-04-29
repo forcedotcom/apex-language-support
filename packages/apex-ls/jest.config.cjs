@@ -2,6 +2,7 @@ const baseConfig = require('./jest.config.base.cjs');
 
 module.exports = {
   ...baseConfig,
+  setupFilesAfterEnv: ['<rootDir>/test/jest-setup.ts'],
   // Node.js specific configuration
   testEnvironment: 'node',
   // Global teardown to ensure scheduler is shut down after all tests

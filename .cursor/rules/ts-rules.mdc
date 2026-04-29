@@ -6,9 +6,9 @@ alwaysApply: false
 # TypeScript in this repo
 
 - **General TS conventions:** `.claude/skills/typescript/SKILL.md`
-- **Effect:** `.cursor/rules/effect-llm.mdc`, `.claude/skills/effect-best-practices/SKILL.md`, `.cursor/skills/prefer-effect-ts/SKILL.md`
+- **Effect:** `.cursor/rules/effect-llm.mdc`, `.claude/skills/effect-best-practices/SKILL.md`
 - **Extension + services consumption:** `.claude/skills/services-extension-consumption/SKILL.md`
-- **Apex language / parser:** `.cursor/rules/apex-lang-rules.mdc`, `.cursor/skills/apex-language/SKILL.md`
+- **Apex language / parser:** `.cursor/rules/apex-lang-rules.mdc`, `.claude/skills/apex-language/SKILL.md`
 
 Monorepo builds use **Wireit** (not turbo). See root `package.json` and `.claude/skills/wireit/SKILL.md`.
 

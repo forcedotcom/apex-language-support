@@ -1,243 +1,73 @@
-# Namespace Resolution System
+# Namespace Resolution
 
-This directory contains the namespace resolution system for the Apex Language Server, which handles both immediate and deferred namespace resolution during compilation.
+Resolves Apex type references during and after compilation. Two phases:
 
-## Overview
-
-The namespace resolution system operates in two phases:
-
-1. **Phase 1: Immediate Resolution** - During symbol creation in the listener
-2. **Phase 2: Deferred Resolution** - Post-compilation with full symbol graph
+1. **Immediate** — during symbol collection in the listener
+2. **Deferred** — post-compilation with full symbol graph
 
 ## Components
 
 ### NamespaceResolutionService
 
-The `NamespaceResolutionService` handles deferred namespace resolution for complex references that cannot be resolved immediately during parsing.
+Deferred resolution service. Single public method:
 
-#### Key Features
-
-- **Type Reference Resolution**: Resolves type references in variable declarations and parameters
-- **Qualified Name Support**: Handles both simple and qualified (dot-separated) type names
-- **Error Handling**: Gracefully handles null inputs and unresolved references
-- **Performance Optimized**: Efficiently processes large symbol tables
-- **Extensible Design**: Prepared for future expression-level resolution
-
-#### Usage
-
-```typescript
-import { NamespaceResolutionService } from './NamespaceResolutionService';
-import { SymbolTable } from '../types/symbol';
-import { CompilationContext, SymbolProvider } from './NamespaceUtils';
-
-// Create the service
-const namespaceResolutionService = new NamespaceResolutionService();
-
-// Resolve deferred references
-namespaceResolutionService.resolveDeferredReferences(
-  symbolTable,
-  compilationContext,
-  symbolProvider,
-);
-```
-
-#### API Reference
-
-##### `resolveDeferredReferences(symbolTable, compilationContext, symbolProvider)`
-
-Resolves all deferred references in a symbol table.
-
-**Parameters:**
-
-- `symbolTable: SymbolTable` - The symbol table containing symbols to resolve
-- `compilationContext: CompilationContext` - The compilation context with namespace information
-- `symbolProvider: SymbolProvider` - Provider for symbol lookup during resolution
-
-**Returns:** `void`
-
-#### Integration with Compilation Pipeline
-
-The `NamespaceResolutionService` is designed to be integrated into the compilation pipeline after the initial symbol collection phase:
-
-```typescript
-// Phase 1: Immediate resolution during symbol collection
-const listener = new ApexSymbolCollectorListener();
-listener.setProjectNamespace('MyNamespace');
-compilerService.compile(sourceCode, fileName, listener, options);
-
-// Phase 2: Deferred resolution
-const symbolTable = listener.getResult();
-const compilationContext = createCompilationContext('MyNamespace');
-const symbolProvider = createSymbolProvider();
-
-namespaceResolutionService.resolveDeferredReferences(
-  symbolTable,
-  compilationContext,
-  symbolProvider,
-);
-```
+- `resolveDeferredReferences(symbolTable, compilationContext, symbolProvider)` — iterates all symbols, resolves type references via `resolveTypeName()`, then (placeholder) expression references
 
 ### NamespaceUtils
 
-Contains utility functions and types for namespace resolution:
+Core types and the main resolver function:
 
-- **Namespace class**: Represents Apex namespaces
-- **CompilationContext**: Context information for resolution
-- **SymbolProvider**: Interface for symbol lookup
-- **resolveTypeName()**: Core resolution function
+- **`Namespace`** — descriptor with `global` and `module` parts; `Namespaces` factory/interning via `create()`, `parse()`, `intern()`
+- **`CompilationContext`** — namespace, version, source type, referencing/enclosing/parent types, static context
+- **`SymbolProvider`** — interface for symbol lookup: `find()`, `findScalarKeywordType()`, `findSObjectType()`, `findInDefaultNamespaceOrder()`, `findInImplicitFileNamespaceSlot()`, `findInExplicitNamespace()`, `isBuiltInNamespace()`, `isSObjectContainerNamespace()`
+- **`SymbolProviderWithStandardNamespace`** — extends `SymbolProvider` with `findInAnyStandardNamespace()`
+- **`ReferenceTypeEnum`** — `LOAD | STORE | METHOD | CLASS | NONE`
+- **`IdentifierContext`** — `STATIC | OBJECT | NONE`
+- **`ResolutionRule`** — `{ name, priority, appliesTo(), resolve() }`
+- **`resolveTypeName(nameParts, compilationContext, referenceType, identifierContext, symbolProvider)`** — main resolver; validates input, selects rule order by reference type, applies rules sequentially
 
 ### ResolutionRules
 
-Contains resolution rules that define how different types of references are resolved:
+Named rule objects applied in priority order. Two rule sets selected by `getResolutionOrder(referenceType)`:
 
-- **Built-in types**: String, Integer, etc.
-- **System types**: System.List, System.Datetime, etc.
-- **SObject types**: Account, Contact, etc.
-- **User-defined types**: Classes, interfaces, enums
+**One-part rules** (unqualified names):
 
-## Testing
+| Rule | Priority | Resolves |
+|------|----------|----------|
+| NamedScalarOrVoid | 1 | Scalar keywords (void, null) |
+| TopLevelTypeInSameNamespace | 6 | Types in current namespace |
+| BuiltInSystemSchema | 7 | System/Schema via default namespace order |
+| SObject | 8 | SObject types |
+| FileBaseSystemNamespace | 9 | Implicit System namespace (slot 0) |
+| FileBaseSchemaNamespace | 10 | Implicit Schema namespace (slot 1) |
+| BuiltInMethodNamespace | 11 | Other built-in namespaces; METHOD context only |
+| WorkspaceType | 12 | User classes (fallback) |
 
-The namespace resolution system includes comprehensive test coverage:
+**Two-part rules** (qualified names):
 
-### Unit Tests
+| Rule | Priority | Resolves |
+|------|----------|----------|
+| NamespaceAndTopLevelType | 4 | Explicit namespace + type |
+| BuiltInNamespace | 5 | Built-in namespace types |
+| SchemaSObject | 6 | Schema.SObjectName |
 
-- `NamespaceResolutionService.test.ts` - Tests for the service class
-- `SymbolFactory.namespace.test.ts` - Tests for namespace-aware symbol creation
+Rule order differs for `METHOD` vs default contexts (see `METHOD_ONE_PART_ORDER` / `DEFAULT_ONE_PART_ORDER`).
 
-### Integration Tests
+### NamespaceResolutionPolicy
 
-- `NamespaceResolution.integration.test.ts` - End-to-end compilation tests
-- `ApexSymbolCollectorListener.namespace.test.ts` - Listener integration tests
+Namespace ordering and implicit resolution configuration:
 
-### Performance Tests
+- `getImplicitNamespaceOrder()` — `[System, Schema]`
+- `getRegistryNamespacePreference()` — `[System, Database]`
+- `getFoundationNamespaceOrder()` — `[System, Database, Schema]`
+- `getImplicitQualifiedCandidates(typeName, currentNamespace?)` — generates FQN candidates in priority order
+- `isPrimaryImplicitNamespace(namespace)` — whether namespace is System or Schema
 
-- Large symbol table processing (1000+ symbols)
-- Execution time validation (< 1 second for large tables)
+## Tests
 
-## Future Enhancements
-
-### Expression Resolution
-
-The system is prepared for future expression-level resolution:
-
-```typescript
-// Placeholder for future implementation
-private resolveExpressionReferences(
-  symbolTable: SymbolTable,
-  compilationContext: CompilationContext,
-  symbolProvider: SymbolProvider,
-): void {
-  // TODO: Implement method call and field access resolution
-}
-```
-
-### Cross-File Resolution
-
-Future versions will support cross-file namespace resolution:
-
-- Multi-file compilation contexts
-- Symbol graph integration
-- Dependency resolution
-
-### Advanced Features
-
-- Namespace aliases and imports
-- Dynamic resolution
-- Caching and optimization
-
-## Performance Considerations
-
-1. **Immediate Resolution**: Only resolve namespaces that can be determined immediately during parsing
-2. **Deferred Resolution**: Batch complex resolutions to avoid parsing performance impact
-3. **Caching**: Cache resolved namespaces to avoid repeated resolution
-4. **Lazy Loading**: Only resolve namespaces when needed for specific operations
-
-## Error Handling
-
-The system includes robust error handling:
-
-- **Null Safety**: Gracefully handles null/undefined inputs
-- **Unresolved References**: Continues processing even when references cannot be resolved
-- **Malformed Input**: Handles edge cases like empty type names and special characters
-- **Logging**: Comprehensive debug logging for troubleshooting
-
-## Examples
-
-### Basic Usage
-
-```typescript
-// Create a symbol table with type references
-const symbolTable = new SymbolTable();
-const variableSymbol = SymbolFactory.createFullSymbol(
-  'testVar',
-  SymbolKind.Variable,
-  location,
-  'test.cls',
-  modifiers,
-  null,
-  {
-    type: {
-      name: 'System.List<String>',
-      isArray: false,
-      isGeneric: true,
-    },
-  },
-);
-symbolTable.addSymbol(variableSymbol);
-
-// Resolve the type reference
-const compilationContext = createCompilationContext('MyNamespace');
-const symbolProvider = createSymbolProvider();
-const mockResolvedSymbol = createMockSymbol('List', SymbolKind.Class);
-symbolProvider.findScalarKeywordType.mockReturnValue(mockResolvedSymbol);
-
-namespaceResolutionService.resolveDeferredReferences(
-  symbolTable,
-  compilationContext,
-  symbolProvider,
-);
-
-// Verify resolution
-const symbols = symbolTable.getAllSymbols();
-const resolvedVariable = symbols.find((s) => s.name === 'testVar') as VariableSymbol;
-expect(resolvedVariable?.type?.resolvedSymbol).toBe(
-  mockResolvedSymbol,
-);
-```
-
-### Complex Scenarios
-
-```typescript
-// Handle qualified type names
-const qualifiedType = {
-  name: 'MyNamespace.MyClass',
-  isArray: false,
-  isGeneric: false,
-};
-
-// Handle generic types
-const genericType = {
-  name: 'List<String>',
-  isArray: false,
-  isGeneric: true,
-  genericTypes: ['String'],
-};
-
-// Handle special characters
-const specialType = {
-  name: 'System.List<String>',
-  isArray: false,
-  isGeneric: true,
-  genericTypes: ['String'],
-};
-```
-
-## Contributing
-
-When contributing to the namespace resolution system:
-
-1. **Follow TDD**: Write tests first, then implement functionality
-2. **Maintain Performance**: Ensure new features don't impact parsing performance
-3. **Add Tests**: Include unit tests, integration tests, and performance tests
-4. **Update Documentation**: Keep this README and implementation plan current
-5. **Follow Patterns**: Use existing patterns for error handling and logging
+- `test/namespace/NamespaceResolutionService.test.ts`
+- `test/namespace/NamespaceResolutionPolicy.test.ts`
+- `test/namespace/ResolutionRules.test.ts`
+- `test/types/SymbolFactory.namespace.test.ts`
+- `test/integration/NamespaceResolution.integration.test.ts`
+- `test/parser/ApexSymbolCollectorListener.namespace.test.ts`

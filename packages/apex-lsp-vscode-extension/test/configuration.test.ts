@@ -248,6 +248,7 @@ describe('Configuration Module', () => {
       expect(settings.apex.loadWorkspace.includeSfdxToolsCustomObjects).toBe(
         false,
       ); // Default
+      expect(settings.apex.loadWorkspace.maxFileCount).toBeUndefined(); // undefined = no limit
     });
 
     it('should merge user loadWorkspace settings with defaults', () => {
@@ -280,6 +281,7 @@ describe('Configuration Module', () => {
       expect(settings.apex.loadWorkspace.includeSfdxToolsCustomObjects).toBe(
         false,
       ); // Default
+      expect(settings.apex.loadWorkspace.maxFileCount).toBeUndefined(); // undefined = no limit
     });
   });
 
