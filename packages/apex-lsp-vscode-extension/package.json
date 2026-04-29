@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.57",
+  "version": "0.5.58",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -106,6 +106,9 @@
     "sfWebConsoleAdditionalRequiredFiles": [
       {
         "uri": "./dist/server.web.js"
+      },
+      {
+        "uri": "./dist/worker.platform.web.js"
       }
     ],
     "configuration": {
@@ -277,17 +280,6 @@
           "default": "error",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
         },
-        "apex.worker.logLevel": {
-          "type": "string",
-          "enum": [
-            "error",
-            "warning",
-            "info",
-            "debug"
-          ],
-          "default": "info",
-          "description": "%configuration.apex-ls-ts.worker.logLevel.description%"
-        },
         "apex.worker.enablePerformanceLogs": {
           "type": "boolean",
           "default": false,
@@ -397,6 +389,10 @@
               "type": "boolean",
               "default": false,
               "description": "%configuration.apex-ls-ts.loadWorkspace.includeSfdxToolsCustomObjects.description%"
+            },
+            "maxFileCount": {
+              "type": "number",
+              "description": "%configuration.apex-ls-ts.loadWorkspace.maxFileCount.description%"
             }
           }
         },
@@ -576,6 +572,11 @@
               "type": "number",
               "default": 10,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
+            },
+            "enableCrossFileDeferral": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.enableCrossFileDeferral.description%"
             }
           }
         },
@@ -615,6 +616,29 @@
                 "System"
               ],
               "description": "Standard Apex namespaces to pre-populate. Use \"*\" to load all namespaces (for performance measurement). Common choices: Database (database operations), System (core utilities)."
+            }
+          }
+        },
+        "apex.experimental.workers": {
+          "type": "object",
+          "description": "%configuration.apex-ls-ts.experimental.workers.description%",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "%configuration.apex-ls-ts.experimental.workers.enabled.description%"
+            },
+            "poolSize": {
+              "type": "number",
+              "default": 2,
+              "minimum": 1,
+              "maximum": 14,
+              "description": "%configuration.apex-ls-ts.experimental.workers.poolSize.description%"
+            },
+            "resourceLoader": {
+              "type": "boolean",
+              "default": true,
+              "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.description%"
             }
           }
         }

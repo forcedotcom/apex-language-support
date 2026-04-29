@@ -12,9 +12,11 @@
         "src/server/webWorkerServer.ts"
       ],
       "ignoreDependencies": [
+        "@effect/platform",
+        "@effect/platform-browser",
+        "@effect/platform-node",
         "assert",
         "buffer",
-        "crypto-browserify",
         "events",
         "memfs",
         "memfs-browser",
@@ -23,7 +25,8 @@
         "path-browserify",
         "process",
         "stream-browserify",
-        "util"
+        "util",
+        "vscode-uri"
       ]
     },
     "packages/apex-lsp-testbed": {
@@ -75,6 +78,9 @@
       ],
       "ignoreDependencies": ["@protobuf-ts/plugin"]
     },
+    "packages/apex-stubs-generator": {
+      "ignoreDependencies": ["playwright"]
+    },
     "packages/lsp-compliant-services": {
       "entry": [
         "src/apexlib/manager.ts",
@@ -91,7 +97,7 @@
       ]
     }
   },
-  "ignoreBinaries": ["ovsx", "gh"],
+  "ignoreBinaries": ["ovsx", "gh", "playwright"],
   "ignore": [
     "**/*.d.ts",
     "coverage/**",

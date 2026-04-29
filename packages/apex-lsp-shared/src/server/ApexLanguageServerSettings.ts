@@ -174,6 +174,9 @@ export interface LoadWorkspaceSettings {
 
   /** When true, include .sfdx/tools/sobjects/customObjects in workspace scan (default: false) */
   includeSfdxToolsCustomObjects?: boolean;
+
+  /** Maximum number of files to discover. Dev-mode only. undefined = no limit. */
+  maxFileCount?: number;
 }
 
 /**
