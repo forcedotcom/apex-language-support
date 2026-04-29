@@ -77,6 +77,101 @@ export * from './utils/UnifiedCache';
 export * from './symbols/ApexSymbolManager';
 export * from './symbols/ApexSymbolProcessingManager';
 
+// Export Effect data services for symbol management
+export {
+  SymbolIndexStore,
+  symbolIndexStoreShim,
+  type SymbolIndexStoreShape,
+} from './symbols/services/symbolIndexStore';
+export {
+  ReferenceStore,
+  referenceStoreShim,
+  type ReferenceStoreShape,
+} from './symbols/services/referenceStore';
+export {
+  CacheStore,
+  cacheStoreShim,
+  type CacheStoreShape,
+} from './symbols/services/cacheStore';
+export {
+  FileStateStore,
+  fileStateStoreShim,
+  type FileStateStoreShape,
+  type FileMetadata,
+} from './symbols/services/fileStateStore';
+export {
+  ConcurrencyGuards,
+  concurrencyGuardsShim,
+  type ConcurrencyGuardsShape,
+} from './symbols/services/concurrencyGuards';
+export {
+  IEffectSymbolManager,
+  iEffectSymbolManagerFromLegacy,
+  type IEffectSymbolManagerShape,
+} from './symbols/services/symbolManagerFacade';
+export { SymbolIndexStoreLive } from './symbols/services/symbolIndexStoreLive';
+
+// Export standalone symbol management functions
+export {
+  getSymbol as getSymbolOp,
+  findByName as findByNameOp,
+  findByFQN as findByFQNOp,
+  findSymbolsByFQN as findSymbolsByFQNOp,
+  findInFile as findInFileOp,
+  findFilesForSymbol as findFilesForSymbolOp,
+  getAllSymbolsForCompletion as getAllSymbolsForCompletionOp,
+  getSymbolTableForFile as getSymbolTableForFileOp,
+  findFQNForStandardClass as findFQNForStandardClassOp,
+  isStandardLibraryType as isStandardLibraryTypeOp,
+  getBlockCommentsForSymbol as getBlockCommentsForSymbolOp,
+} from './symbols/ops/symbolLookup';
+export {
+  getContainingType as getContainingTypeOp,
+  getAncestorChain as getAncestorChainOp,
+  constructFQN as constructFQNOp,
+} from './symbols/ops/typeHierarchy';
+export {
+  findReferencesTo as findReferencesToOp,
+  findReferencesFrom as findReferencesFromOp,
+  findRelatedSymbols as findRelatedSymbolsOp,
+  getReferencesAtPosition as getReferencesAtPositionOp,
+  getAllReferencesInFile as getAllReferencesInFileOp,
+} from './symbols/ops/referenceOps';
+export {
+  analyzeDependencies as analyzeDependenciesOp,
+  detectCircularDependencies as detectCircularDependenciesOp,
+  getGraphData as getGraphDataOp,
+  getGraphDataForFile as getGraphDataForFileOp,
+  getGraphDataByType as getGraphDataByTypeOp,
+} from './symbols/ops/graphAnalysis';
+export {
+  find as findOp,
+  findScalarKeywordType as findScalarKeywordTypeOp,
+  findSObjectType as findSObjectTypeOp,
+  findExternalType as findExternalTypeOp,
+  findInDefaultNamespaceOrder as findInDefaultNamespaceOrderOp,
+  findInImplicitFileNamespaceSlot as findInImplicitFileNamespaceSlotOp,
+  findInExplicitNamespace as findInExplicitNamespaceOp,
+  isBuiltInNamespace as isBuiltInNamespaceOp,
+  isSObjectContainerNamespace as isSObjectContainerNamespaceOp,
+} from './symbols/ops/symbolProvider';
+export {
+  removeFile as removeFileOp,
+  clear as clearOp,
+  optimizeMemory as optimizeMemoryOp,
+  setCommentAssociations as setCommentAssociationsOp,
+} from './symbols/ops/symbolMutation';
+export {
+  resolveSymbol as resolveSymbolOp,
+  createResolutionContext as createResolutionContextOp,
+  createResolutionContextWithRequestType as createResolutionContextWithRequestTypeOp,
+  getDetailLevelForFile as getDetailLevelForFileOp,
+} from './symbols/ops/symbolResolution';
+export {
+  isStandardApexClass as isStandardApexClassOp,
+  resolveStandardApexClass as resolveStandardApexClassOp,
+} from './symbols/ops/stdlibLoading';
+
 // Export resolution framework types
 export * from './symbols/resolution/types';
 
@@ -89,6 +184,9 @@ export * from './symbols/ApexSymbolProcessingManager';
 
 // Export GlobalTypeRegistry Effect service
 export * from './services/GlobalTypeRegistryService';
+
+// Export ResourceLoaderService Effect service
+export * from './symbols/services/ResourceLoaderService';
 
 // Export i18n support
 export * from './i18n/messageInstance';
