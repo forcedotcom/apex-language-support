@@ -22,7 +22,8 @@
       "preLaunchTask": "npm: bundle",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
-        "APEX_LS_MODE": "development"
+        "APEX_LS_MODE": "development",
+        "APEX_WORKER_EXPERIMENT": "1"
       }
     },
     {

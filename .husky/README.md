@@ -6,6 +6,7 @@ This directory contains Git hooks managed by [husky](https://typicode.github.io/
 
 - **commit-msg**: Validates that commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
 - **pre-commit**: Runs linting before allowing commits to ensure code quality.
+- **pre-push**: Runs checks before pushing to the remote.
 
 ## Using Conventional Commits
 

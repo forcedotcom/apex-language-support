@@ -12,6 +12,6 @@ Apex has no import statements—never generate or expect them. The compiler reso
 
 **Grammar (external):** [BaseApexParser.g4](https://raw.githubusercontent.com/apex-dev-tools/apex-parser/main/antlr/BaseApexParser.g4), [BaseApexLexer.g4](https://raw.githubusercontent.com/apex-dev-tools/apex-parser/main/antlr/BaseApexLexer.g4)
 
-**Module docs:** `.cursor/skills/apex-language/SKILL.md` (listeners, validation patterns), `packages/apex-parser-ast/README.md` (architecture, SymbolTable), `docs/chained-syntax-capture-gaps.md` (chained expressions), `packages/apex-parser-ast/src/resources/messages/messages_en_US.properties` (error codes)
+**Module docs:** `.claude/skills/apex-language/SKILL.md` (listeners, validation patterns), `packages/apex-parser-ast/README.md` (architecture, SymbolTable), `docs/chained-syntax-capture-gaps.md` (chained expressions), `packages/apex-parser-ast/src/resources/messages/messages_en_US.properties` (error codes)
 
 **Reference implementations:** `packages/apex-parser-ast/src/parser/listeners/`, `packages/apex-parser-ast/src/semantics/validation/validators/`

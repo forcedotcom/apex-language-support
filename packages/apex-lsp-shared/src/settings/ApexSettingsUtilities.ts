@@ -111,6 +111,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       circuitBreakerResetThreshold: 50,
       maxDeferredTasksPerSecond: 5,
       yieldTimeThresholdMs: 50,
+      enableCrossFileDeferral: false,
     },
 
     symbolGraph: {

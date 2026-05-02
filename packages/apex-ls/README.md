@@ -42,7 +42,7 @@ The language server implements a sophisticated request processing system:
   - Automatically triggers layered enrichment when needed
 
 - **Two-Tier Semantic Validation**: Split validation for performance
-  - TIER 1 (IMMEDIATE): <500ms, same-file only, runs on every keystroke (10 validators)
+  - TIER 1 (IMMEDIATE): <500ms, same-file only, runs on every keystroke (42 validators)
   - TIER 2 (THOROUGH): 2-5s, may load artifacts, runs on save (4 validators)
 
 ### Key Components
@@ -99,7 +99,7 @@ PrerequisiteOrchestrationService
   └─ Enrich to required detail level (if needed)
   ↓
 DiagnosticProcessingService.processDiagnostic()
-  ├─ TIER 1 Validation (10 validators, <500ms)
+  ├─ TIER 1 Validation (42 validators, <500ms)
   └─ TIER 2 Validation (4 validators, 2-5s)
   ↓
 Map to LSP Diagnostic[]

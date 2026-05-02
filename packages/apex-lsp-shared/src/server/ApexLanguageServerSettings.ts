@@ -63,6 +63,12 @@ export interface EnvironmentSettings {
   /** Current environment (node, browser, web-worker) */
   runtimePlatform: RuntimePlatform;
 
+  /**
+   * Absolute URL of worker.platform.web.js, injected by the VS Code extension
+   * when running as a web worker (blob: origins cannot be used as URL bases).
+   */
+  workerPlatformWebUrl?: string;
+
   /** Current server mode */
   serverMode: ServerMode;
 
@@ -174,6 +180,9 @@ export interface LoadWorkspaceSettings {
 
   /** When true, include .sfdx/tools/sobjects/customObjects in workspace scan (default: false) */
   includeSfdxToolsCustomObjects?: boolean;
+
+  /** Maximum number of files to discover. Dev-mode only. undefined = no limit. */
+  maxFileCount?: number;
 }
 
 /**
@@ -218,6 +227,9 @@ export interface DeferredReferenceProcessingSettings {
 
   /** Time threshold in milliseconds - if batch processing exceeds this, yield more frequently (default: 50) */
   yieldTimeThresholdMs?: number;
+
+  /** Enable deferred processing of cross-file references during workspace load (default: false) */
+  enableCrossFileDeferral?: boolean;
 }
 
 /**
