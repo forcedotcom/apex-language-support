@@ -907,7 +907,7 @@
     "@salesforce/esbuild-presets": "^0.1.0",
     "@salesforce/vscode-services": "^66.8.0",
     "@types/vscode": "^1.90.0",
-    "@vscode/vsce": "^3.9.0",
+    "@vscode/vsce": "^3.9.1",
     "buffer": "^6.0.3",
     "esbuild-plugin-copy": "^2.1.1",
     "events": "^3.3.0",
