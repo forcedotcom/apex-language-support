@@ -68,7 +68,7 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
   /**
    * Override set to normalize the key before storage but preserve original case
    */
-  override set(key: string, value: V): boolean {
+  override set(key: string, value: V): this {
     const normalizedKey = key.toLowerCase();
     // Ensure originalKeys is initialized (may be called during parent constructor)
     if (!this.originalKeys) {
@@ -82,7 +82,8 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
       this.originalKeys.set(normalizedKey, key);
     }
     // Always update the HashMap value, but preserve the original case from first touch
-    return super.set(normalizedKey, value);
+    super.set(normalizedKey, value);
+    return this;
   }
 
   /**
@@ -185,10 +186,11 @@ export class CaseInsensitivePathMap<V> extends CaseInsensitiveHashMap<
     return super.delete(normalizedKey);
   }
 
-  set(key: string | CIS, value: V): boolean {
+  set(key: string | CIS, value: V): this {
     const keyStr = typeof key === 'string' ? key : key.value;
     const normalizedKey = this.normalizePath(keyStr);
-    return super.set(normalizedKey, value);
+    super.set(normalizedKey, value);
+    return this;
   }
 
   /**
