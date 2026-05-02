@@ -68,6 +68,18 @@ export interface SchedulerMetrics {
   readonly backPressureDuration?: Readonly<Record<Priority, number>>;
   /** Back pressure metrics: back pressure event count per priority */
   readonly backPressureEvents?: Readonly<Record<Priority, number>>;
+  /** Worker topology status (present when workers are enabled) */
+  readonly workerTopology?: {
+    readonly enabled: boolean;
+    readonly dataOwner: { readonly active: boolean };
+    readonly enrichmentPool: {
+      readonly size: number;
+      readonly active: boolean;
+    };
+    readonly resourceLoader: { readonly active: boolean } | null;
+    readonly dispatchedCount: number;
+    readonly coordinatorOnlyTypes: readonly string[];
+  };
 }
 
 export interface PriorityScheduler {

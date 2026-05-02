@@ -68,7 +68,7 @@
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.4.4",
+    "@commitlint/config-conventional": "^20.5.3",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@semantic-release/changelog": "^6.0.3",
@@ -79,8 +79,8 @@
     "@types/node": "^20.19.39",
     "@types/semver": "^7.7.0",
     "@types/vscode": "1.90.0",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.59.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
     "@vscode/test-web": "^0.0.80",
     "benchmark": "^2.1.4",
     "chalk": "^5.3.0",
@@ -101,13 +101,13 @@
     "jest": "^30.3.0",
     "jscpd": "^4.0.9",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.7.0",
+    "knip": "^6.9.0",
     "prettier": "^3.8.3",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.3",
     "semver": "^7.7.4",
     "shelljs": "^0.10.0",
-    "simple-git": "^3.32.3",
+    "simple-git": "^3.36.0",
     "ts-jest": "^29.4.9",
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",
@@ -115,7 +115,7 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.60.1",
+    "@rollup/rollup-linux-x64-gnu": "^4.60.2",
     "@rollup/rollup-linux-x64-musl": "^4.60.2"
   },
   "dependencies": {
