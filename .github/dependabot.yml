@@ -12,6 +12,14 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+      # Playwright 1.59 breaks @vscode/test-web@0.0.80's fs-provider race
+      # under Chromium 147 — the Explorer tree renders empty, so every
+      # Web E2E test times out waiting for .cls-ext-file-icon. Pin until
+      # microsoft/vscode-test-web bumps its own playwright dependency.
+      - dependency-name: "@playwright/test"
+        versions: ["1.59.x"]
+      - dependency-name: "playwright"
+        versions: ["1.59.x"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
