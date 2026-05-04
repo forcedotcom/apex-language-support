@@ -49,7 +49,7 @@ Draft PR titles and bodies per salesforcedx-vscode conventions. Requires a Gus w
 - Base body on branch commits only
 - Ignore plans/conversation history (may be stale)
 - Write content per [concise/SKILL.md](../concise/SKILL.md)
-- **REQUIRED:** Body MUST contain the WI wrapped in `@`s (e.g. `@W-22345718@` or `[@W-22345718@](url)`). `pr-validation` checks title AND body separately — title-only will fail CI with "PRs need to reference a GUS Work Item in both the PR title AND body." The bare `W-XXXXX` in the title does NOT satisfy the body check; the `@...@` wrapping is what the regex looks for. Include it in "What issues does this PR fix or reference?" per [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md):
+- **REQUIRED:** Body MUST contain the WI wrapped in `@`s (e.g. `@W-22345718@`). `pr-validation` checks title AND body separately — title-only will fail CI with "PRs need to reference a GUS Work Item in both the PR title AND body." The bare `W-XXXXX` in the title does NOT satisfy the body check; the `@...@` wrapping is what the regex looks for. Include it in "What issues does this PR fix or reference?" per [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md):
 - Delete before/after section if empty
 - **User declined WI:** If user explicitly declines WI but wants PR, include `[skip-validate-pr]` in body (e.g. at end)
 
