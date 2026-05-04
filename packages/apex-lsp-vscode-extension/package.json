@@ -906,7 +906,7 @@
     "@salesforce/apex-tmlanguage": "^2.0.3",
     "@salesforce/esbuild-presets": "^0.1.0",
     "@salesforce/vscode-services": "^66.9.0",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.118.0",
     "@vscode/vsce": "^3.9.1",
     "buffer": "^6.0.3",
     "esbuild-plugin-copy": "^2.1.1",
