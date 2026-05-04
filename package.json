@@ -67,7 +67,7 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
+    "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
