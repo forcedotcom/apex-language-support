@@ -1,9 +1,3 @@
----
-description: Apex Language
-globs: packages/apex-parser-ast/**/*.ts, packages/lsp-compliant-services/**/*.ts, packages/apex-parser-ast/**/*.md, packages/lsp-compliant-services/**/*.md
-alwaysApply: true
----
-
 # Apex language rules — document index
 
 Use this as the starting index when answering grammar/parser/semantic questions or when creating/modifying validators. Pulled from the previous `.cursor/rules/apex-lang-rules.mdc`.
