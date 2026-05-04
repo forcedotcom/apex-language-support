@@ -18,3 +18,5 @@ description: TypeScript coding standards and conventions including file naming r
 - preserve comments when refactoring; remove if wrong/obsolete
 - exported functions: single-line jsdoc /\*_ foo _/ if name unclear; no params/return (TS provides types)
 - look for uses of (Object|Map).groupBy instead of older patterns
+
+LSP position indexing and VS Code web extension constraints: [references/lsp-and-web-extension.md](references/lsp-and-web-extension.md)
