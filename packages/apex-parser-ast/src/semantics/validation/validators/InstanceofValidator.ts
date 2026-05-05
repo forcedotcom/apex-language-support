@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   InstanceOfExpressionContext,
   ExpressionContext,
   TypeRefContext,
@@ -39,7 +38,7 @@ import {
   type ExpressionTypeInfo,
 } from './ExpressionValidator';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { isAssignable } from '../utils/typeAssignability';
 import { INSTANCEOF_PRIMITIVE_TYPES } from '../../../utils/primitiveTypes';
 import { extractBaseTypeName } from '../utils/typeUtils';
@@ -50,9 +49,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
   const textLength = (stop as { text?: string }).text?.length ?? 0;
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
   return { symbolRange, identifierRange: symbolRange };
 }
@@ -88,7 +87,7 @@ class InstanceofCollectorListener extends BaseApexParserListener<
       BooleanLiteral?: () => unknown;
       NULL?: () => unknown;
     };
-    parent?: ParserRuleContext;
+    parentCtx?: ParserRuleContext;
   }): void {
     const literal = ctx.literal?.();
     if (!literal) return;
@@ -107,13 +106,13 @@ class InstanceofCollectorListener extends BaseApexParserListener<
     else if (literal.BooleanLiteral?.()) litType = 'boolean';
     else if (literal.NULL?.()) litType = 'null';
     if (litType) {
-      let current: ParserRuleContext | null = ctx.parent || null;
+      let current: ParserRuleContext | null = ctx.parentCtx || null;
       while (current) {
         if (current instanceof ExpressionContext) {
           this.literalTypes.set(current, litType);
           break;
         }
-        current = current.parent || null;
+        current = current.parentCtx || null;
       }
     }
   }
@@ -184,9 +183,7 @@ export const InstanceofValidator: Validator = {
           | TriggerUnitContext
           | BlockContext;
       } else if (sourceContent) {
-        const inputStream = CharStreams.fromString(sourceContent);
-        const caseInsensitive = new CaseInsensitiveInputStream(inputStream);
-        const lexer = new ApexLexer(caseInsensitive);
+        const lexer = ApexParserFactory.createLexer(sourceContent);
         const tokenStream = new CommonTokenStream(lexer);
         const parser = new ApexParser(tokenStream);
         tree = parser.compilationUnit();
@@ -195,8 +192,8 @@ export const InstanceofValidator: Validator = {
       }
 
       const instanceofListener = new InstanceofCollectorListener();
-      const walker = new ParseTreeWalker();
-      walker.walk(instanceofListener, tree);
+
+      ApexParseTreeWalker.DEFAULT.walk(instanceofListener, tree);
 
       const instanceofExprs = instanceofListener.getInstanceofExpressions();
       const literalTypes = instanceofListener.getLiteralTypes();
@@ -217,8 +214,8 @@ export const InstanceofValidator: Validator = {
           const typeRef = leftExpr.typeRef?.();
           if (typeRef) {
             leftType =
-              extractBaseTypeName(typeRef.text || '') ||
-              typeRef.text?.trim().toLowerCase() ||
+              extractBaseTypeName(typeRef.getText() || '') ||
+              typeRef.getText()?.trim().toLowerCase() ||
               null;
           }
         }
@@ -237,7 +234,7 @@ export const InstanceofValidator: Validator = {
         const effectiveLeftType = leftType || leftLiteralType || 'object';
 
         // Resolve right operand type name
-        const rightTypeName = typeRef.text?.trim() ?? '';
+        const rightTypeName = typeRef.getText()?.trim() ?? '';
         const rightBase = extractBaseTypeName(rightTypeName);
 
         // INVALID_INSTANCEOF_INVALID_TYPE: RHS must be class/interface, not primitive

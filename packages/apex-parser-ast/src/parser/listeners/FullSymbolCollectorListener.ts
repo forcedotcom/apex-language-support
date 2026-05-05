@@ -8,10 +8,10 @@
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
@@ -186,16 +186,14 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       return;
     }
 
-    const walker = new ParseTreeWalker();
-
     // Step 0: Establish block structure (must run first)
-    walker.walk(this.structureListener, this.parseTree);
+    ApexParseTreeWalker.DEFAULT.walk(this.structureListener, this.parseTree);
 
     // Apply enhanced ApexSymbolCollectorListener with 'full' detail level
-    walker.walk(this.symbolCollector, this.parseTree);
+    ApexParseTreeWalker.DEFAULT.walk(this.symbolCollector, this.parseTree);
 
     // Block-level content (local variables, block scopes, expression references)
-    walker.walk(this.blockContentListener, this.parseTree);
+    ApexParseTreeWalker.DEFAULT.walk(this.blockContentListener, this.parseTree);
 
     // Apply reference resolver if enabled
     if (this.enableReferenceCorrection) {

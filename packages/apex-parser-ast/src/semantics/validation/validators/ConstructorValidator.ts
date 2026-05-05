@@ -7,16 +7,15 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream, ParserRuleContext } from 'antlr4ts';
+import { CommonTokenStream, ParserRuleContext } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   ConstructorDeclarationContext,
-  ParseTreeWalker,
   MethodCallExpressionContext,
   StatementContext,
   ExpressionListContext,
@@ -146,7 +145,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
     if (superToken || thisToken) {
       const isSuper = !!superToken;
       const line = ctx.start.line;
-      const column = ctx.start.charPositionInLine;
+      const column = ctx.start.column;
 
       const expressionList = methodCall.expressionList?.();
       const args = expressionList
@@ -156,7 +155,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
       const statementContext: StatementContext =
         this.statementStack.length > 0
           ? this.statementStack[this.statementStack.length - 1]
-          : (ctx.parent as StatementContext) || ctx;
+          : (ctx.parentCtx as StatementContext) || ctx;
 
       const callInfo: ConstructorCallInfo = {
         isSuper,
@@ -178,7 +177,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
     expressionList: ExpressionListContext,
   ): string {
     // Get the text of the expression list
-    return expressionList.text || '';
+    return expressionList.getText() || '';
   }
 
   /**
@@ -187,7 +186,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
   private isNonEmptyStatement(ctx: StatementContext): boolean {
     // Check if statement has meaningful content
     // Empty statements are typically just semicolons
-    const text = ctx.text.trim();
+    const text = ctx.getText().trim();
     return text.length > 0 && text !== ';';
   }
 
@@ -319,7 +318,7 @@ function validateConstructorCallArguments(
 ): void {
   // Get all expressions from the expression list
   // expressionList.expression() returns an array of ExpressionContext
-  const expressions = expressionList.expression() || [];
+  const expressions = expressionList.expression_list() || [];
 
   if (expressions.length === 0) {
     return;
@@ -343,7 +342,7 @@ function validateConstructorCallArguments(
         errors.push({
           code: ErrorCodes.ILLEGAL_INSTANCE_METHOD_REFERENCE_IN_CONSTRUCTOR,
           line: expr.start.line,
-          column: expr.start.charPositionInLine,
+          column: expr.start.column,
           message: methodName,
         });
         // Don't check for variables if we already found a method call
@@ -374,7 +373,7 @@ function validateConstructorCallArguments(
         errors.push({
           code: ErrorCodes.ILLEGAL_INSTANCE_VARIABLE_REFERENCE_IN_CONSTRUCTOR,
           line: expr.start.line,
-          column: expr.start.charPositionInLine,
+          column: expr.start.column,
           message: identifier,
         });
       }
@@ -398,7 +397,7 @@ function containsMethodCall(
   // Recursively check child expressions
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       if (containsMethodCall(child as ExpressionContext)) {
         return true;
       }
@@ -423,7 +422,7 @@ function extractMethodName(
       // MethodCallContext can have: id LPAREN | THIS LPAREN | SUPER LPAREN
       const id = methodCall.id?.();
       if (id) {
-        return id.text || null;
+        return id.getText() || null;
       }
       // For this() and super() calls, return null (they're constructor calls, not instance methods)
       const thisToken = methodCall.THIS?.();
@@ -437,7 +436,7 @@ function extractMethodName(
   // Recursively check child expressions
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       const methodName = extractMethodName(child as ExpressionContext);
       if (methodName) {
         return methodName;
@@ -463,7 +462,7 @@ function extractIdentifiers(
     const idPrimary = expr as IdPrimaryContext;
     const id = idPrimary.id?.();
     if (id) {
-      identifiers.push(id.text);
+      identifiers.push(id.getText());
     }
     return identifiers;
   }
@@ -493,9 +492,14 @@ function extractIdentifiers(
     // Try to get the underlying expression by checking children
     const children = expr.children || [];
     for (const child of children) {
-      if (child instanceof ParserRuleContext) {
+      if ('start' in child) {
         // Skip method call expressions - they're handled separately
-        if (!isContextType(child, MethodCallExpressionContext)) {
+        if (
+          !isContextType(
+            child as ParserRuleContext,
+            MethodCallExpressionContext,
+          )
+        ) {
           const childIds = extractIdentifiers(child as ExpressionContext);
           identifiers.push(...childIds);
         }
@@ -507,9 +511,11 @@ function extractIdentifiers(
   // For other ParserRuleContext types, recursively check children
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       // Skip method call expressions - they're handled separately
-      if (!isContextType(child, MethodCallExpressionContext)) {
+      if (
+        !isContextType(child as ParserRuleContext, MethodCallExpressionContext)
+      ) {
         const childIds = extractIdentifiers(child as ExpressionContext);
         identifiers.push(...childIds);
       }
@@ -530,7 +536,7 @@ function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
   if (expr instanceof ExpressionContext) {
     const children = expr.children || [];
     for (const child of children) {
-      if (child instanceof ParserRuleContext) {
+      if ('start' in child) {
         if (isStringLiteral(child as ExpressionContext)) {
           return true;
         }
@@ -562,7 +568,7 @@ function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
   // Recursively check children for other context types
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       if (isStringLiteral(child as ExpressionContext)) {
         return true;
       }
@@ -599,7 +605,7 @@ function isNumericLiteral(
   // Recursively check children
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       if (isNumericLiteral(child as ExpressionContext)) {
         return true;
       }
@@ -631,7 +637,7 @@ function isBooleanLiteral(
   // Recursively check children
   const children = expr.children || [];
   for (const child of children) {
-    if (child instanceof ParserRuleContext) {
+    if ('start' in child) {
       if (isBooleanLiteral(child as ExpressionContext)) {
         return true;
       }
@@ -1271,10 +1277,7 @@ export const ConstructorValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -1289,8 +1292,8 @@ export const ConstructorValidator: Validator = {
 
         // Walk the parse tree to find constructors
         const listener = new ConstructorListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Check each constructor for violations
         const allSymbols = symbolTable.getAllSymbols();

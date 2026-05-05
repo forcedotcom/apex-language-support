@@ -16,6 +16,7 @@ import {
   NODE_POLYFILLS,
   runBuilds,
   shouldMinifyEsbuild,
+  stubApexParserCheckPlugin,
 } from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
@@ -79,6 +80,7 @@ const builds: BuildOptions[] = [
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     plugins: [
+      stubApexParserCheckPlugin,
       NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
       NodeModulesPolyfillPlugin(),
     ],

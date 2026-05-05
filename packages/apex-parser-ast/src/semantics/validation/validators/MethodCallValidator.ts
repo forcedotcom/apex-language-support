@@ -7,20 +7,14 @@
  */
 
 import { Effect } from 'effect';
+import { CommonTokenStream, ParserRuleContext } from 'antlr4';
 import {
-  CharStreams,
-  CommonTokenStream,
-  DefaultErrorStrategy,
-  ParserRuleContext,
-} from 'antlr4ts';
-import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   NewExpressionContext,
   MethodCallExpressionContext,
   IdPrimaryContext,
@@ -112,7 +106,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
           this.newExpressions.push({
             typeName: typeName.trim(),
             line: start.line,
-            column: start.charPositionInLine,
+            column: start.column,
             ctx,
           });
         }
@@ -125,14 +119,14 @@ class MethodCallListener extends BaseApexParserListener<void> {
     if (methodCall) {
       const id = methodCall.id?.();
       if (id) {
-        const methodName = id.text || '';
+        const methodName = id.getText() || '';
         const start = ctx.start;
 
         // Check if this method call is part of a dot expression (e.g., obj.method())
         let receiverName: string | undefined;
         let receiverIsFieldAccess = false;
         let hasSafeNavigationBeforeCall = false;
-        const parent = ctx.parent;
+        const parent = ctx.parentCtx;
         if (parent instanceof DotExpressionContext) {
           const dotExpr = parent as DotExpressionContext;
           const baseExpression = dotExpr.expression();
@@ -148,7 +142,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
         this.methodCalls.push({
           methodName: methodName.trim(),
           line: start.line,
-          column: start.charPositionInLine,
+          column: start.column,
           ctx,
           receiverName,
           receiverIsFieldAccess,
@@ -161,13 +155,13 @@ class MethodCallListener extends BaseApexParserListener<void> {
   enterDotMethodCall(ctx: DotMethodCallContext): void {
     const anyId = ctx.anyId?.();
     if (anyId) {
-      const methodName = anyId.text || '';
+      const methodName = anyId.getText() || '';
       const start = ctx.start;
 
       let receiverName: string | undefined;
       let receiverIsFieldAccess = false;
       let hasSafeNavigationBeforeCall = false;
-      const parent = ctx.parent;
+      const parent = ctx.parentCtx;
       if (parent instanceof DotExpressionContext) {
         const dotExpr = parent as DotExpressionContext;
         const baseExpression = dotExpr.expression();
@@ -182,7 +176,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
       this.methodCalls.push({
         methodName: methodName.trim(),
         line: start.line,
-        column: start.charPositionInLine,
+        column: start.column,
         ctx,
         receiverName,
         receiverIsFieldAccess,
@@ -201,7 +195,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
     if (isContextType(expr, IdPrimaryContext)) {
       const idPrimary = expr as IdPrimaryContext;
       const id = idPrimary.id?.();
-      return id?.text || undefined;
+      return id?.getText() || undefined;
     }
 
     // Handle PrimaryExpressionContext wrapping IdPrimaryContext
@@ -211,7 +205,7 @@ class MethodCallListener extends BaseApexParserListener<void> {
       if (primary && isContextType(primary, IdPrimaryContext)) {
         const idPrimary = primary as IdPrimaryContext;
         const id = idPrimary.id?.();
-        return id?.text || undefined;
+        return id?.getText() || undefined;
       }
     }
 
@@ -508,14 +502,10 @@ export const MethodCallValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
           // Use DefaultErrorStrategy to continue parsing despite syntax errors
-          parser.errorHandler = new DefaultErrorStrategy();
 
           if (isTrigger) {
             parseTree = parser.triggerUnit();
@@ -528,8 +518,8 @@ export const MethodCallValidator: Validator = {
 
         // Walk the parse tree to find new expressions and method calls
         const listener = new MethodCallListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const allSymbols = symbolTable.getAllSymbols();
         let newExpressions = listener.getNewExpressions();

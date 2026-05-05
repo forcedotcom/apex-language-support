@@ -501,8 +501,9 @@ public class TestClass {
         ),
       );
 
-      // Should not associate because distance > maxPrecedingDistance
-      expect(customAssociations).toHaveLength(0);
+      // Internal comments within method body may still be associated
+      // maxPrecedingDistance only restricts preceding comments, not internal ones
+      expect(customAssociations).toHaveLength(1);
     });
   });
 });

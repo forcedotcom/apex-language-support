@@ -7,16 +7,15 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   ClassDeclarationContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -66,7 +65,11 @@ class StaticBlockListener extends BaseApexParserListener<void> {
   }
 
   enterBlock(ctx: BlockContext): void {
-    if (ctx.parent && this.isStaticBlock(ctx) && this.classStack.length > 0) {
+    if (
+      ctx.parentCtx &&
+      this.isStaticBlock(ctx) &&
+      this.classStack.length > 0
+    ) {
       const currentClass = this.classStack[this.classStack.length - 1];
       if (currentClass.isInner) {
         this.classesWithStaticBlocks.push({
@@ -79,13 +82,13 @@ class StaticBlockListener extends BaseApexParserListener<void> {
   }
 
   private isStaticBlock(ctx: BlockContext): boolean {
-    const parent = ctx.parent;
+    const parent = ctx.parentCtx;
     if (!parent) return false;
     const children = parent.children ?? [];
     const idx = children.indexOf(ctx);
     if (idx <= 0) return false;
     const prev = children[idx - 1];
-    const text = prev?.text?.toLowerCase().trim();
+    const text = prev?.getText()?.toLowerCase().trim();
     return text === 'static';
   }
 
@@ -172,10 +175,7 @@ export const InnerTypeValidator: Validator = {
           : options.sourceContent;
 
         try {
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -192,8 +192,8 @@ export const InnerTypeValidator: Validator = {
           }
 
           const listener = new StaticBlockListener();
-          const walker = new ParseTreeWalker();
-          walker.walk(listener, parseTree);
+
+          ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
           for (const cls of listener.getClassesWithStaticBlocks()) {
             const typeAtLine = typeSymbols.find((t) => {

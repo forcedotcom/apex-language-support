@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   SwitchStatementContext,
   WhenControlContext,
   WhenLiteralContext,
@@ -39,7 +38,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
@@ -96,9 +95,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -176,9 +175,9 @@ class SwitchListener extends BaseApexParserListener<void> {
 
     if (literalType) {
       // Find the containing ExpressionContext
-      let parent = ctx.parent;
+      let parent = ctx.parentCtx;
       while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);
@@ -188,13 +187,13 @@ class SwitchListener extends BaseApexParserListener<void> {
 
   enterSwitchStatement(ctx: SwitchStatementContext): void {
     const expression = ctx.expression();
-    const expressionText = expression?.text || '';
+    const expressionText = expression?.getText() || '';
     this.switchStatements.push({ ctx, expression, expressionText });
   }
 
   enterWhenControl(ctx: WhenControlContext): void {
     // Find the containing switch statement
-    let current: ParserRuleContext | null = ctx.parent || null;
+    let current: ParserRuleContext | null = ctx.parentCtx || null;
     let switchCtx: SwitchStatementContext | null = null;
 
     while (current) {
@@ -202,7 +201,7 @@ class SwitchListener extends BaseApexParserListener<void> {
         switchCtx = current;
         break;
       }
-      current = current.parent || null;
+      current = current.parentCtx || null;
     }
 
     if (!switchCtx) {
@@ -215,18 +214,18 @@ class SwitchListener extends BaseApexParserListener<void> {
     }
 
     const isElse = !!whenValue.ELSE();
-    const whenValueText = whenValue.text || '';
+    const whenValueText = whenValue.getText() || '';
 
     // Type variable form: when Account acc (typeRef + id present)
     const typeRef = whenValue.typeRef();
     const typeVarId = whenValue.id();
     const isTypeVariable =
-      !!typeRef && !!typeVarId && !whenValue.whenLiteral().length;
-    const typeRefText = typeRef?.text || undefined;
+      !!typeRef && !!typeVarId && !whenValue.whenLiteral_list().length;
+    const typeRefText = typeRef?.getText() || undefined;
 
     // Extract when literals
     const whenLiterals: WhenLiteralInfo[] = [];
-    for (let i = 0; i < whenValue.whenLiteral().length; i++) {
+    for (let i = 0; i < whenValue.whenLiteral_list().length; i++) {
       const wl = whenValue.whenLiteral(i);
       whenLiterals.push(extractWhenLiteralInfo(wl));
     }
@@ -284,7 +283,7 @@ function extractWhenLiteralInfo(wl: WhenLiteralContext): WhenLiteralInfo {
   }
   const idNode = wl.id();
   if (idNode) {
-    return { identifierText: idNode.text, ctx: wl };
+    return { identifierText: idNode.getText(), ctx: wl };
   }
   // Parenthesized whenLiteral - recurse
   const inner = wl.whenLiteral();
@@ -559,10 +558,7 @@ export const SwitchStatementValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -577,8 +573,8 @@ export const SwitchStatementValidator: Validator = {
 
         // Walk the parse tree to collect switch statement information
         const listener = new SwitchListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const switchStatements = listener.getSwitchStatements();
         const allWhenBlocks = listener.getWhenBlocks();

@@ -129,12 +129,12 @@ function computeContextualKeywords(idTokens, uniqueKeywords, builtinTypeNames) {
 async function generateKeywords() {
   try {
     // Dynamic import to avoid bundling issues
-    const { ApexLexer } = await import('@apexdevtools/apex-parser');
-    const { CharStreams } = await import('antlr4ts');
+    const { ApexParserFactory } = await import('@apexdevtools/apex-parser');
 
     // Create lexer instance to access vocabulary
-    const lexer = new ApexLexer(CharStreams.fromString(''));
-    const vocab = lexer.vocabulary;
+    const lexer = ApexParserFactory.createLexer('');
+    const symbolicNames = lexer.symbolicNames;
+    const literalNames = lexer.literalNames;
 
     // Tokens to exclude (operators, punctuation, special tokens)
     const excludePatterns = [
@@ -147,15 +147,15 @@ async function generateKeywords() {
 
     // Extract keywords
     const keywords = [];
-    for (let i = 0; i <= vocab.maxTokenType; i++) {
-      const symbolicName = vocab.getSymbolicName(i);
+    for (let i = 0; i < symbolicNames.length; i++) {
+      const symbolicName = symbolicNames[i];
       if (symbolicName) {
         // Check if it's a keyword (uppercase token name that's not excluded)
         const isExcluded =
           EXCLUDE_LEXER_KEYWORDS.has(symbolicName) ||
           excludePatterns.some((pattern) => pattern.test(symbolicName));
         if (!isExcluded && symbolicName.match(/^[A-Z_]+$/)) {
-          const displayName = vocab.getDisplayName(i);
+          const displayName = literalNames[i];
           // Display name is quoted (e.g., "'abstract'"), strip quotes
           let keyword = null;
           if (

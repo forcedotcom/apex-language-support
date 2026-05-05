@@ -30,7 +30,7 @@ export const COMMON_EXTERNAL = [
   'vscode-jsonrpc/node',
   'vscode-jsonrpc/browser',
   '@apexdevtools/apex-parser',
-  'antlr4ts',
+  'antlr4',
 ];
 
 /**
@@ -90,8 +90,11 @@ export const browserBaseConfig: BuildOptions = {
  */
 export const NODE_POLYFILLS = {
   path: 'path-browserify',
+  'node:path': 'path-browserify',
   stream: 'stream-browserify',
   fs: 'memfs-browser',
+  'node:fs': 'memfs-browser',
+  'node:fs/promises': 'memfs-browser',
   url: 'url-browserify',
   os: 'os-browserify/browser',
   events: 'events',
@@ -114,6 +117,31 @@ export const WEB_WORKER_GLOBALS = {
 } as const;
 
 /**
+ * Plugin to stub @apexdevtools/apex-parser's Check module which unconditionally
+ * imports node:fs/node:path. We never use check()/checkProject() and these
+ * imports prevent bundling for browser environments.
+ */
+export const stubApexParserCheckPlugin: Plugin = {
+  name: 'stub-apex-parser-check',
+  setup(build) {
+    build.onResolve({ filter: /\.\/Check\.js$|[\\/]Check\.js$/ }, (args) => {
+      if (args.importer?.includes('apex-parser')) {
+        return { path: 'stub-check', namespace: 'stub-check' };
+      }
+      return undefined;
+    });
+    build.onResolve(
+      { filter: /[\\/]apex-parser[\\/]dist[\\/]src[\\/]Check\.js$/ },
+      () => ({ path: 'stub-check', namespace: 'stub-check' }),
+    );
+    build.onLoad({ filter: /.*/, namespace: 'stub-check' }, () => ({
+      contents: 'export function check() {} export function checkProject() {}',
+      loader: 'js',
+    }));
+  },
+};
+
+/**
  * Apply browser/worker polyfills to an esbuild options object.
  */
 export function configureWebWorkerPolyfills(options: BuildOptions): void {
@@ -123,6 +151,7 @@ export function configureWebWorkerPolyfills(options: BuildOptions): void {
   options.define = { ...(options.define ?? {}), ...WEB_WORKER_GLOBALS };
   options.treeShaking = true;
   options.platform = 'browser';
+  options.plugins = [...(options.plugins ?? []), stubApexParserCheckPlugin];
 }
 
 export interface RunBuildsOptions {

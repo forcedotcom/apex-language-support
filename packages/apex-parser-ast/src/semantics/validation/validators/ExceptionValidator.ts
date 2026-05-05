@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   ClassDeclarationContext,
   ThrowStatementContext,
   CatchClauseContext,
@@ -46,7 +45,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { normalizeStandardTypeName } from '../utils/standardTypeIdentity';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
@@ -106,12 +105,12 @@ class ExceptionListener extends BaseApexParserListener<void> {
   }> = [];
 
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
-    let name = ctx.id()?.text;
+    let name = ctx.id()?.getText();
     if (!name) {
       // Handle special case where LIST, MAP, SET are lexer keywords
       const children = ctx.children || [];
       for (const child of children) {
-        const childText = child.text;
+        const childText = child.getText();
         if (
           childText &&
           (childText.toLowerCase() === 'list' ||
@@ -151,15 +150,15 @@ class ExceptionListener extends BaseApexParserListener<void> {
 
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     const qualifiedName = ctx.qualifiedName();
-    const ids = qualifiedName?.id();
+    const ids = qualifiedName?.id_list();
     if (ids && ids.length > 0) {
-      const className = ids[0].text;
+      const className = ids[0].getText();
       this.constructors.push({ ctx, className });
     }
   }
 
   private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.text || '';
+    return ctx.getText() || '';
   }
 
   getResult(): void {
@@ -202,15 +201,15 @@ function getLocationFromContext(ctx: ParserRuleContext) {
   return {
     symbolRange: {
       startLine: start.line,
-      startColumn: start.charPositionInLine,
+      startColumn: start.column,
       endLine: stop.line,
-      endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+      endColumn: stop.column + (stop.text?.length || 0),
     },
     identifierRange: {
       startLine: start.line,
-      startColumn: start.charPositionInLine,
+      startColumn: start.column,
       endLine: stop.line,
-      endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+      endColumn: stop.column + (stop.text?.length || 0),
     },
   };
 }
@@ -281,10 +280,7 @@ export const ExceptionValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -299,8 +295,8 @@ export const ExceptionValidator: Validator = {
 
         // Walk the parse tree to collect exception-related information
         const listener = new ExceptionListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const allSymbols = symbolTable.getAllSymbols();
 

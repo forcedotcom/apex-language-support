@@ -7,18 +7,17 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
   PropertyDeclarationContext,
   GetterContext,
   SetterContext,
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, VariableSymbol } from '../../../types/symbol';
 import type {
@@ -32,7 +31,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
 /**
@@ -58,9 +57,9 @@ function getLocationFromContext(ctx: ParserRuleContext): {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -85,7 +84,7 @@ class PropertyAccessorListener extends BaseApexParserListener<void> {
   private currentProperty: PropertyDeclarationContext | null = null;
 
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
-    const propertyName = ctx.id()?.text || 'unknown';
+    const propertyName = ctx.id()?.getText() || 'unknown';
     this.currentProperty = ctx;
     this.properties.set(ctx, {
       ctx,
@@ -193,10 +192,7 @@ export const PropertyAccessorValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -211,8 +207,8 @@ export const PropertyAccessorValidator: Validator = {
 
         // Walk the parse tree to collect property accessor information
         const listener = new PropertyAccessorListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const properties = listener.getProperties();
         const allSymbols = symbolTable.getAllSymbols();

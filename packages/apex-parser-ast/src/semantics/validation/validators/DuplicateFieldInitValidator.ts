@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   NewExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
@@ -31,7 +30,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -43,9 +42,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -60,7 +59,7 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 function extractTypeNameFromCreator(ctx: NewExpressionContext): string | null {
   const creator = ctx.creator();
   if (!creator) return null;
-  const text = creator.text || '';
+  const text = creator.getText() || '';
   // creator text is typically "Account(Name='x')" or "String()" - type before first '('
   const parenIdx = text.indexOf('(');
   if (parenIdx < 0) return null;
@@ -123,7 +122,7 @@ class DuplicateFieldInitListener extends BaseApexParserListener<void> {
       return;
     }
 
-    const expressions = expressionList.expression() || [];
+    const expressions = expressionList.expression_list() || [];
     if (expressions.length === 0) {
       return;
     }
@@ -134,7 +133,7 @@ class DuplicateFieldInitListener extends BaseApexParserListener<void> {
 
     for (let i = 0; i < expressions.length; i++) {
       const expr = expressions[i];
-      const exprText = expr.text || '';
+      const exprText = expr.getText() || '';
       const fieldName = extractFieldName(exprText);
 
       if (fieldName) {
@@ -250,10 +249,7 @@ export const DuplicateFieldInitValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -272,8 +268,8 @@ export const DuplicateFieldInitValidator: Validator = {
 
         // Walk the parse tree to find duplicate field initializations
         const listener = new DuplicateFieldInitListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Report duplicate field initialization errors
         const duplicates = listener.getDuplicateFieldInits();

@@ -6,9 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexParserListener } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
-import { ErrorNode } from 'antlr4ts/tree';
+import {
+  ApexParserBaseListener,
+  type ApexParserRuleContext,
+  type ApexErrorNode,
+} from '@apexdevtools/apex-parser';
+import { ParserRuleContext } from 'antlr4';
 
 import { ApexErrorListener } from './ApexErrorListener';
 
@@ -17,20 +20,12 @@ import { ApexErrorListener } from './ApexErrorListener';
  * Extends the generated ApexParserListener with additional functionality.
  * @template T The type of result that will be produced by the listener
  */
-export abstract class BaseApexParserListener<T> implements ApexParserListener {
-  enterEveryRule?(ctx: ParserRuleContext): void {}
+export abstract class BaseApexParserListener<T> extends ApexParserBaseListener {
+  enterEveryRule(ctx: ApexParserRuleContext): void {}
 
-  exitEveryRule?(ctx: ParserRuleContext): void {}
-  visitTerminal?(): void {}
-  visitErrorNode?(node: ErrorNode): void {
-    // Error nodes are created by ANTLR when syntax errors occur.
-    // These errors are already reported via ApexErrorListener.syntaxError(),
-    // so we should not report them again as semantic errors here.
-    // This prevents duplicate error reporting (e.g., both "missing ';' at 'insert'"
-    // and "Invalid syntax: <missing ';'>" for the same syntax error).
-    // Subclasses can override this method if they need to handle error nodes
-    // for recovery or other purposes.
-  }
+  exitEveryRule(ctx: ApexParserRuleContext): void {}
+  visitTerminal(): void {}
+  visitErrorNode(node: ApexErrorNode): void {}
   protected warnings: string[] = [];
   protected errorListener: ApexErrorListener | null = null;
   /** The namespace of the current project, used for FQN calculation */
@@ -99,16 +94,16 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
     let warningMessage = message;
 
     if (context) {
-      warningMessage += ` at line ${context.start.line}:${context.start.charPositionInLine}`;
+      warningMessage += ` at line ${context.start.line}:${context.start.column}`;
 
       // Also add to error listener if available
       if (this.errorListener) {
         this.errorListener.semanticWarning(
           message,
           context.start.line,
-          context.start.charPositionInLine,
+          context.start.column,
           context.stop?.line,
-          context.stop?.charPositionInLine,
+          context.stop?.column,
         );
       }
     }
@@ -127,21 +122,27 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   ): void {
     if (!this.errorListener) return;
 
-    if (context instanceof ParserRuleContext) {
+    if ('start' in context && context.start) {
       this.errorListener.semanticError(
         message,
         context.start.line,
-        context.start.charPositionInLine,
-        context.stop?.line,
-        context.stop?.charPositionInLine,
+        context.start.column,
+        (context as ParserRuleContext).stop?.line,
+        (context as ParserRuleContext).stop?.column,
       );
     } else {
+      const loc = context as {
+        line: number;
+        column: number;
+        endLine?: number;
+        endColumn?: number;
+      };
       this.errorListener.semanticError(
         message,
-        context.line,
-        context.column,
-        context.endLine,
-        context.endColumn,
+        loc.line,
+        loc.column,
+        loc.endLine,
+        loc.endColumn,
       );
     }
   }

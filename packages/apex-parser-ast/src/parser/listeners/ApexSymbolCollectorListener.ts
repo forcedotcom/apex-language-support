@@ -75,7 +75,7 @@ import {
   LocalVariableDeclarationContext,
   // Add contexts for keyword detection
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
@@ -832,23 +832,23 @@ export class ApexSymbolCollectorListener
     try {
       // Extract qualified annotation name via parser context
       const qn = ctx.qualifiedName?.();
-      const ids = qn?.id();
+      const ids = qn?.id_list();
       const _name =
         ids && ids.length > 0
-          ? ids.map((i) => i.text).join('.')
-          : (ctx.text || '').replace(/^@/, '');
+          ? ids.map((i) => i.getText()).join('.')
+          : (ctx.getText() || '').replace(/^@/, '');
       // Preserve parameters in the annotation name for compatibility with existing tests
-      // Trim whitespace to handle cases where ctx.text includes leading/trailing whitespace
-      const nameWithParams = (ctx.text || '').replace(/^@/, '').trim();
+      // Trim whitespace to handle cases where ctx.getText() includes leading/trailing whitespace
+      const nameWithParams = (ctx.getText() || '').replace(/^@/, '').trim();
 
       const parameters: AnnotationParameter[] = [];
 
       // elementValuePairs form: name = value (, name = value)*
       const pairs = ctx.elementValuePairs?.();
       if (pairs) {
-        const list = pairs.elementValuePair?.() || [];
+        const list = pairs.elementValuePair_list() || [];
         for (const p of list) {
-          const pname = p.id()?.text;
+          const pname = p.id()?.getText();
           const pvalCtx = p.elementValue?.();
           const pval = pvalCtx
             ? this.getTextFromContext(pvalCtx as unknown as ParserRuleContext)
@@ -899,7 +899,7 @@ export class ApexSymbolCollectorListener
    */
   enterModifier(ctx: ModifierContext): void {
     try {
-      const modifier = ctx.text.toLowerCase();
+      const modifier = ctx.getText().toLowerCase();
 
       // If this is the first modifier for a new declaration (seenModifiers is empty),
       // reset modifiers to clear any stale modifiers from the previous declaration.
@@ -940,7 +940,7 @@ export class ApexSymbolCollectorListener
       if (modifier === 'final') {
         // Walk up the parse tree to find if we're in a method declaration
         // Methods are easier to detect reliably than classes (due to parse tree structure)
-        let parent: ParserRuleContext | undefined = ctx.parent;
+        let parent: ParserRuleContext | undefined = ctx.parentCtx;
         let depth = 0;
 
         while (parent && depth < 10) {
@@ -968,7 +968,7 @@ export class ApexSymbolCollectorListener
             return; // Don't apply the modifier - prevents isFinal from being set
           }
 
-          parent = parent.parent;
+          parent = parent.parentCtx;
           depth++;
         }
 
@@ -1017,12 +1017,12 @@ export class ApexSymbolCollectorListener
       // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
       // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
       // So ctx.id() returns undefined. We need to check for these keyword tokens.
-      let name = ctx.id()?.text;
+      let name = ctx.id()?.getText();
       if (!name) {
         // Check if class name is a keyword token (LIST, MAP, SET)
         const children = ctx.children || [];
         for (const child of children) {
-          const childText = child.text;
+          const childText = child.getText();
           if (
             childText &&
             (childText.toLowerCase() === 'list' ||
@@ -1105,31 +1105,24 @@ export class ApexSymbolCollectorListener
       const superclassTypeRef = ctx.typeRef();
       if (superclassTypeRef) {
         // Extract base type name from typeRef (handles qualified names, arrays, etc.)
-        const typeNames = superclassTypeRef.typeName();
+        const typeNames = superclassTypeRef.typeName_list();
         if (typeNames && typeNames.length > 0) {
           const baseTypeName = typeNames[0];
-          const ids = baseTypeName.id();
-          if (ids) {
-            // ids can be a single IdContext or an array
-            if (Array.isArray(ids) && ids.length > 0) {
-              // Qualified name (e.g., System.String) - use first part for superclass
-              superclass = ids[0].text;
-            } else if (!Array.isArray(ids) && ids.text) {
-              // Simple name (e.g., Parent)
-              superclass = ids.text;
-            }
+          const idNode = baseTypeName.id();
+          if (idNode) {
+            superclass = idNode.getText();
           }
         }
         // Fallback to text if extraction failed
         if (!superclass) {
-          superclass = superclassTypeRef.text?.trim();
+          superclass = superclassTypeRef.getText()?.trim();
         }
       }
       const interfaces =
         ctx
           .typeList()
-          ?.typeRef()
-          .map((t) => t.text) || [];
+          ?.typeRef_list()
+          .map((t) => t.getText()) || [];
 
       // Create a new class symbol
       // For top-level classes, ensure parentId is null regardless of stack state
@@ -1150,8 +1143,8 @@ export class ApexSymbolCollectorListener
         this.logger.debug(
           () =>
             `[ApexSymbolCollectorListener.enterClassDeclaration] Creating class symbol: ${name}, ` +
-            `ctx.start.line=${ctx.start?.line}, ctx.start.charPositionInLine=${ctx.start?.charPositionInLine}, ` +
-            `ctx.stop.line=${ctx.stop?.line}, ctx.stop.charPositionInLine=${ctx.stop?.charPositionInLine}, ` +
+            `ctx.start.line=${ctx.start?.line}, ctx.start.column=${ctx.start?.column}, ` +
+            `ctx.stop.line=${ctx.stop?.line}, ctx.stop.column=${ctx.stop?.column}, ` +
             `location=${location.identifierRange.startLine}:${location.identifierRange.startColumn}, ` +
             `symbolObjectId=${classSymbol.id}, ` +
             `existingInTable=${this.symbolTable.getSymbolById(classSymbol.id) ? 'yes' : 'no'}`,
@@ -1238,7 +1231,7 @@ export class ApexSymbolCollectorListener
     try {
       // Reset modifiers at start of interface declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
-      const name = ctx.id()?.text ?? 'unknownInterface';
+      const name = ctx.id()?.getText() ?? 'unknownInterface';
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -1284,8 +1277,8 @@ export class ApexSymbolCollectorListener
       const interfaces =
         ctx
           .typeList()
-          ?.typeRef()
-          .map((t) => t.text) || [];
+          ?.typeRef_list()
+          .map((t) => t.getText()) || [];
 
       // Create a new interface symbol
       const interfaceSymbol = this.createTypeSymbol(
@@ -1362,14 +1355,14 @@ export class ApexSymbolCollectorListener
       this.seenModifiers.clear();
       // Enhanced debug logging for method name extraction
       const idNode = ctx.id();
-      let name = idNode?.text ?? 'unknownMethod';
+      let name = idNode?.getText() ?? 'unknownMethod';
 
       // If the ID node is empty, try to extract from formal parameters
       if (!name || name.trim() === '') {
         const formalParams = ctx.formalParameters();
         if (formalParams) {
           // The method name is typically the first part before the parentheses
-          const paramsText = formalParams.text;
+          const paramsText = formalParams.getText();
           const match = paramsText.match(/^([^(]+)\(/);
           if (match) {
             name = match[1].trim();
@@ -1447,7 +1440,7 @@ export class ApexSymbolCollectorListener
           ctx
             .formalParameters()
             ?.formalParameterList()
-            ?.formalParameter()
+            ?.formalParameter_list()
             ?.map((param) => this.getTextFromContext(param.typeRef())) || [];
 
         // Check for duplicate using shared validation logic (case-insensitive)
@@ -1576,7 +1569,7 @@ export class ApexSymbolCollectorListener
       this.seenModifiers.clear();
       // Extract constructor name from the qualified name in the context
       const qualifiedName = ctx.qualifiedName();
-      const ids = qualifiedName?.id();
+      const ids = qualifiedName?.id_list();
 
       // Validate that constructor name is not a dotted name (semantic error)
       if (ids && ids.length > 1) {
@@ -1591,7 +1584,7 @@ export class ApexSymbolCollectorListener
       const currentType = this.getCurrentType();
       const name =
         ids && ids.length > 0
-          ? ids[0].text
+          ? ids[0].getText()
           : (currentType?.name ?? 'unknownConstructor');
 
       // Validate that constructor name matches the enclosing class name
@@ -1637,7 +1630,7 @@ export class ApexSymbolCollectorListener
           ctx
             .formalParameters()
             ?.formalParameterList()
-            ?.formalParameter()
+            ?.formalParameter_list()
             ?.map((param) => this.getTextFromContext(param.typeRef())) || [];
 
         const duplicateConstructor = existingConstructors.find(
@@ -1750,7 +1743,7 @@ export class ApexSymbolCollectorListener
     try {
       // Enhanced debug logging for interface method name extraction
       const idNode = ctx.id();
-      const name = idNode?.text ?? 'unknownMethod';
+      const name = idNode?.getText() ?? 'unknownMethod';
 
       // Get current annotations
       const annotations = this.getCurrentAnnotations();
@@ -1867,14 +1860,14 @@ export class ApexSymbolCollectorListener
    */
   enterFormalParameter(ctx: FormalParameterContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownParameter';
+      const name = ctx.id()?.getText() ?? 'unknownParameter';
       const typeRef = ctx.typeRef();
       let type: TypeInfo;
       if (typeRef) {
         type = this.createTypeInfoFromTypeRef(typeRef);
       } else {
         // Check if parameter text contains "void" (handles cases where parser rejects void as invalid syntax)
-        const paramText = ctx.text?.toLowerCase().trim() || '';
+        const paramText = ctx.getText()?.toLowerCase().trim() || '';
         if (paramText.startsWith('void ')) {
           type = createPrimitiveType('void');
         } else {
@@ -1945,7 +1938,7 @@ export class ApexSymbolCollectorListener
       if (currentMethod) {
         // Validate parameter count if needed
         const paramList = ctx.formalParameterList();
-        const expectedCount = paramList?.formalParameter()?.length ?? 0;
+        const expectedCount = paramList?.formalParameter_list()?.length ?? 0;
         const actualCount = currentMethod.parameters.length;
         if (expectedCount !== actualCount) {
           this.logger.warn(
@@ -1973,7 +1966,7 @@ export class ApexSymbolCollectorListener
       let type: TypeInfo;
       if (!typeRef) {
         // Check if property text contains "void" (handles cases where parser rejects void as invalid syntax)
-        const propText = ctx.text?.toLowerCase().trim() || '';
+        const propText = ctx.getText()?.toLowerCase().trim() || '';
         if (propText.includes('void ')) {
           type = createPrimitiveType('void');
         } else {
@@ -1983,14 +1976,14 @@ export class ApexSymbolCollectorListener
       } else {
         type = this.createTypeInfoFromTypeRef(typeRef);
         // Double-check: if typeRef exists but type is Object, check if context text contains "void"
-        if (type.name === 'Object' && ctx.text) {
-          const contextText = ctx.text.toLowerCase().trim();
+        if (type.name === 'Object' && ctx.getText()) {
+          const contextText = ctx.getText().toLowerCase().trim();
           if (contextText.includes('void ')) {
             type = createPrimitiveType('void');
           }
         }
       }
-      const name = ctx.id?.()?.text ?? 'unknownProperty';
+      const name = ctx.id?.()?.getText() ?? 'unknownProperty';
 
       // Get current modifiers
       const modifiers = this.getCurrentModifiers();
@@ -2171,7 +2164,7 @@ export class ApexSymbolCollectorListener
   enterVariableDeclarator(ctx: VariableDeclaratorContext): void {
     try {
       // Find the parent context (either LocalVariableDeclarationContext or FieldDeclarationContext)
-      let parent = ctx.parent;
+      let parent = ctx.parentCtx;
       let localVarDeclContext: LocalVariableDeclarationContext | null = null;
       let fieldDeclContext: FieldDeclarationContext | null = null;
 
@@ -2184,7 +2177,7 @@ export class ApexSymbolCollectorListener
           fieldDeclContext = parent;
           break;
         }
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
 
       // Determine if this is a local variable or a field
@@ -2247,15 +2240,15 @@ export class ApexSymbolCollectorListener
       if (typeRef) {
         varType = this.createTypeInfoFromTypeRef(typeRef, parentContext);
         // Double-check: if typeRef exists but type is Object, check if context text contains "void"
-        if (varType.name === 'Object' && parentContext.text) {
-          const contextText = parentContext.text.toLowerCase().trim();
+        if (varType.name === 'Object' && parentContext.getText()) {
+          const contextText = parentContext.getText().toLowerCase().trim();
           if (contextText.startsWith('void ')) {
             varType = createPrimitiveType('void');
           }
         }
       } else {
         // Check if parent context text contains "void" (handles cases where parser rejects void as invalid syntax)
-        const contextText = parentContext.text?.toLowerCase().trim() || '';
+        const contextText = parentContext.getText()?.toLowerCase().trim() || '';
         if (contextText.startsWith('void ')) {
           varType = createPrimitiveType('void');
         } else {
@@ -2263,12 +2256,12 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      const name = ctx.id()?.text ?? 'unknownVariable';
+      const name = ctx.id()?.getText() ?? 'unknownVariable';
 
       // Check for duplicate variable names within the same statement
       // We need to check against other variables in the same variableDeclarators context
       let variableDeclarators:
-        | { variableDeclarator(): VariableDeclaratorContext[] }
+        | { variableDeclarator_list(): VariableDeclaratorContext[] }
         | null
         | undefined = null;
 
@@ -2279,12 +2272,12 @@ export class ApexSymbolCollectorListener
       }
 
       if (variableDeclarators) {
-        const declarators = variableDeclarators.variableDeclarator();
+        const declarators = variableDeclarators.variableDeclarator_list();
         const statementVariableNames = new Set<string>();
 
         // Collect all names declared in this statement
         for (const declarator of declarators) {
-          const declName = declarator.id()?.text;
+          const declName = declarator.id()?.getText();
           if (declName) {
             statementVariableNames.add(declName);
           }
@@ -2384,12 +2377,12 @@ export class ApexSymbolCollectorListener
    */
   exitVariableDeclarators(ctx: VariableDeclaratorsContext): void {
     try {
-      const declarators = ctx.variableDeclarator();
+      const declarators = ctx.variableDeclarator_list();
       if (declarators && declarators.length > 0) {
         // Validate all variables declared together
         const names = new Set<string>();
         for (const declarator of declarators) {
-          const name = declarator.id()?.text;
+          const name = declarator.id()?.getText();
           if (name) {
             if (names.has(name)) {
               this.addError(
@@ -2416,7 +2409,7 @@ export class ApexSymbolCollectorListener
     try {
       // Reset modifiers at start of enum declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
-      const name = ctx.id()?.text ?? 'unknownEnum';
+      const name = ctx.id()?.getText() ?? 'unknownEnum';
 
       // Validate enum in interface
       const currentType = this.getCurrentType();
@@ -2474,8 +2467,8 @@ export class ApexSymbolCollectorListener
       const enumType = this.createTypeInfo(currentType?.name ?? 'Object');
       const enumSymbol = currentType;
 
-      for (const id of ctx.id()) {
-        const name = id.text;
+      for (const id of ctx.id_list()) {
+        const name = id.getText();
         const modifiers = this.getCurrentModifiers();
 
         // Create enum value symbol using createVariableSymbol method
@@ -2558,7 +2551,7 @@ export class ApexSymbolCollectorListener
     try {
       const parentScope = this.getCurrentScopeSymbol();
       // Skip only when this block is the method body (direct child of method/constructor declaration)
-      const parentCtx = ctx.parent;
+      const parentCtx = ctx.parentCtx;
       const isMethodBodyBlock =
         parentScope?.scopeType === 'method' &&
         parentCtx &&
@@ -2720,8 +2713,9 @@ export class ApexSymbolCollectorListener
     try {
       // Get the trigger name from the parent context
       // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-      const triggerUnit = ctx.parent?.parent?.parent as TriggerUnitContext;
-      const name = triggerUnit?.id?.(0)?.text ?? 'unknownTrigger';
+      const triggerUnit = ctx.parentCtx?.parentCtx
+        ?.parentCtx as TriggerUnitContext;
+      const name = triggerUnit?.id?.(0)?.getText() ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Create trigger symbol
@@ -2786,7 +2780,7 @@ export class ApexSymbolCollectorListener
   enterTriggerUnit(ctx: TriggerUnitContext): void {
     try {
       // Get the trigger name from the first id
-      const name = ctx.id(0)?.text ?? 'unknownTrigger';
+      const name = ctx.id(0)?.getText() ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Create trigger symbol
@@ -3067,7 +3061,7 @@ export class ApexSymbolCollectorListener
     let pushed = false;
     try {
       const idNode = ctx.id();
-      const methodName = idNode?.text || 'unknownMethod';
+      const methodName = idNode?.getText() || 'unknownMethod';
       const location = idNode
         ? this.getLocation(idNode)
         : this.getLocation(ctx);
@@ -3135,7 +3129,7 @@ export class ApexSymbolCollectorListener
     let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
-      const methodName = anyIdNode?.text || 'unknownMethod';
+      const methodName = anyIdNode?.getText() || 'unknownMethod';
       const methodLocation = anyIdNode
         ? this.getLocation(anyIdNode as unknown as ParserRuleContext)
         : this.getLocation(ctx);
@@ -3213,7 +3207,7 @@ export class ApexSymbolCollectorListener
    */
   enterTypeRef(ctx: TypeRefContext): void {
     try {
-      const typeNames = ctx.typeName();
+      const typeNames = ctx.typeName_list();
       if (!typeNames || typeNames.length === 0) return;
 
       // Get the first typeName (there should only be one in most cases)
@@ -3238,7 +3232,7 @@ export class ApexSymbolCollectorListener
         const typeNameParts = typeNames.map((tn) => {
           const id = tn.id();
           if (id) {
-            return id.text;
+            return id.getText();
           } else {
             // Handle collection types
             return `${tn.LIST() || tn.SET() || tn.MAP()}`;
@@ -3251,7 +3245,7 @@ export class ApexSymbolCollectorListener
         const baseTypeId = typeName.id();
         if (baseTypeId) {
           // Regular identifier case: id typeArguments?
-          fullTypeName = baseTypeId.text;
+          fullTypeName = baseTypeId.getText();
           baseLocation = this.getLocationForReference(baseTypeId);
         } else {
           // Collection type case: LIST/SET/MAP typeArguments?
@@ -3262,7 +3256,8 @@ export class ApexSymbolCollectorListener
 
           if (token) {
             fullTypeName =
-              token.text || `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
+              token.getText() ||
+              `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
             // Get precise location of the token itself, not the entire typeName context
             const identifierRange = this.getIdentifierRange(typeName);
             if (identifierRange) {
@@ -3316,7 +3311,7 @@ export class ApexSymbolCollectorListener
           // If this TypeRef is a child of a localVariableDeclaration, store the reference
           // keyed by the parent localVariableDeclaration context
           // This allows us to retrieve it later when processing the variable declaration
-          const parent = ctx.parent;
+          const parent = ctx.parentCtx;
           if (
             parent &&
             parent.constructor.name === 'LocalVariableDeclarationContext'
@@ -3351,10 +3346,10 @@ export class ApexSymbolCollectorListener
    */
   enterAnyId(ctx: AnyIdContext): void {
     try {
-      const fieldName = ctx.text;
+      const fieldName = ctx.getText();
 
       // Check if this is part of a dot expression
-      const parent = ctx.parent;
+      const parent = ctx.parentCtx;
 
       if (parent && isContextType(parent, DotExpressionContext)) {
         const dotContext = parent;
@@ -3440,12 +3435,12 @@ export class ApexSymbolCollectorListener
     // expression (e.g., EncodingUtil.urlEncode or obj.field), UNLESS it's a method call parameter.
     // Method call parameters need to be captured even inside dot expressions.
     if (!this.isMethodCallParameter(ctx)) {
-      let parent: ParserRuleContext | undefined = ctx.parent;
+      let parent: ParserRuleContext | undefined = ctx.parentCtx;
       while (parent) {
         if (isDotExpressionContext(parent)) {
           return;
         }
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
     }
 
@@ -3574,26 +3569,26 @@ export class ApexSymbolCollectorListener
 
       // Extract literal value and determine type
       if (ctx.IntegerLiteral()) {
-        const text = ctx.IntegerLiteral()!.text;
+        const text = ctx.IntegerLiteral()!.getText();
         literalValue = parseInt(text, 10);
         literalType = 'Integer';
       } else if (ctx.LongLiteral()) {
-        const text = ctx.LongLiteral()!.text;
+        const text = ctx.LongLiteral()!.getText();
         // Remove 'L' or 'l' suffix
         const numText = text.replace(/[Ll]$/, '');
         literalValue = parseInt(numText, 10);
         literalType = 'Long';
       } else if (ctx.NumberLiteral()) {
-        const text = ctx.NumberLiteral()!.text;
+        const text = ctx.NumberLiteral()!.getText();
         literalValue = parseFloat(text);
         literalType = 'Decimal';
       } else if (ctx.StringLiteral()) {
-        const text = ctx.StringLiteral()!.text;
+        const text = ctx.StringLiteral()!.getText();
         // Remove surrounding quotes
         literalValue = text.slice(1, -1);
         literalType = 'String';
       } else if (ctx.BooleanLiteral()) {
-        const text = ctx.BooleanLiteral()!.text.toLowerCase();
+        const text = ctx.BooleanLiteral()!.getText().toLowerCase();
         literalValue = text === 'true';
         literalType = 'Boolean';
       } else if (ctx.NULL()) {
@@ -3776,7 +3771,7 @@ export class ApexSymbolCollectorListener
       const idPrimary = expression;
       const idNode = idPrimary.id();
       if (idNode) {
-        return [idNode.text];
+        return [idNode.getText()];
       }
       return [];
     }
@@ -3790,14 +3785,14 @@ export class ApexSymbolCollectorListener
       // Extract field/method name from anyId or dotMethodCall
       const anyId = dotExpression.anyId?.();
       if (anyId) {
-        return [...baseIds, anyId.text];
+        return [...baseIds, anyId.getText()];
       }
 
       const dotMethodCall = dotExpression.dotMethodCall?.();
       if (dotMethodCall) {
         const methodId = dotMethodCall.anyId?.();
         if (methodId) {
-          return [...baseIds, methodId.text];
+          return [...baseIds, methodId.getText()];
         }
       }
 
@@ -3819,7 +3814,7 @@ export class ApexSymbolCollectorListener
       if (methodCallCtx) {
         const idNode = methodCallCtx.id();
         if (idNode) {
-          return [idNode.text];
+          return [idNode.getText()];
         }
       }
       return [];
@@ -3964,10 +3959,10 @@ export class ApexSymbolCollectorListener
       // Capture exception type reference and add catch variable to symbol table
       const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
       const catchVarId = ctx.id();
-      const catchVarName = catchVarId?.text;
+      const catchVarName = catchVarId?.getText();
 
       if (qn) {
-        const ids = qn.id();
+        const ids = qn.id_list();
         if (ids && ids.length > 0) {
           const parentContext = this.getCurrentMethodName();
 
@@ -3977,7 +3972,7 @@ export class ApexSymbolCollectorListener
           let baseLocation: SymbolLocation | null = null;
 
           for (const id of ids) {
-            const partName = id.text;
+            const partName = id.getText();
             const partLocation = this.getLocationForReference(id);
             typeParts.push(partName);
             preciseLocations.push(partLocation);
@@ -4080,7 +4075,7 @@ export class ApexSymbolCollectorListener
   private extractTypeNameFromTypeRef(
     typeRef: TypeRefContext,
   ): { fullTypeName: string; baseLocation: SymbolLocation } | null {
-    const typeNames = typeRef.typeName();
+    const typeNames = typeRef.typeName_list();
     if (!typeNames || typeNames.length === 0) return null;
 
     // For qualified type names (e.g., System.URL), we need to combine all type names
@@ -4092,7 +4087,7 @@ export class ApexSymbolCollectorListener
       const typeNameParts = typeNames.map((tn) => {
         const id = tn.id();
         if (id) {
-          return id.text;
+          return id.getText();
         } else {
           // Handle collection types (LIST/SET/MAP tokens)
           return `${tn.LIST() || tn.SET() || tn.MAP()}`;
@@ -4108,7 +4103,7 @@ export class ApexSymbolCollectorListener
       const baseTypeId = typeName.id();
       if (baseTypeId) {
         // Regular identifier case: id typeArguments?
-        fullTypeName = baseTypeId.text;
+        fullTypeName = baseTypeId.getText();
         baseLocation = this.getLocationForReference(baseTypeId);
       } else {
         // Collection type case: LIST/SET/MAP typeArguments?
@@ -4132,7 +4127,7 @@ export class ApexSymbolCollectorListener
       // Process each type reference in the generic arguments
       const typeList = ctx.typeList();
       if (typeList) {
-        const typeRefs = typeList.typeRef();
+        const typeRefs = typeList.typeRef_list();
 
         // Process each type reference as a generic parameter
         for (const typeRef of typeRefs) {
@@ -4190,7 +4185,7 @@ export class ApexSymbolCollectorListener
   enterTypeList(ctx: TypeListContext): void {
     try {
       // Check if we're inside typeArguments - if so, let enterTypeArguments handle it
-      let current: any = ctx.parent;
+      let current: any = ctx.parentCtx;
       while (current) {
         if (isContextType(current, TypeArgumentsContext)) {
           // enterTypeArguments will handle this, skip here
@@ -4209,7 +4204,7 @@ export class ApexSymbolCollectorListener
           this.processTypeListForInterfaceDeclaration(ctx);
           return;
         }
-        current = current.parent;
+        current = current.parentCtx;
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -4222,7 +4217,7 @@ export class ApexSymbolCollectorListener
    * These are generic type arguments (e.g., String in new List<String>()), not formal parameters
    */
   private processTypeListForConstructorCall(ctx: TypeListContext): void {
-    const typeRefs = ctx.typeRef();
+    const typeRefs = ctx.typeRef_list();
     const parentContext = this.getCurrentMethodName();
 
     for (const typeRef of typeRefs) {
@@ -4259,7 +4254,7 @@ export class ApexSymbolCollectorListener
    * Process typeList for interface declarations (IMPLEMENTS/EXTENDS)
    */
   private processTypeListForInterfaceDeclaration(ctx: TypeListContext): void {
-    const typeRefs = ctx.typeRef();
+    const typeRefs = ctx.typeRef_list();
     const parentContext = this.getCurrentType()?.name;
 
     for (const typeRef of typeRefs) {
@@ -4367,7 +4362,7 @@ export class ApexSymbolCollectorListener
    * - RunAs statement: RunAsStatementContext (do NOT track as method parameters)
    */
   private isInMethodOrConstructorCall(ctx: ExpressionListContext): boolean {
-    const parent = ctx.parent;
+    const parent = ctx.parentCtx;
     if (!parent) return false;
 
     // First check: exclude cases where ExpressionList is NOT in a method/constructor call
@@ -4415,7 +4410,7 @@ export class ApexSymbolCollectorListener
         return false;
       }
 
-      current = current.parent as ParserRuleContext | undefined;
+      current = current.parentCtx as ParserRuleContext | undefined;
     }
 
     return false;
@@ -4484,7 +4479,7 @@ export class ApexSymbolCollectorListener
       severity: 'error',
       message,
       line: ctx.start.line,
-      column: ctx.start.charPositionInLine,
+      column: ctx.start.column,
       fileUri: this.currentFilePath,
     };
     this.semanticErrors.push(error);
@@ -4500,7 +4495,7 @@ export class ApexSymbolCollectorListener
       severity: 'warning',
       message,
       line: ctx.start.line,
-      column: ctx.start.charPositionInLine,
+      column: ctx.start.column,
       fileUri: this.currentFilePath,
     };
     this.semanticWarnings.push(warning);
@@ -4639,7 +4634,7 @@ export class ApexSymbolCollectorListener
         const statementVariableNames = new Set<string>();
 
         for (const declarator of variableDeclarators) {
-          const name = declarator.id()?.text ?? 'unknownVariable';
+          const name = declarator.id()?.getText() ?? 'unknownVariable';
 
           // Check for duplicate variable names within the same statement
           if (statementVariableNames.has(name)) {
@@ -4696,7 +4691,7 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
   ): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownVariable';
+      const name = ctx.id()?.getText() ?? 'unknownVariable';
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -4725,7 +4720,7 @@ export class ApexSymbolCollectorListener
       // Extract initializer type and value if present
       const expression = ctx.expression();
       if (expression) {
-        const exprText = expression.text?.trim();
+        const exprText = expression.getText()?.trim();
         if (exprText) {
           variableSymbol.initialValue = exprText;
         }
@@ -5162,7 +5157,7 @@ export class ApexSymbolCollectorListener
     }
 
     // Check idCreatedNamePair structure for non-collection types
-    const idCreatedNamePairs = createdName.idCreatedNamePair();
+    const idCreatedNamePairs = createdName.idCreatedNamePair_list();
     if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
       const firstPair = idCreatedNamePairs[0];
       pairTypeName = (firstPair as any).typeName?.();
@@ -5212,35 +5207,35 @@ export class ApexSymbolCollectorListener
    */
   private extractTypeFromLiteralExpression(ctx: LiteralContext): TypeInfo {
     if (ctx.IntegerLiteral()) {
-      const text = ctx.IntegerLiteral()!.text;
+      const text = ctx.IntegerLiteral()!.getText();
       const typeInfo = createPrimitiveType('Integer');
       // Preserve the actual literal value in originalTypeString
       typeInfo.originalTypeString = text;
       return typeInfo;
     }
     if (ctx.LongLiteral()) {
-      const text = ctx.LongLiteral()!.text;
+      const text = ctx.LongLiteral()!.getText();
       const typeInfo = createPrimitiveType('Long');
       // Preserve the actual literal value in originalTypeString
       typeInfo.originalTypeString = text;
       return typeInfo;
     }
     if (ctx.NumberLiteral()) {
-      const text = ctx.NumberLiteral()!.text;
+      const text = ctx.NumberLiteral()!.getText();
       const typeInfo = createPrimitiveType('Decimal');
       // Preserve the actual literal value in originalTypeString
       typeInfo.originalTypeString = text;
       return typeInfo;
     }
     if (ctx.StringLiteral()) {
-      const text = ctx.StringLiteral()!.text;
+      const text = ctx.StringLiteral()!.getText();
       const typeInfo = createPrimitiveType('String');
       // Preserve the actual literal value (with quotes) in originalTypeString
       typeInfo.originalTypeString = text;
       return typeInfo;
     }
     if (ctx.BooleanLiteral()) {
-      const text = ctx.BooleanLiteral()!.text.toLowerCase();
+      const text = ctx.BooleanLiteral()!.getText().toLowerCase();
       const typeInfo = createPrimitiveType('Boolean');
       // Preserve the actual literal value in originalTypeString
       typeInfo.originalTypeString = text;
@@ -5273,7 +5268,7 @@ export class ApexSymbolCollectorListener
       return null;
     }
 
-    const varName = id.text;
+    const varName = id.getText();
     const currentScope = this.getCurrentScopeSymbol();
 
     // Look up variable in symbol table (same-file only)
@@ -5314,7 +5309,7 @@ export class ApexSymbolCollectorListener
     // Extract method name
     // MethodCallContext has id() method directly
     const idNode = methodCall.id();
-    const methodName = idNode?.text;
+    const methodName = idNode?.getText();
 
     if (!methodName) {
       return null;
@@ -5355,11 +5350,10 @@ export class ApexSymbolCollectorListener
   private getLocation(ctx: ParserRuleContext): SymbolLocation {
     const fullRange = {
       startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
-      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
+      startColumn: ctx.start.column, // Both use 0-based columns
       endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
       endColumn:
-        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
-        (ctx.stop?.text?.length ?? 0),
+        (ctx.stop?.column ?? ctx.start.column) + (ctx.stop?.text?.length ?? 0),
     };
 
     // Get identifier range using parser's direct access methods
@@ -5422,7 +5416,7 @@ export class ApexSymbolCollectorListener
     // Capture the actual closure point from ctx.stop
     const closureLine = closureCtx.stop.line;
     const closureColumn =
-      closureCtx.stop.charPositionInLine + (closureCtx.stop.text?.length ?? 0);
+      closureCtx.stop.column + (closureCtx.stop.text?.length ?? 0);
 
     // Create corrected symbol range using actual closure point
     // Keep identifierRange unchanged (it's already correct)
@@ -5499,10 +5493,10 @@ export class ApexSymbolCollectorListener
       if (identifierNode?.start && identifierNode?.stop) {
         return {
           startLine: identifierNode.start.line,
-          startColumn: identifierNode.start.charPositionInLine,
+          startColumn: identifierNode.start.column,
           endLine: identifierNode.stop.line,
           endColumn:
-            identifierNode.stop.charPositionInLine +
+            identifierNode.stop.column +
             (identifierNode.stop.text?.length ?? 0),
         };
       }
@@ -5517,9 +5511,8 @@ export class ApexSymbolCollectorListener
       if (listToken) {
         // TerminalNode has symbol property which is a Token
         const token = (listToken as any).symbol || listToken;
-        const text = token?.text || listToken?.text || 'List';
-        const startCol =
-          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        const text = token?.text || listToken?.getText() || 'List';
+        const startCol = token?.column ?? ctx.start.column;
         return {
           startLine: token?.line ?? ctx.start.line,
           startColumn: startCol,
@@ -5530,9 +5523,8 @@ export class ApexSymbolCollectorListener
       const setToken = typeNameCtx.SET?.();
       if (setToken) {
         const token = (setToken as any).symbol || setToken;
-        const text = token?.text || setToken?.text || 'Set';
-        const startCol =
-          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        const text = token?.text || setToken?.getText() || 'Set';
+        const startCol = token?.column ?? ctx.start.column;
         return {
           startLine: token?.line ?? ctx.start.line,
           startColumn: startCol,
@@ -5543,9 +5535,8 @@ export class ApexSymbolCollectorListener
       const mapToken = typeNameCtx.MAP?.();
       if (mapToken) {
         const token = (mapToken as any).symbol || mapToken;
-        const text = token?.text || mapToken?.text || 'Map';
-        const startCol =
-          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        const text = token?.text || mapToken?.getText() || 'Map';
+        const startCol = token?.column ?? ctx.start.column;
         return {
           startLine: token?.line ?? ctx.start.line,
           startColumn: startCol,
@@ -5558,15 +5549,15 @@ export class ApexSymbolCollectorListener
     // Strategy 3: Check for qualifiedName context (e.g., constructor names)
     if ('qualifiedName' in ctx && typeof ctx.qualifiedName === 'function') {
       const qn = ctx.qualifiedName();
-      if (qn?.id && qn.id().length > 0) {
-        const lastId = qn.id()[qn.id().length - 1]; // Get the last identifier in qualified name
+      const qnIds = qn?.id_list?.();
+      if (qnIds && qnIds.length > 0) {
+        const lastId = qnIds[qnIds.length - 1]; // Get the last identifier in qualified name
         if (lastId?.start && lastId?.stop) {
           return {
             startLine: lastId.start.line,
-            startColumn: lastId.start.charPositionInLine,
+            startColumn: lastId.start.column,
             endLine: lastId.stop.line,
-            endColumn:
-              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
+            endColumn: lastId.stop.column + (lastId.stop.text?.length ?? 0),
           };
         }
       }
@@ -5578,10 +5569,9 @@ export class ApexSymbolCollectorListener
       if (anyId?.start && anyId?.stop) {
         return {
           startLine: anyId.start.line,
-          startColumn: anyId.start.charPositionInLine,
+          startColumn: anyId.start.column,
           endLine: anyId.stop.line,
-          endColumn:
-            anyId.stop.charPositionInLine + (anyId.stop.text?.length ?? 0),
+          endColumn: anyId.stop.column + (anyId.stop.text?.length ?? 0),
         };
       }
     }
@@ -5594,7 +5584,7 @@ export class ApexSymbolCollectorListener
    */
   private getTextFromContext(ctx: any): string {
     if (!ctx) return '';
-    return ctx.text || '';
+    return ctx.getText() || '';
   }
 
   /**
@@ -5739,14 +5729,14 @@ export class ApexSymbolCollectorListener
    * by checking if any ancestor is a TypeList context.
    */
   private isGenericArgument(ctx: TypeRefContext): boolean {
-    let current: any = ctx.parent;
+    let current: any = ctx.parentCtx;
     while (current) {
       if (isContextType(current, TypeListContext)) return true;
       // Stop if we climb past the TypeRef owner (another TypeRef or TypeName)
       if (isTypeReferenceContext(current)) {
         // keep climbing; generic arguments are nested under TypeList within TypeName
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
@@ -5781,7 +5771,7 @@ export class ApexSymbolCollectorListener
 
       // If not found, check idCreatedNamePair structure
       if (!listToken && !setToken && !mapToken) {
-        const idCreatedNamePairs = createdName.idCreatedNamePair();
+        const idCreatedNamePairs = createdName.idCreatedNamePair_list();
         if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
           const firstPair = idCreatedNamePairs[0];
           pairTypeName = (firstPair as any).typeName?.();
@@ -5814,12 +5804,10 @@ export class ApexSymbolCollectorListener
             // Fallback to token-based location
             const tokenSymbol = (token as any).symbol || token;
             const tokenText =
-              tokenSymbol?.text || token?.text || collectionType;
+              tokenSymbol?.getText() || token?.getText() || collectionType;
             const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
             const tokenStartCol =
-              tokenSymbol?.charPositionInLine ??
-              (token as any).charPositionInLine ??
-              0;
+              tokenSymbol?.column ?? (token as any).column ?? 0;
             location = {
               symbolRange: {
                 startLine: tokenLine,
@@ -5838,12 +5826,11 @@ export class ApexSymbolCollectorListener
         } else {
           // Fallback to token-based location if typeNameCtx not available
           const tokenSymbol = (token as any).symbol || token;
-          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenText =
+            tokenSymbol?.getText() || token?.getText() || collectionType;
           const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
           const tokenStartCol =
-            tokenSymbol?.charPositionInLine ??
-            (token as any).charPositionInLine ??
-            0;
+            tokenSymbol?.column ?? (token as any).column ?? 0;
           location = {
             symbolRange: {
               startLine: tokenLine,
@@ -5896,7 +5883,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Get the base type name from the createdName (for non-collection types)
-      const idCreatedNamePairs = createdName.idCreatedNamePair();
+      const idCreatedNamePairs = createdName.idCreatedNamePair_list();
       if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
 
       // Get the first idCreatedNamePair (the base type)
@@ -5917,12 +5904,11 @@ export class ApexSymbolCollectorListener
           // Extract location directly from token (TerminalNode)
           // Tokens have symbol property which is a Token with line/charPositionInLine
           const tokenSymbol = (token as any).symbol || token;
-          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenText =
+            tokenSymbol?.getText() || token?.getText() || collectionType;
           const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
           const tokenStartCol =
-            tokenSymbol?.charPositionInLine ??
-            (token as any).charPositionInLine ??
-            0;
+            tokenSymbol?.column ?? (token as any).column ?? 0;
 
           const location: SymbolLocation = {
             symbolRange: {
@@ -5975,7 +5961,7 @@ export class ApexSymbolCollectorListener
       for (const pair of idCreatedNamePairs) {
         const anyId = pair.anyId();
         if (anyId) {
-          const partName = anyId.text;
+          const partName = anyId.getText();
           const partLocation = this.getLocationForReference(
             anyId as unknown as ParserRuleContext,
           );
@@ -6105,7 +6091,7 @@ export class ApexSymbolCollectorListener
    */
   private isTypeDeclarationContext(ctx: TypeRefContext): boolean {
     // Traverse up the parse tree to find the appropriate context
-    let current: any = ctx.parent;
+    let current: any = ctx.parentCtx;
 
     while (current) {
       // Check for variable/field declaration contexts
@@ -6119,7 +6105,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Move up to parent
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     // Default to type declaration if we can't determine
@@ -6204,7 +6190,7 @@ export class ApexSymbolCollectorListener
     ctx: TypeRefContext,
   ): string | undefined {
     // Traverse up the parse tree to find the appropriate context
-    let current = ctx.parent;
+    let current = ctx.parentCtx;
 
     while (current) {
       // Check for method-related contexts
@@ -6218,7 +6204,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Move up to parent
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     // Fallback to current method or type context
@@ -6232,7 +6218,7 @@ export class ApexSymbolCollectorListener
    */
   private isMethodReturnTypeContext(ctx: TypeRefContext): boolean {
     // Traverse up the parse tree to find the appropriate context
-    let current: any = ctx.parent;
+    let current: any = ctx.parentCtx;
 
     while (current) {
       // Check for method declaration contexts
@@ -6269,7 +6255,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Move up to parent
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return false;
@@ -6292,7 +6278,7 @@ export class ApexSymbolCollectorListener
     }
 
     // Traverse up from the TypeRef to see if we hit formalParameters
-    let current: any = typeRefCtx.parent;
+    let current: any = typeRefCtx.parentCtx;
     while (current) {
       if (current === formalParams) {
         return true;
@@ -6301,7 +6287,7 @@ export class ApexSymbolCollectorListener
         // We've reached the method context without hitting formalParameters
         return false;
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return false;
@@ -6346,7 +6332,7 @@ export class ApexSymbolCollectorListener
    * even when they appear inside dot expressions
    */
   private isMethodCallParameter(ctx: IdPrimaryContext): boolean {
-    let current: any = ctx.parent;
+    let current: any = ctx.parentCtx;
 
     while (current) {
       // If we find an expression list, this is likely a method call parameter
@@ -6355,7 +6341,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Move up to parent
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return false;
@@ -6366,7 +6352,7 @@ export class ApexSymbolCollectorListener
    * This helps prevent duplication between enterAssignExpression and enterAnyId
    */
   private isInAssignmentLHS(ctx: AnyIdContext): boolean {
-    let current: any = ctx.parent;
+    let current: any = ctx.parentCtx;
 
     while (current) {
       // If we find an assignment expression, this is in an assignment LHS
@@ -6375,7 +6361,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Move up to parent
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return false;
@@ -6529,12 +6515,13 @@ export class ApexSymbolCollectorListener
     ctx: MethodDeclarationContext | ConstructorDeclarationContext,
   ): ParameterInfo[] {
     const formalParams =
-      ctx.formalParameters()?.formalParameterList()?.formalParameter() || [];
+      ctx.formalParameters()?.formalParameterList()?.formalParameter_list() ||
+      [];
 
     return formalParams.map((param) => {
       const typeRef = param.typeRef();
       const typeName = typeRef ? this.getTextFromContext(typeRef) : 'Object';
-      const paramName = param.id()?.text || 'param';
+      const paramName = param.id()?.getText() || 'param';
       return {
         type: typeName,
         name: paramName,
@@ -6894,7 +6881,7 @@ export class ApexSymbolCollectorListener
       // Extract qualifier from the parent DotExpression
       let qualifier: string | undefined = undefined;
       let qualifierLocation: SymbolLocation | undefined = undefined;
-      const parent = ctx.parent as ParserRuleContext | undefined;
+      const parent = ctx.parentCtx as ParserRuleContext | undefined;
 
       if (
         parent &&
@@ -7112,7 +7099,7 @@ export class ApexSymbolCollectorListener
   ): SymbolLocation {
     try {
       // Get the parent DotExpression to find the base qualifier location
-      const parent = ctx.parent as ParserRuleContext | undefined;
+      const parent = ctx.parentCtx as ParserRuleContext | undefined;
       if (
         parent &&
         parent.constructor &&

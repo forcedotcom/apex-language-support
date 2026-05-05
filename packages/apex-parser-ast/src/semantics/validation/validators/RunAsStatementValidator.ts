@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   RunAsStatementContext,
   ExpressionContext,
   LiteralPrimaryContext,
@@ -37,7 +36,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import {
   resolveExpressionTypeRecursive,
@@ -55,9 +54,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -113,9 +112,9 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
 
     if (literalType) {
       // Find the containing ExpressionContext
-      let parent = ctx.parent;
+      let parent = ctx.parentCtx;
       while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);
@@ -125,10 +124,12 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
 
   enterRunAsStatement(ctx: RunAsStatementContext): void {
     const expressionList = ctx.expressionList();
-    const expressions = expressionList?.expression() || [];
+    const expressions = expressionList?.expression_list() || [];
     const expression = expressions.length === 1 ? expressions[0] : undefined;
     const expressionText =
-      expressions.length === 1 ? expressions[0].text || undefined : undefined;
+      expressions.length === 1
+        ? expressions[0].getText() || undefined
+        : undefined;
 
     this.runAsStatements.push({
       ctx,
@@ -292,10 +293,7 @@ export const RunAsStatementValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -314,8 +312,8 @@ export const RunAsStatementValidator: Validator = {
 
         // Walk the parse tree to collect runAs statement information
         const listener = new RunAsStatementListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Validate each runAs statement
         const runAsStatements = listener.getRunAsStatements();

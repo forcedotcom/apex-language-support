@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   NewExpressionContext,
   ArrayExpressionContext,
   ExpressionContext,
@@ -41,7 +40,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
@@ -62,9 +61,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -166,9 +165,9 @@ class CollectionListener extends BaseApexParserListener<void> {
 
     if (literalType) {
       // Find the containing ExpressionContext
-      let parent = ctx.parent;
+      let parent = ctx.parentCtx;
       while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);
@@ -190,7 +189,7 @@ class CollectionListener extends BaseApexParserListener<void> {
     // Grammar: createdName : idCreatedNamePair (DOT idCreatedNamePair)*
     // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
     // Grammar: anyId : Identifier | LIST | SET | MAP | ...
-    const idCreatedNamePairs = createdName.idCreatedNamePair();
+    const idCreatedNamePairs = createdName.idCreatedNamePair_list();
     if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) {
       return;
     }
@@ -213,20 +212,20 @@ class CollectionListener extends BaseApexParserListener<void> {
       let valueType: string | undefined;
 
       const extractTypeName = (typeRef: TypeRefContext): string | undefined => {
-        const typeNames = typeRef.typeName();
+        const typeNames = typeRef.typeName_list();
         if (typeNames && typeNames.length > 0) {
           const typeName = typeNames[0];
           const id = typeName.id();
           if (id) {
-            return id.text;
+            return id.getText();
           }
         }
-        return typeRef.text?.trim() || undefined;
+        return typeRef.getText()?.trim() || undefined;
       };
 
       // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
       const typeList = firstPair.typeList();
-      const typeRefs: TypeRefContext[] = typeList?.typeRef() ?? [];
+      const typeRefs: TypeRefContext[] = typeList?.typeRef_list() ?? [];
 
       if (collectionType === 'Map' && typeRefs.length >= 2) {
         keyType = extractTypeName(typeRefs[0]);
@@ -237,7 +236,7 @@ class CollectionListener extends BaseApexParserListener<void> {
 
       const classCreatorRest = creator.classCreatorRest();
       const arguments_ = classCreatorRest?.arguments();
-      const initializerText = arguments_?.text || '';
+      const initializerText = arguments_?.getText() || '';
 
       this.collectionInitializers.push({
         ctx,
@@ -253,10 +252,10 @@ class CollectionListener extends BaseApexParserListener<void> {
   enterArrayExpression(ctx: ArrayExpressionContext): void {
     // Array expressions like list[index] or array[index]
     // ArrayExpressionContext structure: expression(0) = array base, expression(1) = index
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions && expressions.length > 1) {
       const indexExpr = expressions[1]; // Index is the second expression
-      const indexText = indexExpr.text || '';
+      const indexText = indexExpr.getText() || '';
       this.listIndexExpressions.push({
         ctx,
         indexExpression: indexExpr,
@@ -272,7 +271,7 @@ class CollectionListener extends BaseApexParserListener<void> {
     const methodCall = ctx.methodCall();
     if (methodCall) {
       const id = methodCall.id();
-      const methodName = id?.text || '';
+      const methodName = id?.getText() || '';
 
       // Check for collection methods: all(), sort(), putAll()
       if (
@@ -284,7 +283,7 @@ class CollectionListener extends BaseApexParserListener<void> {
         // MethodCallExpressionContext is typically: expression DOT methodCall()
         // So the parent might be a DotExpressionContext
         let baseExpression: ExpressionContext | null = null;
-        const parent = ctx.parent;
+        const parent = ctx.parentCtx;
         if (parent instanceof DotExpressionContext) {
           const baseExpr = parent.expression();
           if (baseExpr) {
@@ -301,7 +300,7 @@ class CollectionListener extends BaseApexParserListener<void> {
         const argumentExpressions: ExpressionContext[] = [];
 
         if (argumentList) {
-          const expressions = argumentList.expression();
+          const expressions = argumentList.expression_list();
           if (expressions) {
             for (const expr of expressions) {
               argumentExpressions.push(expr);
@@ -324,7 +323,7 @@ class CollectionListener extends BaseApexParserListener<void> {
     // DotMethodCallContext: anyId LPAREN expressionList? RPAREN
     // This is used for method calls like map1.putAll(map2)
     const anyId = ctx.anyId();
-    const methodName = anyId?.text || '';
+    const methodName = anyId?.getText() || '';
 
     // Check for collection methods: all(), sort(), putAll()
     if (
@@ -335,7 +334,7 @@ class CollectionListener extends BaseApexParserListener<void> {
       // Get base expression from parent DotExpressionContext
       // dotExpression: expression DOT (dotMethodCall | anyId)
       let baseExpression: ExpressionContext | null = null;
-      const parent = ctx.parent;
+      const parent = ctx.parentCtx;
       if (parent instanceof DotExpressionContext) {
         const baseExpr = parent.expression();
         if (baseExpr) {
@@ -353,7 +352,7 @@ class CollectionListener extends BaseApexParserListener<void> {
       const argumentExpressions: ExpressionContext[] = [];
 
       if (argumentList) {
-        const expressions = argumentList.expression();
+        const expressions = argumentList.expression_list();
         if (expressions) {
           for (const expr of expressions) {
             argumentExpressions.push(expr);
@@ -477,10 +476,7 @@ export const CollectionValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -495,8 +491,8 @@ export const CollectionValidator: Validator = {
 
         // Walk the parse tree to collect collection-related information
         const listener = new CollectionListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const collectionInitializers = listener.getCollectionInitializers();
         const listIndexExpressions = listener.getListIndexExpressions();

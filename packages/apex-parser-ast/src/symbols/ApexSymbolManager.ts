@@ -5464,7 +5464,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Validate that a type reference name is valid for resolution
    *
-   * The parser/listener extracts identifiers from parser nodes (id()?.text, typeName(), etc.),
+   * The parser/listener extracts identifiers from parser nodes (id()?.getText(), typeName(), etc.),
    * which are already validated by the ANTLR lexer/parser. The parser cannot produce invalid
    * identifiers - if it did, the parse would fail. This check only ensures we have a non-empty
    * name before attempting resolution.

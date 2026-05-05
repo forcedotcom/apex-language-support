@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   TypeRefContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
@@ -117,22 +116,22 @@ class TypeRefCollectorListener extends BaseApexParserListener<
   private result: TypeRefWithLocation[] = [];
 
   enterTypeRef(ctx: TypeRefContext): void {
-    const text = ctx.text || '';
+    const text = ctx.getText() || '';
     if (!text.trim()) return;
 
     const stop = ctx.stop || ctx.start;
     const location: SymbolLocation = {
       symbolRange: {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
       identifierRange: {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
     };
     this.result.push({ typeName: text.trim(), location });
@@ -151,9 +150,7 @@ function collectTypeRefsFromSource(
   isTrigger: boolean,
   isAnonymous: boolean,
 ): TypeRefWithLocation[] {
-  const inputStream = CharStreams.fromString(sourceContent);
-  const caseInsensitive = new CaseInsensitiveInputStream(inputStream);
-  const lexer = new ApexLexer(caseInsensitive);
+  const lexer = ApexParserFactory.createLexer(sourceContent);
   const tokenStream = new CommonTokenStream(lexer);
   const parser = new ApexParser(tokenStream);
 
@@ -167,8 +164,8 @@ function collectTypeRefsFromSource(
   }
 
   const listener = new TypeRefCollectorListener();
-  const walker = new ParseTreeWalker();
-  walker.walk(listener, parseTree);
+
+  ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
   return listener.getResult();
 }
 

@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   InsertStatementContext,
   UpdateStatementContext,
   DeleteStatementContext,
@@ -40,7 +39,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import { isPrimitiveType } from '../../../utils/primitiveTypes';
 
 /**
@@ -53,9 +52,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -87,7 +86,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
       this.dmlStatements.push({
         ctx,
         operation: 'insert',
-        expressionText: expr.text || '',
+        expressionText: expr.getText() || '',
       });
     }
   }
@@ -98,7 +97,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
       this.dmlStatements.push({
         ctx,
         operation: 'update',
-        expressionText: expr.text || '',
+        expressionText: expr.getText() || '',
       });
     }
   }
@@ -109,7 +108,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
       this.dmlStatements.push({
         ctx,
         operation: 'delete',
-        expressionText: expr.text || '',
+        expressionText: expr.getText() || '',
       });
     }
   }
@@ -120,7 +119,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
       this.dmlStatements.push({
         ctx,
         operation: 'undelete',
-        expressionText: expr.text || '',
+        expressionText: expr.getText() || '',
       });
     }
   }
@@ -131,7 +130,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
       this.dmlStatements.push({
         ctx,
         operation: 'upsert',
-        expressionText: expr.text || '',
+        expressionText: expr.getText() || '',
         upsertHasFieldSpec: ctx.qualifiedName() !== undefined,
       });
     }
@@ -139,13 +138,13 @@ class DmlStatementListener extends BaseApexParserListener<void> {
 
   enterMergeStatement(ctx: MergeStatementContext): void {
     // Merge has two expressions - check both
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions && expressions.length >= 1) {
       // Check first expression (master record)
       this.dmlStatements.push({
         ctx: expressions[0],
         operation: 'merge',
-        expressionText: expressions[0].text || '',
+        expressionText: expressions[0].getText() || '',
         mergeRole: 'master',
       });
       // Check second expression (duplicate records) if present
@@ -153,7 +152,7 @@ class DmlStatementListener extends BaseApexParserListener<void> {
         this.dmlStatements.push({
           ctx: expressions[1],
           operation: 'merge',
-          expressionText: expressions[1].text || '',
+          expressionText: expressions[1].getText() || '',
           mergeRole: 'duplicates',
         });
       }
@@ -539,10 +538,7 @@ export const DmlStatementValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -561,8 +557,8 @@ export const DmlStatementValidator: Validator = {
 
         // Walk the parse tree to collect DML statement information
         const listener = new DmlStatementListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Validate each DML statement
         const dmlStatements = listener.getDmlStatements();

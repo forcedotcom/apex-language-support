@@ -6,11 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  ParseTreeWalker,
+  ApexParserFactory,
+  ApexParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
 import { ApexFoldingRangeListener } from '../../src/parser/listeners/ApexFoldingRangeListener';
@@ -23,12 +23,11 @@ describe('ApexFoldingRangeListener', () => {
   });
 
   const parseAndWalk = (code: string): void => {
-    const inputStream = CharStreams.fromString(code);
-    const lexer = new ApexLexer(inputStream);
+    const lexer = ApexParserFactory.createLexer(code);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
-    const walker = new ParseTreeWalker();
-    walker.walk(listener, parser.compilationUnit());
+
+    ApexParseTreeWalker.DEFAULT.walk(listener, parser.compilationUnit());
   };
 
   const findRangeByStartLine = (startLine: number) =>
@@ -309,12 +308,11 @@ trigger TestTrigger on Account (before insert) {
     // trigger body
     System.debug('test');
 }`;
-      const inputStream = CharStreams.fromString(code);
-      const lexer = new ApexLexer(inputStream);
+      const lexer = ApexParserFactory.createLexer(code);
       const tokenStream = new CommonTokenStream(lexer);
       const parser = new ApexParser(tokenStream);
-      const walker = new ParseTreeWalker();
-      walker.walk(listener, parser.triggerUnit());
+
+      ApexParseTreeWalker.DEFAULT.walk(listener, parser.triggerUnit());
 
       const range = findRangeByStartLine(2);
       expect(range).toBeDefined();
@@ -349,12 +347,11 @@ public class TestClass {
         ];
     }
 }`;
-      const inputStream = CharStreams.fromString(code);
-      const lexer = new ApexLexer(inputStream);
+      const lexer = ApexParserFactory.createLexer(code);
       const tokenStream = new CommonTokenStream(lexer);
       const parser = new ApexParser(tokenStream);
-      const walker = new ParseTreeWalker();
-      walker.walk(listener, parser.compilationUnit());
+
+      ApexParseTreeWalker.DEFAULT.walk(listener, parser.compilationUnit());
 
       const range = findRangeByStartLine(4);
       expect(range).toBeDefined();

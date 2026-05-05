@@ -7,16 +7,15 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   PrimaryExpressionContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -67,13 +66,13 @@ class SuperThisListener extends BaseApexParserListener<void> {
     [];
 
   enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
-    const text = ctx.text?.toLowerCase().trim() ?? '';
+    const text = ctx.getText()?.toLowerCase().trim() ?? '';
     const firstWord = text.split(/[.\s(]/)[0];
     if (firstWord === 'super' || firstWord === 'this') {
       this.locations.push({
         isSuper: firstWord === 'super',
         line: ctx.start.line,
-        column: ctx.start.charPositionInLine,
+        column: ctx.start.column,
       });
     }
   }
@@ -243,10 +242,7 @@ export const StaticContextValidator: Validator = {
             : options.sourceContent;
 
           try {
-            const inputStream = CharStreams.fromString(contentToParse);
-            const lexer = new ApexLexer(
-              new CaseInsensitiveInputStream(inputStream),
-            );
+            const lexer = ApexParserFactory.createLexer(contentToParse);
             const tokenStream = new CommonTokenStream(lexer);
             const parser = new ApexParser(tokenStream);
 
@@ -264,8 +260,8 @@ export const StaticContextValidator: Validator = {
 
             const listener = new SuperThisListener();
             listener.setStaticContextRanges(staticRanges);
-            const walker = new ParseTreeWalker();
-            walker.walk(listener, parseTree);
+
+            ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
             const locationsInStatic = listener.getLocationsInStaticContext();
             for (const loc of locationsInStatic) {
