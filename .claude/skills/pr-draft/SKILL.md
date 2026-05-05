@@ -17,7 +17,7 @@ Draft PR titles and bodies per salesforcedx-vscode conventions. Requires a Gus w
 2. Else ask: "Do you have a Gus work item (W-XXXXX) for this PR?"
 3. If yes → try to find it using [gus-cli/SKILL.md](../gus-cli/SKILL.md). Confirm with the user that you got it right, or ask them to choose if several could be right.
 4. If no → offer to create via Gus. Follow [gus-cli/SKILL.md](../gus-cli/SKILL.md). **Before creating:** show user Subject, Epic, Details, assignee. Ask: "Create this work item?" Do not run `sf data create record` until user says yes. If user declines creation and still wants to proceed with the PR, include `[skip-validate-pr]` in the PR body.
-5. Before creating PR: push current branch to remote if it doesn't already exist (`git push -u origin $(git branch --show-current)` or equivalent). Never push to `develop`/`main`
+5. Before creating PR: push current branch to remote if it doesn't already exist (`git push -u origin $(git branch --show-current)` or equivalent). Never push directly to `main`
 6. After PR created: update work item `Details__c` with PR link. Query current `Details__c`, append `"\nPR: <url>"` (or prepend if empty). **Before updating:** show user the new Details__c. Ask: "Update work item with PR link?" Do not run `sf data update record` until user says yes.
 7. After PR created: offer Ready for Review. Ask: "Put WI in Ready for Review? Who should review?" Choices:
    - **Named:** user picks one (e.g. "Shane", "Daphne") → match first or full name to [gus-cli Team members](../gus-cli/SKILL.md#team-members-assignee__c-qa_engineer__c), use Id
@@ -30,9 +30,8 @@ Draft PR titles and bodies per salesforcedx-vscode conventions. Requires a Gus w
 
 ## Target branch
 
-- Default `develop`
-- From other branch (≠ develop, ≠ main)? Use it. Detect: `git reflog show <branch> | tail -1` → "moving from X" / "Created from X"
-- Never `main`; inferred main → develop
+- Default `main`
+- From other branch (≠ main)? Use it. Detect: `git reflog show <branch> | tail -1` → "moving from X" / "Created from X"
 
 ## Title format
 

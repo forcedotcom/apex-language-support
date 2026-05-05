@@ -1,8 +1,3 @@
----
-description: Language server, Apex parser, and VS Code extension host notes; general TS via skills
-alwaysApply: false
----
-
 # LSP positioning and VS Code web extension rules
 
 Apex-language-support-specific TypeScript notes. Pulled from the previous `.cursor/rules/ts-rules.mdc`.
