@@ -17,10 +17,6 @@ import { test, expect } from '../fixtures/apexFixtures';
  * requires the `ApexSymbolManager` to be wired to a real
  * `ResourceLoader`-backed stdlib provider rather than the default no-op.
  *
- * Regression tracked by: docs/hover-string-diagnosis.md. All three cases
- * failed on cold-start before the `setStdlibProvider(...)` injection in
- * `LCSAdapter.initializeResourceLoader` was added.
- *
  * @group hover
  * @group stdlib
  */
