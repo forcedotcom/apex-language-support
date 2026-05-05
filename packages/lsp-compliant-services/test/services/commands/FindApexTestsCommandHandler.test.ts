@@ -292,7 +292,7 @@ describe('FindApexTestsCommandHandler', () => {
         namespace: undefined,
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([
         testClass,
         classBlock,
         testMethod,
@@ -547,7 +547,7 @@ describe('FindApexTestsCommandHandler', () => {
         _isLoaded: true,
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([
         testClass,
         classBlock,
         testMethod1,
@@ -615,7 +615,7 @@ describe('FindApexTestsCommandHandler', () => {
         namespace: undefined,
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([
         regularClass,
       ]);
 
@@ -694,7 +694,9 @@ describe('FindApexTestsCommandHandler', () => {
         namespace: undefined,
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([testClass]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([
+        testClass,
+      ]);
 
       // Act
       const result = await handler.execute([], mockSymbolManager, logger);
@@ -708,7 +710,7 @@ describe('FindApexTestsCommandHandler', () => {
 
     it('should handle empty symbol list', async () => {
       // Arrange
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([]);
 
       // Act
       const result = await handler.execute([], mockSymbolManager, logger);
@@ -798,7 +800,9 @@ describe('FindApexTestsCommandHandler', () => {
         namespace: undefined,
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([testClass]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([
+        testClass,
+      ]);
 
       // Act
       const result = await handler.execute([], mockSymbolManager, logger);

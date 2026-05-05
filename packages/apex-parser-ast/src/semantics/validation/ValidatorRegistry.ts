@@ -205,7 +205,7 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
   register(validator: Validator): Effect.Effect<void, ValidationError> {
     return Effect.gen(this, function* () {
       if (this.validators.has(validator.id)) {
-        yield* Effect.logWarning(
+        yield* Effect.logDebug(
           `Validator ${validator.id} already registered, replacing`,
         );
       }
@@ -313,7 +313,7 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
             );
 
             if (!prerequisitesMet) {
-              yield* Effect.logWarning(
+              yield* Effect.logDebug(
                 `Skipping validator ${validator.name} - prerequisites not met ` +
                   `(requiredDetailLevel: ${validator.prerequisites.requiredDetailLevel}, ` +
                   `requiresReferences: ${validator.prerequisites.requiresReferences}, ` +

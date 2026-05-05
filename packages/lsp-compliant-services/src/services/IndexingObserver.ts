@@ -49,7 +49,7 @@ export class IndexingObserverImpl implements IndexingObserver {
 
       for (const uri of uris) {
         const filePath = normalizeUri(uri);
-        const symbols = manager.findSymbolsInFile(filePath);
+        const symbols = await manager.findSymbolsInFile(filePath);
 
         if (symbols.length > 0) {
           this.logger.debug(() => `File ${filePath} has been indexed`);
@@ -119,7 +119,7 @@ export function createWaitForSymbolMethod(
     const deadline = startTime + maxWaitMs;
 
     while (Date.now() < deadline) {
-      const symbols = this.findSymbolByName(identifier);
+      const symbols = await this.findSymbolByName(identifier);
 
       if (symbols.length > 0) {
         // If kind is specified, filter by kind

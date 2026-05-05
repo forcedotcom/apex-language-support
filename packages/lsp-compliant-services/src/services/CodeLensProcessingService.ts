@@ -138,38 +138,20 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    */
   private async provideTestCodeLenses(fileUri: string): Promise<CodeLens[]> {
     try {
-      this.logger.debug(() => `Accessing symbol manager for ${fileUri}`);
-
       // Get the symbols for this file
-      const symbols = this.symbolManager.findSymbolsInFile(fileUri);
+      const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
 
-      if (!symbols.length) {
-        this.logger.debug(
-          () => `No symbols found for ${fileUri} - file may not be parsed yet`,
-        );
-        return [];
-      }
       // Find test classes and methods
-      const codeLenses: CodeLens[] = symbols.flatMap((symbol) => {
-        this.logger.debug(
-          () =>
-            `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
-        );
-
+      const codeLenses: CodeLens[] = [];
+      for (const symbol of symbols) {
         if (this.isTest(symbol)) {
           if (isClassSymbol(symbol)) {
-            return this.createTestClassCodeLenses(symbol);
+            codeLenses.push(...this.createTestClassCodeLenses(symbol));
           } else if (isMethodSymbol(symbol)) {
-            return this.createTestMethodCodeLenses(symbol);
+            codeLenses.push(...(await this.createTestMethodCodeLenses(symbol)));
           }
         }
-        return [];
-      });
-
-      this.logger.debug(
-        () => `Total test code lenses created: ${codeLenses.length}`,
-      );
-
+      }
       return codeLenses;
     } catch (error) {
       this.logger.error(
@@ -245,7 +227,9 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @param methodSymbol The test method symbol
    * @returns Array of code lenses for Run Test and Debug Test
    */
-  private createTestMethodCodeLenses(methodSymbol: ApexSymbol): CodeLens[] {
+  private async createTestMethodCodeLenses(
+    methodSymbol: ApexSymbol,
+  ): Promise<CodeLens[]> {
     if (!methodSymbol.location) {
       return [];
     }
@@ -256,7 +240,7 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
     const range = Range.create(position, position);
 
     // Get the qualified method name (ClassName.methodName)
-    const methodName = this.getQualifiedMethodName(methodSymbol);
+    const methodName = await this.getQualifiedMethodName(methodSymbol);
 
     if (!methodName) {
       this.logger.warn(
@@ -293,11 +277,14 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @param methodSymbol The method symbol
    * @returns Qualified method name or null if it cannot be determined
    */
-  private getQualifiedMethodName(methodSymbol: ApexSymbol): string | null {
+  private async getQualifiedMethodName(
+    methodSymbol: ApexSymbol,
+  ): Promise<string | null> {
     try {
       // Use getContainingType to find the parent class/interface/enum
       // This walks up the parentId chain to find the containing type
-      const containingType = this.symbolManager.getContainingType(methodSymbol);
+      const containingType =
+        await this.symbolManager.getContainingType(methodSymbol);
       if (containingType) {
         return `${containingType.name}.${methodSymbol.name}`;
       }

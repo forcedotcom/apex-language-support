@@ -27,30 +27,33 @@ describe('MissingArtifactUtils', () => {
     mockSymbolManager = {
       getReferencesAtPosition: jest.fn(),
       getSymbolAtPosition: jest.fn(),
-      findSymbolsInFile: jest.fn().mockReturnValue([]),
+      findSymbolsInFile: jest.fn().mockResolvedValue([]),
     } as any;
 
     utils = new MissingArtifactUtils(logger, mockSymbolManager);
   });
 
   describe('extractReferenceAtPosition', () => {
-    it('should return null when no references found (e.g., keywords, whitespace)', () => {
+    it('should return null when no references found (e.g., keywords, whitespace)', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
       const position = { line: 2, character: 4 };
 
       // Keywords don't produce TypeReference objects - getReferencesAtPosition returns empty array
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([]);
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([]);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       expect(result).toBeNull();
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
-    it('should return reference when TypeReference exists', () => {
+    it('should return reference when TypeReference exists', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
       const position = { line: 5, character: 10 };
@@ -69,33 +72,39 @@ describe('MissingArtifactUtils', () => {
         resolvedSymbolId: undefined,
       };
 
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
         mockReference,
       ] as any);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       expect(result).toEqual(mockReference);
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
-    it('should return null when getReferencesAtPosition returns empty array', () => {
+    it('should return null when getReferencesAtPosition returns empty array', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
       const position = { line: 5, character: 10 };
 
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([]);
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([]);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       expect(result).toBeNull();
     });
 
-    it('should return first reference when multiple references found', () => {
+    it('should return first reference when multiple references found', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
       const position = { line: 5, character: 10 };
@@ -128,20 +137,23 @@ describe('MissingArtifactUtils', () => {
         resolvedSymbolId: undefined,
       };
 
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
         mockReference1,
         mockReference2,
       ] as any);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       expect(result).toEqual(mockReference1);
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
-    it('should prioritize chained references over individual references when both exist', () => {
+    it('should prioritize chained references over individual references when both exist', async () => {
       // Arrange
       // This test case covers the bug where hovering over "FileUtilities.createFile"
       // would extract just "createFile" instead of the full chain "FileUtilities.createFile"
@@ -206,13 +218,16 @@ describe('MissingArtifactUtils', () => {
 
       // Simulate the scenario where both references are returned
       // Individual reference comes first (this was the bug - it was selected)
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
         individualReference,
         chainedReference,
       ] as any);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       // Should prioritize the chained reference, not the individual one
@@ -222,7 +237,7 @@ describe('MissingArtifactUtils', () => {
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
-    it('should prioritize chained reference even when it comes after individual references', () => {
+    it('should prioritize chained reference even when it comes after individual references', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
       const position = { line: 10, character: 20 };
@@ -268,14 +283,17 @@ describe('MissingArtifactUtils', () => {
       };
 
       // Chained reference comes last in the array
-      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
         individualRef1,
         individualRef2,
         chainedRef,
       ] as any);
 
       // Act
-      const result = (utils as any).extractReferenceAtPosition(uri, position);
+      const result = await (utils as any).extractReferenceAtPosition(
+        uri,
+        position,
+      );
 
       // Assert
       expect(result).toEqual(chainedRef);

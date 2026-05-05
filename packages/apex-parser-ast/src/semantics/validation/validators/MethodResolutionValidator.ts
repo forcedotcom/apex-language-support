@@ -332,12 +332,14 @@ export const MethodResolutionValidator: Validator = {
                 isStaticContext: isStaticCall,
                 currentSymbolTable: symbolTable,
               };
-              const resolutionResult = resolveTypeName(
-                [baseType],
-                compilationContext,
-                ReferenceTypeEnum.METHOD,
-                IdentifierContext.NONE,
-                symbolManager,
+              const resolutionResult = yield* Effect.promise(() =>
+                resolveTypeName(
+                  [baseType],
+                  compilationContext,
+                  ReferenceTypeEnum.METHOD,
+                  IdentifierContext.NONE,
+                  symbolManager,
+                ),
               );
               if (
                 resolutionResult.isResolved &&
@@ -348,9 +350,11 @@ export const MethodResolutionValidator: Validator = {
               }
             } else {
               // No variable found - use pre-resolved symbol from enrichment (e.g. System.debug)
-              const preResolvedSymbol =
-                qualifierNode?.resolvedSymbolId &&
-                symbolManager.getSymbol(qualifierNode.resolvedSymbolId);
+              const preResolvedSymbol = qualifierNode?.resolvedSymbolId
+                ? yield* Effect.promise(() =>
+                    symbolManager.getSymbol(qualifierNode.resolvedSymbolId!),
+                  )
+                : null;
               if (
                 preResolvedSymbol &&
                 isClassOrInterfaceSymbol(preResolvedSymbol)
@@ -375,12 +379,14 @@ export const MethodResolutionValidator: Validator = {
                       currentSymbolTable: symbolTable,
                     };
                     const baseType = extractBaseTypeForResolution(receiverType);
-                    const namespacedResult = resolveTypeName(
-                      [baseType],
-                      compilationContext,
-                      ReferenceTypeEnum.METHOD,
-                      IdentifierContext.NONE,
-                      symbolManager as unknown as SymbolProvider,
+                    const namespacedResult = yield* Effect.promise(() =>
+                      resolveTypeName(
+                        [baseType],
+                        compilationContext,
+                        ReferenceTypeEnum.METHOD,
+                        IdentifierContext.NONE,
+                        symbolManager as unknown as SymbolProvider,
+                      ),
                     );
                     if (
                       namespacedResult.isResolved &&
@@ -411,12 +417,14 @@ export const MethodResolutionValidator: Validator = {
                   currentSymbolTable: symbolTable,
                 };
                 const baseType = extractBaseTypeForResolution(receiverType);
-                const resolutionResult = resolveTypeName(
-                  [baseType],
-                  compilationContext,
-                  ReferenceTypeEnum.METHOD,
-                  IdentifierContext.NONE,
-                  symbolManager,
+                const resolutionResult = yield* Effect.promise(() =>
+                  resolveTypeName(
+                    [baseType],
+                    compilationContext,
+                    ReferenceTypeEnum.METHOD,
+                    IdentifierContext.NONE,
+                    symbolManager,
+                  ),
                 );
                 if (
                   resolutionResult.isResolved &&
@@ -462,14 +470,21 @@ export const MethodResolutionValidator: Validator = {
         }
 
         // Filter methods by visibility and static/instance context
-        const visibleMethods = candidateMethods.filter((method) =>
-          isMethodVisible(
-            method,
-            containingClass,
-            isStaticCall,
-            symbolManager,
-            allSymbols,
+        const visibilityResults = yield* Effect.promise(() =>
+          Promise.all(
+            candidateMethods.map((method) =>
+              isMethodVisible(
+                method,
+                containingClass,
+                isStaticCall,
+                symbolManager,
+                allSymbols,
+              ),
+            ),
           ),
+        );
+        const visibleMethods = candidateMethods.filter(
+          (_, i) => visibilityResults[i],
         );
 
         if (visibleMethods.length === 0) {
@@ -786,7 +801,9 @@ function resolveMethodCallReceiverType(
 
         // TIER 2: Cross-file resolution
         if (tier === ValidationTier.THOROUGH && symbolManager) {
-          const symbolsByName = symbolManager.findSymbolByName(receiverName);
+          const symbolsByName = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(receiverName),
+          );
           const currentFileUri = symbolTable.getFileUri();
           // First try same-file match
           let foundVariable = symbolsByName.find(
@@ -813,11 +830,13 @@ function resolveMethodCallReceiverType(
           }
 
           // Defer to symbol manager for built-in/standard type check
-          if (
-            receiverName &&
-            symbolManager.isStandardLibraryType(receiverName)
-          ) {
-            return receiverName;
+          if (receiverName) {
+            const isStdLib = yield* Effect.promise(() =>
+              symbolManager.isStandardLibraryType(receiverName),
+            );
+            if (isStdLib) {
+              return receiverName;
+            }
           }
 
           // Try class/interface lookup (e.g. for System from stdlib)
@@ -924,7 +943,9 @@ function resolveMethodCallReceiverType(
 
     // TIER 2: Cross-file resolution
     if (tier === ValidationTier.THOROUGH && symbolManager) {
-      const symbolsByName = symbolManager.findSymbolByName(receiverName);
+      const symbolsByName = yield* Effect.promise(() =>
+        symbolManager.findSymbolByName(receiverName),
+      );
       const currentFileUri = symbolTable.getFileUri();
       // First try same-file match
       let foundVariable = symbolsByName.find(
@@ -951,8 +972,13 @@ function resolveMethodCallReceiverType(
       }
 
       // Defer to symbol manager for built-in/standard type check
-      if (receiverName && symbolManager?.isStandardLibraryType(receiverName)) {
-        return receiverName;
+      if (receiverName) {
+        const isStdLib = yield* Effect.promise(() =>
+          symbolManager.isStandardLibraryType(receiverName),
+        );
+        if (isStdLib) {
+          return receiverName;
+        }
       }
 
       // Try class/interface lookup
@@ -987,14 +1013,14 @@ function findMethodsInHierarchy(
     const symbolsForClass =
       classSymbol.fileUri &&
       !allSymbols.some((s) => s.fileUri === classSymbol.fileUri)
-        ? symbolManager.findSymbolsInFile(classSymbol.fileUri)
+        ? yield* Effect.promise(() =>
+            symbolManager.findSymbolsInFile(classSymbol.fileUri),
+          )
         : allSymbols;
 
     // Find methods in the current class
-    const classMethods = findMethodsInClass(
-      classSymbol,
-      symbolsForClass,
-      symbolManager,
+    const classMethods = yield* Effect.promise(() =>
+      findMethodsInClass(classSymbol, symbolsForClass, symbolManager),
     );
     const matchingMethods = classMethods.filter((m) => m.name === methodName);
     methods.push(...matchingMethods);
@@ -1016,13 +1042,13 @@ function findMethodsInHierarchy(
 /**
  * Check if a method is visible from the calling context
  */
-function isMethodVisible(
+async function isMethodVisible(
   method: MethodSymbol,
   callingClass: TypeSymbol,
   isStaticContext: boolean,
   symbolManager: ISymbolManagerInterface,
   allSymbols: ApexSymbol[],
-): boolean {
+): Promise<boolean> {
   const visibility = method.modifiers?.visibility ?? SymbolVisibility.Default;
   const isStaticMethod = method.modifiers?.isStatic ?? false;
 
@@ -1040,7 +1066,11 @@ function isMethodVisible(
   }
 
   // Find the declaring class for this method
-  const declaringClass = findDeclaringClass(method, allSymbols, symbolManager);
+  const declaringClass = await findDeclaringClass(
+    method,
+    allSymbols,
+    symbolManager,
+  );
   if (!declaringClass) {
     // Can't determine declaring class - assume visible (conservative)
     return true;
@@ -1056,7 +1086,7 @@ function isMethodVisible(
     // @TestVisible allows test classes to access private/protected members
     if (
       AnnotationUtils.hasAnnotation(method, 'TestVisible') &&
-      isInTestContext(callingClass, allSymbols, symbolManager)
+      (await isInTestContext(callingClass, allSymbols, symbolManager))
     ) {
       return true;
     }
@@ -1071,12 +1101,19 @@ function isMethodVisible(
     }
 
     // Check if calling class extends declaring class
-    if (isSubclassOf(callingClass, declaringClass, symbolManager, allSymbols)) {
+    if (
+      await isSubclassOf(
+        callingClass,
+        declaringClass,
+        symbolManager,
+        allSymbols,
+      )
+    ) {
       return true;
     }
 
     // Check if calling class is an inner class whose enclosing class is the declaring class
-    const enclosingClass = getEnclosingClass(
+    const enclosingClass = await getEnclosingClass(
       callingClass,
       allSymbols,
       symbolManager,
@@ -1088,7 +1125,7 @@ function isMethodVisible(
     // @TestVisible allows test classes to access private/protected members
     if (
       AnnotationUtils.hasAnnotation(method, 'TestVisible') &&
-      isInTestContext(callingClass, allSymbols, symbolManager)
+      (await isInTestContext(callingClass, allSymbols, symbolManager))
     ) {
       return true;
     }
@@ -1103,13 +1140,15 @@ function isMethodVisible(
 /**
  * Find the declaring class for a method
  */
-function findDeclaringClass(
+async function findDeclaringClass(
   method: MethodSymbol,
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
-): TypeSymbol | null {
-  const resolveParent = (id: string): ApexSymbol | null =>
-    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
+): Promise<TypeSymbol | null> {
+  const resolveParent = async (id: string): Promise<ApexSymbol | null> =>
+    allSymbols.find((s) => s.id === id) ??
+    (await symbolManager.getSymbol(id)) ??
+    null;
 
   let current: ApexSymbol | null = method;
   while (current) {
@@ -1117,13 +1156,13 @@ function findDeclaringClass(
       return current;
     }
     if (current.parentId) {
-      const parent = resolveParent(current.parentId);
+      const parent = await resolveParent(current.parentId);
       if (isClassOrInterfaceSymbol(parent)) {
         return parent;
       }
       // If parent is a block, check its parent
-      if (isBlockSymbol(parent) && parent.parentId) {
-        const grandParent = resolveParent(parent.parentId);
+      if (parent && isBlockSymbol(parent) && parent.parentId) {
+        const grandParent = await resolveParent(parent.parentId);
         if (isClassOrInterfaceSymbol(grandParent)) {
           return grandParent;
         }
@@ -1140,12 +1179,12 @@ function findDeclaringClass(
 /**
  * Check if a class is a subclass of another class
  */
-function isSubclassOf(
+async function isSubclassOf(
   childClass: TypeSymbol,
   parentClass: TypeSymbol,
   symbolManager: ISymbolManagerInterface,
   allSymbols: ApexSymbol[],
-): boolean {
+): Promise<boolean> {
   // Check direct superclass
   if (childClass.superClass === parentClass.name) {
     return true;
@@ -1153,7 +1192,7 @@ function isSubclassOf(
 
   // Check if child's superclass extends parent (recursive)
   if (childClass.superClass) {
-    const superClassSymbols = symbolManager.findSymbolByName(
+    const superClassSymbols = await symbolManager.findSymbolByName(
       childClass.superClass,
     );
     const superClassSymbol = superClassSymbols.find(
@@ -1188,11 +1227,11 @@ function getMethodSignatureString(method: MethodSymbol): string {
 /**
  * Find all methods in a class (supports cross-file resolution)
  */
-function findMethodsInClass(
+async function findMethodsInClass(
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
-): MethodSymbol[] {
+): Promise<MethodSymbol[]> {
   const methods: MethodSymbol[] = [];
   const methodsAdded = new Set<MethodSymbol>(); // By reference to allow overloads (same id, different params)
 
@@ -1216,7 +1255,7 @@ function findMethodsInClass(
     targetFileUri?.startsWith('apexlib://')
   ) {
     // For standard library classes, get all symbols from the file using findSymbolsInFile
-    const fileSymbols = symbolManager.findSymbolsInFile(targetFileUri);
+    const fileSymbols = await symbolManager.findSymbolsInFile(targetFileUri);
 
     methodsInFile = fileSymbols.filter((s: ApexSymbol) =>
       isMethodSymbol(s),
@@ -1246,7 +1285,7 @@ function findMethodsInClass(
         current = allSymbols.find((s) => s.id === parentId) || null;
         // If not found and we have symbolManager, try to get it from symbol manager
         if (!current && symbolManager) {
-          const parentSymbol = symbolManager.getSymbol(parentId);
+          const parentSymbol = await symbolManager.getSymbol(parentId);
           if (parentSymbol) {
             current = parentSymbol;
           } else {
@@ -1277,7 +1316,7 @@ function findMethodsInClass(
       let parentBlock = allSymbols.find((s) => s.id === method.parentId);
       // If not found in allSymbols and we have symbolManager, try to get it from symbol manager
       if (!parentBlock && symbolManager && method.parentId) {
-        const parentSymbol = symbolManager.getSymbol(method.parentId);
+        const parentSymbol = await symbolManager.getSymbol(method.parentId);
         if (parentSymbol && isBlockSymbol(parentSymbol)) {
           parentBlock = parentSymbol;
         }
@@ -1290,7 +1329,9 @@ function findMethodsInClass(
         );
         // If not found in allSymbols and we have symbolManager, try to get it from symbol manager
         if (!blockParent && symbolManager && parentBlock.parentId) {
-          const parentSymbol = symbolManager.getSymbol(parentBlock.parentId);
+          const parentSymbol = await symbolManager.getSymbol(
+            parentBlock.parentId,
+          );
           if (isClassOrInterfaceSymbol(parentSymbol)) {
             blockParent = parentSymbol;
           }
@@ -1330,12 +1371,14 @@ function validateMethodReturnType(
 ): Effect.Effect<void, never, never> {
   return Effect.gen(function* () {
     // Extract assignment context from source code
-    const assignmentInfo = extractAssignmentContext(
-      methodCall,
-      sourceContent,
-      symbolTable,
-      symbolManager,
-      tier,
+    const assignmentInfo = yield* Effect.promise(() =>
+      extractAssignmentContext(
+        methodCall,
+        sourceContent,
+        symbolTable,
+        symbolManager,
+        tier,
+      ),
     );
 
     if (!assignmentInfo) {
@@ -1409,13 +1452,13 @@ function validateMethodReturnType(
  * Extract assignment context for a method call
  * Returns the variable name and type if the method call is on the RHS of an assignment
  */
-function extractAssignmentContext(
+async function extractAssignmentContext(
   methodCall: SymbolReference,
   sourceContent: string,
   symbolTable: SymbolTable,
   symbolManager?: ISymbolManagerInterface,
   tier?: ValidationTier,
-): { variableName: string; variableType: string | null } | null {
+): Promise<{ variableName: string; variableType: string | null } | null> {
   const callLocation = methodCall.location;
   if (!callLocation?.symbolRange) {
     return null;
@@ -1520,7 +1563,7 @@ function extractAssignmentContext(
 
   // TIER 2: Cross-file resolution for variable type
   if (tier === ValidationTier.THOROUGH && symbolManager) {
-    const symbolsByName = symbolManager.findSymbolByName(variableName);
+    const symbolsByName = await symbolManager.findSymbolByName(variableName);
     const currentFileUri = symbolTable.getFileUri();
     // First try same-file match
     let foundVariable = symbolsByName.find(
@@ -1869,7 +1912,9 @@ function getMethodCallArgumentType(
 
       // TIER 2: Cross-file resolution
       if (tier === ValidationTier.THOROUGH && symbolManager) {
-        const symbolsByName = symbolManager.findSymbolByName(trimmed);
+        const symbolsByName = yield* Effect.promise(() =>
+          symbolManager.findSymbolByName(trimmed),
+        );
         const currentFileUri = symbolTable.getFileUri();
         // First try same-file match
         let foundVariable = symbolsByName.find(
@@ -1945,7 +1990,9 @@ function findMethodsInSuperclass(
     const methods: MethodSymbol[] = [];
 
     // Find the superclass type symbol
-    const superClassSymbols = symbolManager.findSymbolByName(superClassName);
+    const superClassSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(superClassName),
+    );
     const superClassSymbol = superClassSymbols.find(
       (s: ApexSymbol): s is TypeSymbol => isClassOrInterfaceSymbol(s),
     );
@@ -1957,14 +2004,14 @@ function findMethodsInSuperclass(
 
     // Get symbols from the superclass's file if available
     const allSymbols = superClassSymbol.fileUri
-      ? symbolManager.findSymbolsInFile(superClassSymbol.fileUri)
+      ? yield* Effect.promise(() =>
+          symbolManager.findSymbolsInFile(superClassSymbol.fileUri),
+        )
       : [];
 
     // Find methods in the superclass
-    const superClassMethods = findMethodsInClass(
-      superClassSymbol,
-      allSymbols,
-      symbolManager,
+    const superClassMethods = yield* Effect.promise(() =>
+      findMethodsInClass(superClassSymbol, allSymbols, symbolManager),
     );
     const matchingMethods = superClassMethods.filter(
       (m) => m.name === methodName,

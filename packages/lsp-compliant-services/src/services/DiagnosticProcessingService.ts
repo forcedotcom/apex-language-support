@@ -376,7 +376,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
         // CRITICAL: Get SymbolTable AFTER prerequisites complete (including enrichment)
         // to ensure we have the enriched symbol table, not a stale reference
-        const cachedTable = this.symbolManager.getSymbolTableForFile(
+        const cachedTable = await this.symbolManager.getSymbolTableForFile(
           params.textDocument.uri,
         );
 
@@ -401,7 +401,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             settings.apex.findMissingArtifact.enabled ?? false;
 
           // Check enrichment level before validation
-          const detailLevel = this.symbolManager.getDetailLevelForFile(
+          const detailLevel = await this.symbolManager.getDetailLevelForFile(
             params.textDocument.uri,
           );
           this.logger.debug(
@@ -525,7 +525,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
 
       // Add SymbolTable to manager if not already present
-      const existingSymbols = this.symbolManager.findSymbolsInFile(
+      const existingSymbols = await this.symbolManager.findSymbolsInFile(
         document.uri,
       );
       if (existingSymbols.length === 0 && table) {
@@ -582,7 +582,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `[DEBUG-FETCH] About to fetch symbol table for URI: ${document.uri}`,
       );
       const enrichedTable =
-        this.symbolManager.getSymbolTableForFile(document.uri) || table;
+        (await this.symbolManager.getSymbolTableForFile(document.uri)) || table;
 
       // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
       // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
@@ -608,7 +608,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             fullPathSettings.apex.findMissingArtifact.enabled ?? false;
 
           // Check enrichment level before validation
-          const detailLevel = this.symbolManager.getDetailLevelForFile(
+          const detailLevel = await this.symbolManager.getDetailLevelForFile(
             document.uri,
           );
           this.logger.debug(
@@ -733,7 +733,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         const enhancedDiagnostics = [...diagnostics];
 
         // Get symbols from ApexSymbolManager for this file
-        const fileSymbols = self.symbolManager.findSymbolsInFile(documentUri);
+        const fileSymbols = yield* Effect.promise(() =>
+          self.symbolManager.findSymbolsInFile(documentUri),
+        );
 
         if (fileSymbols.length === 0) {
           return diagnostics; // Return original diagnostics if no graph data available
@@ -755,8 +757,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             continue;
           }
           try {
-            const dependencyAnalysis =
-              self.symbolManager.analyzeDependencies(symbol);
+            const dependencyAnalysis = yield* Effect.promise(() =>
+              self.symbolManager.analyzeDependencies(symbol),
+            );
 
             // Check for circular dependencies
             if (dependencyAnalysis.circularDependencies.length > 0) {
@@ -1054,9 +1057,15 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     return async (typeNames: string[]): Promise<string[]> => {
       // Exclude stdlib types: findMissingArtifact is for org/user artifacts only.
       // Stdlib (String, List, System, etc.) is loaded by the symbol manager.
-      const typesToLoad = typeNames.filter(
-        (name) => !this.symbolManager.isStandardLibraryType(name),
+      const stdLibChecks = await Promise.all(
+        typeNames.map(async (name) => ({
+          name,
+          isStd: await this.symbolManager.isStandardLibraryType(name),
+        })),
       );
+      const typesToLoad = stdLibChecks
+        .filter(({ isStd }) => !isStd)
+        .map(({ name }) => name);
 
       this.logger.debug(
         () =>

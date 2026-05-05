@@ -22,8 +22,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (sourceCode: string, className: string) => {
@@ -51,7 +51,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.URL
       const chainedTypeRefs = references.filter(
@@ -85,7 +86,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.URL parameter
       const chainedTypeRefs = references.filter(
@@ -117,7 +119,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.URL field
       const chainedTypeRefs = references.filter(
@@ -151,7 +154,8 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find all chained type references for System.URL (return type and method call)
       const chainedTypeRefs = references.filter(

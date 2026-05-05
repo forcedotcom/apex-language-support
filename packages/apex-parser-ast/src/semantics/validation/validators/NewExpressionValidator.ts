@@ -47,11 +47,11 @@ function extractInnerTypeName(typeName: string): string {
 /**
  * Check if a type extends Exception (directly or indirectly)
  */
-function extendsException(
+async function extendsException(
   typeSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
-  symbolManager: { findSymbolByName: (name: string) => ApexSymbol[] },
-): boolean {
+  symbolManager: { findSymbolByName: (name: string) => Promise<ApexSymbol[]> },
+): Promise<boolean> {
   const visited = new Set<string>();
   let current: TypeSymbol | undefined = typeSymbol;
 
@@ -62,7 +62,9 @@ function extendsException(
       if (superName === 'exception') {
         return true;
       }
-      const superSymbols = symbolManager.findSymbolByName(current.superClass);
+      const superSymbols = await symbolManager.findSymbolByName(
+        current.superClass,
+      );
       const fromAll: TypeSymbol[] = allSymbols.filter(
         (s): s is TypeSymbol =>
           isClassOrInterfaceSymbol(s) && s.name.toLowerCase() === superName,
@@ -145,7 +147,9 @@ export const NewExpressionValidator: Validator = {
         );
 
         if (!resolvedType) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           resolvedType = symbols.find((s: ApexSymbol): s is TypeSymbol =>
             inTypeSymbolGroup(s),
           );
@@ -154,10 +158,8 @@ export const NewExpressionValidator: Validator = {
         if (!resolvedType) continue;
 
         // Exception name validation: Exception types must end in "Exception", non-Exception must not
-        const isExceptionType = extendsException(
-          resolvedType,
-          allSymbols,
-          symbolManager,
+        const isExceptionType = yield* Effect.promise(() =>
+          extendsException(resolvedType, allSymbols, symbolManager),
         );
         if (isExceptionType && !endsWithException(innerName)) {
           errors.push({
