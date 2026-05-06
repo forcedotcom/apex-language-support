@@ -24,6 +24,8 @@ import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProce
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessingService';
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
+import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
+import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
@@ -181,6 +183,20 @@ export class ServiceFactory {
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
+  }
+
+  createImplementationService(): ImplementationProcessingService {
+    return new ImplementationProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
+  }
+
+  createCodeLensService(): CodeLensProcessingService {
+    return new CodeLensProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
   }
 
   /**
