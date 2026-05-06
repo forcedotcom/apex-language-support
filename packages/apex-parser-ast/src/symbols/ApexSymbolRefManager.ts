@@ -3381,11 +3381,11 @@ export class ApexSymbolRefManager {
     return this.forwardIndex;
   }
 
-  public getFileToSymbolTable(): HashMap<string, SymbolTable> {
+  public getFileToSymbolTable(): CaseInsensitiveHashMap<SymbolTable> {
     return this.fileToSymbolTable;
   }
 
-  public getFileIndex(): HashMap<string, string[]> {
+  public getFileIndex(): CaseInsensitiveHashMap<string[]> {
     return this.fileIndex;
   }
 

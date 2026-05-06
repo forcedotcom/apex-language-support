@@ -6040,12 +6040,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   resolveWithEnrichment<T>(
     fileUri: string,
     documentText: string,
-    resolver: () => T | null,
+    resolver: () => Promise<T | null> | T | null,
   ): Effect.Effect<T | null, never, never> {
     const self = this;
     return Effect.gen(function* () {
       // Try at current level first
-      const result = resolver();
+      const result = yield* Effect.promise(() => Promise.resolve(resolver()));
       if (result !== null) {
         return result;
       }
@@ -6068,7 +6068,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         yield* self.enrichToLevel(fileUri, layer, documentText);
 
         // Try resolution after enrichment
-        const enrichedResult = resolver();
+        const enrichedResult = yield* Effect.promise(() =>
+          Promise.resolve(resolver()),
+        );
+
         if (enrichedResult !== null) {
           self.logger.debug(
             () => `Found symbol after enriching to ${layer} level`,
