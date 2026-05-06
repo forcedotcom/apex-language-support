@@ -202,7 +202,7 @@ export interface ISymbolManager extends SymbolProvider {
   resolveWithEnrichment<T>(
     fileUri: string,
     documentText: string,
-    resolver: () => T | null,
+    resolver: () => Promise<T | null> | T | null,
   ): Effect.Effect<T | null, never, never>;
 
   isStandardLibraryType(name: string): Promise<boolean>;

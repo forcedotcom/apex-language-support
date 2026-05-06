@@ -266,7 +266,7 @@ export interface IEffectSymbolManagerShape {
   readonly resolveWithEnrichment: <T>(
     fileUri: string,
     documentText: string,
-    resolver: () => T | null,
+    resolver: () => Promise<T | null> | T | null,
   ) => Effect.Effect<T | null>;
   readonly isStandardLibraryType: (name: string) => Effect.Effect<boolean>;
 }
