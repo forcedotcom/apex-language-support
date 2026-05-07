@@ -38,6 +38,16 @@ module.exports = {
     url: 'http://localhost',
   },
 
+  // Worker topology tests spawn Node.js worker_threads via @effect/platform-node
+  // and cannot run in jsdom. Restrict them to the Node test environment.
+  testPathIgnorePatterns: [
+    ...(baseConfig.testPathIgnorePatterns ?? []),
+    '<rootDir>/test/server/WorkerCoordinator\\.test\\.ts$',
+    '<rootDir>/test/server/ResourceLoaderProxy\\.test\\.ts$',
+    '<rootDir>/test/integration/WriteBackProtocol\\..*\\.test\\.ts$',
+    '<rootDir>/test/integration/RemoteStdlibResolution\\..*\\.test\\.ts$',
+  ],
+
   // Global teardown to ensure scheduler is shut down after all tests
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Force exit after tests complete to prevent hanging on open handles
