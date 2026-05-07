@@ -38,14 +38,12 @@ module.exports = {
     url: 'http://localhost',
   },
 
-  // Worker topology tests spawn Node.js worker_threads via @effect/platform-node
-  // and cannot run in jsdom. Restrict them to the Node test environment.
+  // *.node.test.ts is the convention for tests that require a Node runtime
+  // (e.g. worker_threads via @effect/platform-node) and cannot execute under
+  // jsdom. Mirrors the src/*.node.ts convention used by tsconfig.{node,browser,worker}.json.
   testPathIgnorePatterns: [
     ...(baseConfig.testPathIgnorePatterns ?? []),
-    '<rootDir>/test/server/WorkerCoordinator\\.test\\.ts$',
-    '<rootDir>/test/server/ResourceLoaderProxy\\.test\\.ts$',
-    '<rootDir>/test/integration/WriteBackProtocol\\..*\\.test\\.ts$',
-    '<rootDir>/test/integration/RemoteStdlibResolution\\..*\\.test\\.ts$',
+    '\\.node\\.test\\.ts$',
   ],
 
   // Global teardown to ensure scheduler is shut down after all tests
