@@ -151,7 +151,7 @@ jobs:
     if: always() && github.event_name == 'push' && (needs.test.result == 'failure' || needs.package.result == 'failure')
     steps:
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v3.0.2
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           payload: |
             {
