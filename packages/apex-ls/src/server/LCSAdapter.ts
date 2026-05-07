@@ -228,6 +228,38 @@ export class LCSAdapter {
       // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
 
+      // Inject the initialized ResourceLoader into ApexSymbolManager so
+      // stdlib lookups (findNamespaceForClass, isStandardApexClass,
+      // isStandardLibraryType) see real data instead of the default no-op
+      // provider. Without this, a ResourceLoaderNoOpInstance is captured
+      // whenever the ApexSymbolProcessingManager singleton is created from
+      // any call site that doesn't pass a provider — and every current call
+      // site passes no argument.
+      ApexSymbolProcessingManager.getInstance()
+        .getSymbolManager()
+        .setStdlibProvider({
+          isStdApexNamespace: (namespace) =>
+            resourceLoader.isStdApexNamespace(namespace),
+          hasClass: (classPath) => resourceLoader.hasClass(classPath),
+          findNamespaceForClass: (className) =>
+            resourceLoader.findNamespaceForClass(className),
+          getStandardNamespaces: () => {
+            const result = new Map<string, string[]>();
+            for (const [k, v] of resourceLoader.getStandardNamespaces()) {
+              result.set(
+                k,
+                v.map((cis) => cis.value),
+              );
+            }
+            return result;
+          },
+          resolveClassFqn: (className) =>
+            Promise.resolve(resourceLoader.resolveStandardClassFqn(className)),
+          getSymbolTable: (classPath) =>
+            resourceLoader.getSymbolTable(classPath),
+          getFile: (path) => resourceLoader.getFile(path),
+        });
+
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
       this.handleResourceLoaderError(error);

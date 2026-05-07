@@ -9,6 +9,7 @@
 import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
 import { ApexSymbolManager } from './ApexSymbolManager';
+import type { ResourceLoaderServiceShape } from './services/ResourceLoaderService';
 import {
   ApexSymbolIndexingIntegration,
   SymbolProcessingOptions,
@@ -29,8 +30,8 @@ export class ApexSymbolProcessingManager {
   private readonly symbolIndexingService: ApexSymbolIndexingIntegration;
   private isInitialized = false;
 
-  private constructor() {
-    this.symbolManager = new ApexSymbolManager();
+  private constructor(stdlibProvider?: ResourceLoaderServiceShape) {
+    this.symbolManager = new ApexSymbolManager(stdlibProvider);
     this.symbolIndexingService = new ApexSymbolIndexingIntegration(
       this.symbolManager,
     );
@@ -38,11 +39,17 @@ export class ApexSymbolProcessingManager {
   }
 
   /**
-   * Get the singleton instance
+   * Get the singleton instance.
+   * @param stdlibProvider Optional stdlib provider — only used on the first call
+   *   when the singleton is created. Enrichment workers pass
+   *   ResourceLoaderRemoteLive's shape; data-owner workers pass ResourceLoaderLive's
+   *   shape; tests that don't need stdlib omit it (defaults to no-op).
    */
-  static getInstance(): ApexSymbolProcessingManager {
+  static getInstance(
+    stdlibProvider?: ResourceLoaderServiceShape,
+  ): ApexSymbolProcessingManager {
     if (!this.instance) {
-      this.instance = new ApexSymbolProcessingManager();
+      this.instance = new ApexSymbolProcessingManager(stdlibProvider);
     }
     return this.instance;
   }

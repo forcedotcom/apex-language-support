@@ -135,7 +135,7 @@ describe('NamespaceResolutionService', () => {
    * - Qualified type names (System.List, etc.)
    */
   describe('resolveDeferredReferences', () => {
-    it('should resolve type references in variable declarations', () => {
+    it('should resolve type references in variable declarations', async () => {
       const symbolTable = createMockSymbolTableWithTypeReferences();
       const compilationContext = createMockCompilationContext();
 
@@ -147,12 +147,12 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.isBuiltInNamespace.mockReturnValue(true);
-      mockSymbolProvider.findInExplicitNamespace.mockReturnValue(
+      mockSymbolProvider.isBuiltInNamespace.mockResolvedValue(true);
+      mockSymbolProvider.findInExplicitNamespace.mockResolvedValue(
         mockResolvedSymbol,
       );
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,
@@ -167,14 +167,14 @@ describe('NamespaceResolutionService', () => {
       expect(variableSymbol?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
 
-    it('should handle unresolved references gracefully', () => {
+    it('should handle unresolved references gracefully', async () => {
       const symbolTable = createMockSymbolTableWithTypeReferences();
       const compilationContext = createMockCompilationContext();
 
       // Mock no resolution found
-      mockSymbolProvider.findScalarKeywordType.mockReturnValue(null);
+      mockSymbolProvider.findScalarKeywordType.mockResolvedValue(null);
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,
@@ -188,7 +188,7 @@ describe('NamespaceResolutionService', () => {
       expect(variableSymbol?.type?.resolvedSymbol).toBeUndefined();
     });
 
-    it('should handle symbols without type data', () => {
+    it('should handle symbols without type data', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a symbol without type data
@@ -204,30 +204,30 @@ describe('NamespaceResolutionService', () => {
       const compilationContext = createMockCompilationContext();
 
       // Should not throw an error
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           compilationContext,
           mockSymbolProvider,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle empty symbol table', () => {
+    it('should handle empty symbol table', async () => {
       const symbolTable = new SymbolTable();
       const compilationContext = createMockCompilationContext();
 
       // Should not throw an error
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           compilationContext,
           mockSymbolProvider,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle qualified type names with multiple parts', () => {
+    it('should handle qualified type names with multiple parts', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a qualified type name
@@ -256,9 +256,9 @@ describe('NamespaceResolutionService', () => {
         'MyNamespace.cls',
         mockModifiers,
       );
-      mockSymbolProvider.find.mockReturnValue(mockResolvedSymbol);
+      mockSymbolProvider.find.mockResolvedValue(mockResolvedSymbol);
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,
@@ -271,7 +271,7 @@ describe('NamespaceResolutionService', () => {
       expect(resolvedVariable?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
 
-    it('should handle type names without dots (simple types)', () => {
+    it('should handle type names without dots (simple types)', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a simple type name
@@ -300,11 +300,11 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+      mockSymbolProvider.findScalarKeywordType.mockResolvedValue(
         mockResolvedSymbol,
       );
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,
@@ -319,36 +319,36 @@ describe('NamespaceResolutionService', () => {
   });
 
   describe('error handling', () => {
-    it('should handle null compilation context gracefully', () => {
+    it('should handle null compilation context gracefully', async () => {
       const symbolTable = createMockSymbolTableWithTypeReferences();
 
       // Should not throw an error even with null context
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           null as any,
           mockSymbolProvider,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle null symbol provider gracefully', () => {
+    it('should handle null symbol provider gracefully', async () => {
       const symbolTable = createMockSymbolTableWithTypeReferences();
       const compilationContext = createMockCompilationContext();
 
       // Should not throw an error even with null provider
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           compilationContext,
           null as any,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
   });
 
   describe('edge cases', () => {
-    it('should handle type names with empty parts', () => {
+    it('should handle type names with empty parts', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a type name that has empty parts
@@ -372,16 +372,16 @@ describe('NamespaceResolutionService', () => {
       const compilationContext = createMockCompilationContext();
 
       // Should not throw an error
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           compilationContext,
           mockSymbolProvider,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle type names with only dots', () => {
+    it('should handle type names with only dots', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a type name that has only dots
@@ -405,16 +405,16 @@ describe('NamespaceResolutionService', () => {
       const compilationContext = createMockCompilationContext();
 
       // Should not throw an error
-      expect(() => {
+      await expect(
         service.resolveDeferredReferences(
           symbolTable,
           compilationContext,
           mockSymbolProvider,
-        );
-      }).not.toThrow();
+        ),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle type names with special characters', () => {
+    it('should handle type names with special characters', async () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a type name that has special characters
@@ -444,12 +444,12 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.isBuiltInNamespace.mockReturnValue(true);
-      mockSymbolProvider.findInExplicitNamespace.mockReturnValue(
+      mockSymbolProvider.isBuiltInNamespace.mockResolvedValue(true);
+      mockSymbolProvider.findInExplicitNamespace.mockResolvedValue(
         mockResolvedSymbol,
       );
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,
@@ -464,7 +464,7 @@ describe('NamespaceResolutionService', () => {
   });
 
   describe('performance', () => {
-    it('should handle large symbol tables efficiently', () => {
+    it('should handle large symbol tables efficiently', async () => {
       const symbolTable = new SymbolTable();
 
       // Create a large number of symbols
@@ -495,13 +495,13 @@ describe('NamespaceResolutionService', () => {
         'System.cls',
         mockModifiers,
       );
-      mockSymbolProvider.findScalarKeywordType.mockReturnValue(
+      mockSymbolProvider.findScalarKeywordType.mockResolvedValue(
         mockResolvedSymbol,
       );
 
       const startTime = performance.now();
 
-      service.resolveDeferredReferences(
+      await service.resolveDeferredReferences(
         symbolTable,
         compilationContext,
         mockSymbolProvider,

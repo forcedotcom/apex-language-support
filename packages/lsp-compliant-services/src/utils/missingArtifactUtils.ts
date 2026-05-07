@@ -67,11 +67,11 @@ export class MissingArtifactUtils {
    * @param position The position in the document
    * @param requestKind The kind of request that triggered this resolution
    */
-  public tryResolveMissingArtifactBackground(
+  public async tryResolveMissingArtifactBackground(
     uri: string,
     position: any,
     requestKind: 'hover' | 'definition' | 'completion' | 'references',
-  ): void {
+  ): Promise<void> {
     const service = this.getMissingArtifactService();
     if (!service) {
       this.logger.debug(
@@ -91,15 +91,15 @@ export class MissingArtifactUtils {
 
     try {
       // Extract reference information from the position
-      const reference = this.extractReferenceAtPosition(uri, position);
+      const reference = await this.extractReferenceAtPosition(uri, position);
       if (!reference) {
         this.logger.debug(() => 'Could not extract reference from position');
         return;
       }
 
       // Build parent context for better search hints
-      const parentContext = this.extractParentContext(uri, reference);
-      const superClass = this.extractSuperClassForRef(uri, reference);
+      const parentContext = await this.extractParentContext(uri, reference);
+      const superClass = await this.extractSuperClassForRef(uri, reference);
       const searchHints = this.generateSearchHints(
         reference,
         parentContext,
@@ -107,7 +107,7 @@ export class MissingArtifactUtils {
       );
 
       // Try to resolve the missing artifact
-      const resolvedQualifier = this.resolveQualifierInfo(
+      const resolvedQualifier = await this.resolveQualifierInfo(
         reference,
         parentContext,
       );
@@ -171,15 +171,15 @@ export class MissingArtifactUtils {
 
     try {
       // Extract reference information from the position
-      const reference = this.extractReferenceAtPosition(uri, position);
+      const reference = await this.extractReferenceAtPosition(uri, position);
       if (!reference) {
         this.logger.debug(() => 'Could not extract reference from position');
         return 'not-found';
       }
 
       // Build parent context for better search hints
-      const parentContext = this.extractParentContext(uri, reference);
-      const superClass = this.extractSuperClassForRef(uri, reference);
+      const parentContext = await this.extractParentContext(uri, reference);
+      const superClass = await this.extractSuperClassForRef(uri, reference);
       const searchHints = this.generateSearchHints(
         reference,
         parentContext,
@@ -187,7 +187,7 @@ export class MissingArtifactUtils {
       );
 
       // Try to resolve the missing artifact
-      const resolvedQualifier = this.resolveQualifierInfo(
+      const resolvedQualifier = await this.resolveQualifierInfo(
         reference,
         parentContext,
       );
@@ -231,15 +231,15 @@ export class MissingArtifactUtils {
    * Extract comprehensive parent context for a TypeReference using symbol manager
    * This provides rich hierarchical information for missing artifact resolution
    */
-  private extractParentContext(
+  private async extractParentContext(
     uri: string,
     reference: any,
-  ): {
+  ): Promise<{
     readonly containingType?: any;
     readonly ancestorChain?: any[];
     readonly parentSymbol?: any;
     readonly contextualHierarchy?: string;
-  } | null {
+  } | null> {
     try {
       // Transform LSP position to parser position for symbol manager
       const parserPosition = transformLspToParserPosition({
@@ -248,7 +248,7 @@ export class MissingArtifactUtils {
       });
 
       // Try to find the symbol at this reference position
-      const symbol = this.symbolManager.getSymbolAtPosition(
+      const symbol = await this.symbolManager.getSymbolAtPosition(
         uri,
         parserPosition,
         'precise',
@@ -256,7 +256,7 @@ export class MissingArtifactUtils {
 
       if (!symbol) {
         // If no direct symbol found, try to get symbols from file and find nearby ones
-        const fileSymbols = this.symbolManager.findSymbolsInFile(uri);
+        const fileSymbols = await this.symbolManager.findSymbolsInFile(uri);
         const referenceStartLine = reference.location.identifierRange.startLine;
 
         // Find the closest parent symbol by location
@@ -268,7 +268,7 @@ export class MissingArtifactUtils {
         });
 
         if (closestParent) {
-          return this.buildParentContextFromSymbol(closestParent);
+          return await this.buildParentContextFromSymbol(closestParent);
         }
 
         this.logger.debug(
@@ -278,7 +278,7 @@ export class MissingArtifactUtils {
         return null;
       }
 
-      return this.buildParentContextFromSymbol(symbol);
+      return await this.buildParentContextFromSymbol(symbol);
     } catch (error) {
       this.logger.debug(
         () =>
@@ -291,18 +291,18 @@ export class MissingArtifactUtils {
   /**
    * Build comprehensive parent context from a symbol using symbol manager methods
    */
-  private buildParentContextFromSymbol(symbol: any): {
+  private async buildParentContextFromSymbol(symbol: any): Promise<{
     readonly containingType?: any;
     readonly ancestorChain?: any[];
     readonly parentSymbol?: any;
     readonly contextualHierarchy?: string;
-  } {
+  }> {
     try {
       // Get the immediate containing type (class, interface, enum)
-      const containingType = this.symbolManager.getContainingType(symbol);
+      const containingType = await this.symbolManager.getContainingType(symbol);
 
       // Get the full ancestor chain from top-level to closest parent
-      const ancestorChain = this.symbolManager.getAncestorChain(symbol);
+      const ancestorChain = await this.symbolManager.getAncestorChain(symbol);
 
       // Get the direct parent symbol
       const parentSymbol = symbol.parent;
@@ -356,14 +356,17 @@ export class MissingArtifactUtils {
    * Extract symbol name from position using symbol manager to find references
    * This provides better context for missing artifact resolution
    */
-  private extractReferenceAtPosition(uri: string, position: any): any | null {
+  private async extractReferenceAtPosition(
+    uri: string,
+    position: any,
+  ): Promise<any | null> {
     try {
       // Transform LSP position to parser position for symbol manager
       const parserPosition = transformLspToParserPosition(position);
 
       // Check if there are references at this position using getReferencesAtPosition
       // This method specifically looks for TypeReference objects at the exact position
-      const references = this.symbolManager.getReferencesAtPosition(
+      const references = await this.symbolManager.getReferencesAtPosition(
         uri,
         parserPosition,
       );
@@ -405,10 +408,13 @@ export class MissingArtifactUtils {
    * Extract the superclass name for a METHOD_CALL reference by examining the enclosing
    * class symbol in the file. Falls back to parentContext if available.
    */
-  private extractSuperClassForRef(uri: string, reference: any): string | null {
+  private async extractSuperClassForRef(
+    uri: string,
+    reference: any,
+  ): Promise<string | null> {
     try {
       const refLine: number = reference.location.identifierRange.startLine; // 1-based
-      const fileSymbols = this.symbolManager.findSymbolsInFile(uri);
+      const fileSymbols = await this.symbolManager.findSymbolsInFile(uri);
       // Find the most-specific (smallest) class whose range contains the ref line
       let best: { superClass: string; size: number } | null = null;
       for (const sym of fileSymbols) {
@@ -623,16 +629,16 @@ export class MissingArtifactUtils {
   /**
    * Resolve qualifier information for better search targeting
    */
-  private resolveQualifierInfo(
+  private async resolveQualifierInfo(
     reference: any,
     parentContext: any,
-  ): {
+  ): Promise<{
     readonly type: 'class' | 'interface' | 'enum' | 'variable' | 'unknown';
     readonly name: string;
     readonly namespace?: string;
     readonly isStatic: boolean;
     readonly filePath?: string;
-  } | null {
+  } | null> {
     try {
       // If this is a chained reference and the first node is already resolved,
       // prefer the resolved symbol (and its return type) over the raw identifier name.
@@ -643,7 +649,7 @@ export class MissingArtifactUtils {
       ) {
         const firstNode = reference.chainNodes[0];
         if (firstNode?.resolvedSymbolId) {
-          const resolvedQualifierSymbol = this.symbolManager.getSymbol(
+          const resolvedQualifierSymbol = await this.symbolManager.getSymbol(
             firstNode.resolvedSymbolId,
           );
 
@@ -653,14 +659,16 @@ export class MissingArtifactUtils {
             if (returnType) {
               const returnTypeSymbol =
                 (returnType as any).resolvedSymbol ??
-                this.symbolManager
-                  .findSymbolByName(returnType.name || '')
-                  .find(
-                    (s) =>
-                      s.kind === 'class' ||
-                      s.kind === 'interface' ||
-                      s.kind === 'enum',
-                  );
+                (
+                  await this.symbolManager.findSymbolByName(
+                    returnType.name || '',
+                  )
+                ).find(
+                  (s) =>
+                    s.kind === 'class' ||
+                    s.kind === 'interface' ||
+                    s.kind === 'enum',
+                );
 
               if (returnTypeSymbol) {
                 return {

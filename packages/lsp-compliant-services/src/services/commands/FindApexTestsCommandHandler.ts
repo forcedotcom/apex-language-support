@@ -37,7 +37,7 @@ export class FindApexTestsCommandHandler implements CommandHandler {
 
     try {
       // Get all symbols from symbol manager
-      const allSymbols = symbolManager.getAllSymbolsForCompletion();
+      const allSymbols = await symbolManager.getAllSymbolsForCompletion();
 
       // Handle case where getAllSymbolsForCompletion returns undefined or null
       if (!allSymbols || !Array.isArray(allSymbols)) {

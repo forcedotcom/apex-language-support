@@ -273,7 +273,9 @@ export class CompletionProcessingService implements ICompletionProcessor {
         try {
           if (partialMatch === '*') {
             // Handle wildcard pattern - get all symbols for completion
-            const allSymbols = self.symbolManager.getAllSymbolsForCompletion();
+            const allSymbols = yield* Effect.promise(() =>
+              self.symbolManager.getAllSymbolsForCompletion(),
+            );
             for (let i = 0; i < allSymbols.length; i++) {
               const symbol = allSymbols[i];
               candidates.push({
@@ -288,9 +290,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
             }
           } else {
             // Use ApexSymbolManager's context-aware resolution
-            const result = self.symbolManager.resolveSymbol(
-              partialMatch,
-              resolutionContext,
+            const result = yield* Effect.promise(() =>
+              self.symbolManager.resolveSymbol(partialMatch, resolutionContext),
             );
 
             if (result.symbol) {
@@ -379,16 +380,18 @@ export class CompletionProcessingService implements ICompletionProcessor {
 
       try {
         // Get symbols in the current file
-        const fileSymbols = self.symbolManager.findSymbolsInFile(
-          context.document.uri,
+        const fileSymbols = yield* Effect.promise(() =>
+          self.symbolManager.findSymbolsInFile(context.document.uri),
         );
 
         for (let i = 0; i < fileSymbols.length; i++) {
           const symbol = fileSymbols[i];
           // Get related symbols based on relationships
-          const relatedSymbols = self.symbolManager.findRelatedSymbols(
-            symbol,
-            'method-call', // Focus on method calls for completion
+          const relatedSymbols = yield* Effect.promise(() =>
+            self.symbolManager.findRelatedSymbols(
+              symbol,
+              'method-call', // Focus on method calls for completion
+            ),
           );
 
           for (let j = 0; j < relatedSymbols.length; j++) {

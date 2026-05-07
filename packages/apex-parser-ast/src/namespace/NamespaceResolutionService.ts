@@ -25,15 +25,19 @@ export class NamespaceResolutionService {
   /**
    * Resolve deferred references in a symbol table
    */
-  resolveDeferredReferences(
+  async resolveDeferredReferences(
     symbolTable: SymbolTable,
     compilationContext: CompilationContext,
     symbolProvider: SymbolProvider,
-  ): void {
+  ): Promise<void> {
     this.logger.debug(() => 'Starting deferred namespace resolution');
 
     // Process type references in variable declarations
-    this.resolveTypeReferences(symbolTable, compilationContext, symbolProvider);
+    await this.resolveTypeReferences(
+      symbolTable,
+      compilationContext,
+      symbolProvider,
+    );
 
     // Process method calls and field access
     this.resolveExpressionReferences(
@@ -48,15 +52,15 @@ export class NamespaceResolutionService {
   /**
    * Resolve type references in variable declarations and parameters
    */
-  private resolveTypeReferences(
+  private async resolveTypeReferences(
     symbolTable: SymbolTable,
     compilationContext: CompilationContext,
     symbolProvider: SymbolProvider,
-  ): void {
+  ): Promise<void> {
     const symbols = symbolTable.getAllSymbols();
 
     for (const symbol of symbols) {
-      this.resolveSymbolTypeReference(
+      await this.resolveSymbolTypeReference(
         symbol,
         compilationContext,
         symbolProvider,
@@ -67,11 +71,11 @@ export class NamespaceResolutionService {
   /**
    * Resolve type reference for a single symbol
    */
-  private resolveSymbolTypeReference(
+  private async resolveSymbolTypeReference(
     symbol: any,
     compilationContext: CompilationContext,
     symbolProvider: SymbolProvider,
-  ): void {
+  ): Promise<void> {
     // Use VariableSymbol.type directly instead of _typeData.type
     const variableSymbol = symbol as import('../types/symbol').VariableSymbol;
     if (!variableSymbol.type?.name) {
@@ -81,7 +85,7 @@ export class NamespaceResolutionService {
     const typeInfo = variableSymbol.type;
     const nameParts = this.parseTypeName(typeInfo.name);
 
-    const resolutionResult = resolveTypeName(
+    const resolutionResult = await resolveTypeName(
       nameParts,
       compilationContext,
       ReferenceTypeEnum.CLASS,
@@ -90,7 +94,6 @@ export class NamespaceResolutionService {
     );
 
     if (resolutionResult.isResolved && resolutionResult.symbol) {
-      // Update the type info with resolved symbol
       typeInfo.resolvedSymbol = resolutionResult.symbol;
       typeInfo.resolutionConfidence = resolutionResult.confidence;
     }

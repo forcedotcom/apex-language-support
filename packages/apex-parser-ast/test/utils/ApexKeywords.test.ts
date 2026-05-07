@@ -330,12 +330,12 @@ describe('ApexKeywords', () => {
     });
 
     describe('findSymbolByName short-circuit', () => {
-      it('should return empty array for keywords in ApexSymbolManager', () => {
+      it('should return empty array for keywords in ApexSymbolManager', async () => {
         const keywords = ['if', 'for', 'while', 'class', 'try', 'catch'];
-        keywords.forEach((keyword) => {
-          const result = symbolManager.findSymbolByName(keyword);
+        for (const keyword of keywords) {
+          const result = await symbolManager.findSymbolByName(keyword);
           expect(result).toEqual([]);
-        });
+        }
       });
 
       it('should return empty array for keywords in ApexSymbolRefManager', () => {
@@ -350,11 +350,11 @@ describe('ApexKeywords', () => {
         // This test would require setting up a symbol table, but we can at least verify
         // that non-keywords don't get short-circuited
         const nonKeywords = ['MyClass', 'myMethod', 'variableName'];
-        nonKeywords.forEach((name) => {
-          const result = symbolManager.findSymbolByName(name);
+        for (const name of nonKeywords) {
+          const result = await symbolManager.findSymbolByName(name);
           // Should not throw, and should return array (may be empty if no symbols)
           expect(Array.isArray(result)).toBe(true);
-        });
+        }
       });
     });
 
@@ -389,7 +389,7 @@ describe('ApexKeywords', () => {
     });
 
     describe('findSymbolByName builtin types', () => {
-      it('should NOT short-circuit builtin type names', () => {
+      it('should NOT short-circuit builtin type names', async () => {
         // Builtin types should NOT be short-circuited as keywords
         const builtinTypes = [
           'list',
@@ -399,11 +399,11 @@ describe('ApexKeywords', () => {
           'integer',
           'boolean',
         ];
-        builtinTypes.forEach((typeName) => {
+        for (const typeName of builtinTypes) {
           // These should return arrays (may be empty if not in graph, but not short-circuited)
-          const result = symbolManager.findSymbolByName(typeName);
+          const result = await symbolManager.findSymbolByName(typeName);
           expect(Array.isArray(result)).toBe(true);
-        });
+        }
       });
     });
   });

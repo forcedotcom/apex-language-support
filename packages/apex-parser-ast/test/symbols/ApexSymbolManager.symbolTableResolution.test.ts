@@ -51,9 +51,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
     symbolManager = new ApexSymbolManager();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (symbolManager) {
-      symbolManager.clear();
+      await symbolManager.clear();
     }
   });
 
@@ -98,13 +98,13 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       expect(allReferences.length).toBeGreaterThan(0);
 
       // Find the method1 symbol
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
         // Check that references from method1 were added to the graph
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
         expect(referencesFrom.length).toBeGreaterThan(0);
 
         // Should have reference to field1
@@ -121,7 +121,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       }
 
       // Verify stats show references were processed
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalReferences).toBeGreaterThan(0);
     });
 
@@ -167,13 +167,13 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Find the method1 symbol
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
         // References from inside blocks should be attributed to method1 (not blocks)
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
         expect(referencesFrom.length).toBeGreaterThan(0);
 
         // Should have reference to field1 (from inside block)
@@ -214,7 +214,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // Also verify that same-file references were added directly to the graph
       // (not deferred) by checking that referencesFrom returns results
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
         expect(referencesFrom.length).toBeGreaterThan(0);
 
         // These references should be in the graph, not deferred
@@ -273,12 +273,12 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Find the method1 symbol
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
 
         // Should have references to field1 (from both blocks)
         const field1Refs = referencesFrom.filter(
@@ -326,13 +326,14 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Find the TestClass symbol
-      const classSymbols = symbolManager.findSymbolByName('TestClass');
+      const classSymbols = await symbolManager.findSymbolByName('TestClass');
       const testClass = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(testClass).toBeDefined();
 
       if (testClass) {
         // References at class level should be attributed to the class
-        const referencesFrom = symbolManager.findReferencesFrom(testClass);
+        const referencesFrom =
+          await symbolManager.findReferencesFrom(testClass);
 
         // Should have reference to field1 (from field2 initialization)
         const field1Ref = referencesFrom.find(
@@ -420,13 +421,13 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // - Either deferred (if symbols don't exist in test environment)
       // - Or resolved (if symbols exist - we verify by checking method1 has references)
       // The key test: cross-file references are processed on-demand via resolveCrossFileReferencesForFile
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
 
       if (method1) {
         // If references were resolved, method1 should have references in the graph
         // If references were deferred, they'll be in the deferredRefs map
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
         const hasResolvedRefs = referencesFrom.length > 0;
         const hasDeferredRefs = hasAccountDeferred || hasSystemDeferred;
 
@@ -479,12 +480,12 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Find the method1 symbol
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
 
         // Should have reference to field1 (via this.field1)
         const field1Ref = referencesFrom.find(
@@ -518,7 +519,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // Verify the references are actually in the graph by checking referencesFrom
       // This confirms they were processed directly, not deferred
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
         const field1Ref = referencesFrom.find(
           (ref) => ref.symbol.name === 'field1',
         );
@@ -591,7 +592,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
 
       // Before cross-file resolution, testMethod should not have references to ServiceClass
       // Get all symbols in TestClass to find testMethod
-      const testClassSymbols = symbolManager.findSymbolsInFile(
+      const testClassSymbols = await symbolManager.findSymbolsInFile(
         'file:///TestClass.cls',
       );
       const testMethod = testClassSymbols.find(
@@ -600,7 +601,8 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       expect(testMethod).toBeDefined();
 
       if (testMethod) {
-        const referencesBefore = symbolManager.findReferencesFrom(testMethod);
+        const referencesBefore =
+          await symbolManager.findReferencesFrom(testMethod);
         const serviceClassRefBefore = referencesBefore.find(
           (ref) => ref.symbol.name === 'ServiceClass',
         );
@@ -620,7 +622,8 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
 
       // After cross-file resolution, testMethod should have references to ServiceClass
       if (testMethod) {
-        const referencesAfter = symbolManager.findReferencesFrom(testMethod);
+        const referencesAfter =
+          await symbolManager.findReferencesFrom(testMethod);
         // Look for ServiceClass reference (could be the class itself or processData method)
         const serviceClassRefAfter = referencesAfter.find(
           (ref) =>
@@ -636,7 +639,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         } else {
           // If not found, at least verify that cross-file resolution was attempted
           // by checking that references were processed (might be deferred if ServiceClass not found)
-          const allRefs = symbolManager.getAllReferencesInFile(
+          const allRefs = await symbolManager.getAllReferencesInFile(
             'file:///TestClass.cls',
           );
           const serviceClassTypeRef = allRefs.find(
@@ -722,7 +725,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Should not crash - empty class should be handled gracefully
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0); // At least the class symbol
     });
 
@@ -766,12 +769,12 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Find the method1 symbol
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
 
         // Should have references to field1 (from both try and catch blocks)
         const field1Refs = referencesFrom.filter(
@@ -829,12 +832,12 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify all same-file references were processed
-      const method1Symbols = symbolManager.findSymbolByName('method1');
+      const method1Symbols = await symbolManager.findSymbolByName('method1');
       const method1 = method1Symbols.find((s) => s.kind === SymbolKind.Method);
       expect(method1).toBeDefined();
 
       if (method1) {
-        const referencesFrom = symbolManager.findReferencesFrom(method1);
+        const referencesFrom = await symbolManager.findReferencesFrom(method1);
 
         // Should have references to all fields and methods
         expect(referencesFrom.length).toBeGreaterThanOrEqual(5);
@@ -863,7 +866,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       }
 
       // Verify stats
-      const stats = symbolManager.getStats();
+      const stats = await symbolManager.getStats();
       expect(stats.totalReferences).toBeGreaterThan(0);
     });
   });

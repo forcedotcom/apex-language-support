@@ -841,7 +841,9 @@ function validateConstructorSignature(
     const symbolManager = yield* ISymbolManager;
 
     // Find the target class - try to find it from all available symbols
-    const targetClassSymbols = symbolManager.findSymbolByName(targetClassName);
+    const targetClassSymbols = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(targetClassName),
+    );
     let targetClass = targetClassSymbols.find(isClassSymbol);
 
     if (!targetClass) {
@@ -852,7 +854,7 @@ function validateConstructorSignature(
     // Get all constructors for the target class
     // Try getAllSymbolsForCompletion first (includes all loaded symbols)
     const allSymbolsForCompletion = symbolManager.getAllSymbolsForCompletion
-      ? symbolManager.getAllSymbolsForCompletion()
+      ? yield* Effect.promise(() => symbolManager.getAllSymbolsForCompletion())
       : [];
 
     // Find constructors by name - constructors have the same name as their class
@@ -892,12 +894,21 @@ function validateConstructorSignature(
     // This is more reliable than getAllSymbolsForCompletion which may not include all constructors
     if (targetClass.fileUri) {
       // Try to get SymbolTable directly for more complete symbol access
-      const parentSymbolTable = symbolManager.getSymbolTableForFile(
-        targetClass.fileUri,
-      );
-      const fileSymbols = parentSymbolTable
-        ? parentSymbolTable.getAllSymbols()
-        : symbolManager.findSymbolsInFile(targetClass.fileUri);
+      const parentSymbolTable = symbolManager.getSymbolTableForFile
+        ? yield* Effect.promise(
+            () =>
+              symbolManager.getSymbolTableForFile(
+                targetClass.fileUri,
+              ) as Promise<SymbolTable | undefined>,
+          )
+        : undefined;
+      const fileSymbols =
+        parentSymbolTable &&
+        typeof parentSymbolTable.getAllSymbols === 'function'
+          ? parentSymbolTable.getAllSymbols()
+          : yield* Effect.promise(() =>
+              symbolManager.findSymbolsInFile(targetClass.fileUri),
+            );
 
       // Find the class symbol from this file (might have different ID)
       const fileClass = fileSymbols.find(

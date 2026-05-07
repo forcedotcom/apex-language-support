@@ -96,19 +96,19 @@ export class GraphDataProcessingService implements IGraphDataProcessor {
 
       switch (params.type) {
         case 'all':
-          data = this.symbolManager.getGraphData();
+          data = await this.symbolManager.getGraphData();
           break;
         case 'file':
           if (!params.fileUri) {
             throw new Error('File URI is required for file graph data');
           }
-          data = this.symbolManager.getGraphDataForFile(params.fileUri);
+          data = await this.symbolManager.getGraphDataForFile(params.fileUri);
           break;
         case 'type':
           if (!params.symbolType) {
             throw new Error('Symbol type is required for type graph data');
           }
-          data = this.symbolManager.getGraphDataByType(params.symbolType);
+          data = await this.symbolManager.getGraphDataByType(params.symbolType);
           break;
         default:
           throw new Error(`Unsupported graph data type: ${params.type}`);

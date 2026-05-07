@@ -28,8 +28,8 @@ describe('UnknownAnnotationValidator', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const VALIDATOR_CATEGORY = 'unknown-annotation';

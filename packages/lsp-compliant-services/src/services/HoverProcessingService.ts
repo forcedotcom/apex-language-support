@@ -16,6 +16,7 @@ import {
   ApexCapabilitiesManager,
   LoggerInterface,
   ApexSettingsManager,
+  type ServerMode,
 } from '@salesforce/apex-lsp-shared';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -147,7 +148,7 @@ export class HoverProcessingService implements IHoverProcessor {
       // Get TypeReferences at position first
       // This tells us if there's a parsed identifier at this position
       const referencesStartTime = Date.now();
-      const references = this.symbolManager.getReferencesAtPosition(
+      const references = await this.symbolManager.getReferencesAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
@@ -178,6 +179,9 @@ export class HoverProcessingService implements IHoverProcessor {
             return hover;
           }
         }
+        // No TypeReferences at this position and precise did not resolve.
+        // Do not fall back to scope here: scope's containment fallback returns the enclosing
+        // method/class, which is not meaningful for arbitrary positions (keywords, whitespace, etc.).
         return null;
       }
 
@@ -199,7 +203,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
       // Check if file has symbols indexed before lookup
       const fileSymbolsStartTime = Date.now();
-      const fileSymbols = this.symbolManager.findSymbolsInFile(
+      const fileSymbols = await this.symbolManager.findSymbolsInFile(
         params.textDocument.uri,
       );
       const fileSymbolsTime = Date.now() - fileSymbolsStartTime;
@@ -235,9 +239,23 @@ export class HoverProcessingService implements IHoverProcessor {
             'precise',
           );
 
-          // If we got a symbol but it's not a method, and we have a METHOD_CALL reference,
-          // reject the variable symbol and try enrichment to resolve the method call
-          if (symbol && !isMethodSymbol(symbol) && methodCallRef.name) {
+          // Detect when precise resolved the qualifier class rather than the method:
+          // the ChainedRef's identifierRange spans the whole expression, so methodCallRef
+          // matches even when the cursor is on the qualifier (e.g. FileUtilities in
+          // FileUtilities.createFile). In that case the class symbol is correct — keep it.
+          const isQualifierClass =
+            symbol !== null &&
+            isClassSymbol(symbol) &&
+            symbol.name.toLowerCase() !== methodCallRef.name.toLowerCase();
+
+          // If we got a non-method symbol and it is NOT the qualifier class, reject it
+          // and try enrichment to resolve the actual method call.
+          if (
+            symbol &&
+            !isMethodSymbol(symbol) &&
+            methodCallRef.name &&
+            !isQualifierClass
+          ) {
             const symbolKind = symbol.kind;
             this.logger.debug(
               () =>
@@ -245,7 +263,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 `Rejecting ${symbolKind} symbol and attempting enrichment to resolve method call.`,
             );
 
-            // Reject the variable symbol - we need to resolve the METHOD_CALL
+            // Reject the non-method symbol - we need to resolve the METHOD_CALL
             symbol = null;
 
             // Try enrichment to resolve the method call
@@ -259,15 +277,21 @@ export class HoverProcessingService implements IHoverProcessor {
                   documentText,
                   async () => {
                     // After enrichment, try getSymbolAtPosition again
-                    // This should now resolve the METHOD_CALL since standard library classes are loaded
                     const resolvedSymbol =
                       await this.symbolManager.getSymbolAtPosition(
                         params.textDocument.uri,
                         parserPosition,
                         'precise',
                       );
-                    // Only accept method symbols - reject variables
-                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
+                    // Accept a method symbol or the qualifier class (cold-start: class
+                    // file was not loaded until enrichment ran)
+                    if (
+                      resolvedSymbol &&
+                      (isMethodSymbol(resolvedSymbol) ||
+                        (isClassSymbol(resolvedSymbol) &&
+                          resolvedSymbol.name.toLowerCase() !==
+                            methodCallRef.name.toLowerCase()))
+                    ) {
                       return resolvedSymbol;
                     }
                     return null;
@@ -275,7 +299,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 ),
               );
 
-              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
+              if (enrichedSymbol) {
                 symbol = enrichedSymbol;
                 this.logger.debug(
                   () =>
@@ -294,50 +318,40 @@ export class HoverProcessingService implements IHoverProcessor {
                 `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" without enrichment.`,
             );
           } else if (!symbol) {
-            // No symbol found - try enrichment to resolve the METHOD_CALL
+            // 'precise' failed for this METHOD_CALL — try 'scope' which prioritizes
+            // chained FIELD_ACCESS refs (e.g. Assert.isNotNull) and can resolve
+            // cross-file symbols via resolveStandardApexClass on the resource loader.
             this.logger.debug(
               () =>
                 `[HOVER] No symbol found but METHOD_CALL reference exists for "${methodCallRef.name}". ` +
-                'Attempting enrichment to resolve method call.',
+                'Trying scope strategy for chained reference resolution.',
             );
 
-            const storage = ApexStorageManager.getInstance().getStorage();
-            const document = await storage.getDocument(params.textDocument.uri);
-            if (document) {
-              const documentText = document.getText();
-              const enrichedSymbol = await Effect.runPromise(
-                this.symbolManager.resolveWithEnrichment(
-                  params.textDocument.uri,
-                  documentText,
-                  async () => {
-                    const resolvedSymbol =
-                      await this.symbolManager.getSymbolAtPosition(
-                        params.textDocument.uri,
-                        parserPosition,
-                        'precise',
-                      );
-                    // Only accept method symbols
-                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
-                      return resolvedSymbol;
-                    }
-                    return null;
-                  },
-                ),
+            const scopeSymbol = await this.symbolManager.getSymbolAtPosition(
+              params.textDocument.uri,
+              parserPosition,
+              'scope',
+            );
+            if (
+              scopeSymbol &&
+              (isMethodSymbol(scopeSymbol) ||
+                (isClassSymbol(scopeSymbol) &&
+                  scopeSymbol.name.toLowerCase() !==
+                    methodCallRef.name.toLowerCase()))
+            ) {
+              symbol = scopeSymbol;
+              this.logger.debug(
+                () =>
+                  `[HOVER] Resolved METHOD_CALL "${methodCallRef.name}" via scope strategy.`,
               );
-
-              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
-                symbol = enrichedSymbol;
-                this.logger.debug(
-                  () =>
-                    `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" after enrichment.`,
-                );
-              }
             }
           }
         }
       }
 
-      // If no symbol found yet (or METHOD_CALL wasn't found), use getSymbolAtPosition
+      // If no symbol found yet (or METHOD_CALL wasn't found), use getSymbolAtPosition.
+      // Try 'precise' first, then fall back to 'scope' which handles chained refs and
+      // stdlib resolution via resolveStandardApexClass on the resource loader.
       if (!symbol) {
         symbol = await this.symbolManager.getSymbolAtPosition(
           params.textDocument.uri,
@@ -345,7 +359,8 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
-
+      // No scope fallback: if precise resolution failed, return no hover
+      // rather than showing the enclosing method/class container.
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
@@ -374,7 +389,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
           if (constructorCallRef) {
             // Try to find the constructor symbol for this class
-            const fileSymbols = this.symbolManager.findSymbolsInFile(
+            const fileSymbols = await this.symbolManager.findSymbolsInFile(
               params.textDocument.uri,
             );
             const constructorSymbol = fileSymbols.find(
@@ -507,7 +522,10 @@ export class HoverProcessingService implements IHoverProcessor {
               'hover',
             );
 
-            const searchingHover = await this.createSearchingHover(params);
+            const searchingHover = await this.createSearchingHover(
+              params,
+              'path1-refs-no-symbol-early',
+            );
             return searchingHover;
           }
         }
@@ -525,14 +543,14 @@ export class HoverProcessingService implements IHoverProcessor {
           const documentText = document.getText();
 
           // Use the new ISymbolManager API for iterative enrichment
-          const symbolAfterEnrichment = await Effect.runPromise(
+          const symbolAfterEnrichmentOrPromise = await Effect.runPromise(
             this.symbolManager.resolveWithEnrichment(
               params.textDocument.uri,
               documentText,
-              () => {
+              async () => {
                 // Resolution function: try to find symbol at position
                 // This is called after each enrichment layer
-                const symbols = this.symbolManager.findSymbolsInFile(
+                const symbols = await this.symbolManager.findSymbolsInFile(
                   params.textDocument.uri,
                 );
 
@@ -587,7 +605,7 @@ export class HoverProcessingService implements IHoverProcessor {
                 if (methodCallRef) {
                   // If the reference is already resolved, use the resolved symbol
                   if (methodCallRef.resolvedSymbolId) {
-                    const resolvedSymbol = this.symbolManager.getSymbol(
+                    const resolvedSymbol = await this.symbolManager.getSymbol(
                       methodCallRef.resolvedSymbolId,
                     );
                     if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
@@ -598,9 +616,10 @@ export class HoverProcessingService implements IHoverProcessor {
                   // If not resolved, try to find the method symbol by name
                   // This might be in the current file or in a standard library class
                   if (methodCallRef.name) {
-                    const methodSymbols = this.symbolManager.findSymbolByName(
-                      methodCallRef.name,
-                    );
+                    const methodSymbols =
+                      await this.symbolManager.findSymbolByName(
+                        methodCallRef.name,
+                      );
                     // Filter for method symbols
                     const methodCandidates = methodSymbols.filter((s) =>
                       isMethodSymbol(s),
@@ -613,7 +632,7 @@ export class HoverProcessingService implements IHoverProcessor {
                       methodCandidates.length > 0
                     ) {
                       const parentClassSymbols =
-                        this.symbolManager.findSymbolByName(
+                        await this.symbolManager.findSymbolByName(
                           methodCallRef.parentContext,
                         );
                       const parentClass = parentClassSymbols.find((c) =>
@@ -669,6 +688,7 @@ export class HoverProcessingService implements IHoverProcessor {
               },
             ),
           );
+          const symbolAfterEnrichment = await symbolAfterEnrichmentOrPromise;
 
           if (symbolAfterEnrichment) {
             this.logger.debug(
@@ -699,21 +719,21 @@ export class HoverProcessingService implements IHoverProcessor {
           }
         }
 
-        // Check if this is a variable reference - skip missing artifact resolution
-        const variableRef =
-          references.find(
-            (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
-          ) ||
-          references.find(
-            (ref) =>
-              ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
-          );
+        // Only skip missing-artifact resolution for true in-file declarations.
+        // VARIABLE_USAGE is the parser's conservative default for chain qualifiers
+        // (e.g. `FileUtilities` in `FileUtilities.createFile`) that could not be
+        // semantically resolved. Enrichment just proved there is no local variable
+        // with that name, so it may be a cross-file class reference — proceed to
+        // missing-artifact resolution rather than silently returning null.
+        const declarationRef = references.find(
+          (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+        );
 
-        if (variableRef) {
+        if (declarationRef) {
           this.logger.debug(
             () =>
-              'Skipping missing artifact resolution for variable reference - ' +
-              'symbol should be in same file',
+              'Skipping missing artifact resolution for variable declaration - ' +
+              'symbol is in the same file',
           );
           return null;
         }
@@ -735,7 +755,10 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          const searchingHover = await this.createSearchingHover(params);
+          const searchingHover = await this.createSearchingHover(
+            params,
+            'path2-after-enrichment-no-symbol',
+          );
           return searchingHover;
         }
 
@@ -754,12 +777,12 @@ export class HoverProcessingService implements IHoverProcessor {
         if (document) {
           const documentText = document.getText();
 
-          const symbolAfterEnrichment = await Effect.runPromise(
+          const symbolAfterEnrichmentOrPromise2 = await Effect.runPromise(
             this.symbolManager.resolveWithEnrichment(
               params.textDocument.uri,
               documentText,
-              () => {
-                const symbols = this.symbolManager.findSymbolsInFile(
+              async () => {
+                const symbols = await this.symbolManager.findSymbolsInFile(
                   params.textDocument.uri,
                 );
 
@@ -792,6 +815,7 @@ export class HoverProcessingService implements IHoverProcessor {
               },
             ),
           );
+          const symbolAfterEnrichment = await symbolAfterEnrichmentOrPromise2;
 
           if (symbolAfterEnrichment) {
             this.logger.debug(
@@ -827,7 +851,10 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          return await this.createSearchingHover(params);
+          return await this.createSearchingHover(
+            params,
+            'path3-workspace-not-loaded-no-refs',
+          );
         }
       }
 
@@ -886,6 +913,20 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
+   * In worker threads, `ApexCapabilitiesManager` may not share the same module
+   * instance as `HoverProcessingService` after bundling; `WorkerInit` stores
+   * the authoritative mode on `globalThis` for dev-only hover extras.
+   */
+  private getEffectiveServerMode(): ServerMode {
+    const wire = (globalThis as Record<string, unknown>)
+      .__apexWorkerInitServerMode;
+    if (wire === 'development' || wire === 'production') {
+      return wire;
+    }
+    return this.capabilitiesManager.getMode();
+  }
+
+  /**
    * Create hover information for a symbol
    * @param symbol The symbol to create hover for
    * @param originalSymbol The original symbol found (may differ if we're showing constructor for class)
@@ -903,7 +944,7 @@ export class HoverProcessingService implements IHoverProcessor {
     // Construct display FQN (semantic hierarchy without block symbols) with original casing preserved
     // Always construct a new FQN with normalizeCase: false for display purposes,
     // even if symbol.fqn exists (which may be normalized to lowercase)
-    const fqn = calculateDisplayFQN(symbol, this.symbolManager, {
+    const fqn = await calculateDisplayFQN(symbol, this.symbolManager, {
       normalizeCase: false,
     });
 
@@ -917,7 +958,7 @@ export class HoverProcessingService implements IHoverProcessor {
         .join(', ');
 
       // Prefer a containing type-qualified name to make hover clearer for chained calls
-      const containingTypeName = this.findContainingTypeName(symbol);
+      const containingTypeName = await this.findContainingTypeName(symbol);
       const methodName = containingTypeName
         ? `${containingTypeName}.${symbol.name}`
         : fqn || symbol.name;
@@ -981,8 +1022,8 @@ export class HoverProcessingService implements IHoverProcessor {
         content.push(`**Modifiers:** ${modifiers.join(', ')}`);
       }
     }
-    // Add metrics information only in development mode
-    if (this.capabilitiesManager.getMode() === 'development') {
+    const devMode = this.getEffectiveServerMode();
+    if (devMode === 'development') {
       // Add type information (compact) for value-like symbols
       const isTypeLike = inTypeSymbolGroup(symbol);
       if (!isMethodSymbol(symbol) && !isTypeLike && isVariableSymbol(symbol)) {
@@ -1014,35 +1055,6 @@ export class HoverProcessingService implements IHoverProcessor {
           content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
         }
       }
-
-      try {
-        const referencesTo = this.symbolManager.findReferencesTo(symbol);
-        const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
-        const dependencyAnalysis =
-          this.symbolManager.analyzeDependencies(symbol);
-        const totalReferences = referencesTo.length + referencesFrom.length;
-
-        if (
-          totalReferences > 0 ||
-          dependencyAnalysis.dependencies.length > 0 ||
-          dependencyAnalysis.dependents.length > 0
-        ) {
-          content.push('');
-          content.push('**Metrics:**');
-          content.push(`- Reference count: ${totalReferences}`);
-          content.push(
-            `- Dependency count: ${dependencyAnalysis.dependencies.length}`,
-          );
-          content.push(
-            `- Dependents count: ${dependencyAnalysis.dependents.length}`,
-          );
-          content.push(
-            `- Impact score: ${dependencyAnalysis.impactScore.toFixed(2)}`,
-          );
-        }
-      } catch (error) {
-        this.logger.debug(() => `Error getting metrics: ${error}`);
-      }
     }
 
     // Add file location
@@ -1064,7 +1076,10 @@ export class HoverProcessingService implements IHoverProcessor {
   /**
    * Create a hover that shows the user we're searching for a missing artifact
    */
-  private async createSearchingHover(params: HoverParams): Promise<Hover> {
+  private async createSearchingHover(
+    params: HoverParams,
+    callerTag?: string,
+  ): Promise<Hover> {
     const content: string[] = [];
 
     // Extract the symbol name from the text at the hover position
@@ -1204,13 +1219,15 @@ export class HoverProcessingService implements IHoverProcessor {
    * Returns the FQN (including namespace) of the containing type for proper display.
    * symbol.parent may point to a block; this climbs until it finds a type.
    */
-  private findContainingTypeName(symbol: ApexSymbol): string | null {
+  private async findContainingTypeName(
+    symbol: ApexSymbol,
+  ): Promise<string | null> {
     try {
       // Fast path: try symbolManager helper first
-      const containing = this.symbolManager.getContainingType(symbol);
+      const containing = await this.symbolManager.getContainingType(symbol);
       if (containing) {
         // Use FQN to include namespace (e.g., "System.Assert" instead of just "Assert")
-        const containingFQN = calculateDisplayFQN(
+        const containingFQN = await calculateDisplayFQN(
           containing,
           this.symbolManager,
           {
@@ -1226,7 +1243,7 @@ export class HoverProcessingService implements IHoverProcessor {
       while (current?.parentId) {
         if (visited.has(current.parentId)) break;
         visited.add(current.parentId);
-        const parent = this.symbolManager.getSymbol(current.parentId);
+        const parent = await this.symbolManager.getSymbol(current.parentId);
         if (!parent) break;
 
         if (
@@ -1235,9 +1252,13 @@ export class HoverProcessingService implements IHoverProcessor {
           isEnumSymbol(parent)
         ) {
           // Use FQN to include namespace
-          const parentFQN = calculateDisplayFQN(parent, this.symbolManager, {
-            normalizeCase: false,
-          });
+          const parentFQN = await calculateDisplayFQN(
+            parent,
+            this.symbolManager,
+            {
+              normalizeCase: false,
+            },
+          );
           return parentFQN || parent.name || null;
         }
 
@@ -1248,17 +1269,17 @@ export class HoverProcessingService implements IHoverProcessor {
       if (symbol.fileUri && symbol.location?.symbolRange) {
         const { startLine, endLine, startColumn, endColumn } =
           symbol.location.symbolRange;
-        const candidates = this.symbolManager
-          .findSymbolsInFile(symbol.fileUri)
-          .filter(
-            (s) =>
-              (isClassSymbol(s) || isInterfaceSymbol(s) || isEnumSymbol(s)) &&
-              s.location?.symbolRange &&
-              s.location.symbolRange.startLine <= startLine &&
-              s.location.symbolRange.endLine >= endLine &&
-              s.location.symbolRange.startColumn <= startColumn &&
-              s.location.symbolRange.endColumn >= endColumn,
-          );
+        const candidates = (
+          await this.symbolManager.findSymbolsInFile(symbol.fileUri)
+        ).filter(
+          (s) =>
+            (isClassSymbol(s) || isInterfaceSymbol(s) || isEnumSymbol(s)) &&
+            s.location?.symbolRange &&
+            s.location.symbolRange.startLine <= startLine &&
+            s.location.symbolRange.endLine >= endLine &&
+            s.location.symbolRange.startColumn <= startColumn &&
+            s.location.symbolRange.endColumn >= endColumn,
+        );
 
         if (candidates.length > 0) {
           // Choose the smallest enclosing range (most specific containing type)
@@ -1276,9 +1297,13 @@ export class HoverProcessingService implements IHoverProcessor {
 
           if (best) {
             // Use FQN to include namespace
-            const bestFQN = calculateDisplayFQN(best, this.symbolManager, {
-              normalizeCase: false,
-            });
+            const bestFQN = await calculateDisplayFQN(
+              best,
+              this.symbolManager,
+              {
+                normalizeCase: false,
+              },
+            );
             return bestFQN || best.name || null;
           }
         }

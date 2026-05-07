@@ -103,11 +103,15 @@ export const TypeResolutionValidator: Validator = {
         );
         if (sameFileType) continue;
         if (options.tier === ValidationTier.THOROUGH) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const found = symbols.find((s: ApexSymbol) => inTypeSymbolGroup(s));
           if (found) continue;
-          const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-          if (inTypeSymbolGroup(fqnSymbol)) continue;
+          const fqnSymbol = yield* Effect.promise(() =>
+            symbolManager.findSymbolByFQN(typeName),
+          );
+          if (fqnSymbol && inTypeSymbolGroup(fqnSymbol)) continue;
         }
         unresolvedTypeNames.push(typeName);
       }
@@ -145,15 +149,20 @@ export const TypeResolutionValidator: Validator = {
         if (sameFileType) {
           typeSymbol = sameFileType;
         } else if (options.tier === ValidationTier.THOROUGH) {
-          const symbols = symbolManager.findSymbolByName(typeName);
+          // Cross-file lookup via symbolManager (types may have been loaded above)
+          const symbols = yield* Effect.promise(() =>
+            symbolManager.findSymbolByName(typeName),
+          );
           const found = symbols.find((s: ApexSymbol): s is TypeSymbol =>
             inTypeSymbolGroup(s),
           );
           if (found) {
             typeSymbol = found;
           } else {
-            const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
-            if (inTypeSymbolGroup(fqnSymbol)) {
+            const fqnSymbol = yield* Effect.promise(() =>
+              symbolManager.findSymbolByFQN(typeName),
+            );
+            if (fqnSymbol && inTypeSymbolGroup(fqnSymbol)) {
               typeSymbol = fqnSymbol;
             }
           }

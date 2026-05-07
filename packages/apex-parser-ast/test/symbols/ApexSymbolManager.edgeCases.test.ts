@@ -27,8 +27,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
     // setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (sourceCode: string, className: string) => {
@@ -56,7 +56,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have generic parameter type references for System.URL in nested generics
       const systemUrlRefs = references.filter(
@@ -86,7 +87,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type references for System.URL
       const systemUrlRefs = references.filter(
@@ -123,7 +125,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have generic parameter type references for System.URL
       const systemUrlRefs = references.filter(
@@ -155,7 +158,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.URL (two-part type)
       const chainedTypeRefs = references.filter(
@@ -181,7 +185,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for the four-part type
       const chainedTypeRefs = references.filter(
@@ -209,7 +214,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type references for System.URL
       const systemUrlRefs = references.filter(
@@ -248,7 +254,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple System.URL references in different contexts
       const systemUrlRefs = references.filter(
@@ -261,12 +268,10 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Each reference should be resolvable
       for (const ref of systemUrlRefs) {
-        expect(() => {
-          symbolManager.getSymbolAtPosition(testClassUri, {
-            line: ref.location.identifierRange.startLine - 1,
-            character: ref.location.identifierRange.startColumn,
-          });
-        }).not.toThrow();
+        await symbolManager.getSymbolAtPosition(testClassUri, {
+          line: ref.location.identifierRange.startLine - 1,
+          character: ref.location.identifierRange.startColumn,
+        });
       }
     });
 
@@ -279,7 +284,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestInterface');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.URL in interface methods
       const systemUrlRefs = references.filter(
@@ -292,12 +298,10 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Each reference should be resolvable
       for (const ref of systemUrlRefs) {
-        expect(() => {
-          symbolManager.getSymbolAtPosition(testClassUri, {
-            line: ref.location.identifierRange.startLine - 1,
-            character: ref.location.identifierRange.startColumn,
-          });
-        }).not.toThrow();
+        await symbolManager.getSymbolAtPosition(testClassUri, {
+          line: ref.location.identifierRange.startLine - 1,
+          character: ref.location.identifierRange.startColumn,
+        });
       }
     });
   });
@@ -313,7 +317,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have generic parameter type references for String
       const genericTypeRefs = references.filter(
@@ -335,7 +340,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for A.B
       const chainedTypeRefs = references.filter(
@@ -361,7 +367,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.URL
       const systemUrlRefs = references.filter(

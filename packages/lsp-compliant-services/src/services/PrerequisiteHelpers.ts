@@ -61,13 +61,17 @@ export function hasCrossFileResolution(
     return false;
   }
 
-  // Check for unresolved type references (TYPE_DECLARATION or CONSTRUCTOR_CALL)
-  // that could potentially be cross-file types
+  // Check for unresolved type references that could potentially be cross-file types.
+  // Includes RETURN_TYPE and PARAMETER_TYPE in addition to TYPE_DECLARATION and
+  // CONSTRUCTOR_CALL because ApexReferenceResolver resolves all of these via
+  // resolveTypeReference (which loads stdlib classes via resolveStandardApexClass).
   const unresolvedTypeRefs = refs.filter(
     (ref) =>
       !ref.resolvedSymbolId &&
       (ref.context === ReferenceContext.TYPE_DECLARATION ||
-        ref.context === ReferenceContext.CONSTRUCTOR_CALL),
+        ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        ref.context === ReferenceContext.RETURN_TYPE ||
+        ref.context === ReferenceContext.PARAMETER_TYPE),
   );
 
   // No policy-based bypass: all unresolved type refs need cross-file resolution.

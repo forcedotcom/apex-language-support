@@ -87,7 +87,9 @@ describe('Block Symbols Verification', () => {
       symbolManager.addSymbolTable(symbolTable!, fileUri),
     );
 
-    const containingType = symbolManager.getContainingType(urlEncodeMethod!);
+    const containingType = await symbolManager.getContainingType(
+      urlEncodeMethod!,
+    );
     expect(containingType).not.toBeNull();
     expect(containingType!.name).toBe('EncodingUtil');
     expect(containingType!.kind).toBe(SymbolKind.Class);
@@ -110,7 +112,9 @@ describe('Block Symbols Verification', () => {
       symbolManager.addSymbolTable(symbolTable!, symbolTable!.getFileUri()),
     );
 
-    const containingType = symbolManager.getContainingType(isNotNullMethod!);
+    const containingType = await symbolManager.getContainingType(
+      isNotNullMethod!,
+    );
     expect(containingType).not.toBeNull();
     expect(containingType!.name).toBe('Assert');
     expect(containingType!.kind).toBe(SymbolKind.Class);

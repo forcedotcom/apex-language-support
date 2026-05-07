@@ -62,7 +62,7 @@ describe('ExecuteCommandProcessingService', () => {
 
       // Mock getAllSymbolsForCompletion to return empty array for this test
       // The actual handler logic with test data is tested in FindApexTestsCommandHandler.test.ts
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([]);
 
       // Act
       const result = await service.processExecuteCommand(params);
@@ -97,7 +97,7 @@ describe('ExecuteCommandProcessingService', () => {
       };
 
       // Mock getAllSymbolsForCompletion to return empty array
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([]);
 
       // Act
       await service.processExecuteCommand(params);
@@ -134,7 +134,7 @@ describe('ExecuteCommandProcessingService', () => {
       };
 
       // Mock getAllSymbolsForCompletion to return empty array
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([]);
 
       // Act
       const result = await service.processExecuteCommand(params);
@@ -157,7 +157,7 @@ describe('ExecuteCommandProcessingService', () => {
         arguments: [],
       };
 
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockResolvedValue([]);
 
       // If handler is not registered, this would throw
       await expect(

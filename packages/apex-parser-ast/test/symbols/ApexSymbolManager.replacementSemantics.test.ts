@@ -61,8 +61,8 @@ describe('Apex symbol replacement semantics', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    manager.clear();
+  afterEach(async () => {
+    await manager.clear();
   });
 
   const compile = (code: string, fileUri: string): SymbolTable => {
@@ -145,11 +145,11 @@ describe('Apex symbol replacement semantics', () => {
 
     const first = compile(code, fileUri);
     await Effect.runPromise(manager.addSymbolTable(first, fileUri));
-    const afterFirst = manager.getStats();
+    const afterFirst = await manager.getStats();
 
     const second = compile(code, fileUri);
     await Effect.runPromise(manager.addSymbolTable(second, fileUri));
-    const afterSecond = manager.getStats();
+    const afterSecond = await manager.getStats();
 
     expect(afterFirst.totalReferences).toBeGreaterThan(0);
     expect(afterSecond.totalReferences).toBe(afterFirst.totalReferences);
@@ -227,15 +227,15 @@ describe('Apex symbol replacement semantics', () => {
     `;
 
     await Effect.runPromise(manager.enrichToLevel(fileUri, 'public-api', code));
-    const afterPublic = manager.getStats();
+    const afterPublic = await manager.getStats();
 
     await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
-    const afterFull = manager.getStats();
+    const afterFull = await manager.getStats();
 
     await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
-    const afterFullAgain = manager.getStats();
+    const afterFullAgain = await manager.getStats();
 
-    const helperSymbols = manager.findSymbolByName('helper');
+    const helperSymbols = await manager.findSymbolByName('helper');
     expect(helperSymbols.length).toBeGreaterThan(0);
     expect(afterFull.totalReferences).toBeGreaterThanOrEqual(
       afterPublic.totalReferences,
@@ -277,8 +277,8 @@ describe('Apex symbol replacement semantics', () => {
     );
 
     await Effect.runPromise(manager.addSymbolTable(compactTable, fileUri));
-    const afterCompact = manager.getStats();
-    const compactManagerTable = manager.getSymbolTableForFile(fileUri);
+    const afterCompact = await manager.getStats();
+    const compactManagerTable = await manager.getSymbolTableForFile(fileUri);
     expect(compactManagerTable).toBeDefined();
     const normalizedCompactManagerTable = normalizedSymbolTable(
       compactManagerTable!,
@@ -287,9 +287,9 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(structurallyDifferentTable, fileUri),
     );
-    const afterStructuralVariant = manager.getStats();
+    const afterStructuralVariant = await manager.getStats();
     const structuralVariantManagerTable =
-      manager.getSymbolTableForFile(fileUri);
+      await manager.getSymbolTableForFile(fileUri);
     expect(structuralVariantManagerTable).toBeDefined();
     const normalizedStructuralVariantManagerTable = normalizedSymbolTable(
       structuralVariantManagerTable!,
@@ -305,9 +305,9 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(structurallyDifferentTable, fileUri),
     );
-    const afterStructuralVariantAgain = manager.getStats();
+    const afterStructuralVariantAgain = await manager.getStats();
     const structuralVariantAgainManagerTable =
-      manager.getSymbolTableForFile(fileUri);
+      await manager.getSymbolTableForFile(fileUri);
     expect(structuralVariantAgainManagerTable).toBeDefined();
     const normalizedStructuralVariantAgainManagerTable = normalizedSymbolTable(
       structuralVariantAgainManagerTable!,
@@ -365,14 +365,14 @@ describe('Apex symbol replacement semantics', () => {
     expect(changedMethodNames.has('multiply')).toBe(true);
 
     await Effect.runPromise(manager.addSymbolTable(originalTable, fileUri));
-    const managerOriginalTable = manager.getSymbolTableForFile(fileUri);
+    const managerOriginalTable = await manager.getSymbolTableForFile(fileUri);
     expect(managerOriginalTable).toBeDefined();
     const managerOriginalNormalized = normalizedSymbolTable(
       managerOriginalTable!,
     );
 
     await Effect.runPromise(manager.addSymbolTable(changedTable, fileUri));
-    const managerChangedTable = manager.getSymbolTableForFile(fileUri);
+    const managerChangedTable = await manager.getSymbolTableForFile(fileUri);
     expect(managerChangedTable).toBeDefined();
     const managerChangedNormalized = normalizedSymbolTable(
       managerChangedTable!,
@@ -448,7 +448,7 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(consumerCompactTable, consumerFile),
     );
-    const stableBefore = manager.getStats();
+    const stableBefore = await manager.getStats();
 
     await Effect.runPromise(
       manager.addSymbolTable(providerVariantTable, providerFile),
@@ -456,7 +456,7 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(consumerVariantTable, consumerFile),
     );
-    const stableAfter = manager.getStats();
+    const stableAfter = await manager.getStats();
 
     expect(stableBefore.totalReferences).toBeGreaterThan(0);
     expect(stableAfter.totalReferences).toBe(stableBefore.totalReferences);
@@ -518,7 +518,7 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(originalConsumerTable, consumerFile),
     );
-    const beforeDelta = manager.getStats();
+    const beforeDelta = await manager.getStats();
 
     await Effect.runPromise(
       manager.addSymbolTable(changedProviderTable, providerFile),
@@ -526,20 +526,21 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(changedConsumerTable, consumerFile),
     );
-    const afterDelta = manager.getStats();
+    const afterDelta = await manager.getStats();
 
-    const providerMethods = manager
-      .findSymbolByName('CrossDeltaProvider')
-      .flatMap((provider) =>
-        manager
-          .findSymbolsInFile(providerFile)
-          .filter((symbol) => symbol.kind === SymbolKind.Method)
-          .map((symbol) => symbol.name),
-      );
+    const providers = await manager.findSymbolByName('CrossDeltaProvider');
+    const fileSymbols = await manager.findSymbolsInFile(providerFile);
+    const providerMethods = providers.flatMap(() =>
+      fileSymbols
+        .filter((symbol) => symbol.kind === SymbolKind.Method)
+        .map((symbol) => symbol.name),
+    );
 
     expect(providerMethods.includes('pong')).toBe(true);
     expect(providerMethods.includes('extra')).toBe(true);
-    expect(manager.findSymbolByName('runChanged').length).toBeGreaterThan(0);
+    expect(
+      (await manager.findSymbolByName('runChanged')).length,
+    ).toBeGreaterThan(0);
     expect(afterDelta.totalReferences).toBeGreaterThan(0);
     expect(afterDelta.totalReferences).toBeLessThanOrEqual(
       beforeDelta.totalReferences + 20,
@@ -584,8 +585,8 @@ describe('Apex symbol replacement semantics', () => {
         managerB.enrichToLevel(fileUri, 'public-api', structuralVariantCode),
       );
 
-      const publicTableA = managerA.getSymbolTableForFile(fileUri);
-      const publicTableB = managerB.getSymbolTableForFile(fileUri);
+      const publicTableA = await managerA.getSymbolTableForFile(fileUri);
+      const publicTableB = await managerB.getSymbolTableForFile(fileUri);
       expect(publicTableA).toBeDefined();
       expect(publicTableB).toBeDefined();
       expect(normalizedSymbolTable(publicTableA!)).toEqual(
@@ -599,18 +600,22 @@ describe('Apex symbol replacement semantics', () => {
         managerB.enrichToLevel(fileUri, 'full', structuralVariantCode),
       );
 
-      const fullTableA = managerA.getSymbolTableForFile(fileUri);
-      const fullTableB = managerB.getSymbolTableForFile(fileUri);
+      const fullTableA = await managerA.getSymbolTableForFile(fileUri);
+      const fullTableB = await managerB.getSymbolTableForFile(fileUri);
       expect(fullTableA).toBeDefined();
       expect(fullTableB).toBeDefined();
       expect(normalizedSymbolTable(fullTableA!)).toEqual(
         normalizedSymbolTable(fullTableB!),
       );
-      expect(managerA.findSymbolByName('hidden').length).toBeGreaterThan(0);
-      expect(managerB.findSymbolByName('hidden').length).toBeGreaterThan(0);
+      expect(
+        (await managerA.findSymbolByName('hidden')).length,
+      ).toBeGreaterThan(0);
+      expect(
+        (await managerB.findSymbolByName('hidden')).length,
+      ).toBeGreaterThan(0);
     } finally {
-      managerA.clear();
-      managerB.clear();
+      await managerA.clear();
+      await managerB.clear();
     }
   });
 });
