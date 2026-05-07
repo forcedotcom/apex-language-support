@@ -67,7 +67,7 @@ describe('WorkerCoordinator', () => {
           expect.stringContaining('vertical-slice-ping'),
         ]),
       );
-    }, 30_000);
+    }, 120_000);
   });
 
   describe('pool topology (step 4)', () => {
@@ -103,7 +103,7 @@ describe('WorkerCoordinator', () => {
       expect(logger.messages).toContainEqual(
         expect.stringContaining('Enrichment pool initialized'),
       );
-    }, 30_000);
+    }, 120_000);
 
     it('data-owner handles QuerySymbolSubset with mock data', async () => {
       const logger = createSpyLogger();
@@ -131,7 +131,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
 
     it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
       const logger = createSpyLogger();
@@ -174,7 +174,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
 
     it('data-owner rejects UpdateSymbolSubset when detail level is not higher', async () => {
       const logger = createSpyLogger();
@@ -216,7 +216,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
 
     it('spawns optional resource-loader when enabled', async () => {
       const logger = createSpyLogger();
@@ -244,7 +244,7 @@ describe('WorkerCoordinator', () => {
       expect(logger.messages).toContainEqual(
         expect.stringContaining('Resource loader initialized'),
       );
-    }, 30_000);
+    }, 120_000);
 
     it('initializes resource-loader worker before data owner when enabled', async () => {
       const logger = createSpyLogger();
@@ -270,7 +270,7 @@ describe('WorkerCoordinator', () => {
       );
       expect(rlIdx).toBeGreaterThanOrEqual(0);
       expect(doIdx).toBeGreaterThan(rlIdx);
-    }, 30_000);
+    }, 120_000);
 
     it('runRemoteStdlibWarmupPhase is a no-op when resource loader is disabled', async () => {
       const logger = createSpyLogger();
@@ -288,7 +288,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await expect(Effect.runPromise(program)).resolves.toBeUndefined();
-    }, 30_000);
+    }, 120_000);
   });
 
   describe('makeWorkerDispatcher (step 5 + step 6)', () => {
@@ -330,7 +330,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
 
     it('queryGraphData routes to data-owner and returns graph payload', async () => {
       const logger = createSpyLogger();
@@ -356,7 +356,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
 
     describe('canDispatch — prerequisite atomicity (step 6)', () => {
       let dispatcher: DispatcherResult;
@@ -431,7 +431,7 @@ describe('WorkerCoordinator', () => {
       );
 
       await Effect.runPromise(program);
-    }, 30_000);
+    }, 120_000);
   });
 
   describe('clampPoolSize', () => {

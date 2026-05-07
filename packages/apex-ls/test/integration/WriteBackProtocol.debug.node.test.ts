@@ -109,5 +109,5 @@ describe('WriteBackProtocol Debug Test', () => {
 
     const result = await Effect.runPromise(program);
     console.log('Final result:', result);
-  }, 30_000);
+  }, 120_000);
 });

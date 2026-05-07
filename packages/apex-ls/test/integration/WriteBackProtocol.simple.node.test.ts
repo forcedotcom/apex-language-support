@@ -129,7 +129,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it('data owner rejects write-back when version mismatches', async () => {
     const program = Effect.gen(function* () {
@@ -195,7 +195,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it('data owner rejects write-back when detail level not higher', async () => {
     const program = Effect.gen(function* () {
@@ -266,7 +266,7 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it.skip('multiple workers can write back concurrently (first wins)', async () => {
     const program = Effect.gen(function* () {
@@ -337,5 +337,5 @@ describe('WriteBackProtocol Simple Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 });

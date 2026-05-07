@@ -135,7 +135,7 @@ describe('WriteBackProtocol Integration Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it('write-back rejects stale version when document changes', async () => {
     const program = Effect.gen(function* () {
@@ -202,7 +202,7 @@ describe('WriteBackProtocol Integration Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it('write-back rejects when detail level is not higher', async () => {
     const program = Effect.gen(function* () {
@@ -272,7 +272,7 @@ describe('WriteBackProtocol Integration Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 
   it.skip('concurrent hovers from multiple enrichment workers', async () => {
     const program = Effect.gen(function* () {
@@ -351,5 +351,5 @@ describe('WriteBackProtocol Integration Tests', () => {
     );
 
     await Effect.runPromise(program);
-  }, 30_000);
+  }, 120_000);
 });

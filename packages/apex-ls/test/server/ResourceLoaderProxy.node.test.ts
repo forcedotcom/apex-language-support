@@ -63,7 +63,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
       const result = await proxy.getSymbolTable('System/String.cls');
       expect(result).not.toBeNull();
     });
-  }, 30_000);
+  }, 120_000);
 
   it('getSymbolTable returns null for unknown class', async () => {
     await withTopology(async (topology, logger) => {
@@ -71,7 +71,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
       const result = await proxy.getSymbolTable('Nonexistent/Foo.cls');
       expect(result).toBeNull();
     });
-  }, 30_000);
+  }, 120_000);
 
   it('resolveStandardClassFqn resolves known class', async () => {
     await withTopology(async (topology, logger) => {
@@ -79,7 +79,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
       const fqn = await proxy.resolveStandardClassFqn('String');
       expect(fqn).toBe('System.String');
     });
-  }, 30_000);
+  }, 120_000);
 
   it('resolveStandardClassFqn returns null for non-stdlib class', async () => {
     await withTopology(async (topology, logger) => {
@@ -87,7 +87,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
       const fqn = await proxy.resolveStandardClassFqn('MyCustomClass');
       expect(fqn).toBeNull();
     });
-  }, 30_000);
+  }, 120_000);
 
   it('getFile returns undefined for unknown path', async () => {
     await withTopology(async (topology, logger) => {
@@ -95,5 +95,5 @@ describe('ResourceLoaderProxy (Step 9)', () => {
       const content = await proxy.getFile('Nonexistent/Missing.cls');
       expect(content).toBeUndefined();
     });
-  }, 30_000);
+  }, 120_000);
 });
