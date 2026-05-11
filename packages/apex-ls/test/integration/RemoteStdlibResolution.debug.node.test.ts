@@ -14,7 +14,11 @@
  * The fix calls SymbolTable.fromSerializedData() to reconstruct.
  */
 
-import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
+import {
+  SymbolKind,
+  SymbolTable,
+  SymbolVisibility,
+} from '@salesforce/apex-lsp-parser-ast';
 
 describe('Remote stdlib SymbolTable deserialization', () => {
   it('SymbolTable.fromSerializedData reconstructs from a plain object', () => {
@@ -22,8 +26,9 @@ describe('Remote stdlib SymbolTable deserialization', () => {
     const serialized = {
       symbols: [
         {
+          id: 'system-string',
           name: 'String',
-          kind: 'class',
+          kind: SymbolKind.Class,
           location: {
             symbolRange: {
               startLine: 1,
@@ -38,7 +43,27 @@ describe('Remote stdlib SymbolTable deserialization', () => {
               endColumn: 19,
             },
           },
-          modifiers: { isBuiltIn: true },
+          fileUri: 'apexlib://resources/StandardApexLibrary/System/String.cls',
+          parentId: null,
+          key: {
+            prefix: 'class',
+            name: 'String',
+            path: ['System'],
+            unifiedId: 'system-string',
+          },
+          _isLoaded: true,
+          modifiers: {
+            visibility: SymbolVisibility.Public,
+            isStatic: false,
+            isFinal: false,
+            isAbstract: false,
+            isVirtual: false,
+            isOverride: false,
+            isTransient: false,
+            isTestMethod: false,
+            isWebService: false,
+            isBuiltIn: true,
+          },
         },
       ],
       references: [],
