@@ -26,6 +26,7 @@ import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessin
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
 import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
+import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
@@ -197,6 +198,10 @@ export class ServiceFactory {
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+  }
+
+  createFoldingRangeService(): FoldingRangeProcessingService {
+    return new FoldingRangeProcessingService(this.dependencies.logger);
   }
 
   /**
