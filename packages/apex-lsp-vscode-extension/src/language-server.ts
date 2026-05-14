@@ -80,6 +80,16 @@ const sharedWorkspaceLoadLayer = Layer.mergeAll(
   WorkspaceStateLive,
 );
 
+function registerIngestionCompleteHandler(client: ClientInterface) {
+  client.onNotification('apex/workspaceIngestionComplete', () => {
+    logToOutputChannel(
+      '✅ Server workspace ingestion complete — updating status bar',
+      'debug',
+    );
+    updateApexServerStatusReady();
+  });
+}
+
 /**
  * Environment detection
  */
@@ -862,14 +872,7 @@ async function createWebLanguageClient(
     },
   );
 
-  // Clear the status bar spinner once the server finishes ingesting workspace files
-  Client.onNotification('apex/workspaceIngestionComplete', () => {
-    logToOutputChannel(
-      '✅ Server workspace ingestion complete — updating status bar',
-      'debug',
-    );
-    updateApexServerStatusReady();
-  });
+  registerIngestionCompleteHandler(Client);
 
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
@@ -1304,14 +1307,7 @@ async function createDesktopLanguageClient(
     },
   );
 
-  // Clear the status bar spinner once the server finishes ingesting workspace files
-  Client.onNotification('apex/workspaceIngestionComplete', () => {
-    logToOutputChannel(
-      '✅ Server workspace ingestion complete — updating status bar',
-      'debug',
-    );
-    updateApexServerStatusReady();
-  });
+  registerIngestionCompleteHandler(Client);
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 
