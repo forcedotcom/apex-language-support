@@ -61,6 +61,17 @@ interface PerformanceSettings {
     enableForDocumentSymbols: boolean;
     enableForFoldingRanges: boolean;
   };
+  experimental?: ExperimentalSettings;
+}
+
+interface ExperimentalWorkersSettings {
+  enabled: boolean;
+  poolSize: number;
+  resourceLoader: boolean;
+}
+
+interface ExperimentalSettings {
+  workers?: ExperimentalWorkersSettings;
 }
 
 const PRIORITIES = [
@@ -916,9 +927,11 @@ class PerformanceSettingsUI {
     `;
   }
 
-  private renderExperimentalWorkers(experimentalSettings: any): string {
+  private renderExperimentalWorkers(
+    experimentalSettings: ExperimentalSettings | undefined,
+  ): string {
     const expanded = this.expandedSections.has('experimentalWorkers');
-    const workers = experimentalSettings?.workers || {
+    const workers: ExperimentalWorkersSettings = experimentalSettings?.workers || {
       enabled: true,
       poolSize: 2,
       resourceLoader: true,
