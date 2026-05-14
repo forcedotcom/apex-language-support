@@ -32,7 +32,7 @@ import {
 export function getExcludeGlob(includeSfdxToolsCustomObjects: boolean): string {
   const exclude = [
     'node_modules',
-    '.sf/**',
+    '.sf',
     '.sfdx/tools/*/StandardApexLibrary',
     '.sfdx/tools/sobjects/standardObjects',
     ...(includeSfdxToolsCustomObjects
