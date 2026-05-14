@@ -28,7 +28,7 @@ interface WorkerTopologyStatus {
   resourceLoader: { active: boolean } | null;
   compilation: { active: boolean };
   dispatchedCount: number;
-  coordinatorOnlyTypes: string[];
+  coordinatorOnlyTypes: readonly string[];
 }
 
 interface QueueStateData {

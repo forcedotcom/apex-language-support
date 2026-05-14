@@ -938,7 +938,9 @@ export class LCSAdapter {
               'metrics' in result &&
               this.workerDispatcher?.getTopologyStatus
             ) {
-              (result as any).metrics.workerTopology =
+              const metrics = (result as { metrics: Record<string, unknown> })
+                .metrics;
+              metrics.workerTopology =
                 this.workerDispatcher.getTopologyStatus();
             }
             this.logger.debug(
@@ -1479,18 +1481,18 @@ export class LCSAdapter {
           // Callback function to send notifications to client
           const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
-              const enrichedMetrics = this.workerDispatcher?.getTopologyStatus
-                ? {
-                    ...metrics,
-                    workerTopology: this.workerDispatcher.getTopologyStatus(),
-                  }
-                : metrics;
               this.logger.debug(
                 () =>
                   `Sending queue state notification: Started=${
                     metrics.tasksStarted
                   }, Completed=${metrics.tasksCompleted}`,
               );
+              const enrichedMetrics = this.workerDispatcher?.getTopologyStatus
+                ? {
+                    ...metrics,
+                    workerTopology: this.workerDispatcher.getTopologyStatus(),
+                  }
+                : metrics;
               this.connection.sendNotification('apex/queueStateChanged', {
                 metrics: enrichedMetrics,
                 metadata: {
