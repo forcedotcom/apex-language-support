@@ -26,6 +26,7 @@ import {
 import {
   updateApexServerStatusLoading,
   updateApexServerStatusReady,
+  startIngestionTimeout,
 } from './status-bar';
 
 // --- Configuration ---
@@ -365,6 +366,7 @@ export async function loadWorkspaceForServer(
     updateApexServerStatusLoading(
       `Ingesting ${allUris.length} files on server...`,
     );
+    startIngestionTimeout();
   });
 
   try {

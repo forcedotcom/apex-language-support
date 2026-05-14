@@ -231,6 +231,27 @@ export const updateApexServerStatusLoading = (message: string) => {
   }
 };
 
+let ingestionTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+const INGESTION_TIMEOUT_MS = 5 * 60 * 1000;
+
+export function startIngestionTimeout() {
+  clearIngestionTimeout();
+  ingestionTimeoutHandle = setTimeout(() => {
+    logToOutputChannel(
+      '⚠️ Ingestion complete notification not received within 5 minutes — clearing spinner',
+      'warning',
+    );
+    updateApexServerStatusReady();
+  }, INGESTION_TIMEOUT_MS);
+}
+
+export function clearIngestionTimeout() {
+  if (ingestionTimeoutHandle !== undefined) {
+    clearTimeout(ingestionTimeoutHandle);
+    ingestionTimeoutHandle = undefined;
+  }
+}
+
 export const updateApexServerStatusStarting = () => {
   if (apexServerStatusItem) {
     const currentLogLevel = getLogLevel();

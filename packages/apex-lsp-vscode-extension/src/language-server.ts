@@ -41,6 +41,7 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
   updateApexServerStatusStopped,
+  clearIngestionTimeout,
 } from './status-bar';
 import {
   getWorkspaceSettings,
@@ -82,6 +83,7 @@ const sharedWorkspaceLoadLayer = Layer.mergeAll(
 
 function registerIngestionCompleteHandler(client: ClientInterface) {
   client.onNotification('apex/workspaceIngestionComplete', () => {
+    clearIngestionTimeout();
     logToOutputChannel(
       '✅ Server workspace ingestion complete — updating status bar',
       'debug',
