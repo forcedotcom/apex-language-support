@@ -956,7 +956,7 @@ class PerformanceSettingsUI {
                        ${workers.enabled ? 'checked' : ''}>
                 <span class="setting-label-text">Enable Worker Threads</span>
               </label>
-              <div class="setting-help">Master switch for internal worker thread topology (default: off)</div>
+              <div class="setting-help">Master switch for internal worker thread topology (default: on)</div>
             </div>
             <div class="setting-item">
               <label class="setting-label">
