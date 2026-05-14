@@ -125,6 +125,15 @@ export class LCSAdapter {
       includeDiagnostics?: boolean;
     }): Promise<unknown>;
     isAvailable(): boolean;
+    getTopologyStatus?(): {
+      enabled: boolean;
+      dataOwner: { active: boolean };
+      enrichmentPool: { size: number; active: boolean };
+      resourceLoader: { active: boolean } | null;
+      compilation: { active: boolean };
+      dispatchedCount: number;
+      coordinatorOnlyTypes: readonly string[];
+    };
   };
   private workerPlatformWebUrl: string | undefined;
   private clientCapabilities?: ClientCapabilities;
@@ -923,6 +932,15 @@ export class LCSAdapter {
           );
           try {
             const result = await dispatchProcessOnQueueState(params);
+            if (
+              result &&
+              typeof result === 'object' &&
+              'metrics' in result &&
+              this.workerDispatcher?.getTopologyStatus
+            ) {
+              (result as any).metrics.workerTopology =
+                this.workerDispatcher.getTopologyStatus();
+            }
             this.logger.debug(
               () =>
                 `✅ apex/queueState processed successfully, result type: ${typeof result}`,
@@ -1461,6 +1479,12 @@ export class LCSAdapter {
           // Callback function to send notifications to client
           const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
+              const enrichedMetrics = this.workerDispatcher?.getTopologyStatus
+                ? {
+                    ...metrics,
+                    workerTopology: this.workerDispatcher.getTopologyStatus(),
+                  }
+                : metrics;
               this.logger.debug(
                 () =>
                   `Sending queue state notification: Started=${
@@ -1468,7 +1492,7 @@ export class LCSAdapter {
                   }, Completed=${metrics.tasksCompleted}`,
               );
               this.connection.sendNotification('apex/queueStateChanged', {
-                metrics,
+                metrics: enrichedMetrics,
                 metadata: {
                   timestamp: Date.now(),
                 },
