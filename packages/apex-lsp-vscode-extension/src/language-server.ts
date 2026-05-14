@@ -176,6 +176,15 @@ const createEnhancedInitializationOptions = async (
     }
   }
 
+  const workerPlatformWebUrl =
+    runtimePlatform === 'web'
+      ? vscode.Uri.joinPath(
+          context.extensionUri,
+          'dist',
+          'worker.platform.web.js',
+        ).toString()
+      : undefined;
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -187,6 +196,7 @@ const createEnhancedInitializationOptions = async (
         extensionVersion,
         workspaceFileCount,
         apexFileCount,
+        workerPlatformWebUrl,
       },
       resources: {
         ...safeSettings.apex?.resources,
@@ -852,6 +862,15 @@ async function createWebLanguageClient(
     },
   );
 
+  // Clear the status bar spinner once the server finishes ingesting workspace files
+  Client.onNotification('apex/workspaceIngestionComplete', () => {
+    logToOutputChannel(
+      '✅ Server workspace ingestion complete — updating status bar',
+      'debug',
+    );
+    updateApexServerStatusReady();
+  });
+
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
 
@@ -1284,6 +1303,15 @@ async function createDesktopLanguageClient(
       }
     },
   );
+
+  // Clear the status bar spinner once the server finishes ingesting workspace files
+  Client.onNotification('apex/workspaceIngestionComplete', () => {
+    logToOutputChannel(
+      '✅ Server workspace ingestion complete — updating status bar',
+      'debug',
+    );
+    updateApexServerStatusReady();
+  });
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 

@@ -107,7 +107,7 @@ async function walkDirectory(
 export async function findFilesAcrossWorkspaceFolders(
   pattern: string,
   exclude?: string | null,
-  maxResults?: number,
+  maxResults: number = Infinity,
 ): Promise<vscode.Uri[]> {
   const allFolders = vscode.workspace.workspaceFolders ?? [];
 
@@ -117,15 +117,14 @@ export async function findFilesAcrossWorkspaceFolders(
 
   const seen = new Set<string>();
   const results: vscode.Uri[] = [];
-  const limit = maxResults ?? 1000;
 
   // Pass 1: findFiles for schemes with a reliable search provider
   const searchFolders = allFolders.filter((f) =>
     SEARCH_PROVIDER_SCHEMES.has(f.uri.scheme),
   );
   for (const folder of searchFolders) {
-    if (results.length >= limit) break;
-    const remaining = limit - results.length;
+    if (results.length >= maxResults) break;
+    const remaining = maxResults - results.length;
     const relPattern = new vscode.RelativePattern(folder, pattern);
     try {
       const files = await vscode.workspace.findFiles(
@@ -149,11 +148,11 @@ export async function findFilesAcrossWorkspaceFolders(
   const fsFolders = allFolders.filter((f) =>
     FS_PROVIDER_SCHEMES.has(f.uri.scheme),
   );
-  if (fsFolders.length > 0 && results.length < limit) {
+  if (fsFolders.length > 0 && results.length < maxResults) {
     const matcher = globSegmentToRegex(pattern);
     for (const folder of fsFolders) {
-      if (results.length >= limit) break;
-      await walkDirectory(folder.uri, matcher, results, limit, 0);
+      if (results.length >= maxResults) break;
+      await walkDirectory(folder.uri, matcher, results, maxResults, 0);
     }
   }
 
