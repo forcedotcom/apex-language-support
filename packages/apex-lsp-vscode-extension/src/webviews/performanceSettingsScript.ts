@@ -931,11 +931,12 @@ class PerformanceSettingsUI {
     experimentalSettings: ExperimentalSettings | undefined,
   ): string {
     const expanded = this.expandedSections.has('experimentalWorkers');
-    const workers: ExperimentalWorkersSettings = experimentalSettings?.workers || {
-      enabled: true,
-      poolSize: 2,
-      resourceLoader: true,
-    };
+    const workers: ExperimentalWorkersSettings =
+      experimentalSettings?.workers || {
+        enabled: true,
+        poolSize: 2,
+        resourceLoader: true,
+      };
 
     return `
       <div class="settings-section" id="experimentalWorkers">
