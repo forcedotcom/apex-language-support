@@ -1380,6 +1380,7 @@ export async function restartLanguageServer(
  */
 export async function stopLanguageServer(): Promise<void> {
   logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
+  clearIngestionTimeout();
   if (Client) {
     try {
       await Client.dispose();

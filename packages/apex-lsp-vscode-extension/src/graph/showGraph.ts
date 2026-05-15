@@ -429,7 +429,7 @@ export async function showGraph(context: vscode.ExtensionContext) {
       [
         {
           label: 'Current File',
-          description: activeEditor!.document.fileName,
+          description: activeEditor?.document.fileName ?? '',
           value: 'file' as const,
         },
         {

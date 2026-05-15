@@ -938,10 +938,10 @@ export class LCSAdapter {
               'metrics' in result &&
               this.workerDispatcher?.getTopologyStatus
             ) {
-              const metrics = (result as { metrics: Record<string, unknown> })
-                .metrics;
-              metrics.workerTopology =
-                this.workerDispatcher.getTopologyStatus();
+              (result as { metrics: Record<string, unknown> }).metrics = {
+                ...(result as { metrics: Record<string, unknown> }).metrics,
+                workerTopology: this.workerDispatcher.getTopologyStatus(),
+              };
             }
             this.logger.debug(
               () =>
