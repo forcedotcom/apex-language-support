@@ -101,6 +101,57 @@ function parseIdRuleTokens(grammarText) {
 }
 
 /**
+ * Extract id-rule token types directly from the parser's ATN (compiled grammar).
+ * This works regardless of GitHub tag availability — it uses the installed package.
+ * Walks only immediate transitions from the id rule's start state (depth 1)
+ * to avoid traversing into sub-rules.
+ * @param {object} ApexParser - The ApexParser class
+ * @param {object} parser - A parser instance
+ * @returns {number[]} Token type numbers accepted by the id rule
+ */
+function extractIdRuleTokensFromATN(ApexParser, parser) {
+  const ruleIndex = ApexParser.RULE_id;
+  if (ruleIndex === undefined) return [];
+
+  const atn = parser.atn;
+  const ruleStart = atn.ruleToStartState[ruleIndex];
+  if (!ruleStart) return [];
+
+  const tokenTypes = new Set();
+  const visited = new Set();
+
+  function walkState(state) {
+    if (!state || visited.has(state.stateNumber)) return;
+    visited.add(state.stateNumber);
+    for (const transition of state.transitions) {
+      // AtomTransition (single token type)
+      if (transition.serializationType === 5) {
+        tokenTypes.add(transition.label);
+      }
+      // SetTransition (range of token types)
+      else if (transition.serializationType === 7) {
+        for (const interval of transition.label.intervals) {
+          for (let i = interval.start; i < interval.stop; i++) {
+            tokenTypes.add(i);
+          }
+        }
+      }
+      // RuleTransition — do NOT follow into sub-rules
+      else if (transition.serializationType === 3) {
+        continue;
+      }
+      // EpsilonTransition — follow within the same rule
+      else if (transition.serializationType === 1) {
+        walkState(transition.target);
+      }
+    }
+  }
+
+  walkState(ruleStart);
+  return [...tokenTypes];
+}
+
+/**
  * Compute contextual keywords: id tokens in lowercase, intersected with lexer keywords,
  * excluding builtin type names.
  * @param {string[]} idTokens - Uppercase token names from id rule
@@ -198,36 +249,58 @@ async function generateKeywords() {
     ].sort();
     console.log(`Using ${builtinTypeNames.length} hardcoded builtin type names`);
 
-    // Extract contextual keywords from grammar id rule
+    // Extract contextual keywords from parser's id rule.
+    // Primary: extract directly from the parser ATN (always works with installed package).
+    // Fallback: fetch grammar from GitHub (requires matching tag to exist).
     const packageRoot = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
       '..',
     );
     let contextualKeywords = [];
-    const version = await readApexParserVersion(packageRoot);
-    if (version) {
-      const grammarText = await fetchGrammar(version);
-      if (grammarText) {
-        const idTokens = parseIdRuleTokens(grammarText);
-        contextualKeywords = computeContextualKeywords(
-          idTokens,
-          uniqueKeywords,
-          builtinTypeNames,
-        );
-        console.log(
-          `Found ${contextualKeywords.length} contextual keywords from grammar id rule`,
-        );
+
+    // Try ATN-based extraction first
+    const { ApexParser } = await import('@apexdevtools/apex-parser');
+    const parser = ApexParserFactory.createParser('class X {}');
+    const idTokenTypes = extractIdRuleTokensFromATN(ApexParser, parser);
+    if (idTokenTypes.length > 0) {
+      const idTokenNames = idTokenTypes
+        .map((tt) => symbolicNames[tt])
+        .filter((n) => n && !EXCLUDE_ID_TOKENS.has(n));
+      contextualKeywords = computeContextualKeywords(
+        idTokenNames,
+        uniqueKeywords,
+        builtinTypeNames,
+      );
+      console.log(
+        `Found ${contextualKeywords.length} contextual keywords from parser ATN id rule`,
+      );
+    } else {
+      // Fallback to GitHub grammar fetch
+      const version = await readApexParserVersion(packageRoot);
+      if (version) {
+        const grammarText = await fetchGrammar(version);
+        if (grammarText) {
+          const idTokens = parseIdRuleTokens(grammarText);
+          contextualKeywords = computeContextualKeywords(
+            idTokens,
+            uniqueKeywords,
+            builtinTypeNames,
+          );
+          console.log(
+            `Found ${contextualKeywords.length} contextual keywords from grammar id rule`,
+          );
+        } else {
+          console.warn(
+            '⚠️  Could not fetch grammar; using minimal contextual keywords fallback',
+          );
+          contextualKeywords = ['offset', 'limit'];
+        }
       } else {
         console.warn(
-          '⚠️  Could not fetch grammar; using minimal contextual keywords fallback',
+          '⚠️  Could not read @apexdevtools/apex-parser version; using minimal contextual keywords fallback',
         );
         contextualKeywords = ['offset', 'limit'];
       }
-    } else {
-      console.warn(
-        '⚠️  Could not read @apexdevtools/apex-parser version; using minimal contextual keywords fallback',
-      );
-      contextualKeywords = ['offset', 'limit'];
     }
 
     // Create the generated content

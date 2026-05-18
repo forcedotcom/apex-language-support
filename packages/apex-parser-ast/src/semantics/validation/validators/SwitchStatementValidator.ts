@@ -281,9 +281,9 @@ function extractWhenLiteralInfo(wl: WhenLiteralContext): WhenLiteralInfo {
   if (wl.NULL()) {
     return { literalType: 'null', ctx: wl };
   }
-  const idNode = wl.id();
-  if (idNode) {
-    return { identifierText: idNode.getText(), ctx: wl };
+  const qualifiedName = wl.qualifiedName();
+  if (qualifiedName) {
+    return { identifierText: qualifiedName.getText(), ctx: wl };
   }
   // Parenthesized whenLiteral - recurse
   const inner = wl.whenLiteral();

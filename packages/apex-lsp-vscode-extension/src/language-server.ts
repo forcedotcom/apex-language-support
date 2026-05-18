@@ -795,7 +795,9 @@ async function createWebLanguageClient(
     );
   } catch (error) {
     logToOutputChannel(
-      `⚠️ Failed to initialize ApexLib: ${error}. Standard library navigation may not work.`,
+      '⚠️ Failed to initialize ApexLib: ' +
+        `${error instanceof Error ? error.stack : error}.` +
+        ' Standard library navigation may not work.',
       'warning',
     );
   }
@@ -1228,7 +1230,9 @@ async function createDesktopLanguageClient(
     );
   } catch (error) {
     logToOutputChannel(
-      `⚠️ Failed to initialize ApexLib: ${error}. Standard library navigation may not work.`,
+      '⚠️ Failed to initialize ApexLib: ' +
+        `${error instanceof Error ? error.stack : error}.` +
+        ' Standard library navigation may not work.',
       'warning',
     );
   }

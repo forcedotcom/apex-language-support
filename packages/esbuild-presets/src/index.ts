@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { build, context, type BuildOptions, type Plugin } from 'esbuild';
 
 /**
@@ -29,8 +31,6 @@ export const COMMON_EXTERNAL = [
   'vscode-jsonrpc',
   'vscode-jsonrpc/node',
   'vscode-jsonrpc/browser',
-  '@apexdevtools/apex-parser',
-  'antlr4',
 ];
 
 /**
@@ -117,21 +117,59 @@ export const WEB_WORKER_GLOBALS = {
 } as const;
 
 /**
+ * Plugin to force antlr4 resolution to CJS entry in CJS bundles.
+ * antlr4 is "type": "module" so esbuild may prefer its ESM entry (antlr4.node.mjs)
+ * which uses `createRequire(import.meta.url)("fs")` — that fails in CJS output because
+ * esbuild cannot polyfill import.meta.url in CJS format.
+ * The CJS entry (antlr4.node.cjs) uses require() directly and works fine.
+ *
+ * With @apexdevtools/apex-parser v5.1+, antlr4 is shipped as a bundledDependency
+ * inside the package itself — this plugin walks up from the importer to find it.
+ */
+export const forceAntlr4CjsPlugin: Plugin = {
+  name: 'force-antlr4-cjs',
+  setup(build) {
+    build.onResolve({ filter: /^antlr4$/ }, (args) => {
+      let dir = args.resolveDir;
+      while (dir !== path.dirname(dir)) {
+        const candidate = path.join(
+          dir,
+          'node_modules',
+          'antlr4',
+          'dist',
+          'antlr4.node.cjs',
+        );
+        if (fs.existsSync(candidate)) {
+          return { path: candidate };
+        }
+        dir = path.dirname(dir);
+      }
+      return undefined;
+    });
+  },
+};
+
+/**
  * Plugin to stub @apexdevtools/apex-parser's Check module which unconditionally
  * imports node:fs/node:path. We never use check()/checkProject() and these
  * imports prevent bundling for browser environments.
+ *
+ * Matches both v5.0 (.js) and v5.1+ (.cjs/.js) file extensions.
  */
 export const stubApexParserCheckPlugin: Plugin = {
   name: 'stub-apex-parser-check',
   setup(build) {
-    build.onResolve({ filter: /\.\/Check\.js$|[\\/]Check\.js$/ }, (args) => {
+    build.onResolve({ filter: /[\\/.]Check\.(js|cjs)$/ }, (args) => {
       if (args.importer?.includes('apex-parser')) {
         return { path: 'stub-check', namespace: 'stub-check' };
       }
       return undefined;
     });
     build.onResolve(
-      { filter: /[\\/]apex-parser[\\/]dist[\\/]src[\\/]Check\.js$/ },
+      {
+        filter:
+          /[\\/]apex-parser[\\/]dist[\\/](src|cjs|esm)[\\/]Check\.(js|cjs)$/,
+      },
       () => ({ path: 'stub-check', namespace: 'stub-check' }),
     );
     build.onLoad({ filter: /.*/, namespace: 'stub-check' }, () => ({

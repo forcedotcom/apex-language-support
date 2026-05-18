@@ -208,7 +208,7 @@
     }
   },
   "dependencies": {
-    "@apexdevtools/apex-parser": "5.0.0",
+    "@apexdevtools/apex-parser": "5.1.0-beta.1",
     "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
     "@salesforce/vscode-i18n": "^66.7.0",

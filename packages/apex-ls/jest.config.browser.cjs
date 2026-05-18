@@ -12,6 +12,9 @@ module.exports = {
   // Additional module name mappings for web environment
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
+    // Force CJS entry for apex-parser in Jest (browser export is ESM-only .mjs)
+    '^@apexdevtools/apex-parser$':
+      '<rootDir>/../../node_modules/@apexdevtools/apex-parser/dist/cjs/index.cjs',
     // VSCode Language Server mocks for browser environment
     '^vscode-languageserver/browser$':
       '<rootDir>/test/__mocks__/vscode-languageserver-browser.mock.js',

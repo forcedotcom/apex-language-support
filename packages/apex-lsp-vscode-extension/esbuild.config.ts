@@ -12,6 +12,7 @@ import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfil
 import { copy } from 'esbuild-plugin-copy';
 import {
   browserBaseConfig,
+  forceAntlr4CjsPlugin,
   nodeBaseConfig,
   NODE_POLYFILLS,
   runBuilds,
@@ -28,7 +29,6 @@ const builds: BuildOptions[] = [
     outExtension: { '.js': '.js' },
     sourcemap: true,
     external: ['vscode', 'vm', 'net', 'worker_threads', 'web-worker'],
-    banner: undefined,
     footer: undefined,
     keepNames: true,
     loader: {
@@ -36,6 +36,8 @@ const builds: BuildOptions[] = [
       '.gz': 'dataurl',
     },
     plugins: [
+      forceAntlr4CjsPlugin,
+      stubApexParserCheckPlugin,
       copy({
         resolveFrom: 'cwd',
         assets: [
