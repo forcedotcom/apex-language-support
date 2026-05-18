@@ -112,7 +112,11 @@ export async function findFilesAcrossWorkspaceFolders(
   const allFolders = vscode.workspace.workspaceFolders ?? [];
 
   if (allFolders.length === 0) {
-    return vscode.workspace.findFiles(pattern, exclude ?? null, maxResults);
+    return vscode.workspace.findFiles(
+      pattern,
+      exclude ?? null,
+      Number.isFinite(maxResults) ? maxResults : undefined,
+    );
   }
 
   const seen = new Set<string>();
@@ -130,7 +134,7 @@ export async function findFilesAcrossWorkspaceFolders(
       const files = await vscode.workspace.findFiles(
         relPattern,
         exclude ?? null,
-        remaining,
+        Number.isFinite(remaining) ? remaining : undefined,
       );
       for (const f of files) {
         const key = f.toString();
@@ -162,7 +166,11 @@ export async function findFilesAcrossWorkspaceFolders(
     searchFolders.length === 0 &&
     fsFolders.length === 0
   ) {
-    return vscode.workspace.findFiles(pattern, exclude ?? null, maxResults);
+    return vscode.workspace.findFiles(
+      pattern,
+      exclude ?? null,
+      Number.isFinite(maxResults) ? maxResults : undefined,
+    );
   }
 
   return results;
