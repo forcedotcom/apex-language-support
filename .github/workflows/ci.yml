@@ -23,6 +23,8 @@ jobs:
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

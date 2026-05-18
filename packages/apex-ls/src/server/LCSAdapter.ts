@@ -125,6 +125,15 @@ export class LCSAdapter {
       includeDiagnostics?: boolean;
     }): Promise<unknown>;
     isAvailable(): boolean;
+    getTopologyStatus?(): {
+      enabled: boolean;
+      dataOwner: { active: boolean };
+      enrichmentPool: { size: number; active: boolean };
+      resourceLoader: { active: boolean } | null;
+      compilation: { active: boolean };
+      dispatchedCount: number;
+      coordinatorOnlyTypes: readonly string[];
+    };
   };
   private workerPlatformWebUrl: string | undefined;
   private clientCapabilities?: ClientCapabilities;
@@ -923,6 +932,17 @@ export class LCSAdapter {
           );
           try {
             const result = await dispatchProcessOnQueueState(params);
+            if (
+              result &&
+              typeof result === 'object' &&
+              'metrics' in result &&
+              this.workerDispatcher?.getTopologyStatus
+            ) {
+              (result as { metrics: Record<string, unknown> }).metrics = {
+                ...(result as { metrics: Record<string, unknown> }).metrics,
+                workerTopology: this.workerDispatcher.getTopologyStatus(),
+              };
+            }
             this.logger.debug(
               () =>
                 `✅ apex/queueState processed successfully, result type: ${typeof result}`,
@@ -1467,8 +1487,14 @@ export class LCSAdapter {
                     metrics.tasksStarted
                   }, Completed=${metrics.tasksCompleted}`,
               );
+              const enrichedMetrics = this.workerDispatcher?.getTopologyStatus
+                ? {
+                    ...metrics,
+                    workerTopology: this.workerDispatcher.getTopologyStatus(),
+                  }
+                : metrics;
               this.connection.sendNotification('apex/queueStateChanged', {
-                metrics,
+                metrics: enrichedMetrics,
                 metadata: {
                   timestamp: Date.now(),
                 },
