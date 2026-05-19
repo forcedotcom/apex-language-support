@@ -2,7 +2,9 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": ".."
+    "rootDir": "..",
+    "types": ["node", "node/net", "node/stream", "node/buffer", "node/process", "jest"]
   },
-  "include": ["**/*.ts", "../src/**/*.ts"]
+  "include": ["**/*.ts", "../src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
