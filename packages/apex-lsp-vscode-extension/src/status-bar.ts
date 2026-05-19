@@ -222,6 +222,36 @@ export const createApexServerStatusItem = (
   context.subscriptions.push(apexServerStatusItem);
 };
 
+export const updateApexServerStatusLoading = (message: string) => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = `$(sync~spin) ${message}`;
+    apexServerStatusItem.detail = 'Loading Apex workspace';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+    apexServerStatusItem.busy = true;
+  }
+};
+
+let ingestionTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+const INGESTION_TIMEOUT_MS = 5 * 60 * 1000;
+
+export function startIngestionTimeout() {
+  clearIngestionTimeout();
+  ingestionTimeoutHandle = setTimeout(() => {
+    logToOutputChannel(
+      '⚠️ Ingestion complete notification not received within 5 minutes — clearing spinner',
+      'warning',
+    );
+    updateApexServerStatusReady();
+  }, INGESTION_TIMEOUT_MS);
+}
+
+export function clearIngestionTimeout() {
+  if (ingestionTimeoutHandle !== undefined) {
+    clearTimeout(ingestionTimeoutHandle);
+    ingestionTimeoutHandle = undefined;
+  }
+}
+
 export const updateApexServerStatusStarting = () => {
   if (apexServerStatusItem) {
     const currentLogLevel = getLogLevel();

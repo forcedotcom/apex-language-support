@@ -98,32 +98,6 @@ export class WorkerRemoteStdlibWarmup extends Schema.TaggedRequest<WorkerRemoteS
 ) {}
 
 // ---------------------------------------------------------------------------
-// Wire protocol version
-// ---------------------------------------------------------------------------
-
-/** Current wire protocol version — bump on breaking schema changes */
-export const WIRE_PROTOCOL_VERSION = 1;
-
-// ---------------------------------------------------------------------------
-// Side-channel messages (plain objects via postMessage, not Schema requests)
-// ---------------------------------------------------------------------------
-
-/** Fire-and-forget log message from worker to coordinator. */
-export interface WorkerLogMessage {
-  readonly _tag: 'WorkerLogMessage';
-  readonly level: 'debug' | 'info' | 'warning' | 'error';
-  readonly message: string;
-}
-
-/** Coordinator-to-worker notification to update the worker's log level. */
-export interface WorkerLogLevelChange {
-  readonly _tag: 'WorkerLogLevelChange';
-  readonly logLevel: 'debug' | 'info' | 'warning' | 'error';
-}
-
-export type WorkerLogLevel = WorkerLogMessage['level'];
-
-// ---------------------------------------------------------------------------
 // QuerySymbolSubset — enrichment worker asks data-owner for symbol tables
 // ---------------------------------------------------------------------------
 
@@ -156,60 +130,75 @@ export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
-// UpdateSymbolSubset — enrichment worker writes back enriched symbols
+// WorkerAssistanceRequest — worker asks coordinator for client RPC
+// (e.g. apex/findMissingArtifact)
 // ---------------------------------------------------------------------------
 
-export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>()(
-  'UpdateSymbolSubset',
+export class WorkerAssistanceRequest extends Schema.TaggedRequest<WorkerAssistanceRequest>()(
+  'WorkerAssistanceRequest',
   {
     success: Schema.Struct({
-      accepted: Schema.Boolean,
-      merged: Schema.Number, // Count of symbols merged
-      versionMismatch: Schema.Boolean, // Rejected due to stale version
+      correlationId: Schema.String,
+      result: Schema.Unknown,
     }),
     failure: Schema.Struct({
-      _tag: Schema.Literal('UpdateSymbolSubsetError'),
+      _tag: Schema.Literal('WorkerAssistanceError'),
+      correlationId: Schema.String,
       message: Schema.String,
     }),
     payload: {
-      uri: Schema.String,
-      documentVersion: Schema.Number, // Version this enrichment is based on
-      enrichedSymbolTable: Schema.Unknown, // Serialized SymbolTable
-      enrichedDetailLevel: Schema.Literal(
-        'public-api',
-        'protected',
-        'private',
-        'full',
-      ),
-      sourceWorkerId: Schema.String, // For debugging/metrics
+      correlationId: Schema.String,
+      method: Schema.String,
+      params: Schema.Unknown,
+      blocking: Schema.Boolean,
     },
   },
 ) {}
 
-export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
-  (typeof UpdateSymbolSubset)['success']
+export type WorkerAssistanceSuccess = Schema.Schema.Type<
+  (typeof WorkerAssistanceRequest)['success']
 >;
 
-// ---------------------------------------------------------------------------
-// ResolveDepUris — enrichment worker asks data-owner to resolve class names
-// to file URIs and return the corresponding symbol tables in one round trip
-// ---------------------------------------------------------------------------
+/**
+ * Plain-object shapes for assistance messages exchanged over the
+ * worker MessagePort side-channel. These are NOT Schema-decoded —
+ * they flow as raw postMessage objects alongside the @effect/platform
+ * protocol.
+ */
+export interface AssistanceRequestPayload {
+  readonly _tag: 'WorkerAssistanceRequest';
+  readonly correlationId: string;
+  readonly method: string;
+  readonly params: unknown;
+  readonly blocking: boolean;
+}
 
-export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
-  'ResolveDepUris',
-  {
-    success: Schema.Struct({
-      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    }),
-    failure: Schema.Struct({
-      _tag: Schema.Literal('ResolveDepUrisError'),
-      message: Schema.String,
-    }),
-    payload: {
-      classNames: Schema.Array(Schema.String),
-    },
-  },
-) {}
+export interface AssistanceResponsePayload {
+  readonly _tag: 'WorkerAssistanceResponse';
+  readonly correlationId: string;
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export function isAssistanceRequest(
+  data: unknown,
+): data is AssistanceRequestPayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
+  );
+}
+
+export function isAssistanceResponse(
+  data: unknown,
+): data is AssistanceResponsePayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Record<string, unknown>)._tag === 'WorkerAssistanceResponse'
+  );
+}
 
 // ---------------------------------------------------------------------------
 // WorkspaceBatchIngest — coordinator forwards decoded batch to data-owner
@@ -243,30 +232,6 @@ export class WorkspaceBatchIngest extends Schema.TaggedRequest<WorkspaceBatchIng
 export type WorkspaceBatchIngestSuccess = Schema.Schema.Type<
   (typeof WorkspaceBatchIngest)['success']
 >;
-
-// ---------------------------------------------------------------------------
-// QueryGraphData — coordinator asks data-owner to compute graph data
-// using the data-owner's own symbol manager (which holds all workspace symbols
-// after compilation and enrichment write-backs).
-// ---------------------------------------------------------------------------
-
-export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
-  'QueryGraphData',
-  {
-    success: Schema.Unknown,
-    failure: Schema.Struct({
-      _tag: Schema.Literal('QueryGraphDataError'),
-      message: Schema.String,
-    }),
-    payload: {
-      type: Schema.Literal('all', 'file', 'type'),
-      fileUri: Schema.optional(Schema.String),
-      symbolType: Schema.optional(Schema.String),
-      includeMetadata: Schema.optional(Schema.Boolean),
-      includeDiagnostics: Schema.optional(Schema.Boolean),
-    },
-  },
-) {}
 
 // ---------------------------------------------------------------------------
 // CompileDocument — coordinator sends a single file to compilation worker
@@ -650,75 +615,84 @@ export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGene
 ) {}
 
 // ---------------------------------------------------------------------------
-// WorkerAssistanceRequest — worker asks coordinator for client RPC
-// (e.g. apex/findMissingArtifact)
+// UpdateSymbolSubset — enrichment worker writes back enriched symbols
 // ---------------------------------------------------------------------------
 
-export class WorkerAssistanceRequest extends Schema.TaggedRequest<WorkerAssistanceRequest>()(
-  'WorkerAssistanceRequest',
+export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>()(
+  'UpdateSymbolSubset',
   {
     success: Schema.Struct({
-      correlationId: Schema.String,
-      result: Schema.Unknown,
+      accepted: Schema.Boolean,
+      merged: Schema.Number, // Count of symbols merged
+      versionMismatch: Schema.Boolean, // Rejected due to stale version
     }),
     failure: Schema.Struct({
-      _tag: Schema.Literal('WorkerAssistanceError'),
-      correlationId: Schema.String,
+      _tag: Schema.Literal('UpdateSymbolSubsetError'),
       message: Schema.String,
     }),
     payload: {
-      correlationId: Schema.String,
-      method: Schema.String,
-      params: Schema.Unknown,
-      blocking: Schema.Boolean,
+      uri: Schema.String,
+      documentVersion: Schema.Number, // Version this enrichment is based on
+      enrichedSymbolTable: Schema.Unknown, // Serialized SymbolTable
+      enrichedDetailLevel: Schema.Literal(
+        'public-api',
+        'protected',
+        'private',
+        'full',
+      ),
+      sourceWorkerId: Schema.String, // For debugging/metrics
     },
   },
 ) {}
 
-export type WorkerAssistanceSuccess = Schema.Schema.Type<
-  (typeof WorkerAssistanceRequest)['success']
+export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
+  (typeof UpdateSymbolSubset)['success']
 >;
 
-/**
- * Plain-object shapes for assistance messages exchanged over the
- * worker MessagePort side-channel. These are NOT Schema-decoded —
- * they flow as raw postMessage objects alongside the @effect/platform
- * protocol.
- */
-export interface AssistanceRequestPayload {
-  readonly _tag: 'WorkerAssistanceRequest';
-  readonly correlationId: string;
-  readonly method: string;
-  readonly params: unknown;
-  readonly blocking: boolean;
-}
+// ---------------------------------------------------------------------------
+// ResolveDepUris — enrichment worker asks data-owner to resolve class names
+// to file URIs and return the corresponding symbol tables in one round trip
+// ---------------------------------------------------------------------------
 
-export interface AssistanceResponsePayload {
-  readonly _tag: 'WorkerAssistanceResponse';
-  readonly correlationId: string;
-  readonly result?: unknown;
-  readonly error?: string;
-}
+export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
+  'ResolveDepUris',
+  {
+    success: Schema.Struct({
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveDepUrisError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classNames: Schema.Array(Schema.String),
+    },
+  },
+) {}
 
-export function isAssistanceRequest(
-  data: unknown,
-): data is AssistanceRequestPayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    (data as Record<string, unknown>)._tag === 'WorkerAssistanceRequest'
-  );
-}
+// ---------------------------------------------------------------------------
+// QueryGraphData — coordinator asks data-owner to compute graph data
+// using the data-owner's own symbol manager (which holds all workspace symbols
+// after compilation and enrichment write-backs).
+// ---------------------------------------------------------------------------
 
-export function isAssistanceResponse(
-  data: unknown,
-): data is AssistanceResponsePayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    (data as Record<string, unknown>)._tag === 'WorkerAssistanceResponse'
-  );
-}
+export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
+  'QueryGraphData',
+  {
+    success: Schema.Unknown,
+    failure: Schema.Struct({
+      _tag: Schema.Literal('QueryGraphDataError'),
+      message: Schema.String,
+    }),
+    payload: {
+      type: Schema.Literal('all', 'file', 'type'),
+      fileUri: Schema.optional(Schema.String),
+      symbolType: Schema.optional(Schema.String),
+      includeMetadata: Schema.optional(Schema.Boolean),
+      includeDiagnostics: Schema.optional(Schema.Boolean),
+    },
+  },
+) {}
 
 // ---------------------------------------------------------------------------
 // Role-partitioned tag unions
@@ -840,6 +814,28 @@ export type CompilationRequest =
   | WorkerRemoteStdlibWarmup
   | CompileDocument
   | WorkspaceBatchCompile;
+
+/** Current wire protocol version — bump on breaking schema changes */
+export const WIRE_PROTOCOL_VERSION = 1;
+
+// ---------------------------------------------------------------------------
+// Side-channel messages (plain objects via postMessage, not Schema requests)
+// ---------------------------------------------------------------------------
+
+/** Fire-and-forget log message from worker to coordinator. */
+export interface WorkerLogMessage {
+  readonly _tag: 'WorkerLogMessage';
+  readonly level: 'debug' | 'info' | 'warning' | 'error';
+  readonly message: string;
+}
+
+/** Coordinator-to-worker notification to update the worker's log level. */
+export interface WorkerLogLevelChange {
+  readonly _tag: 'WorkerLogLevelChange';
+  readonly logLevel: 'debug' | 'info' | 'warning' | 'error';
+}
+
+export type WorkerLogLevel = WorkerLogMessage['level'];
 
 // ---------------------------------------------------------------------------
 // Guards
