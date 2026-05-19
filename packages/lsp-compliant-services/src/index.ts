@@ -391,6 +391,16 @@ export {
 // Export dispatch functions from handlerUtil
 export { dispatchProcessOnQueueState } from './utils/handlerUtil';
 
+// Worker bootstrap (Step 11 worker topology)
+export {
+  bootstrapDataOwnerServices,
+  bootstrapDataOwnerServicesEffect,
+  bootstrapEnrichmentServices,
+  bootstrapEnrichmentServicesEffect,
+  type DataOwnerServices,
+  type EnrichmentServices,
+} from './workers/WorkerBackendBootstrap';
+
 /**
  * Dispatch graph data processing request
  * @param params The graph data parameters

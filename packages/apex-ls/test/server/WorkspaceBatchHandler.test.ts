@@ -11,6 +11,10 @@ import {
   handleProcessWorkspaceBatchesRequest,
   clearBatchStorage,
   clearCleanupInterval,
+  setBatchIngestionDispatcher,
+  getBatchIngestionDispatcher,
+  setCrossFileEnrichmentDispatcher,
+  getCrossFileEnrichmentDispatcher,
 } from '../../src/server/WorkspaceBatchHandler';
 import { SendWorkspaceBatchParams } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -20,13 +24,27 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock dependencies
+const mockGetSettings = jest.fn(() => ({
+  apex: {
+    deferredReferenceProcessing: {
+      enableCrossFileDeferral: false,
+    },
+  },
+}));
+
 jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(() => ({
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    alwaysLog: jest.fn(),
   })),
+  ApexSettingsManager: {
+    getInstance: jest.fn(() => ({
+      getSettings: mockGetSettings,
+    })),
+  },
 }));
 
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
@@ -219,4 +237,370 @@ describe('WorkspaceBatchHandler', () => {
       expect(result.error).toBeDefined();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Batch ingestion dispatcher
+  // ---------------------------------------------------------------------------
+
+  const isJsdom =
+    typeof navigator !== 'undefined' && /jsdom/.test(navigator.userAgent);
+
+  (isJsdom ? describe.skip : describe)('batch ingestion dispatcher', () => {
+    function makeCompressedBatch(
+      files: Array<{ uri: string; version: number; content: string }>,
+      batchIndex = 0,
+      totalBatches = 1,
+    ): string {
+      const { zipSync: zip, strToU8: s2u } = require('fflate') as {
+        zipSync: (data: Record<string, Uint8Array>) => Uint8Array;
+        strToU8: (s: string) => Uint8Array;
+      };
+      const metadata = {
+        batchIndex,
+        totalBatches,
+        isLastBatch: batchIndex === totalBatches - 1,
+        fileMetadata: files.map((f) => ({ uri: f.uri, version: f.version })),
+      };
+
+      const archive: Record<string, Uint8Array> = {
+        '__metadata.json': s2u(JSON.stringify(metadata)),
+      };
+      for (const f of files) {
+        archive[f.uri] = s2u(f.content);
+      }
+      const zipped = zip(archive);
+      return Buffer.from(zipped).toString('base64');
+    }
+
+    afterEach(() => {
+      setBatchIngestionDispatcher(null);
+    });
+
+    it('setBatchIngestionDispatcher / getBatchIngestionDispatcher round-trip', () => {
+      expect(getBatchIngestionDispatcher()).toBeNull();
+      const fn = jest.fn();
+      setBatchIngestionDispatcher(fn);
+      expect(getBatchIngestionDispatcher()).toBe(fn);
+      setBatchIngestionDispatcher(null);
+      expect(getBatchIngestionDispatcher()).toBeNull();
+    });
+
+    it('dispatches decoded entries to data-owner when dispatcher is set', async () => {
+      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 2 });
+      setBatchIngestionDispatcher(dispatcher);
+
+      const compressedData = makeCompressedBatch([
+        {
+          uri: 'file:///Foo.cls',
+          version: 1,
+          content: 'public class Foo {}',
+        },
+        {
+          uri: 'file:///Bar.cls',
+          version: 1,
+          content: 'public class Bar {}',
+        },
+      ]);
+
+      await handleWorkspaceBatchRequest({
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData,
+        fileMetadata: [
+          { uri: 'file:///Foo.cls', version: 1 },
+          { uri: 'file:///Bar.cls', version: 1 },
+        ],
+      });
+
+      const result = await handleProcessWorkspaceBatchesRequest({
+        totalBatches: 1,
+      });
+      expect(result.success).toBe(true);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(dispatcher).toHaveBeenCalledTimes(1);
+      const [sessionId, entries] = dispatcher.mock.calls[0];
+      expect(typeof sessionId).toBe('string');
+      expect(entries).toHaveLength(2);
+      expect(entries[0]).toMatchObject({
+        uri: 'file:///Foo.cls',
+        content: 'public class Foo {}',
+        languageId: 'apex',
+        version: 1,
+      });
+    });
+
+    it('falls back to local processing when no dispatcher is set', async () => {
+      const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
+        offer: jest.Mock;
+      };
+      offer.mockClear();
+
+      const compressedData = makeCompressedBatch([
+        { uri: 'file:///A.cls', version: 1, content: 'class A {}' },
+      ]);
+
+      await handleWorkspaceBatchRequest({
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData,
+        fileMetadata: [{ uri: 'file:///A.cls', version: 1 }],
+      });
+
+      const result = await handleProcessWorkspaceBatchesRequest({
+        totalBatches: 1,
+      });
+      expect(result.success).toBe(true);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(offer).toHaveBeenCalled();
+    });
+
+    it('dispatches all decoded entries from multiple batches', async () => {
+      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
+      setBatchIngestionDispatcher(dispatcher);
+
+      for (let i = 0; i < 3; i++) {
+        const compressedData = makeCompressedBatch(
+          [
+            {
+              uri: `file:///File${i}.cls`,
+              version: 1,
+              content: `class File${i} {}`,
+            },
+          ],
+          i,
+          3,
+        );
+        await handleWorkspaceBatchRequest({
+          batchIndex: i,
+          totalBatches: 3,
+          isLastBatch: i === 2,
+          compressedData,
+          fileMetadata: [{ uri: `file:///File${i}.cls`, version: 1 }],
+        });
+      }
+
+      await handleProcessWorkspaceBatchesRequest({ totalBatches: 3 });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(dispatcher).toHaveBeenCalledTimes(1);
+      const [, entries] = dispatcher.mock.calls[0];
+      expect(entries).toHaveLength(3);
+    });
+
+    it('handles dispatcher rejection gracefully', async () => {
+      const dispatcher = jest.fn().mockRejectedValue(new Error('Worker died'));
+      setBatchIngestionDispatcher(dispatcher);
+
+      const compressedData = makeCompressedBatch([
+        { uri: 'file:///Err.cls', version: 1, content: 'class Err {}' },
+      ]);
+
+      await handleWorkspaceBatchRequest({
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData,
+        fileMetadata: [{ uri: 'file:///Err.cls', version: 1 }],
+      });
+
+      const result = await handleProcessWorkspaceBatchesRequest({
+        totalBatches: 1,
+      });
+      expect(result.success).toBe(true);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(dispatcher).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cross-file enrichment (deferred reference processing)
+  // ---------------------------------------------------------------------------
+
+  const isJsdomEnv =
+    typeof navigator !== 'undefined' && /jsdom/.test(navigator.userAgent);
+
+  (isJsdomEnv ? describe.skip : describe)(
+    'cross-file enrichment after batch processing',
+    () => {
+      function makeCompressedBatch(
+        files: Array<{ uri: string; version: number; content: string }>,
+        batchIndex = 0,
+        totalBatches = 1,
+      ): string {
+        const { zipSync: zip, strToU8: s2u } = require('fflate') as {
+          zipSync: (data: Record<string, Uint8Array>) => Uint8Array;
+          strToU8: (s: string) => Uint8Array;
+        };
+        const metadata = {
+          batchIndex,
+          totalBatches,
+          isLastBatch: batchIndex === totalBatches - 1,
+          fileMetadata: files.map((f) => ({ uri: f.uri, version: f.version })),
+        };
+        const archive: Record<string, Uint8Array> = {
+          '__metadata.json': s2u(JSON.stringify(metadata)),
+        };
+        for (const f of files) {
+          archive[f.uri] = s2u(f.content);
+        }
+        const zipped = zip(archive);
+        return Buffer.from(zipped).toString('base64');
+      }
+
+      const testFiles = [
+        { uri: 'file:///A.cls', version: 1, content: 'public class A {}' },
+        { uri: 'file:///B.cls', version: 1, content: 'public class B {}' },
+        { uri: 'file:///C.cls', version: 1, content: 'public class C {}' },
+      ];
+
+      async function storeBatchAndProcess(files = testFiles) {
+        const compressedData = makeCompressedBatch(files);
+        await handleWorkspaceBatchRequest({
+          batchIndex: 0,
+          totalBatches: 1,
+          isLastBatch: true,
+          compressedData,
+          fileMetadata: files.map((f) => ({
+            uri: f.uri,
+            version: f.version,
+          })),
+        });
+        await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      afterEach(() => {
+        setBatchIngestionDispatcher(null);
+        setCrossFileEnrichmentDispatcher(null);
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: false },
+          },
+        });
+      });
+
+      it('setCrossFileEnrichmentDispatcher / getCrossFileEnrichmentDispatcher round-trip', () => {
+        expect(getCrossFileEnrichmentDispatcher()).toBeNull();
+        const fn = jest.fn();
+        setCrossFileEnrichmentDispatcher(fn);
+        expect(getCrossFileEnrichmentDispatcher()).toBe(fn);
+        setCrossFileEnrichmentDispatcher(null);
+        expect(getCrossFileEnrichmentDispatcher()).toBeNull();
+      });
+
+      it('dispatches enrichment when enableCrossFileDeferral is true', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 3, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        expect(enrichmentDispatcher).toHaveBeenCalledTimes(1);
+        const [fileUris] = enrichmentDispatcher.mock.calls[0];
+        expect(fileUris).toHaveLength(3);
+        expect(fileUris).toEqual(
+          expect.arrayContaining([
+            'file:///A.cls',
+            'file:///B.cls',
+            'file:///C.cls',
+          ]),
+        );
+      });
+
+      it('does NOT dispatch enrichment when enableCrossFileDeferral is false', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 0, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: false },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        expect(enrichmentDispatcher).not.toHaveBeenCalled();
+      });
+
+      it('does NOT dispatch enrichment when no enrichment dispatcher is set', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 3 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+      });
+
+      it('handles enrichment dispatcher failure gracefully', async () => {
+        const ingestionDispatcher = jest
+          .fn()
+          .mockResolvedValue({ processedCount: 1 });
+        setBatchIngestionDispatcher(ingestionDispatcher);
+
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockRejectedValue(new Error('Enrichment pool crashed'));
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess([testFiles[0]]);
+
+        expect(enrichmentDispatcher).toHaveBeenCalledTimes(1);
+      });
+
+      it('does NOT dispatch enrichment on local processing path', async () => {
+        const enrichmentDispatcher = jest
+          .fn()
+          .mockResolvedValue({ resolved: 0, failed: 0 });
+        setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
+
+        mockGetSettings.mockReturnValue({
+          apex: {
+            deferredReferenceProcessing: { enableCrossFileDeferral: true },
+          },
+        });
+
+        await storeBatchAndProcess();
+
+        expect(enrichmentDispatcher).not.toHaveBeenCalled();
+      });
+    },
+  );
 });

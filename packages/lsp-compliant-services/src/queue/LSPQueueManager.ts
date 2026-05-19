@@ -180,6 +180,20 @@ export class LSPQueueManager {
     return LSPQueueManager.instance;
   }
 
+  private workerDispatcher: any = null;
+
+  setWorkerDispatcher(dispatcher: any): void {
+    this.workerDispatcher = dispatcher;
+    this.logger.debug(
+      () =>
+        `Worker dispatcher ${dispatcher ? 'set' : 'cleared'} on LSPQueueManager`,
+    );
+  }
+
+  getWorkerDispatcher(): any {
+    return this.workerDispatcher;
+  }
+
   /**
    * Submit a hover request
    */
@@ -212,6 +226,42 @@ export class LSPQueueManager {
    */
   async submitReferencesRequest(params: any): Promise<any> {
     return this.submitRequest('references', params, {
+      priority: Priority.Normal,
+    });
+  }
+
+  /**
+   * Submit an implementation request
+   */
+  async submitImplementationRequest(params: any): Promise<any> {
+    return this.submitRequest('implementation', params, {
+      priority: Priority.High,
+    });
+  }
+
+  /**
+   * Submit a folding range request
+   */
+  async submitFoldingRangeRequest(params: any): Promise<any> {
+    return this.submitRequest('foldingRange', params, {
+      priority: Priority.Low,
+    });
+  }
+
+  /**
+   * Submit a code lens request
+   */
+  async submitCodeLensRequest(params: any): Promise<any> {
+    return this.submitRequest('codeLens', params, {
+      priority: Priority.Low,
+    });
+  }
+
+  /**
+   * Submit a findMissingArtifact request
+   */
+  async submitFindMissingArtifactRequest(params: any): Promise<any> {
+    return this.submitRequest('findMissingArtifact', params, {
       priority: Priority.Normal,
     });
   }

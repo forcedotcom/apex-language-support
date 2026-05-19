@@ -38,6 +38,14 @@ module.exports = {
     url: 'http://localhost',
   },
 
+  // *.node.test.ts is the convention for tests that require a Node runtime
+  // (e.g. worker_threads via @effect/platform-node) and cannot execute under
+  // jsdom. Mirrors the src/*.node.ts convention used by tsconfig.{node,browser,worker}.json.
+  testPathIgnorePatterns: [
+    ...(baseConfig.testPathIgnorePatterns ?? []),
+    '\\.node\\.test\\.ts$',
+  ],
+
   // Global teardown to ensure scheduler is shut down after all tests
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Force exit after tests complete to prevent hanging on open handles
