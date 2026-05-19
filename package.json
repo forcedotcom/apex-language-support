@@ -123,6 +123,9 @@
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"
   },
+  "overrides": {
+    "vscode-jsonrpc": "8.2.1"
+  },
   "workspaces": [
     "packages/*",
     "e2e-tests"
