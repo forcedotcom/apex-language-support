@@ -41,6 +41,7 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
   updateApexServerStatusStopped,
+  clearIngestionTimeout,
 } from './status-bar';
 import {
   getWorkspaceSettings,
@@ -79,6 +80,17 @@ const sharedWorkspaceLoadLayer = Layer.mergeAll(
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
 );
+
+function registerIngestionCompleteHandler(client: ClientInterface) {
+  client.onNotification('apex/workspaceIngestionComplete', () => {
+    clearIngestionTimeout();
+    logToOutputChannel(
+      '✅ Server workspace ingestion complete — updating status bar',
+      'debug',
+    );
+    updateApexServerStatusReady();
+  });
+}
 
 /**
  * Environment detection
@@ -176,6 +188,15 @@ const createEnhancedInitializationOptions = async (
     }
   }
 
+  const workerPlatformWebUrl =
+    runtimePlatform === 'web'
+      ? vscode.Uri.joinPath(
+          context.extensionUri,
+          'dist',
+          'worker.platform.web.js',
+        ).toString()
+      : undefined;
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -187,6 +208,7 @@ const createEnhancedInitializationOptions = async (
         extensionVersion,
         workspaceFileCount,
         apexFileCount,
+        workerPlatformWebUrl,
       },
       resources: {
         ...safeSettings.apex?.resources,
@@ -852,6 +874,8 @@ async function createWebLanguageClient(
     },
   );
 
+  registerIngestionCompleteHandler(Client);
+
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
 
@@ -1285,6 +1309,8 @@ async function createDesktopLanguageClient(
     },
   );
 
+  registerIngestionCompleteHandler(Client);
+
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 
   // If configured, trigger workspace load on startup via service
@@ -1354,6 +1380,7 @@ export async function restartLanguageServer(
  */
 export async function stopLanguageServer(): Promise<void> {
   logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
+  clearIngestionTimeout();
   if (Client) {
     try {
       await Client.dispose();

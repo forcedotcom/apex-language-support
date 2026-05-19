@@ -14,7 +14,7 @@ import type {
   SendWorkspaceBatchParams,
   SendWorkspaceBatchResult,
 } from '@salesforce/apex-lsp-shared';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   createQueuedItem,
   offer,
@@ -246,6 +246,85 @@ export function clearBatchStorage(): void {
   batchStorage['sessions'].clear();
 }
 
+// ---------------------------------------------------------------------------
+// Data-owner batch dispatch
+// ---------------------------------------------------------------------------
+
+export type BatchIngestionDispatcher = (
+  sessionId: string,
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>,
+) => Promise<{ processedCount: number }>;
+
+let batchIngestionDispatcher: BatchIngestionDispatcher | null = null;
+
+export function setBatchIngestionDispatcher(
+  dispatcher: BatchIngestionDispatcher | null,
+): void {
+  batchIngestionDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Batch ingestion dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getBatchIngestionDispatcher(): BatchIngestionDispatcher | null {
+  return batchIngestionDispatcher;
+}
+
+export type BatchCompileDispatcher = (
+  sessionId: string,
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>,
+) => Promise<{ compiledCount: number; errorCount: number; elapsedMs: number }>;
+
+let batchCompileDispatcher: BatchCompileDispatcher | null = null;
+
+export function setBatchCompileDispatcher(
+  dispatcher: BatchCompileDispatcher | null,
+): void {
+  batchCompileDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Batch compile dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getBatchCompileDispatcher(): BatchCompileDispatcher | null {
+  return batchCompileDispatcher;
+}
+
+export type CrossFileEnrichmentDispatcher = (
+  fileUris: string[],
+) => Promise<{ resolved: number; failed: number }>;
+
+let crossFileEnrichmentDispatcher: CrossFileEnrichmentDispatcher | null = null;
+
+export function setCrossFileEnrichmentDispatcher(
+  dispatcher: CrossFileEnrichmentDispatcher | null,
+): void {
+  crossFileEnrichmentDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Cross-file enrichment dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getCrossFileEnrichmentDispatcher(): CrossFileEnrichmentDispatcher | null {
+  return crossFileEnrichmentDispatcher;
+}
+
+let ingestionCompleteCallback: (() => void) | null = null;
+
+export function setIngestionCompleteCallback(cb: () => void): void {
+  ingestionCompleteCallback = cb;
+}
+
 /**
  * Decode base64 string to Uint8Array
  */
@@ -262,6 +341,43 @@ function decodeBase64(base64: string): Uint8Array {
     }
     return bytes;
   }
+}
+
+type BatchEntry = {
+  uri: string;
+  content: string;
+  languageId: string;
+  version: number;
+};
+
+function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
+  const compressedData = decodeBase64(compressedDataBase64);
+  const decompressedFiles = unzipSync(compressedData);
+
+  const metadataEntry = decompressedFiles['__metadata.json'];
+  if (!metadataEntry) {
+    throw new Error('Missing __metadata.json in compressed batch');
+  }
+
+  const decoder = new TextDecoder();
+  const metadata = JSON.parse(decoder.decode(metadataEntry)) as {
+    fileMetadata: Array<{ uri: string; version: number }>;
+  };
+
+  const entries: BatchEntry[] = [];
+
+  for (const fileMeta of metadata.fileMetadata) {
+    const fileContent = decompressedFiles[fileMeta.uri];
+    if (!fileContent) continue;
+    entries.push({
+      uri: fileMeta.uri,
+      content: decoder.decode(fileContent),
+      languageId: 'apex',
+      version: fileMeta.version,
+    });
+  }
+
+  return entries;
 }
 
 /**
@@ -406,26 +522,211 @@ function processWorkspaceBatchBackground(
 }
 
 /**
- * Process all stored batches for a session
- * This is called when all batches have been received
+ * Process all stored batches for a session.
+ *
+ * Pipeline: decode → ingest+compile → schedule deferred ref processing.
+ *
+ * When a BatchIngestionDispatcher is set, decoded entries are dispatched
+ * to the data-owner worker for storage and the compilation worker for
+ * public-api compilation. When no dispatcher is set, falls back to local
+ * processing via the priority scheduler.
  */
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
+  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
+    const totalFiles = batches.reduce(
+      (sum, b) => sum + (b.fileMetadata?.length ?? 0),
+      0,
+    );
+    const batchStartTime = Date.now();
     logger.debug(
       () =>
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
     );
 
-    // Ensure scheduler is initialized
+    let fileUris: string[] = [];
+
+    if (dispatcher) {
+      const entries = yield* decodeBatches(batches, logger);
+      yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
+      fileUris = entries.map((e) => e.uri);
+    } else {
+      yield* processLocally(sessionId, batches, logger);
+    }
+
+    batchStorage.removeSession(sessionId);
+    const totalElapsed = Date.now() - batchStartTime;
+    const actualFiles = totalFiles || batches.length * 100;
+    const throughput =
+      totalElapsed > 0 ? ((actualFiles / totalElapsed) * 1000).toFixed(0) : '∞';
+    logger.info(
+      () =>
+        `[BATCH-PROCESSING] Completed session ${sessionId}: ` +
+        `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
+        `(${throughput} files/sec)`,
+    );
+    ingestionCompleteCallback?.();
+
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    if (
+      settings.apex.deferredReferenceProcessing?.enableCrossFileDeferral &&
+      crossFileEnrichmentDispatcher &&
+      fileUris.length > 0
+    ) {
+      logger.info(
+        () =>
+          `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
+      );
+      try {
+        const result = yield* Effect.tryPromise({
+          try: () => crossFileEnrichmentDispatcher!(fileUris),
+          catch: (e) => e as Error,
+        });
+        logger.info(
+          () =>
+            `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
+        );
+      } catch (err) {
+        logger.error(() => `[CROSS-FILE] Enrichment dispatch failed: ${err}`);
+      }
+    }
+  }).pipe(
+    Effect.catchAll((error: unknown) =>
+      Effect.gen(function* () {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          () =>
+            `[BATCH-PROCESSING] Error for session ${sessionId}: ${errorMessage}`,
+        );
+        batchStorage.removeSession(sessionId);
+        ingestionCompleteCallback?.();
+        return undefined;
+      }),
+    ),
+  );
+}
+
+function decodeBatches(
+  batches: SendWorkspaceBatchParams[],
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<BatchEntry[], Error, never> {
+  return Effect.gen(function* () {
+    const allEntries: BatchEntry[] = [];
+
+    for (const batchParams of batches) {
+      const t0 = Date.now();
+      const entries = yield* Effect.try({
+        try: () => extractBatchEntries(batchParams.compressedData),
+        catch: (e) =>
+          new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
+      });
+      const decodeMs = Date.now() - t0;
+      allEntries.push(...entries);
+
+      logger.debug(
+        () =>
+          `[BATCH-DECODE] Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
+          `${entries.length} files (${decodeMs}ms)`,
+      );
+    }
+
+    return allEntries;
+  });
+}
+
+function processViaDataOwner(
+  sessionId: string,
+  entries: BatchEntry[],
+  dispatcher: BatchIngestionDispatcher,
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
+    const CHUNK_SIZE = 100;
+
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+      const chunk = entries.slice(i, i + CHUNK_SIZE);
+      const t0 = Date.now();
+      const result = yield* Effect.tryPromise({
+        try: () => dispatcher(sessionId, chunk),
+        catch: (e) => e as Error,
+      });
+      const ingestMs = Date.now() - t0;
+
+      logger.debug(
+        () =>
+          `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
+          `${result.processedCount} files (${ingestMs}ms)`,
+      );
+    }
+
+    const compileDispatcher = batchCompileDispatcher;
+    if (compileDispatcher) {
+      const CHUNK_SIZE = 100;
+      const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
+
+      logger.info(
+        () =>
+          `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
+          `${entries.length} files in ${totalChunks} chunks`,
+      );
+
+      const compileStartTime = Date.now();
+      let totalCompiled = 0;
+      let totalErrors = 0;
+
+      for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+        const chunk = entries.slice(i, i + CHUNK_SIZE);
+        const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
+        try {
+          const result = yield* Effect.tryPromise({
+            try: () => compileDispatcher(sessionId, chunk),
+            catch: (e) => e as Error,
+          });
+          totalCompiled += result.compiledCount;
+          totalErrors += result.errorCount;
+          logger.debug(
+            () =>
+              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
+              `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+          );
+        } catch (err) {
+          logger.error(
+            () =>
+              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks} failed: ${err}`,
+          );
+        }
+      }
+
+      const totalElapsed = Date.now() - compileStartTime;
+      const throughput =
+        totalElapsed > 0
+          ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
+          : '∞';
+      logger.info(
+        () =>
+          `[BATCH-COMPILE] Completed session ${sessionId}: ` +
+          `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
+          `(${throughput} files/sec)`,
+      );
+    }
+  });
+}
+
+function processLocally(
+  _sessionId: string,
+  batches: SendWorkspaceBatchParams[],
+  logger: ReturnType<typeof getLogger>,
+): Effect.Effect<void, Error, never> {
+  return Effect.gen(function* () {
     const schedulerService = SchedulerInitializationService.getInstance();
     yield* Effect.promise(() => schedulerService.ensureInitialized());
 
-    // Process each batch via scheduler
     for (const batchParams of batches) {
       const backgroundProcessingEffect = processWorkspaceBatchBackground(
         batchParams,
@@ -440,32 +741,12 @@ function processStoredBatches(
 
       logger.debug(
         () =>
-          `[BATCH-PROCESSING] Enqueued batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
-          `(${batchParams.fileMetadata.length} files) for processing`,
+          '[BATCH-PROCESSING] Enqueued batch ' +
+          `${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
+          `(${batchParams.fileMetadata.length} files) for local processing`,
       );
     }
-
-    // Remove session after processing
-    batchStorage.removeSession(sessionId);
-    logger.debug(
-      () =>
-        `[BATCH-PROCESSING] Completed processing all batches for session ${sessionId}`,
-    );
-  }).pipe(
-    Effect.catchAll((error: unknown) =>
-      Effect.gen(function* () {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logger.error(
-          () =>
-            `[BATCH-PROCESSING] Error processing batches for session ${sessionId}: ${errorMessage}`,
-        );
-        // Remove session even on error to prevent memory leak
-        batchStorage.removeSession(sessionId);
-        return undefined;
-      }),
-    ),
-  );
+  });
 }
 
 /**

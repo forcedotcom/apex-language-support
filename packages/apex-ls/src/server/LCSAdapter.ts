@@ -64,13 +64,6 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDeleteDocument,
-  dispatchProcessOnHover,
-  dispatchProcessOnDefinition,
-  dispatchProcessOnImplementation,
-  dispatchProcessOnReferences,
-  dispatchProcessOnFoldingRange,
-  dispatchProcessOnFindMissingArtifact,
-  dispatchProcessOnCodeLens,
   ApexStorageManager,
   ApexStorage,
   dispatchProcessOnResolve,
@@ -79,7 +72,6 @@ import {
   LSPQueueManager,
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
-  dispatchProcessOnExecuteCommand,
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
   getDiagnosticRefreshService,
@@ -88,6 +80,10 @@ import {
 import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
+  setBatchIngestionDispatcher,
+  setBatchCompileDispatcher,
+  setCrossFileEnrichmentDispatcher,
+  setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
 
 import {
@@ -119,6 +115,27 @@ export class LCSAdapter {
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
   private hoverHandlerRegistered = false;
+  private resourceLoaderProxy?: import('./ResourceLoaderProxy').ResourceLoaderProxy;
+  private workerDispatcher?: {
+    queryGraphData(params: {
+      type: 'all' | 'file' | 'type';
+      fileUri?: string;
+      symbolType?: string;
+      includeMetadata?: boolean;
+      includeDiagnostics?: boolean;
+    }): Promise<unknown>;
+    isAvailable(): boolean;
+    getTopologyStatus?(): {
+      enabled: boolean;
+      dataOwner: { active: boolean };
+      enrichmentPool: { size: number; active: boolean };
+      resourceLoader: { active: boolean } | null;
+      compilation: { active: boolean };
+      dispatchedCount: number;
+      coordinatorOnlyTypes: readonly string[];
+    };
+  };
+  private workerPlatformWebUrl: string | undefined;
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
   private readonly aggregator = new CommandPerformanceAggregator();
@@ -467,6 +484,31 @@ export class LCSAdapter {
     }
   }
 
+  private async handleLspRequest<
+    P extends { textDocument: { uri: string } },
+    R,
+  >(
+    spanName: string,
+    lspMethod: string,
+    params: P,
+    submit: (params: P) => Promise<any>,
+    fallback: R,
+    extraAttrs?: Record<string, string>,
+  ): Promise<R> {
+    try {
+      return await this.runWithSpanAndRecord(spanName, () => submit(params), {
+        'lsp.method': lspMethod,
+        'document.uri': params.textDocument.uri,
+        ...extraAttrs,
+      });
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing ${lspMethod}: ${formattedError(error)}`,
+      );
+      return fallback;
+    }
+  }
+
   /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
@@ -519,32 +561,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register definition handler if the capability is enabled
     if (capabilities.definitionProvider) {
       this.connection.onDefinition(
-        async (params: DefinitionParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Definition request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.DEFINITION,
-              () => dispatchProcessOnDefinition(params),
-              {
-                'lsp.method': 'textDocument/definition',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing definition: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: DefinitionParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.DEFINITION,
+            'textDocument/definition',
+            params,
+            (p) => LSPQueueManager.getInstance().submitDefinitionRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ Definition handler registered');
     } else {
@@ -553,32 +582,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register implementation handler if the capability is enabled (development mode only)
     if (capabilities.implementationProvider) {
       this.connection.onImplementation(
-        async (params: ImplementationParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.IMPLEMENTATION,
-              () => dispatchProcessOnImplementation(params),
-              {
-                'lsp.method': 'textDocument/implementation',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing implementation: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: ImplementationParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.IMPLEMENTATION,
+            'textDocument/implementation',
+            params,
+            (p) => LSPQueueManager.getInstance().submitImplementationRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ Implementation handler registered');
     } else {
@@ -587,32 +603,19 @@ export class LCSAdapter {
       );
     }
 
-    // Only register references handler if the capability is enabled
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
-        async (params: ReferenceParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 References request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.REFERENCES,
-              () => dispatchProcessOnReferences(params),
-              {
-                'lsp.method': 'textDocument/references',
-                'document.uri': params.textDocument.uri,
-                'document.position': `${params.position.line}:${params.position.character}`,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing references: ${formattedError(error)}`,
-            );
-            return null;
-          }
-        },
+        async (params: ReferenceParams): Promise<Location[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.REFERENCES,
+            'textDocument/references',
+            params,
+            (p) => LSPQueueManager.getInstance().submitReferencesRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
       );
       this.logger.debug('✅ References handler registered');
     } else {
@@ -689,31 +692,16 @@ export class LCSAdapter {
         '⚠️ Diagnostics handler not registered (capability disabled)',
       );
     }
-    // Only register folding range handler if the capability is enabled
     if (capabilities.foldingRangeProvider) {
       this.connection.languages.foldingRange.on(
-        async (params: FoldingRangeParams) => {
-          this.logger.debug(
-            () =>
-              `🔍 Folding range request for URI: ${params.textDocument.uri}`,
-          );
-          try {
-            const storage = ApexStorageManager.getInstance().getStorage();
-            return await this.runWithSpanAndRecord(
-              LSP_SPAN_NAMES.FOLDING_RANGE,
-              () => dispatchProcessOnFoldingRange(params, storage),
-              {
-                'lsp.method': 'textDocument/foldingRange',
-                'document.uri': params.textDocument.uri,
-              },
-            );
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing folding ranges: ${formattedError(error)}`,
-            );
-            return [];
-          }
-        },
+        async (params: FoldingRangeParams) =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.FOLDING_RANGE,
+            'textDocument/foldingRange',
+            params,
+            (p) => LSPQueueManager.getInstance().submitFoldingRangeRequest(p),
+            [],
+          ),
       );
       this.logger.debug('✅ Folding range handler registered');
     } else {
@@ -731,32 +719,16 @@ export class LCSAdapter {
       );
     }
 
-    // Only register code lens handler if the capability is enabled
     if (capabilities.codeLensProvider) {
-      this.connection.onCodeLens(async (params: CodeLensParams) => {
-        this.logger.debug(
-          () => `CodeLens request received for URI: ${params.textDocument.uri}`,
-        );
-        try {
-          const result = await this.runWithSpanAndRecord(
-            LSP_SPAN_NAMES.CODE_LENS,
-            () => dispatchProcessOnCodeLens(params),
-            {
-              'lsp.method': 'textDocument/codeLens',
-              'document.uri': params.textDocument.uri,
-            },
-          );
-          this.logger.debug(
-            `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
-          );
-          return result;
-        } catch (error) {
-          this.logger.error(
-            () => `Error processing code lens: ${formattedError(error)}`,
-          );
-          return [];
-        }
-      });
+      this.connection.onCodeLens(async (params: CodeLensParams) =>
+        this.handleLspRequest(
+          LSP_SPAN_NAMES.CODE_LENS,
+          'textDocument/codeLens',
+          params,
+          (p) => LSPQueueManager.getInstance().submitCodeLensRequest(p),
+          [],
+        ),
+      );
       this.logger.debug('CodeLens handler registered');
     } else {
       this.logger.debug(
@@ -764,20 +736,18 @@ export class LCSAdapter {
       );
     }
 
-    // Register custom apex/findMissingArtifact handler
     this.connection.onRequest(
       'apex/findMissingArtifact',
       async (
         params: FindMissingArtifactParams,
       ): Promise<FindMissingArtifactResult> => {
-        const names = params.identifiers.map((s) => s.name).join(', ');
-        this.logger.debug(
-          () => `🔍 apex/findMissingArtifact request received for: ${names}`,
-        );
         try {
           return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
-            () => dispatchProcessOnFindMissingArtifact(params),
+            () =>
+              LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
+                params,
+              ),
             {
               'apex.identifier': params.identifiers
                 .map((i) => i.name)
@@ -875,18 +845,20 @@ export class LCSAdapter {
       '✅ apex/processWorkspaceBatches request handler registered',
     );
 
-    // Register workspace/executeCommand handler
+    setIngestionCompleteCallback(() => {
+      this.connection.sendNotification('apex/workspaceIngestionComplete', {});
+    });
+
     if (capabilities.executeCommandProvider) {
       this.connection.onExecuteCommand(
         async (params: ExecuteCommandParams): Promise<any> => {
-          this.logger.debug(
-            () =>
-              `🔍 workspace/executeCommand request received: ${params.command}`,
-          );
           try {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.EXECUTE_COMMAND,
-              () => dispatchProcessOnExecuteCommand(params),
+              () =>
+                LSPQueueManager.getInstance().submitExecuteCommandRequest(
+                  params,
+                ),
               {
                 'lsp.method': 'workspace/executeCommand',
                 'command.name': params.command,
@@ -960,6 +932,17 @@ export class LCSAdapter {
           );
           try {
             const result = await dispatchProcessOnQueueState(params);
+            if (
+              result &&
+              typeof result === 'object' &&
+              'metrics' in result &&
+              this.workerDispatcher?.getTopologyStatus
+            ) {
+              (result as { metrics: Record<string, unknown> }).metrics = {
+                ...(result as { metrics: Record<string, unknown> }).metrics,
+                workerTopology: this.workerDispatcher.getTopologyStatus(),
+              };
+            }
             this.logger.debug(
               () =>
                 `✅ apex/queueState processed successfully, result type: ${typeof result}`,
@@ -1504,8 +1487,14 @@ export class LCSAdapter {
                     metrics.tasksStarted
                   }, Completed=${metrics.tasksCompleted}`,
               );
+              const enrichedMetrics = this.workerDispatcher?.getTopologyStatus
+                ? {
+                    ...metrics,
+                    workerTopology: this.workerDispatcher.getTopologyStatus(),
+                  }
+                : metrics;
               this.connection.sendNotification('apex/queueStateChanged', {
-                metrics,
+                metrics: enrichedMetrics,
                 metadata: {
                   timestamp: Date.now(),
                 },
@@ -1640,6 +1629,35 @@ export class LCSAdapter {
         () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
       );
     });
+
+    // Worker pool topology — opt-in via setting or env var
+    const isNodeJs =
+      typeof process !== 'undefined' && process.versions?.node != null;
+
+    if (isNodeJs) {
+      try {
+        require.resolve('node:worker_threads');
+        const workerSettings =
+          LSPConfigurationManager.getInstance().getSettings().apex as any;
+        const workersEnabled =
+          process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
+          workerSettings?.experimental?.workers?.enabled === true;
+        if (workersEnabled) {
+          this.initializeWorkerTopology();
+        }
+      } catch {
+        // worker_threads not available — skip
+      }
+    } else {
+      // Browser: gate on setting same as Node
+      const workerSettings = LSPConfigurationManager.getInstance().getSettings()
+        .apex as any;
+      const workersEnabled =
+        workerSettings?.experimental?.workers?.enabled === true;
+      if (workersEnabled) {
+        this.initializeWorkerTopology();
+      }
+    }
   }
 
   /**
@@ -2037,6 +2055,225 @@ export class LCSAdapter {
     }
   }
 
+  private initializeWorkerTopology(): void {
+    this.logger.info(
+      () => '[WorkerCoordinator] Initializing worker topology...',
+    );
+
+    const pipeline = Effect.gen(this, function* () {
+      const [
+        coordinatorModule,
+        mediatorModule,
+        resourceLoaderModule,
+        execArgvModule,
+      ] = yield* Effect.all([
+        Effect.promise(() => import('./WorkerCoordinator')),
+        Effect.promise(() => import('./CoordinatorAssistanceMediator')),
+        Effect.promise(() => import('./ResourceLoaderProxy')),
+        Effect.promise(() => import('./WorkerExecArgvBuilder')),
+      ]);
+
+      const {
+        initializeTopology,
+        makeNodeWorkerLayer,
+        makeBrowserWorkerLayer,
+        makeWorkerDispatcher,
+        getRawWorkers,
+        getBrowserAssistancePorts,
+        getAssistancePorts,
+        getWorkerNames,
+        runRemoteStdlibWarmupPhase,
+      } = coordinatorModule;
+      const { CoordinatorAssistanceMediator } = mediatorModule;
+      const { ResourceLoaderProxy } = resourceLoaderModule;
+      const { buildWorkerExecArgv } = execArgvModule;
+
+      const { Scope } = yield* Effect.promise(() => import('effect'));
+
+      const apexSettings = LSPConfigurationManager.getInstance().getSettings()
+        .apex as Record<string, any>;
+      const workerCfg =
+        (apexSettings?.experimental as Record<string, unknown>)?.workers ??
+        ({} as Record<string, unknown>);
+
+      const enableResourceLoader =
+        (workerCfg as Record<string, unknown>).resourceLoader !== false;
+
+      const serverMode = LSPConfigurationManager.getInstance()
+        .getCapabilitiesManager()
+        .getMode();
+
+      const mainLogLevel =
+        (LSPConfigurationManager.getInstance().getSettings()?.apex as any)
+          ?.logLevel ?? 'error';
+
+      const config = {
+        poolSize:
+          ((workerCfg as Record<string, unknown>).poolSize as number) ?? 2,
+        enableResourceLoader,
+        logger: this.logger,
+        logLevel: mainLogLevel,
+        serverMode,
+      };
+
+      const isNodeJs =
+        typeof process !== 'undefined' && process.versions?.node != null;
+
+      let topology: any = null;
+
+      const scope = Effect.runSync(Scope.make());
+
+      if (isNodeJs) {
+        const path = yield* Effect.promise(() => import('path'));
+        const fs = yield* Effect.promise(() => import('fs'));
+
+        let pkgRoot = __dirname;
+        while (
+          !fs.existsSync(path.join(pkgRoot, 'package.json')) &&
+          pkgRoot !== path.dirname(pkgRoot)
+        ) {
+          pkgRoot = path.dirname(pkgRoot);
+        }
+        const workerScript = path.join(pkgRoot, 'dist', 'worker.platform.js');
+        if (!fs.existsSync(workerScript)) {
+          return yield* Effect.fail(
+            new Error(
+              `worker.platform.js not found at ${workerScript}` +
+                ` (pkgRoot=${pkgRoot}, __dirname=${__dirname})`,
+            ),
+          );
+        }
+        this.logger.alwaysLog(
+          () => `[WorkerCoordinator] Worker script (node): ${workerScript}`,
+        );
+        const workerLayerFactory = (role: string) =>
+          makeNodeWorkerLayer(workerScript, {
+            name: `apex-worker-${role}`,
+            execArgv: buildWorkerExecArgv({ role }).execArgv,
+          });
+
+        topology = yield* Effect.provideService(
+          initializeTopology({ ...config, workerLayerFactory }),
+          Scope.Scope,
+          scope,
+        );
+      } else {
+        const injectedUrl = this.workerPlatformWebUrl;
+        const selfHref =
+          injectedUrl ??
+          (globalThis as any).location?.href ??
+          'file:///server.web.js';
+        const workerUrl =
+          injectedUrl ?? new URL('./worker.platform.web.js', selfHref).href;
+        this.logger.alwaysLog(
+          () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
+        );
+        const browserLayer = yield* Effect.promise(() =>
+          makeBrowserWorkerLayer(workerUrl),
+        );
+
+        topology = yield* Effect.provideService(
+          initializeTopology(config).pipe(Effect.provide(browserLayer as any)),
+          Scope.Scope,
+          scope,
+        );
+      }
+
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        this.logger,
+        (uri: string) => this.getDocumentTextForWorker(uri),
+      );
+      LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
+      this.workerDispatcher = dispatcher;
+
+      setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
+      setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
+      setCrossFileEnrichmentDispatcher(
+        dispatcher.createCrossFileEnrichmentDispatcher(),
+      );
+
+      if (topology.resourceLoader) {
+        this.resourceLoaderProxy = new ResourceLoaderProxy(
+          topology.resourceLoader,
+          this.logger,
+        );
+        this.logger.info(
+          () =>
+            '[WorkerCoordinator] ResourceLoaderProxy active — ' +
+            'stdlib queries routed to resource-loader worker',
+        );
+      }
+
+      const mediator = new CoordinatorAssistanceMediator(
+        async (method, params) => {
+          if (method === 'apex/findMissingArtifact') {
+            return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
+              params as import('@salesforce/apex-lsp-shared').FindMissingArtifactParams,
+            );
+          }
+          if (method === 'resourceLoader:resolveClass') {
+            const p = params as { name: string };
+            if (!this.resourceLoaderProxy) return null;
+            return this.resourceLoaderProxy.resolveStandardClassFqn(p.name);
+          }
+          if (method === 'resourceLoader:getSymbolTable') {
+            const p = params as { classPath: string };
+            if (!this.resourceLoaderProxy) return null;
+            return this.resourceLoaderProxy.getSymbolTable(p.classPath);
+          }
+          if (method === 'resourceLoader:getFile') {
+            const p = params as { path: string };
+            if (!this.resourceLoaderProxy) return undefined;
+            return this.resourceLoaderProxy.getFile(p.path);
+          }
+          if (method === 'resourceLoader:getStandardNamespaces') {
+            if (!this.resourceLoaderProxy) return {};
+            return this.resourceLoaderProxy.getStandardNamespaces();
+          }
+          return this.connection.sendRequest(method, params);
+        },
+        this.logger,
+        async (method, params) => dispatcher.queryDataOwner(method, params),
+      );
+      if (isNodeJs) {
+        mediator.attachToWorkers(
+          getRawWorkers(),
+          getAssistancePorts(),
+          getWorkerNames(),
+        );
+      } else {
+        mediator.attachToBrowserAssistancePorts(getBrowserAssistancePorts());
+      }
+
+      yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
+
+      this.logger.alwaysLog(
+        '[WorkerCoordinator] Topology active — ' +
+          'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
+      );
+    });
+
+    const runnable = pipeline as Effect.Effect<void>;
+    void Effect.runPromise(runnable).catch((error: unknown) => {
+      this.logger.error(
+        () =>
+          `[WorkerCoordinator] Topology initialization failed: ${formattedError(error)}`,
+      );
+      if (!process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT) {
+        this.logger.error(
+          () => '[WorkerCoordinator] Exiting process due to topology failure',
+        );
+        process.exit(1);
+      }
+    });
+  }
+
+  private getDocumentTextForWorker(uri: string): string | undefined {
+    const doc = this.documents.get(uri);
+    return doc?.getText();
+  }
+
   /**
    * Register the hover handler (only when capability is enabled)
    */
@@ -2059,40 +2296,17 @@ export class LCSAdapter {
     }
 
     this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> => {
-        const requestStartTime = Date.now();
-        this.logger.debug(
-          `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
-            ` at ${params.position.line}:${params.position.character} ` +
-            `[time: ${requestStartTime}]`,
-        );
-        try {
-          const dispatchStartTime = Date.now();
-          const result = await this.runWithSpanAndRecord(
-            LSP_SPAN_NAMES.HOVER,
-            () => dispatchProcessOnHover(params),
-            {
-              'lsp.method': 'textDocument/hover',
-              'document.uri': params.textDocument.uri,
-              'document.position': `${params.position.line}:${params.position.character}`,
-            },
-          );
-          const totalTime = Date.now() - requestStartTime;
-          const dispatchTime = Date.now() - dispatchStartTime;
-          this.logger.debug(
-            '✅ [LCSAdapter] Hover request completed: ' +
-              `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
-              `result=${result ? 'success' : 'null'}`,
-          );
-          return result;
-        } catch (error) {
-          const totalTime = Date.now() - requestStartTime;
-          this.logger.error(
-            `Error processing hover after ${totalTime}ms: ${error}`,
-          );
-          return null;
-        }
-      },
+      async (params: HoverParams): Promise<Hover | null> =>
+        this.handleLspRequest(
+          LSP_SPAN_NAMES.HOVER,
+          'textDocument/hover',
+          params,
+          (p) => LSPQueueManager.getInstance().submitHoverRequest(p),
+          null,
+          {
+            'document.position': `${params.position.line}:${params.position.character}`,
+          },
+        ),
     );
 
     this.hoverHandlerRegistered = true;

@@ -379,15 +379,8 @@ export class LSPConfigurationManager {
         if (changed) {
           hasChanges = true;
         }
-      }
-
-      if (apexSettings.worker?.logLevel !== undefined) {
-        const changed = this.settingsManager.setWorkerLogLevel(
-          apexSettings.worker.logLevel,
-        );
-        if (changed) {
-          hasChanges = true;
-        }
+        // Also set worker log level to match main log level
+        this.settingsManager.setWorkerLogLevel(apexSettings.logLevel);
       }
 
       // Check and set version
