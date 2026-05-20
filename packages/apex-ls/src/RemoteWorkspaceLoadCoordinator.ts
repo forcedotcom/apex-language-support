@@ -19,6 +19,13 @@ import { IWorkspaceLoadCoordinator } from '@salesforce/apex-lsp-compliant-servic
  * (rather than importing it directly) so this class stays free of
  * platform-specific globals — both the Node and browser worker
  * platforms inject their own copy of requestCoordinatorAssistancePromise.
+ *
+ * NOTE: worker.platform.ts and worker.platform.web.ts intentionally do
+ * not import this file at runtime — they maintain a "no local imports"
+ * invariant so each esbuild entry can bundle independently. Each worker
+ * platform inlines a private mirror of this class. Keep the inlined
+ * copies and this canonical file in sync; this file is the unit-tested
+ * definition of the class.
  */
 export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator {
   constructor(

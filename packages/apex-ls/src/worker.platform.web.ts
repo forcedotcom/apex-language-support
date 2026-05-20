@@ -78,6 +78,7 @@ import {
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import type { ProgressToken } from 'vscode-languageserver';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -131,6 +132,37 @@ interface WorkerDocument {
 
 function cloneForWire<T>(value: T): T | null {
   return value != null ? JSON.parse(JSON.stringify(value)) : null;
+}
+
+// ---------------------------------------------------------------------------
+// RemoteWorkspaceLoadCoordinator — inlined; mirror of worker.platform.ts.
+// ---------------------------------------------------------------------------
+
+// Structurally implements IWorkspaceLoadCoordinator from @salesforce/apex-lsp-compliant-services.
+class RemoteWorkspaceLoadCoordinator {
+  private readonly requestAssistance: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown>;
+
+  constructor(
+    requestAssistance: (
+      method: string,
+      params: unknown,
+      blocking: boolean,
+    ) => Promise<unknown>,
+  ) {
+    this.requestAssistance = requestAssistance;
+  }
+
+  async ensureLoaded(workDoneToken?: ProgressToken): Promise<void> {
+    await this.requestAssistance(
+      'coordinator:EnsureWorkspaceLoaded',
+      { workDoneToken },
+      true,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -312,9 +344,6 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
           EnhancedMissingArtifactResolutionService,
         } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
-        );
-        const { RemoteWorkspaceLoadCoordinator } = yield* Effect.promise(
-          () => import('./RemoteWorkspaceLoadCoordinator'),
         );
         const resourceLoaderLayer = yield* Effect.promise(() =>
           makeResourceLoaderRemoteLayer(),
