@@ -313,6 +313,9 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
         } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
+        const { RemoteWorkspaceLoadCoordinator } = yield* Effect.promise(
+          () => import('./RemoteWorkspaceLoadCoordinator'),
+        );
         const resourceLoaderLayer = yield* Effect.promise(() =>
           makeResourceLoaderRemoteLayer(),
         );
@@ -326,6 +329,13 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
             params,
             false,
           ),
+        );
+
+        // Worker-side workspace-load coordinator: routes ensureLoaded
+        // calls through the assistance bus to the coordinator's
+        // ensureWorkspaceLoaded handler (the worker has no LSP connection).
+        svc.referencesService.setWorkspaceLoadCoordinator(
+          new RemoteWorkspaceLoadCoordinator(requestCoordinatorAssistancePromise),
         );
 
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');

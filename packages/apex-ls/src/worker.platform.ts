@@ -339,6 +339,9 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
         } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
+        const { RemoteWorkspaceLoadCoordinator } = yield* Effect.promise(
+          () => import('./RemoteWorkspaceLoadCoordinator'),
+        );
         const resourceLoaderLayer = yield* Effect.promise(() =>
           makeResourceLoaderRemoteLayer(),
         );
@@ -355,6 +358,14 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
             params,
             false,
           ),
+        );
+
+        // Wire the remote workspace-load coordinator on the references
+        // service so processReferences can ask the coordinator to send
+        // the workspace-load notification (the worker has no LSP connection
+        // of its own).
+        svc.referencesService.setWorkspaceLoadCoordinator(
+          new RemoteWorkspaceLoadCoordinator(requestCoordinatorAssistancePromise),
         );
 
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
