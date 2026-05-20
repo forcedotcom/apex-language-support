@@ -95,6 +95,7 @@ export * from './services/CompletionProcessingService';
 export * from './services/ReferencesProcessingService';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
+export * from './services/IWorkspaceLoadCoordinator';
 export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';

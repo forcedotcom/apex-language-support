@@ -12,22 +12,14 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
-import { Connection, ProgressToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  LoggerInterface,
-  LSPConfigurationManager,
-  Priority,
-} from '@salesforce/apex-lsp-shared';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ReferenceType,
-  createQueuedItem,
-  offer,
-  SchedulerInitializationService,
   isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
@@ -37,10 +29,9 @@ import {
   transformLspToParserPosition,
 } from '../utils/positionUtils';
 import {
-  ensureWorkspaceLoaded,
-  isWorkspaceLoaded,
-  isWorkspaceLoading,
-} from './WorkspaceLoadCoordinator';
+  IWorkspaceLoadCoordinator,
+  NoopWorkspaceLoadCoordinator,
+} from './IWorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
@@ -64,6 +55,8 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   private layerEnrichmentService: LayerEnrichmentService | null = null;
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
+  private workspaceLoadCoordinator: IWorkspaceLoadCoordinator =
+    new NoopWorkspaceLoadCoordinator();
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -89,70 +82,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
-   * Get LSP connection from configuration manager
+   * Set the workspace-load coordinator. Defaults to a no-op if not
+   * provided — the previous in-line LSPConfigurationManager.getConnection
+   * path silently no-op'd whenever the connection was unavailable, so
+   * the no-op default preserves that observable behavior for callers
+   * that don't wire a coordinator.
    */
-  private getConnection(): Connection | undefined {
-    try {
-      const configManager = LSPConfigurationManager.getInstance();
-      const connection = configManager.getConnection();
-
-      if (!connection) {
-        this.logger.debug(
-          () => 'LSP connection not available in configuration manager',
-        );
-      }
-
-      return connection;
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Failed to get LSP connection from configuration manager: ${error}`,
-      );
-      return undefined;
-    }
-  }
-
-  /**
-   * Queue workspace load if needed (only if workspace is not already loaded or loading)
-   * Uses local state tracking instead of querying client
-   */
-  private async queueWorkspaceLoadIfNeeded(
-    connection: Connection,
-    workDoneToken?: ProgressToken,
-  ): Promise<void> {
-    // Check local state first
-    if (isWorkspaceLoaded()) {
-      this.logger.debug(
-        () =>
-          'Workspace already loaded (from local state), skipping workspace load',
-      );
-      return;
-    }
-
-    if (isWorkspaceLoading()) {
-      this.logger.debug(
-        () =>
-          'Workspace already loading (from local state), skipping workspace load',
-      );
-      return;
-    }
-
-    // Queue workspace load
-    const schedulerService = SchedulerInitializationService.getInstance();
-    await schedulerService.ensureInitialized();
-
-    const loadEffect = ensureWorkspaceLoaded(
-      connection,
-      this.logger,
-      workDoneToken,
-    );
-
-    const queuedItem = await Effect.runPromise(
-      createQueuedItem(loadEffect, 'workspace-load'),
-    );
-    await Effect.runPromise(offer(Priority.Low, queuedItem));
-
-    this.logger.debug(() => 'Workspace load task queued');
+  setWorkspaceLoadCoordinator(coordinator: IWorkspaceLoadCoordinator): void {
+    this.workspaceLoadCoordinator = coordinator;
   }
 
   /**
@@ -182,32 +119,22 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     try {
-      // Request workspace load in background (non-blocking)
-      // Queue the load task and proceed immediately with reference search
-      const connection = this.getConnection();
-      if (connection) {
-        try {
-          // Check workspace state synchronously BEFORE queuing
-          await this.queueWorkspaceLoadIfNeeded(
-            connection,
-            params.workDoneToken,
-          );
-
-          this.logger.debug(
-            () =>
-              'Workspace load check completed, proceeding with reference search (results may be partial)',
-          );
-        } catch (error) {
-          this.logger.error(
-            () => `Error checking/queuing workspace load: ${error}`,
-          );
-          // Continue with reference search even if workspace load check/queuing fails
-        }
-      } else {
+      // Request workspace load in background (non-blocking).
+      // Coordinator-thread callers wrap the LSP connection directly; worker
+      // callers route through the assistance bus. Either way, we proceed
+      // immediately and return whatever references are visible now —
+      // partial results are part of the contract.
+      try {
+        await this.workspaceLoadCoordinator.ensureLoaded(params.workDoneToken);
         this.logger.debug(
           () =>
-            'No connection available for workspace load coordination, continuing with reference search',
+            'Workspace load coordination dispatched, proceeding with reference search (results may be partial)',
         );
+      } catch (error) {
+        this.logger.error(
+          () => `Error in workspace load coordination: ${error}`,
+        );
+        // Continue with reference search even if workspace load coordination fails
       }
 
       // Enrich files that might reference the target symbol (for finding references to protected/private members)
