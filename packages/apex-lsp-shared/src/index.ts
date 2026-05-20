@@ -403,6 +403,7 @@ export {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,

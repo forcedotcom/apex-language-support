@@ -671,6 +671,34 @@ export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// ResolveDependentUris — enrichment worker asks data-owner to return symbol
+// tables for every file whose declared symbols reference any symbol declared
+// in `uri`. Inverse of ResolveDepUris (which resolves a class name's *deps*);
+// this resolves a URI's *dependents*. Used by Find References to load
+// caller-side symbol tables before the algorithm runs on the worker.
+// ---------------------------------------------------------------------------
+
+export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentUris>()(
+  'ResolveDependentUris',
+  {
+    success: Schema.Struct({
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveDependentUrisError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      // Optional: narrow to dependents that reference a specific symbol
+      // declared in `uri`. When omitted, dependents of *any* symbol in `uri`
+      // are returned. Accepted now to avoid a wire-schema break later.
+      symbolName: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QueryGraphData — coordinator asks data-owner to compute graph data
 // using the data-owner's own symbol manager (which holds all workspace symbols
 // after compilation and enrichment write-backs).
@@ -706,6 +734,7 @@ export const DataOwnerTags = [
   'QuerySymbolSubset',
   'UpdateSymbolSubset',
   'ResolveDepUris',
+  'ResolveDependentUris',
   'WorkspaceBatchIngest',
   'QueryGraphData',
   'DispatchDocumentOpen',
@@ -776,6 +805,7 @@ export type DataOwnerRequest =
   | QuerySymbolSubset
   | UpdateSymbolSubset
   | ResolveDepUris
+  | ResolveDependentUris
   | WorkspaceBatchIngest
   | QueryGraphData
   | DispatchDocumentOpen
