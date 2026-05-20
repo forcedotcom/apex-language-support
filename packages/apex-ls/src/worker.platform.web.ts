@@ -46,6 +46,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -89,6 +90,7 @@ const AllWorkerRequests = Schema.Union(
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -1028,6 +1030,58 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             const entries: Record<string, unknown> = {};
             for (const uri of uris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                entries[uri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: st.getFileUri(),
+                });
+              }
+            }
+
+            return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDependentUris: (req) =>
+    guardRole('ResolveDependentUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            // Symbols declared in the target URI. Optionally narrow by name.
+            const declaredSymbols = yield* Effect.promise(() =>
+              sm.findSymbolsInFile(req.uri),
+            );
+            const targets = req.symbolName
+              ? declaredSymbols.filter((s) => s.name === req.symbolName)
+              : declaredSymbols;
+
+            // Distinct file URIs that contain references to any target symbol,
+            // excluding the source URI itself.
+            const dependentUris = new Set<string>();
+            for (const sym of targets) {
+              const refs = yield* Effect.promise(() =>
+                sm.findReferencesTo(sym),
+              );
+              for (const ref of refs) {
+                if (ref.fileUri && ref.fileUri !== req.uri) {
+                  dependentUris.add(ref.fileUri);
+                }
+              }
+            }
+
+            const entries: Record<string, unknown> = {};
+            for (const uri of dependentUris) {
               const st = yield* Effect.promise(() =>
                 sm.getSymbolTableForFile(uri),
               );
