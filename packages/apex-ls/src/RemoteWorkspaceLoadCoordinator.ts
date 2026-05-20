@@ -20,9 +20,7 @@ import { IWorkspaceLoadCoordinator } from '@salesforce/apex-lsp-compliant-servic
  * platform-specific globals — both the Node and browser worker
  * platforms inject their own copy of requestCoordinatorAssistancePromise.
  */
-export class RemoteWorkspaceLoadCoordinator
-  implements IWorkspaceLoadCoordinator
-{
+export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator {
   constructor(
     private readonly requestAssistance: (
       method: string,

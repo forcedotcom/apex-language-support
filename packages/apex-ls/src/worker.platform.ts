@@ -365,7 +365,9 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
         // the workspace-load notification (the worker has no LSP connection
         // of its own).
         svc.referencesService.setWorkspaceLoadCoordinator(
-          new RemoteWorkspaceLoadCoordinator(requestCoordinatorAssistancePromise),
+          new RemoteWorkspaceLoadCoordinator(
+            requestCoordinatorAssistancePromise,
+          ),
         );
 
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
@@ -688,6 +690,50 @@ async function loadSymbolDataForEnrichment(
 }
 
 /**
+ * Load symbol tables for files whose declared symbols reference symbols
+ * declared in `uri`. Best-effort: failures are swallowed and the caller
+ * proceeds with whatever symbols are already loaded — Find References
+ * is documented to return partial results.
+ *
+ * Mirrors the dependency pre-fetch inside loadSymbolDataForEnrichment,
+ * but inverted: that one walks `uri`'s outgoing references; this one
+ * walks `uri`'s incoming references. Used by Find References so the
+ * algorithm has access to caller-side symbol tables before it runs.
+ */
+async function loadDependentsForReferences(
+  svc: EnrichmentServices,
+  uri: string,
+  symbolName?: string,
+): Promise<void> {
+  try {
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:ResolveDependentUris',
+      { uri, symbolName },
+      true,
+    )) as { entries: Record<string, unknown> };
+
+    if (!response?.entries) return;
+
+    const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+    for (const [depUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const raw = stData as {
+        symbols: any[];
+        references?: any[];
+        hierarchicalReferences?: any[];
+        metadata?: any;
+        fileUri?: string;
+      };
+      const st = SymbolTable.fromSerializedData(raw);
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, depUri));
+    }
+  } catch {
+    // Best-effort: dependents are nice-to-have; references can still
+    // return whatever's resolvable from the loaded subset.
+  }
+}
+
+/**
  * Determine if enrichment is needed based on current and required detail levels.
  * Uses the same ordering as LayerEnrichmentService on origin/main.
  */
@@ -841,12 +887,44 @@ const enrichmentHandlers = {
   ),
   DispatchReferences: enrichmentHandler<RefsReq>(
     'DispatchReferences',
-    (svc, req) =>
-      svc.referencesService.processReferences({
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // References needs at least 'protected' detail to find cross-file
+      // references through inherited/extended members. Matches the level
+      // ReferencesProcessingService already requests for dependency-graph
+      // enrichment. Stdlib stubs are excluded by the existing enrichment
+      // logic — Apex private members can never be referenced cross-file.
+      const requiredLevel: 'public-api' | 'protected' | 'private' | 'full' =
+        'protected';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      // Fetch caller-side symbol tables before findReferences runs so the
+      // algorithm sees workspace-wide refs, not just the source file's
+      // dependencies. Best-effort — failures degrade gracefully to
+      // partial results, consistent with the existing contract.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      const result = await svc.referencesService.processReferences({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
         context: { includeDeclaration: req.context.includeDeclaration },
-      }),
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchImplementation: enrichmentHandler<PositionReq>(
     'DispatchImplementation',

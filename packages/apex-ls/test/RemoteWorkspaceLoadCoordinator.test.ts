@@ -37,7 +37,9 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
   });
 
   it('propagates assistance proxy rejections', async () => {
-    const requestAssistance = jest.fn().mockRejectedValue(new Error('bus down'));
+    const requestAssistance = jest
+      .fn()
+      .mockRejectedValue(new Error('bus down'));
     const coordinator = new RemoteWorkspaceLoadCoordinator(requestAssistance);
 
     await expect(coordinator.ensureLoaded()).rejects.toThrow('bus down');
