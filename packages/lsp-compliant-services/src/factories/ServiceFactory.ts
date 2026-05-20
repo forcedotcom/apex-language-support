@@ -28,6 +28,7 @@ import { ImplementationProcessingService } from '../services/ImplementationProce
 import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
+import { LocalWorkspaceLoadCoordinator } from '../services/LocalWorkspaceLoadCoordinator';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
@@ -115,6 +116,17 @@ export class ServiceFactory {
       this.dependencies.symbolManager,
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    // Wire the local coordinator only when the factory has an LSP
+    // connection. Worker bootstraps construct without a connection and
+    // wire a remote coordinator separately.
+    if (this.dependencies.connection) {
+      service.setWorkspaceLoadCoordinator(
+        new LocalWorkspaceLoadCoordinator(
+          this.dependencies.connection,
+          this.dependencies.logger,
+        ),
+      );
+    }
     return service;
   }
 
