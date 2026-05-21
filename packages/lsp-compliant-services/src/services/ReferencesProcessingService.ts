@@ -113,17 +113,34 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Run prerequisites for references request
     if (this.prerequisiteOrchestrationService) {
       try {
+        console.error(
+          '[ALG-DEBUG][processReferences] PREREQ-START ' +
+            `uri=${params.textDocument.uri}`,
+        );
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'references',
           params.textDocument.uri,
         );
+        console.error(
+          '[ALG-DEBUG][processReferences] PREREQ-DONE ' +
+            `uri=${params.textDocument.uri}`,
+        );
       } catch (error) {
+        console.error(
+          '[ALG-DEBUG][processReferences] PREREQ-ERROR ' +
+            `uri=${params.textDocument.uri} err=${String(error)}`,
+        );
         this.logger.debug(
           () =>
             `Error running prerequisites for references ${params.textDocument.uri}: ${error}`,
         );
         // Continue with references even if prerequisites fail
       }
+    } else {
+      console.error(
+        '[ALG-DEBUG][processReferences] PREREQ-NULL (no orchestrator) ' +
+          `uri=${params.textDocument.uri}`,
+      );
     }
 
     try {
