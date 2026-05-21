@@ -3240,38 +3240,136 @@ export class ApexSymbolRefManager {
    *
    * Returns the number of distinct target-name keys processed.
    */
+  /**
+   * Synchronous in-place drain of all deferred references.
+   *
+   * Walks the entire deferredReferences map and, for each entry, looks up
+   * source + target via findSymbolByName and calls addReference inline.
+   * Successfully resolved deferrals are removed; unresolvable ones stay
+   * queued for the next drain.
+   *
+   * Bypasses the priority scheduler (deferredProcessorLayer) on purpose:
+   * the scheduler's rate limit (default 5 tasks/sec) is appropriate for
+   * trickle-feed background processing but causes 30+ second stalls when
+   * drain has hundreds of entries to process. The work itself is just
+   * map lookups and a graph edge add — milliseconds per entry.
+   */
+  public drainAllDeferredReferencesSync(): {
+    keysProcessed: number;
+    refsResolved: number;
+    refsUnresolved: number;
+    remainingKeys: number;
+  } {
+    this.syncClassFieldsFromRefs();
+    const keys = Array.from(this.deferredReferences.keys());
+    console.error(
+      '[ALG-DEBUG][drainAllDeferredReferencesSync] ENTER ' +
+        `keys=${keys.length} ` +
+        `sample=[${keys.slice(0, 10).join(',')}]`,
+    );
+
+    let refsResolved = 0;
+    let refsUnresolved = 0;
+
+    for (const targetName of keys) {
+      const deferred = this.deferredReferences.get(targetName);
+      if (!deferred || deferred.length === 0) {
+        this.deferredReferences.delete(targetName);
+        continue;
+      }
+
+      // Look up the target symbol by name. If the target still isn't in
+      // the graph, every deferral under this key is unresolvable for now.
+      const targetCandidates = this.findSymbolByName(targetName);
+      if (targetCandidates.length === 0) {
+        refsUnresolved += deferred.length;
+        continue;
+      }
+
+      const remaining: typeof deferred = [];
+      for (const ref of deferred) {
+        // Refresh source fileUri if it was missing at enqueue time.
+        if (!ref.sourceSymbol.fileUri) {
+          const sourceCandidates = this.findSymbolByName(ref.sourceSymbol.name);
+          if (sourceCandidates.length > 0) {
+            ref.sourceSymbol.fileUri = sourceCandidates[0].fileUri;
+          }
+        }
+
+        if (!ref.sourceSymbol.fileUri) {
+          // Still no source fileUri, can't resolve — keep deferred.
+          remaining.push(ref);
+          refsUnresolved++;
+          continue;
+        }
+
+        // Pick the target candidate matching the source's fileUri if
+        // possible (favors same-file targets first), then any.
+        const targetSymbol = targetCandidates[0];
+
+        // addReference handles source-in-graph + target-in-graph lookup
+        // internally and emits the edge. If preconditions fail it
+        // re-enqueues a deferred ref under the same key — which we then
+        // re-detect on the next pass. To avoid infinite loops within
+        // this drain, we count the addReference attempt and trust that
+        // either it resolves now or stays queued for the next drain.
+        this.addReference(
+          ref.sourceSymbol,
+          targetSymbol,
+          ref.referenceType,
+          ref.location,
+          ref.context,
+        );
+        refsResolved++;
+      }
+
+      if (remaining.length === 0) {
+        this.deferredReferences.delete(targetName);
+      } else {
+        this.deferredReferences.set(targetName, remaining);
+      }
+    }
+
+    // Sync mutations back to the Ref so async deferred-ref processors
+    // see the same state as the synchronous class field.
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+
+    const remainingKeys = this.deferredReferences.size;
+    console.error(
+      '[ALG-DEBUG][drainAllDeferredReferencesSync] EXIT ' +
+        `keysProcessed=${keys.length} ` +
+        `refsResolved=${refsResolved} ` +
+        `refsUnresolved=${refsUnresolved} ` +
+        `remainingKeys=${remainingKeys}`,
+    );
+
+    return {
+      keysProcessed: keys.length,
+      refsResolved,
+      refsUnresolved,
+      remainingKeys,
+    };
+  }
+
+  /**
+   * Effect-wrapped synchronous drain. Same semantics as
+   * drainAllDeferredReferencesSync; the wrapper exists so callers in
+   * Effect-genned code can yield it without an extra Effect.sync hop.
+   */
   public drainAllDeferredReferencesEffect(): Effect.Effect<
     { keysProcessed: number; remainingKeys: number },
     never,
     never
   > {
     const self = this;
-    return Effect.gen(function* () {
-      self.syncClassFieldsFromRefs();
-      const keys = Array.from(self.deferredReferences.keys());
-      console.error(
-        '[ALG-DEBUG][drainAllDeferredReferencesEffect] ENTER ' +
-          `keys=${keys.length} ` +
-          `sample=[${keys.slice(0, 10).join(',')}]`,
-      );
-      let i = 0;
-      for (const key of keys) {
-        if (i % 25 === 0) {
-          console.error(
-            '[ALG-DEBUG][drainAllDeferredReferencesEffect] PROGRESS ' +
-              `i=${i}/${keys.length} key=${key}`,
-          );
-        }
-        yield* self.processDeferredReferencesBatchEffect(key);
-        i++;
-      }
-      self.syncClassFieldsFromRefs();
-      const remaining = self.deferredReferences.size;
-      console.error(
-        '[ALG-DEBUG][drainAllDeferredReferencesEffect] EXIT ' +
-          `keysProcessed=${keys.length} remainingKeys=${remaining}`,
-      );
-      return { keysProcessed: keys.length, remainingKeys: remaining };
+    return Effect.sync(() => {
+      const result = self.drainAllDeferredReferencesSync();
+      return {
+        keysProcessed: result.keysProcessed,
+        remainingKeys: result.remainingKeys,
+      };
     });
   }
   /**

@@ -1464,38 +1464,24 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   DrainDeferredReferences: (req) =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          // Fire-and-forget: ack the request immediately and run the
-          // actual drain in a forked daemon. The drain iterates every
-          // key in the deferred map and serially calls
-          // processDeferredReferencesBatchEffect, which enqueues tasks
-          // to the rate-limited priority scheduler — for a freshly
-          // ingested workspace this can take 30+ seconds. If we
-          // serialize through dataOwnerWrite, that blocks all
-          // subsequent UpdateSymbolSubset write-backs and Find
-          // References reads, causing 1s/5s LSP request timeouts.
-          // Instead we run drain outside the queue and return immediately.
-          const svc = yield* ensureDataOwnerServices;
-          console.error(
-            '[ALG-DEBUG][DataOwner.DrainDeferredReferences] FORK ' +
-              `reason=${req.reason}`,
-          );
-          yield* Effect.forkDaemon(
-            Effect.gen(function* () {
-              const result =
-                yield* svc.symbolManager.drainAllDeferredReferences();
-              console.error(
-                '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
-                  `reason=${req.reason} ` +
-                  `keysProcessed=${result.keysProcessed} ` +
-                  `remainingKeys=${result.remainingKeys}`,
-              );
-            }),
-          );
-          // Return synchronously; the drain will complete asynchronously
-          // and write its summary via console.error.
-          return { keysProcessed: 0, remainingKeys: 0 };
-        }),
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            // The drain is now synchronous (drainAllDeferredReferencesSync
+            // bypasses the priority scheduler); for dreamhouse-lwc-scale
+            // workspaces it completes in <500ms even with hundreds of
+            // queued deferrals. Safe to run inside dataOwnerWrite.
+            const result =
+              yield* svc.symbolManager.drainAllDeferredReferences();
+            console.error(
+              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
+                `reason=${req.reason} ` +
+                `keysProcessed=${result.keysProcessed} ` +
+                `remainingKeys=${result.remainingKeys}`,
+            );
+            return result;
+          }),
+        ),
       ),
     ),
 
