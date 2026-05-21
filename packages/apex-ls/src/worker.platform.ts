@@ -480,6 +480,14 @@ async function writeBackCompiledSymbols(
     };
     const symbolCount = enrichedSymbolTable.symbols.length;
 
+    // ALG-DEBUG: log every write-back attempt with key dimensions
+    // (uri, version, symbolCount). Pairs with the data-owner-side log
+    // to find requests that vanish in transit.
+    console.error(
+      `[ALG-DEBUG][writeBackCompiledSymbols] ENTER uri=${uri} ` +
+        `v=${documentVersion} symbolCount=${symbolCount}`,
+    );
+
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
       {
@@ -495,6 +503,12 @@ async function writeBackCompiledSymbols(
     const elapsed = Date.now() - startTime;
     const accepted = response?.accepted ?? false;
 
+    console.error(
+      `[ALG-DEBUG][writeBackCompiledSymbols] EXIT uri=${uri} ` +
+        `accepted=${accepted} merged=${response?.merged ?? 0} ` +
+        `versionMismatch=${response?.versionMismatch ?? false} ${elapsed}ms`,
+    );
+
     await Effect.runPromise(
       Effect.logDebug(
         `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
@@ -505,6 +519,10 @@ async function writeBackCompiledSymbols(
     return accepted;
   } catch (err) {
     const elapsed = Date.now() - startTime;
+    console.error(
+      `[ALG-DEBUG][writeBackCompiledSymbols] THROW uri=${uri} ` +
+        `${elapsed}ms err=${String(err)}`,
+    );
     await Effect.runPromise(
       Effect.logWarning(
         `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
@@ -1162,6 +1180,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           Effect.gen(function* () {
             writeBackMetrics.attempted++;
 
+            // ALG-DEBUG: log every UpdateSymbolSubset entry to verify how
+            // many of the compilation worker's write-backs actually reach
+            // the data-owner.
+            console.error(
+              `[ALG-DEBUG][DataOwner.UpdateSymbolSubset] ENTER uri=${req.uri} ` +
+                `v=${req.documentVersion} level=${req.enrichedDetailLevel} ` +
+                `from=${req.sourceWorkerId}`,
+            );
+
             const svc = yield* ensureDataOwnerServices;
             const storage = svc.storageManager.getStorage();
             const cache = getDocumentStateCache();
@@ -1173,6 +1200,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (!currentDoc) {
               writeBackMetrics.rejectedDocumentMissing++;
+              console.error(
+                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-NO-DOC ' +
+                  `uri=${req.uri}`,
+              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
@@ -1185,6 +1216,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (currentDoc.version !== req.documentVersion) {
               writeBackMetrics.rejectedVersionMismatch++;
+              console.error(
+                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-VERSION ' +
+                  `uri=${req.uri} stored=${currentDoc.version} ` +
+                  `incoming=${req.documentVersion}`,
+              );
               yield* Effect.logDebug(
                 '[DATA-OWNER] Write-back rejected: version mismatch ' +
                   `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
@@ -1213,6 +1249,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
+              console.error(
+                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-DETAIL ' +
+                  `uri=${req.uri} have=${rawLevel ?? 'none'} ` +
+                  `incoming=${req.enrichedDetailLevel}`,
+              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
@@ -1247,6 +1288,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const mergedCount = enrichedSt.getAllSymbols().length;
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            console.error(
+              '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] ACCEPT ' +
+                `uri=${req.uri} merged=${mergedCount} ` +
+                `level=${req.enrichedDetailLevel}`,
+            );
 
             // Log to both Effect logger and console for debugging
             const logMsg =
