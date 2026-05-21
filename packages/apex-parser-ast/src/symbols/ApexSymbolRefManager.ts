@@ -924,9 +924,29 @@ export class ApexSymbolRefManager {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
 
+    // ALG-DEBUG: this method clears outgoing AND incoming reference edges
+    // for a file. When called for a file that other files have cross-file
+    // edges TO (e.g. Test.cls's edges to GeocodingService.cls), this also
+    // wipes those incoming edges from the reverseIndex. Trace the count
+    // to catch regressions where addSymbolTable calls this on a file
+    // whose dependents should be preserved.
+    const edgesBefore = this.refStore.size;
+    const trace = (label: string) => {
+      console.error(
+        `[ALG-DEBUG][clearReferenceStateForFile] ${label} ` +
+          `uri=${normalizedUri} ` +
+          `symbolIds=${symbolIds.size} ` +
+          `edgesBefore=${edgesBefore} ` +
+          `edgesAfter=${this.refStore.size}`,
+      );
+    };
+    trace('ENTER');
+
     this.removeReferencesFromFile(normalizedUri);
     this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
+
+    trace('EXIT');
   }
 
   /**
@@ -2838,6 +2858,16 @@ export class ApexSymbolRefManager {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
     const symbolIdSet = new Set(symbolIds);
+
+    // ALG-DEBUG: removeFile is the most aggressive ref-clearing path
+    // (clears outgoing + incoming + symbols + indexes). Trace it so we
+    // can correlate any unexpected drop in totalEdges with a removeFile
+    // call. Most likely caller during runtime: DispatchDocumentClose.
+    console.error(
+      `[ALG-DEBUG][removeFile] ENTER uri=${normalizedUri} ` +
+        `symbolIds=${symbolIds.length} ` +
+        `edgesBefore=${this.refStore.size}`,
+    );
 
     // Remove all references from/to symbols in this file
     this.removeReferencesFromFile(normalizedUri);
