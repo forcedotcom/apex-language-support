@@ -3190,6 +3190,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
+        // ALG-DEBUG: snapshot edge count before processing so we can see
+        // how many edges this run actually added to the global graph.
+        const edgesBefore =
+          (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
+            ?.totalEdges ?? 0;
+
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
         for (let i = 0; i < typeReferences.length; i += batchSize) {
@@ -3210,16 +3216,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // ALG-DEBUG: report cross-file candidate count. If
-        // crossFileCandidates > 0 but findReferencesTo on the targets
-        // still returns same-file-only, the bug is inside
-        // processSymbolReferenceToGraphEffect's resolution path
-        // (target lookup, source-in-graph lookup, or addReference itself).
+        const edgesAfter =
+          (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
+            ?.totalEdges ?? 0;
+
+        // ALG-DEBUG: report cross-file candidate count + edge delta. If
+        // crossFileCandidates > 0 but edgesAdded ≈ 0 (or only same-file
+        // count), the bug is inside processSymbolReferenceToGraphEffect's
+        // resolution path (target lookup, source-in-graph lookup, or the
+        // addReference precondition `sourceInGraph && targetInGraph`).
         console.error(
           '[ALG-DEBUG][processSymbolReferencesToGraph] DONE ' +
             `uri=${fileUri} totalRefs=${typeReferences.length} ` +
             `qualified=${qualifiedCandidates} ` +
             `crossFileCandidates=${crossFileCandidates} ` +
+            `edgesAdded=${edgesAfter - edgesBefore} ` +
             `samples=[${crossFileNameSamples.join(',')}]`,
         );
       } catch (error) {
