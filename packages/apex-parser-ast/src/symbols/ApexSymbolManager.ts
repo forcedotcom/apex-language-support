@@ -2035,15 +2035,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // declares names other files have already deferred against. If
       // GeocodingService.cls is being added after GeocodingServiceTest.cls,
       // the map should contain GeocodingAddress/Coordinates/etc. as keys.
-      const allDeferredKeys = (
-        self.symbolRefManager as unknown as {
-          deferredReferences?: Map<string, unknown[]>;
-        }
-      ).deferredReferences;
+      const refMgr = self.symbolRefManager as unknown as {
+        deferredReferences?: Map<string, unknown[]>;
+        pendingDeferredReferences?: Map<string, unknown[]>;
+      };
+      const allDeferredKeys = refMgr.deferredReferences;
       const deferredKeyCount = allDeferredKeys?.size ?? 0;
       const deferredKeySample =
         allDeferredKeys && deferredKeyCount > 0
           ? Array.from(allDeferredKeys.keys()).slice(0, 10).join(',')
+          : '(empty)';
+      const allPendingKeys = refMgr.pendingDeferredReferences;
+      const pendingKeyCount = allPendingKeys?.size ?? 0;
+      const pendingKeySample =
+        allPendingKeys && pendingKeyCount > 0
+          ? Array.from(allPendingKeys.keys()).slice(0, 10).join(',')
           : '(empty)';
       console.error(
         '[ALG-DEBUG][addSymbolTable.processDeferred] CHECK ' +
@@ -2051,7 +2057,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `addedNames=${symbolNamesAdded.size} ` +
           `addedSample=[${Array.from(symbolNamesAdded).slice(0, 10).join(',')}] ` +
           `deferredMapSize=${deferredKeyCount} ` +
-          `deferredKeySample=[${deferredKeySample}]`,
+          `deferredKeySample=[${deferredKeySample}] ` +
+          `pendingMapSize=${pendingKeyCount} ` +
+          `pendingKeySample=[${pendingKeySample}]`,
       );
 
       for (const symbolName of symbolNamesAdded) {
