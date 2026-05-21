@@ -1019,6 +1019,7 @@ function buildEnrichmentMessage(
         context: {
           includeDeclaration: r.context?.includeDeclaration ?? false,
         },
+        content: getDocumentContent?.(r.textDocument.uri),
       });
     }
     case 'implementation':

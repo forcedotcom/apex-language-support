@@ -545,6 +545,10 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
       context: Schema.Struct({
         includeDeclaration: Schema.Boolean,
       }),
+      // Document content for the worker to seed local storage. Without
+      // this, ReferencesProcessingService.findReferences cannot resolve
+      // the symbol at the cursor and returns []. Mirrors DispatchHover.
+      content: Schema.optional(Schema.String),
     },
   },
 ) {}

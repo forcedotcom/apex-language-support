@@ -929,6 +929,7 @@ const enrichmentHandlers = {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
+        req.content,
       );
 
       // References needs at least 'protected' detail to find cross-file

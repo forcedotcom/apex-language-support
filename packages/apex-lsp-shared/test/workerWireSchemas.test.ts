@@ -264,6 +264,19 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(DispatchReferences)(req);
       const decoded = Schema.decodeSync(DispatchReferences)(encoded);
       expect(decoded.context.includeDeclaration).toBe(true);
+      expect(decoded.content).toBeUndefined();
+    });
+
+    it('should encode and decode round-trip with content', () => {
+      const req = new DispatchReferences({
+        textDocument: { uri: 'file:///MyClass.cls' },
+        position: { line: 3, character: 7 },
+        context: { includeDeclaration: true },
+        content: 'public class MyClass {}',
+      });
+      const encoded = Schema.encodeSync(DispatchReferences)(req);
+      const decoded = Schema.decodeSync(DispatchReferences)(encoded);
+      expect(decoded.content).toBe('public class MyClass {}');
     });
   });
 

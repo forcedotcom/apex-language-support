@@ -828,6 +828,7 @@ const enrichmentHandlers = {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
+        req.content,
       );
       const requiredLevel: 'public-api' | 'protected' | 'private' | 'full' =
         'protected';
