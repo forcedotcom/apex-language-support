@@ -3134,6 +3134,9 @@ export class ApexSymbolRefManager {
     },
   ): void {
     if (!sourceSymbol.fileUri) {
+      // ALG-DEBUG: this is a known silent-drop path. Count it via a
+      // module-level counter so we can correlate with xfDefer counts.
+      ApexSymbolRefManager.__algEnqueueStats.dropMissingSourceUri++;
       this.logger.warn(
         () =>
           `Skipping enqueueDeferredReference for source ${sourceSymbol.name}: missing fileUri`,
@@ -3159,6 +3162,7 @@ export class ApexSymbolRefManager {
       } else {
         // If we can't find a containing symbol, skip this reference
         // Block symbols shouldn't be used as source symbols
+        ApexSymbolRefManager.__algEnqueueStats.dropBlockNoContainer++;
         this.logger.debug(
           () =>
             `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
@@ -3168,6 +3172,7 @@ export class ApexSymbolRefManager {
       }
     }
 
+    ApexSymbolRefManager.__algEnqueueStats.added++;
     this.addDeferredReference(
       actualSourceSymbol,
       targetSymbolName,
@@ -3176,6 +3181,16 @@ export class ApexSymbolRefManager {
       context,
     );
   }
+
+  // ALG-DEBUG: track drop reasons in enqueueDeferredReference. Reset by
+  // callers when they want a window count. Counters live on the class
+  // (singleton-scoped per worker process) since multiple manager
+  // instances would share a process.
+  static __algEnqueueStats = {
+    added: 0,
+    dropMissingSourceUri: 0,
+    dropBlockNoContainer: 0,
+  };
 
   /**
    * Get deferred references for a symbol name

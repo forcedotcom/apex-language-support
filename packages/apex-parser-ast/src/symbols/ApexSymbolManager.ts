@@ -3267,6 +3267,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
             ?.totalEdges ?? 0;
 
+        // ALG-DEBUG: snapshot enqueue stats; we read the delta after
+        // the loop to verify how many xfDefer calls actually landed
+        // entries in the deferredReferences map vs hit a silent-drop
+        // path (missing source fileUri or block source with no
+        // containing symbol).
+        const refMgrStats = (self.symbolRefManager as unknown as {
+          constructor: { __algEnqueueStats?: { added: number; dropMissingSourceUri: number; dropBlockNoContainer: number } };
+        }).constructor.__algEnqueueStats ?? { added: 0, dropMissingSourceUri: 0, dropBlockNoContainer: 0 };
+        const enqueueAddedBefore = refMgrStats.added;
+        const enqueueDropMissingBefore = refMgrStats.dropMissingSourceUri;
+        const enqueueDropBlockBefore = refMgrStats.dropBlockNoContainer;
+
         // ALG-DEBUG: per-call counters tracking each cross-file outcome.
         // Stash on the manager instance so the per-ref effect can mutate
         // them without requiring a signature change. Stable across the
@@ -3333,6 +3345,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // xfAddReferenceCalled = both source+target found, called addReference.
         // xfDeferralEnqueued = enqueueDeferredReference reached.
         // xfDeferralSkippedNoSource = skipped because source symbol was null.
+        const enqueueAdded = refMgrStats.added - enqueueAddedBefore;
+        const enqueueDropMissing =
+          refMgrStats.dropMissingSourceUri - enqueueDropMissingBefore;
+        const enqueueDropBlock =
+          refMgrStats.dropBlockNoContainer - enqueueDropBlockBefore;
         console.error(
           '[ALG-DEBUG][processSymbolReferencesToGraph] DONE ' +
             `uri=${fileUri} totalRefs=${typeReferences.length} ` +
@@ -3345,6 +3362,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             `xfAddRef=${counters.xfAddReferenceCalled} ` +
             `xfDefer=${counters.xfDeferralEnqueued} ` +
             `xfDeferSkip=${counters.xfDeferralSkippedNoSource} ` +
+            `enqAdded=${enqueueAdded} ` +
+            `enqDropMissingUri=${enqueueDropMissing} ` +
+            `enqDropBlock=${enqueueDropBlock} ` +
             `samples=[${crossFileNameSamples.join(',')}]`,
         );
       } catch (error) {
