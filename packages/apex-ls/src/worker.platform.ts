@@ -470,15 +470,28 @@ async function writeBackCompiledSymbols(
 ): Promise<boolean> {
   const startTime = Date.now();
   try {
-    const enrichedSymbolTable = {
+    // The compiled SymbolTable's symbols/references contain function-typed
+    // fields (e.g. ApexSymbol.key.unifiedId getters) that postMessage's
+    // structured clone cannot handle: it throws "DataCloneError: ()=>null
+    // could not be cloned." cloneForWire performs a JSON round-trip to
+    // strip functions, matching what every data-owner-side handler
+    // (QuerySymbolSubset, ResolveDepUris, ResolveDependentUris) does in
+    // the opposite direction. Without this, structured clone throws on
+    // the assistance bus and the write-back never reaches the data-owner —
+    // which is what was leaving the data-owner with declarations only for
+    // the small number of files whose symbol tables happened to be
+    // function-free.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences:
         symbolTable.getAllHierarchicalReferences?.() ?? [],
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    });
+    const symbolCount =
+      (enrichedSymbolTable as { symbols?: unknown[] } | null)?.symbols
+        ?.length ?? 0;
 
     // ALG-DEBUG: log every write-back attempt with key dimensions
     // (uri, version, symbolCount). Pairs with the data-owner-side log
