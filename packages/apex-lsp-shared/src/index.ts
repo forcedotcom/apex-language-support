@@ -404,6 +404,7 @@ export {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,

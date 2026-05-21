@@ -2986,6 +2986,39 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param fileUri The file URI to resolve cross-file references for
    * @returns Effect that resolves cross-file references for the file
    */
+  /**
+   * Drain ALL queued deferred references in a single pass.
+   *
+   * Used after batch ingest (or any other quiescent point) to land
+   * cross-file edges that couldn't be resolved during their originating
+   * resolveCrossFileReferencesForFile call because the target file's
+   * symbols hadn't been added yet — or vice versa, the source file was
+   * added before the target.
+   *
+   * The per-symbol-name re-resolution loop in addSymbolTable only fires
+   * for names just added; it doesn't know about deferrals enqueued
+   * AFTER the target file's addSymbolTable has run, which is exactly
+   * the case during batch ingest when source files are processed before
+   * their target dependencies.
+   */
+  drainAllDeferredReferences(): Effect.Effect<
+    { keysProcessed: number; remainingKeys: number },
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const result =
+        yield* self.symbolRefManager.drainAllDeferredReferencesEffect();
+      console.error(
+        '[ALG-DEBUG][drainAllDeferredReferences] DONE ' +
+          `keysProcessed=${result.keysProcessed} ` +
+          `remainingKeys=${result.remainingKeys}`,
+      );
+      return result;
+    });
+  }
+
   resolveCrossFileReferencesForFile(
     fileUri: string,
   ): Effect.Effect<void, never, never> {

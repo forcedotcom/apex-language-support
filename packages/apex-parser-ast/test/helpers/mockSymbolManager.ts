@@ -33,6 +33,9 @@ export function createMockSymbolManager(
     findSymbolsInFile: jest.fn().mockResolvedValue([]),
     findFilesForSymbol: jest.fn().mockResolvedValue([]),
     resolveCrossFileReferencesForFile: jest.fn().mockReturnValue(Effect.void),
+    drainAllDeferredReferences: jest.fn().mockReturnValue(
+      Effect.succeed({ keysProcessed: 0, remainingKeys: 0 }),
+    ),
     resolveSymbol: jest.fn().mockResolvedValue({
       symbol: null,
       fileUri: '',
@@ -161,6 +164,8 @@ export function createMockEffectSymbolManagerLayer(
     findSymbolsInFile: () => Effect.succeed([]),
     findFilesForSymbol: () => Effect.succeed([]),
     resolveCrossFileReferencesForFile: () => Effect.void,
+    drainAllDeferredReferences: () =>
+      Effect.succeed({ keysProcessed: 0, remainingKeys: 0 }),
     resolveSymbol: () =>
       Effect.succeed({
         symbol: null,

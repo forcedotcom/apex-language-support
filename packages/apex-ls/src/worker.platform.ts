@@ -39,6 +39,7 @@ import {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -86,6 +87,7 @@ const AllWorkerRequests = Schema.Union(
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -1459,6 +1461,31 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  DrainDeferredReferences: (req) =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            // Drain ALL queued deferred references against the now-fully
+            // populated graph. This catches cross-file edges whose target
+            // file was added AFTER the source file's resolveCrossFileRefs
+            // pass enqueued the deferral — the per-name re-resolution loop
+            // in addSymbolTable only fires for symbol names just added,
+            // missing this case entirely.
+            const result = yield* svc.symbolManager.drainAllDeferredReferences();
+            console.error(
+              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
+                `reason=${req.reason} ` +
+                `keysProcessed=${result.keysProcessed} ` +
+                `remainingKeys=${result.remainingKeys}`,
+            );
+            return result;
+          }),
+        ),
+      ),
+    ),
+
   WorkspaceBatchIngest: (req) =>
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
@@ -1656,6 +1683,37 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.yieldNow();
             }
           }
+
+          // After batch ingestion settles on the data-owner, ask it to
+          // drain ALL queued deferred references against the now-fully-
+          // populated graph. The per-name re-resolution loop in
+          // addSymbolTable only fires for symbols just added — it can't
+          // catch cross-file deferrals enqueued AFTER the target file's
+          // add (which is the normal case during batch ingest, where
+          // source files are processed before their dependencies).
+          // Without this drain, Find References returns same-file-only
+          // edges for any symbol whose callers were ingested after the
+          // target was added.
+          yield* Effect.promise(async () => {
+            try {
+              const drainResult = (await requestCoordinatorAssistancePromise(
+                'dataOwner:DrainDeferredReferences',
+                { reason: 'post-WorkspaceBatchCompile' },
+                true,
+              )) as { keysProcessed: number; remainingKeys: number };
+              console.error(
+                '[ALG-DEBUG][WorkspaceBatchCompile] drain DONE ' +
+                  `session=${req.sessionId} ` +
+                  `keysProcessed=${drainResult?.keysProcessed ?? 0} ` +
+                  `remainingKeys=${drainResult?.remainingKeys ?? 0}`,
+              );
+            } catch (err) {
+              console.error(
+                '[ALG-DEBUG][WorkspaceBatchCompile] drain THROW ' +
+                  `session=${req.sessionId} err=${String(err)}`,
+              );
+            }
+          });
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.logInfo(

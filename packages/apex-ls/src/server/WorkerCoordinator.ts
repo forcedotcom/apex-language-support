@@ -23,6 +23,7 @@ import {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  DrainDeferredReferences,
   ResolveDepUris,
   ResolveDependentUris,
   WIRE_PROTOCOL_VERSION,
@@ -803,6 +804,14 @@ function createDispatcher(
             new ResolveDependentUris({
               uri: prdu.uri,
               symbolName: prdu.symbolName,
+            }),
+          );
+        }
+        case 'DrainDeferredReferences': {
+          const pdr = params as { reason?: string };
+          return callbacks.sendToDataOwner(
+            new DrainDeferredReferences({
+              reason: pdr.reason ?? 'unspecified',
             }),
           );
         }

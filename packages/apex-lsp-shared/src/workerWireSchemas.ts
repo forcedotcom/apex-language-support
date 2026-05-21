@@ -703,6 +703,35 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
 ) {}
 
 // ---------------------------------------------------------------------------
+// DrainDeferredReferences — fire-and-forget request asking the data-owner to
+// run a single global pass over all queued deferred references against the
+// current graph state. Sent by compilation workers after WorkspaceBatchCompile
+// completes (and by other quiescent points, e.g. after a single-file edit
+// settles) so cross-file edges that couldn't be resolved during their
+// originating resolveCrossFileReferencesForFile pass — because the target
+// file hadn't been added yet — finally land. Without this, Find References
+// returns same-file-only edges for any symbol whose callers were ingested
+// after their target.
+// ---------------------------------------------------------------------------
+
+export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredReferences>()(
+  'DrainDeferredReferences',
+  {
+    success: Schema.Struct({
+      keysProcessed: Schema.Number,
+      remainingKeys: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DrainDeferredReferencesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      reason: Schema.String, // for tracing — e.g. "post-WorkspaceBatchCompile"
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QueryGraphData — coordinator asks data-owner to compute graph data
 // using the data-owner's own symbol manager (which holds all workspace symbols
 // after compilation and enrichment write-backs).
@@ -739,6 +768,7 @@ export const DataOwnerTags = [
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'ResolveDependentUris',
+  'DrainDeferredReferences',
   'WorkspaceBatchIngest',
   'QueryGraphData',
   'DispatchDocumentOpen',
@@ -810,6 +840,7 @@ export type DataOwnerRequest =
   | UpdateSymbolSubset
   | ResolveDepUris
   | ResolveDependentUris
+  | DrainDeferredReferences
   | WorkspaceBatchIngest
   | QueryGraphData
   | DispatchDocumentOpen

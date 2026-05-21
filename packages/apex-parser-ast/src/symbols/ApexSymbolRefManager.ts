@@ -3221,6 +3221,42 @@ export class ApexSymbolRefManager {
       ),
     );
   }
+
+  /**
+   * Drain ALL deferred references in a single pass.
+   *
+   * The per-symbol-name deferred-ref re-resolution loop in
+   * ApexSymbolManager.addSymbolTable only matches deferrals for symbols
+   * that were just added. When file A is added BEFORE file B, and B's
+   * cross-file refs to A's symbols only get enqueued during B's
+   * resolveCrossFileReferencesForFile pass, those deferrals are never
+   * re-tried unless A is re-added or another file's add happens to
+   * include the same names.
+   *
+   * Call this method after batch ingestion (or any other point where
+   * the graph has settled) to drive every deferred entry against the
+   * current graph state. Successful resolutions add edges and remove
+   * the entry; failures stay queued for the next drain.
+   *
+   * Returns the number of distinct target-name keys processed.
+   */
+  public drainAllDeferredReferencesEffect(): Effect.Effect<
+    { keysProcessed: number; remainingKeys: number },
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      self.syncClassFieldsFromRefs();
+      const keys = Array.from(self.deferredReferences.keys());
+      for (const key of keys) {
+        yield* self.processDeferredReferencesBatchEffect(key);
+      }
+      self.syncClassFieldsFromRefs();
+      const remaining = self.deferredReferences.size;
+      return { keysProcessed: keys.length, remainingKeys: remaining };
+    });
+  }
   /**
    * Retry pending deferred references when source symbol is added (Effect-based)
    * Returns result indicating if retry is needed and why

@@ -47,6 +47,7 @@ import {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -92,6 +93,7 @@ const AllWorkerRequests = Schema.Union(
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -1201,6 +1203,25 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  DrainDeferredReferences: (req) =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const result = yield* svc.symbolManager.drainAllDeferredReferences();
+            console.error(
+              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
+                `reason=${req.reason} ` +
+                `keysProcessed=${result.keysProcessed} ` +
+                `remainingKeys=${result.remainingKeys}`,
+            );
+            return result;
+          }),
+        ),
+      ),
+    ),
+
   WorkspaceBatchIngest: (req) =>
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
@@ -1384,6 +1405,30 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.yieldNow();
             }
           }
+
+          // After batch ingestion settles on the data-owner, ask it to
+          // drain ALL queued deferred references against the now-fully-
+          // populated graph. See worker.platform.ts for full rationale.
+          yield* Effect.promise(async () => {
+            try {
+              const drainResult = (await requestCoordinatorAssistancePromise(
+                'dataOwner:DrainDeferredReferences',
+                { reason: 'post-WorkspaceBatchCompile' },
+                true,
+              )) as { keysProcessed: number; remainingKeys: number };
+              console.error(
+                '[ALG-DEBUG][WorkspaceBatchCompile] drain DONE ' +
+                  `session=${req.sessionId} ` +
+                  `keysProcessed=${drainResult?.keysProcessed ?? 0} ` +
+                  `remainingKeys=${drainResult?.remainingKeys ?? 0}`,
+              );
+            } catch (err) {
+              console.error(
+                '[ALG-DEBUG][WorkspaceBatchCompile] drain THROW ' +
+                  `session=${req.sessionId} err=${String(err)}`,
+              );
+            }
+          });
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.logInfo(

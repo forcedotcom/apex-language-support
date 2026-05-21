@@ -156,6 +156,10 @@ export interface IEffectSymbolManagerShape {
   readonly resolveCrossFileReferencesForFile: (
     fileUri: string,
   ) => Effect.Effect<void>;
+  readonly drainAllDeferredReferences: () => Effect.Effect<{
+    keysProcessed: number;
+    remainingKeys: number;
+  }>;
   readonly resolveSymbol: (
     name: string,
     context: SymbolResolutionContext,
@@ -406,6 +410,8 @@ export const iEffectSymbolManagerFromLegacy = (
           legacyManager.registerSymbolTableForFile(st, uri, opts),
         resolveCrossFileReferencesForFile: (uri) =>
           legacyManager.resolveCrossFileReferencesForFile(uri),
+        drainAllDeferredReferences: () =>
+          legacyManager.drainAllDeferredReferences(),
         getSymbolAtPosition: (uri, pos, strategy) =>
           Effect.promise(() =>
             legacyManager.getSymbolAtPosition(uri, pos, strategy),
