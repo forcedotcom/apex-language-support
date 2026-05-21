@@ -547,6 +547,24 @@ function processWorkspaceBatchBackground(
  * we fall through to local processing — preserving today's behavior as
  * the safe fallback.
  */
+/**
+ * Default wait timeout for the worker batch dispatcher to show up.
+ * In production: workers come online ~1-2s after server start, so 5s
+ * is generous. Tests override this to keep run-times bounded.
+ *
+ * @see setBatchDispatcherWaitTimeoutMs to change the value.
+ */
+let batchDispatcherWaitTimeoutMs = 5_000;
+
+/**
+ * Test-only seam to override the wait timeout. Production code should
+ * use the default (5s); test code typically passes 50-100ms so the
+ * fall-through-to-local path runs quickly.
+ */
+export function setBatchDispatcherWaitTimeoutMs(ms: number): void {
+  batchDispatcherWaitTimeoutMs = ms;
+}
+
 async function waitForBatchIngestionDispatcher(
   timeoutMs: number,
   pollIntervalMs: number,
@@ -611,7 +629,7 @@ function processStoredBatches(
     // Wait briefly for the worker batch dispatcher when topology is
     // enabled. See waitForBatchIngestionDispatcher for the rationale.
     const dispatcher = yield* Effect.promise(() =>
-      waitForBatchIngestionDispatcher(5_000, 50, logger),
+      waitForBatchIngestionDispatcher(batchDispatcherWaitTimeoutMs, 50, logger),
     );
 
     let fileUris: string[] = [];
