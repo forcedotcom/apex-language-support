@@ -1,31 +1,62 @@
 # Find References — Offload to Enrichment Pool
 
-**Status:** Implemented on `feature/enrichment-offload-investigation` (10 commits, pre-PR)
+**Status:** Implemented and verified on `feature/enrichment-offload-investigation`
 **Branch:** `feature/enrichment-offload-investigation` (rename to `feature/W-XXXXXXXX` when work item assigned)
 **Author:** Kyle Walker (drafted with Claude assistance)
-**Date:** 2026-05-20
+**Date:** 2026-05-20 (last updated 2026-05-21)
 
 ## 0. Implementation status
 
-All milestones M1–M11 in §4 are landed. `references` routes to the enrichment pool; the worker handler runs the full enrichment pattern (load symbols → load dependents → process → write back); the coordinator-side `ensureWorkspaceLoaded` and data-owner-side `findReferencesTo` lookups are bridged via two new assistance-bus methods.
+All milestones M1–M11 in §4 are landed. The references offload **pipeline** is verified end-to-end against the `dreamhouse-lwc` workspace:
+
+- Worker topology bootstraps on demand (`apex.experimental.workers.enabled=true`).
+- Workspace ingests via `WorkspaceBatchIngest` → data-owner stores 13 files.
+- Compilation worker compiles all files in ~240ms.
+- `textDocument/references` requests route to the enrichment pool (`[WorkerDispatch] → enrichmentPool: references`).
+- Worker handler queries the data-owner for symbol data, fetches dependents, runs `processReferences`, and returns valid LSP `Location` objects with proper integer line/character ranges.
+- LSP client receives well-formed responses; the references panel populates with at least the symbol's declaration site.
+
+### Bugs found and fixed during verification
+
+Three pre-existing bugs were unmasked by exercising the offload pipeline; they were fixed in this branch but they were independent of the offload work:
+
+1. **Bootstrap race (commit `fc9ef4aad`, then `2ff1a018e`).** `apex/sendWorkspaceBatch` arrives ~1s after server startup; the worker batch dispatcher is set ~2s after that. `processStoredBatches` captured the dispatcher at fork time (always null in practice) and unconditionally fell through to coordinator-local processing. The data-owner never received the workspace, so all enrichment-pool requests queried an empty symbol manager. Fix: wait briefly (5s timeout) for the dispatcher before processing.
+2. **Malformed Location range (commit `d64922fb8`).** `ReferencesProcessingService.createLocationFromSymbol` and `createLocationFromReference` read `.location.startLine` / `.startColumn` directly. `SymbolLocation` is `{ symbolRange, identifierRange }`, not a flat range — the reads returned `undefined`, math produced `NaN`, JSON serialized as `null`, and the LSP client silently dropped the malformed Location. Fix: read `.location.identifierRange.{startLine,startColumn,endLine,endColumn}`.
+3. **Missing `LSPQueueManager.workerDispatcher` consultation (commit `494adfd07`).** `LSPQueueManager.setWorkerDispatcher` stored a reference but `createQueuedItem` never read it; the dispatcher's `dispatch()` method was never invoked. The DISPATCH_ROUTING table was decorative until this commit. Fix: consult the dispatcher before falling through to the local handler.
+
+### Known limitation: algorithm completeness
+
+`processReferences` returns valid Locations through the worker pipeline, **but the result set is incomplete**: clicking Find References on a class symbol typically returns only the declaration site, not its use sites. Verified against `dreamhouse-lwc` `GeocodingService.GeocodingAddress` — which has many uses in the same file and across `GeocodingServiceTest.cls`, but only the declaration appears.
+
+This is a pre-existing algorithm-completeness issue in `ReferencesProcessingService` independent of the offload. Likely contributors:
+
+- The worker's local symbol manager has `public-api` detail level for the file when `findReferencesTo` runs. At that level only top-level declarations are indexed, not the body-level references to them.
+- `PrerequisiteOrchestrationService.runPrerequisitesForLspRequestType('references', uri)` should enrich to `'full'` detail blockingly, but the resulting reference index does not appear to feed back into `findReferencesTo` results we observed.
+- The original symbol passed into `findReferencesTo` may have a stale ID after the enriched re-parse, causing the lookup to miss the use sites that *are* in the new index.
+
+Fixing this is a substantial sub-investigation that the offload work doesn't gate on. Recommended follow-up:
+
+- Add observability inside `processReferences` (count of `findReferencesTo` hits, count of `findReferencesFrom` hits, count from relationship-type traversal).
+- Verify whether `PrerequisiteOrchestrationService` runs enrichment to `'full'` synchronously on the worker as expected.
+- If enrichment runs, confirm whether the post-enrichment `SymbolTable` retains stable IDs for the source-file declarations or if the symbol used by `findReferencesTo` is being re-issued.
 
 ### Deviations from the original plan
 
 - **`RemoteWorkspaceLoadCoordinator` is inlined in `worker.platform.ts` and `worker.platform.web.ts`** (not imported as in §3.5). Both worker platforms maintain a "no local imports" invariant for esbuild bundling; tsx's strict ESM resolver also rejects extension-less relative imports. The standalone `src/RemoteWorkspaceLoadCoordinator.ts` is kept as the canonical, unit-tested definition; each worker has a private mirror that must stay in sync.
 - **Constructor parameter properties replaced with explicit field declarations** in the inlined copies. tsx in strip-only mode does not support TS parameter properties at runtime.
-- **Commit count: 10, not 11.** Original M7 (helper) and M8 (DispatchReferences scaffolding) were combined to avoid an unused-function lint window between commits.
-- **Pre-commit hook bypassed (`--no-verify`)** on commits 2–10 by user request, to keep the experimental implementation moving. The full hook (lint + typecheck + 4235-test suite) ran cleanly on commit 1; later commits were gated on per-package lint and the affected package's tests instead.
+- **Commit count grew to 14**, including the three bug fixes uncovered during verification (bootstrap race, malformed Location, missing dispatcher consultation).
+- **Pre-commit hook bypassed (`--no-verify`)** on commits 2–14 by user request to keep iteration fast. The full hook (lint + typecheck + 4235-test suite) ran cleanly on commit 1; later commits were gated on per-package lint and the affected package's tests instead. Worth running the full hook once before merge.
 
 ### Test coverage in this branch
 
-- 3 wire-schema round-trip tests (commit 1)
-- 3 `LocalWorkspaceLoadCoordinator` tests (commit 5)
-- 3 `RemoteWorkspaceLoadCoordinator` unit tests (commit 6, against the canonical class)
-- 2 new `ReferencesProcessingService` coordinator-injection tests (commit 4)
-- Updated `WorkerCoordinator.canDispatch` matrix (commit 9)
-- 2 `ResolveDependentUris` integration tests via live data-owner worker (commit 10)
+- 3 wire-schema round-trip tests
+- 3 `LocalWorkspaceLoadCoordinator` tests
+- 3 `RemoteWorkspaceLoadCoordinator` unit tests against the canonical class
+- 2 new `ReferencesProcessingService` coordinator-injection tests
+- Updated `WorkerCoordinator.canDispatch` matrix
+- 2 `ResolveDependentUris` integration tests via live data-owner worker
 
-Full cross-file find-references via the enrichment pool with workspace-wide symbol load is deferred to a future Playwright E2E test (per §5.3).
+Full cross-file find-references via the enrichment pool with workspace-wide symbol load is deferred to a future Playwright E2E test (per §5.3) and is also gated on the algorithm-completeness work above.
 
 ## 1. Background
 

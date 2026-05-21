@@ -926,26 +926,10 @@ const enrichmentHandlers = {
   DispatchReferences: enrichmentHandler<RefsReq>(
     'DispatchReferences',
     async (svc, req) => {
-      // TEMP-DEBUG: stderr instrumentation. CoordinatorAssistanceMediator
-      // forwards worker stderr lines to the coordinator output channel
-      // prefixed with the worker name. Remove once the empty-results bug
-      // is understood.
-      const pos = `${req.position.line}:${req.position.character}`;
-      const hasContent = req.content !== undefined;
-      console.error(
-        `[REF-DEBUG] enter: uri=${req.textDocument.uri} pos=${pos} ` +
-          `hasContent=${hasContent}`,
-      );
-
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
         req.content,
-      );
-
-      console.error(
-        '[REF-DEBUG] after loadSymbolDataForEnrichment: ' +
-          `version=${version} detailLevel=${detailLevel}`,
       );
 
       // References needs at least 'protected' detail to find cross-file
@@ -963,27 +947,11 @@ const enrichmentHandlers = {
       // partial results, consistent with the existing contract.
       await loadDependentsForReferences(svc, req.textDocument.uri);
 
-      console.error(
-        '[REF-DEBUG] after loadDependentsForReferences, ' +
-          'calling processReferences',
-      );
-
       const result = await svc.referencesService.processReferences({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
         context: { includeDeclaration: req.context.includeDeclaration },
       });
-
-      const resultDesc = Array.isArray(result)
-        ? `array length=${result.length}`
-        : typeof result;
-      const sample = JSON.stringify(
-        Array.isArray(result) ? result.slice(0, 2) : result,
-      )?.slice(0, 200);
-      console.error(
-        `[REF-DEBUG] processReferences returned: ${resultDesc} ` +
-          `(sample: ${sample})`,
-      );
 
       if (needsEnrichment) {
         await writeBackEnrichedSymbols(
