@@ -2030,11 +2030,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that when a new file (like Foo.cls) is added, deferred references
       // in other files (like Bar.cls) that reference those types get resolved
       const sourceFilesToReResolve = new Set<string>();
+
+      // ALG-DEBUG: dump deferred ref map state when adding a file that
+      // declares names other files have already deferred against. If
+      // GeocodingService.cls is being added after GeocodingServiceTest.cls,
+      // the map should contain GeocodingAddress/Coordinates/etc. as keys.
+      const allDeferredKeys = (
+        self.symbolRefManager as unknown as {
+          deferredReferences?: Map<string, unknown[]>;
+        }
+      ).deferredReferences;
+      const deferredKeyCount = allDeferredKeys?.size ?? 0;
+      const deferredKeySample =
+        allDeferredKeys && deferredKeyCount > 0
+          ? Array.from(allDeferredKeys.keys()).slice(0, 10).join(',')
+          : '(empty)';
+      console.error(
+        '[ALG-DEBUG][addSymbolTable.processDeferred] CHECK ' +
+          `uri=${normalizedUri} ` +
+          `addedNames=${symbolNamesAdded.size} ` +
+          `addedSample=[${Array.from(symbolNamesAdded).slice(0, 10).join(',')}] ` +
+          `deferredMapSize=${deferredKeyCount} ` +
+          `deferredKeySample=[${deferredKeySample}]`,
+      );
+
       for (const symbolName of symbolNamesAdded) {
         // Check if there are deferred references waiting for this type
         const deferredRefs =
           self.symbolRefManager.getDeferredReferences(symbolName);
         if (deferredRefs && deferredRefs.length > 0) {
+          console.error(
+            '[ALG-DEBUG][addSymbolTable.processDeferred] HIT ' +
+              `uri=${normalizedUri} ` +
+              `name=${symbolName} ` +
+              `deferredCount=${deferredRefs.length}`,
+          );
           // Collect source file URIs from deferred references
           for (const deferredRef of deferredRefs) {
             if (deferredRef.sourceSymbol?.fileUri) {
