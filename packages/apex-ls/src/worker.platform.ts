@@ -1320,19 +1320,48 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               ? declaredSymbols.filter((s) => s.name === req.symbolName)
               : declaredSymbols;
 
+            // ALG-DEBUG: instrumentation to verify data-owner reverse index
+            // is populated for symbols in the target URI. If totalRefs is 0
+            // for symbols that obviously have callers in the workspace,
+            // hypothesis H4 (data-owner reverseIndex not populated by
+            // WorkspaceBatchCompile) is confirmed.
+            console.error(
+              `[ALG-DEBUG][DataOwner.ResolveDependentUris] uri=${req.uri} ` +
+                `symbolName=${req.symbolName ?? 'all'} ` +
+                `declaredSymbols=${declaredSymbols.length} ` +
+                `targets=${targets.length}`,
+            );
+
             // Distinct file URIs that contain references to any target symbol,
             // excluding the source URI itself.
             const dependentUris = new Set<string>();
+            let totalRefs = 0;
+            const perSymbolCounts: Array<{ name: string; refs: number }> = [];
             for (const sym of targets) {
               const refs = yield* Effect.promise(() =>
                 sm.findReferencesTo(sym),
               );
+              perSymbolCounts.push({ name: sym.name, refs: refs.length });
+              totalRefs += refs.length;
               for (const ref of refs) {
                 if (ref.fileUri && ref.fileUri !== req.uri) {
                   dependentUris.add(ref.fileUri);
                 }
               }
             }
+
+            // Top 5 most-referenced symbols, plus aggregate
+            const top5 = perSymbolCounts
+              .sort((a, b) => b.refs - a.refs)
+              .slice(0, 5)
+              .map((s) => `${s.name}=${s.refs}`)
+              .join(', ');
+            console.error(
+              '[ALG-DEBUG][DataOwner.ResolveDependentUris] ' +
+                `totalRefs=${totalRefs} ` +
+                `dependentUris=${dependentUris.size} ` +
+                `top5: ${top5 || '(none)'}`,
+            );
 
             const entries: Record<string, unknown> = {};
             for (const uri of dependentUris) {

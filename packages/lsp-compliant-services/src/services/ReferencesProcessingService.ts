@@ -321,6 +321,15 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     return Effect.gen(function* () {
       const locations: Location[] = [];
 
+      // ALG-DEBUG: per-method instrumentation to narrow which of the three
+      // reference sources actually returns hits. Stderr is forwarded from
+      // worker to coordinator output channel, so this shows up regardless
+      // of where the service runs. Tag with the symbol name and fileUri
+      // so traces are unambiguous when interleaved with other requests.
+      const tag =
+        `[ALG-DEBUG][findReferences] symbol=${symbol?.name} ` +
+        `fileUri=${symbol?.fileUri} kind=${symbol?.kind}`;
+
       try {
         // Include the declaration if requested
         if (includeDeclaration) {
@@ -336,6 +345,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         const referencesTo = yield* Effect.promise(() =>
           self.symbolManager.findReferencesTo(symbol),
         );
+        console.error(`${tag} findReferencesTo=${referencesTo.length}`);
         const batchSize = 50;
         for (let i = 0; i < referencesTo.length; i++) {
           const reference = referencesTo[i];
@@ -353,6 +363,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         const referencesFrom = yield* Effect.promise(() =>
           self.symbolManager.findReferencesFrom(symbol),
         );
+        console.error(`${tag} findReferencesFrom=${referencesFrom.length}`);
         for (let i = 0; i < referencesFrom.length; i++) {
           const reference = referencesFrom[i];
           const location = self.createLocationFromReference(reference);
@@ -368,9 +379,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         // Get specific relationship type references
         const relationshipReferences =
           yield* self.getRelationshipTypeReferencesEffect(symbol);
+        console.error(
+          `${tag} getRelationshipTypeReferences=${relationshipReferences.length} ` +
+            `totalLocations=${locations.length + relationshipReferences.length}`,
+        );
         locations.push(...relationshipReferences);
       } catch (error) {
         self.logger.debug(() => `Error getting reference locations: ${error}`);
+        console.error(`${tag} ERROR: ${String(error)}`);
       }
 
       return locations;
