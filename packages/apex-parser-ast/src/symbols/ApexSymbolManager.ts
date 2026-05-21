@@ -3196,6 +3196,31 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
             ?.totalEdges ?? 0;
 
+        // ALG-DEBUG: per-call counters tracking each cross-file outcome.
+        // Stash on the manager instance so the per-ref effect can mutate
+        // them without requiring a signature change. Stable across the
+        // single resolveCrossFileReferencesForFile call (guarded by the
+        // in-flight set), so race contamination is unlikely; we still
+        // snapshot deltas at the end.
+        const dbg = (self as unknown as {
+          __algRefDebug?: {
+            xfTryResolve: number;
+            xfTargetFound: number;
+            xfTargetNull: number;
+            xfAddReferenceCalled: number;
+            xfDeferralEnqueued: number;
+            xfDeferralSkippedNoSource: number;
+          };
+        });
+        dbg.__algRefDebug = {
+          xfTryResolve: 0,
+          xfTargetFound: 0,
+          xfTargetNull: 0,
+          xfAddReferenceCalled: 0,
+          xfDeferralEnqueued: 0,
+          xfDeferralSkippedNoSource: 0,
+        };
+
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
         for (let i = 0; i < typeReferences.length; i += batchSize) {
@@ -3220,17 +3245,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
             ?.totalEdges ?? 0;
 
-        // ALG-DEBUG: report cross-file candidate count + edge delta. If
-        // crossFileCandidates > 0 but edgesAdded ≈ 0 (or only same-file
-        // count), the bug is inside processSymbolReferenceToGraphEffect's
-        // resolution path (target lookup, source-in-graph lookup, or the
-        // addReference precondition `sourceInGraph && targetInGraph`).
+        const counters = dbg.__algRefDebug ?? {
+          xfTryResolve: 0,
+          xfTargetFound: 0,
+          xfTargetNull: 0,
+          xfAddReferenceCalled: 0,
+          xfDeferralEnqueued: 0,
+          xfDeferralSkippedNoSource: 0,
+        };
+        dbg.__algRefDebug = undefined;
+
+        // ALG-DEBUG: report cross-file candidate count + edge delta + per-outcome
+        // counters. xfTryResolve = entered the cross-file branch.
+        // xfTargetFound = findSymbolByName returned a usable target.
+        // xfTargetNull = target lookup returned nothing.
+        // xfAddReferenceCalled = both source+target found, called addReference.
+        // xfDeferralEnqueued = enqueueDeferredReference reached.
+        // xfDeferralSkippedNoSource = skipped because source symbol was null.
         console.error(
           '[ALG-DEBUG][processSymbolReferencesToGraph] DONE ' +
             `uri=${fileUri} totalRefs=${typeReferences.length} ` +
             `qualified=${qualifiedCandidates} ` +
             `crossFileCandidates=${crossFileCandidates} ` +
             `edgesAdded=${edgesAfter - edgesBefore} ` +
+            `xfTry=${counters.xfTryResolve} ` +
+            `xfTargetFound=${counters.xfTargetFound} ` +
+            `xfTargetNull=${counters.xfTargetNull} ` +
+            `xfAddRef=${counters.xfAddReferenceCalled} ` +
+            `xfDefer=${counters.xfDeferralEnqueued} ` +
+            `xfDeferSkip=${counters.xfDeferralSkippedNoSource} ` +
             `samples=[${crossFileNameSamples.join(',')}]`,
         );
       } catch (error) {
@@ -3321,6 +3364,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // If it's a cross-file reference, try to resolve it first if the artifact is already loaded
         // Only defer if resolution fails (artifact not loaded yet)
         if (isCrossFileReference) {
+          // ALG-DEBUG outcome counter
+          const __dbg = (self as unknown as { __algRefDebug?: any })
+            .__algRefDebug;
+          if (__dbg) __dbg.xfTryResolve++;
           // Try to resolve the cross-file reference first
           // This handles cases where artifacts were loaded via artifact loading before cross-file resolution runs
           let targetSymbol: ApexSymbol | null = null;
@@ -3451,6 +3498,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
           }
 
+          // ALG-DEBUG outcome counter for target resolution
+          const __dbg2 = (self as unknown as { __algRefDebug?: any })
+            .__algRefDebug;
+          if (__dbg2) {
+            if (targetSymbol) __dbg2.xfTargetFound++;
+            else __dbg2.xfTargetNull++;
+          }
           // If we found the target symbol, resolve it immediately
           if (targetSymbol) {
             // Update resolvedSymbolId
@@ -3488,6 +3542,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 : targetSymbolsInGraph[0];
 
               if (sourceInGraph && targetInGraph) {
+                const __dbg3 = (self as unknown as { __algRefDebug?: any })
+                  .__algRefDebug;
+                if (__dbg3) __dbg3.xfAddReferenceCalled++;
                 const referenceType = self.mapReferenceContextToType(
                   typeRef.context,
                 );
@@ -3523,6 +3580,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
 
           if (sourceSymbol) {
+            const __dbg4 = (self as unknown as { __algRefDebug?: any })
+              .__algRefDebug;
+            if (__dbg4) __dbg4.xfDeferralEnqueued++;
             const referenceType = self.mapReferenceContextToType(
               typeRef.context,
             );
@@ -3537,6 +3597,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 isStatic: isStatic,
               },
             );
+          } else {
+            const __dbg5 = (self as unknown as { __algRefDebug?: any })
+              .__algRefDebug;
+            if (__dbg5) __dbg5.xfDeferralSkippedNoSource++;
           }
           return;
         }
