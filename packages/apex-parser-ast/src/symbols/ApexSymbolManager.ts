@@ -3154,6 +3154,42 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       try {
         const typeReferences = symbolTable.getAllReferences();
 
+        // ALG-DEBUG: classify references before processing so we can see
+        // how many of the loop iterations actually have a chance of creating
+        // a cross-file edge. processedRefs alone is misleading because
+        // literal/same-file refs early-exit and never reach addReference.
+        let crossFileCandidates = 0;
+        let qualifiedCandidates = 0;
+        const crossFileNameSamples: string[] = [];
+        for (const r of typeReferences) {
+          if (r.context === ReferenceContext.LITERAL) continue;
+          const qualifierInfo = self.extractQualifierFromChain(r);
+          const allSymbols = symbolTable.getAllSymbols();
+          if (qualifierInfo && qualifierInfo.isQualified) {
+            qualifiedCandidates++;
+            if (qualifierInfo.qualifier.toLowerCase() === 'this') continue;
+            const qualifierInFile = allSymbols.find(
+              (s) => s.name === qualifierInfo.qualifier,
+            );
+            if (!qualifierInFile) {
+              crossFileCandidates++;
+              if (crossFileNameSamples.length < 5) {
+                crossFileNameSamples.push(
+                  `${qualifierInfo.qualifier}.${qualifierInfo.member}`,
+                );
+              }
+            }
+          } else {
+            const symbolInFile = allSymbols.find((s) => s.name === r.name);
+            if (!symbolInFile) {
+              crossFileCandidates++;
+              if (crossFileNameSamples.length < 5) {
+                crossFileNameSamples.push(r.name);
+              }
+            }
+          }
+        }
+
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
         for (let i = 0; i < typeReferences.length; i += batchSize) {
@@ -3173,6 +3209,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             yield* Effect.yieldNow();
           }
         }
+
+        // ALG-DEBUG: report cross-file candidate count. If
+        // crossFileCandidates > 0 but findReferencesTo on the targets
+        // still returns same-file-only, the bug is inside
+        // processSymbolReferenceToGraphEffect's resolution path
+        // (target lookup, source-in-graph lookup, or addReference itself).
+        console.error(
+          '[ALG-DEBUG][processSymbolReferencesToGraph] DONE ' +
+            `uri=${fileUri} totalRefs=${typeReferences.length} ` +
+            `qualified=${qualifiedCandidates} ` +
+            `crossFileCandidates=${crossFileCandidates} ` +
+            `samples=[${crossFileNameSamples.join(',')}]`,
+        );
       } catch (error) {
         self.logger.error(
           () => `Error processing type references for ${fileUri}: ${error}`,
