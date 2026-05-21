@@ -1291,6 +1291,20 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               false, // hasErrors
             );
 
+            // Resolve cross-file references for this file. addSymbolTable
+            // only processes same-file references (it calls
+            // processSameFileReferencesToGraphEffect internally); cross-file
+            // edges require a separate pass through processSymbolReferencesToGraph
+            // which is only triggered by resolveCrossFileReferencesForFile.
+            // Without this, findReferencesTo() can never return cross-file
+            // hits on the data-owner side — and Find References, Goto
+            // Implementation, and the dependents pre-fetch all depend on
+            // those edges. Per-file resolution may be incomplete on the
+            // first pass (when other files haven't been loaded yet); the
+            // deferred-reference machinery in ApexSymbolRefManager catches
+            // up on subsequent file additions.
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+
             // Update cache with new detail level
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
