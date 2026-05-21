@@ -91,6 +91,11 @@ export class LSPQueueManager {
     const serviceRegistry = this.serviceRegistry;
     const logger = this.logger;
     const taskId = this.generateTaskId();
+    // Captured by reference so a late-bound setWorkerDispatcher() call is
+    // visible at execution time. The dispatcher is set asynchronously by
+    // LCSAdapter after the worker topology bootstrap completes, which can
+    // happen long after the LSPQueueManager singleton is created.
+    const self = this;
 
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
@@ -101,6 +106,24 @@ export class LSPQueueManager {
       // Wrap request execution in an Effect
       const requestEffect = Effect.tryPromise({
         try: async () => {
+          // If a worker dispatcher is available and this request type is
+          // routed to a worker (per WorkerCoordinator's DISPATCH_ROUTING),
+          // dispatch through it instead of running the local handler.
+          // This is the single source of truth for offload — adding a
+          // request to the routing table is enough to make it offload.
+          const dispatcher = self.workerDispatcher;
+          if (
+            dispatcher &&
+            typeof dispatcher.canDispatch === 'function' &&
+            typeof dispatcher.isAvailable === 'function' &&
+            typeof dispatcher.dispatch === 'function' &&
+            dispatcher.isAvailable() &&
+            dispatcher.canDispatch(type)
+          ) {
+            logger.debug(() => `[QUEUE] Dispatching ${type} to worker pool`);
+            return dispatcher.dispatch(type, params) as Promise<T>;
+          }
+
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
             throw new Error(`No handler registered for request type: ${type}`);
