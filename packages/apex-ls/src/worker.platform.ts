@@ -1464,25 +1464,38 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   DrainDeferredReferences: (req) =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            // Drain ALL queued deferred references against the now-fully
-            // populated graph. This catches cross-file edges whose target
-            // file was added AFTER the source file's resolveCrossFileRefs
-            // pass enqueued the deferral — the per-name re-resolution loop
-            // in addSymbolTable only fires for symbol names just added,
-            // missing this case entirely.
-            const result = yield* svc.symbolManager.drainAllDeferredReferences();
-            console.error(
-              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
-                `reason=${req.reason} ` +
-                `keysProcessed=${result.keysProcessed} ` +
-                `remainingKeys=${result.remainingKeys}`,
-            );
-            return result;
-          }),
-        ),
+        Effect.gen(function* () {
+          // Fire-and-forget: ack the request immediately and run the
+          // actual drain in a forked daemon. The drain iterates every
+          // key in the deferred map and serially calls
+          // processDeferredReferencesBatchEffect, which enqueues tasks
+          // to the rate-limited priority scheduler — for a freshly
+          // ingested workspace this can take 30+ seconds. If we
+          // serialize through dataOwnerWrite, that blocks all
+          // subsequent UpdateSymbolSubset write-backs and Find
+          // References reads, causing 1s/5s LSP request timeouts.
+          // Instead we run drain outside the queue and return immediately.
+          const svc = yield* ensureDataOwnerServices;
+          console.error(
+            '[ALG-DEBUG][DataOwner.DrainDeferredReferences] FORK ' +
+              `reason=${req.reason}`,
+          );
+          yield* Effect.forkDaemon(
+            Effect.gen(function* () {
+              const result =
+                yield* svc.symbolManager.drainAllDeferredReferences();
+              console.error(
+                '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
+                  `reason=${req.reason} ` +
+                  `keysProcessed=${result.keysProcessed} ` +
+                  `remainingKeys=${result.remainingKeys}`,
+              );
+            }),
+          );
+          // Return synchronously; the drain will complete asynchronously
+          // and write its summary via console.error.
+          return { keysProcessed: 0, remainingKeys: 0 };
+        }),
       ),
     ),
 

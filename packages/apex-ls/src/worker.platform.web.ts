@@ -1206,19 +1206,26 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   DrainDeferredReferences: (req) =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
-        dataOwnerWrite(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            const result = yield* svc.symbolManager.drainAllDeferredReferences();
-            console.error(
-              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
-                `reason=${req.reason} ` +
-                `keysProcessed=${result.keysProcessed} ` +
-                `remainingKeys=${result.remainingKeys}`,
-            );
-            return result;
-          }),
-        ),
+        Effect.gen(function* () {
+          const svc = yield* ensureDataOwnerServices;
+          console.error(
+            '[ALG-DEBUG][DataOwner.DrainDeferredReferences] FORK ' +
+              `reason=${req.reason}`,
+          );
+          yield* Effect.forkDaemon(
+            Effect.gen(function* () {
+              const result =
+                yield* svc.symbolManager.drainAllDeferredReferences();
+              console.error(
+                '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
+                  `reason=${req.reason} ` +
+                  `keysProcessed=${result.keysProcessed} ` +
+                  `remainingKeys=${result.remainingKeys}`,
+              );
+            }),
+          );
+          return { keysProcessed: 0, remainingKeys: 0 };
+        }),
       ),
     ),
 
