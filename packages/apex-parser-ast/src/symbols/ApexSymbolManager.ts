@@ -2958,6 +2958,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Skip if already resolving this file (prevents redundant work from overlapping LSP requests)
       if (self.resolvingCrossFileRefs.has(normalizedUri)) {
+        // ALG-DEBUG: surface the skip via console.error so it appears in worker
+        // traces — `logger.debug` is filtered by default and was hiding this.
+        console.error(
+          '[ALG-DEBUG][resolveCrossFileReferencesForFile] SKIP-IN-PROGRESS ' +
+            `uri=${normalizedUri} ` +
+            `inFlightCount=${self.resolvingCrossFileRefs.size}`,
+        );
         self.logger.debug(
           () =>
             `Skipping cross-file resolution for ${normalizedUri} (already in progress)`,
@@ -2966,10 +2973,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       self.resolvingCrossFileRefs.add(normalizedUri);
+      console.error(
+        '[ALG-DEBUG][resolveCrossFileReferencesForFile] ENTER ' +
+          `uri=${normalizedUri} ` +
+          `inFlightCount=${self.resolvingCrossFileRefs.size}`,
+      );
       try {
         const symbolTable =
           self.symbolRefManager.getSymbolTableForFile(normalizedUri);
         if (!symbolTable) {
+          console.error(
+            '[ALG-DEBUG][resolveCrossFileReferencesForFile] EXIT-NO-TABLE ' +
+              `uri=${normalizedUri}`,
+          );
           self.logger.debug(
             () =>
               `No SymbolTable found for ${normalizedUri}, skipping cross-file reference resolution`,
@@ -2977,6 +2993,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
+        const refCount = symbolTable.getAllReferences().length;
         yield* self.processSymbolReferencesToGraphEffect(
           symbolTable,
           normalizedUri,
@@ -2990,6 +3007,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         yield* self.resolveInheritedMethodCallsEffect(
           symbolTable,
           normalizedUri,
+        );
+
+        console.error(
+          '[ALG-DEBUG][resolveCrossFileReferencesForFile] EXIT-OK ' +
+            `uri=${normalizedUri} processedRefs=${refCount}`,
         );
       } finally {
         self.resolvingCrossFileRefs.delete(normalizedUri);
