@@ -920,33 +920,32 @@ export class ApexSymbolRefManager {
     }
   }
 
+  /**
+   * Clear outgoing references from a file in preparation for re-adding its
+   * symbol table. Outgoing edges always need to be wiped because the new
+   * symbol table will produce a fresh set of source references; leaving
+   * the old ones would double-count.
+   *
+   * INCOMING edges are NOT wiped. Symbol IDs (see getSymbolId) are
+   * deterministic given (name, fileUri, identifier line) so the new
+   * symbol replacement preserves the IDs that other files' refs point at.
+   * Wiping incoming refs here was previously the source of a regression
+   * where every full-level enrichment write-back to file A also dropped
+   * every cross-file edge from any file B → A (most visibly: every test
+   * file's references to its production class). Cross-file edges added
+   * by the post-batch drain were destroyed within seconds of being
+   * established.
+   *
+   * If a symbol is renamed or deleted in the updated symbol table, its
+   * old ID will no longer resolve via getSymbolByIdAndFile and findReferencesTo
+   * already filters those out (line ~1903). The eventual cleanup happens
+   * naturally as those stale entries are skipped on read; correctness is
+   * preserved.
+   */
   clearReferenceStateForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
-    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
-
-    // ALG-DEBUG: this method clears outgoing AND incoming reference edges
-    // for a file. When called for a file that other files have cross-file
-    // edges TO (e.g. Test.cls's edges to GeocodingService.cls), this also
-    // wipes those incoming edges from the reverseIndex. Trace the count
-    // to catch regressions where addSymbolTable calls this on a file
-    // whose dependents should be preserved.
-    const edgesBefore = this.refStore.size;
-    const trace = (label: string) => {
-      console.error(
-        `[ALG-DEBUG][clearReferenceStateForFile] ${label} ` +
-          `uri=${normalizedUri} ` +
-          `symbolIds=${symbolIds.size} ` +
-          `edgesBefore=${edgesBefore} ` +
-          `edgesAfter=${this.refStore.size}`,
-      );
-    };
-    trace('ENTER');
-
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
-
-    trace('EXIT');
   }
 
   /**
