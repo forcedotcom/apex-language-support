@@ -531,12 +531,70 @@ function processWorkspaceBatchBackground(
  * public-api compilation. When no dispatcher is set, falls back to local
  * processing via the priority scheduler.
  */
+/**
+ * Wait briefly for the worker batch ingestion dispatcher to be set, when
+ * the worker topology is enabled. Resolves the bootstrap race where
+ * `apex/sendWorkspaceBatch` arrives before workers finish spawning:
+ * the batch handler is registered as soon as the LSP server starts, but
+ * the dispatcher is only set when LCSAdapter.initializeWorkerTopology
+ * completes (typically 1–2s later). Without this wait, the workspace
+ * gets compiled coordinator-side and never reaches the data-owner —
+ * which leaves all subsequent enrichment-pool requests (hover, definition,
+ * references) operating against an empty data-owner symbol manager.
+ *
+ * Uses a polling loop with a small interval and a generous timeout. If
+ * the dispatcher never arrives (worker topology failed to bootstrap),
+ * we fall through to local processing — preserving today's behavior as
+ * the safe fallback.
+ */
+async function waitForBatchIngestionDispatcher(
+  timeoutMs: number,
+  pollIntervalMs: number,
+  logger: ReturnType<typeof getLogger>,
+): Promise<BatchIngestionDispatcher | null> {
+  if (batchIngestionDispatcher) return batchIngestionDispatcher;
+
+  // Only wait when the worker topology is expected to come up. If the
+  // user disabled workers, no dispatcher will ever arrive — don't waste
+  // time waiting for one.
+  const settings = ApexSettingsManager.getInstance().getSettings();
+  const workersEnabled =
+    (settings.apex as Record<string, any>)?.experimental?.workers?.enabled ===
+    true;
+  if (!workersEnabled) return null;
+
+  const deadline = Date.now() + timeoutMs;
+  logger.debug(
+    () =>
+      `[BATCH-PROCESSING] Waiting up to ${timeoutMs}ms for worker batch dispatcher`,
+  );
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    if (batchIngestionDispatcher) {
+      logger.debug(
+        () =>
+          `[BATCH-PROCESSING] Worker batch dispatcher arrived after ${
+            timeoutMs - (deadline - Date.now())
+          }ms`,
+      );
+      return batchIngestionDispatcher;
+    }
+  }
+  logger.warn(
+    () =>
+      `[BATCH-PROCESSING] Worker batch dispatcher did not arrive within ${timeoutMs}ms; ` +
+      'falling through to coordinator-local processing. The data-owner worker ' +
+      'will not have workspace data, which can leave enrichment-pool requests ' +
+      '(hover/definition/references) returning empty cross-file results.',
+  );
+  return null;
+}
+
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
-  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
     const totalFiles = batches.reduce(
@@ -547,6 +605,12 @@ function processStoredBatches(
     logger.debug(
       () =>
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
+    );
+
+    // Wait briefly for the worker batch dispatcher when topology is
+    // enabled. See waitForBatchIngestionDispatcher for the rationale.
+    const dispatcher = yield* Effect.promise(() =>
+      waitForBatchIngestionDispatcher(5_000, 50, logger),
     );
 
     let fileUris: string[] = [];
