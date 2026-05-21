@@ -3249,11 +3249,28 @@ export class ApexSymbolRefManager {
     return Effect.gen(function* () {
       self.syncClassFieldsFromRefs();
       const keys = Array.from(self.deferredReferences.keys());
+      console.error(
+        '[ALG-DEBUG][drainAllDeferredReferencesEffect] ENTER ' +
+          `keys=${keys.length} ` +
+          `sample=[${keys.slice(0, 10).join(',')}]`,
+      );
+      let i = 0;
       for (const key of keys) {
+        if (i % 25 === 0) {
+          console.error(
+            '[ALG-DEBUG][drainAllDeferredReferencesEffect] PROGRESS ' +
+              `i=${i}/${keys.length} key=${key}`,
+          );
+        }
         yield* self.processDeferredReferencesBatchEffect(key);
+        i++;
       }
       self.syncClassFieldsFromRefs();
       const remaining = self.deferredReferences.size;
+      console.error(
+        '[ALG-DEBUG][drainAllDeferredReferencesEffect] EXIT ' +
+          `keysProcessed=${keys.length} remainingKeys=${remaining}`,
+      );
       return { keysProcessed: keys.length, remainingKeys: remaining };
     });
   }
