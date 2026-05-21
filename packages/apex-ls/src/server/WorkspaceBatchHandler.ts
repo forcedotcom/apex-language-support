@@ -554,15 +554,16 @@ async function waitForBatchIngestionDispatcher(
 ): Promise<BatchIngestionDispatcher | null> {
   if (batchIngestionDispatcher) return batchIngestionDispatcher;
 
-  // Only wait when the worker topology is expected to come up. If the
-  // user disabled workers, no dispatcher will ever arrive — don't waste
-  // time waiting for one.
-  const settings = ApexSettingsManager.getInstance().getSettings();
-  const workersEnabled =
-    (settings.apex as Record<string, any>)?.experimental?.workers?.enabled ===
-    true;
-  if (!workersEnabled) return null;
-
+  // Always wait briefly. We can't reliably tell from settings whether
+  // workers are enabled — mergeWithExisting in ApexSettingsUtilities
+  // strips the `experimental` block during config merge, so any
+  // settings-based gate is unreliable. The env-var gate
+  // (APEX_WORKER_EXPERIMENT) catches dev-mode workers but not user
+  // settings. Rather than try to keep the gate in sync, we just wait
+  // for the dispatcher to show up. If it doesn't (workers disabled or
+  // failed to bootstrap), we time out and fall through. Workspace
+  // batches arrive once or twice at startup, so a few extra seconds
+  // here is acceptable.
   const deadline = Date.now() + timeoutMs;
   logger.debug(
     () =>
