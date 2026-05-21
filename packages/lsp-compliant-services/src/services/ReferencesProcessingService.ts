@@ -102,6 +102,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       () => `Processing references request for: ${params.textDocument.uri}`,
     );
 
+    // ALG-DEBUG: trace processReferences entry. Pairs with the findReferences
+    // entry log so we can see which early-exit branch (if any) bails before
+    // reaching getReferenceLocations.
+    console.error(
+      `[ALG-DEBUG][processReferences] ENTER uri=${params.textDocument.uri} ` +
+        `pos=${params.position.line}:${params.position.character}`,
+    );
+
     // Run prerequisites for references request
     if (this.prerequisiteOrchestrationService) {
       try {
@@ -196,6 +204,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Get the document
     const document = await storage.getDocument(params.textDocument.uri);
     if (!document) {
+      console.error(
+        `[ALG-DEBUG][findReferences] EXIT-NO-DOC uri=${params.textDocument.uri}`,
+      );
       this.logger.warn(() => `Document not found: ${params.textDocument.uri}`);
       return [];
     }
@@ -211,6 +222,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     if (!references || references.length === 0) {
+      console.error(
+        '[ALG-DEBUG][findReferences] EXIT-NO-TYPEREF ' +
+          `uri=${params.textDocument.uri} ` +
+          `pos=${parserPosition.line}:${parserPosition.character}`,
+      );
       this.logger.debug(
         () =>
           'No TypeReference found at position - likely keyword, whitespace, or nothing of interest',
@@ -224,6 +240,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Early keyword check: if the TypeReference name is a keyword, return empty array
     // This prevents find references from processing keywords
     if (isApexKeyword(symbolName)) {
+      console.error(
+        `[ALG-DEBUG][findReferences] EXIT-KEYWORD name=${symbolName}`,
+      );
       this.logger.debug(
         () =>
           `Position is on keyword "${symbolName}", skipping references lookup`,
@@ -238,14 +257,28 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     const result = await this.symbolManager.resolveSymbol(symbolName, context);
 
     if (!result.symbol) {
+      console.error(
+        `[ALG-DEBUG][findReferences] EXIT-NO-SYMBOL name=${symbolName}`,
+      );
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
       return [];
     }
+
+    console.error(
+      `[ALG-DEBUG][findReferences] resolved name=${symbolName} ` +
+        `→ symbol.name=${result.symbol.name} ` +
+        `fileUri=${result.symbol.fileUri} kind=${result.symbol.kind}`,
+    );
 
     // Get reference locations
     const locations = await this.getReferenceLocations(
       result.symbol,
       params.context?.includeDeclaration,
+    );
+
+    console.error(
+      `[ALG-DEBUG][findReferences] FINAL totalLocations=${locations.length} ` +
+        `for symbol=${symbolName}`,
     );
 
     this.logger.debug(
