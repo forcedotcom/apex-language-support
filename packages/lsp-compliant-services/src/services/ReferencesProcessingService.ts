@@ -378,12 +378,21 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
-   * Create location from symbol
+   * Create location from symbol.
+   *
+   * SymbolLocation is { symbolRange, identifierRange }, not a flat
+   * { startLine, startColumn, ... }. For Find References we want to
+   * highlight the identifier itself (the symbol's name token), so we
+   * use identifierRange. Reading .startLine directly off .location
+   * yields undefined → NaN through transformParserToLspPosition →
+   * null line/character on the wire, which the LSP client silently
+   * drops as a malformed Location.
    */
   private async createLocationFromSymbol(
     symbol: any,
   ): Promise<Location | null> {
-    if (!symbol.location) {
+    const range = symbol?.location?.identifierRange;
+    if (!range) {
       return null;
     }
 
@@ -392,25 +401,29 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
-    const range: Range = {
+    const lspRange: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: range.startLine,
+        character: range.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: range.endLine,
+        character: range.endColumn,
       }),
     };
 
-    return { uri, range };
+    return { uri, range: lspRange };
   }
 
   /**
-   * Create location from reference
+   * Create location from reference.
+   *
+   * Same shape concern as createLocationFromSymbol — reference.location
+   * is { symbolRange, identifierRange }, not a flat range.
    */
   private createLocationFromReference(reference: any): Location | null {
-    if (!reference.location) {
+    const range = reference?.location?.identifierRange;
+    if (!range) {
       return null;
     }
 
@@ -419,18 +432,18 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
-    const range: Range = {
+    const lspRange: Range = {
       start: transformParserToLspPosition({
-        line: reference.location.startLine,
-        character: reference.location.startColumn,
+        line: range.startLine,
+        character: range.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: reference.location.endLine,
-        character: reference.location.endColumn,
+        line: range.endLine,
+        character: range.endColumn,
       }),
     };
 
-    return { uri, range };
+    return { uri, range: lspRange };
   }
 
   /**
