@@ -2858,16 +2858,6 @@ export class ApexSymbolRefManager {
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
     const symbolIdSet = new Set(symbolIds);
 
-    // ALG-DEBUG: removeFile is the most aggressive ref-clearing path
-    // (clears outgoing + incoming + symbols + indexes). Trace it so we
-    // can correlate any unexpected drop in totalEdges with a removeFile
-    // call. Most likely caller during runtime: DispatchDocumentClose.
-    console.error(
-      `[ALG-DEBUG][removeFile] ENTER uri=${normalizedUri} ` +
-        `symbolIds=${symbolIds.length} ` +
-        `edgesBefore=${this.refStore.size}`,
-    );
-
     // Remove all references from/to symbols in this file
     this.removeReferencesFromFile(normalizedUri);
     this.removeIncomingReferencesToSymbols(symbolIdSet, normalizedUri);
@@ -3163,9 +3153,6 @@ export class ApexSymbolRefManager {
     },
   ): void {
     if (!sourceSymbol.fileUri) {
-      // ALG-DEBUG: this is a known silent-drop path. Count it via a
-      // module-level counter so we can correlate with xfDefer counts.
-      ApexSymbolRefManager.__algEnqueueStats.dropMissingSourceUri++;
       this.logger.warn(
         () =>
           `Skipping enqueueDeferredReference for source ${sourceSymbol.name}: missing fileUri`,
@@ -3191,7 +3178,6 @@ export class ApexSymbolRefManager {
       } else {
         // If we can't find a containing symbol, skip this reference
         // Block symbols shouldn't be used as source symbols
-        ApexSymbolRefManager.__algEnqueueStats.dropBlockNoContainer++;
         this.logger.debug(
           () =>
             `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
@@ -3201,7 +3187,6 @@ export class ApexSymbolRefManager {
       }
     }
 
-    ApexSymbolRefManager.__algEnqueueStats.added++;
     this.addDeferredReference(
       actualSourceSymbol,
       targetSymbolName,
@@ -3210,16 +3195,6 @@ export class ApexSymbolRefManager {
       context,
     );
   }
-
-  // ALG-DEBUG: track drop reasons in enqueueDeferredReference. Reset by
-  // callers when they want a window count. Counters live on the class
-  // (singleton-scoped per worker process) since multiple manager
-  // instances would share a process.
-  static __algEnqueueStats = {
-    added: 0,
-    dropMissingSourceUri: 0,
-    dropBlockNoContainer: 0,
-  };
 
   /**
    * Get deferred references for a symbol name
@@ -3306,11 +3281,6 @@ export class ApexSymbolRefManager {
   } {
     this.syncClassFieldsFromRefs();
     const keys = Array.from(this.deferredReferences.keys());
-    console.error(
-      '[ALG-DEBUG][drainAllDeferredReferencesSync] ENTER ' +
-        `keys=${keys.length} ` +
-        `sample=[${keys.slice(0, 10).join(',')}]`,
-    );
 
     let refsResolved = 0;
     let refsUnresolved = 0;
@@ -3381,13 +3351,6 @@ export class ApexSymbolRefManager {
     );
 
     const remainingKeys = this.deferredReferences.size;
-    console.error(
-      '[ALG-DEBUG][drainAllDeferredReferencesSync] EXIT ' +
-        `keysProcessed=${keys.length} ` +
-        `refsResolved=${refsResolved} ` +
-        `refsUnresolved=${refsUnresolved} ` +
-        `remainingKeys=${remainingKeys}`,
-    );
 
     return {
       keysProcessed: keys.length,

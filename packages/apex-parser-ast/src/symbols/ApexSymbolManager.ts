@@ -2031,48 +2031,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // in other files (like Bar.cls) that reference those types get resolved
       const sourceFilesToReResolve = new Set<string>();
 
-      // ALG-DEBUG: dump deferred ref map state when adding a file that
-      // declares names other files have already deferred against. If
-      // GeocodingService.cls is being added after GeocodingServiceTest.cls,
-      // the map should contain GeocodingAddress/Coordinates/etc. as keys.
-      const refMgr = self.symbolRefManager as unknown as {
-        deferredReferences?: Map<string, unknown[]>;
-        pendingDeferredReferences?: Map<string, unknown[]>;
-      };
-      const allDeferredKeys = refMgr.deferredReferences;
-      const deferredKeyCount = allDeferredKeys?.size ?? 0;
-      const deferredKeySample =
-        allDeferredKeys && deferredKeyCount > 0
-          ? Array.from(allDeferredKeys.keys()).slice(0, 10).join(',')
-          : '(empty)';
-      const allPendingKeys = refMgr.pendingDeferredReferences;
-      const pendingKeyCount = allPendingKeys?.size ?? 0;
-      const pendingKeySample =
-        allPendingKeys && pendingKeyCount > 0
-          ? Array.from(allPendingKeys.keys()).slice(0, 10).join(',')
-          : '(empty)';
-      console.error(
-        '[ALG-DEBUG][addSymbolTable.processDeferred] CHECK ' +
-          `uri=${normalizedUri} ` +
-          `addedNames=${symbolNamesAdded.size} ` +
-          `addedSample=[${Array.from(symbolNamesAdded).slice(0, 10).join(',')}] ` +
-          `deferredMapSize=${deferredKeyCount} ` +
-          `deferredKeySample=[${deferredKeySample}] ` +
-          `pendingMapSize=${pendingKeyCount} ` +
-          `pendingKeySample=[${pendingKeySample}]`,
-      );
-
       for (const symbolName of symbolNamesAdded) {
         // Check if there are deferred references waiting for this type
         const deferredRefs =
           self.symbolRefManager.getDeferredReferences(symbolName);
         if (deferredRefs && deferredRefs.length > 0) {
-          console.error(
-            '[ALG-DEBUG][addSymbolTable.processDeferred] HIT ' +
-              `uri=${normalizedUri} ` +
-              `name=${symbolName} ` +
-              `deferredCount=${deferredRefs.length}`,
-          );
           // Collect source file URIs from deferred references
           for (const deferredRef of deferredRefs) {
             if (deferredRef.sourceSymbol?.fileUri) {
@@ -3008,14 +2971,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   > {
     const self = this;
     return Effect.gen(function* () {
-      const result =
-        yield* self.symbolRefManager.drainAllDeferredReferencesEffect();
-      console.error(
-        '[ALG-DEBUG][drainAllDeferredReferences] DONE ' +
-          `keysProcessed=${result.keysProcessed} ` +
-          `remainingKeys=${result.remainingKeys}`,
-      );
-      return result;
+      return yield* self.symbolRefManager.drainAllDeferredReferencesEffect();
     });
   }
 
@@ -3029,13 +2985,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Skip if already resolving this file (prevents redundant work from overlapping LSP requests)
       if (self.resolvingCrossFileRefs.has(normalizedUri)) {
-        // ALG-DEBUG: surface the skip via console.error so it appears in worker
-        // traces — `logger.debug` is filtered by default and was hiding this.
-        console.error(
-          '[ALG-DEBUG][resolveCrossFileReferencesForFile] SKIP-IN-PROGRESS ' +
-            `uri=${normalizedUri} ` +
-            `inFlightCount=${self.resolvingCrossFileRefs.size}`,
-        );
         self.logger.debug(
           () =>
             `Skipping cross-file resolution for ${normalizedUri} (already in progress)`,
@@ -3044,19 +2993,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       self.resolvingCrossFileRefs.add(normalizedUri);
-      console.error(
-        '[ALG-DEBUG][resolveCrossFileReferencesForFile] ENTER ' +
-          `uri=${normalizedUri} ` +
-          `inFlightCount=${self.resolvingCrossFileRefs.size}`,
-      );
       try {
         const symbolTable =
           self.symbolRefManager.getSymbolTableForFile(normalizedUri);
         if (!symbolTable) {
-          console.error(
-            '[ALG-DEBUG][resolveCrossFileReferencesForFile] EXIT-NO-TABLE ' +
-              `uri=${normalizedUri}`,
-          );
           self.logger.debug(
             () =>
               `No SymbolTable found for ${normalizedUri}, skipping cross-file reference resolution`,
@@ -3064,7 +3004,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
-        const refCount = symbolTable.getAllReferences().length;
         yield* self.processSymbolReferencesToGraphEffect(
           symbolTable,
           normalizedUri,
@@ -3078,11 +3017,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         yield* self.resolveInheritedMethodCallsEffect(
           symbolTable,
           normalizedUri,
-        );
-
-        console.error(
-          '[ALG-DEBUG][resolveCrossFileReferencesForFile] EXIT-OK ' +
-            `uri=${normalizedUri} processedRefs=${refCount}`,
         );
       } finally {
         self.resolvingCrossFileRefs.delete(normalizedUri);
@@ -3225,85 +3159,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       try {
         const typeReferences = symbolTable.getAllReferences();
 
-        // ALG-DEBUG: classify references before processing so we can see
-        // how many of the loop iterations actually have a chance of creating
-        // a cross-file edge. processedRefs alone is misleading because
-        // literal/same-file refs early-exit and never reach addReference.
-        let crossFileCandidates = 0;
-        let qualifiedCandidates = 0;
-        const crossFileNameSamples: string[] = [];
-        for (const r of typeReferences) {
-          if (r.context === ReferenceContext.LITERAL) continue;
-          const qualifierInfo = self.extractQualifierFromChain(r);
-          const allSymbols = symbolTable.getAllSymbols();
-          if (qualifierInfo && qualifierInfo.isQualified) {
-            qualifiedCandidates++;
-            if (qualifierInfo.qualifier.toLowerCase() === 'this') continue;
-            const qualifierInFile = allSymbols.find(
-              (s) => s.name === qualifierInfo.qualifier,
-            );
-            if (!qualifierInFile) {
-              crossFileCandidates++;
-              if (crossFileNameSamples.length < 5) {
-                crossFileNameSamples.push(
-                  `${qualifierInfo.qualifier}.${qualifierInfo.member}`,
-                );
-              }
-            }
-          } else {
-            const symbolInFile = allSymbols.find((s) => s.name === r.name);
-            if (!symbolInFile) {
-              crossFileCandidates++;
-              if (crossFileNameSamples.length < 5) {
-                crossFileNameSamples.push(r.name);
-              }
-            }
-          }
-        }
-
-        // ALG-DEBUG: snapshot edge count before processing so we can see
-        // how many edges this run actually added to the global graph.
-        const edgesBefore =
-          (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
-            ?.totalEdges ?? 0;
-
-        // ALG-DEBUG: snapshot enqueue stats; we read the delta after
-        // the loop to verify how many xfDefer calls actually landed
-        // entries in the deferredReferences map vs hit a silent-drop
-        // path (missing source fileUri or block source with no
-        // containing symbol).
-        const refMgrStats = (self.symbolRefManager as unknown as {
-          constructor: { __algEnqueueStats?: { added: number; dropMissingSourceUri: number; dropBlockNoContainer: number } };
-        }).constructor.__algEnqueueStats ?? { added: 0, dropMissingSourceUri: 0, dropBlockNoContainer: 0 };
-        const enqueueAddedBefore = refMgrStats.added;
-        const enqueueDropMissingBefore = refMgrStats.dropMissingSourceUri;
-        const enqueueDropBlockBefore = refMgrStats.dropBlockNoContainer;
-
-        // ALG-DEBUG: per-call counters tracking each cross-file outcome.
-        // Stash on the manager instance so the per-ref effect can mutate
-        // them without requiring a signature change. Stable across the
-        // single resolveCrossFileReferencesForFile call (guarded by the
-        // in-flight set), so race contamination is unlikely; we still
-        // snapshot deltas at the end.
-        const dbg = (self as unknown as {
-          __algRefDebug?: {
-            xfTryResolve: number;
-            xfTargetFound: number;
-            xfTargetNull: number;
-            xfAddReferenceCalled: number;
-            xfDeferralEnqueued: number;
-            xfDeferralSkippedNoSource: number;
-          };
-        });
-        dbg.__algRefDebug = {
-          xfTryResolve: 0,
-          xfTargetFound: 0,
-          xfTargetNull: 0,
-          xfAddReferenceCalled: 0,
-          xfDeferralEnqueued: 0,
-          xfDeferralSkippedNoSource: 0,
-        };
-
         // Process references in batches with yields to prevent blocking
         const batchSize = self.initialReferenceBatchSize;
         for (let i = 0; i < typeReferences.length; i += batchSize) {
@@ -3323,50 +3178,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             yield* Effect.yieldNow();
           }
         }
-
-        const edgesAfter =
-          (self.symbolRefManager.getStats?.() as { totalEdges?: number } | null)
-            ?.totalEdges ?? 0;
-
-        const counters = dbg.__algRefDebug ?? {
-          xfTryResolve: 0,
-          xfTargetFound: 0,
-          xfTargetNull: 0,
-          xfAddReferenceCalled: 0,
-          xfDeferralEnqueued: 0,
-          xfDeferralSkippedNoSource: 0,
-        };
-        dbg.__algRefDebug = undefined;
-
-        // ALG-DEBUG: report cross-file candidate count + edge delta + per-outcome
-        // counters. xfTryResolve = entered the cross-file branch.
-        // xfTargetFound = findSymbolByName returned a usable target.
-        // xfTargetNull = target lookup returned nothing.
-        // xfAddReferenceCalled = both source+target found, called addReference.
-        // xfDeferralEnqueued = enqueueDeferredReference reached.
-        // xfDeferralSkippedNoSource = skipped because source symbol was null.
-        const enqueueAdded = refMgrStats.added - enqueueAddedBefore;
-        const enqueueDropMissing =
-          refMgrStats.dropMissingSourceUri - enqueueDropMissingBefore;
-        const enqueueDropBlock =
-          refMgrStats.dropBlockNoContainer - enqueueDropBlockBefore;
-        console.error(
-          '[ALG-DEBUG][processSymbolReferencesToGraph] DONE ' +
-            `uri=${fileUri} totalRefs=${typeReferences.length} ` +
-            `qualified=${qualifiedCandidates} ` +
-            `crossFileCandidates=${crossFileCandidates} ` +
-            `edgesAdded=${edgesAfter - edgesBefore} ` +
-            `xfTry=${counters.xfTryResolve} ` +
-            `xfTargetFound=${counters.xfTargetFound} ` +
-            `xfTargetNull=${counters.xfTargetNull} ` +
-            `xfAddRef=${counters.xfAddReferenceCalled} ` +
-            `xfDefer=${counters.xfDeferralEnqueued} ` +
-            `xfDeferSkip=${counters.xfDeferralSkippedNoSource} ` +
-            `enqAdded=${enqueueAdded} ` +
-            `enqDropMissingUri=${enqueueDropMissing} ` +
-            `enqDropBlock=${enqueueDropBlock} ` +
-            `samples=[${crossFileNameSamples.join(',')}]`,
-        );
       } catch (error) {
         self.logger.error(
           () => `Error processing type references for ${fileUri}: ${error}`,
@@ -3455,10 +3266,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // If it's a cross-file reference, try to resolve it first if the artifact is already loaded
         // Only defer if resolution fails (artifact not loaded yet)
         if (isCrossFileReference) {
-          // ALG-DEBUG outcome counter
-          const __dbg = (self as unknown as { __algRefDebug?: any })
-            .__algRefDebug;
-          if (__dbg) __dbg.xfTryResolve++;
           // Try to resolve the cross-file reference first
           // This handles cases where artifacts were loaded via artifact loading before cross-file resolution runs
           let targetSymbol: ApexSymbol | null = null;
@@ -3589,13 +3396,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
           }
 
-          // ALG-DEBUG outcome counter for target resolution
-          const __dbg2 = (self as unknown as { __algRefDebug?: any })
-            .__algRefDebug;
-          if (__dbg2) {
-            if (targetSymbol) __dbg2.xfTargetFound++;
-            else __dbg2.xfTargetNull++;
-          }
           // If we found the target symbol, resolve it immediately
           if (targetSymbol) {
             // Update resolvedSymbolId
@@ -3633,9 +3433,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 : targetSymbolsInGraph[0];
 
               if (sourceInGraph && targetInGraph) {
-                const __dbg3 = (self as unknown as { __algRefDebug?: any })
-                  .__algRefDebug;
-                if (__dbg3) __dbg3.xfAddReferenceCalled++;
                 const referenceType = self.mapReferenceContextToType(
                   typeRef.context,
                 );
@@ -3678,7 +3475,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               self.findSymbolsInFile(normalizedUri),
             );
             const containing =
-              self.findContainingNonBlockSymbol(sourceSymbol, symbolsInFileForBlock) ??
+              self.findContainingNonBlockSymbol(
+                sourceSymbol,
+                symbolsInFileForBlock,
+              ) ??
               symbolsInFileForBlock.find(inTypeSymbolGroup) ??
               null;
             sourceSymbol = containing;
@@ -3692,9 +3492,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
 
           if (sourceSymbol) {
-            const __dbg4 = (self as unknown as { __algRefDebug?: any })
-              .__algRefDebug;
-            if (__dbg4) __dbg4.xfDeferralEnqueued++;
             const referenceType = self.mapReferenceContextToType(
               typeRef.context,
             );
@@ -3709,10 +3506,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 isStatic: isStatic,
               },
             );
-          } else {
-            const __dbg5 = (self as unknown as { __algRefDebug?: any })
-              .__algRefDebug;
-            if (__dbg5) __dbg5.xfDeferralSkippedNoSource++;
           }
           return;
         }

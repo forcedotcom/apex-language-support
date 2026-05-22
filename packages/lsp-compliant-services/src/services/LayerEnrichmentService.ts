@@ -206,11 +206,6 @@ export class LayerEnrichmentService {
     strategy: FileSelectionStrategy,
     workDoneToken?: ProgressToken | SharedProgressToken,
   ): Promise<void> {
-    console.error(
-      '[ALG-DEBUG][enrichFiles] ENTER ' +
-        `count=${fileUris.length} target=${targetLevel} strategy=${strategy} ` +
-        `sample=[${fileUris.slice(0, 3).join(',')}]`,
-    );
     if (fileUris.length === 0) {
       return;
     }
@@ -230,9 +225,6 @@ export class LayerEnrichmentService {
       try {
         const document = await storage.getDocument(fileUri);
         if (!document) {
-          console.error(
-            `[ALG-DEBUG][enrichFiles] SKIP-NO-DOC uri=${fileUri}`,
-          );
           this.logger.debug(() => `File not found in storage: ${fileUri}`);
           continue;
         }
@@ -244,12 +236,6 @@ export class LayerEnrichmentService {
             currentLevel: currentLevel || 'public-api',
             version: document.version,
           });
-        } else {
-          console.error(
-            '[ALG-DEBUG][enrichFiles] SKIP-CACHED ' +
-              `uri=${fileUri} ` +
-              `currentLevel=${currentLevel ?? 'none'} target=${targetLevel}`,
-          );
         }
       } catch (error) {
         this.logger.debug(() => `Error checking file ${fileUri}: ${error}`);
@@ -257,20 +243,12 @@ export class LayerEnrichmentService {
     }
 
     if (filesToEnrich.length === 0) {
-      console.error(
-        '[ALG-DEBUG][enrichFiles] EXIT-ALL-CACHED ' +
-          `count=${fileUris.length} target=${targetLevel}`,
-      );
       this.logger.debug(
         () =>
           `All ${fileUris.length} files already have detail level ${targetLevel}`,
       );
       return;
     }
-    console.error(
-      '[ALG-DEBUG][enrichFiles] WILL-ENRICH ' +
-        `count=${filesToEnrich.length}/${fileUris.length} target=${targetLevel}`,
-    );
 
     this.logger.debug(
       () =>

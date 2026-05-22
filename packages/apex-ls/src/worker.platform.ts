@@ -495,14 +495,6 @@ async function writeBackCompiledSymbols(
       (enrichedSymbolTable as { symbols?: unknown[] } | null)?.symbols
         ?.length ?? 0;
 
-    // ALG-DEBUG: log every write-back attempt with key dimensions
-    // (uri, version, symbolCount). Pairs with the data-owner-side log
-    // to find requests that vanish in transit.
-    console.error(
-      `[ALG-DEBUG][writeBackCompiledSymbols] ENTER uri=${uri} ` +
-        `v=${documentVersion} symbolCount=${symbolCount}`,
-    );
-
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
       {
@@ -518,12 +510,6 @@ async function writeBackCompiledSymbols(
     const elapsed = Date.now() - startTime;
     const accepted = response?.accepted ?? false;
 
-    console.error(
-      `[ALG-DEBUG][writeBackCompiledSymbols] EXIT uri=${uri} ` +
-        `accepted=${accepted} merged=${response?.merged ?? 0} ` +
-        `versionMismatch=${response?.versionMismatch ?? false} ${elapsed}ms`,
-    );
-
     await Effect.runPromise(
       Effect.logDebug(
         `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
@@ -534,10 +520,6 @@ async function writeBackCompiledSymbols(
     return accepted;
   } catch (err) {
     const elapsed = Date.now() - startTime;
-    console.error(
-      `[ALG-DEBUG][writeBackCompiledSymbols] THROW uri=${uri} ` +
-        `${elapsed}ms err=${String(err)}`,
-    );
     await Effect.runPromise(
       Effect.logWarning(
         `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
@@ -1195,15 +1177,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           Effect.gen(function* () {
             writeBackMetrics.attempted++;
 
-            // ALG-DEBUG: log every UpdateSymbolSubset entry to verify how
-            // many of the compilation worker's write-backs actually reach
-            // the data-owner.
-            console.error(
-              `[ALG-DEBUG][DataOwner.UpdateSymbolSubset] ENTER uri=${req.uri} ` +
-                `v=${req.documentVersion} level=${req.enrichedDetailLevel} ` +
-                `from=${req.sourceWorkerId}`,
-            );
-
             const svc = yield* ensureDataOwnerServices;
             const storage = svc.storageManager.getStorage();
             const cache = getDocumentStateCache();
@@ -1215,10 +1188,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (!currentDoc) {
               writeBackMetrics.rejectedDocumentMissing++;
-              console.error(
-                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-NO-DOC ' +
-                  `uri=${req.uri}`,
-              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
@@ -1231,11 +1200,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (currentDoc.version !== req.documentVersion) {
               writeBackMetrics.rejectedVersionMismatch++;
-              console.error(
-                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-VERSION ' +
-                  `uri=${req.uri} stored=${currentDoc.version} ` +
-                  `incoming=${req.documentVersion}`,
-              );
               yield* Effect.logDebug(
                 '[DATA-OWNER] Write-back rejected: version mismatch ' +
                   `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
@@ -1264,11 +1228,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
-              console.error(
-                '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] REJECT-DETAIL ' +
-                  `uri=${req.uri} have=${rawLevel ?? 'none'} ` +
-                  `incoming=${req.enrichedDetailLevel}`,
-              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
@@ -1318,19 +1277,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
 
-            console.error(
-              '[ALG-DEBUG][DataOwner.UpdateSymbolSubset] ACCEPT ' +
-                `uri=${req.uri} merged=${mergedCount} ` +
-                `level=${req.enrichedDetailLevel}`,
-            );
-
-            // Log to both Effect logger and console for debugging
-            const logMsg =
+            yield* Effect.logDebug(
               `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
-              `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
-              `(from ${req.sourceWorkerId})`;
-            console.log(logMsg);
-            yield* Effect.logDebug(logMsg);
+                `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
+                `(from ${req.sourceWorkerId})`,
+            );
 
             return {
               accepted: true,
@@ -1396,48 +1347,19 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               ? declaredSymbols.filter((s) => s.name === req.symbolName)
               : declaredSymbols;
 
-            // ALG-DEBUG: instrumentation to verify data-owner reverse index
-            // is populated for symbols in the target URI. If totalRefs is 0
-            // for symbols that obviously have callers in the workspace,
-            // hypothesis H4 (data-owner reverseIndex not populated by
-            // WorkspaceBatchCompile) is confirmed.
-            console.error(
-              `[ALG-DEBUG][DataOwner.ResolveDependentUris] uri=${req.uri} ` +
-                `symbolName=${req.symbolName ?? 'all'} ` +
-                `declaredSymbols=${declaredSymbols.length} ` +
-                `targets=${targets.length}`,
-            );
-
             // Distinct file URIs that contain references to any target symbol,
             // excluding the source URI itself.
             const dependentUris = new Set<string>();
-            let totalRefs = 0;
-            const perSymbolCounts: Array<{ name: string; refs: number }> = [];
             for (const sym of targets) {
               const refs = yield* Effect.promise(() =>
                 sm.findReferencesTo(sym),
               );
-              perSymbolCounts.push({ name: sym.name, refs: refs.length });
-              totalRefs += refs.length;
               for (const ref of refs) {
                 if (ref.fileUri && ref.fileUri !== req.uri) {
                   dependentUris.add(ref.fileUri);
                 }
               }
             }
-
-            // Top 5 most-referenced symbols, plus aggregate
-            const top5 = perSymbolCounts
-              .sort((a, b) => b.refs - a.refs)
-              .slice(0, 5)
-              .map((s) => `${s.name}=${s.refs}`)
-              .join(', ');
-            console.error(
-              '[ALG-DEBUG][DataOwner.ResolveDependentUris] ' +
-                `totalRefs=${totalRefs} ` +
-                `dependentUris=${dependentUris.size} ` +
-                `top5: ${top5 || '(none)'}`,
-            );
 
             const entries: Record<string, unknown> = {};
             for (const uri of dependentUris) {
@@ -1473,12 +1395,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             // queued deferrals. Safe to run inside dataOwnerWrite.
             const result =
               yield* svc.symbolManager.drainAllDeferredReferences();
-            console.error(
-              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
-                `reason=${req.reason} ` +
-                `keysProcessed=${result.keysProcessed} ` +
-                `remainingKeys=${result.remainingKeys}`,
-            );
             return result;
           }),
         ),
@@ -1695,22 +1611,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           // target was added.
           yield* Effect.promise(async () => {
             try {
-              const drainResult = (await requestCoordinatorAssistancePromise(
+              await requestCoordinatorAssistancePromise(
                 'dataOwner:DrainDeferredReferences',
                 { reason: 'post-WorkspaceBatchCompile' },
                 true,
-              )) as { keysProcessed: number; remainingKeys: number };
-              console.error(
-                '[ALG-DEBUG][WorkspaceBatchCompile] drain DONE ' +
-                  `session=${req.sessionId} ` +
-                  `keysProcessed=${drainResult?.keysProcessed ?? 0} ` +
-                  `remainingKeys=${drainResult?.remainingKeys ?? 0}`,
               );
-            } catch (err) {
-              console.error(
-                '[ALG-DEBUG][WorkspaceBatchCompile] drain THROW ' +
-                  `session=${req.sessionId} err=${String(err)}`,
-              );
+            } catch {
+              // Drain is best-effort; subsequent additions trigger their own drains.
             }
           });
 

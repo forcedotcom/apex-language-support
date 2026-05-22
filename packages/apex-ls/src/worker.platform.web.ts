@@ -1211,12 +1211,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             const result =
               yield* svc.symbolManager.drainAllDeferredReferences();
-            console.error(
-              '[ALG-DEBUG][DataOwner.DrainDeferredReferences] DONE ' +
-                `reason=${req.reason} ` +
-                `keysProcessed=${result.keysProcessed} ` +
-                `remainingKeys=${result.remainingKeys}`,
-            );
             return result;
           }),
         ),
@@ -1412,22 +1406,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           // populated graph. See worker.platform.ts for full rationale.
           yield* Effect.promise(async () => {
             try {
-              const drainResult = (await requestCoordinatorAssistancePromise(
+              await requestCoordinatorAssistancePromise(
                 'dataOwner:DrainDeferredReferences',
                 { reason: 'post-WorkspaceBatchCompile' },
                 true,
-              )) as { keysProcessed: number; remainingKeys: number };
-              console.error(
-                '[ALG-DEBUG][WorkspaceBatchCompile] drain DONE ' +
-                  `session=${req.sessionId} ` +
-                  `keysProcessed=${drainResult?.keysProcessed ?? 0} ` +
-                  `remainingKeys=${drainResult?.remainingKeys ?? 0}`,
               );
-            } catch (err) {
-              console.error(
-                '[ALG-DEBUG][WorkspaceBatchCompile] drain THROW ' +
-                  `session=${req.sessionId} err=${String(err)}`,
-              );
+            } catch {
+              // Drain is best-effort; subsequent additions trigger their own drains.
             }
           });
 
