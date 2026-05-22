@@ -19,17 +19,19 @@ import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/I
 /**
  * Get the enclosing (outer) class for an inner class, or null if top-level.
  */
-export function getEnclosingClass(
+export async function getEnclosingClass(
   typeSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
-): TypeSymbol | null {
+): Promise<TypeSymbol | null> {
   if (!typeSymbol.parentId) return null;
 
-  const resolve = (id: string): ApexSymbol | null =>
-    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
+  const resolve = async (id: string): Promise<ApexSymbol | null> =>
+    allSymbols.find((s) => s.id === id) ??
+    (await symbolManager.getSymbol(id)) ??
+    null;
 
-  const parent = resolve(typeSymbol.parentId);
+  const parent = await resolve(typeSymbol.parentId);
   if (!parent) return null;
 
   if (
@@ -44,7 +46,7 @@ export function getEnclosingClass(
     (parent as ScopeSymbol).scopeType === 'class' &&
     parent.parentId
   ) {
-    const grandParent = resolve(parent.parentId);
+    const grandParent = await resolve(parent.parentId);
     if (
       grandParent &&
       (grandParent.kind === SymbolKind.Class ||
@@ -60,17 +62,17 @@ export function getEnclosingClass(
 /**
  * Check if the calling class is in a test context (has @isTest or is an inner class of an @isTest class).
  */
-export function isInTestContext(
+export async function isInTestContext(
   callingClass: TypeSymbol,
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
-): boolean {
+): Promise<boolean> {
   let current: TypeSymbol | null = callingClass;
   while (current) {
     if (AnnotationUtils.isTestClass(current)) {
       return true;
     }
-    current = getEnclosingClass(current, allSymbols, symbolManager);
+    current = await getEnclosingClass(current, allSymbols, symbolManager);
   }
   return false;
 }

@@ -269,7 +269,9 @@ export const InstanceofValidator: Validator = {
         );
         const rightSymbols = rightInAll
           ? [rightInAll]
-          : symbolManager.findSymbolByName(rightTypeName);
+          : yield* Effect.promise(() =>
+              symbolManager.findSymbolByName(rightTypeName),
+            );
         if (rightBase !== 'object' && rightSymbols.length === 0) {
           continue; // Unresolved - let TypeResolutionValidator handle
         }

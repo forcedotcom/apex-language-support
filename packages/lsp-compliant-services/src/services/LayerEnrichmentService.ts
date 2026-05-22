@@ -106,10 +106,10 @@ export class LayerEnrichmentService {
   /**
    * Select files to enrich based on strategy and context
    */
-  selectFilesToEnrich(
+  async selectFilesToEnrich(
     context: RequestContext,
     strategy: FileSelectionStrategy,
-  ): string[] {
+  ): Promise<string[]> {
     const files: string[] = [];
 
     switch (strategy) {
@@ -122,17 +122,17 @@ export class LayerEnrichmentService {
       case 'same-namespace':
         if (context.fileUri) {
           // Find files in the same namespace
-          const currentFileSymbols = this.symbolManager.findSymbolsInFile(
+          const currentFileSymbols = await this.symbolManager.findSymbolsInFile(
             context.fileUri,
           );
           if (currentFileSymbols.length > 0) {
             const namespace = currentFileSymbols[0].namespace;
             if (namespace) {
               // Get all files and filter by namespace
-              const allFiles = this.getAllWorkspaceFiles();
+              const allFiles = await this.getAllWorkspaceFiles();
               for (const fileUri of allFiles) {
                 const fileSymbols =
-                  this.symbolManager.findSymbolsInFile(fileUri);
+                  await this.symbolManager.findSymbolsInFile(fileUri);
                 if (
                   fileSymbols.length > 0 &&
                   fileSymbols[0].namespace === namespace
@@ -148,7 +148,7 @@ export class LayerEnrichmentService {
       case 'dependency-graph':
         if (context.fileUri) {
           // Find files that reference or are referenced by this file
-          const currentFileSymbols = this.symbolManager.findSymbolsInFile(
+          const currentFileSymbols = await this.symbolManager.findSymbolsInFile(
             context.fileUri,
           );
           const relatedFiles = new Set<string>();
@@ -156,7 +156,8 @@ export class LayerEnrichmentService {
           for (const symbol of currentFileSymbols) {
             // Find references to this symbol (files that reference it)
             try {
-              const referencesTo = this.symbolManager.findReferencesTo(symbol);
+              const referencesTo =
+                await this.symbolManager.findReferencesTo(symbol);
               for (const ref of referencesTo) {
                 if (ref.fileUri && ref.fileUri !== context.fileUri) {
                   relatedFiles.add(ref.fileUri);
@@ -169,7 +170,7 @@ export class LayerEnrichmentService {
             // Find references from this symbol (files it references)
             try {
               const referencesFrom =
-                this.symbolManager.findReferencesFrom(symbol);
+                await this.symbolManager.findReferencesFrom(symbol);
               for (const ref of referencesFrom) {
                 if (ref.fileUri && ref.fileUri !== context.fileUri) {
                   relatedFiles.add(ref.fileUri);
@@ -185,7 +186,7 @@ export class LayerEnrichmentService {
         break;
 
       case 'workspace-wide':
-        files.push(...this.getAllWorkspaceFiles());
+        files.push(...(await this.getAllWorkspaceFiles()));
         break;
     }
 
@@ -332,8 +333,9 @@ export class LayerEnrichmentService {
           }
 
           // Get existing symbol table
-          const existingSymbolTable =
-            self.symbolManager.getSymbolTableForFile(uri);
+          const existingSymbolTable = yield* Effect.promise(() =>
+            self.symbolManager.getSymbolTableForFile(uri),
+          );
 
           // Try to get cached parse tree for reuse
           const cachedParseTree = cache.getParseTree(uri, version);
@@ -448,14 +450,11 @@ export class LayerEnrichmentService {
   /**
    * Get all workspace files (helper for workspace-wide strategy)
    */
-  private getAllWorkspaceFiles(): string[] {
-    // This is a simplified implementation
-    // In practice, you might want to query ApexSymbolManager for all known files
+  private async getAllWorkspaceFiles(): Promise<string[]> {
     const files: string[] = [];
     try {
       // Get all symbols and extract unique file URIs
-      // Use getAllSymbolsForCompletion which exists on ISymbolManager
-      const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
+      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
       const fileSet = new Set<string>();
       for (const symbol of allSymbols) {
         if (symbol.fileUri) {

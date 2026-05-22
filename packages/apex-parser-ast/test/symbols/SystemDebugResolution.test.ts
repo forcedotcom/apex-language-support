@@ -11,6 +11,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { CompilerService } from '../../src/parser/compilerService';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import {
@@ -35,14 +36,16 @@ describe('System.debug Resolution Bug Fix', () => {
     );
     await initializeResourceLoaderForTests();
 
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
   });
 
   afterEach(async () => {
     try {
       if (symbolManager) {
-        symbolManager.clear();
+        await symbolManager.clear();
       }
     } catch (_error) {
       // Ignore errors during cleanup
@@ -108,7 +111,7 @@ public class StdApex {
     // Test hovering over System.debug - should resolve to System.debug, not StdApex.debug
     // Note: findSymbolByName only finds symbols that have been added via addSymbolTable
     // System.debug is a cross-file reference and won't be found until cross-file resolution occurs
-    const debugSymbols = symbolManager.findSymbolByName('debug');
+    const debugSymbols = await symbolManager.findSymbolByName('debug');
     // Should find at least the local debug method (same-file symbol)
     // System.debug won't be found yet as it requires cross-file resolution
     expect(debugSymbols.length).toBeGreaterThanOrEqual(1);
@@ -157,7 +160,7 @@ public class StdApex2 {
 
     // Note: findSymbolByName only finds symbols that have been added via addSymbolTable
     // System.debug is a cross-file reference and won't be found until cross-file resolution occurs
-    const debugSymbols = symbolManager.findSymbolByName('debug');
+    const debugSymbols = await symbolManager.findSymbolByName('debug');
     // Should find at least the local debug method (same-file symbol)
     // System.debug won't be found yet as it requires cross-file resolution
     expect(debugSymbols.length).toBeGreaterThanOrEqual(1);

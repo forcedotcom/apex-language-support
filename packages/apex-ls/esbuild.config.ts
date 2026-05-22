@@ -60,7 +60,15 @@ const NODE_SERVER_EXTERNAL = [
  * they get bundled into the worker. Only deps that are loaded separately
  * (like the ANTLR parser which is too large) should be external.
  */
-const WORKER_EXTERNAL: string[] = [];
+const WORKER_EXTERNAL: string[] = [
+  // Node-only deps used by WorkerCoordinator — dead code in browser, but
+  // esbuild follows the dynamic import so we must mark them external.
+  'node:worker_threads',
+  'node:os',
+  '@effect/platform-node/NodeWorker',
+  // NOTE: @effect/platform/WorkerError must NOT be external — it is a
+  // dependency of @effect/platform-browser/BrowserWorker which runs in browser.
+];
 
 const builds: BuildOptions[] = [
   // Node.js server build - used by desktop VSCode extension
@@ -107,6 +115,47 @@ const builds: BuildOptions[] = [
       }),
     ],
   },
+  // Node.js internal worker build — spawned by WorkerCoordinator (Step 3)
+  // Same Node externals as server.node; browser variant added in Step 10
+  // Step 9: resource-loader role imports ResourceLoader which needs .zip/.gz loaders
+  {
+    ...nodeBaseConfig,
+    entryPoints: { 'worker.platform': 'src/worker.platform.ts' },
+    outdir: 'dist',
+    format: 'cjs',
+    sourcemap: true,
+    external: NODE_SERVER_EXTERNAL,
+    keepNames: true,
+    conditions: ['node', 'require', 'default'],
+    mainFields: ['main', 'module'],
+    loader: {
+      '.zip': 'dataurl',
+      '.gz': 'dataurl',
+    },
+  },
+  // Browser internal worker build — spawned by WorkerCoordinator in web extension
+  // IIFE format for nested Worker context; polyfills and BrowserWorkerRunner included
+  {
+    entryPoints: { 'worker.platform.web': 'src/worker.platform.web.ts' },
+    outdir: 'dist',
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2022',
+    sourcemap: true,
+    minify: false, // DEBUG: keep unminified for stack trace readability
+    metafile: true,
+    external: [],
+    keepNames: true,
+    splitting: false,
+    bundle: true,
+    treeShaking: true,
+    conditions: ['browser', 'worker', 'import', 'module', 'default'],
+    mainFields: ['browser', 'module', 'main'],
+    loader: {
+      '.zip': 'dataurl',
+      '.gz': 'dataurl',
+    },
+  },
   // Web worker build - used by the web VSCode extension
   // Produces server.web.js as an IIFE bundle for Web Worker context
   {
@@ -116,7 +165,7 @@ const builds: BuildOptions[] = [
     format: 'iife',
     target: 'es2022',
     sourcemap: true,
-    minify: shouldMinifyEsbuild(),
+    minify: false, // DEBUG: keep unminified for stack trace readability
     metafile: true,
     external: WORKER_EXTERNAL,
     keepNames: true,
@@ -135,8 +184,30 @@ const builds: BuildOptions[] = [
   },
 ];
 
-// Apply browser/worker-specific settings to the worker bundle
+// Apply browser/worker-specific settings to browser builds
+// Index 2 = browser internal worker, last = web server
+configureWebWorkerPolyfills(builds[2]);
 configureWebWorkerPolyfills(builds[builds.length - 1]);
+
+// Pre-define a minimal `process` global BEFORE the IIFE runs.
+// Some bundled node polyfills (e.g. `util`) reference bare `process` at
+// module-init time, before our entry-module body can run
+// `(globalThis as any).process = process`.  The banner executes in the
+// worker's global scope prior to the IIFE, so bare `process` lookups inside
+// the IIFE find this shim instead of throwing ReferenceError.
+(builds[2] as BuildOptions).banner = {
+  js:
+    'if(typeof process==="undefined"){' +
+    'self.process={' +
+    'env:{NODE_ENV:"production"},' +
+    'argv:[],version:"v18.0.0",versions:{},' +
+    'platform:"browser",' +
+    'exit:function(){},' +
+    'nextTick:function(fn){queueMicrotask(fn)},' +
+    'hrtime:function(){return[0,0]},' +
+    'pid:0,cwd:function(){return"/"},chdir:function(){}' +
+    '}}',
+};
 
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {

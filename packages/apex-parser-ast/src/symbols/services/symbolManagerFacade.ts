@@ -266,7 +266,7 @@ export interface IEffectSymbolManagerShape {
   readonly resolveWithEnrichment: <T>(
     fileUri: string,
     documentText: string,
-    resolver: () => T | null,
+    resolver: () => Promise<T | null> | T | null,
   ) => Effect.Effect<T | null>;
   readonly isStandardLibraryType: (name: string) => Effect.Effect<boolean>;
 }
@@ -399,9 +399,7 @@ export const iEffectSymbolManagerFromLegacy = (
 
         // Legacy bridge — delegate to existing ApexSymbolManager
         addSymbol: (sym, uri) =>
-          Effect.promise(() =>
-            Promise.resolve(legacyManager.addSymbol(sym, uri)),
-          ),
+          Effect.promise(() => legacyManager.addSymbol(sym, uri)),
         addSymbolTable: (st, uri, ver, err) =>
           legacyManager.addSymbolTable(st, uri, ver, err),
         registerSymbolTableForFile: (st, uri, opts) =>

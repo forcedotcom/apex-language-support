@@ -145,7 +145,7 @@ public class ApexTestExample {
       };
 
       // Verify symbols are in the manager
-      const symbolsInFile = symbolManager.findSymbolsInFile(
+      const symbolsInFile = await symbolManager.findSymbolsInFile(
         testClassDocument.uri,
       );
       expect(symbolsInFile.length).toBeGreaterThan(0);

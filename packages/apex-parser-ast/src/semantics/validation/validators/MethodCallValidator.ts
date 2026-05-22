@@ -228,11 +228,11 @@ class MethodCallListener extends BaseApexParserListener<void> {
 /**
  * Find a type (class, interface, or enum) by name
  */
-function findTypeByName(
+async function findTypeByName(
   typeName: string,
   allSymbols: ApexSymbol[],
   symbolManager?: ISymbolManagerInterface,
-): TypeSymbol | null {
+): Promise<TypeSymbol | null> {
   const normalizedName = typeName.toLowerCase().trim();
   const baseName =
     normalizedName.split('<')[0].split('.').pop() || normalizedName;
@@ -244,7 +244,7 @@ function findTypeByName(
   if (sameFile) return sameFile;
 
   if (symbolManager?.findSymbolByName) {
-    const symbols = symbolManager.findSymbolByName(typeName);
+    const symbols = await symbolManager.findSymbolByName(typeName);
     const found = symbols?.find(
       (s: ApexSymbol) =>
         inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
@@ -258,14 +258,13 @@ function findTypeByName(
 /**
  * Find a class by name in the symbol table, optionally checking symbol manager for cross-file classes
  */
-function findClassByName(
+async function findClassByName(
   className: string,
   allSymbols: ApexSymbol[],
   symbolManager?: ISymbolManagerInterface,
-): TypeSymbol | null {
+): Promise<TypeSymbol | null> {
   const normalizedName = className.toLowerCase().trim();
 
-  // First, try to find in same file
   const classSymbol = allSymbols.find(
     (s) => isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
   ) as TypeSymbol | undefined;
@@ -274,9 +273,8 @@ function findClassByName(
     return classSymbol;
   }
 
-  // If not found in same file and symbol manager is available, try cross-file lookup
   if (symbolManager && typeof symbolManager.findSymbolByName === 'function') {
-    const symbols = symbolManager.findSymbolByName(className);
+    const symbols = await symbolManager.findSymbolByName(className);
     const crossFileClass = symbols.find(
       (s: ApexSymbol) =>
         isClassSymbol(s) && s.name.toLowerCase() === normalizedName,
@@ -327,16 +325,15 @@ function methodParentIdMatches(
  * Find a method by name in a class
  * Also checks symbol manager for cross-file classes
  */
-function findMethodInClass(
+async function findMethodInClass(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
   symbolManager?: ISymbolManagerInterface,
-): MethodSymbol | null {
+): Promise<MethodSymbol | null> {
   const normalizedName = methodName.toLowerCase().trim();
   const validParentIds = buildValidParentIdsForClass(classSymbol, allSymbols);
 
-  // Find methods in the class from same-file symbols
   let methods = allSymbols.filter(
     (s) =>
       isMethodSymbol(s) &&
@@ -344,7 +341,6 @@ function findMethodInClass(
       methodParentIdMatches(s.parentId, classSymbol, validParentIds),
   ) as MethodSymbol[];
 
-  // If not found and symbol manager is available, try to find in the class's file
   if (
     methods.length === 0 &&
     symbolManager &&
@@ -352,7 +348,7 @@ function findMethodInClass(
   ) {
     const classFileUri = classSymbol.fileUri;
     if (classFileUri) {
-      const fileSymbols = symbolManager.findSymbolsInFile(classFileUri);
+      const fileSymbols = await symbolManager.findSymbolsInFile(classFileUri);
       const fileValidParentIds = buildValidParentIdsForClass(
         classSymbol,
         fileSymbols,
@@ -373,13 +369,13 @@ function findMethodInClass(
  * Find a method by name in a class hierarchy (including superclasses)
  * Also checks symbol manager for cross-file classes
  */
-function findMethodInClassHierarchy(
+async function findMethodInClassHierarchy(
   methodName: string,
   classSymbol: TypeSymbol,
   allSymbols: ApexSymbol[],
   symbolManager?: ISymbolManagerInterface,
-): MethodSymbol | null {
-  let method = findMethodInClass(
+): Promise<MethodSymbol | null> {
+  let method = await findMethodInClass(
     methodName,
     classSymbol,
     allSymbols,
@@ -389,9 +385,8 @@ function findMethodInClassHierarchy(
     return method;
   }
 
-  // If not found and class has a superclass, check superclass
   if (classSymbol.superClass) {
-    const superClass = findClassByName(
+    const superClass = await findClassByName(
       classSymbol.superClass,
       allSymbols,
       symbolManager,
@@ -624,10 +619,8 @@ export const MethodCallValidator: Validator = {
             continue;
           }
 
-          const typeSymbol = findTypeByName(
-            newExpr.typeName,
-            allSymbols,
-            symbolManager,
+          const typeSymbol = yield* Effect.promise(() =>
+            findTypeByName(newExpr.typeName, allSymbols, symbolManager),
           );
 
           if (typeSymbol) {
@@ -716,27 +709,25 @@ export const MethodCallValidator: Validator = {
                   const baseType = extractBaseTypeForResolution(
                     receiverSymbol.type.name,
                   );
-                  targetClass = findClassByName(
-                    baseType,
-                    allSymbols,
-                    symbolManager,
+                  targetClass = yield* Effect.promise(() =>
+                    findClassByName(baseType, allSymbols, symbolManager),
                   );
                 }
               }
             }
 
-            // If no receiver or receiver type not found, check containing class
             if (!targetClass) {
               targetClass = containingClass;
             }
 
-            // Look for method in target class and its superclasses
             if (targetClass) {
-              methodSymbol = findMethodInClassHierarchy(
-                methodCall.methodName,
-                targetClass,
-                allSymbols,
-                symbolManager,
+              methodSymbol = yield* Effect.promise(() =>
+                findMethodInClassHierarchy(
+                  methodCall.methodName,
+                  targetClass!,
+                  allSymbols,
+                  symbolManager,
+                ),
               );
             }
 
@@ -833,10 +824,8 @@ export const MethodCallValidator: Validator = {
         // Note: This is a simplified check - protected constructors can only be called
         // from subclasses or the same class
         for (const newExpr of newExpressions) {
-          const classSymbol = findClassByName(
-            newExpr.typeName,
-            allSymbols,
-            symbolManager,
+          const classSymbol = yield* Effect.promise(() =>
+            findClassByName(newExpr.typeName, allSymbols, symbolManager),
           );
           if (classSymbol) {
             // Find constructors for this class

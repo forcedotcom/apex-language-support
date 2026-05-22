@@ -67,7 +67,7 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
+    "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
@@ -76,10 +76,10 @@
     "@tony.ganchev/eslint-plugin-header": "^3.4.4",
     "@types/benchmark": "^2.1.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.19.39",
+    "@types/node": "^20.19.40",
     "@types/semver": "^7.7.0",
     "@types/vscode": "1.118.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "@vscode/test-web": "^0.0.80",
     "benchmark": "^2.1.4",
@@ -98,10 +98,10 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
-    "jest": "^30.3.0",
+    "jest": "^30.4.1",
     "jscpd": "^4.0.9",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.9.0",
+    "knip": "^6.12.1",
     "prettier": "^3.8.3",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.3",
@@ -116,12 +116,15 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.60.3",
-    "@rollup/rollup-linux-x64-musl": "^4.60.2"
+    "@rollup/rollup-linux-x64-musl": "^4.60.3"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"
+  },
+  "overrides": {
+    "vscode-jsonrpc": "8.2.1"
   },
   "workspaces": [
     "packages/*",

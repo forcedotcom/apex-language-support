@@ -104,7 +104,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
           try {
             // Select files to enrich based on query (workspace-wide for workspace symbol search)
             const filesToEnrich =
-              this.layerEnrichmentService.selectFilesToEnrich(
+              await this.layerEnrichmentService.selectFilesToEnrich(
                 { query: params.query },
                 'workspace-wide',
               );
@@ -192,14 +192,18 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
 
       try {
         // Get symbols from ApexSymbolManager using getAllSymbolsForCompletion
-        const allSymbols = self.symbolManager.getAllSymbolsForCompletion();
+        const allSymbols = yield* Effect.promise(() =>
+          self.symbolManager.getAllSymbolsForCompletion(),
+        );
 
         const batchSize = 50;
         for (let i = 0; i < allSymbols.length; i++) {
           const symbol = allSymbols[i];
           // Apply filters
           if (self.matchesWorkspaceSymbolContext(symbol, context)) {
-            const symbolInfo = self.createSymbolInformation(symbol);
+            const symbolInfo = yield* Effect.promise(() =>
+              self.createSymbolInformation(symbol),
+            );
             if (symbolInfo) {
               symbols.push(symbolInfo);
             }
@@ -283,9 +287,11 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Create symbol information from Apex symbol
    */
-  private createSymbolInformation(symbol: any): SymbolInformation | null {
+  private async createSymbolInformation(
+    symbol: any,
+  ): Promise<SymbolInformation | null> {
     try {
-      const location = this.createLocation(symbol);
+      const location = await this.createLocation(symbol);
       if (!location) {
         return null;
       }
@@ -331,30 +337,26 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
       for (let i = 0; i < symbols.length; i++) {
         const symbolInfo = symbols[i];
         try {
-          // Find the corresponding Apex symbol
-          const apexSymbols = self.symbolManager.findSymbolByName(
-            symbolInfo.name,
+          const apexSymbols = yield* Effect.promise(() =>
+            self.symbolManager.findSymbolByName(symbolInfo.name),
           );
 
+          let found = false;
           for (const apexSymbol of apexSymbols) {
-            // Check if symbol has relationships of the specified types
-            const hasRelationships = context.relationshipTypes.some(
-              (relType) => {
-                try {
-                  const relatedSymbols = self.symbolManager.findRelatedSymbols(
-                    apexSymbol,
-                    relType,
-                  );
-                  return relatedSymbols.length > 0;
-                } catch (_error) {
-                  return false;
+            if (found) break;
+            for (const relType of context.relationshipTypes) {
+              try {
+                const relatedSymbols = yield* Effect.promise(() =>
+                  self.symbolManager.findRelatedSymbols(apexSymbol, relType),
+                );
+                if (relatedSymbols.length > 0) {
+                  filtered.push(symbolInfo);
+                  found = true;
+                  break;
                 }
-              },
-            );
-
-            if (hasRelationships) {
-              filtered.push(symbolInfo);
-              break;
+              } catch (_error) {
+                // continue
+              }
             }
           }
         } catch (error) {
@@ -450,12 +452,12 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Create location from symbol
    */
-  private createLocation(symbol: any): Location | null {
+  private async createLocation(symbol: any): Promise<Location | null> {
     if (!symbol.location) {
       return null;
     }
 
-    const uri = this.getSymbolFileUri(symbol);
+    const uri = await this.getSymbolFileUri(symbol);
     if (!uri) {
       return null;
     }
@@ -477,7 +479,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Get the file URI for a symbol
    */
-  private getSymbolFileUri(symbol: any): string | null {
+  private async getSymbolFileUri(symbol: any): Promise<string | null> {
     // Try to get from symbol's file path
     if (symbol.filePath) {
       return `file://${symbol.filePath}`;
@@ -485,7 +487,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
 
     // Try to find in symbol manager
     try {
-      const files = this.symbolManager.findFilesForSymbol(symbol.name);
+      const files = await this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
         return `file://${files[0]}`;
       }

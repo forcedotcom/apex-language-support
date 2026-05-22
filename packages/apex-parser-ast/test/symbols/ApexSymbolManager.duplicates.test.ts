@@ -25,8 +25,8 @@ describe('ApexSymbolManager Duplicate Handling', () => {
     symbolTable.setFileUri('file:///test/TestClass.cls');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const createLocation = (
@@ -50,19 +50,20 @@ describe('ApexSymbolManager Duplicate Handling', () => {
   });
 
   describe('findSymbolsByFQN', () => {
-    it('should delegate to symbolRefManager.findSymbolsByFQN', () => {
+    it('should delegate to symbolRefManager.findSymbolsByFQN', async () => {
       // Verify the method exists and delegates correctly
       expect(typeof symbolManager.findSymbolsByFQN).toBe('function');
 
       // Test with empty graph (should return empty array)
-      const emptyResults = symbolManager.findSymbolsByFQN('NonExistent.Class');
+      const emptyResults =
+        await symbolManager.findSymbolsByFQN('NonExistent.Class');
       expect(Array.isArray(emptyResults)).toBe(true);
       expect(emptyResults.length).toBe(0);
     });
   });
 
   describe('Symbol Resolution with Duplicates', () => {
-    it('should handle duplicate symbols gracefully in resolution', () => {
+    it('should handle duplicate symbols gracefully in resolution', async () => {
       const location1 = createLocation(10);
       const location2 = createLocation(15);
 
@@ -102,12 +103,12 @@ describe('ApexSymbolManager Duplicate Handling', () => {
       method2.parameters = [];
       method2.returnType = { name: 'void', originalTypeString: 'void' };
 
-      symbolManager.addSymbol(method1, 'file:///test/TestClass.cls');
-      symbolManager.addSymbol(method2, 'file:///test/TestClass.cls');
+      await symbolManager.addSymbol(method1, 'file:///test/TestClass.cls');
+      await symbolManager.addSymbol(method2, 'file:///test/TestClass.cls');
 
       // Resolution should work even with duplicates
       // getSymbol() should return first match
-      const retrieved = symbolManager.getSymbol(method1.id);
+      const retrieved = await symbolManager.getSymbol(method1.id);
       expect(retrieved).toBeDefined();
       expect(retrieved?.name).toBe('doWork');
     });

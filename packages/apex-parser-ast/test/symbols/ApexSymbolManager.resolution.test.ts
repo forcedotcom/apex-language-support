@@ -27,6 +27,7 @@ import { Effect } from 'effect';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
+  getResourceLoaderServiceShapeFromSingleton,
 } from '../helpers/testHelpers';
 
 describe('ApexSymbolManager - Enhanced Resolution', () => {
@@ -68,16 +69,18 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
   beforeEach(() => {
     if (!useSharedManager) {
-      symbolManager = new ApexSymbolManager();
+      symbolManager = new ApexSymbolManager(
+        getResourceLoaderServiceShapeFromSingleton(),
+      );
       compilerService = new CompilerService();
     }
     enableConsoleLogging();
     setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (!useSharedManager && symbolManager) {
-      symbolManager.clear();
+      await symbolManager.clear();
     }
   });
 
@@ -133,11 +136,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     }
   };
 
-  // Helper function to create a real resolution context
   const createRealContext = (
     sourceFile: string,
     position: { line: number; character: number },
-  ): SymbolResolutionContext =>
+  ): Promise<SymbolResolutionContext> =>
     symbolManager.createResolutionContext(
       `public class TestClass {
         public String testVariable;
@@ -354,8 +356,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     ['core'],
     'createResolutionContext - Enhanced',
     () => {
-      it('should include request type in resolution context', () => {
-        const context = symbolManager.createResolutionContext(
+      it('should include request type in resolution context', async () => {
+        const context = await symbolManager.createResolutionContext(
           'public class TestClass { public String testVariable; }',
           { line: 0, character: 5 },
           'file:///test/test.cls',
@@ -370,13 +372,13 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(context.isStatic).toBe(false);
       });
 
-      it('should handle different request types correctly', () => {
-        const context1 = symbolManager.createResolutionContext(
+      it('should handle different request types correctly', async () => {
+        const context1 = await symbolManager.createResolutionContext(
           'public class TestClass { public void myMethod() { } }',
           { line: 0, character: 5 },
           'test.cls',
         );
-        const context2 = symbolManager.createResolutionContext(
+        const context2 = await symbolManager.createResolutionContext(
           'private class TestClass { private void myMethod() { } }',
           { line: 0, character: 5 },
           'test2.cls',
@@ -399,7 +401,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       beforeAll(async () => {
         // Initialize services for this describe block
         useSharedManager = true;
-        symbolManager = new ApexSymbolManager();
+        symbolManager = new ApexSymbolManager(
+          getResourceLoaderServiceShapeFromSingleton(),
+        );
         compilerService = new CompilerService();
 
         // Load and compile fixture classes from files once for all tests
@@ -416,8 +420,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         }
       });
 
-      afterAll(() => {
-        symbolManager.clear();
+      afterAll(async () => {
+        await symbolManager.clear();
         useSharedManager = false;
       });
 
@@ -753,7 +757,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     () => {
       beforeEach(async () => {
         // Initialize services for this describe block
-        symbolManager = new ApexSymbolManager();
+        symbolManager = new ApexSymbolManager(
+          getResourceLoaderServiceShapeFromSingleton(),
+        );
         compilerService = new CompilerService();
 
         // Load and compile fixture classes from files once for all tests
@@ -924,7 +930,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         };
 
         // Check what references exist at this position
-        const references = symbolManager.getReferencesAtPosition(
+        const references = await symbolManager.getReferencesAtPosition(
           'file:///test/TestClass.cls',
           parserPosition,
         );
@@ -1015,7 +1021,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       describe('Inheritance Chain Traversal', () => {
         beforeEach(async () => {
           // Initialize services for this describe block
-          symbolManager = new ApexSymbolManager();
+          symbolManager = new ApexSymbolManager(
+            getResourceLoaderServiceShapeFromSingleton(),
+          );
           compilerService = new CompilerService();
         });
 
@@ -1411,7 +1419,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
           expect(systemIndex).toBeGreaterThanOrEqual(0);
 
           // Get references at this position
-          const references = symbolManager.getReferencesAtPosition(
+          const references = await symbolManager.getReferencesAtPosition(
             'file:///test/TestClass.cls',
             { line: lineIndex + 1, character: systemIndex },
           );
@@ -2204,7 +2212,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     () => {
       beforeAll(async () => {
         useSharedManager = true;
-        symbolManager = new ApexSymbolManager();
+        symbolManager = new ApexSymbolManager(
+          getResourceLoaderServiceShapeFromSingleton(),
+        );
         compilerService = new CompilerService();
         // Compile and add all fixture classes to the symbol manager
         const fixtureClasses = [
@@ -2330,8 +2340,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         }
       });
 
-      afterAll(() => {
-        symbolManager.clear();
+      afterAll(async () => {
+        await symbolManager.clear();
         useSharedManager = false;
       });
 
@@ -2801,7 +2811,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       beforeAll(async () => {
         // Initialize services for this describe block
         useSharedManager = true;
-        symbolManager = new ApexSymbolManager();
+        symbolManager = new ApexSymbolManager(
+          getResourceLoaderServiceShapeFromSingleton(),
+        );
         compilerService = new CompilerService();
 
         // Compile and add all fixture classes to the symbol manager once for all tests
@@ -2819,8 +2831,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         }
       });
 
-      afterAll(() => {
-        symbolManager.clear();
+      afterAll(async () => {
+        await symbolManager.clear();
         useSharedManager = false;
       });
 
@@ -3394,7 +3406,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
           const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
           // Use an isolated manager without shared fixtures so Account is not preloaded.
-          const isolatedManager = new ApexSymbolManager();
+          const isolatedManager = new ApexSymbolManager(
+            getResourceLoaderServiceShapeFromSingleton(),
+          );
           const isolatedCompiler = new CompilerService();
           const isolatedListener = new ApexSymbolCollectorListener(
             undefined,

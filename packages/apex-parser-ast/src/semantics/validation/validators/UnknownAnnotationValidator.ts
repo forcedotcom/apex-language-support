@@ -7,7 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable, Annotation } from '../../../types/symbol';
+import type {
+  ApexSymbol,
+  SymbolTable,
+  Annotation,
+} from '../../../types/symbol';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -110,15 +114,23 @@ export const UnknownAnnotationValidator: Validator = {
             options.symbolManager
           ) {
             const annotationName = baseName;
-            const symbols =
-              options.symbolManager.findSymbolByName(annotationName);
+            const symbols = (yield* Effect.promise(
+              () =>
+                options.symbolManager!.findSymbolByName(
+                  annotationName,
+                ) as Promise<ApexSymbol[]>,
+            )) as ApexSymbol[];
             const typeSymbol = symbols?.find(
               (s: { kind: string }) =>
                 s.kind === 'Class' || s.kind === 'Interface',
             );
             if (!typeSymbol) {
-              const fqnSymbol =
-                options.symbolManager.findSymbolByFQN(annotationName);
+              const fqnSymbol = (yield* Effect.promise(
+                () =>
+                  options.symbolManager!.findSymbolByFQN(
+                    annotationName,
+                  ) as Promise<ApexSymbol | null>,
+              )) as ApexSymbol | null;
               if (!fqnSymbol) {
                 errors.push({
                   message: localizeTyped(

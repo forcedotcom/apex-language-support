@@ -286,7 +286,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'desktop');
 
       expect(
-        result.apex.deferredReferenceProcessing.enableCrossFileDeferral,
+        result.apex.deferredReferenceProcessing?.enableCrossFileDeferral,
       ).toBe(false);
     });
 
@@ -302,7 +302,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults(partialConfig, 'desktop');
 
       expect(
-        result.apex.deferredReferenceProcessing.enableCrossFileDeferral,
+        result.apex.deferredReferenceProcessing?.enableCrossFileDeferral,
       ).toBe(true);
     });
   });

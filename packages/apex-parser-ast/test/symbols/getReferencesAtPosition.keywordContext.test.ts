@@ -108,64 +108,67 @@ describe('getReferencesAtPosition - keyword context hypothesis', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   describe('resolvable positions (expect references)', () => {
-    it('should have references at System in System.debug', () => {
+    it('should have references at System in System.debug', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       // Search for "System.debug" - position at start is System
       const position = findPosition(sourceCode, 'System.debug', 1);
-      const table = symbolManager.getSymbolTableForFile(fileUri) ?? symbolTable;
+      const table =
+        (await symbolManager.getSymbolTableForFile(fileUri)) ?? symbolTable;
       const refs = table.getReferencesAtPosition(position);
       expect(refs.length).toBeGreaterThan(0);
     });
 
-    it('should have references at System in System.String', () => {
+    it('should have references at System in System.String', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       const pos = findPosition(sourceCode, 'System.String', 1);
-      const table = symbolManager.getSymbolTableForFile(fileUri) ?? symbolTable;
+      const table =
+        (await symbolManager.getSymbolTableForFile(fileUri)) ?? symbolTable;
       const refs = table.getReferencesAtPosition(pos);
       expect(refs.length).toBeGreaterThan(0);
     });
 
-    it('should have references at System in System.List', () => {
+    it('should have references at System in System.List', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       // Second "System.List" is in "new System.List<String>()" - ref at col 39
       const pos = findPosition(sourceCode, 'System.List', 2);
-      const table = symbolManager.getSymbolTableForFile(fileUri) ?? symbolTable;
+      const table =
+        (await symbolManager.getSymbolTableForFile(fileUri)) ?? symbolTable;
       const refs = table.getReferencesAtPosition(pos);
       expect(refs.length).toBeGreaterThan(0);
     });
   });
 
   describe('keyword positions (expect no references)', () => {
-    it('should have no references at system in system.runas', () => {
+    it('should have no references at system in system.runas', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       const pos = findPosition(sourceCode, 'system', 1); // system in system.runas
-      const refs = symbolManager.getReferencesAtPosition(fileUri, pos);
+      const refs = await symbolManager.getReferencesAtPosition(fileUri, pos);
       expect(refs).toHaveLength(0);
     });
 
-    it('should have no references at system in insert as system', () => {
+    it('should have no references at system in insert as system', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       const pos = findPosition(sourceCode, 'system', 2); // system in insert as system
-      const refs = symbolManager.getReferencesAtPosition(fileUri, pos);
+      const refs = await symbolManager.getReferencesAtPosition(fileUri, pos);
       expect(refs).toHaveLength(0);
     });
 
-    it('should have no references at system in update as system', () => {
+    it('should have no references at system in update as system', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       const pos = findPosition(sourceCode, 'system', 3); // system in update as system
-      const refs = symbolManager.getReferencesAtPosition(fileUri, pos);
+      const refs = await symbolManager.getReferencesAtPosition(fileUri, pos);
       expect(refs).toHaveLength(0);
     });
 
-    it('should have no references at SYSTEM in WITH SYSTEM_MODE', () => {
+    it('should have no references at SYSTEM in WITH SYSTEM_MODE', async () => {
       const sourceCode = loadFixture('SystemKeywordTestClass.cls');
       const pos = findPosition(sourceCode, 'SYSTEM_MODE');
-      const refs = symbolManager.getReferencesAtPosition(fileUri, pos);
+      const refs = await symbolManager.getReferencesAtPosition(fileUri, pos);
       expect(refs).toHaveLength(0);
     });
   });

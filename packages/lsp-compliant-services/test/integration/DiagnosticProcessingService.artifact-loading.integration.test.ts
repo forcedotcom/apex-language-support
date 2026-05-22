@@ -230,7 +230,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     // Clean up per-test resources
     try {
       if (symbolManager) {
-        symbolManager.clear();
+        await symbolManager.clear();
       }
     } catch (_error) {
       // Ignore errors during cleanup
@@ -395,7 +395,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
       // Verify MissingSuperClass was added to SymbolManager
       const missingSuperClassSymbols =
-        symbolManager.findSymbolByName('MissingSuperClass');
+        await symbolManager.findSymbolByName('MissingSuperClass');
       expect(missingSuperClassSymbols.length).toBeGreaterThan(0);
       expect(missingSuperClassSymbols[0].kind.toLowerCase()).toBe('class');
 
@@ -448,7 +448,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       );
 
       // Verify NonExistentSuperClass was NOT added to SymbolManager
-      const symbols = symbolManager.findSymbolByName('NonExistentSuperClass');
+      const symbols = await symbolManager.findSymbolByName(
+        'NonExistentSuperClass',
+      );
       expect(symbols.length).toBe(0);
 
       // Diagnostics should still be returned (may have type errors)
@@ -608,7 +610,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
       // Verify artifacts were added to SymbolManager
       const missingClass1Symbols =
-        symbolManager.findSymbolByName('MissingClass1');
+        await symbolManager.findSymbolByName('MissingClass1');
       expect(missingClass1Symbols.length).toBeGreaterThan(0);
 
       expect(result).toBeDefined();

@@ -56,8 +56,8 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   /**
@@ -209,7 +209,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       };
 
       // Diagnostic: Check what references are found at the position
-      const referencesAtPosition = symbolManager.getReferencesAtPosition(
+      const referencesAtPosition = await symbolManager.getReferencesAtPosition(
         fileUri,
         firstMethodPosition,
       );
@@ -320,7 +320,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const position = findPosition(sourceCode, 'DualListboxValueVModel', 2);
 
       // Diagnostic: Check what references are found at the position
-      const referencesAtPosition = symbolManager.getReferencesAtPosition(
+      const referencesAtPosition = await symbolManager.getReferencesAtPosition(
         fileUri,
         position,
       );
@@ -336,7 +336,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       });
 
       // Verify the class exists in the symbol manager
-      const classSymbols = symbolManager.findSymbolByName(
+      const classSymbols = await symbolManager.findSymbolByName(
         'DualListboxValueVModel',
       );
       console.log(

@@ -26,8 +26,8 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   describe('FQN Calculation and Storage', () => {
@@ -69,7 +69,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(classSymbol).toBeDefined();
         if (classSymbol && classSymbol.fqn) {
-          const foundSymbol = symbolManager.findSymbolByFQN(classSymbol.fqn);
+          const foundSymbol = await symbolManager.findSymbolByFQN(
+            classSymbol.fqn,
+          );
           expect(foundSymbol).toBeTruthy();
           expect(foundSymbol?.name).toBe('TestClass');
           expect(foundSymbol?.kind).toBe(SymbolKind.Class);
@@ -116,7 +118,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
-          const foundSymbol = symbolManager.findSymbolByFQN(methodSymbol.fqn);
+          const foundSymbol = await symbolManager.findSymbolByFQN(
+            methodSymbol.fqn,
+          );
           expect(foundSymbol).toBeTruthy();
           expect(foundSymbol?.name).toBe('myTestMethod');
           expect(foundSymbol?.kind).toBe(SymbolKind.Method);
@@ -163,7 +167,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         expect(innerClassSymbol).toBeDefined();
         if (innerClassSymbol && innerClassSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
-          const foundInnerClass = symbolManager.findSymbolByFQN(
+          const foundInnerClass = await symbolManager.findSymbolByFQN(
             innerClassSymbol.fqn,
           );
           expect(foundInnerClass).toBeTruthy();
@@ -182,7 +186,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         expect(innerMethodSymbol).toBeDefined();
         if (innerMethodSymbol && innerMethodSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
-          const foundMethod = symbolManager.findSymbolByFQN(
+          const foundMethod = await symbolManager.findSymbolByFQN(
             innerMethodSymbol.fqn,
           );
           expect(foundMethod).toBeTruthy();
@@ -230,7 +234,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(classSymbol).toBeDefined();
         if (classSymbol && classSymbol.fqn) {
-          const foundSymbol = symbolManager.findSymbolByFQN(classSymbol.fqn);
+          const foundSymbol = await symbolManager.findSymbolByFQN(
+            classSymbol.fqn,
+          );
           expect(foundSymbol).toBeTruthy();
           expect(foundSymbol?.name).toBe('TestClass');
           expect(foundSymbol?.kind).toBe(SymbolKind.Class);
@@ -280,7 +286,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(classSymbol).toBeDefined();
         if (classSymbol && classSymbol.fqn) {
-          const foundClass = symbolManager.findSymbolByFQN(classSymbol.fqn);
+          const foundClass = await symbolManager.findSymbolByFQN(
+            classSymbol.fqn,
+          );
           expect(foundClass).toBeTruthy();
           expect(foundClass?.name).toBe('TestClass');
           expect(foundClass?.kind).toBe(SymbolKind.Class);
@@ -292,7 +300,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
-          const foundMethod = symbolManager.findSymbolByFQN(methodSymbol.fqn);
+          const foundMethod = await symbolManager.findSymbolByFQN(
+            methodSymbol.fqn,
+          );
           expect(foundMethod).toBeTruthy();
           expect(foundMethod?.name).toBe('myTestMethod');
           expect(foundMethod?.kind).toBe(SymbolKind.Method);
@@ -304,7 +314,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(interfaceSymbol).toBeDefined();
         if (interfaceSymbol && interfaceSymbol.fqn) {
-          const foundInterface = symbolManager.findSymbolByFQN(
+          const foundInterface = await symbolManager.findSymbolByFQN(
             interfaceSymbol.fqn,
           );
           expect(foundInterface).toBeTruthy();
@@ -318,7 +328,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(enumSymbol).toBeDefined();
         if (enumSymbol && enumSymbol.fqn) {
-          const foundEnum = symbolManager.findSymbolByFQN(enumSymbol.fqn);
+          const foundEnum = await symbolManager.findSymbolByFQN(enumSymbol.fqn);
           expect(foundEnum).toBeTruthy();
           expect(foundEnum?.name).toBe('TestEnum');
           expect(foundEnum?.kind).toBe(SymbolKind.Enum);
@@ -372,7 +382,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       };
 
       // Resolve by name (should work)
-      const nameResult = symbolManager.resolveSymbol(
+      const nameResult = await symbolManager.resolveSymbol(
         'myTestMethod',
         resolutionContext,
       );
@@ -389,7 +399,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
-          const fqnResult = symbolManager.findSymbolByFQN(methodSymbol.fqn);
+          const fqnResult = await symbolManager.findSymbolByFQN(
+            methodSymbol.fqn,
+          );
           expect(fqnResult).toBeTruthy();
           expect(fqnResult?.name).toBe('myTestMethod');
         }

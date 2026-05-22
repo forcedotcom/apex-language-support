@@ -61,6 +61,19 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   private static recentBlockingTimeouts = new Map<string, number>();
   private static readonly BLOCKING_TIMEOUT_COOLDOWN_MS = 3000;
 
+  /**
+   * Optional proxy for sending `apex/findMissingArtifact` when no direct LSP
+   * connection is available (e.g. enrichment worker). Set by the platform layer
+   * via setMissingArtifactAssistanceProxy().
+   */
+  private static assistanceProxy:
+    | ((params: unknown) => Promise<unknown>)
+    | null = null;
+
+  static setAssistanceProxy(fn: (params: unknown) => Promise<unknown>): void {
+    EnhancedMissingArtifactResolutionService.assistanceProxy = fn;
+  }
+
   constructor(
     private readonly logger: LoggerInterface,
     private readonly config: MissingArtifactConfig,
@@ -244,15 +257,6 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
 
     try {
       // Get LSP connection to send request to client
-      const connection = this.getConnection();
-      if (!connection) {
-        this.logger.warn(
-          () =>
-            `No LSP connection available for background resolution of: ${names}`,
-        );
-        return;
-      }
-
       // Sanitize params before sending via postMessage (structured clone).
       // Symbol manager class instances (typeReference, parentContext.*) are not
       // cloneable. Schema.decodeUnknownSync creates a new plain object containing
@@ -271,6 +275,29 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           }
         }),
       };
+
+      const connection = this.getConnection();
+      if (!connection) {
+        // No direct LSP connection — try coordinator assistance proxy (worker context).
+        const proxy = EnhancedMissingArtifactResolutionService.assistanceProxy;
+        if (proxy) {
+          this.logger.debug(
+            () =>
+              `Forwarding background resolution via assistance proxy for: ${names}`,
+          );
+          proxy(safeParams).catch((error) => {
+            this.logger.debug(
+              () => `Assistance proxy resolution failed for ${names}: ${error}`,
+            );
+          });
+          return;
+        }
+        this.logger.warn(
+          () =>
+            `No LSP connection or assistance proxy available for background resolution of: ${names}`,
+        );
+        return;
+      }
 
       // Send request directly to client (fire-and-forget for background mode)
       connection

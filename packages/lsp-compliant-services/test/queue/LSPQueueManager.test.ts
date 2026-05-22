@@ -267,6 +267,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         'hover',
         'completion',
         'definition',
+        'implementation',
         'references',
         'documentSymbol',
         'workspaceSymbol',
@@ -274,10 +275,13 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         'codeAction',
         'signatureHelp',
         'rename',
+        'foldingRange',
+        'codeLens',
         'documentOpen',
         'documentSave',
         'documentChange',
         'documentClose',
+        'findMissingArtifact',
       ].forEach((type) => {
         serviceRegistry.register({
           ...mockHandler,
@@ -388,6 +392,45 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(result).toEqual({ result: 'test' });
     });
 
+    it('should submit implementation request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit folding range request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitFoldingRangeRequest({
+        textDocument: { uri: 'test' },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit code lens request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitCodeLensRequest({
+        textDocument: { uri: 'test' },
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit find missing artifact request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitFindMissingArtifactRequest({
+        identifiers: [{ name: 'TestClass' }],
+        origin: { uri: 'test', requestKind: 'hover' },
+        mode: 'standard',
+      });
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
     it('should submit document open notification', () => {
       const manager = LSPQueueManager.getInstance();
       // Notifications are fire-and-forget, return void
@@ -428,6 +471,18 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       });
 
       expect(manager).toBeDefined();
+    });
+
+    it('should set and get worker dispatcher', () => {
+      const manager = LSPQueueManager.getInstance();
+      expect(manager.getWorkerDispatcher()).toBeNull();
+
+      const mockDispatcher = { dispatch: jest.fn(), isAvailable: () => true };
+      manager.setWorkerDispatcher(mockDispatcher);
+      expect(manager.getWorkerDispatcher()).toBe(mockDispatcher);
+
+      manager.setWorkerDispatcher(null);
+      expect(manager.getWorkerDispatcher()).toBeNull();
     });
   });
 

@@ -25,6 +25,7 @@ import { EffectTestLoggerLive } from '../../src/utils/EffectLspLoggerLayer';
 import type { ValidationResult } from '../../src/semantics/validation/ValidationResult';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 
@@ -42,13 +43,15 @@ describe('ApexSymbolCollectorListener - Literal Capture and Resolution', () => {
 
   beforeEach(() => {
     compilerService = new CompilerService();
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     enableConsoleLogging();
     setLogLevel('error');
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   describe('Literal TypeInfo Linking', () => {
@@ -239,7 +242,7 @@ public class TestClass {
       expect(stringLiteralRef).toBeDefined();
 
       // String is a standard library type (resolved via ResourceLoader, not scalar keywords)
-      expect(symbolManager.isStandardLibraryType('String')).toBe(true);
+      expect(await symbolManager.isStandardLibraryType('String')).toBe(true);
 
       // Verify that LITERAL references exist and can be resolved to built-in types
       // The key verification is that:

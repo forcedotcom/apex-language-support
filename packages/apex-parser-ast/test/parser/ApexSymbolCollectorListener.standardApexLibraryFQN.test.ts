@@ -13,6 +13,7 @@ import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import {
   initializeResourceLoaderForTests,
+  getResourceLoaderServiceShapeFromSingleton,
   resetResourceLoader,
 } from '../helpers/testHelpers';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
@@ -38,7 +39,9 @@ describe('ApexSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
 
   beforeEach(() => {
     compilerService = new CompilerService();
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
   });
 
   afterEach(() => {

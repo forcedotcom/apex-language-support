@@ -18,38 +18,30 @@ import {
 } from './NamespaceUtils';
 import { isPrimaryImplicitNamespace } from './NamespaceResolutionPolicy';
 
-/**
- * NamedScalarOrVoid rule
- * Priority: 1 - Built-in scalar types (String, Integer, etc.)
- */
 export const NamedScalarOrVoid: ResolutionRule = {
   name: 'NamedScalarOrVoid',
   priority: 1,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     return symbols.findScalarKeywordType(name);
   },
 };
 
-/**
- * TopLevelTypeInSameNamespace rule
- * Priority: 6 - Types in the same namespace
- */
 export const TopLevelTypeInSameNamespace: ResolutionRule = {
   name: 'TopLevelTypeInSameNamespace',
   priority: 6,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1 &&
     context.compilationContext.namespace !== null,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     const namespace = context.compilationContext.namespace;
 
@@ -58,7 +50,7 @@ export const TopLevelTypeInSameNamespace: ResolutionRule = {
     const candidateName = createTypeWithNamespace(namespace, name, {
       includeNamespace: true,
       normalizeCase: true,
-      separator: '.', // Match symbol FQN format (namespace.name)
+      separator: '.',
     });
     return symbols.find(
       context.compilationContext.referencingType,
@@ -67,19 +59,15 @@ export const TopLevelTypeInSameNamespace: ResolutionRule = {
   },
 };
 
-/**
- * BuiltInSystemSchema rule
- * Priority: 7 - Built-in System and Schema types
- */
 export const BuiltInSystemSchema: ResolutionRule = {
   name: 'BuiltInSystemSchema',
   priority: 7,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     return symbols.findInDefaultNamespaceOrder(
       name,
@@ -88,38 +76,29 @@ export const BuiltInSystemSchema: ResolutionRule = {
   },
 };
 
-/**
- * SObject rule
- * Priority: 8 - SObject types
- */
 export const SObject: ResolutionRule = {
   name: 'SObject',
   priority: 8,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     return symbols.findSObjectType(name);
   },
 };
 
-/**
- * FileBaseSystemNamespace rule
- * Priority: 9 - Implicit System namespace for file-based apex (e.g. System.Test as Test)
- * Jorje: FileBaseSystemNamespace in OnePartTypeNameResolveRules
- */
 export const FileBaseSystemNamespace: ResolutionRule = {
   name: 'FileBaseSystemNamespace',
   priority: 9,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     const currentNamespace =
       (typeof context.compilationContext.referencingType?.namespace === 'string'
@@ -131,7 +110,7 @@ export const FileBaseSystemNamespace: ResolutionRule = {
       !isPrimaryImplicitNamespace(currentNamespace) &&
       context.referenceType === 'METHOD';
     if (shouldTryCurrentNamespaceFirst) {
-      const found = symbols.findInExplicitNamespace(
+      const found = await symbols.findInExplicitNamespace(
         currentNamespace,
         name,
         context.compilationContext.referencingType,
@@ -147,20 +126,15 @@ export const FileBaseSystemNamespace: ResolutionRule = {
   },
 };
 
-/**
- * FileBaseSchemaNamespace rule
- * Priority: 10 - Implicit Schema namespace for file-based apex
- * Jorje: FileBaseSchemaNamespace in OnePartTypeNameResolveRules
- */
 export const FileBaseSchemaNamespace: ResolutionRule = {
   name: 'FileBaseSchemaNamespace',
   priority: 10,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     return symbols.findInImplicitFileNamespaceSlot(
       name,
@@ -170,26 +144,18 @@ export const FileBaseSchemaNamespace: ResolutionRule = {
   },
 };
 
-/**
- * BuiltInMethodNamespace rule
- * Priority: 11 - For METHOD context: System, Schema, then other built-in namespaces (Canvas, etc.)
- * Jorje: BuiltInMethodNamespace in OnePartTypeNameResolveRules
- * Only applies when referenceType is METHOD.
- */
 export const BuiltInMethodNamespace: ResolutionRule = {
   name: 'BuiltInMethodNamespace',
   priority: 11,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1 &&
     context.referenceType === 'METHOD',
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     const refType = context.compilationContext.referencingType;
-    // System and Schema already tried by FileBaseSystemNamespace/FileBaseSchemaNamespace.
-    // Try other built-in namespaces (Canvas, Database, etc.) if provider supports it.
     if ('findInAnyStandardNamespace' in symbols) {
       return (
         symbols as SymbolProviderWithStandardNamespace
@@ -199,41 +165,31 @@ export const BuiltInMethodNamespace: ResolutionRule = {
   },
 };
 
-/**
- * WorkspaceType rule
- * Priority: 12 - Types from workspace/symbol graph (user classes, etc.)
- * Fallback when no standard namespace matches.
- */
 export const WorkspaceType: ResolutionRule = {
   name: 'WorkspaceType',
   priority: 12,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 1,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const name = context.adjustedNameParts[0];
     return symbols.find(context.compilationContext.referencingType, name);
   },
 };
 
-/**
- * NamespaceAndTopLevelType rule
- * Priority: 4 - Explicit namespace + type name
- */
 export const NamespaceAndTopLevelType: ResolutionRule = {
   name: 'NamespaceAndTopLevelType',
   priority: 4,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 2,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const [firstPart, secondPart] = context.adjustedNameParts;
 
-    // Create a proper namespace instance for the first part
     const namespace = Namespaces.create(firstPart);
 
     const candidateName = createTypeWithNamespace(namespace, secondPart);
@@ -245,21 +201,17 @@ export const NamespaceAndTopLevelType: ResolutionRule = {
   },
 };
 
-/**
- * BuiltInNamespace rule
- * Priority: 5 - Built-in namespace types
- */
 export const BuiltInNamespace: ResolutionRule = {
   name: 'BuiltInNamespace',
   priority: 5,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 2,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const [firstPart, secondPart] = context.adjustedNameParts;
-    if (!symbols.isBuiltInNamespace(firstPart)) return null;
+    if (!(await symbols.isBuiltInNamespace(firstPart))) return null;
     return symbols.findInExplicitNamespace(
       firstPart,
       secondPart,
@@ -268,30 +220,21 @@ export const BuiltInNamespace: ResolutionRule = {
   },
 };
 
-/**
- * SchemaSObject rule
- * Priority: 6 - Schema SObject types
- */
 export const SchemaSObject: ResolutionRule = {
   name: 'SchemaSObject',
   priority: 6,
   appliesTo: (context: NamespaceResolutionContext): boolean =>
     context.adjustedNameParts.length === 2,
-  resolve: (
+  resolve: async (
     context: NamespaceResolutionContext,
     symbols: SymbolProvider,
-  ): ApexSymbol | null => {
+  ): Promise<ApexSymbol | null> => {
     const [firstPart, secondPart] = context.adjustedNameParts;
-    if (!symbols.isSObjectContainerNamespace(firstPart)) return null;
+    if (!(await symbols.isSObjectContainerNamespace(firstPart))) return null;
     return symbols.findSObjectType(secondPart);
   },
 };
 
-/**
- * One-part rules for METHOD context (method calls).
- * Jorje order: TopLevelTypeInSameNamespace, NamedScalarOrVoid,
- * FileBaseSystemNamespace, FileBaseSchemaNamespace, BuiltInMethodNamespace, SObject
- */
 const METHOD_ONE_PART_ORDER = [
   TopLevelTypeInSameNamespace,
   NamedScalarOrVoid,
@@ -303,9 +246,6 @@ const METHOD_ONE_PART_ORDER = [
   WorkspaceType,
 ];
 
-/**
- * One-part rules for DEFAULT/other contexts (type declarations, etc.)
- */
 const DEFAULT_ONE_PART_ORDER = [
   NamedScalarOrVoid,
   TopLevelTypeInSameNamespace,
@@ -316,9 +256,6 @@ const DEFAULT_ONE_PART_ORDER = [
   WorkspaceType,
 ];
 
-/**
- * Get all one-part resolution rules in priority order
- */
 export const getOnePartRules = (): ResolutionRule[] =>
   [
     NamedScalarOrVoid,
@@ -331,19 +268,11 @@ export const getOnePartRules = (): ResolutionRule[] =>
     WorkspaceType,
   ].sort((a, b) => a.priority - b.priority);
 
-/**
- * Get all two-part resolution rules in priority order
- */
 export const getTwoPartRules = (): ResolutionRule[] =>
   [NamespaceAndTopLevelType, BuiltInNamespace, SchemaSObject].sort(
     (a, b) => a.priority - b.priority,
   );
 
-/**
- * Get resolution order based on reference type.
- * METHOD: Jorje-style order for method calls (Test.setMock() -> System.Test).
- * DEFAULT/other: Original order.
- */
 export const getResolutionOrder = (
   referenceType: ReferenceTypeValue,
 ): ResolutionRule[] => {

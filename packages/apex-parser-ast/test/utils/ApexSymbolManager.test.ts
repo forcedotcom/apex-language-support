@@ -71,10 +71,10 @@ describe('ApexSymbolManager', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up if needed
     if (manager) {
-      manager.clear();
+      await manager.clear();
     }
   });
 
@@ -166,7 +166,7 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const stats = manager.getStats();
+      const stats = await manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(1);
     });
@@ -206,8 +206,8 @@ describe('ApexSymbolManager', () => {
       }
 
       // Check that we can find symbols in both files
-      const symbolsInFile1 = manager.findSymbolsInFile('File1.cls');
-      const symbolsInFile2 = manager.findSymbolsInFile('File2.cls');
+      const symbolsInFile1 = await manager.findSymbolsInFile('File1.cls');
+      const symbolsInFile2 = await manager.findSymbolsInFile('File2.cls');
 
       // Should find symbols in both files
       expect(symbolsInFile1.length).toBeGreaterThan(0);
@@ -254,16 +254,17 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const statsBefore = manager.getStats();
+      const statsBefore = await manager.getStats();
       expect(statsBefore.totalSymbols).toBeGreaterThan(0);
 
       // Remove the first file
-      manager.removeFile('MyClass.cls');
+      await manager.removeFile('MyClass.cls');
 
-      const statsAfter = manager.getStats();
+      const statsAfter = await manager.getStats();
       expect(statsAfter.totalSymbols).toBeLessThan(statsBefore.totalSymbols);
 
-      const remainingSymbols = manager.findSymbolsInFile('OtherClass.cls');
+      const remainingSymbols =
+        await manager.findSymbolsInFile('OtherClass.cls');
       expect(remainingSymbols.length).toBeGreaterThan(0);
     });
 
@@ -301,7 +302,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Verify initial state
-      let stats = manager.getStats();
+      let stats = await manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(2);
 
@@ -310,7 +311,7 @@ describe('ApexSymbolManager', () => {
       manager.refresh(emptySymbolTable);
 
       // Verify cleared state
-      stats = manager.getStats();
+      stats = await manager.getStats();
       expect(stats.totalSymbols).toBe(0);
       expect(stats.totalFiles).toBe(0);
     });
@@ -338,7 +339,7 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const symbolsByName = manager.findSymbolByName('MyClass');
+      const symbolsByName = await manager.findSymbolByName('MyClass');
       expect(symbolsByName.length).toBeGreaterThan(0);
       expect(symbolsByName[0].name).toBe('MyClass');
     });
@@ -360,13 +361,13 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find by FQN (assuming default namespace)
-      const found = manager.findSymbolByFQN('MyClass');
+      const found = await manager.findSymbolByFQN('MyClass');
       expect(found).toBeDefined();
       expect(found?.name).toBe('MyClass');
     });
 
-    it('should return null for non-existent FQN', () => {
-      const found = manager.findSymbolByFQN('NonExistent.Class');
+    it('should return null for non-existent FQN', async () => {
+      const found = await manager.findSymbolByFQN('NonExistent.Class');
       expect(found).toBeNull();
     });
 
@@ -387,7 +388,7 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const fileSymbols = manager.findSymbolsInFile('MyClass.cls');
+      const fileSymbols = await manager.findSymbolsInFile('MyClass.cls');
       expect(fileSymbols.length).toBeGreaterThan(0);
 
       // Should contain the class and its members
@@ -429,15 +430,15 @@ describe('ApexSymbolManager', () => {
       }
 
       // Check what files are actually found
-      const files = manager.findFilesForSymbol('MyClass');
+      const files = await manager.findFilesForSymbol('MyClass');
 
       expect(files.length).toBeGreaterThan(0);
       expect(files).toContain('File1.cls');
       expect(files).toContain('File2.cls');
     });
 
-    it('should return empty array for non-existent symbol', () => {
-      const files = manager.findFilesForSymbol('NonExistent');
+    it('should return empty array for non-existent symbol', async () => {
+      const files = await manager.findFilesForSymbol('NonExistent');
       expect(files.length).toBe(0);
     });
   });
@@ -464,12 +465,12 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol from the manager instead of the collected symbols
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
       if (classSymbol) {
-        const references = manager.findReferencesTo(classSymbol);
+        const references = await manager.findReferencesTo(classSymbol);
         expect(Array.isArray(references)).toBe(true);
       }
     });
@@ -491,12 +492,12 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol from the manager instead of the collected symbols
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
       if (classSymbol) {
-        const references = manager.findReferencesFrom(classSymbol);
+        const references = await manager.findReferencesFrom(classSymbol);
         expect(Array.isArray(references)).toBe(true);
       }
     });
@@ -518,12 +519,12 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol from the manager instead of the collected symbols
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
       if (classSymbol) {
-        const relatedSymbols = manager.findRelatedSymbols(
+        const relatedSymbols = await manager.findRelatedSymbols(
           classSymbol,
           ReferenceType.METHOD_CALL,
         );
@@ -548,18 +549,18 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol from the manager instead of the collected symbols
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
       if (classSymbol) {
-        const references = manager.findReferencesTo(classSymbol);
+        const references = await manager.findReferencesTo(classSymbol);
         expect(references.length).toBeGreaterThanOrEqual(0);
 
-        const referencesFrom = manager.findReferencesFrom(classSymbol);
+        const referencesFrom = await manager.findReferencesFrom(classSymbol);
         expect(referencesFrom.length).toBeGreaterThanOrEqual(0);
 
-        const relatedSymbols = manager.findRelatedSymbols(
+        const relatedSymbols = await manager.findRelatedSymbols(
           classSymbol,
           ReferenceType.METHOD_CALL,
         );
@@ -590,7 +591,7 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const stats = manager.getStats();
+      const stats = await manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(1);
       expect(stats.totalReferences).toBeGreaterThanOrEqual(0);
@@ -600,8 +601,8 @@ describe('ApexSymbolManager', () => {
       expect(stats.cacheHitRate).toBeLessThanOrEqual(1);
     });
 
-    it('should handle empty manager statistics', () => {
-      const stats = manager.getStats();
+    it('should handle empty manager statistics', async () => {
+      const stats = await manager.getStats();
       expect(stats.totalSymbols).toBe(0);
       expect(stats.totalFiles).toBe(0);
       expect(stats.totalReferences).toBe(0);
@@ -618,7 +619,7 @@ describe('ApexSymbolManager', () => {
       const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
 
       // Initial state
-      let stats = manager.getStats();
+      let stats = await manager.getStats();
       expect(stats.totalSymbols).toBe(0);
 
       // After adding symbol table
@@ -627,12 +628,12 @@ describe('ApexSymbolManager', () => {
           manager.addSymbolTable(result.result, 'MyClass.cls'),
         );
       }
-      stats = manager.getStats();
+      stats = await manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
 
       // After removing file
-      manager.removeFile('MyClass.cls');
-      stats = manager.getStats();
+      await manager.removeFile('MyClass.cls');
+      stats = await manager.getStats();
       expect(stats.totalSymbols).toBe(0);
     });
   });
@@ -665,32 +666,34 @@ describe('ApexSymbolManager', () => {
         );
       }
 
-      const stats = manager.getStats();
+      const stats = await manager.getStats();
       // Should not create duplicates
       expect(stats.totalSymbols).toBeGreaterThan(0);
     });
 
-    it('should handle removal of non-existent files', () => {
+    it('should handle removal of non-existent files', async () => {
       // Should not throw an error
-      expect(() => {
-        manager.removeFile('NonExistentFile.cls');
-      }).not.toThrow();
+      await expect(
+        manager.removeFile('NonExistentFile.cls'),
+      ).resolves.not.toThrow();
     });
 
-    it('should handle lookup of non-existent symbols', () => {
-      const symbols = manager.findSymbolByName('NonExistent');
+    it('should handle lookup of non-existent symbols', async () => {
+      const symbols = await manager.findSymbolByName('NonExistent');
       expect(symbols.length).toBe(0);
 
-      const found = manager.findSymbolByFQN('NonExistent.Class');
+      const found = await manager.findSymbolByFQN('NonExistent.Class');
       expect(found).toBeNull();
 
-      const fileSymbols = manager.findSymbolsInFile('NonExistentFile.cls');
+      const fileSymbols = await manager.findSymbolsInFile(
+        'NonExistentFile.cls',
+      );
       expect(fileSymbols.length).toBe(0);
     });
 
-    it('should handle empty symbol tables', () => {
+    it('should handle empty symbol tables', async () => {
       // Should not throw an error when no symbols are present
-      const stats = manager.getStats();
+      const stats = await manager.getStats();
       expect(stats.totalSymbols).toBe(0);
       expect(stats.totalFiles).toBe(0);
     });
@@ -730,12 +733,12 @@ describe('ApexSymbolManager', () => {
 
       // Test lookup performance
       const lookupStartTime = Date.now();
-      const foundSymbols = manager.findSymbolByName('Class5');
+      const foundSymbols = await manager.findSymbolByName('Class5');
       const lookupTime = Date.now() - lookupStartTime;
       expect(lookupTime).toBeLessThan(100); // Should complete within 100ms
       expect(foundSymbols.length).toBeGreaterThan(0);
 
-      const stats = manager.getStats();
+      const stats = await manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(10);
     });
@@ -757,16 +760,16 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol from the manager instead of the collected symbols
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
       if (classSymbol) {
         // First lookup (cache miss)
-        const firstLookup = manager.findReferencesTo(classSymbol);
+        const firstLookup = await manager.findReferencesTo(classSymbol);
 
         // Second lookup (cache hit)
-        const secondLookup = manager.findReferencesTo(classSymbol);
+        const secondLookup = await manager.findReferencesTo(classSymbol);
 
         // Both should return the same result
         expect(firstLookup).toEqual(secondLookup);
@@ -799,7 +802,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the class symbol
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
@@ -850,7 +853,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the method symbol
-      const methodSymbols = manager.findSymbolByName('myTestMethod');
+      const methodSymbols = await manager.findSymbolByName('myTestMethod');
       const methodSymbol = methodSymbols.find(
         (s) => s.kind === SymbolKind.Method,
       );
@@ -865,7 +868,7 @@ describe('ApexSymbolManager', () => {
         };
 
         // Find the symbol again to verify data hasn't changed
-        const foundAgain = manager.findSymbolByName('myTestMethod');
+        const foundAgain = await manager.findSymbolByName('myTestMethod');
         const foundMethod = foundAgain.find(
           (s) => s.kind === SymbolKind.Method,
         );
@@ -902,7 +905,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the symbol
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
       expect(classSymbol).toBeDefined();
 
@@ -934,9 +937,9 @@ describe('ApexSymbolManager', () => {
       }
 
       // Test different lookup methods
-      const byName = manager.findSymbolByName('MyClass');
-      const byFQN = manager.findSymbolByFQN('MyClass');
-      const inFile = manager.findSymbolsInFile('MyClass.cls');
+      const byName = await manager.findSymbolByName('MyClass');
+      const byFQN = await manager.findSymbolByFQN('MyClass');
+      const inFile = await manager.findSymbolsInFile('MyClass.cls');
 
       const classByName = byName.find((s) => s.kind === SymbolKind.Class);
       const classByFQN = byFQN;
@@ -982,10 +985,10 @@ describe('ApexSymbolManager', () => {
       const originalIdentifierRange = { ...symbol.location.identifierRange };
 
       // Add symbol (this will calculate FQN)
-      manager.addSymbol(symbol, 'TestClass.cls');
+      await manager.addSymbol(symbol, 'TestClass.cls');
 
       // Find the symbol
-      const found = manager.findSymbolByName('TestClass');
+      const found = await manager.findSymbolByName('TestClass');
       const foundClass = found.find((s) => s.kind === SymbolKind.Class);
       expect(foundClass).toBeDefined();
 
@@ -1052,12 +1055,12 @@ describe('ApexSymbolManager', () => {
       const originalParentLocation = { ...parentSymbol.location };
 
       // Add symbols
-      manager.addSymbol(parentSymbol, 'ParentClass.cls');
-      manager.addSymbol(childSymbol, 'ParentClass.cls');
+      await manager.addSymbol(parentSymbol, 'ParentClass.cls');
+      await manager.addSymbol(childSymbol, 'ParentClass.cls');
 
       // Find symbols
-      const foundParent = manager.findSymbolByName('ParentClass');
-      const foundChild = manager.findSymbolByName('childMethod');
+      const foundParent = await manager.findSymbolByName('ParentClass');
+      const foundChild = await manager.findSymbolByName('childMethod');
 
       const parentClass = foundParent.find((s) => s.kind === SymbolKind.Class);
       const childMethod = foundChild.find((s) => s.kind === SymbolKind.Method);
@@ -1088,7 +1091,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Get original position data
-      const originalSymbols = manager.findSymbolsInFile('MyClass.cls');
+      const originalSymbols = await manager.findSymbolsInFile('MyClass.cls');
       const originalClass = originalSymbols.find(
         (s) => s.kind === SymbolKind.Class,
       );
@@ -1098,7 +1101,7 @@ describe('ApexSymbolManager', () => {
         const originalLocation = { ...originalClass.location };
 
         // Remove and re-add the file
-        manager.removeFile('MyClass.cls');
+        await manager.removeFile('MyClass.cls');
 
         if (result.result) {
           await Effect.runPromise(
@@ -1107,7 +1110,7 @@ describe('ApexSymbolManager', () => {
         }
 
         // Find the symbol again
-        const newSymbols = manager.findSymbolsInFile('MyClass.cls');
+        const newSymbols = await manager.findSymbolsInFile('MyClass.cls');
         const newClass = newSymbols.find((s) => s.kind === SymbolKind.Class);
         expect(newClass).toBeDefined();
 
@@ -1138,7 +1141,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find all symbols
-      const allSymbols = manager.findSymbolsInFile('OuterClass.cls');
+      const allSymbols = await manager.findSymbolsInFile('OuterClass.cls');
       const outerClass = allSymbols.find(
         (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
       );
@@ -1223,8 +1226,9 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the symbols from the manager
-      const baseClassSymbols = manager.findSymbolByName('BaseClass');
-      const derivedClassSymbols = manager.findSymbolByName('DerivedClass');
+      const baseClassSymbols = await manager.findSymbolByName('BaseClass');
+      const derivedClassSymbols =
+        await manager.findSymbolByName('DerivedClass');
 
       const baseClass = baseClassSymbols.find(
         (s) => s.kind === SymbolKind.Class,
@@ -1237,8 +1241,8 @@ describe('ApexSymbolManager', () => {
       expect(derivedClass).toBeDefined();
 
       if (baseClass && derivedClass) {
-        const baseReferences = manager.findReferencesTo(baseClass);
-        const derivedReferences = manager.findReferencesTo(derivedClass);
+        const baseReferences = await manager.findReferencesTo(baseClass);
+        const derivedReferences = await manager.findReferencesTo(derivedClass);
 
         expect(Array.isArray(baseReferences)).toBe(true);
         expect(Array.isArray(derivedReferences)).toBe(true);
@@ -1281,8 +1285,8 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the symbols from the manager
-      const interfaceSymbols = manager.findSymbolByName('MyInterface');
-      const classSymbols = manager.findSymbolByName('MyClass');
+      const interfaceSymbols = await manager.findSymbolByName('MyInterface');
+      const classSymbols = await manager.findSymbolByName('MyClass');
       const interfaceSymbol = interfaceSymbols.find(
         (s) => s.kind === SymbolKind.Interface,
       );
@@ -1292,8 +1296,9 @@ describe('ApexSymbolManager', () => {
       expect(classSymbol).toBeDefined();
 
       if (interfaceSymbol && classSymbol) {
-        const interfaceReferences = manager.findReferencesTo(interfaceSymbol);
-        const classReferences = manager.findReferencesTo(classSymbol);
+        const interfaceReferences =
+          await manager.findReferencesTo(interfaceSymbol);
+        const classReferences = await manager.findReferencesTo(classSymbol);
 
         expect(Array.isArray(interfaceReferences)).toBe(true);
         expect(Array.isArray(classReferences)).toBe(true);
@@ -1319,12 +1324,12 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the enum symbol from the manager instead of the collected symbols
-      const enumSymbols = manager.findSymbolByName('MyEnum');
+      const enumSymbols = await manager.findSymbolByName('MyEnum');
       const enumSymbol = enumSymbols.find((s) => s.kind === SymbolKind.Enum);
       expect(enumSymbol).toBeDefined();
 
       if (enumSymbol) {
-        const enumReferences = manager.findReferencesTo(enumSymbol);
+        const enumReferences = await manager.findReferencesTo(enumSymbol);
         expect(Array.isArray(enumReferences)).toBe(true);
       }
     });
@@ -1349,14 +1354,14 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the trigger symbol from the manager instead of the collected symbols
-      const triggerSymbols = manager.findSymbolByName('MyTrigger');
+      const triggerSymbols = await manager.findSymbolByName('MyTrigger');
       const triggerSymbol = triggerSymbols.find(
         (s) => s.kind === SymbolKind.Trigger,
       );
       expect(triggerSymbol).toBeDefined();
 
       if (triggerSymbol) {
-        const triggerReferences = manager.findReferencesTo(triggerSymbol);
+        const triggerReferences = await manager.findReferencesTo(triggerSymbol);
         expect(Array.isArray(triggerReferences)).toBe(true);
       }
     });

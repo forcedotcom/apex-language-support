@@ -22,8 +22,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     compilerService = new CompilerService();
   });
 
-  afterEach(() => {
-    symbolManager.clear();
+  afterEach(async () => {
+    await symbolManager.clear();
   });
 
   const addTestClass = async (sourceCode: string, className: string) => {
@@ -46,7 +46,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         'public class TestClass { public void processString(String input) { } }';
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a parameter type reference for String
       const paramTypeRefs = references.filter(
@@ -66,7 +67,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url parameter
       const chainedTypeRefs = references.filter((ref) =>
@@ -91,7 +93,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type reference for List (the parameter type itself)
       // Generic type arguments (String) should only have GENERIC_PARAMETER_TYPE, not PARAMETER_TYPE
@@ -122,7 +125,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type references for List
       const paramTypeRefs = references.filter(
@@ -153,7 +157,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (both return and parameter)
       const chainedTypeRefs = references.filter((ref) =>
@@ -178,7 +183,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url field type
       const chainedTypeRefs = references.filter((ref) =>
@@ -205,7 +211,8 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
-      const references = symbolManager.getAllReferencesInFile(testClassUri);
+      const references =
+        await symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (variable type and method call)
       const chainedTypeRefs = references.filter((ref) =>
