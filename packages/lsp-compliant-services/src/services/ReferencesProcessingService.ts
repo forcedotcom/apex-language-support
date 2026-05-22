@@ -102,45 +102,20 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       () => `Processing references request for: ${params.textDocument.uri}`,
     );
 
-    // ALG-DEBUG: trace processReferences entry. Pairs with the findReferences
-    // entry log so we can see which early-exit branch (if any) bails before
-    // reaching getReferenceLocations.
-    console.error(
-      `[ALG-DEBUG][processReferences] ENTER uri=${params.textDocument.uri} ` +
-        `pos=${params.position.line}:${params.position.character}`,
-    );
-
     // Run prerequisites for references request
     if (this.prerequisiteOrchestrationService) {
       try {
-        console.error(
-          '[ALG-DEBUG][processReferences] PREREQ-START ' +
-            `uri=${params.textDocument.uri}`,
-        );
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'references',
           params.textDocument.uri,
         );
-        console.error(
-          '[ALG-DEBUG][processReferences] PREREQ-DONE ' +
-            `uri=${params.textDocument.uri}`,
-        );
       } catch (error) {
-        console.error(
-          '[ALG-DEBUG][processReferences] PREREQ-ERROR ' +
-            `uri=${params.textDocument.uri} err=${String(error)}`,
-        );
         this.logger.debug(
           () =>
             `Error running prerequisites for references ${params.textDocument.uri}: ${error}`,
         );
         // Continue with references even if prerequisites fail
       }
-    } else {
-      console.error(
-        '[ALG-DEBUG][processReferences] PREREQ-NULL (no orchestrator) ' +
-          `uri=${params.textDocument.uri}`,
-      );
     }
 
     try {
@@ -221,9 +196,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Get the document
     const document = await storage.getDocument(params.textDocument.uri);
     if (!document) {
-      console.error(
-        `[ALG-DEBUG][findReferences] EXIT-NO-DOC uri=${params.textDocument.uri}`,
-      );
       this.logger.warn(() => `Document not found: ${params.textDocument.uri}`);
       return [];
     }
@@ -239,11 +211,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     if (!references || references.length === 0) {
-      console.error(
-        '[ALG-DEBUG][findReferences] EXIT-NO-TYPEREF ' +
-          `uri=${params.textDocument.uri} ` +
-          `pos=${parserPosition.line}:${parserPosition.character}`,
-      );
       this.logger.debug(
         () =>
           'No TypeReference found at position - likely keyword, whitespace, or nothing of interest',
@@ -251,15 +218,49 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Extract symbol name from the first TypeReference
-    const symbolName = references[0].name;
+    // Extract symbol name from the first TypeReference. For chained refs
+    // (e.g. `GeocodingService.GeocodingAddress`) prefer the chain node that
+    // contains the cursor — its `name` is the simple identifier the user
+    // actually clicked on, not the full qualified string.
+    let symbolName = references[0].name;
+    const chainNodes = (references[0] as any).chainNodes as
+      | Array<{ name: string; location?: any }>
+      | undefined;
+    if (Array.isArray(chainNodes) && chainNodes.length > 0) {
+      const clickedNode = chainNodes.find((n) => {
+        const r = n.location?.identifierRange;
+        if (!r) return false;
+        if (
+          parserPosition.line < r.startLine ||
+          parserPosition.line > r.endLine
+        ) {
+          return false;
+        }
+        if (
+          parserPosition.line === r.startLine &&
+          parserPosition.character < r.startColumn
+        ) {
+          return false;
+        }
+        if (
+          parserPosition.line === r.endLine &&
+          parserPosition.character > r.endColumn
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (clickedNode) {
+        symbolName = clickedNode.name;
+      } else {
+        // No exact node match — fall back to the leaf (rightmost identifier).
+        symbolName = chainNodes[chainNodes.length - 1].name;
+      }
+    }
 
     // Early keyword check: if the TypeReference name is a keyword, return empty array
     // This prevents find references from processing keywords
     if (isApexKeyword(symbolName)) {
-      console.error(
-        `[ALG-DEBUG][findReferences] EXIT-KEYWORD name=${symbolName}`,
-      );
       this.logger.debug(
         () =>
           `Position is on keyword "${symbolName}", skipping references lookup`,
@@ -267,35 +268,46 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Create resolution context
-    const context = await this.createResolutionContext(document, params);
+    // Prefer position-based resolution: handles chained references like
+    // `GeocodingService.GeocodingAddress` where the TypeReference name is the
+    // full qualified string but no symbol is stored under that exact name.
+    let resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
+      params.textDocument.uri,
+      parserPosition,
+    );
 
-    // Use ApexSymbolManager for context-aware symbol resolution
-    const result = await this.symbolManager.resolveSymbol(symbolName, context);
-
-    if (!result.symbol) {
-      console.error(
-        `[ALG-DEBUG][findReferences] EXIT-NO-SYMBOL name=${symbolName}`,
+    if (!resolvedSymbol) {
+      // Fall back to context-aware name resolution. For dotted names that
+      // didn't resolve via position, try the last segment (the most specific
+      // part the cursor is conceptually on).
+      const context = await this.createResolutionContext(document, params);
+      const result = await this.symbolManager.resolveSymbol(
+        symbolName,
+        context,
       );
+      resolvedSymbol = result.symbol;
+
+      if (!resolvedSymbol && symbolName.includes('.')) {
+        const lastSegment = symbolName.substring(
+          symbolName.lastIndexOf('.') + 1,
+        );
+        const fallback = await this.symbolManager.resolveSymbol(
+          lastSegment,
+          context,
+        );
+        resolvedSymbol = fallback.symbol;
+      }
+    }
+
+    if (!resolvedSymbol) {
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
       return [];
     }
 
-    console.error(
-      `[ALG-DEBUG][findReferences] resolved name=${symbolName} ` +
-        `→ symbol.name=${result.symbol.name} ` +
-        `fileUri=${result.symbol.fileUri} kind=${result.symbol.kind}`,
-    );
-
     // Get reference locations
     const locations = await this.getReferenceLocations(
-      result.symbol,
+      resolvedSymbol,
       params.context?.includeDeclaration,
-    );
-
-    console.error(
-      `[ALG-DEBUG][findReferences] FINAL totalLocations=${locations.length} ` +
-        `for symbol=${symbolName}`,
     );
 
     this.logger.debug(
@@ -371,15 +383,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     return Effect.gen(function* () {
       const locations: Location[] = [];
 
-      // ALG-DEBUG: per-method instrumentation to narrow which of the three
-      // reference sources actually returns hits. Stderr is forwarded from
-      // worker to coordinator output channel, so this shows up regardless
-      // of where the service runs. Tag with the symbol name and fileUri
-      // so traces are unambiguous when interleaved with other requests.
-      const tag =
-        `[ALG-DEBUG][findReferences] symbol=${symbol?.name} ` +
-        `fileUri=${symbol?.fileUri} kind=${symbol?.kind}`;
-
       try {
         // Include the declaration if requested
         if (includeDeclaration) {
@@ -395,7 +398,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         const referencesTo = yield* Effect.promise(() =>
           self.symbolManager.findReferencesTo(symbol),
         );
-        console.error(`${tag} findReferencesTo=${referencesTo.length}`);
         const batchSize = 50;
         for (let i = 0; i < referencesTo.length; i++) {
           const reference = referencesTo[i];
@@ -413,7 +415,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         const referencesFrom = yield* Effect.promise(() =>
           self.symbolManager.findReferencesFrom(symbol),
         );
-        console.error(`${tag} findReferencesFrom=${referencesFrom.length}`);
         for (let i = 0; i < referencesFrom.length; i++) {
           const reference = referencesFrom[i];
           const location = self.createLocationFromReference(reference);
@@ -429,14 +430,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         // Get specific relationship type references
         const relationshipReferences =
           yield* self.getRelationshipTypeReferencesEffect(symbol);
-        console.error(
-          `${tag} getRelationshipTypeReferences=${relationshipReferences.length} ` +
-            `totalLocations=${locations.length + relationshipReferences.length}`,
-        );
         locations.push(...relationshipReferences);
       } catch (error) {
         self.logger.debug(() => `Error getting reference locations: ${error}`);
-        console.error(`${tag} ERROR: ${String(error)}`);
       }
 
       return locations;
@@ -658,7 +654,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get the file URI for a symbol
    */
   private async getSymbolFileUri(symbol: any): Promise<string | null> {
-    // Try to get from symbol's file path
+    // ApexSymbol carries fileUri (the canonical location it was registered at).
+    if (symbol.fileUri) {
+      return symbol.fileUri.startsWith('file://') ||
+        symbol.fileUri.includes('://')
+        ? symbol.fileUri
+        : `file://${symbol.fileUri}`;
+    }
+
     if (symbol.filePath) {
       return `file://${symbol.filePath}`;
     }
@@ -680,12 +683,28 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get the file URI for a reference
    */
   private getReferenceFileUri(reference: any): string | null {
-    // Try to get from reference's file path
+    // ReferenceResult carries a fileUri that's the source-side path of the
+    // edge (where the use site lives). Cross-file edges are the common case,
+    // and this is the only field we can trust to identify the source file.
+    if (reference.fileUri) {
+      return reference.fileUri.startsWith('file://') ||
+        reference.fileUri.includes('://')
+        ? reference.fileUri
+        : `file://${reference.fileUri}`;
+    }
+
+    // Legacy/alternate shapes
     if (reference.filePath) {
       return `file://${reference.filePath}`;
     }
 
-    // Try to get from symbol's file path
+    if (reference.symbol && reference.symbol.fileUri) {
+      return reference.symbol.fileUri.startsWith('file://') ||
+        reference.symbol.fileUri.includes('://')
+        ? reference.symbol.fileUri
+        : `file://${reference.symbol.fileUri}`;
+    }
+
     if (reference.symbol && reference.symbol.filePath) {
       return `file://${reference.symbol.filePath}`;
     }
