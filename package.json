@@ -47,7 +47,8 @@
     "package:packages": "npm run package",
     "package:packages:prerelease": "wireit",
     "rebuild": "npm run clean && npm run compile && npm run bundle",
-    "sync:vscode-version": "wireit"
+    "sync:vscode-version": "wireit",
+    "sync:vscode-version:update": "node scripts/sync-vscode-version.js"
   },
   "keywords": [
     "salesforce",
@@ -143,7 +144,7 @@
       ]
     },
     "sync:vscode-version": {
-      "command": "node scripts/sync-vscode-version.js",
+      "command": "node scripts/sync-vscode-version.js --check",
       "files": [
         "scripts/sync-vscode-version.js",
         ".vscode-version"
