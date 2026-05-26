@@ -2,7 +2,7 @@
 
 **Status:** Resolved (2026-05-21)
 **Filed against:** `feature/enrichment-offload-investigation` (where the bug was unmasked)
-**Resolution branch:** `feature/find-references-algorithm-completeness`
+**Resolution branch:** `feature/find-references-algorithm-POC`
 
 ## Symptom
 
@@ -23,7 +23,7 @@ H4 was correct. The data-owner's reverse-reference index (`reverseIndex` inside 
 
 ## Fixes shipped
 
-All on `feature/find-references-algorithm-completeness`:
+All on `feature/find-references-algorithm-POC`:
 
 ### Cross-file edges populated on the data-owner
 
