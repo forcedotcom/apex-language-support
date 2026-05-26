@@ -4,10 +4,13 @@
  * Manages the VS Code version used by this repo, pinned to match Code Builder Web.
  *
  * The canonical version lives in a local `.vscode-version` file at the repo root.
- * That file is committed and used as-is in CI.
+ * That file is committed and used as-is in CI and in every local build/test.
  *
- * When run locally (without --check), fetches the latest value from the
- * code-builder-web repo (via `gh api`) and writes it to `.vscode-version`.
+ * When invoked without --check, the script `gh api`-fetches the latest version
+ * from code-builder-web and OVERWRITES `.vscode-version`. This must be a
+ * deliberate, opt-in action — never wired into the build graph — otherwise
+ * every local `npm run compile` (or pre-commit hook) silently bumps the file
+ * and the bump leaks into the next commit.
  *
  * Note: Neither engines.vscode nor @types/vscode are synced here. Both must
  * be set independently based on actual requirements. The script only validates
@@ -15,11 +18,13 @@
  *
  * Usage: node scripts/sync-vscode-version.js [--check]
  *
- *   --check   Report drift without writing changes (useful in CI).
- *             Reads the committed `.vscode-version` file only.
+ *   --check   Read the committed `.vscode-version` and validate package.json
+ *             versions against it. No network calls, no writes. This is what
+ *             the build graph (`sync:vscode-version` wireit task) runs.
  *
- *   (default) Fetches the latest version from the Code Builder Web repo
- *             and writes it to `.vscode-version`.
+ *   (default) Fetches the latest version from the Code Builder Web repo and
+ *             writes it to `.vscode-version`. Run via
+ *             `npm run sync:vscode-version:update` when you want to bump.
  *
  * Other scripts can import `readLocalVSCodeVersion` to read the pinned version.
  *
@@ -119,7 +124,10 @@ function guardVersion(label, version, target, relPath) {
     const msg =
       `${relPath}: ${label} (${minVersion}) exceeds the test harness version (${target}). ` +
       `Lower ${label} or update .vscode-version.`;
-    if (CHECK_ONLY) {
+    // Only fail the build in CI. Locally, warn — drift is something to
+    // know about, but blocking every local compile/test on it surprises
+    // contributors who didn't introduce the drift.
+    if (CHECK_ONLY && IS_CI) {
       console.error(`ERROR: ${msg}`);
       process.exitCode = 1;
     } else {
