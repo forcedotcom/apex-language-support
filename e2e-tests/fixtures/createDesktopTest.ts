@@ -146,10 +146,23 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
         workspaceDir,
       ];
 
+      // Strip ELECTRON_RUN_AS_NODE before launching. When the test runner is
+      // itself a child of an Electron process (VS Code's extension host, the
+      // Claude Code CLI agent, etc.), this var is inherited and forces the
+      // launched VS Code binary into Node mode — its argv parser then rejects
+      // Playwright's --remote-debugging-port=0 / --inspect=0 with
+      // "bad option: --remote-debugging-port=0" and the launch fails.
+      // See microsoft/playwright#39922.
+      const childEnv = { ...process.env, VSCODE_DESKTOP: '1' } as Record<
+        string,
+        string
+      >;
+      delete childEnv.ELECTRON_RUN_AS_NODE;
+
       const electronApp = await electron.launch({
         executablePath: vscodeExecutable,
         args: launchArgs,
-        env: { ...process.env, VSCODE_DESKTOP: '1' } as Record<string, string>,
+        env: childEnv,
         timeout: 60_000,
         recordVideo: {
           dir: videosDir,
