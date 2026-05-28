@@ -173,10 +173,7 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
       changeNotifications: true,
     },
   },
-  completionProvider: {
-    resolveProvider: false,
-    triggerCharacters: ['.', '@'],
-  },
+  completionProvider: undefined, // Not ready for production
   referencesProvider: true, // ENABLED: References implementation
   codeActionProvider: undefined,
   renameProvider: undefined,

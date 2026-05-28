@@ -186,7 +186,7 @@ describe('ApexCapabilitiesManager', () => {
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('definitionProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('completionProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
       manager.setPlatform('desktop'); // restore default
     });

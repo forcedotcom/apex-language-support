@@ -87,13 +87,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "codeActionProvider": undefined,
   "codeLensProvider": undefined,
   "colorProvider": undefined,
-  "completionProvider": {
-    "resolveProvider": false,
-    "triggerCharacters": [
-      ".",
-      "@",
-    ],
-  },
+  "completionProvider": undefined,
   "declarationProvider": undefined,
   "definitionProvider": true,
   "diagnosticProvider": undefined,
@@ -172,13 +166,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
     "hoverProvider": true,
   },
   "production": {
-    "completionProvider": {
-      "resolveProvider": false,
-      "triggerCharacters": [
-        ".",
-        "@",
-      ],
-    },
+    "completionProvider": undefined,
     "diagnosticProvider": undefined,
     "documentSymbolProvider": true,
     "foldingRangeProvider": true,
@@ -1369,13 +1357,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "codeActionProvider": undefined,
       "codeLensProvider": undefined,
       "colorProvider": undefined,
-      "completionProvider": {
-        "resolveProvider": false,
-        "triggerCharacters": [
-          ".",
-          "@",
-        ],
-      },
+      "completionProvider": undefined,
       "declarationProvider": undefined,
       "definitionProvider": true,
       "diagnosticProvider": undefined,
@@ -2457,13 +2439,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "codeActionProvider": undefined,
         "codeLensProvider": undefined,
         "colorProvider": undefined,
-        "completionProvider": {
-          "resolveProvider": false,
-          "triggerCharacters": [
-            ".",
-            "@",
-          ],
-        },
+        "completionProvider": undefined,
         "declarationProvider": undefined,
         "definitionProvider": true,
         "diagnosticProvider": undefined,
@@ -2622,13 +2598,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "codeActionProvider": undefined,
       "codeLensProvider": undefined,
       "colorProvider": undefined,
-      "completionProvider": {
-        "resolveProvider": false,
-        "triggerCharacters": [
-          ".",
-          "@",
-        ],
-      },
+      "completionProvider": undefined,
       "declarationProvider": undefined,
       "definitionProvider": true,
       "diagnosticProvider": undefined,
@@ -2825,13 +2795,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "codeActionProvider": undefined,
     "codeLensProvider": undefined,
     "colorProvider": undefined,
-    "completionProvider": {
-      "resolveProvider": false,
-      "triggerCharacters": [
-        ".",
-        "@",
-      ],
-    },
+    "completionProvider": undefined,
     "declarationProvider": undefined,
     "definitionProvider": true,
     "diagnosticProvider": undefined,
@@ -2994,13 +2958,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "codeActionProvider": undefined,
   "codeLensProvider": undefined,
   "colorProvider": undefined,
-  "completionProvider": {
-    "resolveProvider": false,
-    "triggerCharacters": [
-      ".",
-      "@",
-    ],
-  },
+  "completionProvider": undefined,
   "declarationProvider": undefined,
   "definitionProvider": true,
   "diagnosticProvider": undefined,
