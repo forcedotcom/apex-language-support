@@ -7,17 +7,16 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   StatementContext,
   AssignExpressionContext,
-  ParseTreeWalker,
   ExpressionContext,
   PrimaryExpressionContext,
   MethodCallExpressionContext,
@@ -47,7 +46,7 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import {
   isContextType,
   isMethodCallContext,
@@ -64,9 +63,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -109,7 +108,7 @@ function isValidAssignmentTarget(
   }
 
   // Literals are NOT valid assignment targets
-  const exprText = expr.text || '';
+  const exprText = expr.getText() || '';
   if (
     /^\d+$/.test(exprText) || // Numeric literals
     exprText === 'true' ||
@@ -204,12 +203,12 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
    * This handles cases where the parser skips invalid syntax
    */
   enterFormalParameter(ctx: FormalParameterContext): void {
-    const paramText = ctx.text?.toLowerCase().trim() || '';
+    const paramText = ctx.getText()?.toLowerCase().trim() || '';
     // Check if parameter text starts with "void " (handles cases where parser rejects void as invalid syntax)
     if (paramText.startsWith('void ')) {
       const typeRef = ctx.typeRef();
       // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.text?.toLowerCase().trim())) {
+      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
         const location = getLocationFromContext(ctx);
         this.errors.push({
           ctx,
@@ -224,12 +223,12 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
    * Check for void in field declarations by examining parse tree text
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
-    const fieldText = ctx.text?.toLowerCase().trim() || '';
+    const fieldText = ctx.getText()?.toLowerCase().trim() || '';
     // Check if field text starts with "void " (handles cases where parser rejects void as invalid syntax)
     if (fieldText.startsWith('void ')) {
       const typeRef = ctx.typeRef();
       // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.text?.toLowerCase().trim())) {
+      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
         const location = getLocationFromContext(ctx);
         this.errors.push({
           ctx,
@@ -244,13 +243,13 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
    * Check for void in property declarations by examining parse tree text
    */
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
-    const propText = ctx.text?.toLowerCase().trim() || '';
+    const propText = ctx.getText()?.toLowerCase().trim() || '';
     // Check if property text contains "void " before the property name
     // (handles cases where parser rejects void as invalid syntax)
     if (propText.includes('void ') && !propText.includes('void method')) {
       const typeRef = ctx.typeRef();
       // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.text?.toLowerCase().trim())) {
+      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
         const location = getLocationFromContext(ctx);
         this.errors.push({
           ctx,
@@ -265,12 +264,12 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
    * Check for void in local variable declarations by examining parse tree text
    */
   enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    const varText = ctx.text?.toLowerCase().trim() || '';
+    const varText = ctx.getText()?.toLowerCase().trim() || '';
     // Check if variable text starts with "void " (handles cases where parser rejects void as invalid syntax)
     if (varText.startsWith('void ')) {
       const typeRef = ctx.typeRef();
       // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.text?.toLowerCase().trim())) {
+      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
         const location = getLocationFromContext(ctx);
         this.errors.push({
           ctx,
@@ -409,7 +408,7 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
           (expr as DotExpressionContext).dotMethodCall?.() !== undefined;
 
         // Check for increment/decrement operators (++ or --)
-        const exprText = expr.text || '';
+        const exprText = expr.getText() || '';
         const hasIncrementDecrement =
           exprText.includes('++') || exprText.includes('--');
 
@@ -537,10 +536,7 @@ export const ExpressionTypeValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -555,8 +551,8 @@ export const ExpressionTypeValidator: Validator = {
 
         // Walk the parse tree to validate expression types
         const listener = new ExpressionTypeListener(symbolTable, sourceContent);
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Check void types from symbol table
         const voidErrors = listener.checkVoidTypes();

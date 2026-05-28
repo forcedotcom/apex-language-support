@@ -8,10 +8,10 @@
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
 import {
@@ -67,8 +67,7 @@ export class ListenerApplicationManager {
 
     listener.setErrorListener(parseTreeResult.errorListener);
 
-    const walker = new ParseTreeWalker();
-    walker.walk(listener, parseTreeResult.parseTree);
+    ApexParseTreeWalker.DEFAULT.walk(listener, parseTreeResult.parseTree);
 
     return listener.getResult();
   }
@@ -106,8 +105,6 @@ export class ListenerApplicationManager {
       symbolTable.setFileUri(options.fileUri);
     }
 
-    const walker = new ParseTreeWalker();
-
     // Apply each listener in sequence, enriching the same SymbolTable
     for (const listener of listenersToApply) {
       if (options.fileUri) {
@@ -132,7 +129,7 @@ export class ListenerApplicationManager {
       }
 
       // Walk the parse tree with this listener
-      walker.walk(listener, parseTreeResult.parseTree);
+      ApexParseTreeWalker.DEFAULT.walk(listener, parseTreeResult.parseTree);
 
       this.logger.debug(
         () =>

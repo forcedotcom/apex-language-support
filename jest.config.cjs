@@ -23,6 +23,7 @@ module.exports = {
   rootDir: '.',
   transform: {
     '^.+\\.ts$': 'ts-jest',
+    '^.+\\.m?js$': 'ts-jest',
   },
   moduleNameMapper: {
     // Mock ZIP file imports for Jest (esbuild handles these at bundle time)
@@ -42,7 +43,7 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
+    '/node_modules/(?!(\\.pnpm|@apexdevtools)).+\\.(js|mjs)$',
   ],
   testPathIgnorePatterns: ['/node_modules/'], // Exclude performance tests from regular test runs
 

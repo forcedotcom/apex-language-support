@@ -15,23 +15,23 @@ import {
   createMapTypeInfo,
 } from '../../utils/TypeInfoFactory';
 
-type GetTextFn = (ctx: { text?: string }) => string;
+type GetTextFn = (ctx: { getText(): string }) => string;
 
-const defaultGetText: GetTextFn = (ctx) => ctx?.text || '';
+const defaultGetText: GetTextFn = (ctx) => ctx?.getText() || '';
 
 /**
  * Extract TypeInfo from TypeRefContext using parser structure.
  * Provides accurate type information including typeParameters and keyType for Map/List/Set.
  *
  * @param typeRef The TypeRefContext to extract type info from
- * @param getText Optional function to get text from context (defaults to ctx.text)
+ * @param getText Optional function to get text from context (defaults to ctx.getText())
  * @returns TypeInfo object with proper structure including typeParameters
  */
 export function createTypeInfoFromTypeRef(
   typeRef: TypeRefContext,
   getText: GetTextFn = defaultGetText,
 ): TypeInfo {
-  const typeNames = typeRef.typeName();
+  const typeNames = typeRef.typeName_list();
   if (!typeNames || typeNames.length === 0) {
     return createTypeInfo('Object');
   }
@@ -47,7 +47,7 @@ export function createTypeInfoFromTypeRef(
 
   const typeArguments = baseTypeName.typeArguments();
   const typeList = typeArguments?.typeList();
-  const genericTypeRefs = typeList?.typeRef() || [];
+  const genericTypeRefs = typeList?.typeRef_list() || [];
 
   let baseTypeNameStr: string;
   if (listToken) {
@@ -59,19 +59,17 @@ export function createTypeInfoFromTypeRef(
   } else {
     const id = baseTypeName.id();
     if (!id) {
-      const typeRefText = typeRef.text?.toLowerCase().trim();
+      const typeRefText = typeRef.getText()?.toLowerCase().trim();
       if (typeRefText === 'void') {
         return createPrimitiveType('void');
       }
-      const typeNameText = (baseTypeName as { text?: string }).text
-        ?.toLowerCase()
-        ?.trim();
+      const typeNameText = baseTypeName.getText()?.toLowerCase()?.trim();
       if (typeNameText === 'void') {
         return createPrimitiveType('void');
       }
       return createTypeInfo('Object');
     }
-    baseTypeNameStr = id.text;
+    baseTypeNameStr = id.getText();
   }
 
   // Handle qualified type names (e.g., System.Url)
@@ -79,7 +77,7 @@ export function createTypeInfoFromTypeRef(
     const qualifiedParts = typeNames.map((tn) => {
       const tnId = tn.id();
       if (tnId) {
-        return tnId.text;
+        return tnId.getText();
       }
       return `${tn.LIST() || tn.SET() || tn.MAP()}`;
     });

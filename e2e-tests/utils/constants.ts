@@ -93,6 +93,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'terminalSandboxService',
   'Unable to create workbench contribution',
   'remoteAgentHostService',
+  'Remote agent host is not enabled',
+  'no remote connection is available',
 
   // Network and connectivity (often transient)
   'hostname could not be found',

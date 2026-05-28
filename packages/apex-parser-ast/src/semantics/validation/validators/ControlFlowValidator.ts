@@ -7,11 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
@@ -23,7 +23,6 @@ import {
   DoWhileStatementContext,
   MethodDeclarationContext,
   ConstructorDeclarationContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import type {
@@ -38,7 +37,7 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -50,9 +49,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -227,10 +226,7 @@ export const ControlFlowValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -245,8 +241,8 @@ export const ControlFlowValidator: Validator = {
 
         // Walk the parse tree to validate control flow
         const listener = new ControlFlowListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Report control flow errors
         const controlFlowErrors = listener.getErrors();

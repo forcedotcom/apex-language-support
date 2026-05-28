@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CommonTokenStream, Token, ParserRuleContext } from 'antlr4ts';
+import { CommonTokenStream, Token, ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
@@ -168,13 +168,13 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
    * Called when exiting the root rule - collect any remaining comments
    */
   exitEveryRule(ctx: ParserRuleContext): void {
-    if (!this.tokenStream || ctx.parent !== null) {
+    if (!this.tokenStream || ctx.parentCtx !== null) {
       return; // Only process at the root level to avoid duplication
     }
 
     try {
       // Get all tokens and process any remaining comment tokens
-      const allTokens = this.tokenStream.getTokens();
+      const allTokens = this.tokenStream.tokens;
       for (const token of allTokens) {
         if (
           this.isCommentToken(token) &&
@@ -221,12 +221,12 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
         type: isBlockComment ? CommentType.Block : CommentType.Line,
         range: {
           startLine: token.line,
-          startColumn: token.charPositionInLine,
+          startColumn: token.column,
           endLine: token.line + lines.length - 1,
           endColumn:
             lines.length > 1
               ? lines[lines.length - 1].length
-              : token.charPositionInLine + text.length,
+              : token.column + text.length,
         },
         tokenIndex: token.tokenIndex,
         isDocumentation: this.isDocumentationComment(text),

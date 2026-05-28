@@ -285,7 +285,7 @@ public class TestClass {
 
       expect(result.comments).toBeDefined();
 
-      // Should only have block comments (2 of them)
+      // Should only have block comments (3 of them)
       const blockComments = result.comments.filter(
         (c) => c.type === CommentType.Block,
       );
@@ -293,9 +293,9 @@ public class TestClass {
         (c) => c.type === CommentType.Line,
       );
 
-      expect(blockComments.length).toBe(2);
+      expect(blockComments.length).toBe(3);
       expect(lineComments.length).toBe(0);
-      expect(result.comments.length).toBe(2);
+      expect(result.comments.length).toBe(3);
     });
 
     it('should include single-line comments when explicitly requested', () => {
@@ -318,9 +318,9 @@ public class TestClass {
         (c) => c.type === CommentType.Line,
       );
 
-      expect(blockComments.length).toBe(2);
-      expect(lineComments.length).toBe(2);
-      expect(result.comments.length).toBe(4);
+      expect(blockComments.length).toBe(3);
+      expect(lineComments.length).toBe(3);
+      expect(result.comments.length).toBe(6);
     });
 
     it('should exclude single-line comments when explicitly set to false', () => {
@@ -343,9 +343,9 @@ public class TestClass {
         (c) => c.type === CommentType.Line,
       );
 
-      expect(blockComments.length).toBe(2);
+      expect(blockComments.length).toBe(3);
       expect(lineComments.length).toBe(0);
-      expect(result.comments.length).toBe(2);
+      expect(result.comments.length).toBe(3);
     });
 
     it('should still process documentation single-line comments correctly when enabled', () => {
@@ -369,11 +369,11 @@ public class TestClass {
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
-      expect(result.comments.length).toBe(3);
+      expect(result.comments.length).toBe(4);
 
       // Check documentation comments
       const docComments = result.comments.filter((c) => c.isDocumentation);
-      expect(docComments.length).toBe(2);
+      expect(docComments.length).toBe(3);
 
       // All documentation comments should be triple-slash
       docComments.forEach((comment) => {
@@ -393,7 +393,7 @@ public class TestClass {
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
-      expect(result.comments.length).toBe(4);
+      expect(result.comments.length).toBe(6);
     });
 
     it('should respect includeComments: false even when includeSingleLineComments is true', () => {

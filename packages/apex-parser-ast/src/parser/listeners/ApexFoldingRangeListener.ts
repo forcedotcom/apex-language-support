@@ -22,7 +22,7 @@ import {
   DoWhileStatementContext,
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
@@ -199,10 +199,10 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
     try {
       const range: FoldingRange = {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop?.line ?? ctx.start.line,
         endColumn:
-          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.column ?? ctx.start.column) +
           (ctx.stop?.text?.length ?? 0),
         kind,
         level: this.blockDepth,

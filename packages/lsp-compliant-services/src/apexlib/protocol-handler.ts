@@ -73,9 +73,12 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
         return null;
       }
 
-      // Extract the class name from the URI
-      // Format: apexlib://System.cls -> System.cls
-      const className = uri.replace('apexlib://', '');
+      // Extract the resource path from the URI
+      // Format: apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls -> System/EncodingUtil.cls
+      const className = uri.replace(
+        'apexlib://resources/StandardApexLibrary/',
+        '',
+      );
 
       // Try to get content from the parser package's ResourceLoader
       // This would require the ResourceLoader to be accessible from the LSP package

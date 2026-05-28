@@ -7,6 +7,7 @@
  */
 
 import {
+  ApexParseTreeWalker,
   ClassBodyDeclarationContext,
   ClassDeclarationContext,
   InterfaceDeclarationContext,
@@ -23,9 +24,8 @@ import {
   TriggerMemberDeclarationContext,
   EnumDeclarationContext,
   EnumConstantsContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { Stack } from 'data-structure-typed';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 
@@ -136,12 +136,12 @@ export class VisibilitySymbolListener
       // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
       // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
       // So ctx.id() returns undefined. We need to check for these keyword tokens.
-      let name = ctx.id()?.text;
+      let name = ctx.id()?.getText();
       if (!name) {
         // Check if class name is a keyword token (LIST, MAP, SET)
         const children = ctx.children || [];
         for (const child of children) {
-          const childText = child.text;
+          const childText = child.getText();
           if (
             childText &&
             (childText.toLowerCase() === 'list' ||
@@ -194,12 +194,12 @@ export class VisibilitySymbolListener
         );
 
         // Get superclass and interfaces
-        const superclass = ctx.typeRef()?.text;
+        const superclass = ctx.typeRef()?.getText();
         const interfaces =
           ctx
             .typeList()
-            ?.typeRef()
-            .map((t) => t.text) || [];
+            ?.typeRef_list()
+            .map((t) => t.getText()) || [];
 
         // Create class symbol
         const classSymbol = this.createTypeSymbol(
@@ -270,7 +270,7 @@ export class VisibilitySymbolListener
    */
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownInterface';
+      const name = ctx.id()?.getText() ?? 'unknownInterface';
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -281,8 +281,8 @@ export class VisibilitySymbolListener
         const interfaces =
           ctx
             .typeList()
-            ?.typeRef()
-            .map((t) => t.text) || [];
+            ?.typeRef_list()
+            .map((t) => t.getText()) || [];
 
         const interfaceSymbol = this.createTypeSymbol(
           ctx,
@@ -346,7 +346,7 @@ export class VisibilitySymbolListener
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownEnum';
+      const name = ctx.id()?.getText() ?? 'unknownEnum';
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -430,8 +430,8 @@ export class VisibilitySymbolListener
         enumSymbol.values = [];
       }
 
-      for (const id of ctx.id()) {
-        const name = id.text;
+      for (const id of ctx.id_list()) {
+        const name = id.getText();
         const modifiers = this.getCurrentModifiers();
 
         // Create enum value symbol using createVariableSymbol method
@@ -467,7 +467,7 @@ export class VisibilitySymbolListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownMethod';
+      const name = ctx.id()?.getText() ?? 'unknownMethod';
       const modifiers = this.getCurrentModifiers();
 
       // Validate method modifiers using MethodModifierValidator
@@ -527,7 +527,6 @@ export class VisibilitySymbolListener
       // Delegate reference collection for return type
       const returnTypeRef = (ctx as any).typeRef?.();
       if (returnTypeRef) {
-        const walker = new ParseTreeWalker();
         const refCollector = new ApexReferenceCollectorListener(
           this.symbolTable,
         );
@@ -536,13 +535,12 @@ export class VisibilitySymbolListener
           name, // Method name
           this.getCurrentType()?.name, // Type name
         );
-        walker.walk(refCollector, returnTypeRef); // Walk return type subtree
+        ApexParseTreeWalker.DEFAULT.walk(refCollector, returnTypeRef); // Walk return type subtree
       }
 
       // Delegate reference collection for parameter types
       const formalParams = ctx.formalParameters();
       if (formalParams) {
-        const walker = new ParseTreeWalker();
         const refCollector = new ApexReferenceCollectorListener(
           this.symbolTable,
         );
@@ -551,7 +549,7 @@ export class VisibilitySymbolListener
           name, // Method name
           this.getCurrentType()?.name, // Type name
         );
-        walker.walk(refCollector, formalParams); // Walk parameters subtree
+        ApexParseTreeWalker.DEFAULT.walk(refCollector, formalParams); // Walk parameters subtree
       }
 
       this.resetAnnotations();
@@ -576,7 +574,7 @@ export class VisibilitySymbolListener
     ctx: InterfaceMethodDeclarationContext,
   ): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownMethod';
+      const name = ctx.id()?.getText() ?? 'unknownMethod';
 
       // Interface methods are implicitly public and abstract
       // Always process them regardless of detail level (they're part of the interface contract)
@@ -619,7 +617,6 @@ export class VisibilitySymbolListener
       // Delegate reference collection for return type
       const returnTypeRef = (ctx as any).typeRef?.();
       if (returnTypeRef) {
-        const walker = new ParseTreeWalker();
         const refCollector = new ApexReferenceCollectorListener(
           this.symbolTable,
         );
@@ -628,13 +625,12 @@ export class VisibilitySymbolListener
           name, // Method name
           this.getCurrentType()?.name, // Type name
         );
-        walker.walk(refCollector, returnTypeRef); // Walk return type subtree
+        ApexParseTreeWalker.DEFAULT.walk(refCollector, returnTypeRef); // Walk return type subtree
       }
 
       // Delegate reference collection for parameter types
       const formalParams = ctx.formalParameters();
       if (formalParams) {
-        const walker = new ParseTreeWalker();
         const refCollector = new ApexReferenceCollectorListener(
           this.symbolTable,
         );
@@ -643,7 +639,7 @@ export class VisibilitySymbolListener
           name, // Method name
           this.getCurrentType()?.name, // Type name
         );
-        walker.walk(refCollector, formalParams); // Walk parameters subtree
+        ApexParseTreeWalker.DEFAULT.walk(refCollector, formalParams); // Walk parameters subtree
       }
 
       this.resetAnnotations();
@@ -664,7 +660,7 @@ export class VisibilitySymbolListener
     try {
       // Extract constructor name from qualified name
       const qualifiedName = ctx.qualifiedName();
-      const ids = qualifiedName?.id();
+      const ids = qualifiedName?.id_list();
 
       // Validate that constructor name is not a dotted name (semantic error)
       if (ids && ids.length > 1) {
@@ -678,7 +674,7 @@ export class VisibilitySymbolListener
       const currentType = this.getCurrentType(ctx);
       const name =
         ids && ids.length > 0
-          ? ids[0].text
+          ? ids[0].getText()
           : (currentType?.name ?? 'unknownConstructor');
 
       // Validate that constructor name matches the enclosing class name
@@ -827,7 +823,6 @@ export class VisibilitySymbolListener
       // Delegate reference collection for parameter types
       const formalParams = ctx.formalParameters();
       if (formalParams) {
-        const walker = new ParseTreeWalker();
         const refCollector = new ApexReferenceCollectorListener(
           this.symbolTable,
         );
@@ -836,7 +831,7 @@ export class VisibilitySymbolListener
           name, // Constructor name
           this.getCurrentType()?.name, // Type name
         );
-        walker.walk(refCollector, formalParams); // Walk parameters subtree
+        ApexParseTreeWalker.DEFAULT.walk(refCollector, formalParams); // Walk parameters subtree
       }
 
       this.resetAnnotations();
@@ -872,10 +867,11 @@ export class VisibilitySymbolListener
       }
 
       const type = this.createTypeInfoFromTypeRef(typeRef);
-      const declarators = ctx.variableDeclarators()?.variableDeclarator() || [];
+      const declarators =
+        ctx.variableDeclarators()?.variableDeclarator_list() || [];
 
       for (const declarator of declarators) {
-        const name = declarator.id()?.text;
+        const name = declarator.id()?.getText();
         if (!name) {
           continue;
         }
@@ -895,14 +891,14 @@ export class VisibilitySymbolListener
       }
 
       // Delegate reference collection to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       refCollector.setParentContext(
         undefined, // Fields are at class level, not in methods
         this.getCurrentType()?.name, // Type name
       );
-      walker.walk(refCollector, ctx); // Walk only this subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk only this subtree
 
       this.resetModifiers();
     } catch (e) {
@@ -924,7 +920,7 @@ export class VisibilitySymbolListener
         return;
       }
 
-      const name = ctx.id()?.text;
+      const name = ctx.id()?.getText();
       if (!name) {
         return;
       }
@@ -950,14 +946,14 @@ export class VisibilitySymbolListener
       );
 
       // Delegate reference collection to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       refCollector.setParentContext(
         undefined, // Properties are at class level, not in methods
         this.getCurrentType()?.name, // Type name
       );
-      walker.walk(refCollector, ctx); // Walk only this subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk only this subtree
 
       this.resetModifiers();
     } catch (e) {
@@ -968,7 +964,7 @@ export class VisibilitySymbolListener
 
   // Modifier and annotation tracking
   enterModifier(ctx: ModifierContext): void {
-    const modifierText = ctx.text.toLowerCase();
+    const modifierText = ctx.getText().toLowerCase();
     applyModifierKeyword(this.currentModifiers, modifierText);
   }
 
@@ -979,11 +975,11 @@ export class VisibilitySymbolListener
   enterAnnotation(ctx: AnnotationContext): void {
     // Extract annotation name similar to ApexSymbolCollectorListener
     const qn = ctx.qualifiedName?.();
-    const ids = qn?.id();
+    const ids = qn?.id_list();
     const name =
       ids && ids.length > 0
-        ? ids.map((i) => i.text).join('.')
-        : (ctx.text || '').replace(/^@/, '');
+        ? ids.map((i) => i.getText()).join('.')
+        : (ctx.getText() || '').replace(/^@/, '');
 
     const annotation: Annotation = {
       name,
@@ -1004,7 +1000,7 @@ export class VisibilitySymbolListener
   enterTriggerUnit(ctx: TriggerUnitContext): void {
     try {
       // Get the trigger name from the first id
-      const name = ctx.id(0)?.text ?? 'unknownTrigger';
+      const name = ctx.id(0)?.getText() ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Triggers don't have visibility modifiers - they're always public
@@ -1074,8 +1070,9 @@ export class VisibilitySymbolListener
     try {
       // Get the trigger name from the parent context
       // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-      const triggerUnit = ctx.parent?.parent?.parent as TriggerUnitContext;
-      const name = triggerUnit?.id?.(0)?.text ?? 'unknownTrigger';
+      const triggerUnit = ctx.parentCtx?.parentCtx
+        ?.parentCtx as TriggerUnitContext;
+      const name = triggerUnit?.id?.(0)?.getText() ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -1249,7 +1246,7 @@ export class VisibilitySymbolListener
       contextName === 'EnumDeclarationContext'
     ) {
       const typeId = (ctx as any).id?.();
-      const typeName = typeId?.text;
+      const typeName = typeId?.getText();
 
       if (typeName) {
         // Find the type symbol - prefer most nested if multiple matches
@@ -1274,7 +1271,7 @@ export class VisibilitySymbolListener
     }
 
     // Otherwise, traverse up parse tree to find containing type declarations
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       const parentContextName = current.constructor.name;
 
@@ -1284,7 +1281,7 @@ export class VisibilitySymbolListener
         parentContextName === 'EnumDeclarationContext'
       ) {
         const typeId = (current as any).id?.();
-        const typeName = typeId?.text;
+        const typeName = typeId?.getText();
 
         if (typeName) {
           // Find the type symbol - prefer most nested if multiple matches
@@ -1308,7 +1305,7 @@ export class VisibilitySymbolListener
         }
       }
 
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return null;
@@ -1355,15 +1352,15 @@ export class VisibilitySymbolListener
     return {
       symbolRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
       identifierRange: identifierRange || {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: start.line,
-        endColumn: start.charPositionInLine + (start.text?.length || 0),
+        endColumn: start.column + (start.text?.length || 0),
       },
     };
   }
@@ -1390,10 +1387,9 @@ export class VisibilitySymbolListener
       if (idNode?.start && idNode?.stop) {
         return {
           startLine: idNode.start.line,
-          startColumn: idNode.start.charPositionInLine,
+          startColumn: idNode.start.column,
           endLine: idNode.stop.line,
-          endColumn:
-            idNode.stop.charPositionInLine + (idNode.stop.text?.length || 0),
+          endColumn: idNode.stop.column + (idNode.stop.text?.length || 0),
         };
       }
     }
@@ -1402,9 +1398,9 @@ export class VisibilitySymbolListener
     if (ctx.start === ctx.stop && ctx.start) {
       return {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.start.line,
-        endColumn: ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
+        endColumn: ctx.start.column + (ctx.start.text?.length || 0),
       };
     }
 
@@ -1888,7 +1884,7 @@ export class VisibilitySymbolListener
    */
   private getTextFromContext(ctx: ParserRuleContext | any): string {
     if (!ctx) return '';
-    return ctx.text || '';
+    return ctx.getText() || '';
   }
 
   /**
@@ -1948,10 +1944,10 @@ export class VisibilitySymbolListener
     }
 
     const params: VariableSymbol[] = [];
-    const paramContexts = paramList.formalParameter();
+    const paramContexts = paramList.formalParameter_list();
 
     for (const paramCtx of paramContexts) {
-      const name = paramCtx.id()?.text;
+      const name = paramCtx.id()?.getText();
       if (!name) {
         continue;
       }

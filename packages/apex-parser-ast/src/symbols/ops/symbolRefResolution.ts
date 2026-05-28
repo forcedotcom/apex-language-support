@@ -173,7 +173,7 @@ export async function resolvePreferredTypeSymbolForLookup(
 /**
  * Validate that a type reference name is valid for resolution.
  *
- * The parser/listener extracts identifiers from parser nodes (id()?.text, typeName(), etc.),
+ * The parser/listener extracts identifiers from parser nodes (id()?.getText(), typeName(), etc.),
  * which are already validated by the ANTLR lexer/parser. This check only ensures we have a
  * non-empty name before attempting resolution.
  */

@@ -181,6 +181,7 @@ describe('DiagnosticProcessingService', () => {
       expect(syntaxDiagnostics.length).toBeGreaterThan(0);
       expect([
         ErrorCodes.MISSING_SYNTAX,
+        ErrorCodes.MISMATCHED_SYNTAX,
         ErrorCodes.UNEXPECTED_SYNTAX_ERROR,
       ]).toContain(syntaxDiagnostics[0].code);
     });

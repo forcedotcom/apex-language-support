@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import {
   FormalParameterContext,
   MethodDeclarationContext,
@@ -231,9 +231,9 @@ export function isMethodCallContext(
 export function getTypeNameFromCreatedName(
   createdName: CreatedNameContext,
 ): string | null {
-  const pairs = createdName.idCreatedNamePair();
+  const pairs = createdName.idCreatedNamePair_list();
   if (!pairs || pairs.length === 0) {
     return null;
   }
-  return pairs.map((pair) => pair.anyId().text).join('.');
+  return pairs.map((pair) => pair.anyId().getText()).join('.');
 }

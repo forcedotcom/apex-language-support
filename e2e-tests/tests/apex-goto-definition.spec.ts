@@ -261,9 +261,14 @@ test.describe('Apex Go-to-Definition', () => {
    * Test: Navigate to generic type declaration (List, Map, etc.).
    */
   test('should handle generic type references', async ({ apexEditor }) => {
-    await test.step('Position cursor on generic-typed variable', async () => {
+    await test.step('Position cursor on generic-typed field', async () => {
+      // Use `configCache` (Map<String, Object>, line 4) — unique to
+      // ApexClassExample.cls. The previously-used `accounts` token also
+      // appears in AccountHandler.cls, which caused F12 to resolve
+      // cross-file when fixture setup or prior tests left AccountHandler
+      // as the active editor.
       await apexEditor.goToPosition(1);
-      await apexEditor.positionCursorOnWord('accounts');
+      await apexEditor.positionCursorOnWord('configCache');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -271,7 +276,7 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Verify navigation to variable declaration', async () => {
-      await apexEditor.expectCursorAtLine(8);
+      await apexEditor.expectCursorAtLine(4);
     });
   });
 

@@ -6,14 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CharStreams, CommonTokenStream, DefaultErrorStrategy } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   BlockContext,
   CompilationUnitContext,
-  ParseTreeWalker,
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -126,11 +125,9 @@ export class CompilerService {
     const isAnonymous = fileName.endsWith('.apex');
     const contentToParse = isAnonymous ? `{${fileContent}}` : fileContent;
 
-    const inputStream = CharStreams.fromString(contentToParse);
-    const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
+    const lexer = ApexParserFactory.createLexer(contentToParse);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
-    parser.errorHandler = new DefaultErrorStrategy();
 
     parser.removeErrorListeners();
     lexer.removeErrorListeners();
@@ -199,8 +196,6 @@ export class CompilerService {
         );
       }
 
-      const walker = new ParseTreeWalker();
-
       // Run StructureListener first when listener produces SymbolTable
       // (VisibilitySymbolListener path; FullSymbolCollectorListener has its own structure pass)
       const result = listener.getResult();
@@ -210,10 +205,10 @@ export class CompilerService {
       ) {
         const structureListener = new StructureListener(result);
         structureListener.setCurrentFileUri(fileName);
-        walker.walk(structureListener, parseTree);
+        ApexParseTreeWalker.DEFAULT.walk(structureListener, parseTree);
       }
 
-      walker.walk(listener, parseTree);
+      ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
       // Optionally collect references using dedicated listener
       const collectReferences = options.collectReferences === true;
@@ -235,7 +230,7 @@ export class CompilerService {
         }
 
         // Walk parse tree again to collect references
-        walker.walk(referenceCollector, parseTree);
+        ApexParseTreeWalker.DEFAULT.walk(referenceCollector, parseTree);
 
         // Optionally resolve references
         if (resolveReferences) {
@@ -272,7 +267,7 @@ export class CompilerService {
 
       let comments: ApexComment[] = [];
       if (commentCollector) {
-        walker.walk(commentCollector, parseTree);
+        ApexParseTreeWalker.DEFAULT.walk(commentCollector, parseTree);
         comments = commentCollector.getResult();
       }
 
@@ -581,13 +576,12 @@ export class CompilerService {
       const symbolTable = existingSymbolTable || new SymbolTable();
       symbolTable.setFileUri(fileName);
 
-      const walker = new ParseTreeWalker();
       const namespace = options.projectNamespace || this.projectNamespace;
 
       // Step 0: Establish block structure (must run first)
       const structureListener = new StructureListener(symbolTable);
       structureListener.setCurrentFileUri(fileName);
-      walker.walk(structureListener, parseTree);
+      ApexParseTreeWalker.DEFAULT.walk(structureListener, parseTree);
 
       // Apply listeners in order (public-api -> protected -> private)
       for (const layer of requestedLayers) {
@@ -601,7 +595,7 @@ export class CompilerService {
         }
 
         // Walk the same parse tree with this listener
-        walker.walk(listener, parseTree);
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         this.logger.debug(
           () =>
@@ -621,7 +615,7 @@ export class CompilerService {
         try {
           const blockContentListener = new BlockContentListener(symbolTable);
           blockContentListener.setCurrentFileUri(fileName);
-          walker.walk(blockContentListener, parseTree);
+          ApexParseTreeWalker.DEFAULT.walk(blockContentListener, parseTree);
         } catch (error) {
           this.logger.warn(
             () => `Failed to apply BlockContentListener: ${error}`,
@@ -668,7 +662,7 @@ export class CompilerService {
         }
 
         // Walk parse tree again to collect references
-        walker.walk(referenceCollector, parseTree);
+        ApexParseTreeWalker.DEFAULT.walk(referenceCollector, parseTree);
 
         // Optionally resolve references
         if (resolveReferences) {

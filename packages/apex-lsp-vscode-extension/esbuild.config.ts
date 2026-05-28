@@ -12,10 +12,12 @@ import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfil
 import { copy } from 'esbuild-plugin-copy';
 import {
   browserBaseConfig,
+  forceAntlr4CjsPlugin,
   nodeBaseConfig,
   NODE_POLYFILLS,
   runBuilds,
   shouldMinifyEsbuild,
+  stubApexParserCheckPlugin,
 } from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
@@ -27,7 +29,6 @@ const builds: BuildOptions[] = [
     outExtension: { '.js': '.js' },
     sourcemap: true,
     external: ['vscode', 'vm', 'net', 'worker_threads', 'web-worker'],
-    banner: undefined,
     footer: undefined,
     keepNames: true,
     loader: {
@@ -35,6 +36,8 @@ const builds: BuildOptions[] = [
       '.gz': 'dataurl',
     },
     plugins: [
+      forceAntlr4CjsPlugin,
+      stubApexParserCheckPlugin,
       copy({
         resolveFrom: 'cwd',
         assets: [
@@ -95,6 +98,7 @@ const builds: BuildOptions[] = [
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     plugins: [
+      stubApexParserCheckPlugin,
       NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
       NodeModulesPolyfillPlugin(),
     ],

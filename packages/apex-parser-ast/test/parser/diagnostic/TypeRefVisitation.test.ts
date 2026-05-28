@@ -6,11 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CharStreams, CommonTokenStream, ParserRuleContext } from 'antlr4ts';
+import { CommonTokenStream, ParserRuleContext } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  ParseTreeWalker,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   TypeRefContext,
   LocalVariableDeclarationContext,
 } from '@apexdevtools/apex-parser';
@@ -45,12 +45,12 @@ class DiagnosticListener {
 
   enterEveryRule(ctx: ParserRuleContext): void {
     const ruleName = ctx.constructor.name;
-    const parentName = ctx.parent?.constructor.name || 'null';
+    const parentName = ctx.parentCtx?.constructor.name || 'null';
     this.visitedRules.push({
       rule: ruleName,
       parent: parentName,
       line: ctx.start?.line || 0,
-      column: ctx.start?.charPositionInLine || 0,
+      column: ctx.start?.column || 0,
     });
   }
 
@@ -67,10 +67,10 @@ class DiagnosticListener {
   }
 
   enterTypeRef(ctx: TypeRefContext): void {
-    const parentName = ctx.parent?.constructor.name || 'null';
+    const parentName = ctx.parentCtx?.constructor.name || 'null';
     this.enterTypeRefCalled.push({
       line: ctx.start?.line || 0,
-      column: ctx.start?.charPositionInLine || 0,
+      column: ctx.start?.column || 0,
       parent: parentName,
     });
   }
@@ -85,7 +85,7 @@ class DiagnosticListener {
     const typeRefType = typeRef?.constructor.name;
     this.enterLocalVariableDeclarationCalled.push({
       line: ctx.start?.line || 0,
-      column: ctx.start?.charPositionInLine || 0,
+      column: ctx.start?.column || 0,
       typeRefExists,
       typeRefType,
     });
@@ -98,14 +98,15 @@ class DiagnosticListener {
 
 describe('TypeRef Visitation Diagnostic', () => {
   const parseAndWalk = (code: string): DiagnosticListener => {
-    const inputStream = CharStreams.fromString(code);
-    const lexer = new ApexLexer(inputStream);
+    const lexer = ApexParserFactory.createLexer(code);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
-    const walker = new ParseTreeWalker();
 
     const diagnosticListener = new DiagnosticListener();
-    walker.walk(diagnosticListener, parser.compilationUnit());
+    ApexParseTreeWalker.DEFAULT.walk(
+      diagnosticListener,
+      parser.compilationUnit(),
+    );
     return diagnosticListener;
   };
 

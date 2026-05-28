@@ -10,9 +10,11 @@ import type { BuildOptions } from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import {
   configureWebWorkerPolyfills,
+  forceAntlr4CjsPlugin,
   nodeBaseConfig,
   runBuilds,
   shouldMinifyEsbuild,
+  stubApexParserCheckPlugin,
 } from '@salesforce/esbuild-presets';
 
 /**
@@ -98,6 +100,8 @@ const builds: BuildOptions[] = [
       '.gz': 'dataurl',
     },
     plugins: [
+      forceAntlr4CjsPlugin,
+      stubApexParserCheckPlugin,
       copy({
         resolveFrom: 'cwd',
         assets: [
