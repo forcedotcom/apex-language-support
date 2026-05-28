@@ -173,8 +173,10 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
       changeNotifications: true,
     },
   },
-  // Planned features - explicitly not supported yet (implementation planned)
-  completionProvider: undefined,
+  completionProvider: {
+    resolveProvider: false,
+    triggerCharacters: ['.', '@'],
+  },
   referencesProvider: true, // ENABLED: References implementation
   codeActionProvider: undefined,
   renameProvider: undefined,
@@ -225,7 +227,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   publishDiagnostics: true,
   completionProvider: {
     resolveProvider: false,
-    triggerCharacters: ['.'],
+    triggerCharacters: ['.', '@'],
   },
   foldingRangeProvider: true,
   hoverProvider: true,
