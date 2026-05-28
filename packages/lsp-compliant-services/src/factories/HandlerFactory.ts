@@ -79,6 +79,11 @@ import {
   ExecuteCommandProcessingService,
   IExecuteCommandProcessor,
 } from '../services/ExecuteCommandProcessingService';
+import { CompletionHandler } from '../handlers/CompletionHandler';
+import {
+  CompletionProcessingService,
+  ICompletionProcessor,
+} from '../services/CompletionProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
