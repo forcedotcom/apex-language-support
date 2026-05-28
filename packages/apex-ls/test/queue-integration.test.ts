@@ -19,6 +19,10 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       submitDocumentChangeRequest: jest.fn(),
       submitDocumentCloseRequest: jest.fn(),
       submitHoverRequest: jest.fn(),
+      submitCompletionRequest: jest.fn(),
+      submitDefinitionRequest: jest.fn(),
+      submitImplementationRequest: jest.fn(),
+      submitReferencesRequest: jest.fn(),
       getStats: jest.fn(),
       shutdown: jest.fn(),
     })),
@@ -253,6 +257,42 @@ describe('Queue Integration in apex-ls', () => {
       await expect(mockQueueManager.submitHoverRequest(params)).rejects.toThrow(
         'Hover processing failed',
       );
+    });
+  });
+
+  describe('completion request processing', () => {
+    it('should process completion requests through queue', async () => {
+      const params = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 5, character: 10 },
+      };
+
+      const expectedItems = [
+        { label: 'doSomething', kind: 2 },
+        { label: 'toString', kind: 2 },
+      ];
+      mockQueueManager.submitCompletionRequest.mockResolvedValue(expectedItems);
+
+      const result = await mockQueueManager.submitCompletionRequest(params);
+
+      expect(mockQueueManager.submitCompletionRequest).toHaveBeenCalledWith(
+        params,
+      );
+      expect(result).toEqual(expectedItems);
+    });
+
+    it('should handle completion request failures', async () => {
+      const params = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const error = new Error('Completion processing failed');
+      mockQueueManager.submitCompletionRequest.mockRejectedValue(error);
+
+      await expect(
+        mockQueueManager.submitCompletionRequest(params),
+      ).rejects.toThrow('Completion processing failed');
     });
   });
 
