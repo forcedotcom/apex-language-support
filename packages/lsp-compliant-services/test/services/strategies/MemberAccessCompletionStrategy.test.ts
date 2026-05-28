@@ -12,6 +12,7 @@ import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { MemberAccessCompletionStrategy } from '../../../src/services/strategies/MemberAccessCompletionStrategy';
 import {
   compileAndRegister,
+  compileInlineAndRegister,
   makeTextDocument,
   makeCompletionContext,
   loadFixture,
@@ -301,6 +302,473 @@ describe('MemberAccessCompletionStrategy', () => {
       for (const m of members) {
         expect(m.isStatic).toBe(false);
       }
+    });
+  });
+
+  describe('getCompletions - static access scenarios', () => {
+    it('A1: should return only static members for standard library type (String.)', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const stringSource = [
+        'public class String {',
+        '  public static String format(String template, List<Object> args) { return null; }',
+        '  public static String valueOf(Object o) { return null; }',
+        '  public Integer length() { return 0; }',
+        '  public String toLowerCase() { return null; }',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        stringSource,
+        'apexlib://resources/StandardApexLibrary/System/String.cls',
+      );
+
+      const callerSource = [
+        'public class Caller {',
+        '  public void run() {',
+        '    String.',
+        '  }',
+        '}',
+      ].join('\n');
+      const callerUri = 'file:///test/Caller.cls';
+      await compileInlineAndRegister(sm, callerSource, callerUri);
+
+      const doc = makeTextDocument(callerSource, callerUri);
+      const context = makeCompletionContext(doc, 2, 11, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('format');
+      expect(names).toContain('valueOf');
+      expect(names).not.toContain('length');
+      expect(names).not.toContain('toLowerCase');
+    });
+
+    it('A2: should return only static members for workspace type (UserService.)', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const userServiceSource = [
+        'public class UserService {',
+        '  public String userName;',
+        '  public static UserService getInstance() { return null; }',
+        '  public static void clearCache() {}',
+        '  public User getUser() { return null; }',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        userServiceSource,
+        'file:///project/UserService.cls',
+      );
+
+      const callerSource = [
+        'public class Caller {',
+        '  public void run() {',
+        '    UserService.',
+        '  }',
+        '}',
+      ].join('\n');
+      const callerUri = 'file:///test/Caller.cls';
+      await compileInlineAndRegister(sm, callerSource, callerUri);
+
+      const doc = makeTextDocument(callerSource, callerUri);
+      const context = makeCompletionContext(doc, 2, 16, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('getInstance');
+      expect(names).toContain('clearCache');
+      expect(names).not.toContain('getUser');
+      expect(names).not.toContain('userName');
+    });
+
+    it('A3: should return only static members for current class and ancestor', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const parentSource = [
+        'public class ParentClass {',
+        '  public static void parentStatic() {}',
+        '  public void parentInstance() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        parentSource,
+        'file:///test/ParentClass.cls',
+      );
+
+      const childSource = [
+        'public class ChildClass extends ParentClass {',
+        '  public static void childStatic() {}',
+        '  public void childInstance() {}',
+        '  public void run() {',
+        '    ChildClass.',
+        '    ParentClass.',
+        '  }',
+        '}',
+      ].join('\n');
+      const childUri = 'file:///test/ChildClass.cls';
+      await compileInlineAndRegister(sm, childSource, childUri);
+
+      const doc = makeTextDocument(childSource, childUri);
+
+      const childContext = makeCompletionContext(doc, 4, 15, {
+        triggerCharacter: '.',
+      });
+      const childCandidates = await Effect.runPromise(
+        strat.getCompletions(childContext),
+      );
+      const childNames = childCandidates.map((c) => c.symbol.name);
+      expect(childNames).toContain('childStatic');
+      expect(childNames).not.toContain('childInstance');
+
+      const parentContext = makeCompletionContext(doc, 5, 16, {
+        triggerCharacter: '.',
+      });
+      const parentCandidates = await Effect.runPromise(
+        strat.getCompletions(parentContext),
+      );
+      const parentNames = parentCandidates.map((c) => c.symbol.name);
+      expect(parentNames).toContain('parentStatic');
+      expect(parentNames).not.toContain('parentInstance');
+    });
+  });
+
+  describe('getCompletions - inheritance and chain scenarios', () => {
+    it('B: should include inherited members for child instance access', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const baseSrc = [
+        'public virtual class BaseClass {',
+        '  public String baseField;',
+        '  public virtual String getLabel() { return null; }',
+        '  public void concreteMethod() {}',
+        '  public static void staticBaseMethod() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(sm, baseSrc, 'file:///test/BaseClass.cls');
+
+      const childSrc = [
+        'public class ChildClass extends BaseClass {',
+        '  public String childField;',
+        '  public override String getLabel() { return null; }',
+        '  public void childMethod() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        childSrc,
+        'file:///test/ChildClass.cls',
+      );
+
+      const content = [
+        'public class InheritTest {',
+        '  public void run() {',
+        '    ChildClass child = new ChildClass();',
+        '    child.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/InheritTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 3, 10, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('childField');
+      expect(names).toContain('childMethod');
+      expect(names).toContain('baseField');
+      expect(names).toContain('concreteMethod');
+      expect(names).not.toContain('staticBaseMethod');
+      expect(names.filter((n) => n === 'getLabel').length).toBe(1);
+    });
+
+    it('C: should include interface members for implementing class', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const ifaceSrc = [
+        'public interface IDisplayable {',
+        '  String getDisplayName();',
+        '  void render();',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        ifaceSrc,
+        'file:///test/IDisplayable.cls',
+      );
+
+      const widgetSrc = [
+        'public class DisplayWidget implements IDisplayable {',
+        '  public String widgetField;',
+        '  public String getDisplayName() { return null; }',
+        '  public void render() {}',
+        '  public void widgetOnly() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        widgetSrc,
+        'file:///test/DisplayWidget.cls',
+      );
+
+      const content = [
+        'public class InterfaceTest {',
+        '  public void run() {',
+        '    DisplayWidget w = new DisplayWidget();',
+        '    w.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/InterfaceTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 3, 6, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('widgetField');
+      expect(names).toContain('getDisplayName');
+      expect(names).toContain('render');
+      expect(names).toContain('widgetOnly');
+    });
+
+    it('D: should resolve method chain to return type', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const accountSrc = [
+        'public class Account {',
+        '  public String Name;',
+        '  public String Industry;',
+        '  public static void describeAccount() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        accountSrc,
+        'file:///test/Account.cls',
+      );
+
+      const serviceSrc = [
+        'public class ContactService {',
+        '  public Account getAccount() { return null; }',
+        '  public String getName() { return null; }',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        serviceSrc,
+        'file:///test/ContactService.cls',
+      );
+
+      const content = [
+        'public class ChainTest {',
+        '  public void run() {',
+        '    ContactService svc = new ContactService();',
+        '    svc.getAccount().',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/ChainTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 3, 21, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('Name');
+      expect(names).toContain('Industry');
+      expect(names).not.toContain('describeAccount');
+      expect(names).not.toContain('getAccount');
+      expect(names).not.toContain('getName');
+    });
+  });
+
+  describe('getCompletions - enum, inner class, and constructor scenarios', () => {
+    it('E: should return enum values for Season. (static enum access)', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const seasonContent =
+        'public enum Season { SPRING, SUMMER, FALL, WINTER }';
+      await compileInlineAndRegister(
+        sm,
+        seasonContent,
+        'file:///test/Season.cls',
+      );
+
+      const content = [
+        'public class EnumTest {',
+        '  public void run() {',
+        '    Season.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/EnumTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 2, 11, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('SPRING');
+      expect(names).toContain('SUMMER');
+      expect(names).toContain('FALL');
+      expect(names).toContain('WINTER');
+    });
+
+    it('F: should return static members and inner types for OuterClass. (static access)', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const outerContent = [
+        'public class OuterClass {',
+        '  public static String outerStaticField;',
+        '  public String outerInstanceField;',
+        '  public static void outerStaticMethod() {}',
+        '  public class InnerClass {',
+        '    public String innerField;',
+        '  }',
+        '  public interface InnerInterface {',
+        '    void doSomething();',
+        '  }',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        outerContent,
+        'file:///test/OuterClass.cls',
+      );
+
+      const content = [
+        'public class InnerTest {',
+        '  public void run() {',
+        '    OuterClass.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/InnerTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 2, 15, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('outerStaticField');
+      expect(names).toContain('outerStaticMethod');
+      expect(names).toContain('InnerClass');
+      expect(names).toContain('InnerInterface');
+      expect(names).not.toContain('outerInstanceField');
+    });
+
+    it('G1: should exclude constructors from this. completions', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const content = [
+        'public class HasConstructor {',
+        '  public String field;',
+        '  public HasConstructor() {}',
+        '  public HasConstructor(String s) {}',
+        '  public void doWork() {}',
+        '  public static void staticWork() {}',
+        '  public void test() {',
+        '    this.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/HasConstructor.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 7, 9, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('field');
+      expect(names).toContain('doWork');
+
+      const ctorCandidate = candidates.find(
+        (c) => c.symbol.kind === 'constructor',
+      );
+      expect(ctorCandidate).toBeUndefined();
+    });
+
+    it('G2: should exclude constructors from static type-name access', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      const ctorContent = [
+        'public class HasConstructor {',
+        '  public String field;',
+        '  public HasConstructor() {}',
+        '  public HasConstructor(String s) {}',
+        '  public void doWork() {}',
+        '  public static void staticWork() {}',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(
+        sm,
+        ctorContent,
+        'file:///test/HasConstructor.cls',
+      );
+
+      const content = [
+        'public class CtorStaticTest {',
+        '  public void run() {',
+        '    HasConstructor.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/CtorStaticTest.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 2, 19, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((c) => c.symbol.name);
+
+      expect(names).toContain('staticWork');
+
+      const ctorCandidate = candidates.find(
+        (c) => c.symbol.kind === 'constructor',
+      );
+      expect(ctorCandidate).toBeUndefined();
     });
   });
 });

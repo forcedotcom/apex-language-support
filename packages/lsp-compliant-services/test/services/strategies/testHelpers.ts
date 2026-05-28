@@ -38,6 +38,18 @@ export async function compileAndRegister(
   await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, fileUri));
 }
 
+export async function compileInlineAndRegister(
+  symbolManager: ApexSymbolManager,
+  content: string,
+  uri: string,
+): Promise<void> {
+  const compilerService = new CompilerService();
+  const symbolTable = new SymbolTable();
+  const listener = new FullSymbolCollectorListener(symbolTable);
+  compilerService.compile(content, uri, listener);
+  await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
+}
+
 export function makeTextDocument(content: string, uri: string): TextDocument {
   return TextDocument.create(uri, 'apex', 1, content);
 }
