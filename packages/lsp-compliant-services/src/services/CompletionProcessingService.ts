@@ -461,7 +461,7 @@ export class CompletionProcessingService implements ICompletionProcessor {
       if (typeof name !== 'string' || name.length === 0) {
         continue;
       }
-      const key = name.toLowerCase();
+      const key = this.buildDeduplicationKey(candidate.symbol);
       const existing = byLabel.get(key);
       if (!existing || candidate.relevance > existing.relevance) {
         byLabel.set(key, candidate);
@@ -469,6 +469,20 @@ export class CompletionProcessingService implements ICompletionProcessor {
     }
     // Preserve the relevance-descending order produced upstream.
     return [...byLabel.values()].sort((a, b) => b.relevance - a.relevance);
+  }
+
+  private buildDeduplicationKey(symbol: any): string {
+    const name = (symbol.name as string).toLowerCase();
+    if (
+      (symbol.kind === 'method' || symbol.kind === 'constructor') &&
+      Array.isArray(symbol.parameters)
+    ) {
+      const paramTypes = symbol.parameters
+        .map((p: any) => (p?.type?.name ?? 'object').toLowerCase())
+        .join(',');
+      return `${name}(${paramTypes})`;
+    }
+    return name;
   }
 
   /**

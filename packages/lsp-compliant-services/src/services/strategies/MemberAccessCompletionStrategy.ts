@@ -605,7 +605,7 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     const directMembers = await this.getDirectMembers(typeSymbol);
     for (const member of directMembers) {
       if (this.shouldIncludeMember(member, expectStatic)) {
-        const key = `${member.kind}:${member.name}`;
+        const key = this.memberKey(member);
         if (!seenNames.has(key)) {
           seenNames.add(key);
           candidates.push({
@@ -628,12 +628,12 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
       const superMembers = await this.getDirectMembers(superType);
       for (const member of superMembers) {
         if (this.shouldIncludeMember(member, expectStatic)) {
-          const key = `${member.kind}:${member.name}`;
+          const key = this.memberKey(member);
           if (!seenNames.has(key)) {
             seenNames.add(key);
             candidates.push({
               symbol: member,
-              relevance: 0.8 - depth * 0.05, // Decreasing relevance with depth
+              relevance: 0.8 - depth * 0.05,
               source: 'inherited',
               isStatic: member.modifiers?.isStatic ?? false,
             });
@@ -653,7 +653,7 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
           const ifaceMembers = await this.getDirectMembers(ifaceType);
           for (const member of ifaceMembers) {
             if (this.shouldIncludeMember(member, expectStatic)) {
-              const key = `${member.kind}:${member.name}`;
+              const key = this.memberKey(member);
               if (!seenNames.has(key)) {
                 seenNames.add(key);
                 candidates.push({
@@ -826,6 +826,21 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
     // For instance access, show instance (non-static) members
     return !isStatic || member.kind === SymbolKind.EnumValue;
+  }
+
+  private memberKey(member: ApexSymbol): string {
+    if (
+      (member.kind === SymbolKind.Method ||
+        member.kind === SymbolKind.Constructor) &&
+      isMethodSymbolNarrowing(member)
+    ) {
+      const m = member as MethodSymbol;
+      const paramTypes = (m.parameters ?? [])
+        .map((p) => (p.type?.name ?? '').toLowerCase())
+        .join(',');
+      return `${member.kind}:${member.name}(${paramTypes})`;
+    }
+    return `${member.kind}:${member.name}`;
   }
 
   // ---------------------------------------------------------------------------
