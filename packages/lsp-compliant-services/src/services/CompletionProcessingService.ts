@@ -216,7 +216,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
       if (this.isInStringLiteral(document, params.position)) {
         this.logger.debug(
           () =>
-            `Skipping completion at ${params.position.line}:${params.position.character} — cursor is inside a string literal`,
+            `Skipping completion at ${params.position.line}:` +
+            `${params.position.character} — cursor is inside a string literal`,
         );
         return [];
       }

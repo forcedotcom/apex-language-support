@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompletionItem, CompletionItemKind } from 'vscode-languageserver-protocol';
+import {
+  CompletionItem,
+  CompletionItemKind,
+} from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -40,11 +43,11 @@ export interface MemberCompletionCandidate {
 export interface DotExpressionContext {
   /** The kind of expression before the dot */
   kind:
-    | 'variable'      // myVar.
-    | 'this'          // this.
-    | 'super'         // super.
-    | 'type'          // ClassName.  (static access)
-    | 'method-chain'  // obj.method().
+    | 'variable' // myVar.
+    | 'this' // this.
+    | 'super' // super.
+    | 'type' // ClassName.  (static access)
+    | 'method-chain' // obj.method().
     | 'unknown';
   /** The text segments of the expression (e.g. ['obj', 'getAccount()'] for obj.getAccount().) */
   segments: string[];
@@ -124,7 +127,8 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
       if (!resolvedType) {
         self.logger.debug(
-          () => `MemberAccess: could not resolve type for ${exprContext.segments.join('.')}`,
+          () =>
+            `MemberAccess: could not resolve type for ${exprContext.segments.join('.')}`,
         );
         return [];
       }
@@ -167,7 +171,9 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
     // Remove the trailing dot
     const trimmed = lineText.trimEnd();
-    const beforeDot = trimmed.endsWith('.') ? trimmed.slice(0, -1).trimEnd() : trimmed;
+    const beforeDot = trimmed.endsWith('.')
+      ? trimmed.slice(0, -1).trimEnd()
+      : trimmed;
 
     if (!beforeDot) {
       return { kind: 'unknown', segments: [], expectStatic: false };
@@ -205,7 +211,12 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (segments.length === 1) {
       const seg = segments[0];
       // Heuristic: if first letter is uppercase and it's not a method call, likely a type
-      if (seg[0] && seg[0] === seg[0].toUpperCase() && seg[0] !== seg[0].toLowerCase() && !seg.includes('(')) {
+      if (
+        seg[0] &&
+        seg[0] === seg[0].toUpperCase() &&
+        seg[0] !== seg[0].toLowerCase() &&
+        !seg.includes('(')
+      ) {
         return { kind: 'type', segments, expectStatic: true };
       }
       return { kind: 'variable', segments, expectStatic: false };
@@ -460,7 +471,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
       if (seg.includes('(')) {
         // Method call
         const methodName = seg.replace(/\(.*\)$/, '');
-        currentType = await this.resolveMethodReturnType(currentType, methodName);
+        currentType = await this.resolveMethodReturnType(
+          currentType,
+          methodName,
+        );
       } else {
         // Field/property access
         currentType = await this.resolveFieldType(currentType, seg);
@@ -477,7 +491,9 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   /**
    * Resolve a type name to a TypeSymbol using the symbol manager.
    */
-  private async resolveTypeByName(typeName: string): Promise<TypeSymbol | null> {
+  private async resolveTypeByName(
+    typeName: string,
+  ): Promise<TypeSymbol | null> {
     // Strip generic parameters and array brackets
     const baseName = typeName.replace(/<.*>/, '').replace(/\[\]$/, '');
 
@@ -505,7 +521,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (!varSym.type) return null;
 
     // If the type has a resolved symbol already, use it
-    if (varSym.type.resolvedSymbol && inTypeSymbolGroup(varSym.type.resolvedSymbol)) {
+    if (
+      varSym.type.resolvedSymbol &&
+      inTypeSymbolGroup(varSym.type.resolvedSymbol)
+    ) {
       return varSym.type.resolvedSymbol as TypeSymbol;
     }
 
@@ -534,7 +553,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (method && isMethodSymbolNarrowing(method)) {
       const methodSym = method as MethodSymbol;
       if (methodSym.returnType) {
-        if (methodSym.returnType.resolvedSymbol && inTypeSymbolGroup(methodSym.returnType.resolvedSymbol)) {
+        if (
+          methodSym.returnType.resolvedSymbol &&
+          inTypeSymbolGroup(methodSym.returnType.resolvedSymbol)
+        ) {
           return methodSym.returnType.resolvedSymbol as TypeSymbol;
         }
         if (methodSym.returnType.name) {
@@ -674,14 +696,22 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   /**
    * Get direct members (methods, fields, properties, inner classes) of a type.
    */
-  private async getDirectMembers(typeSymbol: TypeSymbol): Promise<ApexSymbol[]> {
+  private async getDirectMembers(
+    typeSymbol: TypeSymbol,
+  ): Promise<ApexSymbol[]> {
     if (!typeSymbol.fileUri) return [];
 
-    const symbolTable = await this.symbolManager.getSymbolTableForFile(typeSymbol.fileUri);
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(
+      typeSymbol.fileUri,
+    );
     if (!symbolTable) {
       // Fallback: use findSymbolsInFile
-      const fileSymbols = await this.symbolManager.findSymbolsInFile(typeSymbol.fileUri);
-      return fileSymbols.filter((s) => this.isMemberOf(s, typeSymbol, fileSymbols));
+      const fileSymbols = await this.symbolManager.findSymbolsInFile(
+        typeSymbol.fileUri,
+      );
+      return fileSymbols.filter((s) =>
+        this.isMemberOf(s, typeSymbol, fileSymbols),
+      );
     }
 
     const allSymbols = symbolTable.getAllSymbols();
@@ -756,7 +786,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (symbol.fileUri !== typeSymbol.fileUri) return false;
 
     // Skip local variables and parameters
-    if (symbol.kind === SymbolKind.Variable || symbol.kind === SymbolKind.Parameter) {
+    if (
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter
+    ) {
       return false;
     }
 
@@ -765,7 +798,11 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
     // Check if parent is a class block of the type
     const parent = allSymbols.find((s) => s.id === symbol.parentId);
-    if (parent && isBlockSymbol(parent) && (parent as any).scopeType === 'class') {
+    if (
+      parent &&
+      isBlockSymbol(parent) &&
+      (parent as any).scopeType === 'class'
+    ) {
       if (parent.parentId === typeSymbol.id) return true;
     }
 
@@ -775,12 +812,18 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   /**
    * Filter: should a member be included based on static/instance context?
    */
-  private shouldIncludeMember(member: ApexSymbol, expectStatic: boolean): boolean {
+  private shouldIncludeMember(
+    member: ApexSymbol,
+    expectStatic: boolean,
+  ): boolean {
     // Skip block symbols
     if (isBlockSymbol(member)) return false;
 
     // Skip variables and parameters (they're not class members exposed via dot)
-    if (member.kind === SymbolKind.Variable || member.kind === SymbolKind.Parameter) {
+    if (
+      member.kind === SymbolKind.Variable ||
+      member.kind === SymbolKind.Parameter
+    ) {
       return false;
     }
 
@@ -837,7 +880,8 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (declared.length > 0) {
       // Sort by declaration line descending (closest first)
       declared.sort(
-        (a, b) => b.location.symbolRange.startLine - a.location.symbolRange.startLine,
+        (a, b) =>
+          b.location.symbolRange.startLine - a.location.symbolRange.startLine,
       );
       return declared[0] as VariableSymbol;
     }
@@ -866,8 +910,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
     // If multiple (nested classes), return the innermost (smallest range)
     classSymbols.sort((a, b) => {
-      const aSize = a.location.symbolRange.endLine - a.location.symbolRange.startLine;
-      const bSize = b.location.symbolRange.endLine - b.location.symbolRange.startLine;
+      const aSize =
+        a.location.symbolRange.endLine - a.location.symbolRange.startLine;
+      const bSize =
+        b.location.symbolRange.endLine - b.location.symbolRange.startLine;
       return aSize - bSize;
     });
 
@@ -881,7 +927,9 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   /**
    * Convert a MemberCompletionCandidate to an LSP CompletionItem.
    */
-  private toCompletionItem(candidate: MemberCompletionCandidate): CompletionItem {
+  private toCompletionItem(
+    candidate: MemberCompletionCandidate,
+  ): CompletionItem {
     const { symbol, relevance, source } = candidate;
     const kind = this.mapKind(symbol.kind);
 
@@ -941,7 +989,9 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     if (symbol.kind === SymbolKind.Method && isMethodSymbolNarrowing(symbol)) {
       const method = symbol as MethodSymbol;
       const params =
-        method.parameters?.map((p) => `${p.type?.name ?? '?'} ${p.name}`).join(', ') ?? '';
+        method.parameters
+          ?.map((p) => `${p.type?.name ?? '?'} ${p.name}`)
+          .join(', ') ?? '';
       const ret = method.returnType?.name ?? 'void';
       return `${symbol.name}(${params}): ${ret}`;
     }

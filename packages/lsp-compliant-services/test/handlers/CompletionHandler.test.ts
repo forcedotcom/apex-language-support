@@ -12,23 +12,21 @@ import {
   CompletionItemKind,
 } from 'vscode-languageserver-protocol';
 
-import { CompletionHandler } from '../../src/handlers/CompletionHandler';
+import {
+  CompletionHandler,
+  COMPLETION_TIMEOUT_MS,
+  COMPLETION_TRIGGER_CHARACTERS,
+} from '../../src/handlers/CompletionHandler';
 import { ICompletionProcessor } from '../../src/services/CompletionProcessingService';
-
-// Mock the completion processor
-const mockCompletionProcessor: jest.Mocked<ICompletionProcessor> = {
-  processCompletion: jest.fn(),
-};
 
 describe('CompletionHandler', () => {
   let handler: CompletionHandler;
   let mockLogger: any;
+  let mockCompletionProcessor: jest.Mocked<ICompletionProcessor>;
 
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
 
-    // Setup mock logger
     mockLogger = {
       debug: jest.fn(),
       info: jest.fn(),
@@ -36,13 +34,240 @@ describe('CompletionHandler', () => {
       error: jest.fn(),
     };
 
-    // Create handler instance
+    mockCompletionProcessor = {
+      processCompletion: jest.fn(),
+    };
+
     handler = new CompletionHandler(mockLogger, mockCompletionProcessor);
   });
 
-  describe('handleCompletion', () => {
-    it('should handle processor errors gracefully', async () => {
-      // Arrange
+  describe('handleCompletion - basic path', () => {
+    it('should return completion items for valid request', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const mockItems: CompletionItem[] = [
+        { label: 'doSomething', kind: CompletionItemKind.Method },
+      ];
+
+      mockCompletionProcessor.processCompletion.mockResolvedValue(mockItems);
+
+      const result = await handler.handleCompletion(params);
+      expect(result).toEqual(mockItems);
+      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
+        params,
+      );
+    });
+
+    it('should handle null completion results', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      mockCompletionProcessor.processCompletion.mockResolvedValue(null as any);
+
+      const result = await handler.handleCompletion(params);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('timeout enforcement', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should return empty array when processor exceeds timeout on basic path', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      mockCompletionProcessor.processCompletion.mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve([]), 5000)),
+      );
+
+      const resultPromise = handler.handleCompletion(params);
+
+      jest.advanceTimersByTime(COMPLETION_TIMEOUT_MS + 100);
+
+      const result = await resultPromise;
+      expect(result).toEqual([]);
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should return {items: [], isIncomplete: true} when processor exceeds timeout on readiness path', async () => {
+      mockCompletionProcessor.processCompletionWithReadiness = jest
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () => resolve({ items: [], isIncomplete: false }),
+                5000,
+              ),
+            ),
+        );
+
+      const handlerWithReadiness = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+      );
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const resultPromise = handlerWithReadiness.handleCompletion(params);
+
+      jest.advanceTimersByTime(COMPLETION_TIMEOUT_MS + 100);
+
+      const result = await resultPromise;
+      expect(result).toEqual({ items: [], isIncomplete: true });
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should resolve normally when processor completes before timeout', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const mockItems: CompletionItem[] = [
+        { label: 'fastMethod', kind: CompletionItemKind.Method },
+      ];
+
+      mockCompletionProcessor.processCompletion.mockImplementation(
+        () =>
+          new Promise((resolve) => setTimeout(() => resolve(mockItems), 100)),
+      );
+
+      const resultPromise = handler.handleCompletion(params);
+
+      jest.advanceTimersByTime(200);
+
+      const result = await resultPromise;
+      expect(result).toEqual(mockItems);
+    });
+
+    it('should use custom timeout when provided', async () => {
+      const customTimeout = 500;
+      const customHandler = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+        customTimeout,
+      );
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      mockCompletionProcessor.processCompletion.mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+      );
+
+      const resultPromise = customHandler.handleCompletion(params);
+
+      jest.advanceTimersByTime(customTimeout + 100);
+
+      const result = await resultPromise;
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('progressive refinement', () => {
+    it('should use processCompletionWithReadiness when available', async () => {
+      mockCompletionProcessor.processCompletionWithReadiness = jest
+        .fn()
+        .mockResolvedValue({
+          items: [{ label: 'method1', kind: CompletionItemKind.Method }],
+          isIncomplete: true,
+        });
+
+      const handlerWithReadiness = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+      );
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const result = await handlerWithReadiness.handleCompletion(params);
+
+      expect(result).toEqual({
+        items: [{ label: 'method1', kind: CompletionItemKind.Method }],
+        isIncomplete: true,
+      });
+      expect(
+        mockCompletionProcessor.processCompletionWithReadiness,
+      ).toHaveBeenCalledWith(params);
+      expect(mockCompletionProcessor.processCompletion).not.toHaveBeenCalled();
+    });
+
+    it('should return CompletionList with isIncomplete: false when fully resolved', async () => {
+      mockCompletionProcessor.processCompletionWithReadiness = jest
+        .fn()
+        .mockResolvedValue({
+          items: [
+            { label: 'method1', kind: CompletionItemKind.Method },
+            { label: 'method2', kind: CompletionItemKind.Method },
+          ],
+          isIncomplete: false,
+        });
+
+      const handlerWithReadiness = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+      );
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const result = await handlerWithReadiness.handleCompletion(params);
+
+      expect(result).toEqual({
+        items: [
+          { label: 'method1', kind: CompletionItemKind.Method },
+          { label: 'method2', kind: CompletionItemKind.Method },
+        ],
+        isIncomplete: false,
+      });
+    });
+
+    it('should fall back to processCompletion when processCompletionWithReadiness is undefined', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const mockItems: CompletionItem[] = [
+        { label: 'fallbackMethod', kind: CompletionItemKind.Method },
+      ];
+      mockCompletionProcessor.processCompletion.mockResolvedValue(mockItems);
+
+      const result = await handler.handleCompletion(params);
+
+      expect(result).toEqual(mockItems);
+      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
+        params,
+      );
+    });
+  });
+
+  describe('error isolation', () => {
+    it('should return null when processor throws', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
@@ -52,82 +277,12 @@ describe('CompletionHandler', () => {
         new Error('Processor error'),
       );
 
-      // Act & Assert
-      const result = await handler.handleCompletion(params);
-      expect(result).toBeNull();
-      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
-        params,
-      );
-    });
-
-    it('should return completion items for valid request', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test.cls' },
-        position: { line: 0, character: 0 },
-      };
-
-      const mockCompletionItems: CompletionItem[] = [
-        {
-          label: 'doSomething',
-          kind: CompletionItemKind.Method,
-        },
-      ];
-
-      mockCompletionProcessor.processCompletion.mockResolvedValue(
-        mockCompletionItems,
-      );
-
-      // Act
-      const result = await handler.handleCompletion(params);
-
-      // Assert
-      expect(result).toEqual(mockCompletionItems);
-      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
-        params,
-      );
-    });
-
-    it('should handle null completion results', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test.cls' },
-        position: { line: 0, character: 0 },
-      };
-
-      mockCompletionProcessor.processCompletion.mockResolvedValue(null as any);
-
-      // Act
-      const result = await handler.handleCompletion(params);
-
-      // Assert
-      expect(result).toBeNull();
-      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
-        params,
-      );
-    });
-  });
-
-  describe('error handling', () => {
-    it('should log errors appropriately', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test.cls' },
-        position: { line: 0, character: 0 },
-      };
-
-      mockCompletionProcessor.processCompletion.mockRejectedValue(
-        new Error('Test error'),
-      );
-
-      // Act & Assert
       const result = await handler.handleCompletion(params);
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should handle different error types', async () => {
-      // Arrange
+    it('should return null for TypeError', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
@@ -137,33 +292,44 @@ describe('CompletionHandler', () => {
         new TypeError('Type error'),
       );
 
-      // Act & Assert
       const result = await handler.handleCompletion(params);
+      expect(result).toBeNull();
+    });
+
+    it('should return null when readiness processor throws', async () => {
+      mockCompletionProcessor.processCompletionWithReadiness = jest
+        .fn()
+        .mockRejectedValue(new Error('Readiness error'));
+
+      const handlerWithReadiness = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+      );
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      const result = await handlerWithReadiness.handleCompletion(params);
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 
-  describe('performance', () => {
-    it('should handle requests efficiently', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
-      };
+  describe('trigger characters', () => {
+    it('should include dot for member access', () => {
+      expect(COMPLETION_TRIGGER_CHARACTERS).toContain('.');
+    });
 
-      mockCompletionProcessor.processCompletion.mockResolvedValue([]);
+    it('should include @ for annotation completion', () => {
+      expect(COMPLETION_TRIGGER_CHARACTERS).toContain('@');
+    });
+  });
 
-      const startTime = Date.now();
-
-      // Act
-      const result = await handler.handleCompletion(params);
-
-      const endTime = Date.now();
-
-      // Assert
-      expect(result).toBeDefined();
-      expect(endTime - startTime).toBeLessThan(1000); // Should complete within 1 second
+  describe('COMPLETION_TIMEOUT_MS', () => {
+    it('should be 2000ms', () => {
+      expect(COMPLETION_TIMEOUT_MS).toBe(2000);
     });
   });
 });
