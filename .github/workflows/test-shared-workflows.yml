@@ -1,0 +1,111 @@
+name: Test Shared CI Workflows
+
+# Tests the reusable workflows from salesforcecli/github-workflows
+# This validates the shared workflows work correctly with apex-language-support
+#
+# IMPORTANT: All tests run in DRY-RUN mode - no actual publishing or releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow-to-test:
+        description: 'Which workflow to test'
+        required: false
+        default: 'package'
+        type: choice
+        options:
+          - package
+          - publish-extensions
+          - all
+
+jobs:
+  test-package-workflow:
+    name: Test Package Workflow
+    if: inputs.workflow-to-test == 'package' || inputs.workflow-to-test == 'all'
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-package.yml@feat/add-vscode-extension-ci
+    with:
+      branch: main
+      artifact-name: test-vsix-packages
+      pre-release: true
+      dry-run: true
+
+  test-publish-workflow:
+    name: Test Publish Workflow (DRY RUN)
+    if: inputs.workflow-to-test == 'publish-extensions' || inputs.workflow-to-test == 'all'
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@feat/add-vscode-extension-ci
+    with:
+      branch: main
+      extensions: apex-lsp-vscode-extension
+      registries: vsce
+      pre-release: true
+      dry-run: true
+    secrets: inherit
+
+  verify-artifacts:
+    name: Verify Package Artifacts
+    needs: test-package-workflow
+    if: inputs.workflow-to-test == 'package' || inputs.workflow-to-test == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: test-vsix-packages
+
+      - name: Verify VSIX files exist
+        run: |
+          echo "Checking for VSIX files..."
+          ls -la || true
+
+          # Look for VSIX files
+          VSIX_COUNT=$(find . -name "*.vsix" -type f 2>/dev/null | wc -l || echo "0")
+
+          if [ "$VSIX_COUNT" -eq 0 ]; then
+            echo "❌ No VSIX files found in artifacts"
+            exit 1
+          fi
+
+          echo "✅ Found $VSIX_COUNT VSIX file(s)"
+          find . -name "*.vsix" -exec ls -lh {} \;
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-package-workflow, test-publish-workflow, verify-artifacts]
+    if: always()
+    steps:
+      - name: Check results
+        env:
+          PACKAGE_RESULT: ${{ needs.test-package-workflow.result }}
+          PUBLISH_RESULT: ${{ needs.test-publish-workflow.result }}
+          VERIFY_RESULT: ${{ needs.verify-artifacts.result }}
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | ${PACKAGE_RESULT:-skipped} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Publish (dry-run) | ${PUBLISH_RESULT:-skipped} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Verify Artifacts | ${VERIFY_RESULT:-skipped} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          FAILED=0
+          if [ "$PACKAGE_RESULT" == "failure" ]; then
+            echo "❌ Package workflow failed"
+            FAILED=1
+          fi
+          if [ "$PUBLISH_RESULT" == "failure" ]; then
+            echo "❌ Publish workflow failed"
+            FAILED=1
+          fi
+          if [ "$VERIFY_RESULT" == "failure" ]; then
+            echo "❌ Artifact verification failed"
+            FAILED=1
+          fi
+
+          if [ $FAILED -eq 0 ]; then
+            echo "✅ All shared workflow tests passed!" | tee -a $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some tests failed" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
