@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { ExpressionContext } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import type { SymbolReference } from '../../../types/symbolReference';
@@ -51,15 +51,15 @@ export class SymbolTableEnrichmentService {
     return {
       symbolRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + textLength,
+        endColumn: stop.column + textLength,
       },
       identifierRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + textLength,
+        endColumn: stop.column + textLength,
       },
     };
   }

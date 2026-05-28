@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream, ParserRuleContext } from 'antlr4ts';
+import { CommonTokenStream, ParserRuleContext } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   ExpressionContext,
   EqualityExpressionContext,
   CmpExpressionContext,
@@ -88,9 +87,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -110,7 +109,7 @@ function findContainingExpression(
     if (current instanceof ExpressionContext) {
       return current;
     }
-    current = current.parent || null;
+    current = current.parentCtx || null;
   }
   return null;
 }
@@ -391,19 +390,19 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterEqualityExpression(ctx: EqualityExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator =
-        ctx.TRIPLEEQUAL()?.text ||
-        ctx.TRIPLENOTEQUAL()?.text ||
-        ctx.EQUAL()?.text ||
-        ctx.NOTEQUAL()?.text ||
-        ctx.LESSANDGREATER()?.text ||
+        ctx.TRIPLEEQUAL()?.getText() ||
+        ctx.TRIPLENOTEQUAL()?.getText() ||
+        ctx.EQUAL()?.getText() ||
+        ctx.NOTEQUAL()?.getText() ||
+        ctx.LESSANDGREATER()?.getText() ||
         '==';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
@@ -417,12 +416,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterCmpExpression(ctx: CmpExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       let operator = '<';
       if (ctx.GT()) {
@@ -442,12 +441,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterArth1Expression(ctx: Arth1ExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator = ctx.MUL() ? '*' : ctx.DIV() ? '/' : '*';
       this.arithmeticExpressions.push({
@@ -462,12 +461,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterArth2Expression(ctx: Arth2ExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator = ctx.ADD() ? '+' : ctx.SUB() ? '-' : '+';
       this.arithmeticExpressions.push({
@@ -482,12 +481,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterBitAndExpression(ctx: BitAndExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -500,12 +499,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterBitOrExpression(ctx: BitOrExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -518,12 +517,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterBitNotExpression(ctx: BitNotExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -536,17 +535,17 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterBitExpression(ctx: BitExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       // Grammar: expression (LT LT | GT GT GT | GT GT) expression
       let operator = '<<';
-      const ltTokens = ctx.LT();
-      const gtTokens = ctx.GT();
+      const ltTokens = ctx.LT_list();
+      const gtTokens = ctx.GT_list();
       if (ltTokens && ltTokens.length >= 2) {
         operator = '<<';
       } else if (gtTokens && gtTokens.length >= 3) {
@@ -566,14 +565,14 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterCondExpression(ctx: CondExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 3) {
       const conditionExpr = expressions[0];
       const trueExpr = expressions[1];
       const falseExpr = expressions[2];
-      const conditionText = conditionExpr.text || '';
-      const trueExprText = trueExpr.text || '';
-      const falseExprText = falseExpr.text || '';
+      const conditionText = conditionExpr.getText() || '';
+      const trueExprText = trueExpr.getText() || '';
+      const falseExprText = falseExpr.getText() || '';
       this.ternaryExpressions.push({
         ctx: ctx as ExpressionContext,
         conditionExpr,
@@ -592,12 +591,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterLogAndExpression(ctx: LogAndExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -610,12 +609,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterLogOrExpression(ctx: LogOrExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -628,12 +627,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterCoalExpression(ctx: CoalExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
@@ -646,12 +645,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
   }
 
   enterAssignExpression(ctx: AssignExpressionContext): void {
-    const expressions = ctx.expression();
+    const expressions = ctx.expression_list();
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.text || '';
-      const rightText = rightExpr.text || '';
+      const leftText = leftExpr.getText() || '';
+      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       let operator = '=';
       if (ctx.ADD_ASSIGN()) operator = '+=';
@@ -759,7 +758,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
     const sourceExpr = ctx.expression();
     const typeRef = ctx.typeRef();
     if (sourceExpr && typeRef) {
-      const targetType = typeRef.text || '';
+      const targetType = typeRef.getText() || '';
       const location = getLocationFromContext(ctx);
       this.castExpressions.push({
         ctx,
@@ -773,7 +772,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
   enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
     const expr = ctx.expression();
     if (expr) {
-      const exprText = expr.text || '';
+      const exprText = expr.getText() || '';
       // InstanceOf always returns Boolean
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
@@ -806,7 +805,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
     const typeRef = ctx.typeRef();
     if (iterableExpr) {
       const location = getLocationFromContext(ctx);
-      const variableType = typeRef ? typeRef.text || null : null;
+      const variableType = typeRef ? typeRef.getText() || null : null;
       this.enhancedForControlExpressions.push({
         ctx: iterableExpr,
         location,
@@ -1047,10 +1046,7 @@ export const ExpressionValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -1070,8 +1066,8 @@ export const ExpressionValidator: Validator = {
 
         // Walk the parse tree to collect expression information
         const listener = new ExpressionListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         const comparisonExpressions = listener.getComparisonExpressions();
         const arithmeticExpressions = listener.getArithmeticExpressions();
@@ -1437,7 +1433,7 @@ export const ExpressionValidator: Validator = {
 
           // Enhanced for loop iterable must be List, Set, Array, or Iterable
           // SOQL [SELECT ...] and Database.getQueryLocator are also valid
-          const exprText = (ctx.text || '').trim();
+          const exprText = (ctx.getText() || '').trim();
           const isSoqlOrQueryLocator =
             (exprText.includes('[') && /SELECT[\s\S]*FROM/i.test(exprText)) ||
             exprText.includes('getQueryLocator');
@@ -1877,7 +1873,7 @@ export const ExpressionValidator: Validator = {
         // 15. Validate enhanced for loop variable type matches collection element type
         for (const expr of enhancedForControls) {
           const { variableType, collectionExpr, location } = expr;
-          const collectionText = (collectionExpr.text || '').trim();
+          const collectionText = (collectionExpr.getText() || '').trim();
 
           // SOQL or Database.getQueryLocator: variable must be SObject-compatible
           const isSoql =
@@ -2550,20 +2546,20 @@ export function resolveExpressionTypeRecursive(
       let operator = '';
 
       if (expr instanceof EqualityExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator =
-            expr.TRIPLEEQUAL()?.text ||
-            expr.TRIPLENOTEQUAL()?.text ||
-            expr.EQUAL()?.text ||
-            expr.NOTEQUAL()?.text ||
-            expr.LESSANDGREATER()?.text ||
+            expr.TRIPLEEQUAL()?.getText() ||
+            expr.TRIPLENOTEQUAL()?.getText() ||
+            expr.EQUAL()?.getText() ||
+            expr.NOTEQUAL()?.getText() ||
+            expr.LESSANDGREATER()?.getText() ||
             '==';
         }
       } else if (expr instanceof CmpExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
@@ -2578,47 +2574,47 @@ export function resolveExpressionTypeRecursive(
               : '<';
         }
       } else if (expr instanceof Arth1ExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = expr.MUL() ? '*' : expr.DIV() ? '/' : '*';
         }
       } else if (expr instanceof Arth2ExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = expr.ADD() ? '+' : expr.SUB() ? '-' : '+';
         }
       } else if (expr instanceof BitAndExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = '&';
         }
       } else if (expr instanceof BitOrExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = '|';
         }
       } else if (expr instanceof BitNotExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = '^';
         }
       } else if (expr instanceof BitExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
-          const ltTokens = expr.LT();
-          const gtTokens = expr.GT();
+          const ltTokens = expr.LT_list();
+          const gtTokens = expr.GT_list();
           if (ltTokens && ltTokens.length >= 2) {
             operator = '<<';
           } else if (gtTokens && gtTokens.length >= 3) {
@@ -2630,21 +2626,21 @@ export function resolveExpressionTypeRecursive(
           }
         }
       } else if (expr instanceof LogAndExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = '&&';
         }
       } else if (expr instanceof LogOrExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
           operator = '||';
         }
       } else if (expr instanceof CoalExpressionContext) {
-        const expressions = expr.expression();
+        const expressions = expr.expression_list();
         if (expressions.length >= 2) {
           leftExpr = expressions[0];
           rightExpr = expressions[1];
@@ -2692,7 +2688,7 @@ export function resolveExpressionTypeRecursive(
 
     // Handle ternary expression
     if (expr instanceof CondExpressionContext) {
-      const expressions = expr.expression();
+      const expressions = expr.expression_list();
       if (expressions.length >= 3) {
         const trueExpr = expressions[1];
         const falseExpr = expressions[2];
@@ -2809,7 +2805,7 @@ export function resolveExpressionTypeRecursive(
       const castExpr = expr as CastExpressionContext;
       const typeRef = castExpr.typeRef();
       if (typeRef) {
-        const typeName = typeRef.text || '';
+        const typeName = typeRef.getText() || '';
         const info: ExpressionTypeInfo = {
           resolvedType: typeName.toLowerCase(),
           source: 'computed',
@@ -2832,7 +2828,7 @@ export function resolveExpressionTypeRecursive(
     }
 
     // Handle primary expressions (variables) - try text-based resolution
-    const exprText = expr.text || '';
+    const exprText = expr.getText() || '';
     const trimmed = exprText.trim();
 
     // Skip if it's a literal (already handled above)

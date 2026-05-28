@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  ANTLRErrorListener,
-  RecognitionException,
-  Recognizer,
-  Token,
-} from 'antlr4ts';
+import { ErrorListener, RecognitionException, Token } from 'antlr4';
 import {
   ILLEGAL_DOUBLE_LITERAL,
   ILLEGAL_STRING_LITERAL,
@@ -155,13 +150,14 @@ export function mapSyntaxErrorToCode(
 /**
  * Custom error listener for ANTLR parser to capture errors in a structured way
  */
-export class ApexErrorListener implements ANTLRErrorListener<Token> {
+export class ApexErrorListener extends ErrorListener<Token> {
   private errors: ApexError[] = [];
   private fileUri: string;
   // Track seen errors to prevent duplicates from multiple parse tree walks
   private seenErrorKeys: Set<string> = new Set();
 
   constructor(fileUri: string) {
+    super();
     this.fileUri = fileUri;
   }
 
@@ -221,9 +217,9 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
   /**
    * Called by ANTLR when a syntax error occurs
    */
-  syntaxError<T extends Token>(
-    recognizer: Recognizer<T, any>,
-    offendingSymbol: T | undefined,
+  syntaxError(
+    recognizer: any,
+    offendingSymbol: Token,
     line: number,
     charPositionInLine: number,
     msg: string,
@@ -366,10 +362,11 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
 /**
  * Custom error listener for ANTLR lexer to capture errors in a structured way
  */
-export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
+export class ApexLexerErrorListener extends ErrorListener<number> {
   private errorListener: ApexErrorListener;
 
   constructor(errorListener: ApexErrorListener) {
+    super();
     this.errorListener = errorListener;
   }
 
@@ -377,9 +374,9 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
    * Called by ANTLR lexer when a syntax error occurs.
    * Lexer errors (e.g. unclosed string, unclosed comment) are syntax errors.
    */
-  syntaxError<T extends number>(
-    recognizer: Recognizer<T, any>,
-    offendingSymbol: T | undefined,
+  syntaxError(
+    recognizer: any,
+    offendingSymbol: number,
     line: number,
     charPositionInLine: number,
     msg: string,

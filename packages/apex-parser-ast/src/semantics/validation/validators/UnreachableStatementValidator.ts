@@ -7,18 +7,17 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   StatementContext,
   ReturnStatementContext,
   ThrowStatementContext,
-  ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import type {
@@ -32,7 +31,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -44,9 +43,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -181,10 +180,7 @@ export const UnreachableStatementValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -199,8 +195,8 @@ export const UnreachableStatementValidator: Validator = {
 
         // Walk the parse tree to find unreachable statements
         const listener = new UnreachableStatementListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Report unreachable statements
         const unreachableStatements = listener.getUnreachableStatements();

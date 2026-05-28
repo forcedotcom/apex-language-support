@@ -7,6 +7,7 @@
  */
 
 import {
+  ApexParseTreeWalker,
   MethodCallExpressionContext,
   NewExpressionContext,
   DotExpressionContext,
@@ -29,7 +30,6 @@ import {
   TypeRefPrimaryContext,
   LocalVariableDeclarationContext,
   BlockContext,
-  ParseTreeWalker,
   // Control structure contexts for scope creation
   IfStatementContext,
   WhileStatementContext,
@@ -45,7 +45,7 @@ import {
   SetterContext,
   MethodDeclarationContext,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
@@ -152,7 +152,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    * This is the primary method for context determination - no setParentContext needed
    */
   private determineParentContext(ctx: ParserRuleContext): string | undefined {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
 
     while (current) {
       const name = current.constructor.name;
@@ -172,10 +172,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         name === 'InterfaceDeclarationContext'
       ) {
         const typeId = (current as any).id?.();
-        return typeId?.text;
+        return typeId?.getText();
       }
 
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     // Fallback: check scope stack for method
@@ -192,13 +192,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   private extractMethodName(ctx: ParserRuleContext): string | undefined {
     if (ctx.constructor.name === 'MethodDeclarationContext') {
-      return (ctx as any).id?.()?.text;
+      return (ctx as any).id?.()?.getText();
     } else if (ctx.constructor.name === 'ConstructorDeclarationContext') {
       const qualifiedName = (ctx as any).qualifiedName?.();
       const ids = qualifiedName?.id();
-      return ids && ids.length > 0 ? ids[0].text : undefined;
+      return ids && ids.length > 0 ? ids[0].getText() : undefined;
     } else if (ctx.constructor.name === 'InterfaceMethodDeclarationContext') {
-      return (ctx as any).id?.()?.text;
+      return (ctx as any).id?.()?.getText();
     }
     return undefined;
   }
@@ -233,13 +233,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
       // Delegate type reference collection (including generic type parameters) to reference collector
       // This ensures enterTypeArguments is called correctly for generic constructor calls
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire NewExpressionContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire NewExpressionContext subtree
     } catch (error) {
       this.logger.warn(
         () => `Error capturing constructor call reference: ${error}`,
@@ -292,7 +292,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     let pushed = false;
     try {
       const idNode = ctx.id();
-      const methodName = idNode?.text || 'unknownMethod';
+      const methodName = idNode?.getText() || 'unknownMethod';
       const location = idNode
         ? this.getLocationForReference(idNode)
         : this.getLocation(ctx);
@@ -349,7 +349,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
-      const methodName = anyIdNode?.text || 'unknownMethod';
+      const methodName = anyIdNode?.getText() || 'unknownMethod';
       const methodLocation = anyIdNode
         ? this.getLocationForReference(anyIdNode)
         : this.getLocation(ctx);
@@ -421,7 +421,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    * Uses parser context types (NewExpressionContext, isDotExpressionContext).
    */
   private isAnyIdInTypeOrMethodOrFieldContext(ctx: AnyIdContext): boolean {
-    const parent = ctx.parent;
+    const parent = ctx.parentCtx;
     if (!parent) return false;
 
     // Method name or field access: "debug" in System.debug, "x" in f.getB().x
@@ -431,7 +431,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     let p: ParserRuleContext | undefined = parent;
     for (let i = 0; i < 10 && p; i++) {
       if (isContextType(p, NewExpressionContext)) return true;
-      p = p.parent;
+      p = p.parentCtx;
     }
     return false;
   }
@@ -450,7 +450,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         return;
       }
 
-      const idText = ctx.text || '';
+      const idText = ctx.getText() || '';
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName(ctx);
 
@@ -492,17 +492,17 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         return;
       }
 
-      const idText = idNode.text || '';
+      const idText = idNode.getText() || '';
       const location = this.getLocationForReference(idNode);
       const parentContext = this.getCurrentMethodName(ctx);
 
       // Skip when inside dot expression (e.g., System in System.debug, obj in obj.field)
       // Dot/chain handling creates the appropriate reference for the base
       if (!this.isMethodCallParameter(ctx)) {
-        let parent: ParserRuleContext | undefined = ctx.parent;
+        let parent: ParserRuleContext | undefined = ctx.parentCtx;
         while (parent) {
           if (isDotExpressionContext(parent)) return;
-          parent = parent.parent;
+          parent = parent.parentCtx;
         }
       }
 
@@ -763,13 +763,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   enterCastExpression(ctx: CastExpressionContext): void {
     try {
       // Delegate type reference collection (including generic type parameters) to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire CastExpressionContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire CastExpressionContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing cast expression: ${error}`);
     }
@@ -784,7 +784,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       const typeRef = ctx.typeRef();
       const idNode = ctx.id();
       if (typeRef && idNode) {
-        const variableName = idNode.text;
+        const variableName = idNode.getText();
         if (variableName) {
           const currentScope = this.getCurrentScopeSymbol(ctx);
           const existingVariable = this.symbolTable.findSymbolInCurrentScope(
@@ -810,13 +810,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       }
 
       // Delegate type reference collection (including generic type parameters) to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire EnhancedForControlContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire EnhancedForControlContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing enhanced for control: ${error}`);
     }
@@ -828,13 +828,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   enterWhenValue(ctx: WhenValueContext): void {
     try {
       // Delegate type reference collection (including generic type parameters) to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire WhenValueContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire WhenValueContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing when value: ${error}`);
     }
@@ -846,13 +846,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
     try {
       // Delegate type reference collection (including generic type parameters) to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire InstanceOfExpressionContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire InstanceOfExpressionContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing instanceof expression: ${error}`);
     }
@@ -864,13 +864,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
     try {
       // Delegate type reference collection (including generic type parameters) to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.getCurrentMethodName(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk the entire TypeRefPrimaryContext subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk the entire TypeRefPrimaryContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing type ref primary: ${error}`);
     }
@@ -953,7 +953,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   ): void {
     try {
       const parentContext = this.getCurrentMethodName(ctx);
-      const dotParent = ctx.parent;
+      const dotParent = ctx.parentCtx;
       if (dotParent && isDotExpressionContext(dotParent)) {
         const expressions = (dotParent as any).expression?.();
         const leftExpression =
@@ -1018,13 +1018,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   private isMethodCallParameter(ctx: ParserRuleContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       if (
         current.constructor.name === 'ExpressionListContext' ||
         current.constructor.name === 'ArgumentsContext'
       ) {
-        const grandParent = current.parent;
+        const grandParent = current.parentCtx;
         if (
           grandParent &&
           (grandParent.constructor.name === 'MethodCallContext' ||
@@ -1034,26 +1034,21 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           return true;
         }
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
 
   private extractTypeNameFromTypeRef(typeRef: TypeRefContext): string {
-    const typeNames = typeRef.typeName();
+    const typeNames = typeRef.typeName_list();
     if (typeNames && typeNames.length > 0) {
       const typeName = typeNames[0];
-      const ids = typeName.id();
-      if (ids) {
-        // ids can be a single IdContext or an array
-        if (Array.isArray(ids) && ids.length > 0) {
-          return ids.map((id) => id.text).join('.');
-        } else if (!Array.isArray(ids) && ids.text) {
-          return ids.text;
-        }
+      const idNode = typeName.id();
+      if (idNode) {
+        return idNode.getText();
       }
     }
-    return typeRef.text || '';
+    return typeRef.getText() || '';
   }
 
   private extractIdentifiersFromExpression(expr: any): string[] {
@@ -1062,10 +1057,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     if (isContextType(expr, IdPrimaryContext)) {
       const idNode = (expr as IdPrimaryContext).id();
       if (idNode) {
-        identifiers.push(idNode.text || '');
+        identifiers.push(idNode.getText() || '');
       }
     } else if (isContextType(expr, AnyIdContext)) {
-      identifiers.push(expr.text || '');
+      identifiers.push(expr.getText() || '');
     } else if (isContextType(expr, DotExpressionContext)) {
       const dotExpr = expr as DotExpressionContext;
       const objectExpr = dotExpr.expression();
@@ -1122,15 +1117,15 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     return {
       symbolRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
       identifierRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
     };
   }
@@ -1139,19 +1134,19 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     // Handle TerminalNode (from id() calls) - has symbol property instead of start/stop
     if (ctx.symbol && typeof ctx.symbol.line === 'number') {
       const token = ctx.symbol;
-      const text = ctx.text || token.text || '';
+      const text = ctx.getText() || token.text || '';
       return {
         symbolRange: {
           startLine: token.line,
-          startColumn: token.charPositionInLine,
+          startColumn: token.column,
           endLine: token.line,
-          endColumn: token.charPositionInLine + text.length,
+          endColumn: token.column + text.length,
         },
         identifierRange: {
           startLine: token.line,
-          startColumn: token.charPositionInLine,
+          startColumn: token.column,
           endLine: token.line,
-          endColumn: token.charPositionInLine + text.length,
+          endColumn: token.column + text.length,
         },
       };
     }
@@ -1166,7 +1161,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.text || '';
+    return ctx.getText() || '';
   }
 
   /**
@@ -1182,10 +1177,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
       const type = this.createTypeInfoFromTypeRef(typeRef);
       const modifiers = this.createDefaultModifiers();
-      const declarators = ctx.variableDeclarators()?.variableDeclarator() || [];
+      const declarators =
+        ctx.variableDeclarators()?.variableDeclarator_list() || [];
 
       for (const declarator of declarators) {
-        const name = declarator.id()?.text;
+        const name = declarator.id()?.getText();
         if (!name) {
           continue;
         }
@@ -1242,13 +1238,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       }
 
       // Delegate reference collection to reference collector
-      const walker = new ParseTreeWalker();
+
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
       refCollector.setCurrentFileUri(this.currentFilePath);
       const parentContext = this.determineParentContext(ctx);
       const typeName = this.determineTypeName(ctx);
       refCollector.setParentContext(parentContext, typeName);
-      walker.walk(refCollector, ctx); // Walk only this subtree
+      ApexParseTreeWalker.DEFAULT.walk(refCollector, ctx); // Walk only this subtree
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.logger.warn(
@@ -1277,7 +1273,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         this.scopeStack.isEmpty()
       ) {
         // Check if this block is a method body by traversing parse tree
-        let parent: ParserRuleContext | undefined = ctx.parent;
+        let parent: ParserRuleContext | undefined = ctx.parentCtx;
         while (parent) {
           const contextName = parent.constructor.name;
           if (
@@ -1348,14 +1344,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
             }
             break;
           }
-          parent = parent.parent;
+          parent = parent.parentCtx;
         }
       }
 
       // Skip when this block is the method body (direct child of method/constructor declaration)
       // Check parent context first - method body is already represented by method block from
       // StructureListener/VisibilitySymbolListener. Do not create duplicate block_3.
-      const parentCtx = ctx.parent;
+      const parentCtx = ctx.parentCtx;
       const isMethodBodyBlock =
         parentCtx &&
         (parentCtx.constructor.name === 'MethodDeclarationContext' ||
@@ -1476,7 +1472,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     // Find the method symbol to reuse existing method block created by ApexSymbolCollectorListener
     const methodId = ctx.id();
-    const methodName = methodId?.text;
+    const methodName = methodId?.getText();
     if (methodName) {
       try {
         const allSymbols = this.symbolTable.getAllSymbols();
@@ -1695,7 +1691,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
       // First, try to find method block by traversing parse tree
       // Traverse up to find method/constructor declaration
-      let current: ParserRuleContext | undefined = ctx.parent;
+      let current: ParserRuleContext | undefined = ctx.parentCtx;
       let foundMethodDeclaration = false;
 
       while (current) {
@@ -1778,7 +1774,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           break;
         }
 
-        current = current.parent;
+        current = current.parentCtx;
       }
 
       // If no method declaration found, try to find class block
@@ -1844,7 +1840,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       contextName === 'EnumDeclarationContext'
     ) {
       const typeId = (ctx as any).id?.();
-      const typeName = typeId?.text;
+      const typeName = typeId?.getText();
 
       if (typeName) {
         // Find the type symbol - prefer most nested if multiple matches
@@ -1867,7 +1863,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     }
 
     // Otherwise, traverse up parse tree to find containing type declarations
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       const parentContextName = current.constructor.name;
 
@@ -1877,7 +1873,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         parentContextName === 'EnumDeclarationContext'
       ) {
         const typeId = (current as any).id?.();
-        const typeName = typeId?.text;
+        const typeName = typeId?.getText();
 
         if (typeName) {
           // Find the type symbol - prefer most nested if multiple matches
@@ -1899,7 +1895,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         }
       }
 
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return null;
@@ -2106,7 +2102,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    * Determine type name from parse tree context
    */
   private determineTypeName(ctx: ParserRuleContext): string | undefined {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
 
     while (current) {
       const name = current.constructor.name;
@@ -2116,10 +2112,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         name === 'InterfaceDeclarationContext'
       ) {
         const typeId = (current as any).id?.();
-        return typeId?.text;
+        return typeId?.getText();
       }
 
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     return undefined;

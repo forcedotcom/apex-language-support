@@ -29,7 +29,7 @@ import {
   GetterContext,
   SetterContext,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
@@ -78,15 +78,15 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
     return {
       symbolRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
       identifierRange: {
         startLine: start.line,
-        startColumn: start.charPositionInLine,
+        startColumn: start.column,
         endLine: stop.line,
-        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.column + (stop.text?.length || 0),
       },
     };
   }
@@ -193,7 +193,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
-    const name = ctx.id()?.text ?? 'unknownClass';
+    const name = ctx.id()?.getText() ?? 'unknownClass';
     this.enterScope('class', ctx, name);
   }
 
@@ -202,7 +202,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
-    const name = ctx.id()?.text ?? 'unknownInterface';
+    const name = ctx.id()?.getText() ?? 'unknownInterface';
     this.enterScope('class', ctx, name);
   }
 
@@ -211,7 +211,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
-    const name = ctx.id()?.text ?? 'unknownEnum';
+    const name = ctx.id()?.getText() ?? 'unknownEnum';
     this.enterScope('class', ctx, name);
   }
 
@@ -220,7 +220,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
-    const name = ctx.id()?.text ?? 'unknownMethod';
+    const name = ctx.id()?.getText() ?? 'unknownMethod';
     this.enterScope('method', ctx, name);
   }
 
@@ -230,8 +230,9 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
 
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     const qualifiedName = ctx.qualifiedName();
-    const ids = qualifiedName?.id();
-    const name = ids && ids.length > 0 ? ids[0].text : 'unknownConstructor';
+    const ids = qualifiedName?.id_list();
+    const name =
+      ids && ids.length > 0 ? ids[0].getText() : 'unknownConstructor';
     this.enterScope('method', ctx, name);
   }
 
@@ -242,7 +243,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   enterInterfaceMethodDeclaration(
     ctx: InterfaceMethodDeclarationContext,
   ): void {
-    const name = ctx.id()?.text ?? 'unknownMethod';
+    const name = ctx.id()?.getText() ?? 'unknownMethod';
     this.enterScope('method', ctx, name);
   }
 
@@ -253,7 +254,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   enterBlock(ctx: BlockContext): void {
     const parentScope = this.getCurrentScopeSymbol();
     // Skip only when this block is the method body (direct child of method/constructor declaration)
-    const parentCtx = ctx.parent;
+    const parentCtx = ctx.parentCtx;
     const isMethodBodyBlock =
       parentScope?.scopeType === 'method' &&
       parentCtx &&
@@ -371,7 +372,7 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   enterTriggerUnit(ctx: TriggerUnitContext): void {
-    const name = ctx.id(0)?.text ?? 'unknownTrigger';
+    const name = ctx.id(0)?.getText() ?? 'unknownTrigger';
     this.enterScope('class', ctx, name);
   }
 
@@ -381,8 +382,9 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
 
   enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
     // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-    const triggerUnit = ctx.parent?.parent?.parent as TriggerUnitContext;
-    const name = triggerUnit?.id?.(0)?.text ?? 'unknownTrigger';
+    const triggerUnit = ctx.parentCtx?.parentCtx
+      ?.parentCtx as TriggerUnitContext;
+    const name = triggerUnit?.id?.(0)?.getText() ?? 'unknownTrigger';
     this.enterScope('class', ctx, name);
   }
 

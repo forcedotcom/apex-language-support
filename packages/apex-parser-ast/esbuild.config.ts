@@ -10,7 +10,11 @@ import type { BuildOptions } from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
+import {
+  nodeBaseConfig,
+  runBuilds,
+  stubApexParserCheckPlugin,
+} from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
   {
@@ -27,6 +31,7 @@ const builds: BuildOptions[] = [
       '.gz': 'dataurl',
     },
     plugins: [
+      stubApexParserCheckPlugin,
       copy({
         resolveFrom: 'cwd',
         assets: [
@@ -60,6 +65,7 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     outExtension: { '.js': '.mjs' },
     external: [],
+    plugins: [stubApexParserCheckPlugin],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',

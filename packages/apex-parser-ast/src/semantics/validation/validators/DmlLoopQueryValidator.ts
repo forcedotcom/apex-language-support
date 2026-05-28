@@ -7,15 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
-  ParseTreeWalker,
   ForStatementContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
@@ -30,7 +29,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 
 /**
  * Regex to detect inline SOQL: [SELECT ... FROM ...]
@@ -62,9 +61,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -102,7 +101,7 @@ class LoopWithQueryListener extends BaseApexParserListener<void> {
       return;
     }
 
-    const iterableText = iterableExpr.text || '';
+    const iterableText = iterableExpr.getText() || '';
     if (!isQueryIterable(iterableText)) {
       return;
     }
@@ -181,10 +180,7 @@ export const DmlLoopQueryValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
           parser.removeErrorListeners();
@@ -200,8 +196,8 @@ export const DmlLoopQueryValidator: Validator = {
         }
 
         const listener = new LoopWithQueryListener();
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         for (const { hasStatement, location } of listener.getLoops()) {
           if (!hasStatement) {

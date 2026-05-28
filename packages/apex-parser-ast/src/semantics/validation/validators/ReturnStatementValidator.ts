@@ -7,18 +7,17 @@
  */
 
 import { Effect } from 'effect';
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CommonTokenStream } from 'antlr4';
 import {
-  ApexLexer,
   ApexParser,
-  CaseInsensitiveInputStream,
+  ApexParserFactory,
+  ApexParseTreeWalker,
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
   ReturnStatementContext,
   MethodDeclarationContext,
   ConstructorDeclarationContext,
-  ParseTreeWalker,
   ExpressionContext,
   LiteralPrimaryContext,
 } from '@apexdevtools/apex-parser';
@@ -43,7 +42,7 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4ts';
+import type { ParserRuleContext } from 'antlr4';
 import {
   resolveExpressionTypeRecursive,
   areTypesCompatible,
@@ -62,9 +61,9 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 
   const symbolRange = {
     startLine: start.line,
-    startColumn: start.charPositionInLine,
+    startColumn: start.column,
     endLine: stop.line,
-    endColumn: stop.charPositionInLine + textLength,
+    endColumn: stop.column + textLength,
   };
 
   return {
@@ -133,14 +132,14 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     // Extract method name - use same approach as ApexSymbolCollectorListener
     const idNode = ctx.id();
-    let methodName = idNode?.text ?? 'unknownMethod';
+    let methodName = idNode?.getText() ?? 'unknownMethod';
 
     // If the ID node is empty, try to extract from formal parameters
     if (!methodName || methodName.trim() === '') {
       const formalParams = ctx.formalParameters();
       if (formalParams) {
         // The method name is typically the first part before the parentheses
-        const paramsText = formalParams.text;
+        const paramsText = formalParams.getText();
         const match = paramsText.match(/^([^(]+)\(/);
         if (match) {
           methodName = match[1].trim();
@@ -210,9 +209,9 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
 
     if (literalType) {
       // Find the containing ExpressionContext
-      let parent = ctx.parent;
+      let parent = ctx.parentCtx;
       while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);
@@ -404,10 +403,7 @@ export const ReturnStatementValidator: Validator = {
             ? `{${sourceContent}}`
             : sourceContent;
 
-          const inputStream = CharStreams.fromString(contentToParse);
-          const lexer = new ApexLexer(
-            new CaseInsensitiveInputStream(inputStream),
-          );
+          const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
           const parser = new ApexParser(tokenStream);
 
@@ -433,8 +429,8 @@ export const ReturnStatementValidator: Validator = {
           symbolManager,
           options.tier,
         );
-        const walker = new ParseTreeWalker();
-        walker.walk(listener, parseTree);
+
+        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Report immediate return statement errors (void/trigger checks)
         const returnErrors = listener.getErrors();

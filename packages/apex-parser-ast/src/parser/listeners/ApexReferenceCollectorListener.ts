@@ -30,7 +30,7 @@ import {
   InstanceOfExpressionContext,
   TypeRefPrimaryContext,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
+import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
@@ -68,7 +68,7 @@ interface ChainScope {
 export function isAssignInsideSObjectConstructor(
   ctx: AssignExpressionContext,
 ): boolean {
-  let ancestor: ParserRuleContext | undefined = ctx.parent as
+  let ancestor: ParserRuleContext | undefined = ctx.parentCtx as
     | ParserRuleContext
     | undefined;
   while (ancestor) {
@@ -81,7 +81,7 @@ export function isAssignInsideSObjectConstructor(
       name === 'MethodDeclarationContext'
     )
       return false;
-    ancestor = ancestor.parent as ParserRuleContext | undefined;
+    ancestor = ancestor.parentCtx as ParserRuleContext | undefined;
   }
   return false;
 }
@@ -232,7 +232,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     let pushed = false;
     try {
       const idNode = ctx.id();
-      const methodName = idNode?.text || 'unknownMethod';
+      const methodName = idNode?.getText() || 'unknownMethod';
       const location = idNode
         ? this.getLocationForReference(idNode)
         : this.getLocation(ctx);
@@ -289,7 +289,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
-      const methodName = anyIdNode?.text || 'unknownMethod';
+      const methodName = anyIdNode?.getText() || 'unknownMethod';
       const methodLocation = anyIdNode
         ? this.getLocationForReference(anyIdNode)
         : this.getLocation(ctx);
@@ -377,19 +377,19 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
       this.logger.debug(
         () =>
-          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
-          `parent=${ctx.parent?.constructor.name}, ` +
+          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.column}, ` +
+          `parent=${ctx.parentCtx?.constructor.name}, ` +
           `isGenericArg=${isGenericArg}, isTypeDeclaration=${isTypeDeclaration}`,
       );
 
       // Special case: if parent is TypeListContext, this is likely a generic parameter
       // Check if we're in a type declaration context
       const parentIsTypeList =
-        ctx.parent?.constructor.name === 'TypeListContext';
+        ctx.parentCtx?.constructor.name === 'TypeListContext';
       let isGenericArgInTypeDecl = false;
       if (parentIsTypeList) {
         // Walk up to see if we're inside a type declaration
-        let walkParent: ParserRuleContext | undefined = ctx.parent;
+        let walkParent: ParserRuleContext | undefined = ctx.parentCtx;
         let depth = 0;
         const parentChain: string[] = [];
         while (walkParent && depth < 10) {
@@ -406,7 +406,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             );
             break;
           }
-          walkParent = walkParent.parent;
+          walkParent = walkParent.parentCtx;
           depth++;
         }
         if (!isGenericArgInTypeDecl) {
@@ -426,7 +426,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           () =>
             '[TYPE_REF] Skipping generic argument ' +
             '(will be handled by enterTypeArguments) ' +
-            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            `at ${ctx.start?.line}:${ctx.start?.column}`,
         );
         return;
       }
@@ -436,10 +436,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         this.logger.debug(
           () =>
             '[TYPE_REF] Processing generic argument in type declaration ' +
-            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            `at ${ctx.start?.line}:${ctx.start?.column}`,
         );
         // Process this as a generic parameter reference
-        const typeNames = ctx.typeName();
+        const typeNames = ctx.typeName_list();
         if (typeNames && typeNames.length > 0) {
           const typeName = typeNames[0];
           const idNode = typeName.id();
@@ -448,14 +448,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             const parentContext = this.determineTypeReferenceContext(ctx);
             const genericReference =
               SymbolReferenceFactory.createGenericParameterTypeReference(
-                idNode.text,
+                idNode.getText(),
                 location,
                 parentContext,
               );
             this.symbolTable.addTypeReference(genericReference);
             this.logger.debug(
               () =>
-                `[TYPE_REF] Created generic parameter reference for '${idNode.text}' ` +
+                `[TYPE_REF] Created generic parameter reference for '${idNode.getText()}' ` +
                 `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
             );
             return; // Don't process further as a regular type reference
@@ -470,7 +470,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       if (!isInTypeDeclaration) {
         // Check if we're inside a TypeListContext that's part of a type declaration
         // This handles cases where enterTypeRef is called for generic parameters
-        let checkParent: ParserRuleContext | undefined = ctx.parent;
+        let checkParent: ParserRuleContext | undefined = ctx.parentCtx;
         let checkDepth = 0;
         while (checkParent && checkDepth < 20) {
           const checkName = checkParent.constructor.name;
@@ -493,7 +493,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             // Stop if we hit a method - we're not in a type declaration
             break;
           }
-          checkParent = checkParent.parent;
+          checkParent = checkParent.parentCtx;
           checkDepth++;
         }
       }
@@ -501,15 +501,15 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const isTypeDeclarationForLog = isInTypeDeclaration;
       this.logger.debug(
         () =>
-          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
-          `parent=${ctx.parent?.constructor.name}, ` +
+          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.column}, ` +
+          `parent=${ctx.parentCtx?.constructor.name}, ` +
           `isTypeDeclaration=${isTypeDeclarationForLog}`,
       );
       if (isTypeDeclarationForLog) {
-        const parent = ctx.parent;
+        const parent = ctx.parentCtx;
         this.logger.debug(
           () =>
-            `[TYPE_REF] Type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
+            `[TYPE_REF] Type declaration at ${ctx.start?.line}:${ctx.start?.column}, ` +
             `parent=${parent?.constructor.name}`,
         );
         if (parent) {
@@ -535,13 +535,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               );
               break;
             }
-            walkParent = walkParent.parent;
+            walkParent = walkParent.parentCtx;
             depth++;
           }
         }
       }
 
-      const typeNames = ctx.typeName();
+      const typeNames = ctx.typeName_list();
       if (!typeNames || typeNames.length === 0) return;
 
       const typeName = typeNames[0];
@@ -572,12 +572,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
         this.logger.debug(
           () =>
-            `[TYPE_REF] Type structure at ${ctx.start?.line}:${ctx.start?.charPositionInLine}: ` +
+            `[TYPE_REF] Type structure at ${ctx.start?.line}:${ctx.start?.column}: ` +
             `isTypeDeclaration=${isTypeDeclaration}, isListSetMap=${isListSetMap}, ` +
             `ctx.typeArguments=${!!(ctx as any).typeArguments?.()}, ` +
             `typeName.typeArguments=${!!(typeName as any).typeArguments?.()}, ` +
             `typeName.LIST=${!!typeName.LIST?.()}, ` +
-            `typeName.id=${typeName.id()?.text || 'none'}, ` +
+            `typeName.id=${typeName.id()?.getText() || 'none'}, ` +
             `ctx.children=[${ctxChildTypes}], ` +
             `typeName.children=[${typeNameChildTypes}]`,
         );
@@ -639,7 +639,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         const typeNameParts = typeNames.map((tn) => {
           const id = tn.id();
           if (id) {
-            return id.text;
+            return id.getText();
           } else {
             return `${tn.LIST() || tn.SET() || tn.MAP()}`;
           }
@@ -649,7 +649,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       } else {
         const baseTypeId = typeName.id();
         if (baseTypeId) {
-          fullTypeName = baseTypeId.text;
+          fullTypeName = baseTypeId.getText();
           baseLocation = this.getLocationForReference(baseTypeId);
         } else {
           const listToken = typeName.LIST?.();
@@ -659,7 +659,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
           if (token) {
             fullTypeName =
-              token.text || `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
+              token.getText() ||
+              `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
             const identifierRange = this.getIdentifierRange(typeName);
             if (identifierRange) {
               baseLocation = {
@@ -696,7 +697,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           parentContext,
         );
 
-        const parent = ctx.parent;
+        const parent = ctx.parentCtx;
         if (
           parent &&
           parent.constructor.name === 'LocalVariableDeclarationContext'
@@ -758,7 +759,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Also check parent LocalVariableDeclarationContext for typeArguments
       // Walk up the parse tree to find TypeArgumentsContext
       if (!typeArgs && isTypeDeclaration) {
-        let walkParent: ParserRuleContext | undefined = ctx.parent;
+        let walkParent: ParserRuleContext | undefined = ctx.parentCtx;
         let depth = 0;
         while (walkParent && depth < 10) {
           // Check if this parent is a LocalVariableDeclarationContext
@@ -808,7 +809,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             }
             break;
           }
-          walkParent = walkParent.parent;
+          walkParent = walkParent.parentCtx;
           depth++;
         }
       }
@@ -820,8 +821,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           `typeName.typeArguments=${!!(typeName as any).typeArguments?.()}, ` +
           `parent.typeRef.typeArguments=${
             isTypeDeclaration &&
-            ctx.parent?.constructor.name === 'LocalVariableDeclarationContext'
-              ? !!((ctx.parent as any).typeRef?.() as any)?.typeArguments?.()
+            ctx.parentCtx?.constructor.name ===
+              'LocalVariableDeclarationContext'
+              ? !!((ctx.parentCtx as any).typeRef?.() as any)?.typeArguments?.()
               : false
           }`,
       );
@@ -829,7 +831,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         this.logger.debug(
           () =>
             '[TYPE_REF] Found typeArguments for type declaration ' +
-            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            `at ${ctx.start?.line}:${ctx.start?.column}`,
         );
         const typeList = typeArgs.typeList();
         if (typeList) {
@@ -848,14 +850,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
             this.logger.debug(
               () =>
-                `[TYPE_REF] Creating generic parameter reference for "${genericIdNode.text}" ` +
+                `[TYPE_REF] Creating generic parameter reference for "${genericIdNode.getText()}" ` +
                 `at ${genericLocation.identifierRange.startLine}:${genericLocation.identifierRange.startColumn}-` +
                 `${genericLocation.identifierRange.endLine}:${genericLocation.identifierRange.endColumn}`,
             );
 
             const genericReference =
               SymbolReferenceFactory.createGenericParameterTypeReference(
-                genericIdNode.text,
+                genericIdNode.getText(),
                 genericLocation,
                 parentContext,
               );
@@ -879,7 +881,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         return;
       }
 
-      const fieldName = ctx.text || 'unknownField';
+      const fieldName = ctx.getText() || 'unknownField';
       const location = this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
 
@@ -896,7 +898,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           ),
         );
       } else {
-        const dotParent = ctx.parent;
+        const dotParent = ctx.parentCtx;
         if (dotParent && isDotExpressionContext(dotParent)) {
           const expressions = (dotParent as any).expression?.();
           const leftExpression =
@@ -940,12 +942,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     const variableName = this.getTextFromContext(ctx);
 
     if (!this.isMethodCallParameter(ctx)) {
-      let parent: ParserRuleContext | undefined = ctx.parent;
+      let parent: ParserRuleContext | undefined = ctx.parentCtx;
       while (parent) {
         if (isDotExpressionContext(parent)) {
           return;
         }
-        parent = parent.parent;
+        parent = parent.parentCtx;
       }
     }
 
@@ -1244,7 +1246,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
             const idArray = Array.isArray(ids) ? ids : [ids];
             for (const id of idArray) {
-              const partName = id.text;
+              const partName = id.getText();
               const partLocation = this.getLocationForReference(id);
               typeParts.push(partName);
               preciseLocations.push(partLocation);
@@ -1366,11 +1368,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     try {
       this.logger.debug(
         () =>
-          `[TYPE_LIST] enterTypeList called at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+          `[TYPE_LIST] enterTypeList called at ${ctx.start?.line}:${ctx.start?.column}`,
       );
 
       // Check if we're inside typeArguments - if so, let enterTypeArguments handle it
-      let current: ParserRuleContext | undefined = ctx.parent;
+      let current: ParserRuleContext | undefined = ctx.parentCtx;
       let depth = 0;
       let foundTypeArguments = false;
       let foundNewExpression = false;
@@ -1413,7 +1415,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           );
           // Don't break - continue to see the full parent chain
         }
-        current = current.parent;
+        current = current.parentCtx;
         depth++;
       }
 
@@ -1429,7 +1431,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             '[TYPE_LIST] Processing type declaration (not constructor call)',
         );
         // This is a type declaration with generic parameters - capture them
-        const typeRefs = ctx.typeRef();
+        const typeRefs = ctx.typeRef_list();
         if (!typeRefs || typeRefs.length === 0) return;
 
         const parentContext = this.determineTypeReferenceContext(
@@ -1437,7 +1439,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
 
         for (const typeRef of typeRefs) {
-          const typeNames = typeRef.typeName();
+          const typeNames = typeRef.typeName_list();
           if (!typeNames || typeNames.length === 0) continue;
 
           const typeName = typeNames[0];
@@ -1452,14 +1454,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
           this.logger.debug(
             () =>
-              `[TYPE_LIST] Creating generic parameter reference for "${idNode.text}" ` +
+              `[TYPE_LIST] Creating generic parameter reference for "${idNode.getText()}" ` +
               `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
               `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
           );
 
           const genericReference =
             SymbolReferenceFactory.createGenericParameterTypeReference(
-              idNode.text,
+              idNode.getText(),
               location,
               parentContext,
             );
@@ -1496,11 +1498,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     try {
       this.logger.debug(
         () =>
-          `[TYPE_ARGS] enterTypeArguments called at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+          `[TYPE_ARGS] enterTypeArguments called at ${ctx.start?.line}:${ctx.start?.column}`,
       );
 
       // Check if we're in a type declaration context (LocalVariableDeclarationContext, FieldDeclarationContext, etc.)
-      let walkParent: ParserRuleContext | undefined = ctx.parent;
+      let walkParent: ParserRuleContext | undefined = ctx.parentCtx;
       let depth = 0;
       let isInTypeDeclaration = false;
       while (walkParent && depth < 10) {
@@ -1517,7 +1519,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           );
           break;
         }
-        walkParent = walkParent.parent;
+        walkParent = walkParent.parentCtx;
         depth++;
       }
 
@@ -1527,7 +1529,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         return;
       }
 
-      const typeRefs = typeList.typeRef();
+      const typeRefs = typeList.typeRef_list();
       if (!typeRefs || typeRefs.length === 0) {
         this.logger.debug(() => '[TYPE_ARGS] No typeRefs found');
         return;
@@ -1539,7 +1541,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       );
 
       for (const typeRef of typeRefs) {
-        const typeNames = typeRef.typeName();
+        const typeNames = typeRef.typeName_list();
         if (!typeNames || typeNames.length === 0) continue;
 
         const typeName = typeNames[0];
@@ -1556,7 +1558,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         let parentContext: string | undefined;
         if (isInTypeDeclaration) {
           // Walk up to find the method or type context
-          let contextParent: ParserRuleContext | undefined = ctx.parent;
+          let contextParent: ParserRuleContext | undefined = ctx.parentCtx;
           let contextDepth = 0;
           while (contextParent && contextDepth < 15) {
             const contextName = contextParent.constructor.name;
@@ -1566,7 +1568,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             ) {
               // Extract method name from context
               const methodId = (contextParent as any).id?.();
-              parentContext = methodId?.text || this.getCurrentMethodName();
+              parentContext =
+                methodId?.getText() || this.getCurrentMethodName();
               break;
             }
             if (
@@ -1574,10 +1577,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               contextName === 'InterfaceDeclarationContext'
             ) {
               const classId = (contextParent as any).id?.();
-              parentContext = classId?.text;
+              parentContext = classId?.getText();
               break;
             }
-            contextParent = contextParent.parent;
+            contextParent = contextParent.parentCtx;
             contextDepth++;
           }
           if (!parentContext) {
@@ -1592,7 +1595,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
         this.logger.debug(
           () =>
-            `[TYPE_ARGS] Creating generic parameter reference for "${idNode.text}" ` +
+            `[TYPE_ARGS] Creating generic parameter reference for "${idNode.getText()}" ` +
             `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
             `${location.identifierRange.endLine}:${location.identifierRange.endColumn}, ` +
             `parentContext=${parentContext}, isInTypeDeclaration=${isInTypeDeclaration}`,
@@ -1600,7 +1603,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
         const genericReference =
           SymbolReferenceFactory.createGenericParameterTypeReference(
-            idNode.text,
+            idNode.getText(),
             location,
             parentContext,
           );
@@ -1682,7 +1685,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
       // If not found, check idCreatedNamePair structure
       if (!listToken && !setToken && !mapToken) {
-        const idCreatedNamePairs = createdName.idCreatedNamePair();
+        const idCreatedNamePairs = createdName.idCreatedNamePair_list();
         if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
           const firstPair = idCreatedNamePairs[0];
           pairTypeName = (firstPair as any).typeName?.();
@@ -1712,12 +1715,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             // Fallback to token-based location
             const tokenSymbol = (token as any).symbol || token;
             const tokenText =
-              tokenSymbol?.text || token?.text || collectionType;
+              tokenSymbol?.getText() || token?.getText() || collectionType;
             const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
             const tokenStartCol =
-              tokenSymbol?.charPositionInLine ??
-              (token as any).charPositionInLine ??
-              0;
+              tokenSymbol?.column ?? (token as any).column ?? 0;
             location = {
               symbolRange: {
                 startLine: tokenLine,
@@ -1736,12 +1737,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         } else {
           // Fallback to token-based location if typeNameCtx not available
           const tokenSymbol = (token as any).symbol || token;
-          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenText =
+            tokenSymbol?.getText() || token?.getText() || collectionType;
           const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
           const tokenStartCol =
-            tokenSymbol?.charPositionInLine ??
-            (token as any).charPositionInLine ??
-            0;
+            tokenSymbol?.column ?? (token as any).column ?? 0;
           location = {
             symbolRange: {
               startLine: tokenLine,
@@ -1783,7 +1783,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // "new System.Url()", the parser structure is:
       // createdName -> idCreatedNamePair[0] -> anyId()
       // For dotted names: createdName -> idCreatedNamePair[0..n] -> anyId()
-      const idCreatedNamePairs = createdName.idCreatedNamePair();
+      const idCreatedNamePairs = createdName.idCreatedNamePair_list();
       if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
 
       const parentContext = this.getCurrentMethodName();
@@ -1796,7 +1796,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       for (const pair of idCreatedNamePairs) {
         const anyId = pair.anyId();
         if (anyId) {
-          const partName = anyId.text;
+          const partName = anyId.getText();
           const partLocation = this.getLocationForReference(anyId);
           typeParts.push(partName);
           preciseLocations.push(partLocation);
@@ -2184,7 +2184,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   ): void {
     try {
       const parentContext = this.getCurrentMethodName();
-      const dotParent = ctx.parent;
+      const dotParent = ctx.parentCtx;
       if (dotParent && isDotExpressionContext(dotParent)) {
         const expressions = (dotParent as any).expression?.();
         const leftExpression =
@@ -2258,13 +2258,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private isMethodCallParameter(ctx: ParserRuleContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       if (
         current.constructor.name === 'ExpressionListContext' ||
         current.constructor.name === 'ArgumentsContext'
       ) {
-        const grandParent = current.parent;
+        const grandParent = current.parentCtx;
         if (
           grandParent &&
           (grandParent.constructor.name === 'MethodCallContext' ||
@@ -2274,13 +2274,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           return true;
         }
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
 
   private isInMethodOrConstructorCall(ctx: ExpressionListContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       if (
         current.constructor.name === 'MethodCallContext' ||
@@ -2289,24 +2289,24 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       ) {
         return true;
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
 
   private isGenericArgument(ctx: TypeRefContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       if (current.constructor.name === 'TypeArgumentsContext') {
         return true;
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
 
   private isTypeDeclarationContext(ctx: TypeRefContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     let depth = 0;
     const parentChain: string[] = [];
     while (current && depth < 15) {
@@ -2337,7 +2337,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         return false;
       }
-      current = current.parent;
+      current = current.parentCtx;
       depth++;
     }
     this.logger.debug(
@@ -2348,7 +2348,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private isMethodReturnTypeContext(ctx: TypeRefContext): boolean {
-    let current: ParserRuleContext | undefined = ctx.parent;
+    let current: ParserRuleContext | undefined = ctx.parentCtx;
     while (current) {
       const name = current.constructor.name;
       if (
@@ -2365,7 +2365,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       ) {
         return false;
       }
-      current = current.parent;
+      current = current.parentCtx;
     }
     return false;
   }
@@ -2384,7 +2384,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     // Fallback path: Only walk parse tree if context not explicitly set (for standalone usage)
     // Traverse up the parse tree to find the appropriate context
     let current: ParserRuleContext | undefined =
-      ctx instanceof TypeRefContext ? ctx.parent : ctx;
+      ctx instanceof TypeRefContext ? ctx.parentCtx : ctx;
 
     while (current) {
       const name = current.constructor.name;
@@ -2410,21 +2410,21 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           return methodName;
         }
         // Try to get type name by walking up further
-        let typeParent: ParserRuleContext | undefined = current.parent;
+        let typeParent: ParserRuleContext | undefined = current.parentCtx;
         while (typeParent) {
           if (
             typeParent.constructor.name === 'ClassDeclarationContext' ||
             typeParent.constructor.name === 'InterfaceDeclarationContext'
           ) {
             const typeId = (typeParent as any).id?.();
-            return typeId?.text;
+            return typeId?.getText();
           }
-          typeParent = typeParent.parent;
+          typeParent = typeParent.parentCtx;
         }
         return undefined;
       }
 
-      current = current.parent;
+      current = current.parentCtx;
     }
 
     // Fallback to current method context
@@ -2518,7 +2518,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     if (isContextType(expr, IdPrimaryContext)) {
       const idNode = (expr as IdPrimaryContext).id();
       if (idNode) {
-        identifiers.push(idNode.text);
+        identifiers.push(idNode.getText());
       }
       return identifiers;
     }
@@ -2533,14 +2533,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Extract field/method name from anyId or dotMethodCall
       const anyId = dotExpression.anyId?.();
       if (anyId) {
-        return [...baseIds, anyId.text];
+        return [...baseIds, anyId.getText()];
       }
 
       const dotMethodCall = dotExpression.dotMethodCall?.();
       if (dotMethodCall) {
         const methodId = dotMethodCall.anyId?.();
         if (methodId) {
-          return [...baseIds, methodId.text];
+          return [...baseIds, methodId.getText()];
         }
       }
 
@@ -2578,7 +2578,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     if (expr.id) {
       const id = expr.id();
       if (id) {
-        identifiers.push(id.text);
+        identifiers.push(id.getText());
         return identifiers;
       }
     }
@@ -2589,22 +2589,22 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         if (child.id) {
           const id = child.id();
           if (id) {
-            identifiers.push(id.text);
+            identifiers.push(id.getText());
           }
         } else if (
-          child.text &&
-          !child.text.includes('(') &&
-          !child.text.includes('.')
+          child.getText() &&
+          !child.getText().includes('(') &&
+          !child.getText().includes('.')
         ) {
           // Only use text if it doesn't contain parentheses or dots (which indicate complex expressions)
-          identifiers.push(child.text);
+          identifiers.push(child.getText());
         }
       }
     }
 
     // Last resort: use text property only if it's a simple identifier (no parentheses, no dots)
-    if (identifiers.length === 0 && expr.text) {
-      const text = expr.text;
+    if (identifiers.length === 0 && expr.getText()) {
+      const text = expr.getText();
       // Only use text if it looks like a simple identifier (no parentheses, no dots)
       if (!text.includes('(') && !text.includes('.')) {
         identifiers.push(text);
@@ -2628,7 +2628,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     const typeName = Array.isArray(typeNames) ? typeNames[0] : typeNames;
     const id = typeName.id?.();
     if (id) {
-      return Array.isArray(id) ? id[0].text : id.text;
+      return Array.isArray(id) ? id[0].getText() : id.getText();
     }
 
     return 'Object';
@@ -2723,18 +2723,18 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     return {
       symbolRange: {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop?.line ?? ctx.start.line,
         endColumn:
-          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.column ?? ctx.start.column) +
           (ctx.stop?.text?.length ?? 0),
       },
       identifierRange: identifierRange || {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop?.line ?? ctx.start.line,
         endColumn:
-          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.column ?? ctx.start.column) +
           (ctx.stop?.text?.length ?? 0),
       },
     };
@@ -2762,10 +2762,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       if (idNode?.start && idNode?.stop) {
         return {
           startLine: idNode.start.line,
-          startColumn: idNode.start.charPositionInLine,
+          startColumn: idNode.start.column,
           endLine: idNode.stop.line,
-          endColumn:
-            idNode.stop.charPositionInLine + (idNode.stop.text?.length || 0),
+          endColumn: idNode.stop.column + (idNode.stop.text?.length || 0),
         };
       }
     }
@@ -2774,21 +2773,22 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     // AnyIdContext IS the identifier itself, so use its start/stop directly
     // Match the deprecated listener's behavior: use start/stop for AnyIdContext
     if (ctx && isContextType(ctx, AnyIdContext)) {
-      // For AnyIdContext, use ctx.text to get the identifier text
+      // For AnyIdContext, use ctx.getText() to get the identifier text
       // This is more reliable than calculating from stop/start positions
-      const text = (ctx as any).text || ctx.stop?.text || ctx.start?.text || '';
+      const text =
+        (ctx as any).getText() || ctx.stop?.text || ctx.start?.text || '';
       const textLength =
         text.length > 0
           ? text.length
-          : (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) -
-            ctx.start.charPositionInLine +
+          : (ctx.stop?.column ?? ctx.start.column) -
+            ctx.start.column +
             (ctx.start.text?.length || 0);
 
       return {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop?.line ?? ctx.start.line,
-        endColumn: ctx.start.charPositionInLine + textLength,
+        endColumn: ctx.start.column + textLength,
       };
     }
 
@@ -2796,19 +2796,18 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     // This handles cases where the context itself represents an identifier
     if (ctx && ctx.start && ctx.stop && ctx.start !== ctx.stop) {
       // Use the context's text property if available, otherwise calculate from positions
-      const text = (ctx as any).text || ctx.stop.text || ctx.start.text || '';
+      const text =
+        (ctx as any).getText() || ctx.stop.text || ctx.start.text || '';
       const textLength =
         text.length > 0
           ? text.length
-          : ctx.stop.charPositionInLine -
-            ctx.start.charPositionInLine +
-            (ctx.start.text?.length || 0);
+          : ctx.stop.column - ctx.start.column + (ctx.start.text?.length || 0);
 
       return {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop.line,
-        endColumn: ctx.start.charPositionInLine + textLength,
+        endColumn: ctx.start.column + textLength,
       };
     }
 
@@ -2816,9 +2815,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     if (ctx.start === ctx.stop && ctx.start) {
       return {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.start.line,
-        endColumn: ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
+        endColumn: ctx.start.column + (ctx.start.text?.length || 0),
       };
     }
 
@@ -2829,19 +2828,19 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     // Handle TerminalNode (from id() calls) - has symbol property instead of start/stop
     if (ctx.symbol && typeof ctx.symbol.line === 'number') {
       const token = ctx.symbol;
-      const text = ctx.text || token.text || '';
+      const text = ctx.getText() || token.text || '';
       const location: SymbolLocation = {
         symbolRange: {
           startLine: token.line,
-          startColumn: token.charPositionInLine,
+          startColumn: token.column,
           endLine: token.line,
-          endColumn: token.charPositionInLine + text.length,
+          endColumn: token.column + text.length,
         },
         identifierRange: {
           startLine: token.line,
-          startColumn: token.charPositionInLine,
+          startColumn: token.column,
           endLine: token.line,
-          endColumn: token.charPositionInLine + text.length,
+          endColumn: token.column + text.length,
         },
       };
       this.logger.debug(
@@ -2885,16 +2884,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     if (ctx.start && ctx.stop) {
       return {
         startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
+        startColumn: ctx.start.column,
         endLine: ctx.stop.line,
-        endColumn: ctx.stop.charPositionInLine + (ctx.stop.text?.length ?? 0),
+        endColumn: ctx.stop.column + (ctx.stop.text?.length ?? 0),
       };
     }
     return null;
   }
 
   private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.text || '';
+    return ctx.getText() || '';
   }
 
   private validateMethodCallStackCleanup(): void {
