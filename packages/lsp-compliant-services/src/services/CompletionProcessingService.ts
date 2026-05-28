@@ -222,7 +222,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
         return [];
       }
 
-      // Check if file needs enrichment for private symbols (completion needs private symbols)
+      // Ensure the file is enriched to private level before running strategies.
+      // Without this, the symbol table may be stale and variable resolution fails.
       const cache = getDocumentStateCache();
       if (
         this.layerEnrichmentService &&
@@ -233,22 +234,15 @@ export class CompletionProcessingService implements ICompletionProcessor {
         )
       ) {
         try {
-          // Enrich asynchronously - don't block completion, but start enrichment
-          this.layerEnrichmentService
-            .enrichFiles(
-              [params.textDocument.uri],
-              'private',
-              'same-file',
-              undefined, // CompletionParams doesn't have workDoneToken
-            )
-            .catch((error: unknown) => {
-              this.logger.debug(
-                () => `Error enriching file for completion: ${error}`,
-              );
-            });
+          await this.layerEnrichmentService.enrichFiles(
+            [params.textDocument.uri],
+            'private',
+            'same-file',
+            undefined,
+          );
         } catch (error) {
           this.logger.debug(
-            () => `Error initiating enrichment for completion: ${error}`,
+            () => `Error enriching file for completion: ${error}`,
           );
         }
       }
