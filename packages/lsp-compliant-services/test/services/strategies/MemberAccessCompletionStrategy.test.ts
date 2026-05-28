@@ -202,6 +202,45 @@ describe('MemberAccessCompletionStrategy', () => {
       expect(names).toContain('myMethod');
     });
 
+    it('should return instance members for local variable dot-completion', async () => {
+      const content = [
+        'public class VarTest {',
+        '  public void run() {',
+        '    MemberAccessTestClass foo = new MemberAccessTestClass();',
+        '    foo.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/VarTest.cls';
+      const doc = makeTextDocument(content, uri);
+
+      const compilerService = new (
+        await import('@salesforce/apex-lsp-parser-ast')
+      ).CompilerService();
+      const symbolTable = new (
+        await import('@salesforce/apex-lsp-parser-ast')
+      ).SymbolTable();
+      const listener = new (
+        await import('@salesforce/apex-lsp-parser-ast')
+      ).FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, uri, listener);
+      await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
+
+      const context = makeCompletionContext(doc, 3, 8, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const names = candidates.map((c) => c.symbol.name);
+      expect(names).toContain('publicField');
+      expect(names).toContain('getPublicValue');
+      expect(names).not.toContain('staticField');
+      expect(names).not.toContain('getStaticValue');
+    });
+
     it('should return empty for unresolvable expression', async () => {
       const doc = makeTextDocument(
         '    unknownVariable.',

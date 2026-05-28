@@ -122,6 +122,41 @@ describe('CompletionProcessingService', () => {
       const result = await service.processCompletion(params);
       expect(result).toEqual([]);
     });
+
+    it('should await enrichment and resolve local variable members', async () => {
+      const content = [
+        'public class VarCompletionTest {',
+        '  public String myField;',
+        '  public void myMethod() {}',
+        '  public void run() {',
+        '    VarCompletionTest localVar = new VarCompletionTest();',
+        '    localVar.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/VarCompletionTest.cls';
+      const doc = TextDocument.create(uri, 'apex', 1, content);
+
+      const compilerService = new CompilerService();
+      const st = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(st);
+      compilerService.compile(content, uri, listener);
+      await Effect.runPromise(symbolManager.addSymbolTable(st, uri));
+
+      mockStorage.getDocument.mockResolvedValue(doc);
+
+      const params: CompletionParams = {
+        textDocument: { uri },
+        position: { line: 5, character: 13 },
+        context: { triggerKind: 2, triggerCharacter: '.' },
+      };
+
+      const result = await service.processCompletion(params);
+
+      const names = result.map((item) => item.label);
+      expect(names.some((n) => n.startsWith('myField'))).toBe(true);
+      expect(names.some((n) => n.startsWith('myMethod'))).toBe(true);
+    });
   });
 
   describe('getSortPrefix - priority ordering', () => {
