@@ -6,10 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  CompletionItem,
-  CompletionItemKind,
-} from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -89,28 +85,12 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   ): Effect.Effect<CompletionCandidate[], never, never> {
     const self = this;
     return Effect.gen(function* () {
-      const items = yield* self.getCompletionItems(
+      const fileUri = context.document.uri;
+
+      const exprContext = self.parseDotExpression(
         context.document,
         context.position,
       );
-      return items.map((item) => ({
-        symbol: item,
-        relevance: 1.0,
-        context: 'member access',
-      }));
-    });
-  }
-
-  private getCompletionItems(
-    document: TextDocument,
-    position: { line: number; character: number },
-  ): Effect.Effect<CompletionItem[], never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const fileUri = document.uri;
-
-      // 1. Parse expression before the dot
-      const exprContext = self.parseDotExpression(document, position);
       if (exprContext.kind === 'unknown' || exprContext.segments.length === 0) {
         return [];
       }
@@ -120,9 +100,8 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
           `MemberAccess: kind=${exprContext.kind}, segments=[${exprContext.segments.join(', ')}]`,
       );
 
-      // 2. Resolve the expression to a type
       const resolvedType = yield* Effect.promise(() =>
-        self.resolveExpressionType(exprContext, fileUri, position),
+        self.resolveExpressionType(exprContext, fileUri, context.position),
       );
 
       if (!resolvedType) {
@@ -138,7 +117,6 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
           `MemberAccess: resolved to type ${resolvedType.name} (${resolvedType.kind})`,
       );
 
-      // 3. Get members of the resolved type
       const candidates = yield* Effect.promise(() =>
         self.getMembersOfType(resolvedType, exprContext.expectStatic, fileUri),
       );
@@ -147,8 +125,11 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
         () => `MemberAccess: found ${candidates.length} member candidates`,
       );
 
-      // 4. Convert to CompletionItems
-      return candidates.map((c) => self.toCompletionItem(c));
+      return candidates.map((c) => ({
+        symbol: c.symbol,
+        relevance: c.relevance,
+        context: 'member access',
+      }));
     });
   }
 
@@ -918,105 +899,5 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     });
 
     return classSymbols[0] as TypeSymbol;
-  }
-
-  // ---------------------------------------------------------------------------
-  // CompletionItem Conversion
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Convert a MemberCompletionCandidate to an LSP CompletionItem.
-   */
-  private toCompletionItem(
-    candidate: MemberCompletionCandidate,
-  ): CompletionItem {
-    const { symbol, relevance, source } = candidate;
-    const kind = this.mapKind(symbol.kind);
-
-    const item: CompletionItem = {
-      label: symbol.name,
-      kind,
-      detail: this.formatDetail(symbol),
-      sortText: this.buildSortText(relevance, symbol.name),
-      filterText: symbol.name,
-    };
-
-    // Add insert text for methods (with snippet parentheses)
-    if (symbol.kind === SymbolKind.Method) {
-      const methodSym = symbol as MethodSymbol;
-      if (methodSym.parameters && methodSym.parameters.length > 0) {
-        item.insertText = `${symbol.name}($0)`;
-        item.insertTextFormat = 2; // Snippet
-      } else {
-        item.insertText = `${symbol.name}()`;
-      }
-    }
-
-    // Mark inherited items
-    if (source === 'inherited') {
-      item.detail = `(inherited) ${item.detail ?? ''}`;
-    } else if (source === 'interface') {
-      item.detail = `(interface) ${item.detail ?? ''}`;
-    }
-
-    return item;
-  }
-
-  private mapKind(symbolKind: SymbolKind): CompletionItemKind {
-    switch (symbolKind) {
-      case SymbolKind.Method:
-        return CompletionItemKind.Method;
-      case SymbolKind.Constructor:
-        return CompletionItemKind.Constructor;
-      case SymbolKind.Field:
-        return CompletionItemKind.Field;
-      case SymbolKind.Property:
-        return CompletionItemKind.Property;
-      case SymbolKind.Class:
-        return CompletionItemKind.Class;
-      case SymbolKind.Interface:
-        return CompletionItemKind.Interface;
-      case SymbolKind.Enum:
-        return CompletionItemKind.Enum;
-      case SymbolKind.EnumValue:
-        return CompletionItemKind.EnumMember;
-      default:
-        return CompletionItemKind.Text;
-    }
-  }
-
-  private formatDetail(symbol: ApexSymbol): string {
-    if (symbol.kind === SymbolKind.Method && isMethodSymbolNarrowing(symbol)) {
-      const method = symbol as MethodSymbol;
-      const params =
-        method.parameters
-          ?.map((p) => `${p.type?.name ?? '?'} ${p.name}`)
-          .join(', ') ?? '';
-      const ret = method.returnType?.name ?? 'void';
-      return `${symbol.name}(${params}): ${ret}`;
-    }
-    if (
-      symbol.kind === SymbolKind.Field ||
-      symbol.kind === SymbolKind.Property
-    ) {
-      const varSym = symbol as VariableSymbol;
-      return `${varSym.type?.name ?? 'Object'} ${symbol.name}`;
-    }
-    if (
-      symbol.kind === SymbolKind.Class ||
-      symbol.kind === SymbolKind.Interface ||
-      symbol.kind === SymbolKind.Enum
-    ) {
-      return `${symbol.kind} ${symbol.name}`;
-    }
-    return symbol.name;
-  }
-
-  private buildSortText(relevance: number, name: string): string {
-    // Higher relevance -> lower sort prefix -> appears first
-    const prefix = Math.floor((1 - relevance) * 1000)
-      .toString()
-      .padStart(4, '0');
-    return `${prefix}_${name}`;
   }
 }
