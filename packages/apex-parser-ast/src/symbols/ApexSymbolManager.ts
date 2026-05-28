@@ -1131,6 +1131,33 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Find symbols whose name starts with the given prefix (case-insensitive).
+   * Uses the nameIndex for efficient prefix scanning without loading all symbols.
+   * @param prefix The prefix to search for
+   * @param limit Maximum number of symbols to return (default: 100)
+   * @returns Symbols matching the prefix
+   */
+  async findSymbolsByPrefix(
+    prefix: string,
+    limit: number = 100,
+  ): Promise<ApexSymbol[]> {
+    if (!prefix || prefix.length === 0) {
+      return [];
+    }
+
+    // Check cache first
+    const cacheKey = `symbol_prefix_${prefix.toLowerCase()}_${limit}`;
+    const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const symbols = this.symbolRefManager.findSymbolsByPrefix(prefix, limit);
+    this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
+    return symbols;
+  }
+
+  /**
    * Get statistics
    */
   async getStats(): Promise<SystemStats> {
