@@ -80,7 +80,7 @@
     "@types/node": "^20.19.40",
     "@types/semver": "^7.7.0",
     "@types/vscode": "1.118.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
     "@typescript-eslint/parser": "^8.59.2",
     "@vscode/test-web": "^0.0.80",
     "benchmark": "^2.1.4",
@@ -117,7 +117,7 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.60.3",
+    "@rollup/rollup-linux-x64-gnu": "^4.60.4",
     "@rollup/rollup-linux-x64-musl": "^4.60.3"
   },
   "dependencies": {
