@@ -531,12 +531,89 @@ function processWorkspaceBatchBackground(
  * public-api compilation. When no dispatcher is set, falls back to local
  * processing via the priority scheduler.
  */
+/**
+ * Wait briefly for the worker batch ingestion dispatcher to be set, when
+ * the worker topology is enabled. Resolves the bootstrap race where
+ * `apex/sendWorkspaceBatch` arrives before workers finish spawning:
+ * the batch handler is registered as soon as the LSP server starts, but
+ * the dispatcher is only set when LCSAdapter.initializeWorkerTopology
+ * completes (typically 1–2s later). Without this wait, the workspace
+ * gets compiled coordinator-side and never reaches the data-owner —
+ * which leaves all subsequent enrichment-pool requests (hover, definition,
+ * references) operating against an empty data-owner symbol manager.
+ *
+ * Uses a polling loop with a small interval and a generous timeout. If
+ * the dispatcher never arrives (worker topology failed to bootstrap),
+ * we fall through to local processing — preserving today's behavior as
+ * the safe fallback.
+ */
+/**
+ * Default wait timeout for the worker batch dispatcher to show up.
+ * In production: workers come online ~1-2s after server start, so 5s
+ * is generous. Tests override this to keep run-times bounded.
+ *
+ * @see setBatchDispatcherWaitTimeoutMs to change the value.
+ */
+let batchDispatcherWaitTimeoutMs = 5_000;
+
+/**
+ * Test-only seam to override the wait timeout. Production code should
+ * use the default (5s); test code typically passes 50-100ms so the
+ * fall-through-to-local path runs quickly.
+ */
+export function setBatchDispatcherWaitTimeoutMs(ms: number): void {
+  batchDispatcherWaitTimeoutMs = ms;
+}
+
+async function waitForBatchIngestionDispatcher(
+  timeoutMs: number,
+  pollIntervalMs: number,
+  logger: ReturnType<typeof getLogger>,
+): Promise<BatchIngestionDispatcher | null> {
+  if (batchIngestionDispatcher) return batchIngestionDispatcher;
+
+  // Always wait briefly. We can't reliably tell from settings whether
+  // workers are enabled — mergeWithExisting in ApexSettingsUtilities
+  // strips the `experimental` block during config merge, so any
+  // settings-based gate is unreliable. The env-var gate
+  // (APEX_WORKER_EXPERIMENT) catches dev-mode workers but not user
+  // settings. Rather than try to keep the gate in sync, we just wait
+  // for the dispatcher to show up. If it doesn't (workers disabled or
+  // failed to bootstrap), we time out and fall through. Workspace
+  // batches arrive once or twice at startup, so a few extra seconds
+  // here is acceptable.
+  const deadline = Date.now() + timeoutMs;
+  logger.debug(
+    () =>
+      `[BATCH-PROCESSING] Waiting up to ${timeoutMs}ms for worker batch dispatcher`,
+  );
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    if (batchIngestionDispatcher) {
+      logger.debug(
+        () =>
+          `[BATCH-PROCESSING] Worker batch dispatcher arrived after ${
+            timeoutMs - (deadline - Date.now())
+          }ms`,
+      );
+      return batchIngestionDispatcher;
+    }
+  }
+  logger.warn(
+    () =>
+      `[BATCH-PROCESSING] Worker batch dispatcher did not arrive within ${timeoutMs}ms; ` +
+      'falling through to coordinator-local processing. The data-owner worker ' +
+      'will not have workspace data, which can leave enrichment-pool requests ' +
+      '(hover/definition/references) returning empty cross-file results.',
+  );
+  return null;
+}
+
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
-  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
     const totalFiles = batches.reduce(
@@ -547,6 +624,12 @@ function processStoredBatches(
     logger.debug(
       () =>
         `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
+    );
+
+    // Wait briefly for the worker batch dispatcher when topology is
+    // enabled. See waitForBatchIngestionDispatcher for the rationale.
+    const dispatcher = yield* Effect.promise(() =>
+      waitForBatchIngestionDispatcher(batchDispatcherWaitTimeoutMs, 50, logger),
     );
 
     let fileUris: string[] = [];

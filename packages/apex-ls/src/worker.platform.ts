@@ -38,6 +38,8 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -70,6 +72,7 @@ import {
   type WorkerLogLevelChange,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import type { ProgressToken } from 'vscode-languageserver';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -83,6 +86,8 @@ const AllWorkerRequests = Schema.Union(
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
+  DrainDeferredReferences,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -125,6 +130,46 @@ interface WorkerDocument {
 
 function cloneForWire<T>(value: T): T | null {
   return value != null ? JSON.parse(JSON.stringify(value)) : null;
+}
+
+// ---------------------------------------------------------------------------
+// RemoteWorkspaceLoadCoordinator
+//
+// Worker-side IWorkspaceLoadCoordinator. Routes ensureLoaded calls
+// through the assistance bus to the coordinator's
+// coordinator:EnsureWorkspaceLoaded handler. Inlined here (rather than
+// imported from a sibling file) to preserve worker.platform's
+// "no local imports" invariant — the file must bundle independently
+// without cross-file resolution issues.
+// ---------------------------------------------------------------------------
+
+// Structurally implements IWorkspaceLoadCoordinator from @salesforce/apex-lsp-compliant-services.
+// `implements` clause is omitted to avoid duplicate-imports lint with the
+// dynamic import below — TypeScript structural typing handles it.
+class RemoteWorkspaceLoadCoordinator {
+  private readonly requestAssistance: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown>;
+
+  constructor(
+    requestAssistance: (
+      method: string,
+      params: unknown,
+      blocking: boolean,
+    ) => Promise<unknown>,
+  ) {
+    this.requestAssistance = requestAssistance;
+  }
+
+  async ensureLoaded(workDoneToken?: ProgressToken): Promise<void> {
+    await this.requestAssistance(
+      'coordinator:EnsureWorkspaceLoaded',
+      { workDoneToken },
+      true,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +400,16 @@ const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
           ),
         );
 
+        // Wire the remote workspace-load coordinator on the references
+        // service so processReferences can ask the coordinator to send
+        // the workspace-load notification (the worker has no LSP connection
+        // of its own).
+        svc.referencesService.setWorkspaceLoadCoordinator(
+          new RemoteWorkspaceLoadCoordinator(
+            requestCoordinatorAssistancePromise,
+          ),
+        );
+
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
         return svc;
       }),
@@ -417,15 +472,28 @@ async function writeBackCompiledSymbols(
 ): Promise<boolean> {
   const startTime = Date.now();
   try {
-    const enrichedSymbolTable = {
+    // The compiled SymbolTable's symbols/references contain function-typed
+    // fields (e.g. ApexSymbol.key.unifiedId getters) that postMessage's
+    // structured clone cannot handle: it throws "DataCloneError: ()=>null
+    // could not be cloned." cloneForWire performs a JSON round-trip to
+    // strip functions, matching what every data-owner-side handler
+    // (QuerySymbolSubset, ResolveDepUris, ResolveDependentUris) does in
+    // the opposite direction. Without this, structured clone throws on
+    // the assistance bus and the write-back never reaches the data-owner —
+    // which is what was leaving the data-owner with declarations only for
+    // the small number of files whose symbol tables happened to be
+    // function-free.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences:
         symbolTable.getAllHierarchicalReferences?.() ?? [],
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    });
+    const symbolCount =
+      (enrichedSymbolTable as { symbols?: unknown[] } | null)?.symbols
+        ?.length ?? 0;
 
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
@@ -675,6 +743,50 @@ async function loadSymbolDataForEnrichment(
 }
 
 /**
+ * Load symbol tables for files whose declared symbols reference symbols
+ * declared in `uri`. Best-effort: failures are swallowed and the caller
+ * proceeds with whatever symbols are already loaded — Find References
+ * is documented to return partial results.
+ *
+ * Mirrors the dependency pre-fetch inside loadSymbolDataForEnrichment,
+ * but inverted: that one walks `uri`'s outgoing references; this one
+ * walks `uri`'s incoming references. Used by Find References so the
+ * algorithm has access to caller-side symbol tables before it runs.
+ */
+async function loadDependentsForReferences(
+  svc: EnrichmentServices,
+  uri: string,
+  symbolName?: string,
+): Promise<void> {
+  try {
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:ResolveDependentUris',
+      { uri, symbolName },
+      true,
+    )) as { entries: Record<string, unknown> };
+
+    if (!response?.entries) return;
+
+    const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+    for (const [depUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const raw = stData as {
+        symbols: any[];
+        references?: any[];
+        hierarchicalReferences?: any[];
+        metadata?: any;
+        fileUri?: string;
+      };
+      const st = SymbolTable.fromSerializedData(raw);
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, depUri));
+    }
+  } catch {
+    // Best-effort: dependents are nice-to-have; references can still
+    // return whatever's resolvable from the loaded subset.
+  }
+}
+
+/**
  * Determine if enrichment is needed based on current and required detail levels.
  * Uses the same ordering as LayerEnrichmentService on origin/main.
  */
@@ -828,12 +940,45 @@ const enrichmentHandlers = {
   ),
   DispatchReferences: enrichmentHandler<RefsReq>(
     'DispatchReferences',
-    (svc, req) =>
-      svc.referencesService.processReferences({
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // References needs at least 'protected' detail to find cross-file
+      // references through inherited/extended members. Matches the level
+      // ReferencesProcessingService already requests for dependency-graph
+      // enrichment. Stdlib stubs are excluded by the existing enrichment
+      // logic — Apex private members can never be referenced cross-file.
+      const requiredLevel: 'public-api' | 'protected' | 'private' | 'full' =
+        'protected';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      // Fetch caller-side symbol tables before findReferences runs so the
+      // algorithm sees workspace-wide refs, not just the source file's
+      // dependencies. Best-effort — failures degrade gracefully to
+      // partial results, consistent with the existing contract.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      const result = await svc.referencesService.processReferences({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
         context: { includeDeclaration: req.context.includeDeclaration },
-      }),
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchImplementation: enrichmentHandler<PositionReq>(
     'DispatchImplementation',
@@ -1107,6 +1252,20 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               false, // hasErrors
             );
 
+            // Resolve cross-file references for this file. addSymbolTable
+            // only processes same-file references (it calls
+            // processSameFileReferencesToGraphEffect internally); cross-file
+            // edges require a separate pass through processSymbolReferencesToGraph
+            // which is only triggered by resolveCrossFileReferencesForFile.
+            // Without this, findReferencesTo() can never return cross-file
+            // hits on the data-owner side — and Find References, Goto
+            // Implementation, and the dependents pre-fetch all depend on
+            // those edges. Per-file resolution may be incomplete on the
+            // first pass (when other files haven't been loaded yet); the
+            // deferred-reference machinery in ApexSymbolRefManager catches
+            // up on subsequent file additions.
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+
             // Update cache with new detail level
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
@@ -1118,13 +1277,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
 
-            // Log to both Effect logger and console for debugging
-            const logMsg =
+            yield* Effect.logDebug(
               `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
-              `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
-              `(from ${req.sourceWorkerId})`;
-            console.log(logMsg);
-            yield* Effect.logDebug(logMsg);
+                `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
+                `(from ${req.sourceWorkerId})`,
+            );
 
             return {
               accepted: true,
@@ -1169,6 +1326,76 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDependentUris: (req) =>
+    guardRole('ResolveDependentUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            // Symbols declared in the target URI. Optionally narrow by name.
+            const declaredSymbols = yield* Effect.promise(() =>
+              sm.findSymbolsInFile(req.uri),
+            );
+            const targets = req.symbolName
+              ? declaredSymbols.filter((s) => s.name === req.symbolName)
+              : declaredSymbols;
+
+            // Distinct file URIs that contain references to any target symbol,
+            // excluding the source URI itself.
+            const dependentUris = new Set<string>();
+            for (const sym of targets) {
+              const refs = yield* Effect.promise(() =>
+                sm.findReferencesTo(sym),
+              );
+              for (const ref of refs) {
+                if (ref.fileUri && ref.fileUri !== req.uri) {
+                  dependentUris.add(ref.fileUri);
+                }
+              }
+            }
+
+            const entries: Record<string, unknown> = {};
+            for (const uri of dependentUris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                entries[uri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: st.getFileUri(),
+                });
+              }
+            }
+
+            return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  DrainDeferredReferences: (req) =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            // The drain is now synchronous (drainAllDeferredReferencesSync
+            // bypasses the priority scheduler); for dreamhouse-lwc-scale
+            // workspaces it completes in <500ms even with hundreds of
+            // queued deferrals. Safe to run inside dataOwnerWrite.
+            const result =
+              yield* svc.symbolManager.drainAllDeferredReferences();
+            return result;
           }),
         ),
       ),
@@ -1371,6 +1598,28 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.yieldNow();
             }
           }
+
+          // After batch ingestion settles on the data-owner, ask it to
+          // drain ALL queued deferred references against the now-fully-
+          // populated graph. The per-name re-resolution loop in
+          // addSymbolTable only fires for symbols just added — it can't
+          // catch cross-file deferrals enqueued AFTER the target file's
+          // add (which is the normal case during batch ingest, where
+          // source files are processed before their dependencies).
+          // Without this drain, Find References returns same-file-only
+          // edges for any symbol whose callers were ingested after the
+          // target was added.
+          yield* Effect.promise(async () => {
+            try {
+              await requestCoordinatorAssistancePromise(
+                'dataOwner:DrainDeferredReferences',
+                { reason: 'post-WorkspaceBatchCompile' },
+                true,
+              );
+            } catch {
+              // Drain is best-effort; subsequent additions trigger their own drains.
+            }
+          });
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.logInfo(

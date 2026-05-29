@@ -15,6 +15,7 @@ import {
   getBatchIngestionDispatcher,
   setCrossFileEnrichmentDispatcher,
   getCrossFileEnrichmentDispatcher,
+  setBatchDispatcherWaitTimeoutMs,
 } from '../../src/server/WorkspaceBatchHandler';
 import { SendWorkspaceBatchParams } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -76,6 +77,10 @@ describe('WorkspaceBatchHandler', () => {
     clearBatchStorage();
     // Clear cleanup interval to prevent it from keeping process alive
     clearCleanupInterval();
+    // Use a short wait timeout in tests so the no-dispatcher fall-through
+    // path completes within the test's wait window (otherwise
+    // processStoredBatches blocks for the full 5s production default).
+    setBatchDispatcherWaitTimeoutMs(50);
   });
 
   afterEach(async () => {

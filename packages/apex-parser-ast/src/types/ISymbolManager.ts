@@ -84,6 +84,19 @@ export interface ISymbolManager extends SymbolProvider {
     fileUri: string,
   ): Effect.Effect<void, never, never>;
 
+  /**
+   * Drain ALL queued deferred references in a single pass, regardless of
+   * which target names were just added. Used after batch ingest to land
+   * cross-file edges that couldn't be resolved during their originating
+   * resolveCrossFileReferencesForFile call (because target files hadn't
+   * been added yet, or vice versa).
+   */
+  drainAllDeferredReferences(): Effect.Effect<
+    { keysProcessed: number; remainingKeys: number },
+    never,
+    never
+  >;
+
   resolveSymbol(
     name: string,
     context: SymbolResolutionContext,

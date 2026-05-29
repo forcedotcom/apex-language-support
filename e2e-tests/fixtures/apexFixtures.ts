@@ -12,6 +12,7 @@ import { createDesktopTest } from './createDesktopTest';
 import { ApexEditorPage } from '../pages/ApexEditorPage';
 import { OutlineViewPage } from '../pages/OutlineViewPage';
 import { HoverPage } from '../pages/HoverPage';
+import { ReferencesPage } from '../pages/ReferencesPage';
 import {
   setupApexTestEnvironment,
   type ExtendedTestSessionResult,
@@ -45,6 +46,11 @@ export interface ApexTestFixtures {
    * Hover page object for hover functionality testing.
    */
   hoverHelper: HoverPage;
+
+  /**
+   * References page object for find-all-references peek widget testing.
+   */
+  referencesView: ReferencesPage;
 
   /**
    * Apex test environment with pre-configured workspace and monitoring.
@@ -126,6 +132,16 @@ export const test = testBase.extend<ApexTestFixtures>({
     void apexTestEnvironment;
     const hover = new HoverPage(page);
     await use(hover);
+  },
+
+  /**
+   * References view fixture - provides ReferencesPage instance.
+   * Depends on apexTestEnvironment to ensure VS Code is set up first.
+   */
+  referencesView: async ({ page, apexTestEnvironment }, use) => {
+    void apexTestEnvironment;
+    const references = new ReferencesPage(page);
+    await use(references);
   },
 
   /**

@@ -178,6 +178,26 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Trigger find-all-references at the current cursor position.
+   * Uses Shift+F12 keyboard shortcut, which opens the References peek widget.
+   * Caller is responsible for waiting on / interacting with the peek widget
+   * (see ReferencesPage).
+   */
+  async findReferences(): Promise<void> {
+    // If the Find widget is open from a prior positionCursorOnWord call it can
+    // swallow Shift+F12. Close it first the same way goToDefinition() does.
+    const findWidget = this.page.locator('.editor-widget.find-widget');
+    if (await findWidget.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await findWidget
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
+    }
+
+    await this.page.keyboard.press('Shift+F12');
+  }
+
+  /**
    * Trigger completion/IntelliSense at the current cursor position.
    * Uses Ctrl+Space keyboard shortcut.
    */

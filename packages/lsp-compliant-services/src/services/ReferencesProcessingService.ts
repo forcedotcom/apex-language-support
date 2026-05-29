@@ -12,22 +12,14 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
-import { Connection, ProgressToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  LoggerInterface,
-  LSPConfigurationManager,
-  Priority,
-} from '@salesforce/apex-lsp-shared';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ReferenceType,
-  createQueuedItem,
-  offer,
-  SchedulerInitializationService,
   isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
@@ -37,10 +29,9 @@ import {
   transformLspToParserPosition,
 } from '../utils/positionUtils';
 import {
-  ensureWorkspaceLoaded,
-  isWorkspaceLoaded,
-  isWorkspaceLoading,
-} from './WorkspaceLoadCoordinator';
+  IWorkspaceLoadCoordinator,
+  NoopWorkspaceLoadCoordinator,
+} from './IWorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
@@ -64,6 +55,8 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   private layerEnrichmentService: LayerEnrichmentService | null = null;
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
+  private workspaceLoadCoordinator: IWorkspaceLoadCoordinator =
+    new NoopWorkspaceLoadCoordinator();
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -89,70 +82,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
-   * Get LSP connection from configuration manager
+   * Set the workspace-load coordinator. Defaults to a no-op if not
+   * provided — the previous in-line LSPConfigurationManager.getConnection
+   * path silently no-op'd whenever the connection was unavailable, so
+   * the no-op default preserves that observable behavior for callers
+   * that don't wire a coordinator.
    */
-  private getConnection(): Connection | undefined {
-    try {
-      const configManager = LSPConfigurationManager.getInstance();
-      const connection = configManager.getConnection();
-
-      if (!connection) {
-        this.logger.debug(
-          () => 'LSP connection not available in configuration manager',
-        );
-      }
-
-      return connection;
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Failed to get LSP connection from configuration manager: ${error}`,
-      );
-      return undefined;
-    }
-  }
-
-  /**
-   * Queue workspace load if needed (only if workspace is not already loaded or loading)
-   * Uses local state tracking instead of querying client
-   */
-  private async queueWorkspaceLoadIfNeeded(
-    connection: Connection,
-    workDoneToken?: ProgressToken,
-  ): Promise<void> {
-    // Check local state first
-    if (isWorkspaceLoaded()) {
-      this.logger.debug(
-        () =>
-          'Workspace already loaded (from local state), skipping workspace load',
-      );
-      return;
-    }
-
-    if (isWorkspaceLoading()) {
-      this.logger.debug(
-        () =>
-          'Workspace already loading (from local state), skipping workspace load',
-      );
-      return;
-    }
-
-    // Queue workspace load
-    const schedulerService = SchedulerInitializationService.getInstance();
-    await schedulerService.ensureInitialized();
-
-    const loadEffect = ensureWorkspaceLoaded(
-      connection,
-      this.logger,
-      workDoneToken,
-    );
-
-    const queuedItem = await Effect.runPromise(
-      createQueuedItem(loadEffect, 'workspace-load'),
-    );
-    await Effect.runPromise(offer(Priority.Low, queuedItem));
-
-    this.logger.debug(() => 'Workspace load task queued');
+  setWorkspaceLoadCoordinator(coordinator: IWorkspaceLoadCoordinator): void {
+    this.workspaceLoadCoordinator = coordinator;
   }
 
   /**
@@ -182,32 +119,22 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     try {
-      // Request workspace load in background (non-blocking)
-      // Queue the load task and proceed immediately with reference search
-      const connection = this.getConnection();
-      if (connection) {
-        try {
-          // Check workspace state synchronously BEFORE queuing
-          await this.queueWorkspaceLoadIfNeeded(
-            connection,
-            params.workDoneToken,
-          );
-
-          this.logger.debug(
-            () =>
-              'Workspace load check completed, proceeding with reference search (results may be partial)',
-          );
-        } catch (error) {
-          this.logger.error(
-            () => `Error checking/queuing workspace load: ${error}`,
-          );
-          // Continue with reference search even if workspace load check/queuing fails
-        }
-      } else {
+      // Request workspace load in background (non-blocking).
+      // Coordinator-thread callers wrap the LSP connection directly; worker
+      // callers route through the assistance bus. Either way, we proceed
+      // immediately and return whatever references are visible now —
+      // partial results are part of the contract.
+      try {
+        await this.workspaceLoadCoordinator.ensureLoaded(params.workDoneToken);
         this.logger.debug(
           () =>
-            'No connection available for workspace load coordination, continuing with reference search',
+            'Workspace load coordination dispatched, proceeding with reference search (results may be partial)',
         );
+      } catch (error) {
+        this.logger.error(
+          () => `Error in workspace load coordination: ${error}`,
+        );
+        // Continue with reference search even if workspace load coordination fails
       }
 
       // Enrich files that might reference the target symbol (for finding references to protected/private members)
@@ -291,8 +218,45 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Extract symbol name from the first TypeReference
-    const symbolName = references[0].name;
+    // Extract symbol name from the first TypeReference. For chained refs
+    // (e.g. `GeocodingService.GeocodingAddress`) prefer the chain node that
+    // contains the cursor — its `name` is the simple identifier the user
+    // actually clicked on, not the full qualified string.
+    let symbolName = references[0].name;
+    const chainNodes = (references[0] as any).chainNodes as
+      | Array<{ name: string; location?: any }>
+      | undefined;
+    if (Array.isArray(chainNodes) && chainNodes.length > 0) {
+      const clickedNode = chainNodes.find((n) => {
+        const r = n.location?.identifierRange;
+        if (!r) return false;
+        if (
+          parserPosition.line < r.startLine ||
+          parserPosition.line > r.endLine
+        ) {
+          return false;
+        }
+        if (
+          parserPosition.line === r.startLine &&
+          parserPosition.character < r.startColumn
+        ) {
+          return false;
+        }
+        if (
+          parserPosition.line === r.endLine &&
+          parserPosition.character > r.endColumn
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (clickedNode) {
+        symbolName = clickedNode.name;
+      } else {
+        // No exact node match — fall back to the leaf (rightmost identifier).
+        symbolName = chainNodes[chainNodes.length - 1].name;
+      }
+    }
 
     // Early keyword check: if the TypeReference name is a keyword, return empty array
     // This prevents find references from processing keywords
@@ -304,20 +268,45 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Create resolution context
-    const context = await this.createResolutionContext(document, params);
+    // Prefer position-based resolution: handles chained references like
+    // `GeocodingService.GeocodingAddress` where the TypeReference name is the
+    // full qualified string but no symbol is stored under that exact name.
+    let resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
+      params.textDocument.uri,
+      parserPosition,
+    );
 
-    // Use ApexSymbolManager for context-aware symbol resolution
-    const result = await this.symbolManager.resolveSymbol(symbolName, context);
+    if (!resolvedSymbol) {
+      // Fall back to context-aware name resolution. For dotted names that
+      // didn't resolve via position, try the last segment (the most specific
+      // part the cursor is conceptually on).
+      const context = await this.createResolutionContext(document, params);
+      const result = await this.symbolManager.resolveSymbol(
+        symbolName,
+        context,
+      );
+      resolvedSymbol = result.symbol;
 
-    if (!result.symbol) {
+      if (!resolvedSymbol && symbolName.includes('.')) {
+        const lastSegment = symbolName.substring(
+          symbolName.lastIndexOf('.') + 1,
+        );
+        const fallback = await this.symbolManager.resolveSymbol(
+          lastSegment,
+          context,
+        );
+        resolvedSymbol = fallback.symbol;
+      }
+    }
+
+    if (!resolvedSymbol) {
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
       return [];
     }
 
     // Get reference locations
     const locations = await this.getReferenceLocations(
-      result.symbol,
+      resolvedSymbol,
       params.context?.includeDeclaration,
     );
 
@@ -451,12 +440,21 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
-   * Create location from symbol
+   * Create location from symbol.
+   *
+   * SymbolLocation is { symbolRange, identifierRange }, not a flat
+   * { startLine, startColumn, ... }. For Find References we want to
+   * highlight the identifier itself (the symbol's name token), so we
+   * use identifierRange. Reading .startLine directly off .location
+   * yields undefined → NaN through transformParserToLspPosition →
+   * null line/character on the wire, which the LSP client silently
+   * drops as a malformed Location.
    */
   private async createLocationFromSymbol(
     symbol: any,
   ): Promise<Location | null> {
-    if (!symbol.location) {
+    const range = symbol?.location?.identifierRange;
+    if (!range) {
       return null;
     }
 
@@ -465,25 +463,29 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
-    const range: Range = {
+    const lspRange: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: range.startLine,
+        character: range.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: range.endLine,
+        character: range.endColumn,
       }),
     };
 
-    return { uri, range };
+    return { uri, range: lspRange };
   }
 
   /**
-   * Create location from reference
+   * Create location from reference.
+   *
+   * Same shape concern as createLocationFromSymbol — reference.location
+   * is { symbolRange, identifierRange }, not a flat range.
    */
   private createLocationFromReference(reference: any): Location | null {
-    if (!reference.location) {
+    const range = reference?.location?.identifierRange;
+    if (!range) {
       return null;
     }
 
@@ -492,18 +494,18 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
-    const range: Range = {
+    const lspRange: Range = {
       start: transformParserToLspPosition({
-        line: reference.location.startLine,
-        character: reference.location.startColumn,
+        line: range.startLine,
+        character: range.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: reference.location.endLine,
-        character: reference.location.endColumn,
+        line: range.endLine,
+        character: range.endColumn,
       }),
     };
 
-    return { uri, range };
+    return { uri, range: lspRange };
   }
 
   /**
@@ -652,7 +654,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get the file URI for a symbol
    */
   private async getSymbolFileUri(symbol: any): Promise<string | null> {
-    // Try to get from symbol's file path
+    // ApexSymbol carries fileUri (the canonical location it was registered at).
+    if (symbol.fileUri) {
+      return symbol.fileUri.startsWith('file://') ||
+        symbol.fileUri.includes('://')
+        ? symbol.fileUri
+        : `file://${symbol.fileUri}`;
+    }
+
     if (symbol.filePath) {
       return `file://${symbol.filePath}`;
     }
@@ -674,12 +683,28 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get the file URI for a reference
    */
   private getReferenceFileUri(reference: any): string | null {
-    // Try to get from reference's file path
+    // ReferenceResult carries a fileUri that's the source-side path of the
+    // edge (where the use site lives). Cross-file edges are the common case,
+    // and this is the only field we can trust to identify the source file.
+    if (reference.fileUri) {
+      return reference.fileUri.startsWith('file://') ||
+        reference.fileUri.includes('://')
+        ? reference.fileUri
+        : `file://${reference.fileUri}`;
+    }
+
+    // Legacy/alternate shapes
     if (reference.filePath) {
       return `file://${reference.filePath}`;
     }
 
-    // Try to get from symbol's file path
+    if (reference.symbol && reference.symbol.fileUri) {
+      return reference.symbol.fileUri.startsWith('file://') ||
+        reference.symbol.fileUri.includes('://')
+        ? reference.symbol.fileUri
+        : `file://${reference.symbol.fileUri}`;
+    }
+
     if (reference.symbol && reference.symbol.filePath) {
       return `file://${reference.symbol.filePath}`;
     }

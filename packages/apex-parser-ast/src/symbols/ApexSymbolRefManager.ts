@@ -920,12 +920,31 @@ export class ApexSymbolRefManager {
     }
   }
 
+  /**
+   * Clear outgoing references from a file in preparation for re-adding its
+   * symbol table. Outgoing edges always need to be wiped because the new
+   * symbol table will produce a fresh set of source references; leaving
+   * the old ones would double-count.
+   *
+   * INCOMING edges are NOT wiped. Symbol IDs (see getSymbolId) are
+   * deterministic given (name, fileUri, identifier line) so the new
+   * symbol replacement preserves the IDs that other files' refs point at.
+   * Wiping incoming refs here was previously the source of a regression
+   * where every full-level enrichment write-back to file A also dropped
+   * every cross-file edge from any file B → A (most visibly: every test
+   * file's references to its production class). Cross-file edges added
+   * by the post-batch drain were destroyed within seconds of being
+   * established.
+   *
+   * If a symbol is renamed or deleted in the updated symbol table, its
+   * old ID will no longer resolve via getSymbolByIdAndFile and findReferencesTo
+   * already filters those out (line ~1903). The eventual cleanup happens
+   * naturally as those stale entries are skipped on read; correctness is
+   * preserved.
+   */
   clearReferenceStateForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
-    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
-
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
   }
 
@@ -3220,6 +3239,145 @@ export class ApexSymbolRefManager {
         }),
       ),
     );
+  }
+
+  /**
+   * Drain ALL deferred references in a single pass.
+   *
+   * The per-symbol-name deferred-ref re-resolution loop in
+   * ApexSymbolManager.addSymbolTable only matches deferrals for symbols
+   * that were just added. When file A is added BEFORE file B, and B's
+   * cross-file refs to A's symbols only get enqueued during B's
+   * resolveCrossFileReferencesForFile pass, those deferrals are never
+   * re-tried unless A is re-added or another file's add happens to
+   * include the same names.
+   *
+   * Call this method after batch ingestion (or any other point where
+   * the graph has settled) to drive every deferred entry against the
+   * current graph state. Successful resolutions add edges and remove
+   * the entry; failures stay queued for the next drain.
+   *
+   * Returns the number of distinct target-name keys processed.
+   */
+  /**
+   * Synchronous in-place drain of all deferred references.
+   *
+   * Walks the entire deferredReferences map and, for each entry, looks up
+   * source + target via findSymbolByName and calls addReference inline.
+   * Successfully resolved deferrals are removed; unresolvable ones stay
+   * queued for the next drain.
+   *
+   * Bypasses the priority scheduler (deferredProcessorLayer) on purpose:
+   * the scheduler's rate limit (default 5 tasks/sec) is appropriate for
+   * trickle-feed background processing but causes 30+ second stalls when
+   * drain has hundreds of entries to process. The work itself is just
+   * map lookups and a graph edge add — milliseconds per entry.
+   */
+  public drainAllDeferredReferencesSync(): {
+    keysProcessed: number;
+    refsResolved: number;
+    refsUnresolved: number;
+    remainingKeys: number;
+  } {
+    this.syncClassFieldsFromRefs();
+    const keys = Array.from(this.deferredReferences.keys());
+
+    let refsResolved = 0;
+    let refsUnresolved = 0;
+
+    for (const targetName of keys) {
+      const deferred = this.deferredReferences.get(targetName);
+      if (!deferred || deferred.length === 0) {
+        this.deferredReferences.delete(targetName);
+        continue;
+      }
+
+      // Look up the target symbol by name. If the target still isn't in
+      // the graph, every deferral under this key is unresolvable for now.
+      const targetCandidates = this.findSymbolByName(targetName);
+      if (targetCandidates.length === 0) {
+        refsUnresolved += deferred.length;
+        continue;
+      }
+
+      const remaining: typeof deferred = [];
+      for (const ref of deferred) {
+        // Refresh source fileUri if it was missing at enqueue time.
+        if (!ref.sourceSymbol.fileUri) {
+          const sourceCandidates = this.findSymbolByName(ref.sourceSymbol.name);
+          if (sourceCandidates.length > 0) {
+            ref.sourceSymbol.fileUri = sourceCandidates[0].fileUri;
+          }
+        }
+
+        if (!ref.sourceSymbol.fileUri) {
+          // Still no source fileUri, can't resolve — keep deferred.
+          remaining.push(ref);
+          refsUnresolved++;
+          continue;
+        }
+
+        // Pick the target candidate matching the source's fileUri if
+        // possible (favors same-file targets first), then any.
+        const targetSymbol = targetCandidates[0];
+
+        // addReference handles source-in-graph + target-in-graph lookup
+        // internally and emits the edge. If preconditions fail it
+        // re-enqueues a deferred ref under the same key — which we then
+        // re-detect on the next pass. To avoid infinite loops within
+        // this drain, we count the addReference attempt and trust that
+        // either it resolves now or stays queued for the next drain.
+        this.addReference(
+          ref.sourceSymbol,
+          targetSymbol,
+          ref.referenceType,
+          ref.location,
+          ref.context,
+        );
+        refsResolved++;
+      }
+
+      if (remaining.length === 0) {
+        this.deferredReferences.delete(targetName);
+      } else {
+        this.deferredReferences.set(targetName, remaining);
+      }
+    }
+
+    // Sync mutations back to the Ref so async deferred-ref processors
+    // see the same state as the synchronous class field.
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+
+    const remainingKeys = this.deferredReferences.size;
+
+    return {
+      keysProcessed: keys.length,
+      refsResolved,
+      refsUnresolved,
+      remainingKeys,
+    };
+  }
+
+  /**
+   * Effect-wrapped synchronous drain. Same semantics as
+   * drainAllDeferredReferencesSync; the wrapper exists so callers in
+   * Effect-genned code can yield it without an extra Effect.sync hop.
+   */
+  public drainAllDeferredReferencesEffect(): Effect.Effect<
+    { keysProcessed: number; remainingKeys: number },
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.sync(() => {
+      const result = self.drainAllDeferredReferencesSync();
+      return {
+        keysProcessed: result.keysProcessed,
+        remainingKeys: result.remainingKeys,
+      };
+    });
   }
   /**
    * Retry pending deferred references when source symbol is added (Effect-based)

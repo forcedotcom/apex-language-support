@@ -2030,6 +2030,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that when a new file (like Foo.cls) is added, deferred references
       // in other files (like Bar.cls) that reference those types get resolved
       const sourceFilesToReResolve = new Set<string>();
+
       for (const symbolName of symbolNamesAdded) {
         // Check if there are deferred references waiting for this type
         const deferredRefs =
@@ -2948,6 +2949,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param fileUri The file URI to resolve cross-file references for
    * @returns Effect that resolves cross-file references for the file
    */
+  /**
+   * Drain ALL queued deferred references in a single pass.
+   *
+   * Used after batch ingest (or any other quiescent point) to land
+   * cross-file edges that couldn't be resolved during their originating
+   * resolveCrossFileReferencesForFile call because the target file's
+   * symbols hadn't been added yet — or vice versa, the source file was
+   * added before the target.
+   *
+   * The per-symbol-name re-resolution loop in addSymbolTable only fires
+   * for names just added; it doesn't know about deferrals enqueued
+   * AFTER the target file's addSymbolTable has run, which is exactly
+   * the case during batch ingest when source files are processed before
+   * their target dependencies.
+   */
+  drainAllDeferredReferences(): Effect.Effect<
+    { keysProcessed: number; remainingKeys: number },
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      return yield* self.symbolRefManager.drainAllDeferredReferencesEffect();
+    });
+  }
+
   resolveCrossFileReferencesForFile(
     fileUri: string,
   ): Effect.Effect<void, never, never> {
@@ -3432,6 +3459,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           let sourceSymbol = yield* Effect.promise(() =>
             self.findContainingSymbolForReference(typeRef, normalizedUri),
           );
+          // findContainingSymbolForReference returns the most-specific
+          // containing symbol, which for refs inside method bodies is a
+          // synthetic block symbol (block_LL_CC). enqueueDeferredReference
+          // tries to resolve block sources via findContainingSymbolForBlock
+          // and silently drops the deferral if the block's parentId chain
+          // doesn't reach a method/class. For dreamhouse-lwc Test files,
+          // this drops 118/146 deferrals — every cross-file ref that
+          // happens inside a test method body.
+          //
+          // Walk up to a non-block source here, before deferral, to avoid
+          // depending on enqueue's block-resolution path.
+          if (sourceSymbol && isBlockSymbol(sourceSymbol)) {
+            const symbolsInFileForBlock = yield* Effect.promise(() =>
+              self.findSymbolsInFile(normalizedUri),
+            );
+            const containing =
+              self.findContainingNonBlockSymbol(
+                sourceSymbol,
+                symbolsInFileForBlock,
+              ) ??
+              symbolsInFileForBlock.find(inTypeSymbolGroup) ??
+              null;
+            sourceSymbol = containing;
+          }
           if (!sourceSymbol) {
             // Fallback: Try to find the class symbol in the file
             const symbolsInFile = yield* Effect.promise(() =>
@@ -4768,6 +4819,40 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param fileUri The file path
    * @returns The containing symbol or null if not found
    */
+  /**
+   * Walk up from a block symbol to its nearest enclosing non-block symbol
+   * (Method/Class/Interface/Enum/Trigger) using the block's parentId chain
+   * resolved against the supplied per-file symbol list.
+   *
+   * Used by the cross-file deferral path to avoid enqueueDeferredReference's
+   * findContainingSymbolForBlock fallback, which silently drops deferrals
+   * when the parentId chain doesn't reach a non-block ancestor.
+   */
+  private findContainingNonBlockSymbol(
+    blockSymbol: ApexSymbol,
+    symbolsInFile: ApexSymbol[],
+  ): ApexSymbol | null {
+    let currentId: string | undefined = (blockSymbol as { parentId?: string })
+      .parentId;
+    const visited = new Set<string>();
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const parent = symbolsInFile.find((s) => s.id === currentId);
+      if (!parent) return null;
+      if (
+        parent.kind === SymbolKind.Method ||
+        parent.kind === SymbolKind.Class ||
+        parent.kind === SymbolKind.Interface ||
+        parent.kind === SymbolKind.Enum ||
+        parent.kind === SymbolKind.Trigger
+      ) {
+        return parent;
+      }
+      currentId = (parent as { parentId?: string }).parentId;
+    }
+    return null;
+  }
+
   private async findContainingSymbolForReference(
     typeRef: SymbolReference,
     fileUri: string,

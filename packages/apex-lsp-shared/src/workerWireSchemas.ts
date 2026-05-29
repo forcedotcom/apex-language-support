@@ -545,6 +545,10 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
       context: Schema.Struct({
         includeDeclaration: Schema.Boolean,
       }),
+      // Document content for the worker to seed local storage. Without
+      // this, ReferencesProcessingService.findReferences cannot resolve
+      // the symbol at the cursor and returns []. Mirrors DispatchHover.
+      content: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -671,6 +675,63 @@ export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// ResolveDependentUris — enrichment worker asks data-owner to return symbol
+// tables for every file whose declared symbols reference any symbol declared
+// in `uri`. Inverse of ResolveDepUris (which resolves a class name's *deps*);
+// this resolves a URI's *dependents*. Used by Find References to load
+// caller-side symbol tables before the algorithm runs on the worker.
+// ---------------------------------------------------------------------------
+
+export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentUris>()(
+  'ResolveDependentUris',
+  {
+    success: Schema.Struct({
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveDependentUrisError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      // Optional: narrow to dependents that reference a specific symbol
+      // declared in `uri`. When omitted, dependents of *any* symbol in `uri`
+      // are returned. Accepted now to avoid a wire-schema break later.
+      symbolName: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// DrainDeferredReferences — fire-and-forget request asking the data-owner to
+// run a single global pass over all queued deferred references against the
+// current graph state. Sent by compilation workers after WorkspaceBatchCompile
+// completes (and by other quiescent points, e.g. after a single-file edit
+// settles) so cross-file edges that couldn't be resolved during their
+// originating resolveCrossFileReferencesForFile pass — because the target
+// file hadn't been added yet — finally land. Without this, Find References
+// returns same-file-only edges for any symbol whose callers were ingested
+// after their target.
+// ---------------------------------------------------------------------------
+
+export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredReferences>()(
+  'DrainDeferredReferences',
+  {
+    success: Schema.Struct({
+      keysProcessed: Schema.Number,
+      remainingKeys: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DrainDeferredReferencesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      reason: Schema.String, // for tracing — e.g. "post-WorkspaceBatchCompile"
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QueryGraphData — coordinator asks data-owner to compute graph data
 // using the data-owner's own symbol manager (which holds all workspace symbols
 // after compilation and enrichment write-backs).
@@ -706,6 +767,8 @@ export const DataOwnerTags = [
   'QuerySymbolSubset',
   'UpdateSymbolSubset',
   'ResolveDepUris',
+  'ResolveDependentUris',
+  'DrainDeferredReferences',
   'WorkspaceBatchIngest',
   'QueryGraphData',
   'DispatchDocumentOpen',
@@ -776,6 +839,8 @@ export type DataOwnerRequest =
   | QuerySymbolSubset
   | UpdateSymbolSubset
   | ResolveDepUris
+  | ResolveDependentUris
+  | DrainDeferredReferences
   | WorkspaceBatchIngest
   | QueryGraphData
   | DispatchDocumentOpen

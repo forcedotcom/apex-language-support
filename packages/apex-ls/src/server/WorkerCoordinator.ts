@@ -23,7 +23,9 @@ import {
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  DrainDeferredReferences,
   ResolveDepUris,
+  ResolveDependentUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   QueryGraphData,
@@ -545,8 +547,17 @@ export const runRemoteStdlibWarmupPhase = (
  * DATA_OWNER_TYPES and COORDINATOR_ONLY_TYPES are derived automatically.
  *
  * - dataOwner:       routed to the data-owner worker
- * - enrichmentPool:  routed to an enrichment pool worker (TODO: enable when data sharing is ready)
- * - coordinatorOnly: runs on the coordinator thread (local handler)
+ * - enrichmentPool:  routed to an enrichment pool worker. Hover, definition,
+ *                    diagnostics, references, and crossFileEnrichment use
+ *                    this path — the worker pulls the file's symbol table
+ *                    (and dependents/dependencies as needed) from the
+ *                    data-owner via the assistance bus before running the
+ *                    algorithm.
+ * - coordinatorOnly: runs on the coordinator thread (local handler).
+ *                    Remaining: rename, completion, implementation,
+ *                    documentSymbol, codeLens, signatureHelp, workspaceSymbol,
+ *                    codeAction, resolve. Can be migrated as their data-
+ *                    sharing requirements are validated.
  */
 type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
 
@@ -570,7 +581,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   hover: 'enrichmentPool',
   implementation: 'coordinatorOnly',
   prerequisiteEnrichment: 'coordinatorOnly',
-  references: 'coordinatorOnly',
+  references: 'enrichmentPool',
   rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',
@@ -787,6 +798,23 @@ function createDispatcher(
             }),
           );
         }
+        case 'ResolveDependentUris': {
+          const prdu = params as { uri: string; symbolName?: string };
+          return callbacks.sendToDataOwner(
+            new ResolveDependentUris({
+              uri: prdu.uri,
+              symbolName: prdu.symbolName,
+            }),
+          );
+        }
+        case 'DrainDeferredReferences': {
+          const pdr = params as { reason?: string };
+          return callbacks.sendToDataOwner(
+            new DrainDeferredReferences({
+              reason: pdr.reason ?? 'unspecified',
+            }),
+          );
+        }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
       }
@@ -1000,6 +1028,7 @@ function buildEnrichmentMessage(
         context: {
           includeDeclaration: r.context?.includeDeclaration ?? false,
         },
+        content: getDocumentContent?.(r.textDocument.uri),
       });
     }
     case 'implementation':

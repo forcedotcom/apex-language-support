@@ -12,6 +12,7 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   DispatchDocumentOpen,
@@ -105,6 +106,35 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(QuerySymbolSubset)(query);
       const decoded = Schema.decodeSync(QuerySymbolSubset)(encoded);
       expect(decoded.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+    });
+  });
+
+  describe('ResolveDependentUris', () => {
+    it('should encode and decode round-trip with required fields only', () => {
+      const req = new ResolveDependentUris({
+        uri: 'file:///MyClass.cls',
+      });
+      expect(req._tag).toBe('ResolveDependentUris');
+      expect(req.uri).toBe('file:///MyClass.cls');
+      expect(req.symbolName).toBeUndefined();
+
+      const encoded = Schema.encodeSync(ResolveDependentUris)(req);
+      const decoded = Schema.decodeSync(ResolveDependentUris)(encoded);
+      expect(decoded.uri).toBe('file:///MyClass.cls');
+      expect(decoded.symbolName).toBeUndefined();
+    });
+
+    it('should encode and decode round-trip with optional symbolName', () => {
+      const req = new ResolveDependentUris({
+        uri: 'file:///MyClass.cls',
+        symbolName: 'MyClass',
+      });
+      expect(req.symbolName).toBe('MyClass');
+
+      const encoded = Schema.encodeSync(ResolveDependentUris)(req);
+      const decoded = Schema.decodeSync(ResolveDependentUris)(encoded);
+      expect(decoded.uri).toBe('file:///MyClass.cls');
+      expect(decoded.symbolName).toBe('MyClass');
     });
   });
 
@@ -234,6 +264,19 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(DispatchReferences)(req);
       const decoded = Schema.decodeSync(DispatchReferences)(encoded);
       expect(decoded.context.includeDeclaration).toBe(true);
+      expect(decoded.content).toBeUndefined();
+    });
+
+    it('should encode and decode round-trip with content', () => {
+      const req = new DispatchReferences({
+        textDocument: { uri: 'file:///MyClass.cls' },
+        position: { line: 3, character: 7 },
+        context: { includeDeclaration: true },
+        content: 'public class MyClass {}',
+      });
+      const encoded = Schema.encodeSync(DispatchReferences)(req);
+      const decoded = Schema.decodeSync(DispatchReferences)(encoded);
+      expect(decoded.content).toBe('public class MyClass {}');
     });
   });
 
@@ -348,6 +391,17 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('enrichmentSearch', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
+    });
+
+    it('should restrict ResolveDependentUris to dataOwner', () => {
+      expect(isAllowedTag('dataOwner', 'ResolveDependentUris')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'ResolveDependentUris')).toBe(
+        false,
+      );
+      expect(isAllowedTag('resourceLoader', 'ResolveDependentUris')).toBe(
+        false,
+      );
+      expect(isAllowedTag('compilation', 'ResolveDependentUris')).toBe(false);
     });
 
     it('should restrict WorkspaceBatchIngest to dataOwner', () => {

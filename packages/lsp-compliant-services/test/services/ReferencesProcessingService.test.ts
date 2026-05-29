@@ -164,6 +164,27 @@ describe('ReferencesProcessingService', () => {
 
     // Create service instance with real symbol manager
     service = new ReferencesProcessingService(logger, symbolManager);
+
+    // Inject a workspace-load coordinator that delegates to the legacy
+    // mockEnsureWorkspaceLoaded so existing assertions stay meaningful.
+    // ensureLoaded resolves regardless of the inner Effect's success/failure
+    // (matching the production service's catch-all behavior).
+    service.setWorkspaceLoadCoordinator({
+      ensureLoaded: jest.fn(async (workDoneToken?: any) => {
+        const eff = mockEnsureWorkspaceLoaded(
+          mockConnection,
+          logger,
+          workDoneToken,
+        );
+        try {
+          await Effect.runPromise(eff);
+        } catch {
+          // Surface as a rejected promise so the catch-all in
+          // processReferences exercises its error path.
+          throw new Error('coordinator failed');
+        }
+      }),
+    });
   });
 
   describe('processReferences', () => {
@@ -235,9 +256,13 @@ describe('ReferencesProcessingService', () => {
       );
     });
 
-    it('should not trigger workspace load when connection is unavailable', async () => {
-      // Arrange
-      mockConfigManager.getConnection.mockReturnValue(undefined);
+    it('should not trigger workspace load when no coordinator is wired (no-op default)', async () => {
+      // Arrange — replace the test-default coordinator with a fresh service
+      // that has no coordinator wired, exercising the NoopWorkspaceLoadCoordinator default.
+      const noCoordinatorService = new ReferencesProcessingService(
+        logger,
+        symbolManager,
+      );
 
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
@@ -255,11 +280,13 @@ describe('ReferencesProcessingService', () => {
       mockStorage.getDocument.mockResolvedValue(document);
 
       // Act
-      const result = await service.processReferences(params);
+      const result = await noCoordinatorService.processReferences(params);
 
       // Assert
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      // The legacy mock should not have been called — no coordinator is wired,
+      // so the default no-op short-circuits.
       expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
     });
 
@@ -362,6 +389,68 @@ describe('ReferencesProcessingService', () => {
 
       // Assert
       expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('should call the injected workspace-load coordinator with workDoneToken', async () => {
+      // Arrange — wire a recording coordinator to assert ensureLoaded is
+      // invoked with the request's workDoneToken.
+      const ensureLoadedSpy = jest.fn(async () => {
+        /* no-op */
+      });
+      service.setWorkspaceLoadCoordinator({ ensureLoaded: ensureLoadedSpy });
+
+      const params: ReferenceParams = {
+        textDocument: { uri: 'file:///test/TestClass.cls' },
+        position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
+        workDoneToken: 'token-abc-123',
+      };
+
+      const document = TextDocument.create(
+        params.textDocument.uri,
+        'apex',
+        1,
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+      jest.spyOn(service as any, 'findReferences').mockResolvedValue([]);
+
+      // Act
+      await service.processReferences(params);
+
+      // Assert
+      expect(ensureLoadedSpy).toHaveBeenCalledTimes(1);
+      expect(ensureLoadedSpy).toHaveBeenCalledWith('token-abc-123');
+    });
+
+    it('should swallow coordinator errors and still return references', async () => {
+      // Arrange — a coordinator that throws should not break processReferences.
+      const failingCoordinator = {
+        ensureLoaded: jest.fn().mockRejectedValue(new Error('boom')),
+      };
+      service.setWorkspaceLoadCoordinator(failingCoordinator);
+
+      const params: ReferenceParams = {
+        textDocument: { uri: 'file:///test/TestClass.cls' },
+        position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
+      };
+
+      const document = TextDocument.create(
+        params.textDocument.uri,
+        'apex',
+        1,
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+      jest.spyOn(service as any, 'findReferences').mockResolvedValue([]);
+
+      // Act
+      const result = await service.processReferences(params);
+
+      // Assert
+      expect(failingCoordinator.ensureLoaded).toHaveBeenCalled();
       expect(Array.isArray(result)).toBe(true);
     });
 

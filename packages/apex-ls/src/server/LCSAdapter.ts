@@ -30,6 +30,7 @@ import {
   Registration,
   ServerCapabilities,
   ExecuteCommandParams,
+  ProgressToken,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
@@ -75,6 +76,7 @@ import {
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
   getDiagnosticRefreshService,
+  ensureWorkspaceLoaded,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -2211,6 +2213,22 @@ export class LCSAdapter {
             return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
               params as import('@salesforce/apex-lsp-shared').FindMissingArtifactParams,
             );
+          }
+          if (method === 'coordinator:EnsureWorkspaceLoaded') {
+            // Worker requested that the coordinator ensure the workspace is
+            // loaded. Reuses the existing fire-and-forget notification path
+            // that processReferences uses on the coordinator thread.
+            const p = (params ?? {}) as {
+              workDoneToken?: ProgressToken;
+            };
+            await Effect.runPromise(
+              ensureWorkspaceLoaded(
+                this.connection,
+                this.logger,
+                p.workDoneToken,
+              ),
+            );
+            return undefined;
           }
           if (method === 'resourceLoader:resolveClass') {
             const p = params as { name: string };
