@@ -117,8 +117,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
           `MemberAccess: resolved to type ${resolvedType.name} (${resolvedType.kind})`,
       );
 
-      const candidates = yield* Effect.promise(() =>
-        self.getMembersOfType(resolvedType, exprContext.expectStatic, fileUri),
+      const candidates = yield* self.getMembersOfTypeEffect(
+        resolvedType,
+        exprContext.expectStatic,
+        fileUri,
       );
 
       self.logger.debug(
@@ -593,85 +595,110 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   /**
    * Get all members of a type (direct + inherited), filtered by static/instance context.
    */
+  getMembersOfTypeEffect(
+    typeSymbol: TypeSymbol,
+    expectStatic: boolean,
+    fileUri: string,
+  ): Effect.Effect<MemberCompletionCandidate[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const candidates: MemberCompletionCandidate[] = [];
+      const seenNames = new Set<string>();
+
+      const directMembers = yield* Effect.promise(() =>
+        self.getDirectMembers(typeSymbol),
+      );
+      for (let i = 0; i < directMembers.length; i++) {
+        const member = directMembers[i];
+        if (self.shouldIncludeMember(member, expectStatic)) {
+          const key = self.memberKey(member);
+          if (!seenNames.has(key)) {
+            seenNames.add(key);
+            candidates.push({
+              symbol: member,
+              relevance: 1.0,
+              source: 'direct',
+              isStatic: member.modifiers?.isStatic ?? false,
+            });
+          }
+        }
+        if ((i + 1) % 50 === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      let currentType: TypeSymbol | null = typeSymbol;
+      let depth = 0;
+      while (currentType?.superClass && depth < 10) {
+        const superType = yield* Effect.promise(() =>
+          self.resolveTypeByName(currentType!.superClass!),
+        );
+        if (!superType) break;
+
+        const superMembers = yield* Effect.promise(() =>
+          self.getDirectMembers(superType),
+        );
+        for (const member of superMembers) {
+          if (self.shouldIncludeMember(member, expectStatic)) {
+            const key = self.memberKey(member);
+            if (!seenNames.has(key)) {
+              seenNames.add(key);
+              candidates.push({
+                symbol: member,
+                relevance: 0.8 - depth * 0.05,
+                source: 'inherited',
+                isStatic: member.modifiers?.isStatic ?? false,
+              });
+            }
+          }
+        }
+        yield* Effect.yieldNow();
+
+        currentType = superType;
+        depth++;
+      }
+
+      if (typeSymbol.interfaces && typeSymbol.interfaces.length > 0) {
+        for (const ifaceName of typeSymbol.interfaces) {
+          const ifaceType = yield* Effect.promise(() =>
+            self.resolveTypeByName(ifaceName),
+          );
+          if (ifaceType) {
+            const ifaceMembers = yield* Effect.promise(() =>
+              self.getDirectMembers(ifaceType),
+            );
+            for (const member of ifaceMembers) {
+              if (self.shouldIncludeMember(member, expectStatic)) {
+                const key = self.memberKey(member);
+                if (!seenNames.has(key)) {
+                  seenNames.add(key);
+                  candidates.push({
+                    symbol: member,
+                    relevance: 0.7,
+                    source: 'interface',
+                    isStatic: member.modifiers?.isStatic ?? false,
+                  });
+                }
+              }
+            }
+          }
+          yield* Effect.yieldNow();
+        }
+      }
+
+      candidates.sort((a, b) => b.relevance - a.relevance);
+      return candidates;
+    });
+  }
+
   async getMembersOfType(
     typeSymbol: TypeSymbol,
     expectStatic: boolean,
     fileUri: string,
   ): Promise<MemberCompletionCandidate[]> {
-    const candidates: MemberCompletionCandidate[] = [];
-    const seenNames = new Set<string>();
-
-    // 1. Direct members
-    const directMembers = await this.getDirectMembers(typeSymbol);
-    for (const member of directMembers) {
-      if (this.shouldIncludeMember(member, expectStatic)) {
-        const key = this.memberKey(member);
-        if (!seenNames.has(key)) {
-          seenNames.add(key);
-          candidates.push({
-            symbol: member,
-            relevance: 1.0,
-            source: 'direct',
-            isStatic: member.modifiers?.isStatic ?? false,
-          });
-        }
-      }
-    }
-
-    // 2. Inherited members from superclass chain (max depth 10 to avoid cycles)
-    let currentType: TypeSymbol | null = typeSymbol;
-    let depth = 0;
-    while (currentType?.superClass && depth < 10) {
-      const superType = await this.resolveTypeByName(currentType.superClass);
-      if (!superType) break;
-
-      const superMembers = await this.getDirectMembers(superType);
-      for (const member of superMembers) {
-        if (this.shouldIncludeMember(member, expectStatic)) {
-          const key = this.memberKey(member);
-          if (!seenNames.has(key)) {
-            seenNames.add(key);
-            candidates.push({
-              symbol: member,
-              relevance: 0.8 - depth * 0.05,
-              source: 'inherited',
-              isStatic: member.modifiers?.isStatic ?? false,
-            });
-          }
-        }
-      }
-
-      currentType = superType;
-      depth++;
-    }
-
-    // 3. Interface members
-    if (typeSymbol.interfaces && typeSymbol.interfaces.length > 0) {
-      for (const ifaceName of typeSymbol.interfaces) {
-        const ifaceType = await this.resolveTypeByName(ifaceName);
-        if (ifaceType) {
-          const ifaceMembers = await this.getDirectMembers(ifaceType);
-          for (const member of ifaceMembers) {
-            if (this.shouldIncludeMember(member, expectStatic)) {
-              const key = this.memberKey(member);
-              if (!seenNames.has(key)) {
-                seenNames.add(key);
-                candidates.push({
-                  symbol: member,
-                  relevance: 0.7,
-                  source: 'interface',
-                  isStatic: member.modifiers?.isStatic ?? false,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Sort: direct first, then inherited, then interface
-    candidates.sort((a, b) => b.relevance - a.relevance);
-    return candidates;
+    return Effect.runPromise(
+      this.getMembersOfTypeEffect(typeSymbol, expectStatic, fileUri),
+    );
   }
 
   /**

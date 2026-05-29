@@ -12,8 +12,8 @@ import {
   CompletionList,
 } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { Effect, Duration } from 'effect';
 
-import { dispatch } from '../utils/handlerUtil';
 import { ICompletionProcessor } from '../services/CompletionProcessingService';
 
 /**
@@ -31,7 +31,7 @@ export const COMPLETION_TRIGGER_CHARACTERS: string[] = ['.', '@'];
 
 /**
  * Handler for completion requests.
- * Enforces a timeout to prevent completions from hanging the editor.
+ * Uses Effect.timeout for structured timeout enforcement.
  * Supports progressive refinement via the LSP CompletionList `isIncomplete` flag.
  */
 export class CompletionHandler {
@@ -45,14 +45,6 @@ export class CompletionHandler {
     this.timeoutMs = timeoutMs;
   }
 
-  /**
-   * Handle completion request with timeout enforcement and isIncomplete support.
-   * Uses the readiness-aware path when available to support progressive refinement.
-   * If the timeout fires, returns partial results with isIncomplete: true.
-   *
-   * @param params The completion parameters
-   * @returns CompletionList with items and isIncomplete flag, or null on error
-   */
   public async handleCompletion(
     params: CompletionParams,
   ): Promise<CompletionList | CompletionItem[] | null> {
@@ -60,101 +52,69 @@ export class CompletionHandler {
       () => `Processing completion request: ${params.textDocument.uri}`,
     );
 
-    try {
-      if (this.completionProcessor.processCompletionWithReadiness) {
-        const result = await this.withTimeoutResult(
-          this.completionProcessor.processCompletionWithReadiness(params),
-          this.timeoutMs,
+    const processor = this.completionProcessor;
+    const timeoutMs = this.timeoutMs;
+    const logger = this.logger;
+
+    const program = Effect.gen(function* () {
+      if (processor.processCompletionWithReadiness) {
+        const result = yield* Effect.tryPromise(() =>
+          processor.processCompletionWithReadiness!(params),
+        ).pipe(
+          Effect.timeout(Duration.millis(timeoutMs)),
+          Effect.map(
+            (opt) =>
+              opt ?? { items: [] as CompletionItem[], isIncomplete: true },
+          ),
+          Effect.tapError(() =>
+            Effect.sync(() =>
+              logger.warn(
+                () =>
+                  `Completion request timed out after ${timeoutMs}ms, returning partial results`,
+              ),
+            ),
+          ),
+          Effect.catchAll(() =>
+            Effect.succeed({
+              items: [] as CompletionItem[],
+              isIncomplete: true,
+            }),
+          ),
         );
-        return CompletionList.create(result.items, result.isIncomplete);
+        return CompletionList.create(result.items, result.isIncomplete) as
+          | CompletionList
+          | CompletionItem[]
+          | null;
       }
 
-      const items = await this.withTimeout(
-        dispatch(
-          this.completionProcessor.processCompletion(params),
-          'Error processing completion request',
+      const items = yield* Effect.tryPromise(() =>
+        processor.processCompletion(params),
+      ).pipe(
+        Effect.timeout(Duration.millis(timeoutMs)),
+        Effect.map((opt) => opt ?? ([] as CompletionItem[])),
+        Effect.tapError(() =>
+          Effect.sync(() =>
+            logger.warn(
+              () =>
+                `Completion request timed out after ${timeoutMs}ms, returning partial results`,
+            ),
+          ),
         ),
-        this.timeoutMs,
+        Effect.catchAll(() => Effect.succeed([] as CompletionItem[])),
       );
-      return items;
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing completion request for ${params.textDocument.uri}: ${error}`,
-      );
-      return null;
-    }
-  }
-
-  private withTimeout(
-    promise: Promise<CompletionItem[]>,
-    timeoutMs: number,
-  ): Promise<CompletionItem[]> {
-    return new Promise<CompletionItem[]>((resolve, reject) => {
-      let settled = false;
-
-      const timer = setTimeout(() => {
-        if (!settled) {
-          settled = true;
-          this.logger.warn(
+      return items as CompletionList | CompletionItem[] | null;
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.sync(() => {
+          logger.error(
             () =>
-              `Completion request timed out after ${timeoutMs}ms, returning partial results`,
+              `Error processing completion request for ${params.textDocument.uri}: ${error}`,
           );
-          resolve([]);
-        }
-      }, timeoutMs);
+          return null;
+        }),
+      ),
+    );
 
-      promise
-        .then((result) => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            resolve(result);
-          }
-        })
-        .catch((error) => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            reject(error);
-          }
-        });
-    });
-  }
-
-  private withTimeoutResult(
-    promise: Promise<{ items: CompletionItem[]; isIncomplete: boolean }>,
-    timeoutMs: number,
-  ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }> {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-
-      const timer = setTimeout(() => {
-        if (!settled) {
-          settled = true;
-          this.logger.warn(
-            () =>
-              `Completion request timed out after ${timeoutMs}ms, returning partial results`,
-          );
-          resolve({ items: [], isIncomplete: true });
-        }
-      }, timeoutMs);
-
-      promise
-        .then((result) => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            resolve(result);
-          }
-        })
-        .catch((error) => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            reject(error);
-          }
-        });
-    });
+    return Effect.runPromise(program);
   }
 }

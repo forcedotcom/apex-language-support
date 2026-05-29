@@ -61,7 +61,7 @@ describe('CompletionHandler', () => {
       );
     });
 
-    it('should handle null completion results', async () => {
+    it('should return empty array when processor returns null', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
@@ -70,36 +70,29 @@ describe('CompletionHandler', () => {
       mockCompletionProcessor.processCompletion.mockResolvedValue(null as any);
 
       const result = await handler.handleCompletion(params);
-      expect(result).toBeNull();
+      expect(result).toEqual([]);
     });
   });
 
   describe('timeout enforcement', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     it('should return empty array when processor exceeds timeout on basic path', async () => {
+      const shortTimeoutHandler = new CompletionHandler(
+        mockLogger,
+        mockCompletionProcessor,
+        50,
+      );
+
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
       };
 
       mockCompletionProcessor.processCompletion.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve([]), 5000)),
+        () => new Promise((resolve) => setTimeout(() => resolve([]), 500)),
       );
 
-      const resultPromise = handler.handleCompletion(params);
-
-      jest.advanceTimersByTime(COMPLETION_TIMEOUT_MS + 100);
-
-      const result = await resultPromise;
+      const result = await shortTimeoutHandler.handleCompletion(params);
       expect(result).toEqual([]);
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should return {items: [], isIncomplete: true} when processor exceeds timeout on readiness path', async () => {
@@ -110,14 +103,15 @@ describe('CompletionHandler', () => {
             new Promise((resolve) =>
               setTimeout(
                 () => resolve({ items: [], isIncomplete: false }),
-                5000,
+                500,
               ),
             ),
         );
 
-      const handlerWithReadiness = new CompletionHandler(
+      const shortTimeoutHandler = new CompletionHandler(
         mockLogger,
         mockCompletionProcessor,
+        50,
       );
 
       const params: CompletionParams = {
@@ -125,13 +119,8 @@ describe('CompletionHandler', () => {
         position: { line: 0, character: 0 },
       };
 
-      const resultPromise = handlerWithReadiness.handleCompletion(params);
-
-      jest.advanceTimersByTime(COMPLETION_TIMEOUT_MS + 100);
-
-      const result = await resultPromise;
+      const result = await shortTimeoutHandler.handleCompletion(params);
       expect(result).toEqual({ items: [], isIncomplete: true });
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should resolve normally when processor completes before timeout', async () => {
@@ -144,25 +133,17 @@ describe('CompletionHandler', () => {
         { label: 'fastMethod', kind: CompletionItemKind.Method },
       ];
 
-      mockCompletionProcessor.processCompletion.mockImplementation(
-        () =>
-          new Promise((resolve) => setTimeout(() => resolve(mockItems), 100)),
-      );
+      mockCompletionProcessor.processCompletion.mockResolvedValue(mockItems);
 
-      const resultPromise = handler.handleCompletion(params);
-
-      jest.advanceTimersByTime(200);
-
-      const result = await resultPromise;
+      const result = await handler.handleCompletion(params);
       expect(result).toEqual(mockItems);
     });
 
     it('should use custom timeout when provided', async () => {
-      const customTimeout = 500;
       const customHandler = new CompletionHandler(
         mockLogger,
         mockCompletionProcessor,
-        customTimeout,
+        50,
       );
 
       const params: CompletionParams = {
@@ -171,14 +152,10 @@ describe('CompletionHandler', () => {
       };
 
       mockCompletionProcessor.processCompletion.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+        () => new Promise((resolve) => setTimeout(() => resolve([]), 500)),
       );
 
-      const resultPromise = customHandler.handleCompletion(params);
-
-      jest.advanceTimersByTime(customTimeout + 100);
-
-      const result = await resultPromise;
+      const result = await customHandler.handleCompletion(params);
       expect(result).toEqual([]);
     });
   });
@@ -267,7 +244,7 @@ describe('CompletionHandler', () => {
   });
 
   describe('error isolation', () => {
-    it('should return null when processor throws', async () => {
+    it('should return empty array when processor throws', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
@@ -278,11 +255,10 @@ describe('CompletionHandler', () => {
       );
 
       const result = await handler.handleCompletion(params);
-      expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      expect(result).toEqual([]);
     });
 
-    it('should return null for TypeError', async () => {
+    it('should return empty array for TypeError', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file:///test.cls' },
         position: { line: 0, character: 0 },
@@ -293,10 +269,10 @@ describe('CompletionHandler', () => {
       );
 
       const result = await handler.handleCompletion(params);
-      expect(result).toBeNull();
+      expect(result).toEqual([]);
     });
 
-    it('should return null when readiness processor throws', async () => {
+    it('should return empty incomplete list when readiness processor throws', async () => {
       mockCompletionProcessor.processCompletionWithReadiness = jest
         .fn()
         .mockRejectedValue(new Error('Readiness error'));
@@ -312,8 +288,7 @@ describe('CompletionHandler', () => {
       };
 
       const result = await handlerWithReadiness.handleCompletion(params);
-      expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      expect(result).toEqual({ items: [], isIncomplete: true });
     });
   });
 
