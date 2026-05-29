@@ -12,6 +12,8 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  ResolveDependentUris,
+  EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
   DispatchDocumentOpen,
@@ -105,6 +107,61 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(QuerySymbolSubset)(query);
       const decoded = Schema.decodeSync(QuerySymbolSubset)(encoded);
       expect(decoded.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+    });
+  });
+
+  describe('ResolveDependentUris', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new ResolveDependentUris({
+        uri: 'file:///GeocodingService.cls',
+      });
+      expect(req._tag).toBe('ResolveDependentUris');
+      expect(req.uri).toBe('file:///GeocodingService.cls');
+      expect(req.symbolName).toBeUndefined();
+
+      const encoded = Schema.encodeSync(ResolveDependentUris)(req);
+      const decoded = Schema.decodeSync(ResolveDependentUris)(encoded);
+      expect(decoded._tag).toBe('ResolveDependentUris');
+      expect(decoded.uri).toBe('file:///GeocodingService.cls');
+    });
+
+    it('should round-trip with optional symbolName', () => {
+      const req = new ResolveDependentUris({
+        uri: 'file:///GeocodingService.cls',
+        symbolName: 'GeocodingAddress',
+      });
+      expect(req.symbolName).toBe('GeocodingAddress');
+
+      const encoded = Schema.encodeSync(ResolveDependentUris)(req);
+      const decoded = Schema.decodeSync(ResolveDependentUris)(encoded);
+      expect(decoded.symbolName).toBe('GeocodingAddress');
+    });
+  });
+
+  describe('EnsureWorkspaceLoaded', () => {
+    it('should encode and decode round-trip without a workDoneToken', () => {
+      const req = new EnsureWorkspaceLoaded({});
+      expect(req._tag).toBe('EnsureWorkspaceLoaded');
+      expect(req.workDoneToken).toBeUndefined();
+
+      const encoded = Schema.encodeSync(EnsureWorkspaceLoaded)(req);
+      const decoded = Schema.decodeSync(EnsureWorkspaceLoaded)(encoded);
+      expect(decoded._tag).toBe('EnsureWorkspaceLoaded');
+      expect(decoded.workDoneToken).toBeUndefined();
+    });
+
+    it('should round-trip with a string workDoneToken', () => {
+      const req = new EnsureWorkspaceLoaded({ workDoneToken: 'tok-1' });
+      const encoded = Schema.encodeSync(EnsureWorkspaceLoaded)(req);
+      const decoded = Schema.decodeSync(EnsureWorkspaceLoaded)(encoded);
+      expect(decoded.workDoneToken).toBe('tok-1');
+    });
+
+    it('should round-trip with a numeric workDoneToken', () => {
+      const req = new EnsureWorkspaceLoaded({ workDoneToken: 42 });
+      const encoded = Schema.encodeSync(EnsureWorkspaceLoaded)(req);
+      const decoded = Schema.decodeSync(EnsureWorkspaceLoaded)(encoded);
+      expect(decoded.workDoneToken).toBe(42);
     });
   });
 
@@ -348,6 +405,17 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('enrichmentSearch', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
+    });
+
+    it('should restrict ResolveDependentUris to dataOwner', () => {
+      expect(isAllowedTag('dataOwner', 'ResolveDependentUris')).toBe(true);
+      expect(isAllowedTag('enrichmentSearch', 'ResolveDependentUris')).toBe(
+        false,
+      );
+      expect(isAllowedTag('resourceLoader', 'ResolveDependentUris')).toBe(
+        false,
+      );
+      expect(isAllowedTag('compilation', 'ResolveDependentUris')).toBe(false);
     });
 
     it('should restrict WorkspaceBatchIngest to dataOwner', () => {
