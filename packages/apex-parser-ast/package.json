@@ -211,7 +211,7 @@
     "@apexdevtools/apex-parser": "5.1.0-beta.1",
     "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
-    "@salesforce/vscode-i18n": "^66.7.0",
+    "@salesforce/vscode-i18n": "^66.7.1",
     "antlr4": "4.13.2",
     "data-structure-typed": "^2.6.1",
     "effect": "^3.21.2",
