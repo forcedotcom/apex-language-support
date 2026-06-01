@@ -215,7 +215,7 @@
     "antlr4": "4.13.2",
     "data-structure-typed": "^2.6.1",
     "effect": "^3.21.2",
-    "fflate": "^0.8.1",
+    "fflate": "^0.8.3",
     "spark-md5": "^3.0.2"
   },
   "devDependencies": {
