@@ -166,9 +166,6 @@ describe('DocumentChangeBatcher', () => {
 
   describe('concurrency limit', () => {
     it('should limit concurrent processor calls to maxConcurrentParses', async () => {
-      // Use real timers for this test since we need promise resolution
-      jest.useRealTimers();
-
       let concurrentCount = 0;
       let maxObservedConcurrent = 0;
       const resolvers: Array<() => void> = [];
@@ -197,8 +194,9 @@ describe('DocumentChangeBatcher', () => {
         batcher.enqueue(createMockEvent(`file:///test${i}.cls`, 1));
       }
 
-      // Wait for debounce timers to fire
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Advance past debounce (0ms) and flush microtasks
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
 
       // Only maxConcurrentParses (2) should be running
       expect(concurrentCount).toBe(2);
@@ -206,7 +204,8 @@ describe('DocumentChangeBatcher', () => {
 
       // Resolve one — should trigger the next queued flush
       resolvers[0]();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(blockingProcessor).toHaveBeenCalledTimes(3);
       expect(concurrentCount).toBe(2); // Still limited to 2
@@ -214,14 +213,12 @@ describe('DocumentChangeBatcher', () => {
       // Resolve remaining
       while (resolvers.length > 0) {
         resolvers.shift()!();
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await Promise.resolve();
+        await Promise.resolve();
       }
 
       expect(blockingProcessor).toHaveBeenCalledTimes(5);
       expect(maxObservedConcurrent).toBe(2);
-
-      // Switch back to fake timers for afterEach
-      jest.useFakeTimers();
     });
 
     it('should not limit when under the concurrency cap', () => {
