@@ -51,9 +51,7 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
       navigationTimeout: 30_000,
       launchOptions: {
         args: [
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-features=VizDisplayCompositor,IsolateOrigins,site-per-process',
           '--enable-clipboard-read-write',
           ...(process.env.CI || process.env.DEBUG_MODE
             ? [
