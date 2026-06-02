@@ -126,7 +126,8 @@
     "vscode-uri": "^3.1.0"
   },
   "overrides": {
-    "vscode-jsonrpc": "8.2.1"
+    "vscode-jsonrpc": "8.2.1",
+    "playwright": "1.60.0"
   },
   "workspaces": [
     "packages/*",
