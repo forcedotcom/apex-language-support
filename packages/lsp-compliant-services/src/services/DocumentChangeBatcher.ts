@@ -58,7 +58,10 @@ export class DocumentChangeBatcher {
   >();
 
   /** Active timer handles per URI */
-  private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly timers = new Map<
+    string,
+    ReturnType<typeof globalThis.setTimeout>
+  >();
 
   /** Concurrency semaphore: number of currently running processor calls */
   private running = 0;
@@ -95,10 +98,10 @@ export class DocumentChangeBatcher {
     // Reset timer for this URI
     const existingTimer = this.timers.get(uri);
     if (existingTimer !== undefined) {
-      clearTimeout(existingTimer);
+      globalThis.clearTimeout(existingTimer);
     }
 
-    const timer = setTimeout(() => {
+    const timer = globalThis.setTimeout(() => {
       this.flush(uri);
     }, this.config.debounceMs);
 
