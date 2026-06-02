@@ -170,7 +170,7 @@
     "@salesforce/apex-lsp-shared": "1.0.0",
     "data-structure-typed": "^2.6.1",
     "effect": "^3.21.2",
-    "fflate": "^0.8.1",
+    "fflate": "^0.8.3",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8"
