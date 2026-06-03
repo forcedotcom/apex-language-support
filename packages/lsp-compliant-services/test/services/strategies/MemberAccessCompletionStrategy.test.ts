@@ -257,6 +257,40 @@ describe('MemberAccessCompletionStrategy', () => {
 
       expect(candidates).toEqual([]);
     });
+
+    it('should resolve a variable case-insensitively (Apex semantics)', async () => {
+      // Variable declared as `myVar`, dot-completion typed as `myvar.` —
+      // Apex identifiers are case-insensitive so members must still resolve.
+      const content = [
+        'public class CaseTest {',
+        '  public void run() {',
+        '    MemberAccessTestClass myVar = new MemberAccessTestClass();',
+        '    myvar.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/CaseTest.cls';
+      const doc = makeTextDocument(content, uri);
+
+      const parserAst = await import('@salesforce/apex-lsp-parser-ast');
+      const compilerService = new parserAst.CompilerService();
+      const symbolTable = new parserAst.SymbolTable();
+      const listener = new parserAst.FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, uri, listener);
+      await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
+
+      const context = makeCompletionContext(doc, 3, 10, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const names = candidates.map((c) => c.symbol.name);
+      expect(names).toContain('publicField');
+      expect(names).toContain('getPublicValue');
+    });
   });
 
   describe('getMembersOfType (static vs instance filtering)', () => {

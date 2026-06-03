@@ -882,10 +882,12 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     name: string,
     position: { line: number; character: number },
   ): VariableSymbol | null {
-    // Find matching variable-like symbols
+    // Apex identifiers are case-insensitive — `myvar` resolves a field
+    // declared `myVar`. Match accordingly.
+    const lowerName = name.toLowerCase();
     const matches = allSymbols.filter(
       (s) =>
-        s.name === name &&
+        s.name.toLowerCase() === lowerName &&
         (s.kind === SymbolKind.Variable ||
           s.kind === SymbolKind.Field ||
           s.kind === SymbolKind.Property ||
