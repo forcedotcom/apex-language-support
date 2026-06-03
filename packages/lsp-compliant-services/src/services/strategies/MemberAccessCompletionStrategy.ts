@@ -70,14 +70,25 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    if (context.triggerCharacter === '.') {
-      return true;
-    }
     const lineText = context.document.getText({
       start: { line: context.position.line, character: 0 },
       end: context.position,
     });
-    return lineText.trimEnd().endsWith('.');
+    const trimmed = lineText.trimEnd();
+    const endsWithDot =
+      context.triggerCharacter === '.' || trimmed.endsWith('.');
+    if (!endsWithDot) {
+      return false;
+    }
+    // Reject literal dots — numeric (e.g. `1.`) and dots inside string
+    // literals are not member-access receivers. The character preceding the
+    // dot must look like a valid receiver: identifier char, `)`, or `]`.
+    const dotIdx = trimmed.lastIndexOf('.');
+    const prev = dotIdx > 0 ? trimmed[dotIdx - 1] : '';
+    if (!prev) {
+      return false;
+    }
+    return /[A-Za-z_$)\]]/.test(prev);
   }
 
   getCompletions(
@@ -400,20 +411,8 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
       return this.resolveVariableSymbolType(variable);
     }
 
-    // Fallback: search all symbols in the file for a field/property with this name
-    const fieldSymbol = allSymbols.find(
-      (s) =>
-        s.name === name &&
-        (s.kind === SymbolKind.Field ||
-          s.kind === SymbolKind.Property ||
-          s.kind === SymbolKind.Variable ||
-          s.kind === SymbolKind.Parameter),
-    );
-    if (fieldSymbol) {
-      return this.resolveVariableSymbolType(fieldSymbol as VariableSymbol);
-    }
-
-    // If not found locally, maybe it's a type (user typed lowercase but it's a class)
+    // No in-scope match. If the symbol resembles a type (a class typed in
+    // lowercase, e.g.), fall through to type resolution.
     return this.resolveAsType(name);
   }
 
@@ -882,8 +881,6 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     name: string,
     position: { line: number; character: number },
   ): VariableSymbol | null {
-    // Apex identifiers are case-insensitive — `myvar` resolves a field
-    // declared `myVar`. Match accordingly.
     const lowerName = name.toLowerCase();
     const matches = allSymbols.filter(
       (s) =>
@@ -896,23 +893,116 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
     if (matches.length === 0) return null;
 
-    // Prefer the one that is declared before the position and closest to it
-    const declared = matches.filter((s) => {
-      const declLine = s.location.symbolRange.startLine;
-      return declLine <= position.line;
-    });
-
-    if (declared.length > 0) {
-      // Sort by declaration line descending (closest first)
-      declared.sort(
-        (a, b) =>
-          b.location.symbolRange.startLine - a.location.symbolRange.startLine,
-      );
-      return declared[0] as VariableSymbol;
+    // Build an id -> symbol index once for parent-walk scope checks.
+    const byId = new Map<string, ApexSymbol>();
+    for (const s of allSymbols) {
+      byId.set(s.id, s);
     }
 
-    // If no match before position (might be a class field), return any match
-    return matches[0] as VariableSymbol;
+    // Locals/parameters must be declared before the cursor in (line, column)
+    // order AND must live in a scope that encloses the cursor. Fields and
+    // properties can be referenced ahead of their declaration line, so they
+    // skip the position-precedes check.
+    const eligible = matches.filter((s) => {
+      const isLocalLike =
+        s.kind === SymbolKind.Variable || s.kind === SymbolKind.Parameter;
+      if (isLocalLike && !this.isDeclaredBefore(s, position)) {
+        return false;
+      }
+      return this.isPositionInSymbolScope(s, position, byId, allSymbols);
+    });
+
+    if (eligible.length === 0) {
+      return null;
+    }
+
+    // Closest declaration wins — descending by (line, column).
+    eligible.sort((a, b) => {
+      const al = a.location.symbolRange.startLine;
+      const bl = b.location.symbolRange.startLine;
+      if (al !== bl) return bl - al;
+      return (
+        b.location.symbolRange.startColumn - a.location.symbolRange.startColumn
+      );
+    });
+    return eligible[0] as VariableSymbol;
+  }
+
+  /**
+   * True when the symbol's declaration starts strictly before `position`.
+   * Symbol ranges are 1-based; LSP positions are 0-based. We compare the
+   * symbol range against the 1-based equivalent of `position`.
+   */
+  private isDeclaredBefore(
+    symbol: ApexSymbol,
+    position: { line: number; character: number },
+  ): boolean {
+    const r = symbol.location.symbolRange;
+    const pLine = position.line + 1;
+    if (r.startLine < pLine) return true;
+    if (r.startLine > pLine) return false;
+    return r.startColumn < position.character;
+  }
+
+  /**
+   * True when `position` lies inside the scope that encloses `symbol`.
+   * Walks parents up to the file root and returns true as soon as a parent's
+   * range contains the position. Fields/properties at class scope are
+   * accepted when the cursor lies within their owning class.
+   */
+  private isPositionInSymbolScope(
+    symbol: ApexSymbol,
+    position: { line: number; character: number },
+    byId: Map<string, ApexSymbol>,
+    allSymbols: ApexSymbol[],
+  ): boolean {
+    let parent: ApexSymbol | undefined = symbol.parentId
+      ? byId.get(symbol.parentId)
+      : undefined;
+    let walked = 0;
+    while (parent && walked < 50) {
+      if (this.rangeContainsPosition(parent.location.symbolRange, position)) {
+        return true;
+      }
+      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+      walked++;
+    }
+    if (
+      symbol.kind === SymbolKind.Field ||
+      symbol.kind === SymbolKind.Property
+    ) {
+      const owner = this.findContainingClass(allSymbols, position);
+      if (owner && symbol.parentId === owner.id) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * True when `position` (0-based LSP coords) lies within the inclusive
+   * 1-based `range`.
+   */
+  private rangeContainsPosition(
+    range: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+    position: { line: number; character: number },
+  ): boolean {
+    const pLine = position.line + 1;
+    if (pLine < range.startLine || pLine > range.endLine) {
+      return false;
+    }
+    if (pLine === range.startLine && position.character < range.startColumn) {
+      return false;
+    }
+    if (pLine === range.endLine && position.character > range.endColumn) {
+      return false;
+    }
+    return true;
   }
 
   /**
