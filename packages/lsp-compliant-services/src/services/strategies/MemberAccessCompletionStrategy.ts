@@ -523,8 +523,13 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   private async resolveMethodReturnType(
     ownerType: TypeSymbol,
     methodName: string,
+    visited: Set<string> = new Set(),
   ): Promise<TypeSymbol | null> {
-    // Find the method in the type's symbol table
+    if (visited.has(ownerType.id)) {
+      return null;
+    }
+    visited.add(ownerType.id);
+
     const members = await this.getDirectMembers(ownerType);
     const method = members.find(
       (s) =>
@@ -547,11 +552,11 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
       }
     }
 
-    // Try inherited methods
+    // Try inherited methods, guarded against cyclic inheritance chains.
     if (ownerType.superClass) {
       const superType = await this.resolveTypeByName(ownerType.superClass);
       if (superType) {
-        return this.resolveMethodReturnType(superType, methodName);
+        return this.resolveMethodReturnType(superType, methodName, visited);
       }
     }
 
@@ -564,7 +569,13 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   private async resolveFieldType(
     ownerType: TypeSymbol,
     fieldName: string,
+    visited: Set<string> = new Set(),
   ): Promise<TypeSymbol | null> {
+    if (visited.has(ownerType.id)) {
+      return null;
+    }
+    visited.add(ownerType.id);
+
     const members = await this.getDirectMembers(ownerType);
     const field = members.find(
       (s) =>
@@ -576,11 +587,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
       return this.resolveVariableSymbolType(field);
     }
 
-    // Try inherited fields
     if (ownerType.superClass) {
       const superType = await this.resolveTypeByName(ownerType.superClass);
       if (superType) {
-        return this.resolveFieldType(superType, fieldName);
+        return this.resolveFieldType(superType, fieldName, visited);
       }
     }
 
@@ -626,6 +636,9 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
         }
       }
 
+      // Guard against cyclic inheritance (`A extends B extends A`) by
+      // tracking visited type ids; depth cap remains as a defense-in-depth.
+      const visited = new Set<string>([typeSymbol.id]);
       let currentType: TypeSymbol | null = typeSymbol;
       let depth = 0;
       while (currentType?.superClass && depth < 10) {
@@ -633,6 +646,8 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
           self.resolveTypeByName(currentType!.superClass!),
         );
         if (!superType) break;
+        if (visited.has(superType.id)) break;
+        visited.add(superType.id);
 
         const superMembers = yield* Effect.promise(() =>
           self.getDirectMembers(superType),
