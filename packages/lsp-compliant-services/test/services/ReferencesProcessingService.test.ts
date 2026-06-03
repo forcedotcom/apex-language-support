@@ -51,9 +51,6 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   const actual = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    LSPConfigurationManager: {
-      getInstance: jest.fn(),
-    },
     ApexSettingsManager: {
       getInstance: jest.fn(() => ({
         getSettings: jest.fn().mockReturnValue({
@@ -80,29 +77,31 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
-const mockEnsureWorkspaceLoaded = jest.fn();
+const mockEnsureLoaded = jest.fn();
 const mockIsWorkspaceLoaded = jest.fn();
 const mockIsWorkspaceLoading = jest.fn();
-jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
-  ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
-    mockEnsureWorkspaceLoaded(...args),
-  ),
-  isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
-  isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
-}));
+jest.mock('../../src/services/WorkspaceLoadCoordinator', () => {
+  const actual = jest.requireActual(
+    '../../src/services/WorkspaceLoadCoordinator',
+  );
+  return {
+    ...actual,
+    isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
+    isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
+  };
+});
 
 describe('ReferencesProcessingService', () => {
   let service: ReferencesProcessingService;
   let logger: ReturnType<typeof getLogger>;
   let symbolManager: ApexSymbolManager;
   let mockStorage: any;
-  let mockConfigManager: any;
-  let mockConnection: any;
+  let mockCoordinator: { ensureLoaded: jest.Mock };
 
   beforeEach(async () => {
     // Reset mocks
     jest.clearAllMocks();
-    mockEnsureWorkspaceLoaded.mockClear();
+    mockEnsureLoaded.mockClear();
     mockIsWorkspaceLoaded.mockReturnValue(false);
     mockIsWorkspaceLoading.mockReturnValue(false);
 
@@ -141,29 +140,18 @@ describe('ReferencesProcessingService', () => {
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
 
-    // Setup mock connection
-    mockConnection = {
-      sendRequest: jest.fn(),
+    // Default mock coordinator returns an Effect that resolves immediately
+    mockEnsureLoaded.mockReturnValue(Effect.succeed(undefined));
+    mockCoordinator = {
+      ensureLoaded: jest.fn((...args: any[]) => mockEnsureLoaded(...args)),
     };
 
-    // Setup mock config manager
-    mockConfigManager = {
-      getConnection: jest.fn().mockReturnValue(mockConnection),
-    };
-
-    const { LSPConfigurationManager } = require('@salesforce/apex-lsp-shared');
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
-      mockConfigManager,
+    // Create service instance with real symbol manager and injected coordinator
+    service = new ReferencesProcessingService(
+      logger,
+      symbolManager,
+      mockCoordinator as any,
     );
-
-    // Setup mock coordinator - ensureWorkspaceLoaded returns an Effect
-    // Default mock returns Effect that resolves to { status: 'loaded' }
-    mockEnsureWorkspaceLoaded.mockReturnValue(
-      Effect.succeed({ status: 'loaded' } as { status: 'loaded' }),
-    );
-
-    // Create service instance with real symbol manager
-    service = new ReferencesProcessingService(logger, symbolManager);
   });
 
   describe('processReferences', () => {
@@ -216,28 +204,29 @@ describe('ReferencesProcessingService', () => {
       // Mock findReferences to return empty array (no references found)
       jest.spyOn(service as any, 'findReferences').mockResolvedValue([]);
 
-      // Ensure workspace state functions return false so ensureWorkspaceLoaded gets called
+      // Ensure workspace state functions return false so coordinator gets called
       mockIsWorkspaceLoaded.mockReturnValue(false);
       mockIsWorkspaceLoading.mockReturnValue(false);
 
-      // Mock workspace coordinator to return Effect
-      mockEnsureWorkspaceLoaded.mockReturnValue(Effect.succeed(undefined));
+      // Mock coordinator to return an Effect
+      mockEnsureLoaded.mockReturnValue(Effect.succeed(undefined));
 
       // Act
       const result = await service.processReferences(params);
 
       // Assert
       expect(result).toBeDefined();
-      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalledWith(
-        mockConnection,
-        expect.anything(), // logger
+      expect(mockCoordinator.ensureLoaded).toHaveBeenCalledWith(
         params.workDoneToken,
       );
     });
 
-    it('should not trigger workspace load when connection is unavailable', async () => {
-      // Arrange
-      mockConfigManager.getConnection.mockReturnValue(undefined);
+    it('should not trigger workspace load when no coordinator is injected', async () => {
+      // Service constructed with no coordinator
+      const noCoordService = new ReferencesProcessingService(
+        logger,
+        symbolManager,
+      );
 
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
@@ -255,12 +244,12 @@ describe('ReferencesProcessingService', () => {
       mockStorage.getDocument.mockResolvedValue(document);
 
       // Act
-      const result = await service.processReferences(params);
+      const result = await noCoordService.processReferences(params);
 
       // Assert
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
+      expect(mockCoordinator.ensureLoaded).not.toHaveBeenCalled();
     });
 
     it('should handle missing document gracefully', async () => {
@@ -382,11 +371,11 @@ describe('ReferencesProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(document);
 
-      // Ensure workspace state functions return false so ensureWorkspaceLoaded gets called
+      // Ensure workspace state functions return false so coordinator gets called
       mockIsWorkspaceLoaded.mockReturnValue(false);
       mockIsWorkspaceLoading.mockReturnValue(false);
 
-      mockEnsureWorkspaceLoaded.mockReturnValue(
+      mockEnsureLoaded.mockReturnValue(
         Effect.fail(new Error('Workspace load failed')),
       );
 
@@ -396,7 +385,7 @@ describe('ReferencesProcessingService', () => {
       // Assert
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalled();
+      expect(mockCoordinator.ensureLoaded).toHaveBeenCalled();
     });
   });
 

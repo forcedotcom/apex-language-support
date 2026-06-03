@@ -15,6 +15,31 @@ import {
 import { Effect, Ref } from 'effect';
 
 /**
+ * Workspace load coordinator — abstracts how a service triggers the
+ * workspace-load notification. Has two implementations:
+ *
+ *   - {@link LocalWorkspaceLoadCoordinator}: holds an LSP Connection and
+ *     calls {@link ensureWorkspaceLoaded} directly. Used in the coordinator
+ *     process where the Connection is available.
+ *
+ *   - {@link RemoteWorkspaceLoadCoordinator}: forwards to the coordinator
+ *     over the assistance bus via `coordinator:EnsureWorkspaceLoaded`. Used
+ *     in enrichment/data-owner workers, which have no LSP Connection.
+ *
+ * Services depending on this interface work in either context without
+ * branching on the runtime topology.
+ */
+export interface IWorkspaceLoadCoordinator {
+  /**
+   * Trigger workspace load if not already loaded/loading. Returns a void
+   * Effect to allow queueing alongside other work; the underlying load is
+   * fire-and-forget at the LSP layer (the client responds via separate
+   * notification).
+   */
+  ensureLoaded(token?: ProgressToken): Effect.Effect<void, never, never>;
+}
+
+/**
  * Module-level Refs for tracking workspace load state.
  * Initialized once at module load time.
  */
@@ -208,4 +233,68 @@ export function reset(): void {
   Effect.runSync(Ref.set(isLoadedRef, false));
   Effect.runSync(Ref.set(isLoadingRef, false));
   Effect.runSync(Ref.set(hasFailedRef, false));
+}
+
+/**
+ * Coordinator-process implementation: holds the LSP Connection and calls
+ * {@link ensureWorkspaceLoaded} directly. Module-level state (isLoadedRef
+ * etc.) is shared with the standalone functions, so checks like
+ * {@link isWorkspaceLoaded} continue to work alongside this class.
+ */
+export class LocalWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator {
+  constructor(
+    private readonly connection: Connection,
+    private readonly logger: LoggerInterface,
+  ) {}
+
+  ensureLoaded(token?: ProgressToken): Effect.Effect<void, never, never> {
+    return ensureWorkspaceLoaded(this.connection, this.logger, token);
+  }
+}
+
+/**
+ * Worker-process implementation: forwards to the coordinator over the
+ * assistance bus. The proxy is supplied by the worker bootstrap (which
+ * knows how to reach the coordinator); this class stays platform-agnostic.
+ *
+ * The assistance call is awaited so the worker can sequence further work
+ * after the coordinator has fired the LSP notification, even though the
+ * notification itself carries no result.
+ */
+export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator {
+  constructor(
+    private readonly assistanceProxy: (
+      method: string,
+      params: unknown,
+      blocking: boolean,
+    ) => Promise<unknown>,
+    private readonly logger: LoggerInterface,
+  ) {}
+
+  ensureLoaded(token?: ProgressToken): Effect.Effect<void, never, never> {
+    const proxy = this.assistanceProxy;
+    const logger = this.logger;
+    return Effect.gen(function* () {
+      yield* Effect.tryPromise({
+        try: () =>
+          proxy(
+            'coordinator:EnsureWorkspaceLoaded',
+            { workDoneToken: token },
+            true,
+          ),
+        catch: (err) => err,
+      }).pipe(
+        Effect.catchAll((err) =>
+          Effect.sync(() => {
+            logger.warn(
+              () =>
+                `[WORKSPACE-LOAD] Remote ensureLoaded failed: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+            );
+          }),
+        ),
+      );
+    });
+  }
 }
