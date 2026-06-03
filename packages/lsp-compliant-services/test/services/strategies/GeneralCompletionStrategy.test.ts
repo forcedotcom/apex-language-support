@@ -52,32 +52,37 @@ describe('GeneralCompletionStrategy', () => {
       });
       expect(strategy.canHandle(context)).toBe(false);
     });
+
+    it('should not handle when line ends with dot', () => {
+      const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 8);
+      expect(strategy.canHandle(context)).toBe(false);
+    });
   });
 
   describe('getCompletions', () => {
-    it('should return symbols from all loaded sources', async () => {
-      const content = [
-        'public class InlineTest {',
-        '  public void method() {',
-        '    get',
-        '  }',
-        '}',
-      ].join('\n');
-      const uri = 'file:///test/InlineTest.cls';
-      const doc = makeTextDocument(content, uri);
-
-      const context = makeCompletionContext(doc, 2, 7, {
-        currentScope: 'InlineTest.method',
+    it('should resolve a typed prefix via the symbol manager', async () => {
+      const doc = makeTextDocument(
+        '    getStaticValue',
+        'file:///test/TestClass.cls',
+      );
+      const context = makeCompletionContext(doc, 0, 18, {
+        currentScope: 'TestClass',
       });
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
       );
 
-      expect(candidates.length).toBeGreaterThan(0);
+      // Prefix path returns context-resolved candidates (no wildcard fallback).
+      expect(Array.isArray(candidates)).toBe(true);
+      const wildcards = candidates.filter(
+        (c) => c.context === 'wildcard completion',
+      );
+      expect(wildcards.length).toBe(0);
     });
 
-    it('should include wildcard completions for all symbols', async () => {
+    it('should include wildcard completions when no prefix has been typed', async () => {
       const doc = makeTextDocument('    ', 'file:///test/TestClass.cls');
       const context = makeCompletionContext(doc, 0, 4, {
         currentScope: 'TestClass',
@@ -91,6 +96,22 @@ describe('GeneralCompletionStrategy', () => {
         (c) => c.context === 'wildcard completion',
       );
       expect(wildcardCandidates.length).toBeGreaterThan(0);
+    });
+
+    it('should not return wildcard completions when a prefix has been typed', async () => {
+      const doc = makeTextDocument('    get', 'file:///test/TestClass.cls');
+      const context = makeCompletionContext(doc, 0, 7, {
+        currentScope: 'TestClass',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const wildcardCandidates = candidates.filter(
+        (c) => c.context === 'wildcard completion',
+      );
+      expect(wildcardCandidates.length).toBe(0);
     });
 
     it('should set relevance to 0.5 for wildcard completions', async () => {

@@ -28,8 +28,15 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    // Handle when there is no trigger character (general typing)
-    return context.triggerCharacter !== '.';
+    // Skip after a dot — member access is handled by MemberAccessCompletionStrategy.
+    if (context.triggerCharacter === '.') {
+      return false;
+    }
+    const lineText = context.document.getText({
+      start: { line: context.position.line, character: 0 },
+      end: context.position,
+    });
+    return !lineText.trimEnd().endsWith('.');
   }
 
   getCompletions(
@@ -40,7 +47,36 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
       const candidates: CompletionCandidate[] = [];
       const batchSize = 50;
 
-      // Create resolution context for ApexSymbolManager
+      const currentWord = self.getWordAtPosition(
+        context.document,
+        context.position,
+      );
+
+      // Empty-prefix path: surface all symbols once (wildcard). Skipped when
+      // the user has typed at least one character to avoid drowning prefix
+      // matches in unrelated symbols.
+      if (currentWord.length === 0) {
+        try {
+          const allSymbols = yield* Effect.promise(() =>
+            self.symbolManager.getAllSymbolsForCompletion(),
+          );
+          for (let i = 0; i < allSymbols.length; i++) {
+            candidates.push({
+              symbol: allSymbols[i],
+              relevance: 0.5,
+              context: 'wildcard completion',
+            });
+            if ((i + 1) % batchSize === 0 && i + 1 < allSymbols.length) {
+              yield* Effect.yieldNow();
+            }
+          }
+        } catch (error) {
+          self.logger.debug(() => `Error loading wildcard symbols: ${error}`);
+        }
+        return candidates;
+      }
+
+      // Prefix path: context-aware resolution for the typed word.
       const resolutionContext = {
         sourceFile: context.document.uri,
         importStatements: context.importStatements,
@@ -55,52 +91,22 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
         interfaceImplementations: [],
       };
 
-      // Get the word being typed
-      const currentWord = self.getWordAtPosition(
-        context.document,
-        context.position,
-      );
+      try {
+        const result = yield* Effect.promise(() =>
+          self.symbolManager.resolveSymbol(currentWord, resolutionContext),
+        );
 
-      const partialMatches = [currentWord, '*'];
-
-      for (const partialMatch of partialMatches) {
-        try {
-          if (partialMatch === '*') {
-            // Handle wildcard pattern - get all symbols for completion
-            const allSymbols = yield* Effect.promise(() =>
-              self.symbolManager.getAllSymbolsForCompletion(),
-            );
-            for (let i = 0; i < allSymbols.length; i++) {
-              const symbol = allSymbols[i];
-              candidates.push({
-                symbol,
-                relevance: 0.5,
-                context: 'wildcard completion',
-              });
-              // Yield after every batchSize symbols
-              if ((i + 1) % batchSize === 0 && i + 1 < allSymbols.length) {
-                yield* Effect.yieldNow();
-              }
-            }
-          } else {
-            // Use ApexSymbolManager's context-aware resolution
-            const result = yield* Effect.promise(() =>
-              self.symbolManager.resolveSymbol(partialMatch, resolutionContext),
-            );
-
-            if (result.symbol) {
-              candidates.push({
-                symbol: result.symbol,
-                relevance: result.confidence,
-                context: result.resolutionContext || 'context-aware resolution',
-              });
-            }
-          }
-        } catch (error) {
-          self.logger.debug(
-            () => `Error resolving symbol ${partialMatch}: ${error}`,
-          );
+        if (result.symbol) {
+          candidates.push({
+            symbol: result.symbol,
+            relevance: result.confidence,
+            context: result.resolutionContext || 'context-aware resolution',
+          });
         }
+      } catch (error) {
+        self.logger.debug(
+          () => `Error resolving symbol ${currentWord}: ${error}`,
+        );
       }
 
       return candidates;

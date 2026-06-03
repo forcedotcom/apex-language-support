@@ -100,7 +100,13 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
       start: { line: context.position.line, character: 0 },
       end: context.position,
     });
-    return !lineText.trimEnd().endsWith('.');
+    if (lineText.trimEnd().endsWith('.')) {
+      return false;
+    }
+    // Only fire once the user has typed at least one identifier character —
+    // prevents flooding every keystroke with all 55 namespaces.
+    const word = this.getWordAtPosition(context.document, context.position);
+    return word.length > 0;
   }
 
   getCompletions(
