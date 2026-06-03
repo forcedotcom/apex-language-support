@@ -66,7 +66,10 @@ describe('MemberAccessCompletionStrategy', () => {
 
     it('should not handle when the dot is part of a numeric literal', () => {
       // `1.` is a decimal literal, not a member-access receiver.
-      const doc = makeTextDocument('    Decimal d = 1.', 'file:///test/Test.cls');
+      const doc = makeTextDocument(
+        '    Decimal d = 1.',
+        'file:///test/Test.cls',
+      );
       const context = makeCompletionContext(doc, 0, 18);
       expect(strategy.canHandle(context)).toBe(false);
     });
