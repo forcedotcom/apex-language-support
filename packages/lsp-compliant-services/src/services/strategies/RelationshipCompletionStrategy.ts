@@ -16,19 +16,37 @@ import { CompletionStrategy, CompletionCandidate } from './CompletionStrategy';
  * Strategy for relationship-based completion suggestions.
  *
  * Analyzes symbols in the current file and suggests related symbols
- * based on method-call relationships and other symbol connections.
- * Always contributes to completions as supplementary suggestions.
+ * based on method-call relationships. Skipped after a `.` trigger so it
+ * does not pollute member-access completion results.
  */
 export class RelationshipCompletionStrategy implements CompletionStrategy {
   readonly name = 'RelationshipCompletion';
+
+  /** Cap on how many file symbols we expand into related symbols per request. */
+  private static readonly MAX_SOURCE_SYMBOLS = 25;
+
+  /** Cap on the total number of relationship candidates produced per request. */
+  private static readonly MAX_CANDIDATES = 100;
 
   constructor(
     private readonly logger: LoggerInterface,
     private readonly symbolManager: ISymbolManager,
   ) {}
 
-  canHandle(_context: CompletionContext): boolean {
-    // Relationship suggestions are always applicable as supplementary completions
+  canHandle(context: CompletionContext): boolean {
+    // Don't compete with MemberAccessCompletionStrategy after a dot trigger.
+    if (context.triggerCharacter === '.') {
+      return false;
+    }
+    // Also skip when the line up to the cursor ends with `.` even without an
+    // explicit trigger character (e.g. paste of `obj.`).
+    const lineText = context.document.getText({
+      start: { line: context.position.line, character: 0 },
+      end: context.position,
+    });
+    if (lineText.trimEnd().endsWith('.')) {
+      return false;
+    }
     return true;
   }
 
@@ -41,36 +59,39 @@ export class RelationshipCompletionStrategy implements CompletionStrategy {
       const batchSize = 50;
 
       try {
-        // Get symbols in the current file
+        // Get symbols in the current file, capped to keep async fanout bounded.
         const fileSymbols = yield* Effect.promise(() =>
           self.symbolManager.findSymbolsInFile(context.document.uri),
         );
+        const sourceSymbols = fileSymbols.slice(
+          0,
+          RelationshipCompletionStrategy.MAX_SOURCE_SYMBOLS,
+        );
 
-        for (let i = 0; i < fileSymbols.length; i++) {
-          const symbol = fileSymbols[i];
-          // Get related symbols based on relationships
+        outer: for (let i = 0; i < sourceSymbols.length; i++) {
+          const symbol = sourceSymbols[i];
           const relatedSymbols = yield* Effect.promise(() =>
-            self.symbolManager.findRelatedSymbols(
-              symbol,
-              'method-call', // Focus on method calls for completion
-            ),
+            self.symbolManager.findRelatedSymbols(symbol, 'method-call'),
           );
 
           for (let j = 0; j < relatedSymbols.length; j++) {
-            const related = relatedSymbols[j];
+            if (
+              suggestions.length >=
+              RelationshipCompletionStrategy.MAX_CANDIDATES
+            ) {
+              break outer;
+            }
             suggestions.push({
-              symbol: related,
-              relevance: 0.7, // Medium relevance for relationship-based suggestions
+              symbol: relatedSymbols[j],
+              relevance: 0.7,
               context: `related to ${symbol.name}`,
             });
-            // Yield after every batchSize related symbols
             if ((j + 1) % batchSize === 0 && j + 1 < relatedSymbols.length) {
               yield* Effect.yieldNow();
             }
           }
 
-          // Yield after every batchSize file symbols
-          if ((i + 1) % batchSize === 0 && i + 1 < fileSymbols.length) {
+          if ((i + 1) % batchSize === 0 && i + 1 < sourceSymbols.length) {
             yield* Effect.yieldNow();
           }
         }

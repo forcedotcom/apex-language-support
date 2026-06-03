@@ -33,18 +33,24 @@ describe('RelationshipCompletionStrategy', () => {
   });
 
   describe('canHandle', () => {
-    it('should always return true (supplementary strategy)', () => {
+    it('should return true for non-dot contexts (supplementary strategy)', () => {
       const doc = makeTextDocument('    someVar', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 11);
       expect(strategy.canHandle(context)).toBe(true);
     });
 
-    it('should return true even with dot trigger', () => {
+    it('should not fire when triggered by a dot', () => {
       const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 8, {
         triggerCharacter: '.',
       });
-      expect(strategy.canHandle(context)).toBe(true);
+      expect(strategy.canHandle(context)).toBe(false);
+    });
+
+    it('should not fire when the line up to cursor ends with a dot', () => {
+      const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 8);
+      expect(strategy.canHandle(context)).toBe(false);
     });
 
     it('should return true with empty context', () => {
