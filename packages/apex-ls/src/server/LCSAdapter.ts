@@ -75,6 +75,7 @@ import {
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
   getDiagnosticRefreshService,
+  ensureWorkspaceLoaded,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -2211,6 +2212,23 @@ export class LCSAdapter {
             return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
               params as import('@salesforce/apex-lsp-shared').FindMissingArtifactParams,
             );
+          }
+          if (method === 'coordinator:EnsureWorkspaceLoaded') {
+            // Workers (enrichment / data-owner) have no LSP Connection of
+            // their own. They forward the workspace-load notification
+            // request through the assistance bus; the coordinator owns the
+            // Connection and fires apex/requestWorkspaceLoad here.
+            const p = params as {
+              workDoneToken?: string | number;
+            };
+            await Effect.runPromise(
+              ensureWorkspaceLoaded(
+                this.connection,
+                this.logger,
+                p.workDoneToken,
+              ),
+            );
+            return undefined;
           }
           if (method === 'resourceLoader:resolveClass') {
             const p = params as { name: string };
