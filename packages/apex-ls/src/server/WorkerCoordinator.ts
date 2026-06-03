@@ -24,6 +24,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   QueryGraphData,
@@ -784,6 +785,15 @@ function createDispatcher(
           return callbacks.sendToDataOwner(
             new ResolveDepUris({
               classNames: prd.classNames ?? [],
+            }),
+          );
+        }
+        case 'ResolveDependentUris': {
+          const prd = params as { uri: string; symbolName?: string };
+          return callbacks.sendToDataOwner(
+            new ResolveDependentUris({
+              uri: prd.uri,
+              symbolName: prd.symbolName,
             }),
           );
         }

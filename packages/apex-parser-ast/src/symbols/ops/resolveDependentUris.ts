@@ -7,7 +7,29 @@
  */
 
 import type { ISymbolManager } from '../../types/ISymbolManager';
-import type { SymbolTable } from '../../types/symbol';
+import type {
+  ApexSymbol,
+  SymbolTable,
+  SymbolTableMetadata,
+} from '../../types/symbol';
+import type { SymbolReference } from '../../types/symbolReference';
+import type { HierarchicalReference } from '../../types/hierarchicalReference';
+import { extractFilePathFromUri } from '../../types/UriBasedIdGenerator';
+
+/**
+ * Normalize for self-reference comparison. Strips both the symbol-fragment
+ * (post-`#`) and the `file://` protocol prefix so the comparison survives
+ * the asymmetry between LSP-shaped URIs (`file:///A.cls`) supplied by the
+ * Find References caller and graph-stored URIs that may carry the prefix
+ * or not, depending on how the source file was registered.
+ */
+const FILE_URI_PREFIX = 'file://';
+const normalizeForCompare = (uri: string): string => {
+  const stripped = extractFilePathFromUri(uri);
+  return stripped.startsWith(FILE_URI_PREFIX)
+    ? stripped.slice(FILE_URI_PREFIX.length)
+    : stripped;
+};
 
 /**
  * Pure-data view of a serialized symbol table used by data-owner wire
@@ -15,10 +37,10 @@ import type { SymbolTable } from '../../types/symbol';
  * receiving worker can rehydrate via `SymbolTable.fromSerializedData`.
  */
 export interface SerializedSymbolTableEntry {
-  symbols: unknown[];
-  references: unknown[];
-  hierarchicalReferences: unknown[];
-  metadata: unknown;
+  symbols: ApexSymbol[];
+  references: SymbolReference[];
+  hierarchicalReferences: HierarchicalReference[];
+  metadata: SymbolTableMetadata;
   fileUri: string;
 }
 
@@ -56,13 +78,17 @@ export async function resolveDependentUris(
   const declaredSymbols = await symbolManager.findSymbolsInFile(uri);
   const dependentUris = new Set<string>();
 
+  // Normalize the caller-supplied target URI so the self-reference filter
+  // below survives the protocol-prefix asymmetry between LSP-shaped URIs
+  // (`file:///A.cls`) and graph-stored source URIs (`/A.cls`).
+  const normalizedTargetUri = normalizeForCompare(uri);
+
   for (const symbol of declaredSymbols) {
     if (symbolName && symbol.name !== symbolName) continue;
     const refs = await symbolManager.findReferencesTo(symbol);
     for (const ref of refs) {
-      if (!ref.fileUri) continue;
       // Skip self-references — caller already owns the target's table.
-      if (ref.fileUri === uri) continue;
+      if (normalizeForCompare(ref.fileUri) === normalizedTargetUri) continue;
       dependentUris.add(ref.fileUri);
     }
   }

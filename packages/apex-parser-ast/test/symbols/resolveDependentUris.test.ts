@@ -130,6 +130,25 @@ describe('resolveDependentUris', () => {
     expect(result.entries[FILE_A]).toBeUndefined();
   });
 
+  it('excludes self-references when caller URI is LSP-shaped and graph URI is unprotocoled', async () => {
+    // Realistic asymmetry: caller passes the LSP-shaped URI; the symbol
+    // graph stores source URIs without the file:// prefix (mirroring the
+    // ApexSymbolRefManager normalization). The strict === filter would
+    // miss this; the normalized comparison must catch it.
+    const lspUri = 'file:///workspace/A.cls';
+    const pathUri = '/workspace/A.cls';
+    const foo = symbol('Foo', lspUri);
+    const manager = makeManager({
+      symbolsInFile: { [lspUri]: [foo] },
+      referencesTo: new Map([['Foo', [reference(pathUri), reference(FILE_B)]]]),
+    });
+
+    const result = await resolveDependentUris(manager, lspUri);
+
+    expect(Object.keys(result.entries)).toEqual([FILE_B]);
+    expect(result.entries[pathUri]).toBeUndefined();
+  });
+
   it('skips dependents whose symbol table is missing on this data-owner', async () => {
     const foo = symbol('Foo', FILE_A);
     const manager = makeManager({
