@@ -275,6 +275,19 @@ export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator
     const proxy = this.assistanceProxy;
     const logger = this.logger;
     return Effect.gen(function* () {
+      // Worker-side dedup: if this coordinator already fired (or is firing)
+      // a request to the coordinator process, skip the round-trip. The
+      // coordinator's own ensureWorkspaceLoaded would no-op on its second
+      // call, but the assistance-bus hop is still wasted on every Find
+      // References request between request-1 and load-completion. The
+      // coordinator broadcasts completion via onWorkspaceLoadComplete in
+      // a follow-up story; until then, isLoadingRef stays true on the
+      // worker until reset(), which is acceptable since the worker simply
+      // proceeds with partial results in the meantime.
+      if (yield* Ref.get(isLoadedRef)) return;
+      if (yield* Ref.get(isLoadingRef)) return;
+      yield* Ref.set(isLoadingRef, true);
+
       yield* Effect.tryPromise({
         try: () =>
           proxy(

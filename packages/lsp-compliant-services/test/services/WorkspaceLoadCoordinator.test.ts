@@ -45,6 +45,10 @@ describe('LocalWorkspaceLoadCoordinator', () => {
 });
 
 describe('RemoteWorkspaceLoadCoordinator', () => {
+  beforeEach(() => {
+    resetWorkspaceLoadState();
+  });
+
   it('forwards to coordinator:EnsureWorkspaceLoaded over the assistance proxy', async () => {
     const proxy = jest.fn().mockResolvedValue(undefined);
     const coord = new RemoteWorkspaceLoadCoordinator(proxy, getLogger());
@@ -56,6 +60,20 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
       { workDoneToken: 42 },
       true,
     );
+  });
+
+  it('skips the assistance round-trip on subsequent calls while loading', async () => {
+    // Simulates the hot-path on a worker: many references requests come in
+    // before the coordinator finishes loading. Only the first should hit
+    // the assistance bus; the rest read worker-local state and no-op.
+    const proxy = jest.fn().mockResolvedValue(undefined);
+    const coord = new RemoteWorkspaceLoadCoordinator(proxy, getLogger());
+
+    await Effect.runPromise(coord.ensureLoaded());
+    await Effect.runPromise(coord.ensureLoaded());
+    await Effect.runPromise(coord.ensureLoaded());
+
+    expect(proxy).toHaveBeenCalledTimes(1);
   });
 
   it('swallows proxy failures so the worker can continue with partial results', async () => {

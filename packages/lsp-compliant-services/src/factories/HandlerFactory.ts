@@ -10,6 +10,7 @@ import {
   getLogger,
   LoggerInterface,
   ApexCapabilitiesManager,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-shared';
 
 import { DidChangeDocumentHandler } from '../handlers/DidChangeDocumentHandler';
@@ -57,6 +58,7 @@ import {
   ReferencesProcessingService,
   IReferencesProcessor,
 } from '../services/ReferencesProcessingService';
+import { LocalWorkspaceLoadCoordinator } from '../services/WorkspaceLoadCoordinator';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { CodeLensHandler } from '../handlers/CodeLensHandler';
@@ -309,12 +311,32 @@ export class HandlerFactory {
   }
 
   /**
-   * Create a ReferencesHandler with default dependencies
+   * Create a ReferencesHandler with default dependencies.
+   * Wires a {@link LocalWorkspaceLoadCoordinator} when an LSP Connection is
+   * reachable through the configuration manager so the references path
+   * triggers the workspace-load notification consistently with the
+   * `ServiceFactory` route. Falls back to no coordinator (partial-results
+   * mode) when no Connection is registered.
+   *
    * @returns A configured ReferencesHandler instance
    */
   static createReferencesHandler(): ReferencesHandler {
     const logger = getLogger();
-    const referencesProcessor = new ReferencesProcessingService(logger);
+    let coordinator: LocalWorkspaceLoadCoordinator | undefined;
+    try {
+      const connection =
+        LSPConfigurationManager.getInstance().getConnection() ?? undefined;
+      if (connection) {
+        coordinator = new LocalWorkspaceLoadCoordinator(connection, logger);
+      }
+    } catch {
+      // No connection registered yet — fall through to no-coordinator path.
+    }
+    const referencesProcessor = new ReferencesProcessingService(
+      logger,
+      undefined,
+      coordinator,
+    );
 
     return new ReferencesHandler(logger, referencesProcessor);
   }
