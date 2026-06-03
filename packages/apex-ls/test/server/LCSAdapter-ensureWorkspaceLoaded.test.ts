@@ -7,16 +7,10 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { Effect } from 'effect';
-import {
-  ensureWorkspaceLoaded,
-  reset as resetWorkspaceLoadState,
-} from '@salesforce/apex-lsp-compliant-services';
+import { reset as resetWorkspaceLoadState } from '@salesforce/apex-lsp-compliant-services';
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
-import type {
-  AssistanceHandler,
-  AssistanceRequestPayload,
-} from '../../src/server/CoordinatorAssistanceMediator';
+import type { AssistanceRequestPayload } from '../../src/server/CoordinatorAssistanceMediator';
+import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 function createSpyLogger(): LoggerInterface {
@@ -50,29 +44,7 @@ function makeRequest(
   };
 }
 
-/**
- * Mirrors the LCSAdapter mediator's primary handler branch for
- * coordinator:EnsureWorkspaceLoaded. Exercising the live LCSAdapter would
- * require the full topology bootstrap; keeping the bridge logic in lock-step
- * with the production lambda gives the same coverage in isolation.
- */
-function makePrimaryHandler(
-  connection: { sendNotification: jest.Mock },
-  logger: LoggerInterface,
-): AssistanceHandler {
-  return async (method, params) => {
-    if (method === 'coordinator:EnsureWorkspaceLoaded') {
-      const p = params as { workDoneToken?: string | number };
-      await Effect.runPromise(
-        ensureWorkspaceLoaded(connection as any, logger, p.workDoneToken),
-      );
-      return undefined;
-    }
-    throw new Error(`Unexpected method ${method}`);
-  };
-}
-
-describe('LCSAdapter mediator: coordinator:EnsureWorkspaceLoaded', () => {
+describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceLoaded', () => {
   let logger: LoggerInterface;
 
   beforeEach(() => {
@@ -82,9 +54,16 @@ describe('LCSAdapter mediator: coordinator:EnsureWorkspaceLoaded', () => {
 
   it('fires apex/requestWorkspaceLoad on the LSP Connection when worker requests load', async () => {
     const sendNotification = jest.fn();
-    const connection = { sendNotification };
-    const handler = makePrimaryHandler(connection, logger);
-
+    const sendRequest = jest.fn();
+    // Wire the production primary handler into the production mediator —
+    // the same pair of objects LCSAdapter constructs in
+    // initializeWorkerTopology. Any drift in the live branching logic
+    // surfaces here.
+    const handler = createPrimaryAssistanceHandler({
+      connection: { sendNotification, sendRequest } as any,
+      logger,
+      getResourceLoaderProxy: () => undefined,
+    });
     const mediator = new CoordinatorAssistanceMediator(handler, logger);
     const worker = makeMockWorker();
     mediator.attachToWorkers([worker as any]);
@@ -102,6 +81,10 @@ describe('LCSAdapter mediator: coordinator:EnsureWorkspaceLoaded', () => {
     expect(sendNotification).toHaveBeenCalledWith('apex/requestWorkspaceLoad', {
       workDoneToken: 'progress-token-7',
     });
+    // The catch-all sendRequest must NOT have been hit — the
+    // coordinator:EnsureWorkspaceLoaded branch must short-circuit before
+    // falling through to the LSP wire.
+    expect(sendRequest).not.toHaveBeenCalled();
     expect(worker.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         _tag: 'WorkerAssistanceResponse',
@@ -113,9 +96,11 @@ describe('LCSAdapter mediator: coordinator:EnsureWorkspaceLoaded', () => {
 
   it('skips notification when workspace already loading (state guard)', async () => {
     const sendNotification = jest.fn();
-    const connection = { sendNotification };
-    const handler = makePrimaryHandler(connection, logger);
-
+    const handler = createPrimaryAssistanceHandler({
+      connection: { sendNotification, sendRequest: jest.fn() } as any,
+      logger,
+      getResourceLoaderProxy: () => undefined,
+    });
     const mediator = new CoordinatorAssistanceMediator(handler, logger);
     const worker = makeMockWorker();
     mediator.attachToWorkers([worker as any]);
@@ -127,5 +112,24 @@ describe('LCSAdapter mediator: coordinator:EnsureWorkspaceLoaded', () => {
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
     expect(worker.postMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls through to connection.sendRequest for unknown methods', async () => {
+    // Regression guard: only the recognised coordinator:* and
+    // resourceLoader:* prefixes are intercepted. Anything else must hit
+    // the LSP wire so the client can handle it.
+    const sendRequest = jest.fn().mockResolvedValue({ ok: true });
+    const handler = createPrimaryAssistanceHandler({
+      connection: { sendRequest, sendNotification: jest.fn() } as any,
+      logger,
+      getResourceLoaderProxy: () => undefined,
+    });
+
+    const result = await handler('client/registerCapability', { id: 'x' });
+
+    expect(sendRequest).toHaveBeenCalledWith('client/registerCapability', {
+      id: 'x',
+    });
+    expect(result).toEqual({ ok: true });
   });
 });
