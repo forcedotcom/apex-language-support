@@ -138,6 +138,11 @@ export {
   getAllReferencesInFile as getAllReferencesInFileOp,
 } from './symbols/ops/referenceOps';
 export {
+  resolveDependentUris,
+  type SerializedSymbolTableEntry,
+  type ResolveDependentUrisResult,
+} from './symbols/ops/resolveDependentUris';
+export {
   analyzeDependencies as analyzeDependenciesOp,
   detectCircularDependencies as detectCircularDependenciesOp,
   getGraphData as getGraphDataOp,

@@ -38,6 +38,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -83,6 +84,7 @@ const AllWorkerRequests = Schema.Union(
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -1169,6 +1171,28 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDependentUris: (req) =>
+    guardRole('ResolveDependentUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { resolveDependentUris } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const result = yield* Effect.promise(() =>
+              resolveDependentUris(svc.symbolManager, req.uri, req.symbolName),
+            );
+            const wire: Record<string, unknown> = {};
+            for (const [uri, entry] of Object.entries(result.entries)) {
+              wire[uri] = cloneForWire(entry);
+            }
+            return { entries: wire };
           }),
         ),
       ),
