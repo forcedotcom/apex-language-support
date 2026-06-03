@@ -177,11 +177,33 @@ export class CompletionProcessingService implements ICompletionProcessor {
   public async processCompletion(
     params: CompletionParams,
   ): Promise<CompletionItem[]> {
+    const result = await this.processCompletionInternal(params);
+    return result.items;
+  }
+
+  /**
+   * Process a completion request and report whether the result is fully
+   * resolved. The CompletionHandler surfaces the `isIncomplete` flag back to
+   * the editor so it knows to re-query as enrichment completes.
+   */
+  public async processCompletionWithReadiness(
+    params: CompletionParams,
+  ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }> {
+    return this.processCompletionInternal(params);
+  }
+
+  private async processCompletionInternal(
+    params: CompletionParams,
+  ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }> {
     this.logger.debug(
       () => `Processing completion request for: ${params.textDocument.uri}`,
     );
 
-    // Run prerequisites for completion request
+    // `enrichmentReady` tracks whether the symbol table is at the level the
+    // strategies need. False means the editor should treat the result as
+    // partial and re-query.
+    let enrichmentReady = true;
+
     if (this.prerequisiteOrchestrationService) {
       try {
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
@@ -193,46 +215,40 @@ export class CompletionProcessingService implements ICompletionProcessor {
           () =>
             `Error running prerequisites for completion ${params.textDocument.uri}: ${error}`,
         );
-        // Continue with completion even if prerequisites fail
+        enrichmentReady = false;
       }
     }
 
     try {
-      // Get the storage manager instance
       const storageManager = ApexStorageManager.getInstance();
       const storage = storageManager.getStorage();
 
-      // Get the document
       const document = await storage.getDocument(params.textDocument.uri);
       if (!document) {
         this.logger.warn(
           () => `Document not found: ${params.textDocument.uri}`,
         );
-        return [];
+        return { items: [], isIncomplete: true };
       }
 
-      // Mirror Jorje's ApexCompletionStrategyAggregator: skip completions
-      // entirely when the cursor is inside a string literal.
       if (this.isInStringLiteral(document, params.position)) {
         this.logger.debug(
           () =>
             `Skipping completion at ${params.position.line}:` +
             `${params.position.character} — cursor is inside a string literal`,
         );
-        return [];
+        return { items: [], isIncomplete: false };
       }
 
-      // Ensure the file is enriched to private level before running strategies.
-      // Without this, the symbol table may be stale and variable resolution fails.
       const cache = getDocumentStateCache();
-      if (
-        this.layerEnrichmentService &&
-        !cache.hasDetailLevel(
+      const alreadyEnriched =
+        !!this.layerEnrichmentService &&
+        cache.hasDetailLevel(
           params.textDocument.uri,
           document.version,
           'private',
-        )
-      ) {
+        );
+      if (this.layerEnrichmentService && !alreadyEnriched) {
         try {
           await this.layerEnrichmentService.enrichFiles(
             [params.textDocument.uri],
@@ -244,20 +260,17 @@ export class CompletionProcessingService implements ICompletionProcessor {
           this.logger.debug(
             () => `Error enriching file for completion: ${error}`,
           );
+          enrichmentReady = false;
         }
+      } else if (!this.layerEnrichmentService) {
+        // No enrichment service wired — strategies run against whatever
+        // symbol table state exists; mark partial so the editor re-queries.
+        enrichmentReady = false;
       }
 
-      // Analyze completion context
       const context = this.analyzeCompletionContext(document, params);
-
-      // Dispatch to strategies and collect candidates
       const candidates = await this.getCompletionCandidates(context);
-
-      // Deduplicate candidates by label (case-insensitive), keeping the
-      // candidate with the highest relevance score for each label.
       const dedupedCandidates = this.deduplicateCandidatesByLabel(candidates);
-
-      // Convert to LSP completion items
       const completionItems = dedupedCandidates.map((candidate) =>
         this.createCompletionItem(candidate, context),
       );
@@ -266,10 +279,10 @@ export class CompletionProcessingService implements ICompletionProcessor {
         () => `Returning ${completionItems.length} completion items`,
       );
 
-      return completionItems;
+      return { items: completionItems, isIncomplete: !enrichmentReady };
     } catch (error) {
       this.logger.error(() => `Error processing completion: ${error}`);
-      return [];
+      return { items: [], isIncomplete: true };
     }
   }
 
