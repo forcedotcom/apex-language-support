@@ -8,6 +8,13 @@ export class ApiScrapingError {
   ) {}
 }
 
+/** Active doc version, resolved from the document structure at scrape start. */
+let activeDocVersion = '262.0';
+
+export const setActiveDocVersion = (version: string): void => {
+  activeDocVersion = version;
+};
+
 /**
  * Fetch the Apex Reference document structure (TOC)
  */
@@ -36,9 +43,12 @@ export const fetchDocumentStructure = () =>
   });
 
 /**
- * Fetch content for a specific page
+ * Fetch content for a specific page using the currently active doc version.
  */
-export const fetchPageContent = (pageId: string, version: string = '260.0') =>
+export const fetchPageContent = (
+  pageId: string,
+  version: string = activeDocVersion,
+) =>
   Effect.gen(function* () {
     yield* Console.log(`Fetching content for: ${pageId}`);
 
