@@ -49,8 +49,11 @@ const program = Effect.gen(function* () {
 
 pipe(
   program,
-  Effect.catchAll((error) =>
-    Console.log(`Error: ${JSON.stringify(error, null, 2)}`),
-  ),
+  Effect.catchAll((error) => {
+    const msg = JSON.stringify(error, null, 2);
+    return Console.error(`Error: ${msg}`).pipe(
+      Effect.andThen(Effect.sync(() => process.exit(1))),
+    );
+  }),
   Effect.runPromise,
 );
