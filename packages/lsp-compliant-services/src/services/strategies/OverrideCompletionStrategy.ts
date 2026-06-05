@@ -100,10 +100,15 @@ export class OverrideCompletionStrategy implements CompletionStrategy {
     startType: TypeSymbol,
   ): Promise<MethodSymbol[]> {
     const result: MethodSymbol[] = [];
+    // Track visited type ids to prevent infinite loops on cyclic chains.
+    const visited = new Set<string>();
     let current: TypeSymbol | null = startType;
     let depth = 0;
 
     while (current && depth < 10) {
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+
       const members = await this.getDirectMembers(current);
       for (const member of members) {
         if (

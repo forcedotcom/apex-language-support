@@ -260,41 +260,11 @@ describe('Queue Integration in apex-ls', () => {
     });
   });
 
-  describe('completion request processing', () => {
-    it('should process completion requests through queue', async () => {
-      const params = {
-        textDocument: { uri: 'file:///test.cls' },
-        position: { line: 5, character: 10 },
-      };
-
-      const expectedItems = [
-        { label: 'doSomething', kind: 2 },
-        { label: 'toString', kind: 2 },
-      ];
-      mockQueueManager.submitCompletionRequest.mockResolvedValue(expectedItems);
-
-      const result = await mockQueueManager.submitCompletionRequest(params);
-
-      expect(mockQueueManager.submitCompletionRequest).toHaveBeenCalledWith(
-        params,
-      );
-      expect(result).toEqual(expectedItems);
-    });
-
-    it('should handle completion request failures', async () => {
-      const params = {
-        textDocument: { uri: 'file:///test.cls' },
-        position: { line: 0, character: 0 },
-      };
-
-      const error = new Error('Completion processing failed');
-      mockQueueManager.submitCompletionRequest.mockRejectedValue(error);
-
-      await expect(
-        mockQueueManager.submitCompletionRequest(params),
-      ).rejects.toThrow('Completion processing failed');
-    });
-  });
+  // Note: completion request flow is exercised via the wired LCSAdapter
+  // onCompletion handler in index.test.ts ('Protocol Handler Integration').
+  // Mock-only round-trip tests for completion were removed because they
+  // never crossed production code; they asserted the mock framework, not
+  // queue routing.
 
   describe('queue statistics', () => {
     it('should provide queue statistics for monitoring', () => {

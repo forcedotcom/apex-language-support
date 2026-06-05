@@ -123,6 +123,56 @@ describe('CompletionProcessingService', () => {
       expect(result).toEqual([]);
     });
 
+    it('processCompletionWithReadiness reports incomplete when no enrichment service is wired', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test/TestClass.cls' },
+        position: { line: 5, character: 10 },
+      };
+      mockStorage.getDocument.mockResolvedValue(mockDocument);
+
+      const result = await service.processCompletionWithReadiness(params);
+
+      expect(result.items).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+      // Without LayerEnrichmentService injected, the symbol table state is
+      // whatever was eagerly compiled — flag as partial so editors re-query.
+      expect(result.isIncomplete).toBe(true);
+    });
+
+    it('processCompletionWithReadiness reports incomplete when document is missing', async () => {
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test/Missing.cls' },
+        position: { line: 0, character: 0 },
+      };
+      mockStorage.getDocument.mockResolvedValue(null);
+
+      const result = await service.processCompletionWithReadiness(params);
+
+      expect(result.items).toEqual([]);
+      expect(result.isIncomplete).toBe(true);
+    });
+
+    it('processCompletionWithReadiness reports complete (and empty) inside a string literal', async () => {
+      const inStringDoc = TextDocument.create(
+        'file:///test/InString.cls',
+        'apex',
+        1,
+        "    String x = 'foo.bar.",
+      );
+      mockStorage.getDocument.mockResolvedValue(inStringDoc);
+
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test/InString.cls' },
+        position: { line: 0, character: 24 },
+      };
+
+      const result = await service.processCompletionWithReadiness(params);
+
+      expect(result.items).toEqual([]);
+      // String-literal short-circuit is a final answer, not partial.
+      expect(result.isIncomplete).toBe(false);
+    });
+
     it('should await enrichment and resolve local variable members', async () => {
       const content = [
         'public class VarCompletionTest {',

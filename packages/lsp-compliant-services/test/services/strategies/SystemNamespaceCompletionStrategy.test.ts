@@ -48,12 +48,18 @@ describe('SystemNamespaceCompletionStrategy', () => {
       const context = makeCompletionContext(doc, 0, 8);
       expect(strategy.canHandle(context)).toBe(false);
     });
+
+    it('should not handle when no identifier prefix has been typed', () => {
+      const doc = makeTextDocument('    ', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 4);
+      expect(strategy.canHandle(context)).toBe(false);
+    });
   });
 
   describe('getCompletions', () => {
-    it('should return all system namespaces with empty prefix', async () => {
-      const doc = makeTextDocument('    ', 'file:///test/Test.cls');
-      const context = makeCompletionContext(doc, 0, 4);
+    it('should return matching namespaces filtered by prefix', async () => {
+      const doc = makeTextDocument('    S', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 5);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -61,11 +67,9 @@ describe('SystemNamespaceCompletionStrategy', () => {
 
       const names = candidates.map((c) => c.symbol.name);
       expect(names).toContain('System');
-      expect(names).toContain('Database');
       expect(names).toContain('Schema');
-      expect(names).toContain('Messaging');
-      expect(names).toContain('ApexPages');
-      expect(candidates.length).toBeGreaterThanOrEqual(40);
+      expect(names).toContain('Search');
+      expect(names).not.toContain('Database');
     });
 
     it('should filter namespaces by prefix (case-insensitive)', async () => {

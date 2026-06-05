@@ -63,6 +63,28 @@ describe('MemberAccessCompletionStrategy', () => {
       const context = makeCompletionContext(doc, 0, 28);
       expect(strategy.canHandle(context)).toBe(false);
     });
+
+    it('should not handle when the dot is part of a numeric literal', () => {
+      // `1.` is a decimal literal, not a member-access receiver.
+      const doc = makeTextDocument(
+        '    Decimal d = 1.',
+        'file:///test/Test.cls',
+      );
+      const context = makeCompletionContext(doc, 0, 18);
+      expect(strategy.canHandle(context)).toBe(false);
+    });
+
+    it('should handle dot after a method call result (closing paren)', () => {
+      const doc = makeTextDocument('    foo().', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 10);
+      expect(strategy.canHandle(context)).toBe(true);
+    });
+
+    it('should handle dot after an index access (closing bracket)', () => {
+      const doc = makeTextDocument('    list[0].', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 12);
+      expect(strategy.canHandle(context)).toBe(true);
+    });
   });
 
   describe('parseDotExpression', () => {
@@ -256,6 +278,80 @@ describe('MemberAccessCompletionStrategy', () => {
       );
 
       expect(candidates).toEqual([]);
+    });
+
+    it('should not match a variable from a sibling method', async () => {
+      // `bar` is declared in run2(), but the cursor sits inside run1(). The
+      // dot-completion attempt resolves an identifier `bar` against a symbol
+      // table that contains both — only the in-scope one (none here) should
+      // count. The result must NOT include MemberAccessTestClass members.
+      const content = [
+        'public class SiblingTest {',
+        '  public void run1() {',
+        '    bar.',
+        '  }',
+        '  public void run2() {',
+        '    MemberAccessTestClass bar = new MemberAccessTestClass();',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/SiblingTest.cls';
+      const doc = makeTextDocument(content, uri);
+
+      const parserAst = await import('@salesforce/apex-lsp-parser-ast');
+      const compilerService = new parserAst.CompilerService();
+      const symbolTable = new parserAst.SymbolTable();
+      const listener = new parserAst.FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, uri, listener);
+      await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
+
+      // Cursor on line 2, after `bar.`
+      const context = makeCompletionContext(doc, 2, 8, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      // The sibling-scoped `bar` should not leak its type's members here.
+      const names = candidates.map((c) => c.symbol.name);
+      expect(names).not.toContain('publicField');
+      expect(names).not.toContain('getPublicValue');
+    });
+
+    it('should resolve a variable case-insensitively (Apex semantics)', async () => {
+      // Variable declared as `myVar`, dot-completion typed as `myvar.` —
+      // Apex identifiers are case-insensitive so members must still resolve.
+      const content = [
+        'public class CaseTest {',
+        '  public void run() {',
+        '    MemberAccessTestClass myVar = new MemberAccessTestClass();',
+        '    myvar.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/CaseTest.cls';
+      const doc = makeTextDocument(content, uri);
+
+      const parserAst = await import('@salesforce/apex-lsp-parser-ast');
+      const compilerService = new parserAst.CompilerService();
+      const symbolTable = new parserAst.SymbolTable();
+      const listener = new parserAst.FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, uri, listener);
+      await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
+
+      const context = makeCompletionContext(doc, 3, 10, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const names = candidates.map((c) => c.symbol.name);
+      expect(names).toContain('publicField');
+      expect(names).toContain('getPublicValue');
     });
   });
 
