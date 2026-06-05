@@ -42,20 +42,15 @@ describe('WriteBackProtocol Debug Test', () => {
   });
 
   it('minimal: just open document and write back', async () => {
-    console.log('=== Starting test ===');
-
     const program = Effect.gen(function* () {
-      console.log('Step 1: Initializing topology...');
       const topology = yield* initializeTopology({
         poolSize: 1,
         enableResourceLoader: false,
         logger: getLogger(),
         logLevel: 'debug',
       });
-      console.log('Step 1 DONE: Topology initialized');
 
-      console.log('Step 2: Opening document...');
-      const openResult = yield* topology.dataOwner.executeEffect(
+      yield* topology.dataOwner.executeEffect(
         new DispatchDocumentOpen({
           uri: TEST_URI,
           languageId: 'apex',
@@ -63,9 +58,7 @@ describe('WriteBackProtocol Debug Test', () => {
           content: SAMPLE_APEX_CLASS,
         }),
       );
-      console.log('Step 2 DONE: Document opened, result:', openResult);
 
-      console.log('Step 3: Creating update request...');
       const enrichedSymbols = {
         symbols: [],
         references: [],
@@ -77,15 +70,6 @@ describe('WriteBackProtocol Debug Test', () => {
         },
         fileUri: TEST_URI,
       };
-      console.log('Step 3 DONE: Update request created');
-
-      console.log('Step 4: Sending UpdateSymbolSubset...');
-      console.log('Request params:', {
-        uri: TEST_URI,
-        documentVersion: 1,
-        enrichedDetailLevel: 'full',
-        sourceWorkerId: 'test-debug',
-      });
 
       const updateResult = yield* topology.dataOwner.executeEffect(
         new UpdateSymbolSubset({
@@ -97,17 +81,13 @@ describe('WriteBackProtocol Debug Test', () => {
         }),
       );
 
-      console.log('Step 4 DONE: UpdateSymbolSubset returned:', updateResult);
-
       expect(updateResult).toBeDefined();
-      console.log('=== Test completed successfully ===');
       return updateResult;
     }).pipe(
       Effect.scoped,
       Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
     );
 
-    const result = await Effect.runPromise(program);
-    console.log('Final result:', result);
+    await Effect.runPromise(program);
   }, 120_000);
 });
