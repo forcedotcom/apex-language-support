@@ -1,6 +1,3 @@
-/**
- * Managed content delivery document summary.
- */
-global class ManagedContentDeliveryDocumentSummary extends ConnectApi.AbstractManagedContentDeliveryDocument {
+global class ManagedContentDeliveryDocumentSummary {
 
 }

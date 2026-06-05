@@ -1,6 +1,3 @@
-/**
- * The summary of an item type associated with a repository folder.
- */
-global class ContentHubItemTypeSummary extends ConnectApi.AbstractContentHubItemType {
+global class ContentHubItemTypeSummary {
 
 }

@@ -1,11 +1,3 @@
-/**
- * Attribute-based refinement with distinct values for product search.
- */
-global class DistinctValueRefinementInput extends ConnectApi.RefinementInput {
-
-  /**
-   * Comma-separated list of attribute values. It considers attribute labels for localization.
-   */
-  global List < String > values;
+global class DistinctValueRefinementInput {
 
 }

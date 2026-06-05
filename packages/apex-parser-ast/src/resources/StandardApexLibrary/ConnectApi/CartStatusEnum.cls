@@ -1,2 +1,0 @@
-global enum CartStatusEnum {
-}

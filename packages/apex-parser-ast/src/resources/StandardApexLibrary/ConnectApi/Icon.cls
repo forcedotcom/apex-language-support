@@ -1,6 +1,3 @@
-/**
- * Icon.
- */
 global class Icon {
 
 }

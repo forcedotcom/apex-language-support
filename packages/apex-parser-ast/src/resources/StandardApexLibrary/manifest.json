@@ -1,0 +1,376 @@
+{
+  "generatedAt": "2026-06-05T12:42:58.526Z",
+  "namespaces": {
+    "ApexPages": {
+      "total": 8,
+      "classes": 8,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "AppLauncher": {
+      "total": 9,
+      "classes": 9,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Approval": {
+      "total": 6,
+      "classes": 6,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Auth": {
+      "total": 45,
+      "classes": 23,
+      "interfaces": 10,
+      "enums": 11,
+      "exceptionPages": 1
+    },
+    "Cache": {
+      "total": 8,
+      "classes": 5,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 1
+    },
+    "Canvas": {
+      "total": 7,
+      "classes": 1,
+      "interfaces": 4,
+      "enums": 1,
+      "exceptionPages": 1
+    },
+    "ChatterAnswers": {
+      "total": 1,
+      "classes": 0,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "CommerceBuyGrp": {
+      "total": 3,
+      "classes": 3,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "CommerceExtension": {
+      "total": 5,
+      "classes": 3,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "CommercePayments": {
+      "total": 62,
+      "classes": 47,
+      "interfaces": 3,
+      "enums": 12,
+      "exceptionPages": 0
+    },
+    "CommerceTax": {
+      "total": 29,
+      "classes": 23,
+      "interfaces": 1,
+      "enums": 5,
+      "exceptionPages": 0
+    },
+    "Compression": {
+      "total": 6,
+      "classes": 3,
+      "interfaces": 0,
+      "enums": 2,
+      "exceptionPages": 1
+    },
+    "ConnectApi": {
+      "total": 1338,
+      "classes": 1336,
+      "interfaces": 0,
+      "enums": 1,
+      "exceptionPages": 1
+    },
+    "Database": {
+      "total": 24,
+      "classes": 22,
+      "interfaces": 2,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Datacloud": {
+      "total": 8,
+      "classes": 8,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "DataSource": {
+      "total": 31,
+      "classes": 22,
+      "interfaces": 0,
+      "enums": 8,
+      "exceptionPages": 1
+    },
+    "DataWeave": {
+      "total": 2,
+      "classes": 2,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Dom": {
+      "total": 3,
+      "classes": 2,
+      "interfaces": 0,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "embeddedai": {
+      "total": 2,
+      "classes": 2,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "EventBus": {
+      "total": 7,
+      "classes": 3,
+      "interfaces": 4,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Flow": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "flowuiruntime": {
+      "total": 3,
+      "classes": 3,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "FormulaEval": {
+      "total": 4,
+      "classes": 2,
+      "interfaces": 0,
+      "enums": 2,
+      "exceptionPages": 0
+    },
+    "fsccashflow": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Functions": {
+      "total": 8,
+      "classes": 2,
+      "interfaces": 4,
+      "enums": 2,
+      "exceptionPages": 0
+    },
+    "ise_bots_apex": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "industriesNlpSvc": {
+      "total": 2,
+      "classes": 2,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Invocable": {
+      "total": 3,
+      "classes": 3,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "IsvPartners": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "KbManagement": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "LxScheduler": {
+      "total": 14,
+      "classes": 13,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Messaging": {
+      "total": 19,
+      "classes": 18,
+      "interfaces": 0,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "Metadata": {
+      "total": 53,
+      "classes": 36,
+      "interfaces": 1,
+      "enums": 16,
+      "exceptionPages": 0
+    },
+    "Pref_center": {
+      "total": 8,
+      "classes": 6,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "Process": {
+      "total": 7,
+      "classes": 5,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "QuickAction": {
+      "total": 13,
+      "classes": 12,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Reports": {
+      "total": 56,
+      "classes": 44,
+      "interfaces": 1,
+      "enums": 10,
+      "exceptionPages": 1
+    },
+    "RichMessaging": {
+      "total": 22,
+      "classes": 14,
+      "interfaces": 3,
+      "enums": 5,
+      "exceptionPages": 0
+    },
+    "Schema": {
+      "total": 21,
+      "classes": 17,
+      "interfaces": 0,
+      "enums": 4,
+      "exceptionPages": 0
+    },
+    "Search": {
+      "total": 7,
+      "classes": 7,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "setup_flow_performance": {
+      "total": 1,
+      "classes": 1,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Sfc": {
+      "total": 3,
+      "classes": 1,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "Sfdc_Checkout": {
+      "total": 5,
+      "classes": 3,
+      "interfaces": 1,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "Sfdc_Enablement": {
+      "total": 5,
+      "classes": 4,
+      "interfaces": 0,
+      "enums": 1,
+      "exceptionPages": 0
+    },
+    "sfdc_surveys": {
+      "total": 1,
+      "classes": 0,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Site": {
+      "total": 2,
+      "classes": 0,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 1
+    },
+    "Support": {
+      "total": 2,
+      "classes": 0,
+      "interfaces": 2,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "System": {
+      "total": 113,
+      "classes": 92,
+      "interfaces": 13,
+      "enums": 7,
+      "exceptionPages": 1
+    },
+    "TerritoryMgmt": {
+      "total": 1,
+      "classes": 0,
+      "interfaces": 1,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "TxnSecurity": {
+      "total": 4,
+      "classes": 1,
+      "interfaces": 3,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "UserProvisioning": {
+      "total": 3,
+      "classes": 3,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "VisualEditor": {
+      "total": 4,
+      "classes": 4,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    },
+    "Wave": {
+      "total": 5,
+      "classes": 5,
+      "interfaces": 0,
+      "enums": 0,
+      "exceptionPages": 0
+    }
+  }
+}
