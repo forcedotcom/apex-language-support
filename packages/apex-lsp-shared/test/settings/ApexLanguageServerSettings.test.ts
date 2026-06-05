@@ -305,6 +305,60 @@ describe('ApexLanguageServerSettings Validation', () => {
         result.apex.deferredReferenceProcessing?.enableCrossFileDeferral,
       ).toBe(true);
     });
+
+    it('should default experimental.workers on for desktop', () => {
+      const result = mergeWithDefaults({}, 'desktop');
+
+      expect(result.apex.experimental?.workers.enabled).toBe(true);
+      expect(result.apex.experimental?.workers.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.resourceLoader).toBe(true);
+    });
+
+    it('should default experimental.workers on for web (cross-client consistency)', () => {
+      const result = mergeWithDefaults({}, 'web');
+
+      expect(result.apex.experimental?.workers.enabled).toBe(true);
+      expect(result.apex.experimental?.workers.poolSize).toBe(2);
+    });
+
+    it('should preserve user-supplied experimental.workers overrides', () => {
+      const partialConfig = {
+        apex: {
+          experimental: {
+            workers: {
+              enabled: false,
+              poolSize: 4,
+              resourceLoader: false,
+            },
+          },
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'desktop');
+
+      expect(result.apex.experimental?.workers.enabled).toBe(false);
+      expect(result.apex.experimental?.workers.poolSize).toBe(4);
+      expect(result.apex.experimental?.workers.resourceLoader).toBe(false);
+    });
+
+    it('should fill missing experimental.workers fields from defaults on partial override', () => {
+      const partialConfig = {
+        apex: {
+          experimental: {
+            workers: {
+              poolSize: 6,
+            },
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'desktop');
+
+      // poolSize from user, enabled/resourceLoader from defaults
+      expect(result.apex.experimental?.workers.poolSize).toBe(6);
+      expect(result.apex.experimental?.workers.enabled).toBe(true);
+      expect(result.apex.experimental?.workers.resourceLoader).toBe(true);
+    });
   });
 
   describe('mergeWithExisting', () => {

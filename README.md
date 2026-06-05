@@ -163,9 +163,12 @@ Worker messages use `@effect/schema` `TaggedRequest` classes defined in `apex-ls
 ### Worker Settings
 
 ```
-apex.experimental.workers.enabled   boolean   default: false
-apex.experimental.workers.poolSize  number    default: 2 (min: 1, max: cpus-2)
+apex.experimental.workers.enabled         boolean   default: true
+apex.experimental.workers.poolSize        number    default: 2 (min: 1, max: cpus-2)
+apex.experimental.workers.resourceLoader  boolean   default: true
 ```
+
+The `enabled` default is resolved authoritatively from the server-side defaults (`DEFAULT_APEX_SETTINGS`), so every client (VS Code, web, tests, direct LSP) sees the same value. Setting the `APEX_WORKER_EXPERIMENT` environment variable forces the topology on regardless of configuration.
 
 Workers inherit the main process heap size (`apex.environment.jsHeapSizeGB`), debug flags (`apex.debug`, `apex.debugPort`), and profiling mode (`apex.environment.profilingMode`) automatically via `WorkerExecArgvBuilder`. Worker debug ports are auto-assigned and logged to the Output panel with role labels (e.g. `[apex-worker-dataOwner]`).
 
