@@ -18,10 +18,20 @@ export const setActiveDocVersion = (version: string): void => {
 const TOC_URL =
   'https://developer.salesforce.com/docs/get_document/atlas.en-us.apexref.meta';
 
+// Salesforce docs CDN (Akamai) blocks requests without a browser-like User-Agent
+// from automated environments such as GitHub Actions runners.
+const BROWSER_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
+  'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+// Salesforce docs CDN (Akamai) blocks requests without a browser-like User-Agent
+// from automated environments such as GitHub Actions runners.
+const FETCH_HEADERS = { 'User-Agent': BROWSER_UA };
+
 const fetchDocumentStructureOnce = () =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
-      try: () => fetch(TOC_URL),
+      try: () => fetch(TOC_URL, { headers: FETCH_HEADERS }),
       catch: (error) => new ApiScrapingError(`Failed to fetch TOC: ${error}`),
     });
 
@@ -80,7 +90,7 @@ export const fetchPageContent = (
     const url = `https://developer.salesforce.com/docs/get_document_content/apexref/${pageId}/en-us/${version}`;
 
     const response = yield* Effect.tryPromise({
-      try: () => fetch(url),
+      try: () => fetch(url, { headers: FETCH_HEADERS }),
       catch: (error) =>
         new ApiScrapingError(`Failed to fetch content: ${error}`),
     });
