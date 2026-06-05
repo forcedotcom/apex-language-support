@@ -164,7 +164,7 @@
   "dependencies": {
     "@effect/platform": "^0.96.0",
     "@effect/platform-browser": "^0.76.0",
-    "@effect/platform-node": "^0.106.0",
+    "@effect/platform-node": "^0.107.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
