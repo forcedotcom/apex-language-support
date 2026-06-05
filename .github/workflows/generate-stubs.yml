@@ -34,6 +34,28 @@ jobs:
         working-directory: packages/apex-stubs-generator
         run: npm run generate
 
+      - name: Sanity check critical stubs
+        run: |
+          set -euo pipefail
+          STDLIB=packages/apex-parser-ast/src/resources/StandardApexLibrary
+
+          # Slack stubs must be present
+          SLACK_COUNT=$(find "$STDLIB/Slack" -name "*.cls" 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$SLACK_COUNT" -eq 0 ]; then
+            echo "ERROR: No Slack stubs generated (expected ~43). Scraper likely failed to extract class refs."
+            exit 1
+          fi
+          echo "Slack stubs: $SLACK_COUNT"
+
+          # ConnectApi exception stubs must be present
+          for cls in ConnectApiException NotFoundException RateLimitException; do
+            if [ ! -f "$STDLIB/ConnectApi/${cls}.cls" ]; then
+              echo "ERROR: Missing ConnectApi exception stub: ${cls}.cls"
+              exit 1
+            fi
+          done
+          echo "ConnectApi exception stubs: OK"
+
       - name: Validate stub counts
         working-directory: packages/apex-stubs-generator
         run: |
