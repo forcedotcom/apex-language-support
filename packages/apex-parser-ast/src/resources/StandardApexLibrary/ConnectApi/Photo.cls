@@ -34,7 +34,7 @@ global class Photo {
   global String standardEmailPhotoUrl;
 
   /**
-   * A resource that returns a Photo object: for example, /services/data/v66.0/chatter/users/005D0000001LL8OIAW/photo .
+   * A resource that returns a Photo object: for example, /services/data/v67.0/chatter/users/005D0000001LL8OIAW/photo .
    */
   global String url;
 

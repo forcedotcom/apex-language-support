@@ -15,11 +15,15 @@ global class Action {
 
   public static Invocable.Action createStandardAction(String type) {}
 
+  public List<Invocable.Action.DescribeResult> getDescribe() {}
+
   public String getName() {}
 
   public String getNamespace() {}
 
   public String getType() {}
+
+  public String getVersion() {}
 
   public List<Invocable.Action.Result> invoke() {}
 

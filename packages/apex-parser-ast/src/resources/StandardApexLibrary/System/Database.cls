@@ -3,6 +3,10 @@
  */
 global class Database {
 
+  public static Database.LeadConvertResult convertLead(Database.LeadConvert leadToConvert, System.AccessLevel accessLevel) {}
+
+  public static List<Database.LeadConvertResult> convertLead(List<Database.LeadConvert> leadConverts, System.AccessLevel accessLevel) {}
+
   public static Database.LeadConvertResult convertLead(Database.LeadConvert leadToConvert, Boolean allOrNone) {}
 
   public static Database.LeadConvertResult[] convertLead(Database.LeadConvert[] leadsToConvert, Boolean allOrNone) {}

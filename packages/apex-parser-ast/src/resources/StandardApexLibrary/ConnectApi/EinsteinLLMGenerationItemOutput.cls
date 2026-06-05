@@ -24,6 +24,11 @@ global class EinsteinLLMGenerationItemOutput {
   global ConnectApi.EinsteinLlmGenerationSafetyScoreOutput safetyScoreRepresentation;
 
   /**
+   * Structured response representation of the generated response.
+   */
+  global String structuredResponse;
+
+  /**
    * Text of generated response.
    */
   global String text;

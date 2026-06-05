@@ -9,7 +9,7 @@ global class QuerySqlInput {
   global Integer adaptiveTimeout;
 
   /**
-   * Settings to allow the adjustment of query execution, such as date and time. For example, lc_time , date_style , and external_client_context .
+   * Settings to adjust the query execution behavior: date_style —Order of Year, Month, and Day for parsing date strings, for example MDY and DMY . lc_time —Locale for date literals using ISO language and country code, for example en_US and de_AT . query_timeout —Execution limit in milliseconds before the query is terminated, for example 1800000ms .
    */
   global Map < String , String > querySettings;
 

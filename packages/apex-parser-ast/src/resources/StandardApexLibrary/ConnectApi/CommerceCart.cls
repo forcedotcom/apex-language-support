@@ -23,6 +23,10 @@ global class CommerceCart {
 
   public static ConnectApi.CartSummary createCart(String webstoreId, ConnectApi.CartInput cart) {}
 
+  public static ConnectApi.CartFromQuoteOutput createCartFromQuote(String webstoreId, String quoteId, ConnectApi.CartFromQuoteInput cartFromQuoteInput) {}
+
+  public static ConnectApi.CreateQuoteFromCartOutput createQuoteFromCart(String webstoreId, String activeCartOrId, ConnectApi.CreateQuoteFromCartInput createQuoteFromCartInput) {}
+
   public static ConnectApi.CartSummary cloneCart(String webstoreId, String activeCartOrId, String targetEffectiveAccountId, String targetType) {}
 
   public static void deleteCart(String webstoreId, String effectiveAccountId, String activeCartOrId) {}

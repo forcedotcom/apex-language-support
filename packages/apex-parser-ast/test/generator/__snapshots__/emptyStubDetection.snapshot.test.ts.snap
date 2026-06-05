@@ -139,10 +139,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "CommerceSearchConnectFamily",
-    "namespace": "ConnectApi",
-  },
-  {
     "className": "CompanyVerifySummary",
     "namespace": "ConnectApi",
   },
@@ -315,7 +311,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "Smartdatadiscovery",
+    "className": "SmartDataDiscovery",
     "namespace": "ConnectApi",
   },
   {
@@ -407,7 +403,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "RichMessaging",
   },
   {
-    "className": "SoapType",
+    "className": "SOAPType",
     "namespace": "Schema",
   },
   {

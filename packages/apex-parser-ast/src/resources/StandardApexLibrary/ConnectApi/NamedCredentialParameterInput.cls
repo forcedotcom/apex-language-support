@@ -19,7 +19,7 @@ global class NamedCredentialParameterInput {
   global String parameterName;
 
   /**
-   * Type of named credential parameter. Values are: AllowedManagedPackageNamespaces ClientCertificate ConnectionStatus
+   * Type of named credential parameter. Values are: AllowedManagedPackageNamespaces ClientCertificate ConnectionStatus SfHttpRequestExtensionName
    */
   global ConnectApi.NamedCredentialParameterType parameterType;
 

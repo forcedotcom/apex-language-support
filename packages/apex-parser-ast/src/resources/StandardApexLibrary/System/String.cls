@@ -761,6 +761,13 @@ global class String {
   public String toUpperCase(String locale) {}
 
   /**
+   * Substitutes variables in a string for their corresponding values in the valueMap parameter, and returns the updated string.
+   * @param valueMap 
+   * @return String
+   */
+  public String template(Map<String, Object> valueMap) {}
+
+  /**
    * Returns a copy of the string that no longer contains any leading or trailing white space characters.
    * @return String
    */

@@ -28,6 +28,8 @@ global class System {
    */
   public static void assertNotEquals(Object expected, Object actual, Object msg) {}
 
+  public static void attachFinalizer(Object finalizer) {}
+
   /**
    * Returns a reference to the current page. This is used with Visualforce pages.
    * @return System.PageReference

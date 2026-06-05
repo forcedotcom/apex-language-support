@@ -4,7 +4,7 @@
 global class ExternalAuthIdentityProvider {
 
   /**
-   * Authentication flow to get tokens to call protected APIs. Values are: AuthorizationCode
+   * Authentication flow to get tokens to call protected APIs. Values are: AuthorizationCode ClientCredentials
    */
   global ConnectApi.IdentityProviderAuthFlow authenticationFlow;
 

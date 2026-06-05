@@ -1,5 +1,5 @@
 /**
- * Contains a method to create a mock test class for handling SOQL query responses for Data Cloud data model objects (DMOs).
+ * Contains a method to create a mock test class for handling SOQL query responses for Data 360 data model objects (DMOs).
  */
 global class SoqlStubProvider {
 

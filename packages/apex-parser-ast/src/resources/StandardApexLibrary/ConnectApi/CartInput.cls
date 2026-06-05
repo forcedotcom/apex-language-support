@@ -24,7 +24,7 @@ global class CartInput {
   global Boolean isSecondary;
 
   /**
-   * Name of the cart. The name can have up to 250 Unicode characters. If unspecified, defaults to the generated name.
+   * Name of the cart. The name can have up to 250 Unicode characters. Avoid using special characters in the cart name, including \"'<>@!$#&%\{[]} . If unspecified, a cart name is generated automatically using the pattern, Untitled Cart - [Date] [Time] .
    */
   global String name;
 

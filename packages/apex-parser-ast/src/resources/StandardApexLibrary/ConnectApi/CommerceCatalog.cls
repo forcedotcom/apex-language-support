@@ -17,6 +17,8 @@ global class CommerceCatalog {
 
   public static ConnectApi.ProductDetail getProduct(String webstoreId, String productId, String effectiveAccountId, List<String> fields, List<String> mediaGroups, Boolean excludeFields, Boolean excludeMedia, Boolean excludePrimaryProductCategory, Boolean excludeVariationInfo, Boolean excludeAttributeSetInfo, Boolean excludeQuantityRule, Boolean excludeProductSellingModels, String noCache) {}
 
+  public static ConnectApi.ProductDetail getProduct(String webstoreId, String productId, String effectiveAccountId, List<String> fields, List<String> mediaGroups, Boolean excludeFields, Boolean excludeMedia, Boolean excludePrimaryProductCategory, Boolean excludeVariationInfo, Boolean excludeAttributeSetInfo, Boolean excludeQuantityRule, Boolean excludeProductSellingModels, Boolean excludeDynamicAttributeInfo, String noCache) {}
+
   public static ConnectApi.ProductCategoryDetail getProductCategory(String webstoreId, String productCategoryId, String effectiveAccountId, List<String> fields, Boolean excludeFields, List<String> mediaGroups, Boolean excludeMedia) {}
 
   public static ConnectApi.ProductCategoryDetailCollection getProductCategoryChildren(String webstoreId, String effectiveAccountId, String parentProductCategoryId, List<String> fields, Boolean excludeFields, List<String> mediaGroups, Boolean excludeMedia) {}

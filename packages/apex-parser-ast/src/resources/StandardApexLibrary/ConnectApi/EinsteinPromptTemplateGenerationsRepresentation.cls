@@ -34,6 +34,11 @@ global class EinsteinPromptTemplateGenerationsRepresentation {
   global ConnectApi.WrappedMapObject parameters;
 
   /**
+   * Merge field information mapping used for annotations in the resolved prompt.
+   */
+  global ConnectApi.EinsteinPromptTemplateMergeFieldInformationContext mergeFieldInformation;
+
+  /**
    * Prompt template text with resolved inputs.
    */
   global String prompt;
@@ -47,6 +52,11 @@ global class EinsteinPromptTemplateGenerationsRepresentation {
    * ID of the generation request sent to the LLM provider.
    */
   global String requestId;
+
+  /**
+   * Render configuration used for rendering output in embeddable prompt display component.
+   */
+  global String renderConfiguration;
 
   /**
    * List of resolved prompt templates with masked data and masking information.

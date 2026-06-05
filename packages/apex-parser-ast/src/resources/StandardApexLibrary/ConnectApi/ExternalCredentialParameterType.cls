@@ -8,5 +8,6 @@ global enum ExternalCredentialParameterType {
   JwtHeaderClaim,
   ManagedByComponent,
   ManagedByFeature,
+  SfHttpRequestExtensionName,
   SigningCertificate
 }

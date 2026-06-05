@@ -40,4 +40,8 @@ global class EventBus {
    */
   public static List<Database.SaveResult> publish(List<SObject> sobjects, Object callback) {}
 
+  public static Database.SaveResult publishWithAccessLevel(SObject event, AccessLevel accesslevel) {}
+
+  public static List<Database.SaveResult> publishWithAccessLevel(List<SObject> events, AccessLevel accesslevel) {}
+
 }
