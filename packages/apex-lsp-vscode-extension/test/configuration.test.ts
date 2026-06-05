@@ -187,6 +187,13 @@ describe('Configuration Module', () => {
           telemetry: {
             enabled: false,
           },
+          experimental: {
+            workers: {
+              enabled: true,
+              poolSize: 2,
+              resourceLoader: true,
+            },
+          },
           worker: {
             logLevel: 'info',
           },
