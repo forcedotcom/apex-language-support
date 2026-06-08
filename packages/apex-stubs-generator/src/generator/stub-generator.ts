@@ -403,9 +403,18 @@ const generateInnerClassContent = (inner: ApexInnerClass): string => {
   return lines.join('\n');
 };
 
+// Enum values that exist in the Apex runtime but are omitted from the public docs.
+// Keyed by "Namespace.ClassName" — values are appended after deduplication.
+const ENUM_EXTRA_VALUES: Record<string, string[]> = {
+  'System.LoggingLevel': ['INTERNAL'],
+};
+
 const generateEnumContent = (apexEnum: ApexEnum): string => {
   const lines: string[] = [];
-  const uniqueValues = uniqueBy(apexEnum.values, (v) => v.name);
+  const extra = (
+    ENUM_EXTRA_VALUES[`${apexEnum.namespace}.${apexEnum.name}`] ?? []
+  ).map((name) => ({ name }));
+  const uniqueValues = uniqueBy([...apexEnum.values, ...extra], (v) => v.name);
 
   if (apexEnum.description) {
     lines.push('/**');
