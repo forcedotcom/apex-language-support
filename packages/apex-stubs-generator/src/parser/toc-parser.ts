@@ -15,6 +15,8 @@ export interface ClassReference {
   pageId: string;
   namespace: string;
   pageType: PageType;
+  /** Set when this class is an inner class of another; value is the outer class name. */
+  outerClass?: string;
 }
 
 export interface NamespaceInfo {
