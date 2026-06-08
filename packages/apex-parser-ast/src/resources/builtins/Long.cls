@@ -23,11 +23,17 @@ public class Long {
 	public String format() { }
 
 	/**
-	 * Returns the String representation of the Long argument.
-	 * @param l The Long to convert
-	 * @return String representation
+	 * Returns the Integer value for this Long.
+	 * @return Integer representation of this Long
 	 */
-	public static String valueOf(Long l) { }
+	public Integer intValue() { }
+
+	/**
+	 * Returns a Long that contains the value of the specified String.
+	 * @param stringToLong The String to convert
+	 * @return Long value of the String
+	 */
+	public static Long valueOf(String stringToLong) { }
 
 }
 

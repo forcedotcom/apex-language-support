@@ -59,5 +59,12 @@ public class Blob {
 	 */
 	public String toHexString() { }
 
+	/**
+	 * Creates a binary object out of the given string, encoding it as a PDF file.
+	 * @param stringToConvert The String to encode as PDF
+	 * @return Blob encoded as PDF
+	 */
+	public static Blob toPdf(String stringToConvert) { }
+
 }
 

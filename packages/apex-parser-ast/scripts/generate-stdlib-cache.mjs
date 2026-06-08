@@ -49,11 +49,10 @@ const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
 // Classes in this set are excluded from StandardApexLibrary/System/ and loaded from builtins/ instead.
 // If a class is not in builtins/, do NOT add it here or it will disappear from the stdlib entirely.
 const BUILTIN_CLASSES = new Set([
-  'Blob.cls',     // hand-crafted: methods not fully covered in docs
-  'DateTime.cls', // temporarily in builtins until added to StandardApexLibrary
-  'Integer.cls',  // hand-crafted: conversion methods not in docs
-  'Long.cls',     // hand-crafted: conversion methods not in docs
-  'Object.cls',   // hand-crafted: equals(), hashCode(), toString()
+  'Blob.cls',    // hand-crafted: methods not fully covered in docs
+  'Integer.cls', // hand-crafted: conversion methods not in docs
+  'Long.cls',    // hand-crafted: conversion methods not in docs
+  'Object.cls',  // hand-crafted: equals(), hashCode(), toString()
 ]);
 
 /**
