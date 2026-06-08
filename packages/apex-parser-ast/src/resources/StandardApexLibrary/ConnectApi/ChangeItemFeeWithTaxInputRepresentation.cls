@@ -3,6 +3,8 @@
  */
 global class ChangeItemFeeWithTaxInputRepresentation {
 
+  global ChangeItemFeeWithTaxInputRepresentation() {}
+
   /**
    * Positive value used to calculate the fee amount.
    */
@@ -37,5 +39,7 @@ global class ChangeItemFeeWithTaxInputRepresentation {
    * Reason for the cancellation. The value must match one of the picklist values on the Reason field of the Order Product Summary Change object.
    */
   global String reasonText;
+
+  global Object clone() {}
 
 }

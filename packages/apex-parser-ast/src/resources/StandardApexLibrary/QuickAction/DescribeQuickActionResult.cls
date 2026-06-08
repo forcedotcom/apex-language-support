@@ -3,6 +3,60 @@
  */
 global class DescribeQuickActionResult {
 
+  global DescribeQuickActionResult() {}
+
+  public String canvasapplicationname;
+
+  public List<Schema.DescribeColorResult> colors;
+
+  public String contextsobjecttype;
+
+  public List<QuickAction.DescribeQuickActionDefaultValue> defaultvalues;
+
+  public String flowdevname;
+
+  public String flowrecordidvar;
+
+  public Integer height;
+
+  public String iconname;
+
+  public List<Schema.DescribeIconResult> icons;
+
+  public String iconurl;
+
+  public QuickAction.DescribeLayoutSection layout;
+
+  public String lightningcomponentbundleid;
+
+  public String lightningcomponentbundlename;
+
+  public String lightningcomponentqualifiedname;
+
+  public String lightningwebcomponentbundleid;
+
+  public String lightningwebcomponentbundlename;
+
+  public String lightningwebcomponentqualifiedname;
+
+  public String miniiconurl;
+
+  public Boolean showquickactionlcheader;
+
+  public Boolean showquickactionvfheader;
+
+  public String targetparentfield;
+
+  public String targetrecordtypeid;
+
+  public String targetsobjecttype;
+
+  public String visualforcepagename;
+
+  public String visualforcepageurl;
+
+  public Integer width;
+
   /**
    * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
    * @return String
@@ -176,5 +230,7 @@ global class DescribeQuickActionResult {
    * @return Integer
    */
   public Integer getWidth() {}
+
+  global Object clone() {}
 
 }

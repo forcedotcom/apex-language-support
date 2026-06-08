@@ -3,6 +3,8 @@
  */
 global class DescribeAvailableQuickActionResult {
 
+  global DescribeAvailableQuickActionResult() {}
+
   /**
    * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
    * @return String
@@ -26,5 +28,7 @@ global class DescribeAvailableQuickActionResult {
    * @return String
    */
   public String getType() {}
+
+  global Object clone() {}
 
 }

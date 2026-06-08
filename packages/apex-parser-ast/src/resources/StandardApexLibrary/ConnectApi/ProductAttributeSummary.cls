@@ -3,6 +3,8 @@
  */
 global class ProductAttributeSummary {
 
+  global ProductAttributeSummary() {}
+
   /**
    * API name of the attribute.
    */
@@ -22,5 +24,7 @@ global class ProductAttributeSummary {
    * Display value of the attribute.
    */
   global String value;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ProductDetailsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global ProductDetailsOutputRepresentation() {}
+
   /**
    * List of variation attributes that define variations of the product.
    */
@@ -77,5 +79,7 @@ global class ProductDetailsOutputRepresentation extends ConnectApi.BaseOutputRep
    * List of variations of the product.
    */
   global List < ConnectApi.ProductVariantOutputRepresentation > variants;
+
+  global Object clone() {}
 
 }

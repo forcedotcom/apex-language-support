@@ -3,6 +3,12 @@
  */
 global class UpsertContext {
 
-  global String tableSelected;
+  global UpsertContext() {}
+
+  public List<Map<String,Object>> rows;
+
+  public String tableSelected;
+
+  global Object clone() {}
 
 }

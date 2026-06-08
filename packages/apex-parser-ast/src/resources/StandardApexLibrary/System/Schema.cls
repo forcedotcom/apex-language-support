@@ -3,6 +3,8 @@
  */
 global class Schema {
 
+  global Schema() {}
+
   /**
    * Returns a map of all sObject names (keys) to sObject tokens (values) for the standard and custom objects defined in your organization.
    * @return Map<String, Schema.SObjectType>
@@ -38,5 +40,7 @@ global class Schema {
   public static List<Schema.DescribeTabSetResult> describeTabs() {}
 
   public static List<Schema.DescribeDataCategoryGroupStructureResult> describeDataCategoryGroupStructures(List<Schema.DataCategoryGroupSobjectTypePair> pairs, Boolean topCategoriesOnly) {}
+
+  global Object clone() {}
 
 }

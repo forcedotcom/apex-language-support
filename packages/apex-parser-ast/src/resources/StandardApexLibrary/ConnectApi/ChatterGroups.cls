@@ -3,6 +3,8 @@
  */
 global class ChatterGroups {
 
+  global ChatterGroups() {}
+
   public static ConnectApi.GroupMember addMember(String communityId, String groupId, String userId) {}
 
   public static ConnectApi.GroupMember addMemberWithRole(String communityId, String groupId, String userId, ConnectApi.GroupMembershipType role) {}
@@ -102,5 +104,7 @@ global class ChatterGroups {
   public static void setTestSearchGroups(String communityId, String q, ConnectApi.ChatterGroupPage result) {}
 
   public static void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
+
+  global Object clone() {}
 
 }

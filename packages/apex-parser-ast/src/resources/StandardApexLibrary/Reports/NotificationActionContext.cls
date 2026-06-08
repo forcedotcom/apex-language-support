@@ -17,4 +17,6 @@ global class NotificationActionContext {
    */
   public Reports.ThresholdInformation getThresholdInformation() {}
 
+  global Object clone() {}
+
 }

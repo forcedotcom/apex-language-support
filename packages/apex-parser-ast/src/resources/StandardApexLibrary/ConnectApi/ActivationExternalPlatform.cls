@@ -3,6 +3,8 @@
  */
 global class ActivationExternalPlatform {
 
+  global ActivationExternalPlatform() {}
+
   /**
    * Attribute configuration for the external platform.
    */
@@ -77,5 +79,7 @@ global class ActivationExternalPlatform {
    * URL of the external platform.
    */
   global String url;
+
+  global Object clone() {}
 
 }

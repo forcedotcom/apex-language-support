@@ -59,4 +59,6 @@ global class ServiceAppointmentRequestInfo {
    */
   public String getWorkTypeId() {}
 
+  global Object clone() {}
+
 }

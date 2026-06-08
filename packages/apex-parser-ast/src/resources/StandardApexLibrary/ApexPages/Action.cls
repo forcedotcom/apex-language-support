@@ -17,4 +17,6 @@ global class Action {
    */
   public System.PageReference invoke() {}
 
+  global Object clone() {}
+
 }

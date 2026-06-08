@@ -3,6 +3,8 @@
  */
 global class ChatterUsers {
 
+  global ChatterUsers() {}
+
   public static ConnectApi.UserActivitiesJob exportUserActivities(String communityId, String userId) {}
 
   public static ConnectApi.Subscription follow(String communityId, String userId, String subjectId) {}
@@ -80,5 +82,7 @@ global class ChatterUsers {
   public static ConnectApi.Photo setPhotoWithAttributes(String communityId, String userId, ConnectApi.PhotoInput photo) {}
 
   public static ConnectApi.Photo setPhotoWithAttributes(String communityId, String userId, ConnectApi.PhotoInput photo, ConnectApi.BinaryInput fileUpload) {}
+
+  global Object clone() {}
 
 }

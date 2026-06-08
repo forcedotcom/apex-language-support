@@ -3,6 +3,8 @@
  */
 global class NamedCredentials {
 
+  global NamedCredentials() {}
+
   public static ConnectApi.Credential createCredential(ConnectApi.CredentialInput requestBody) {}
 
   public static ConnectApi.Credential createCredential(ConnectApi.CredentialInput requestBody, ConnectApi.CreateCredentialAction action) {}
@@ -54,5 +56,7 @@ global class NamedCredentials {
   public static ConnectApi.ExternalCredential updateExternalCredential(String developerName, ConnectApi.ExternalCredentialInput requestBody) {}
 
   public static ConnectApi.NamedCredential updateNamedCredential(String developerName, ConnectApi.NamedCredentialInput requestBody) {}
+
+  global Object clone() {}
 
 }

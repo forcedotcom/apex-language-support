@@ -3,6 +3,10 @@
  */
 global class ExternalEmailServices {
 
+  global ExternalEmailServices() {}
+
   public static getUserOauthInfo(String landingPage) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class QueryBuilder {
 
+  global QueryBuilder() {}
+
   /**
    * Load a stream from a dataset.
    * @param datasetID The ID of the dataset.
@@ -38,5 +40,7 @@ global class QueryBuilder {
    * @return Wave.QueryNode
    */
   global static Wave.QueryNode cogroup(List<Wave.QueryNode> cogroupNodes, List<List<String>> groups) {}
+
+  global Object clone() {}
 
 }

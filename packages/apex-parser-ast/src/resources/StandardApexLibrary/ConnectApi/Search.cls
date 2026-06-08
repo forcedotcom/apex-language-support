@@ -3,6 +3,8 @@
  */
 global class Search {
 
+  global Search() {}
+
   public static ConnectApi.SearchAnswer answer(String q) {}
 
   public static ConnectApi.SearchAnswer answer(String q, String objectApiName) {}
@@ -30,5 +32,7 @@ global class Search {
   public static void setTestFindAndGroup(String q, String configurationName, Boolean highlights, ConnectApi.SearchResultGroups result) {}
 
   public static void setTestFind(String objectApiName, ConnectApi.SearchRequest request, ConnectApi.ScopedSearchResults result) {}
+
+  global Object clone() {}
 
 }

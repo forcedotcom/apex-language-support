@@ -3,6 +3,8 @@
  */
 global class AdditionalInformationMap {
 
+  global AdditionalInformationMap() {}
+
   /**
    * Returns the element name.
    * @return String
@@ -14,5 +16,7 @@ global class AdditionalInformationMap {
    * @return String
    */
   public String getValue() {}
+
+  global Object clone() {}
 
 }

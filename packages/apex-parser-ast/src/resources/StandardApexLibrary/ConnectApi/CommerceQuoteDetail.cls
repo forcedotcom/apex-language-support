@@ -3,6 +3,8 @@
  */
 global class CommerceQuoteDetail {
 
+  global CommerceQuoteDetail() {}
+
   /**
    * Detailed error message if the operation was unsuccessful.
    */
@@ -37,5 +39,7 @@ global class CommerceQuoteDetail {
    * Status of the quote.
    */
   global String status;
+
+  global Object clone() {}
 
 }

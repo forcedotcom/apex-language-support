@@ -3,6 +3,8 @@
  */
 global class PriceAdjustmentTier {
 
+  global PriceAdjustmentTier() {}
+
   /**
    * Type of price adjustment for the tier. Values are: AmountBasedAdjustment —Price is adjusted by a specified amount. PercentageBasedAdjustment —Price is adjusted by a specified percentage.
    */
@@ -32,5 +34,7 @@ global class PriceAdjustmentTier {
    * Upper limit of the tier.
    */
   global String upperBound;
+
+  global Object clone() {}
 
 }

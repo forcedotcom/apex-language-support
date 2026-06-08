@@ -3,6 +3,8 @@
  */
 global class DeployContainer {
 
+  global DeployContainer() {}
+
   /**
    * Add a custom metadata component to the container.
    * @param md A custom metadata component class that derives from Metadata.Metadata . Avoid adding components to a Metadata.DeployContainer that have the same Metadata.Metadata.fullName because it causes deployment errors.

@@ -3,6 +3,8 @@
  */
 global class ActivationExternalPlatformAttribute {
 
+  global ActivationExternalPlatformAttribute() {}
+
   /**
    * Destination name of the external platform attribute.
    */
@@ -12,5 +14,7 @@ global class ActivationExternalPlatformAttribute {
    * Display name of the external platform attribute. This field is applicable only for ecoSystem external platforms.
    */
   global String displayName;
+
+  global Object clone() {}
 
 }

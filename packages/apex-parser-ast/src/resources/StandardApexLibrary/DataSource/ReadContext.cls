@@ -3,8 +3,14 @@
  */
 global class ReadContext {
 
-  global Integer maxResults;
+  global ReadContext() {}
 
-  global Integer offset;
+  public Integer maxResults;
+
+  public List<DataSource.Table> metadata;
+
+  public Integer offset;
+
+  global Object clone() {}
 
 }

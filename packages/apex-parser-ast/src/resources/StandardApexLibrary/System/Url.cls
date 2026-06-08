@@ -3,6 +3,8 @@
  */
 global class URL {
 
+  global URL() {}
+
   /**
    * Returns the authority portion of the current URL.
    * @return String
@@ -101,5 +103,7 @@ global class URL {
    * @return String
    */
   public String toExternalForm() {}
+
+  global Object clone() {}
 
 }

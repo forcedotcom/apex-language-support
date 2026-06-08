@@ -3,6 +3,8 @@
  */
 global class OCILocationGroupAvailabilityOutputRepresentation {
 
+  global OCILocationGroupAvailabilityOutputRepresentation() {}
+
   /**
    * A list of availability data for individual products. The data combines the quantities for all locations belonging to this location group.
    */
@@ -12,5 +14,7 @@ global class OCILocationGroupAvailabilityOutputRepresentation {
    * The identifier of the location group.
    */
   global String locationGroupIdentifier;
+
+  global Object clone() {}
 
 }

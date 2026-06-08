@@ -3,6 +3,8 @@
  */
 global class ReportMetadata {
 
+  global ReportMetadata() {}
+
   /**
    * Returns unique identifiers for summary or custom summary formula fields in the report.
    * @return LIST<String>
@@ -193,7 +195,7 @@ global class ReportMetadata {
    * Adds a custom summary formula to a report.
    * @param customSummaryFormula 
    */
-  public void setCustomSummaryFormula(MAP<String,Reports.ReportCsf> customSummaryFormula) {}
+  public void setCustomSummaryFormula(Map<String,Reports.ReportCsf> customSummaryFormula) {}
 
   /**
    * Sets the description of the report.
@@ -327,5 +329,7 @@ global class ReportMetadata {
    * @return Reports.TopRows
    */
   public Reports.TopRows setTopRows(Reports.TopRows topRows) {}
+
+  global Object clone() {}
 
 }

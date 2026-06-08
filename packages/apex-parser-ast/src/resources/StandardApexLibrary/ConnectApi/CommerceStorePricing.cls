@@ -3,6 +3,8 @@
  */
 global class CommerceStorePricing {
 
+  global CommerceStorePricing() {}
+
   public static ConnectApi.ProductPrice getProductPrice(String webstoreId, String productId, String effectiveAccountId) {}
 
   public static ConnectApi.ProductPrice getProductPrice(String webstoreId, String productId, String effectiveAccountId, List<String> productSellingModelIds) {}
@@ -12,5 +14,7 @@ global class CommerceStorePricing {
   public static ConnectApi.PricingResult getProductPrices(String webstoreId, String effectiveAccountId, ConnectApi.PricingInput pricingInput) {}
 
   public static ConnectApi.PricingResult getProductPrices(String webstoreId, String effectiveAccountId, ConnectApi.PricingInput pricingInput, String currencyIsoCode) {}
+
+  global Object clone() {}
 
 }

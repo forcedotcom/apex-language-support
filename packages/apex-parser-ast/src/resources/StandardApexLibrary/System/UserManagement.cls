@@ -3,6 +3,8 @@
  */
 global class UserManagement {
 
+  global UserManagement() {}
+
   /**
    * Makes a duplicate copy of the System.UserManagement object.
    * @return Object

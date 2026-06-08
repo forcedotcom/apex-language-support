@@ -3,6 +3,8 @@
  */
 global class CommerceProductSummaryPage {
 
+  global CommerceProductSummaryPage() {}
+
   /**
    * Number of products per page in search results.
    */
@@ -17,5 +19,7 @@ global class CommerceProductSummaryPage {
    * Number of products in search results across all pages.
    */
   global Long total;
+
+  global Object clone() {}
 
 }

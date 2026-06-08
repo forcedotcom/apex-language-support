@@ -3,6 +3,8 @@
  */
 global class RecRepresentation {
 
+  global RecRepresentation() {}
+
   /**
    * Text indicating user acceptance of the recommended action.
    */
@@ -107,5 +109,7 @@ global class RecRepresentation {
    * Optional state field for additional filtering of recommended action states.
    */
   global String tertiaryState;
+
+  global Object clone() {}
 
 }

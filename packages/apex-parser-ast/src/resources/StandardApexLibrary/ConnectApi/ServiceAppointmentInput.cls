@@ -3,6 +3,8 @@
  */
 global class ServiceAppointmentInput {
 
+  global ServiceAppointmentInput() {}
+
   /**
    * Additional details about the service appointment.
    */
@@ -102,5 +104,7 @@ global class ServiceAppointmentInput {
    * ID of the work type associated with the service appointment. If specified, it is added to the service appointment record.
    */
   global String workTypeId;
+
+  global Object clone() {}
 
 }

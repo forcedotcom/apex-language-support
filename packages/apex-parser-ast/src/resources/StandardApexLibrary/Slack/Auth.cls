@@ -1,5 +1,7 @@
 global class Auth {
 
+  global Auth() {}
+
   global static Slack.AuthRevokeRequest.Builder builder() {}
 
   global Slack.AuthRevokeRequest build() {}
@@ -79,5 +81,7 @@ global class Auth {
   global void setUser(String user) {}
 
   global void setUserId(String userId) {}
+
+  global Object clone() {}
 
 }

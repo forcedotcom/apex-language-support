@@ -3,6 +3,8 @@
  */
 global class ChatterFeeds {
 
+  global ChatterFeeds() {}
+
   public static ConnectApi.ChatterStream createStream(String communityId, ConnectApi.ChatterStreamInput streamInput) {}
 
   public static void deleteComment(String communityId, String commentId) {}
@@ -594,5 +596,7 @@ global class ChatterFeeds {
   public static void setTestSearchFeedItemsInFilterFeed(String communityId, ConnectApi.FeedType feedType, String subjectId, String keyPrefix, String pageParam, Integer pageSize, ConnectApi.FeedSortOrder sortParam, String q, ConnectApi.FeedItemPage result) {}
 
   public static void setTestSearchFeedItemsInFilterFeed(String communityId, ConnectApi.FeedType feedType, String subjectId, String keyPrefix, Integer recentCommentCount, ConnectApi.FeedDensity density, String pageParam, Integer pageSize, ConnectApi.FeedSortOrder sortParam, String q, ConnectApi.FeedItemPage result) {}
+
+  global Object clone() {}
 
 }

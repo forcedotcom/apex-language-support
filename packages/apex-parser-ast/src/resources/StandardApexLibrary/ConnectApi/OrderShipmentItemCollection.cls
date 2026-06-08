@@ -3,6 +3,8 @@
  */
 global class OrderShipmentItemCollection {
 
+  global OrderShipmentItemCollection() {}
+
   /**
    * Total number of records returned in a page.
    */
@@ -47,5 +49,7 @@ global class OrderShipmentItemCollection {
    * Sort order for order shipment items. Values are: IdAsc —Sorts by ID in ascending alphanumeric order (A–Z, 0–9). IdDesc —Sorts by ID in descending alphanumeric order (Z–A, 9–0).
    */
   global ConnectApi.OrderShipmentItemSort sortOrder;
+
+  global Object clone() {}
 
 }

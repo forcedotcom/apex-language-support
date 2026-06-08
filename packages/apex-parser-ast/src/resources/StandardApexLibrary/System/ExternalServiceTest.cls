@@ -3,4 +3,8 @@
  */
 global class ExternalServiceTest {
 
+  global ExternalServiceTest() {}
+
+  global Object clone() {}
+
 }

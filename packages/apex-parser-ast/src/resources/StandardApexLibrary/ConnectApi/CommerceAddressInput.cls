@@ -3,6 +3,8 @@
  */
 global class CommerceAddressInput {
 
+  global CommerceAddressInput() {}
+
   /**
    * Type of address, for example, Shipping or Billing .
    */
@@ -82,5 +84,7 @@ global class CommerceAddressInput {
    * The address street.
    */
   global String street;
+
+  global Object clone() {}
 
 }

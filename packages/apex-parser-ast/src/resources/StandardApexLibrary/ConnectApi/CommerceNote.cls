@@ -3,6 +3,8 @@
  */
 global class CommerceNote {
 
+  global CommerceNote() {}
+
   /**
    * Content of the Note
    */
@@ -22,5 +24,7 @@ global class CommerceNote {
    * Title of the Note
    */
   global String title;
+
+  global Object clone() {}
 
 }

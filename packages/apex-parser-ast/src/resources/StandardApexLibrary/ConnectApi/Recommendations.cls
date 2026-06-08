@@ -3,6 +3,8 @@
  */
 global class Recommendations {
 
+  global Recommendations() {}
+
   public static ConnectApi.RecommendationAudience createRecommendationAudience(String communityId, ConnectApi.RecommendationAudienceInput recommendationAudience) {}
 
   public static ConnectApi.RecommendationAudience createRecommendationAudience(String communityId, String name) {}
@@ -96,5 +98,7 @@ global class Recommendations {
   public static void setTestGetRecommendationsForUser(String communityId, String userId, ConnectApi.RecommendationActionType action, ConnectApi.RecommendationActionType contextAction, String contextObjectId, Integer maxResults, ConnectApi.RecommendationCollection result) {}
 
   public static void setTestGetRecommendationsForUser(String communityId, String userId, ConnectApi.RecommendationActionType action, String objectCategory, ConnectApi.RecommendationActionType contextAction, String contextObjectId, Integer maxResults, ConnectApi.RecommendationCollection result) {}
+
+  global Object clone() {}
 
 }

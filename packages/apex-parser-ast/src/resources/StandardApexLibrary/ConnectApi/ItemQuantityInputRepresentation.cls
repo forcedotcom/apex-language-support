@@ -3,6 +3,8 @@
  */
 global class ItemQuantityInputRepresentation {
 
+  global ItemQuantityInputRepresentation() {}
+
   /**
    * ID of the external item.
    */
@@ -12,5 +14,7 @@ global class ItemQuantityInputRepresentation {
    * Quantity of the external item.
    */
   global Double quantity;
+
+  global Object clone() {}
 
 }

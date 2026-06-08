@@ -3,6 +3,8 @@
  */
 global class AudienceCriterionValueInput {
 
+  global AudienceCriterionValueInput() {}
+
   /**
    * ID of an audience.
    */
@@ -57,5 +59,7 @@ global class AudienceCriterionValueInput {
    * Subdivision of a user.
    */
   global String subdivision;
+
+  global Object clone() {}
 
 }

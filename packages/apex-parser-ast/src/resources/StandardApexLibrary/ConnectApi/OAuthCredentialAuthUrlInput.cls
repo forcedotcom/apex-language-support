@@ -3,6 +3,8 @@
  */
 global class OAuthCredentialAuthUrlInput {
 
+  global OAuthCredentialAuthUrlInput() {}
+
   /**
    * Fully qualified developer name of the external credential.
    */
@@ -22,5 +24,7 @@ global class OAuthCredentialAuthUrlInput {
    * Return URL to apply to the authentication URL.
    */
   global String returnUrl;
+
+  global Object clone() {}
 
 }

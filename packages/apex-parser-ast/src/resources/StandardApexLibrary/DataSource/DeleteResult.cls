@@ -3,6 +3,14 @@
  */
 global class DeleteResult {
 
+  global DeleteResult() {}
+
+  public String errorMessage;
+
+  public String externalId;
+
+  public Boolean success;
+
   /**
    * Maintains the integrity of lists of type DeleteResult by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -30,5 +38,7 @@ global class DeleteResult {
    * @return DataSource.DeleteResult
    */
   public static DataSource.DeleteResult success(String externalId) {}
+
+  global Object clone() {}
 
 }

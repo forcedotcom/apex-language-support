@@ -3,6 +3,8 @@
  */
 global class AuthToken {
 
+  global AuthToken() {}
+
   /**
    * Returns an access token for the current user using the specified 18-character identifier of an AuthProvider definition in your org and the proper name of the provider, such as Salesforce or Facebook.
    * @param authProviderId 
@@ -37,5 +39,7 @@ global class AuthToken {
    * @return Boolean
    */
   public static Boolean revokeAccess(String authProviderId, String providerName, String userId, String remoteIdentifier) {}
+
+  global Object clone() {}
 
 }

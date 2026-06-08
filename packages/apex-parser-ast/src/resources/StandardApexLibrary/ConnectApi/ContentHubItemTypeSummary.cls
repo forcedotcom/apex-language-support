@@ -3,4 +3,8 @@
  */
 global class ContentHubItemTypeSummary extends ConnectApi.AbstractContentHubItemType {
 
+  global ContentHubItemTypeSummary() {}
+
+  global Object clone() {}
+
 }

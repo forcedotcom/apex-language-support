@@ -3,6 +3,8 @@
  */
 global class TimeZone {
 
+  global TimeZone() {}
+
   /**
    * Returns this time zone’s display name.
    * @return String
@@ -34,5 +36,7 @@ global class TimeZone {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }

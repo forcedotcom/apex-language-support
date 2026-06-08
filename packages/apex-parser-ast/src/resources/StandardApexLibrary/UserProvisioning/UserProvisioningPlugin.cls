@@ -3,6 +3,8 @@
  */
 global class UserProvisioningPlugin {
 
+  global UserProvisioningPlugin() {}
+
   /**
    * Use this method to add more input and output parameters to those defined in the base class.
    * @return Process.PluginDescribeResult
@@ -27,5 +29,7 @@ global class UserProvisioningPlugin {
    * @return Process.PluginResult
    */
   public Process.PluginResult invoke(Process.PluginRequest request) {}
+
+  global Object clone() {}
 
 }

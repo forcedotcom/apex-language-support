@@ -3,6 +3,8 @@
  */
 global class PageInfo {
 
+  global PageInfo() {}
+
   /**
    * Specifies whether the search has more results to return ( true ) or not ( false ).
    */
@@ -17,5 +19,7 @@ global class PageInfo {
    * Number of results per page.
    */
   global Integer pageSize;
+
+  global Object clone() {}
 
 }

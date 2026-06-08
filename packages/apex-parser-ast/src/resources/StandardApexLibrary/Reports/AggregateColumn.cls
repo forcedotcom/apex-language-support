@@ -3,6 +3,8 @@
  */
 global class AggregateColumn {
 
+  global AggregateColumn() {}
+
   /**
    * Returns the unique API name of the summary field.
    * @return String
@@ -32,5 +34,7 @@ global class AggregateColumn {
    * @return String
    */
   public String getDownGroupingContext() {}
+
+  global Object clone() {}
 
 }

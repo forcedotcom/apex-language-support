@@ -3,6 +3,8 @@
  */
 global class DescribeColorResult {
 
+  global DescribeColorResult() {}
+
   /**
    * Returns the Web RGB color code, such as 00FF00 .
    * @return String
@@ -20,5 +22,7 @@ global class DescribeColorResult {
    * @return String
    */
   public String getTheme() {}
+
+  global Object clone() {}
 
 }

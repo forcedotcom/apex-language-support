@@ -3,6 +3,20 @@
  */
 global class TableResult {
 
+  global TableResult() {}
+
+  public String errorMessage;
+
+  public String queryMoreToken;
+
+  public List<Map<String,Object>> rows;
+
+  public Boolean success;
+
+  public String tableName;
+
+  public Integer totalSize;
+
   /**
    * errorMessage
    * @param errorMessage 
@@ -46,5 +60,7 @@ global class TableResult {
    * @return DataSource.TableResult
    */
   public static DataSource.TableResult get(DataSource.TableSelection tableSelection, List<Map<String,Object>> rows) {}
+
+  global Object clone() {}
 
 }

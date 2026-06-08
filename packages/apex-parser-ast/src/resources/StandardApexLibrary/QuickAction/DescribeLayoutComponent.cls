@@ -3,6 +3,8 @@
  */
 global class DescribeLayoutComponent {
 
+  global DescribeLayoutComponent() {}
+
   /**
    * Returns the vertical lines displayed for a field. Applies to textarea and multi-select picklist fields.
    * @return Integer
@@ -26,5 +28,7 @@ global class DescribeLayoutComponent {
    * @return String
    */
   public String getValue() {}
+
+  global Object clone() {}
 
 }

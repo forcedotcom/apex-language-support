@@ -3,6 +3,8 @@
  */
 global class ChangeOrderItemAdjustmentLineSummaryInputRepresentation {
 
+  global ChangeOrderItemAdjustmentLineSummaryInputRepresentation() {}
+
   /**
    * Whether a new order item adjustment line summary is being created or an existing summary is being updated. Valid values are New or Update.
    */
@@ -17,5 +19,7 @@ global class ChangeOrderItemAdjustmentLineSummaryInputRepresentation {
    * The unique reference ID for this adjustment line summary. This field is valid only if the Change Type value is New.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

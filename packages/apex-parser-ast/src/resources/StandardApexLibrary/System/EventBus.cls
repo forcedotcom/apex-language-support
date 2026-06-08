@@ -3,6 +3,8 @@
  */
 global class EventBus {
 
+  global EventBus() {}
+
   /**
    * Returns the event UUID, which identifies a published event message.
    * @param result The SaveResult that is returned by the EventBus.publish call.
@@ -43,5 +45,7 @@ global class EventBus {
   public static Database.SaveResult publishWithAccessLevel(SObject event, AccessLevel accesslevel) {}
 
   public static List<Database.SaveResult> publishWithAccessLevel(List<SObject> events, AccessLevel accesslevel) {}
+
+  global Object clone() {}
 
 }

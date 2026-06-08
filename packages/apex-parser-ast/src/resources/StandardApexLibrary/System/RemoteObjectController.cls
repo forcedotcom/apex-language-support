@@ -3,6 +3,8 @@
  */
 global class RemoteObjectController {
 
+  global RemoteObjectController() {}
+
   /**
    * Create a record in the database.
    * @param type The sObject type on which create is being called.
@@ -36,5 +38,7 @@ global class RemoteObjectController {
    * @return Map<String,Object>
    */
   public static Map<String,Object> update(String type, List<String> recordIds, Map<String,Object> fields) {}
+
+  global Object clone() {}
 
 }

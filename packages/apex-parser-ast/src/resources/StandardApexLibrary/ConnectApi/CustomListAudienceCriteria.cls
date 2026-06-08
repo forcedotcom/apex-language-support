@@ -3,6 +3,8 @@
  */
 global class CustomListAudienceCriteria extends ConnectApi.AudienceCriteria {
 
+  global CustomListAudienceCriteria() {}
+
   /**
    * Total number of members in the custom recommendation audience.
    */
@@ -12,5 +14,7 @@ global class CustomListAudienceCriteria extends ConnectApi.AudienceCriteria {
    * Members of the custom recommendation audience.
    */
   global ConnectApi.UserReferencePage members;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Stamp {
 
+  global Stamp() {}
+
   /**
    * Description of the stamp.
    */
@@ -22,5 +24,7 @@ global class Stamp {
    * Label of the stamp.
    */
   global String label;
+
+  global Object clone() {}
 
 }

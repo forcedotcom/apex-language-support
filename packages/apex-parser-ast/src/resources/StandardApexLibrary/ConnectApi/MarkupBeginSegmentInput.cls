@@ -3,6 +3,8 @@
  */
 global class MarkupBeginSegmentInput extends ConnectApi.MessageSegmentInput {
 
+  global MarkupBeginSegmentInput() {}
+
   /**
    * Alternative text for the Hyperlink segment.
    */
@@ -17,5 +19,7 @@ global class MarkupBeginSegmentInput extends ConnectApi.MessageSegmentInput {
    * URL for the Hyperlink segment. Supported hyperlink URLs start with http:// or https:// .
    */
   global String url;
+
+  global Object clone() {}
 
 }

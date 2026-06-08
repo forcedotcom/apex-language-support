@@ -3,6 +3,8 @@
  */
 global class ManagedContentDeliveryDocument extends ConnectApi.AbstractManagedContentDeliveryDocument {
 
+  global ManagedContentDeliveryDocument() {}
+
   /**
    * Information about the managed content channel.
    */
@@ -67,5 +69,7 @@ global class ManagedContentDeliveryDocument extends ConnectApi.AbstractManagedCo
    * URL name of the managed content.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

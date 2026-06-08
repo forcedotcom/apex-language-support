@@ -3,6 +3,8 @@
  */
 global class RecordTypeInfo {
 
+  global RecordTypeInfo() {}
+
   /**
    * Returns the developer name for this record type.
    * @return String
@@ -44,5 +46,7 @@ global class RecordTypeInfo {
    * @return Boolean
    */
   public Boolean isMaster() {}
+
+  global Object clone() {}
 
 }

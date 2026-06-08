@@ -3,6 +3,8 @@
  */
 global class ProductVariationAttributesRepresentation {
 
+  global ProductVariationAttributesRepresentation() {}
+
   /**
    * API name of the product attribute.
    */
@@ -22,5 +24,7 @@ global class ProductVariationAttributesRepresentation {
    * Display value of the product attribute.
    */
   global String value;
+
+  global Object clone() {}
 
 }

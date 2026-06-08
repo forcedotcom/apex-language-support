@@ -3,6 +3,28 @@
  */
 global class FeedLayout {
 
+  global FeedLayout() {}
+
+  public Boolean autocollapsePublisher;
+
+  public Boolean compactFeed;
+
+  public Metadata.FeedLayoutFilterPosition feedFilterPosition;
+
+  public List<Metadata.FeedLayoutFilter> feedFilters;
+
+  public Boolean fullWidthFeed;
+
+  public Boolean hideSidebar;
+
+  public Boolean highlightExternalFeedItems;
+
+  public List<Metadata.FeedLayoutComponent> leftComponents;
+
+  public List<Metadata.FeedLayoutComponent> rightComponents;
+
+  public Boolean useInlineFiltersInConsole;
+
   /**
    * Makes a duplicate copy of the Metadata.FeedLayout .
    * @return Object

@@ -3,6 +3,8 @@
  */
 global class Chatter {
 
+  global Chatter() {}
+
   public static void deleteSubscription(String communityId, String subscriptionId) {}
 
   public static ConnectApi.FollowerPage getFollowers(String communityId, String recordId) {}
@@ -12,5 +14,7 @@ global class Chatter {
   public static ConnectApi.Subscription getSubscription(String communityId, String subscriptionId) {}
 
   public static ConnectApi.DigestJobRepresentation submitDigestJob(ConnectApi.DigestPeriod period) {}
+
+  global Object clone() {}
 
 }

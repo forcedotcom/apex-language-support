@@ -1,5 +1,7 @@
 global class Message {
 
+  global Message() {}
+
   global String getBotId() {}
 
   global String getBotLink() {}
@@ -309,5 +311,7 @@ global class Message {
   global void setMrkdwn(Boolean mrkdwn) {}
 
   global void setUnreadCount(Integer unreadCount) {}
+
+  global Object clone() {}
 
 }

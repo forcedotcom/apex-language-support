@@ -3,6 +3,20 @@
  */
 global class Table {
 
+  global Table() {}
+
+  public List<DataSource.Column> columns;
+
+  public String description;
+
+  public String labelPlural;
+
+  public String labelSingular;
+
+  public String name;
+
+  public String nameColumn;
+
   /**
    * Returns the table metadata with the specified parameter values.
    * @param name Name of the external table.
@@ -23,5 +37,7 @@ global class Table {
    * @return DataSource.Table
    */
   public static DataSource.Table get(String name, String nameColumn, List<DataSource.Column> columns) {}
+
+  global Object clone() {}
 
 }

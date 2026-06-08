@@ -3,6 +3,8 @@
  */
 global class OCIGetInventoryAvailabilityInputRepresentation {
 
+  global OCIGetInventoryAvailabilityInputRepresentation() {}
+
   /**
    * Specifies whether the returned inventory level includes variant products if the given product has variants. When set to true , only one product ID is accepted. There's a limit of 100 variant products. If the total of variants exceeds 100, no variants are included in the inventory level.
    */
@@ -37,5 +39,7 @@ global class OCIGetInventoryAvailabilityInputRepresentation {
    * Specifies whether to fetch the inventory data from the cache. The default value is true .
    */
   global Boolean useCache;
+
+  global Object clone() {}
 
 }

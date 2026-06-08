@@ -3,6 +3,8 @@
  */
 global class MatchResult {
 
+  global MatchResult() {}
+
   /**
    * Returns the entity type of the matching rule.
    * @return String
@@ -44,5 +46,7 @@ global class MatchResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

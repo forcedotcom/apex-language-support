@@ -3,6 +3,8 @@
  */
 global class QueryNode {
 
+  global QueryNode() {}
+
   /**
    * Build the query string represented by this QueryNode and assign it to a stream name.
    * @param streamName The identifier for the stream - for example, “q”.
@@ -57,5 +59,7 @@ global class QueryNode {
    * @return ConnectApi.LiteralJson
    */
   global ConnectApi.LiteralJson execute(String streamName) {}
+
+  global Object clone() {}
 
 }

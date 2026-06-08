@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateGenerationsRepresentation {
 
+  global EinsteinPromptTemplateGenerationsRepresentation() {}
+
   /**
    * Source information associated with the generated responses.
    */
@@ -72,5 +74,7 @@ global class EinsteinPromptTemplateGenerationsRepresentation {
    * List of original and placeholder values of the masked data.
    */
   global List < ConnectApi.EinsteinPromptTemplateMaskData > slotsMaskingInformation;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpSegmentContainerOutput {
 
+  global CdpSegmentContainerOutput() {}
+
   /**
    * Number of items returned.
    */
@@ -22,5 +24,7 @@ global class CdpSegmentContainerOutput {
    * List of segments.
    */
   global List < ConnectApi.CdpSegmentOutput > segments;
+
+  global Object clone() {}
 
 }

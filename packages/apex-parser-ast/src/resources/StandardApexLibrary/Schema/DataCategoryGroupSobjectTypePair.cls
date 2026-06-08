@@ -3,6 +3,8 @@
  */
 global class DataCategoryGroupSobjectTypePair {
 
+  global DataCategoryGroupSobjectTypePair() {}
+
   /**
    * Returns the unique name used by the API to access the data category group.
    * @return String
@@ -27,5 +29,7 @@ global class DataCategoryGroupSobjectTypePair {
    * @param sObjectName The sObjectName is the object name associated with the data category group. Valid values are: KnowledgeArticleVersion —for article types. Question —for questions from Answers.
    */
   public void setSobject(String sObjectName) {}
+
+  global Object clone() {}
 
 }

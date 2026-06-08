@@ -3,10 +3,14 @@
  */
 global class PaginationCursor {
 
+  global PaginationCursor() {}
+
   public Integer fetchDeleted(Integer start, Integer pageSize) {}
 
   public Database.CursorFetchResult fetchPage(Integer start, Integer pageSize) {}
 
   public Integer getNumRecords() {}
+
+  global Object clone() {}
 
 }

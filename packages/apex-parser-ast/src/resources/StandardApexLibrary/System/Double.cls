@@ -3,6 +3,8 @@
  */
 global class Double {
 
+  global Double() {}
+
   /**
    * Returns the String value for this Double using the locale of the context user
    * @return String
@@ -40,5 +42,7 @@ global class Double {
    * @return Double
    */
   public static Double valueOf(Object fieldValue) {}
+
+  global Object clone() {}
 
 }

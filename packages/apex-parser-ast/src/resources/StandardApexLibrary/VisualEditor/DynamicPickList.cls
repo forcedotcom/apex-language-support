@@ -3,6 +3,8 @@
  */
 global class DynamicPickList {
 
+  global DynamicPickList() {}
+
   /**
    * Makes a duplicate copy of the VisualEditor.DynamicPicklist object.
    * @return Object

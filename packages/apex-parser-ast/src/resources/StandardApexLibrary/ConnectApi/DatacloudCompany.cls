@@ -3,6 +3,8 @@
  */
 global class DatacloudCompany {
 
+  global DatacloudCompany() {}
+
   /**
    * The number of active Data.com contacts who work in the company.
    */
@@ -117,5 +119,7 @@ global class DatacloudCompany {
    * The year when the company was founded.
    */
   global String yearStarted;
+
+  global Object clone() {}
 
 }

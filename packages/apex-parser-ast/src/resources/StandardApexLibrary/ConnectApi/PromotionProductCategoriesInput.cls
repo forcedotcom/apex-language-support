@@ -3,6 +3,8 @@
  */
 global class PromotionProductCategoriesInput {
 
+  global PromotionProductCategoriesInput() {}
+
   /**
    * ID of the category.
    */
@@ -12,5 +14,7 @@ global class PromotionProductCategoriesInput {
    * ID of the product.
    */
   global String productId;
+
+  global Object clone() {}
 
 }

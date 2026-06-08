@@ -3,6 +3,8 @@
  */
 global class OrgLimit {
 
+  global OrgLimit() {}
+
   /**
    * Returns the maximum allowed limit value.
    * @return Integer
@@ -22,5 +24,7 @@ global class OrgLimit {
   public Integer getValue() {}
 
   public String toString() {}
+
+  global Object clone() {}
 
 }

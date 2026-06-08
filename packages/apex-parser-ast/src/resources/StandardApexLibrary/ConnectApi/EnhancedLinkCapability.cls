@@ -3,6 +3,8 @@
  */
 global class EnhancedLinkCapability extends ConnectApi.FeedElementCapability {
 
+  global EnhancedLinkCapability() {}
+
   /**
    * A description with a 500 character limit.
    */
@@ -27,5 +29,7 @@ global class EnhancedLinkCapability extends ConnectApi.FeedElementCapability {
    * A title to a detail page.
    */
   global String title;
+
+  global Object clone() {}
 
 }

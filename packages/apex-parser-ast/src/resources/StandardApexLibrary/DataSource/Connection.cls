@@ -3,6 +3,8 @@
  */
 global class Connection {
 
+  global Connection() {}
+
   /**
    * Invoked when external object records are deleted via the Salesforce user interface, APIs, or Apex.
    * @param deleteContext Contains context information about the delete request.
@@ -36,5 +38,7 @@ global class Connection {
    * @return List<DataSource.UpsertResult>
    */
   public List<DataSource.UpsertResult> upsertRows(DataSource.UpsertContext upsertContext) {}
+
+  global Object clone() {}
 
 }

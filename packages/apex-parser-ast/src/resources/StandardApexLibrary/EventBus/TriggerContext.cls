@@ -3,6 +3,12 @@
  */
 global class TriggerContext {
 
+  global TriggerContext() {}
+
+  public String lastError;
+
+  public Integer retries;
+
   /**
    * Returns an instance of the EventBus.TriggerContext class containing information about the currently executing trigger.
    * @return eventbus.TriggerContext
@@ -20,5 +26,7 @@ global class TriggerContext {
    * @param resumeReplayId The replay ID of the last successfully processed platform event message, after which to resume processing in a new trigger execution context.
    */
   public void setResumeCheckpoint(String resumeReplayId) {}
+
+  global Object clone() {}
 
 }

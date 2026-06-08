@@ -5,4 +5,12 @@ global class AuthProviderCallbackState {
 
   public AuthProviderCallbackState(Map<String,String> headers, String body, Map<String,String> queryParameters) {}
 
+  public String body;
+
+  public Map<String,String> headers;
+
+  public Map<String,String> queryParameters;
+
+  global Object clone() {}
+
 }

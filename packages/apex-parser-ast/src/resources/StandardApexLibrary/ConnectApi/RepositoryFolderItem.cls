@@ -3,6 +3,8 @@
  */
 global class RepositoryFolderItem {
 
+  global RepositoryFolderItem() {}
+
   /**
    * If the folder item is a file, the file summary. If the folder item is a folder, null .
    */
@@ -17,5 +19,7 @@ global class RepositoryFolderItem {
    * Type of item in a folder. Values are: file folder
    */
   global ConnectApi.FolderItemType type;
+
+  global Object clone() {}
 
 }

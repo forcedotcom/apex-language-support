@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpaceInput {
 
+  global ManagedContentSpaceInput() {}
+
   /**
    * API name of the managed content space.
    */
@@ -27,5 +29,7 @@ global class ManagedContentSpaceInput {
    * Type of managed content space. Values are: Content Marketing
    */
   global ConnectApi.ManagedContentSpaceType spaceType;
+
+  global Object clone() {}
 
 }

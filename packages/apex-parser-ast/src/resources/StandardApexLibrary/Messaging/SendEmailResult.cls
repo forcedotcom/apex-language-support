@@ -3,6 +3,8 @@
  */
 global class SendEmailResult {
 
+  global SendEmailResult() {}
+
   /**
    * If an error occurred during the sendEmail method, a SendEmailError object is returned.
    * @return SendEmailError[]
@@ -14,5 +16,7 @@ global class SendEmailResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

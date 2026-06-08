@@ -3,6 +3,8 @@
  */
 global class CreateQuoteFromProductInput {
 
+  global CreateQuoteFromProductInput() {}
+
   /**
    * Key-value pairs for quote entity fields, including both standard and custom fields, used to set additional quote properties during creation.
    */
@@ -22,5 +24,7 @@ global class CreateQuoteFromProductInput {
    * Quantity of the product to include in the quote.
    */
   global String quantity;
+
+  global Object clone() {}
 
 }

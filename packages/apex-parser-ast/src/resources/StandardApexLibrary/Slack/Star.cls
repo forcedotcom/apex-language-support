@@ -1,5 +1,7 @@
 global class Star {
 
+  global Star() {}
+
   global static Slack.StarsListRequest.Builder builder() {}
 
   global Slack.StarsListRequest build() {}
@@ -169,5 +171,7 @@ global class Star {
   global void setUpload(Boolean upload) {}
 
   global void setUsername(String username) {}
+
+  global Object clone() {}
 
 }

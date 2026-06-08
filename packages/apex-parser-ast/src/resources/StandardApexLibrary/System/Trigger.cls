@@ -3,4 +3,8 @@
  */
 global class Trigger {
 
+  global Trigger() {}
+
+  global Object clone() {}
+
 }

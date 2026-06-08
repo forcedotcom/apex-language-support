@@ -3,6 +3,8 @@
  */
 global class FulfillmentOrderLineItemInputRepresentation {
 
+  global FulfillmentOrderLineItemInputRepresentation() {}
+
   /**
    * ID of the FulfillmentOrderLineItem.
    */
@@ -12,5 +14,7 @@ global class FulfillmentOrderLineItemInputRepresentation {
    * Quantity to cancel.
    */
   global Double quantity;
+
+  global Object clone() {}
 
 }

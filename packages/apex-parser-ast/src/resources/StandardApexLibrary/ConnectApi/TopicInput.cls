@@ -3,6 +3,8 @@
  */
 global class TopicInput {
 
+  global TopicInput() {}
+
   /**
    * Description of the topic
    */
@@ -17,5 +19,7 @@ global class TopicInput {
    * Name of the topic Use this property to change only the capitalization and spacing of the topic name.
    */
   global String name;
+
+  global Object clone() {}
 
 }

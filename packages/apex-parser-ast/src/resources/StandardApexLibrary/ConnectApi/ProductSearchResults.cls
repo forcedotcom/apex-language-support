@@ -3,6 +3,8 @@
  */
 global class ProductSearchResults {
 
+  global ProductSearchResults() {}
+
   /**
    * Categories from the search results.
    */
@@ -27,5 +29,7 @@ global class ProductSearchResults {
    * Page of products from the search results.
    */
   global ConnectApi.ProductSummaryPage productsPage;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommerceAddressCollection {
 
+  global CommerceAddressCollection() {}
+
   /**
    * Count of addresses.
    */
@@ -52,5 +54,7 @@ global class CommerceAddressCollection {
    * Sort order for Commerce addresses. CreatedDateAsc —Sort in ascending order of created date. CreatedDateDesc —Sort in descending order of created date. NameAsc —Sort in ascending order of name. NameDesc —Sort in descending order of name.
    */
   global ConnectApi.CommerceAddressSort sortOrder;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Datacloud {
 
+  global Datacloud() {}
+
   public static ConnectApi.DatacloudCompanies getCompaniesFromOrder(String orderId, String pageSize, String page) {}
 
   public static ConnectApi.DatacloudCompany getCompany(String companyId) {}
@@ -16,5 +18,7 @@ global class Datacloud {
   public static ConnectApi.DatacloudPurchaseUsage getUsage(String userId) {}
 
   public static ConnectApi.DatacloudOrder postOrder(ConnectApi.DatacloudOrderInput orderInput) {}
+
+  global Object clone() {}
 
 }

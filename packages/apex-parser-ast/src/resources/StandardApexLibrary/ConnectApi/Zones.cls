@@ -3,6 +3,8 @@
  */
 global class Zones {
 
+  global Zones() {}
+
   public static ConnectApi.Zone getZone(String communityId, String zoneId) {}
 
   public static ConnectApi.ZonePage getZones(String communityId) {}
@@ -20,5 +22,7 @@ global class Zones {
   public static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String pageParam, Integer pageSize, ConnectApi.ZoneSearchPage result) {}
 
   public static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String language, ConnectApi.ZoneSearchPage result) {}
+
+  global Object clone() {}
 
 }

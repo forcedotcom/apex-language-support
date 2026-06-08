@@ -3,6 +3,8 @@
  */
 global class SubmitFormData {
 
+  global SubmitFormData() {}
+
   public String getButtonClicked() {}
 
   public String getOldSelectedValue(String fieldId) {}
@@ -16,5 +18,7 @@ global class SubmitFormData {
   public List<String> getSelectedValues(String fieldId) {}
 
   public String getStringValue(String fieldId) {}
+
+  global Object clone() {}
 
 }

@@ -11,4 +11,6 @@ global class BuyerGroupResponse {
 
   public void setError(String errorMessage, String localizedErrorMessage) {}
 
+  global Object clone() {}
+
 }

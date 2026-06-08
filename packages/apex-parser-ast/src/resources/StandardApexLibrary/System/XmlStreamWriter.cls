@@ -3,6 +3,8 @@
  */
 global class XmlStreamWriter {
 
+  global XmlStreamWriter() {}
+
   /**
    * Closes this instance of an XmlStreamWriter and free any resources associated with it.
    */
@@ -99,5 +101,7 @@ global class XmlStreamWriter {
    * @param namespaceUri 
    */
   public void writeStartElement(String prefix, String localName, String namespaceUri) {}
+
+  global Object clone() {}
 
 }

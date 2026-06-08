@@ -3,6 +3,8 @@
  */
 global class CartSummary {
 
+  global CartSummary() {}
+
   /**
    * ID of the account for the cart.
    */
@@ -167,5 +169,7 @@ global class CartSummary {
    * ID of the webstore of the cart.
    */
   global String webstoreId;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialPrincipal {
 
+  global ExternalCredentialPrincipal() {}
+
   /**
    * Status of the credential authentication. Values are: Configured —Credential has all required credentials for at least one principal. NotConfigured —Credential isn’t configured. Unknown —Credential status can’t be determined because the authentication protocol is custom.
    */
@@ -37,5 +39,7 @@ global class ExternalCredentialPrincipal {
    * Sequence number of the external credential principal.
    */
   global Integer sequenceNumber;
+
+  global Object clone() {}
 
 }

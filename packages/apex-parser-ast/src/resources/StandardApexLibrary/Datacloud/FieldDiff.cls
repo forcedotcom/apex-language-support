@@ -3,6 +3,8 @@
  */
 global class FieldDiff {
 
+  global FieldDiff() {}
+
   /**
    * Returns how the field values compare for the duplicate and its matching record.
    * @return String
@@ -14,5 +16,7 @@ global class FieldDiff {
    * @return String
    */
   public String getName() {}
+
+  global Object clone() {}
 
 }

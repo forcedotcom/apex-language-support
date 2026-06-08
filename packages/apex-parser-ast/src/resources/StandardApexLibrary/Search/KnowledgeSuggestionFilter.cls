@@ -3,6 +3,8 @@
  */
 global class KnowledgeSuggestionFilter {
 
+  global KnowledgeSuggestionFilter() {}
+
   /**
    * Adds a filter that narrows suggestion results to display the specified article type. This filter is optional.
    * @param articleType A three-character ID prefix indicating the desired article type.
@@ -51,5 +53,7 @@ global class KnowledgeSuggestionFilter {
    * @param validationStatus An article validation status. These values are available in the ValidationStatus field on the KnowledgeArticleVersion object.
    */
   public void setValidationStatus(String validationStatus) {}
+
+  global Object clone() {}
 
 }

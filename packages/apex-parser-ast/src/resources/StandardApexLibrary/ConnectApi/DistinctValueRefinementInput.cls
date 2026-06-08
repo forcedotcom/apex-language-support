@@ -3,9 +3,13 @@
  */
 global class DistinctValueRefinementInput extends ConnectApi.RefinementInput {
 
+  global DistinctValueRefinementInput() {}
+
   /**
    * Comma-separated list of attribute values. It considers attribute labels for localization.
    */
   global List < String > values;
+
+  global Object clone() {}
 
 }

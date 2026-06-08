@@ -3,6 +3,8 @@
  */
 global class UUID {
 
+  global UUID() {}
+
   public Boolean equals(Object obj) {}
 
   public static System.UUID fromString(String str) {}
@@ -12,5 +14,7 @@ global class UUID {
   public static System.UUID randomUUID() {}
 
   public String toString() {}
+
+  global Object clone() {}
 
 }

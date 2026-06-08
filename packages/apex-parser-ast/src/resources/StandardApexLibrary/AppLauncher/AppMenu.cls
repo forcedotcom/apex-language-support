@@ -3,6 +3,8 @@
  */
 global class AppMenu {
 
+  global AppMenu() {}
+
   /**
    * Shows or hides specific apps in the App Launcher.
    * @param appMenuItemId The 15-character application ID value for an app. For more information, see the ApplicationId field for AppMenuItem or the AppMenuItemId field for UserAppMenuItem in the Salesforce Object Reference
@@ -21,5 +23,7 @@ global class AppMenu {
    * @param appIds A list of application ID values. For more information, see the AppMenuItemId field for UserAppMenuItem in the Salesforce Object Reference .
    */
   public static void setUserSortOrder(List<Id> appIds) {}
+
+  global Object clone() {}
 
 }

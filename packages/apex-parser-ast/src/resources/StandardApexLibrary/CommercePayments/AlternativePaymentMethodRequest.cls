@@ -5,10 +5,22 @@ global class AlternativePaymentMethodRequest {
 
   public AlternativePaymentMethodRequest(String gatewayToken) {}
 
+  public String accountId;
+
+  public String email;
+
+  public String gatewayToken;
+
+  public String gatewayTokenDetails;
+
+  public String name;
+
   public Boolean equals(Object obj) {}
 
   public Integer hashCode() {}
 
   public String toString() {}
+
+  global Object clone() {}
 
 }

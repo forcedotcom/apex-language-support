@@ -3,6 +3,8 @@
  */
 global class CreateWebStoreMetaConfiguration {
 
+  global CreateWebStoreMetaConfiguration() {}
+
   /**
    * Specifies whether the Webstore Meta Config entity was successfully created ( true ) or not ( false ).
    */
@@ -12,5 +14,7 @@ global class CreateWebStoreMetaConfiguration {
    * Details of a webstore Meta configuration.
    */
   global ConnectApi.WebStoreMetaConfig webStoreMetaConfig;
+
+  global Object clone() {}
 
 }

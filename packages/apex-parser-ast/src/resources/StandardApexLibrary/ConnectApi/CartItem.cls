@@ -3,6 +3,8 @@
  */
 global class CartItem extends ConnectApi.AbstractCartItem {
 
+  global CartItem() {}
+
   /**
    * Currency ISO code of the cart.
    */
@@ -97,5 +99,7 @@ global class CartItem extends ConnectApi.AbstractCartItem {
    * Item level adjustments made to the unit price for the item. This value is informational only and isn’t used in pricing calculations.
    */
   global String unitItemAdjustmentAmount;
+
+  global Object clone() {}
 
 }

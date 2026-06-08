@@ -3,6 +3,8 @@
  */
 global class CredentialCustomHeaderInput {
 
+  global CredentialCustomHeaderInput() {}
+
   /**
    * Header name.
    */
@@ -22,5 +24,7 @@ global class CredentialCustomHeaderInput {
    * Sequence number.
    */
   global Integer sequenceNumber;
+
+  global Object clone() {}
 
 }

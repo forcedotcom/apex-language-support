@@ -3,6 +3,8 @@
  */
 global class DirectMessageMemberActivityPage {
 
+  global DirectMessageMemberActivityPage() {}
+
   /**
    * Collection of direct message member activities.
    */
@@ -27,5 +29,7 @@ global class DirectMessageMemberActivityPage {
    * Connect REST API URL identifying the next page, or null if there isn’t a next page.
    */
   global String nextPageUrl;
+
+  global Object clone() {}
 
 }

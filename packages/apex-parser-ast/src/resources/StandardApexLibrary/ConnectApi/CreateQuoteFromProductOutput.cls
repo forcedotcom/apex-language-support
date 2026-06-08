@@ -3,6 +3,8 @@
  */
 global class CreateQuoteFromProductOutput {
 
+  global CreateQuoteFromProductOutput() {}
+
   /**
    * Detailed error message if the create quote from product operation was unsuccessful.
    */
@@ -12,5 +14,7 @@ global class CreateQuoteFromProductOutput {
    * ID of the quote created upon a successful request.
    */
   global String quoteId;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ProductAttributesToProductEntry {
 
+  global ProductAttributesToProductEntry() {}
+
   /**
    * Attribute API values concatenated with an underscore (_) based on the sequence number of the attributes in the attribute set.
    */
@@ -22,5 +24,7 @@ global class ProductAttributesToProductEntry {
    * Variant URL name for the selection of attributes.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

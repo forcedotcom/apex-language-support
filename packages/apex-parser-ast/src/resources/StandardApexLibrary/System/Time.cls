@@ -3,6 +3,8 @@
  */
 global class Time {
 
+  global Time() {}
+
   /**
    * Adds the specified number of hours to a Time.
    * @param additionalHours 
@@ -64,5 +66,7 @@ global class Time {
    * @return Integer
    */
   public Integer second() {}
+
+  global Object clone() {}
 
 }

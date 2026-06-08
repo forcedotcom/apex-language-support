@@ -3,6 +3,8 @@
  */
 global class RecommendationReactions {
 
+  global RecommendationReactions() {}
+
   /**
    * URL to the current page of reactions in the collection.
    */
@@ -17,5 +19,7 @@ global class RecommendationReactions {
    * Collection of recommendation reactions.
    */
   global List < ConnectApi.RecommendationReaction > reactions;
+
+  global Object clone() {}
 
 }

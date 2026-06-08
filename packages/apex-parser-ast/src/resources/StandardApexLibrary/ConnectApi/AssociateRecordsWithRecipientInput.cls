@@ -3,6 +3,8 @@
  */
 global class AssociateRecordsWithRecipientInput {
 
+  global AssociateRecordsWithRecipientInput() {}
+
   /**
    * ID of the associated records.
    */
@@ -12,5 +14,7 @@ global class AssociateRecordsWithRecipientInput {
    * Participant ID with whose invitation the record should be associated.
    */
   global String recipientId;
+
+  global Object clone() {}
 
 }

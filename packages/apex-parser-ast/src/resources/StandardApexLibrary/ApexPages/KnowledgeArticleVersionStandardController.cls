@@ -18,4 +18,6 @@ global class KnowledgeArticleVersionStandardController {
    */
   public void setDataCategory(String categoryGroup, String category) {}
 
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class JSON {
 
+  global JSON() {}
+
   /**
    * Returns a new JSON generator.
    * @param prettyPrint Determines whether the JSON generator creates JSON content in pretty-print format with the content indented. Set to true to create indented content.
@@ -69,5 +71,7 @@ global class JSON {
    * @return String
    */
   public static String serializePretty(Object objectToSerialize, Boolean suppressApexObjectNulls) {}
+
+  global Object clone() {}
 
 }

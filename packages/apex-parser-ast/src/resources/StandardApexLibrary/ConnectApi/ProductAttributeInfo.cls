@@ -3,6 +3,8 @@
  */
 global class ProductAttributeInfo {
 
+  global ProductAttributeInfo() {}
+
   /**
    * Active attribute picklist values that can be used to create variations. These values are determined by the order of the picklist values in Object Manager.
    */
@@ -52,5 +54,7 @@ global class ProductAttributeInfo {
    * View type for product attributes. Values are: ColorSwatch Dropdown Pill
    */
   global ConnectApi.ProductAttributeViewType viewType;
+
+  global Object clone() {}
 
 }

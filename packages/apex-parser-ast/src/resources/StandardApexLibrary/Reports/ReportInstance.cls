@@ -3,6 +3,8 @@
  */
 global class ReportInstance {
 
+  global ReportInstance() {}
+
   /**
    * Returns the date and time when the instance of the report finished running. The completion date is available only if the report instance ran successfully or couldn’t be run because of an error. Date and time information is in ISO-8601 format.
    * @return Datetime
@@ -44,5 +46,7 @@ global class ReportInstance {
    * @return String
    */
   public String getStatus() {}
+
+  global Object clone() {}
 
 }

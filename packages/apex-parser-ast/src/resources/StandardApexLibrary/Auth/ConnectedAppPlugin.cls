@@ -3,6 +3,8 @@
  */
 global class ConnectedAppPlugin {
 
+  global ConnectedAppPlugin() {}
+
   /**
    * Deprecated and available only in API versions 35.0 and 36.0. As of version 37.0, use authorize(userId, connectedAppId, isAdminApproved, context) instead.
    * @param userId The 15-character ID of the user attempting to use the connected app.
@@ -64,5 +66,7 @@ global class ConnectedAppPlugin {
    * @param context 
    */
   public void refresh(Id userId, Id connectedAppId, Auth.InvocationContext context) {}
+
+  global Object clone() {}
 
 }

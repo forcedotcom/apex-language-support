@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannels {
 
+  global ManagedContentChannels() {}
+
   public static void deleteManagedContentChannel(String channelId) {}
 
   public static ConnectApi.ManagedContentChannel getManagedContentChannel(String channelId) {}
@@ -12,5 +14,7 @@ global class ManagedContentChannels {
   public static ConnectApi.ManagedContentChannel patchManagedContentChannel(String channelId, ConnectApi.ManagedContentChannelUpdateRepresentation ManagedContentChannelInput) {}
 
   public static ConnectApi.ManagedContentChannel postManagedContentChannel(ConnectApi.ManagedContentChannelCreateRepresentation ManagedContentCreateInputParam) {}
+
+  global Object clone() {}
 
 }

@@ -57,4 +57,6 @@ global class Cookie {
    */
   public Boolean isHttpOnly() {}
 
+  global Object clone() {}
+
 }

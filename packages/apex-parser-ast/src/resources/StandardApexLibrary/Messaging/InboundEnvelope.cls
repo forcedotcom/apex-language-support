@@ -3,8 +3,12 @@
  */
 global class InboundEnvelope {
 
-  global String fromAddress;
+  global InboundEnvelope() {}
 
-  global String toAddress;
+  public String fromAddress;
+
+  public String toAddress;
+
+  global Object clone() {}
 
 }

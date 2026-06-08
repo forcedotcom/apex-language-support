@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateAttachment {
 
+  global EinsteinPromptTemplateAttachment() {}
+
   /**
    * Information about file attachments that cannot be processed.
    */
@@ -32,5 +34,7 @@ global class EinsteinPromptTemplateAttachment {
    * Title of the file attachment.
    */
   global String title;
+
+  global Object clone() {}
 
 }

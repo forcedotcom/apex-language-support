@@ -3,6 +3,8 @@
  */
 global class DataCategory {
 
+  global DataCategory() {}
+
   /**
    * Returns a recursive object that contains the visible sub categories in the data category.
    * @return Schema.DataCategory
@@ -20,5 +22,7 @@ global class DataCategory {
    * @return String
    */
   public String getName() {}
+
+  global Object clone() {}
 
 }

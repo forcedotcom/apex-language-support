@@ -3,10 +3,14 @@
  */
 global class Label {
 
+  global Label() {}
+
   public static String get(String namespace, String label) {}
 
   public static String get(String namespace, String label, String language) {}
 
   public static Boolean translationExists(string namespace, string label, string language) {}
+
+  global Object clone() {}
 
 }

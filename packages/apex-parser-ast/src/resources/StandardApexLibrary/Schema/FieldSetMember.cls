@@ -3,6 +3,8 @@
  */
 global class FieldSetMember {
 
+  global FieldSetMember() {}
+
   /**
    * Returns true if the field is required by the field’s definition in its sObject, otherwise, false .
    * @return Boolean
@@ -38,5 +40,7 @@ global class FieldSetMember {
    * @return Schema.sObjectField
    */
   public Schema.sObjectField getSObjectField() {}
+
+  global Object clone() {}
 
 }

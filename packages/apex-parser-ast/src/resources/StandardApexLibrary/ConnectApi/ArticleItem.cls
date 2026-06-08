@@ -3,6 +3,8 @@
  */
 global class ArticleItem {
 
+  global ArticleItem() {}
+
   /**
    * Id of the article.
    */
@@ -27,5 +29,7 @@ global class ArticleItem {
    * Number of votes given to the article.
    */
   global Integer viewCount;
+
+  global Object clone() {}
 
 }

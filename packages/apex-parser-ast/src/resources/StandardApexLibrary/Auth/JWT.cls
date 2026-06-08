@@ -3,6 +3,8 @@
  */
 global class JWT {
 
+  global JWT() {}
+
   /**
    * Makes a duplicate copy of the JWT object.
    * @return Object

@@ -3,10 +3,14 @@
  */
 global class AsyncOptions {
 
-  global QueueableDuplicateSignature Class DuplicateSignature;
+  global AsyncOptions() {}
 
-  global Integer MaximumQueueableStackDepth;
+  public System.QueueableDuplicateSignature DuplicateSignature;
 
-  global Integer MinimumQueueableDelayInMinutes;
+  public Integer MaximumQueueableStackDepth;
+
+  public Integer MinimumQueueableDelayInMinutes;
+
+  global Object clone() {}
 
 }

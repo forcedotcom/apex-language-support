@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolution {
 
+  global CdpIdentityResolution() {}
+
   public static ConnectApi.CdpIdentityResolutionOutput createIdentityResolution(ConnectApi.CdpIdentityResolutionConfigInput input) {}
 
   public static void deleteIdentityResolution(String identityResolution) {}
@@ -14,5 +16,7 @@ global class CdpIdentityResolution {
   public static ConnectApi.CdpIdentityResolutionRunNowOutput runIdentityResolutionNow(String identityResolution, ConnectApi.CdpIdentityResolutionRunNowInput input) {}
 
   public static ConnectApi.CdpIdentityResolutionOutput updateIdentityResolution(String identityResolution, ConnectApi.CdpIdentityResolutionConfigPatchInput input) {}
+
+  global Object clone() {}
 
 }

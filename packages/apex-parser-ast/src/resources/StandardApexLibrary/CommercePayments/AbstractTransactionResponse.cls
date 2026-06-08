@@ -3,6 +3,8 @@
  */
 global class AbstractTransactionResponse {
 
+  global AbstractTransactionResponse() {}
+
   /**
    * Sets the transaction amount. Must be a non-negative value.
    * @param amount The amount of the transaction.
@@ -56,5 +58,7 @@ global class AbstractTransactionResponse {
    * @param salesforceResultCodeInfo Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

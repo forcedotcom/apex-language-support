@@ -3,6 +3,8 @@
  */
 global class Date {
 
+  global Date() {}
+
   /**
    * Adds the specified number of additional days to a Date.
    * @param additionalDays 
@@ -137,5 +139,7 @@ global class Date {
    * @return Integer
    */
   public Integer year() {}
+
+  global Object clone() {}
 
 }

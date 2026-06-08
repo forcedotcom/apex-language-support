@@ -3,6 +3,8 @@
  */
 global class ChildRelationship {
 
+  global ChildRelationship() {}
+
   /**
    * Returns the token of the child sObject on which there is a foreign key back to the parent sObject.
    * @return Schema.SObjectType
@@ -38,5 +40,7 @@ global class ChildRelationship {
    * @return Boolean
    */
   public Boolean isRestrictedDelete() {}
+
+  global Object clone() {}
 
 }

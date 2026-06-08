@@ -3,6 +3,8 @@
  */
 global class DeliveryAddressInputRepresentation {
 
+  global DeliveryAddressInputRepresentation() {}
+
   /**
    * City in the state for the delivery address.
    */
@@ -32,5 +34,7 @@ global class DeliveryAddressInputRepresentation {
    * State in the country for the delivery address.
    */
   global String state;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedItemSummary extends ConnectApi.FeedEntitySummary {
 
+  global FeedItemSummary() {}
+
   /**
    * Container for all capabilities that can be included with a feed item.
    */
@@ -37,5 +39,7 @@ global class FeedItemSummary extends ConnectApi.FeedEntitySummary {
    * Specifies who can see a feed item. AllUsers —Visibility is not limited to internal users. InternalUsers —Visibility is limited to internal users.
    */
   global ConnectApi.FeedItemVisibility visibility;
+
+  global Object clone() {}
 
 }

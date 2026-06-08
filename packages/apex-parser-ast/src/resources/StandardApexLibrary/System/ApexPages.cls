@@ -3,6 +3,8 @@
  */
 global class ApexPages {
 
+  global ApexPages() {}
+
   /**
    * Add a message to the current page context.
    * @param message 
@@ -39,5 +41,7 @@ global class ApexPages {
    * @return Boolean
    */
   public Boolean hasMessages(ApexPages.Severity severity) {}
+
+  global Object clone() {}
 
 }

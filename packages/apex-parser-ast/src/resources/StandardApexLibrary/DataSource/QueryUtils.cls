@@ -3,6 +3,8 @@
  */
 global class QueryUtils {
 
+  global QueryUtils() {}
+
   /**
    * Returns a subset of data rows after locally applying limit and offset clauses from the query. This helper method is provided for your convenience during early development and tests, but it isn’t supported for use in production environments.
    * @param queryContext Represents the query to run against a data table.
@@ -34,5 +36,7 @@ global class QueryUtils {
    * @return List<Map<String,ject>>
    */
   public static List<Map<String,ject>> sort(DataSource.QueryContext queryContext, List<Map<String,object>> rows) {}
+
+  global Object clone() {}
 
 }

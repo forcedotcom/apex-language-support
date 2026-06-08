@@ -3,6 +3,8 @@
  */
 global class GroupingColumn {
 
+  global GroupingColumn() {}
+
   /**
    * Returns the unique API name of the field or bucket field that is used for column grouping.
    * @return String
@@ -26,5 +28,7 @@ global class GroupingColumn {
    * @return Integer
    */
   public Integer getGroupingLevel() {}
+
+  global Object clone() {}
 
 }

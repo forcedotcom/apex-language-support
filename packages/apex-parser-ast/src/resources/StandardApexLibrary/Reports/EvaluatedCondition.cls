@@ -47,4 +47,6 @@ global class EvaluatedCondition {
    */
   public Double getValue() {}
 
+  global Object clone() {}
+
 }

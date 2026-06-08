@@ -3,6 +3,8 @@
  */
 global class LineItemResponse {
 
+  global LineItemResponse() {}
+
   global void setAddresses(commercetax.AddressesResponse addresses) {}
 
   global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) {}
@@ -22,5 +24,7 @@ global class LineItemResponse {
   global void setTaxCode(String taxCode) {}
 
   global void setTaxes(List<commercetax.TaxDetailsResponse> taxes) {}
+
+  global Object clone() {}
 
 }

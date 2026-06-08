@@ -3,6 +3,12 @@
  */
 global class RelatedList {
 
+  global RelatedList() {}
+
+  public Boolean hideOnDetail;
+
+  public String name;
+
   /**
    * Makes a duplicate copy of the Metadata.RelatedList .
    * @return Object

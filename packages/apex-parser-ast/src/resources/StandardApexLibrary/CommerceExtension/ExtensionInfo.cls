@@ -3,6 +3,8 @@
  */
 global class ExtensionInfo {
 
+  global ExtensionInfo() {}
+
   public static Double getClientApiVersion() {}
 
   public static String getCustomParameterField(String fieldName) {}
@@ -10,5 +12,7 @@ global class ExtensionInfo {
   public static String getLocaleString() {}
 
   public static Boolean isCustomParametersAvailable() {}
+
+  global Object clone() {}
 
 }

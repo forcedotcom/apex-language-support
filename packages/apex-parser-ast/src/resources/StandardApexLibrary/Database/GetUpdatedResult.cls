@@ -3,6 +3,8 @@
  */
 global class GetUpdatedResult {
 
+  global GetUpdatedResult() {}
+
   /**
    * Returns the IDs of records updated within the time window specified in the Database.getUpdated method.
    * @return List<Id>
@@ -14,5 +16,7 @@ global class GetUpdatedResult {
    * @return Date
    */
   public Date getLatestDateCovered() {}
+
+  global Object clone() {}
 
 }

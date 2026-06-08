@@ -3,6 +3,8 @@
  */
 global class UserProfiles {
 
+  global UserProfiles() {}
+
   public static void deleteBannerPhoto(String communityId, String userId) {}
 
   public static void deletePhoto(String communityId, String userId) {}
@@ -28,5 +30,7 @@ global class UserProfiles {
   public static ConnectApi.Photo setPhotoWithAttributes(String communityId, String userId, ConnectApi.PhotoInput photo) {}
 
   public static ConnectApi.Photo setPhotoWithAttributes(String communityId, String userId, ConnectApi.PhotoInput photo, ConnectApi.BinaryInput fileUpload) {}
+
+  global Object clone() {}
 
 }

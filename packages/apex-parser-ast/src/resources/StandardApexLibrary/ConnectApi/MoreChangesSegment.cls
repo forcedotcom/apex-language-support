@@ -3,6 +3,8 @@
  */
 global class MoreChangesSegment extends ConnectApi.MessageSegment {
 
+  global MoreChangesSegment() {}
+
   /**
    * Complete list of tracked changes.
    */
@@ -12,5 +14,7 @@ global class MoreChangesSegment extends ConnectApi.MessageSegment {
    * Number of additional changes.
    */
   global Integer moreChangesCount;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ChangeOrderDeliveryGroupSummaryInputRepresentation {
 
+  global ChangeOrderDeliveryGroupSummaryInputRepresentation() {}
+
   /**
    * Whether a new order delivery group summary is being created or an existing summary is being updated. Valid values are New or Update.
    */
@@ -17,5 +19,7 @@ global class ChangeOrderDeliveryGroupSummaryInputRepresentation {
    * The unique reference ID for this order delivery group summary. This field is valid only if the Change Type value is New.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

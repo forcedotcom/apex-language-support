@@ -3,6 +3,8 @@
  */
 global class ProcessWorkitemRequest {
 
+  global ProcessWorkitemRequest() {}
+
   /**
    * Returns the type of action already associated with the approval request. Valid values are: Approve, Reject, or Removed.
    * @return String
@@ -26,5 +28,7 @@ global class ProcessWorkitemRequest {
    * @param id 
    */
   public void setWorkitemId(String id) {}
+
+  global Object clone() {}
 
 }

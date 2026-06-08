@@ -3,6 +3,8 @@
  */
 global class ReferencedRefundResponse {
 
+  global ReferencedRefundResponse() {}
+
   /**
    * Sets the transaction amount. The value must be a postive number.
    * @param amount The amount to be debited or captured.
@@ -58,5 +60,7 @@ global class ReferencedRefundResponse {
    * @param salesforceResultCodeInfo Describes the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

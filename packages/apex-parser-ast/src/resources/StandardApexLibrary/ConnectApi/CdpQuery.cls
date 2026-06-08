@@ -3,6 +3,8 @@
  */
 global class CdpQuery {
 
+  global CdpQuery() {}
+
   public static ConnectApi.CdpQueryMetadataOutput getAllMetadata() {}
 
   public static ConnectApi.CdpQueryMetadataOutput getAllMetadata(String entityType, String entityCategory, String entityName) {}
@@ -118,5 +120,7 @@ global class CdpQuery {
   public static ConnectApi.CdpQueryDataOutput universalIdLookupBySourceId(String entityName, String dataSourceId, String dataSourceObjectId, String sourceRecordId) {}
 
   public static ConnectApi.CdpQueryDataOutput universalIdLookupBySourceId(String entityName, String dataSourceId, String dataSourceObjectId, String sourceRecordId, String dataspace) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CaptureResponse {
 
+  global CaptureResponse() {}
+
   /**
    * Error response representation for an authorization capture.
    */
@@ -27,5 +29,7 @@ global class CaptureResponse {
    * Payment group associated with the capture request.
    */
   global ConnectApi.PaymentGroupResponse paymentGroup;
+
+  global Object clone() {}
 
 }

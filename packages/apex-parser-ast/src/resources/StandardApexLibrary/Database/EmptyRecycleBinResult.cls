@@ -3,6 +3,8 @@
  */
 global class EmptyRecycleBinResult {
 
+  global EmptyRecycleBinResult() {}
+
   /**
    * If an error occurred during the delete for this record or sObject, returns a list of one or more Database.Error objects. If no errors occurred, the returned list is empty.
    * @return Database.Errors[]
@@ -20,5 +22,7 @@ global class EmptyRecycleBinResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CreateQuoteFromCartInput {
 
+  global CreateQuoteFromCartInput() {}
+
   /**
    * Map of standard and custom Quote fields, such as expiration date and buyer email.
    */
@@ -22,5 +24,7 @@ global class CreateQuoteFromCartInput {
    * Indicate whether to delete the cart ( true ) or not ( false ) after the quote is created.
    */
   global Boolean deleteCart;
+
+  global Object clone() {}
 
 }

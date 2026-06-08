@@ -3,6 +3,8 @@
  */
 global class SingleEmailMessage {
 
+  global SingleEmailMessage() {}
+
   public Boolean getOneClickPost() {}
 
   /**
@@ -130,5 +132,7 @@ global class SingleEmailMessage {
    * @param whatId 
    */
   public void setWhatId(ID whatId) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommunityModeration {
 
+  global CommunityModeration() {}
+
   public static ConnectApi.ModerationFlags addFlagToComment(String communityId, String commentId) {}
 
   public static ConnectApi.ModerationFlags addFlagToComment(String communityId, String commentId, ConnectApi.CommunityFlagVisibility visibility) {}
@@ -64,5 +66,7 @@ global class CommunityModeration {
   public static ConnectApi.ModerationFlags getFlagsOnFeedItem(String communityId, String feedItemId, ConnectApi.CommunityFlagVisibility visibility) {}
 
   public static ConnectApi.ModerationFlags removeFlagsOnFeedItem(String communityId, String feedItemId, String userId) {}
+
+  global Object clone() {}
 
 }

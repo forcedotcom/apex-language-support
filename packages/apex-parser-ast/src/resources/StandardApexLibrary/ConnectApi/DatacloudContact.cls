@@ -3,6 +3,8 @@
  */
 global class DatacloudContact {
 
+  global DatacloudContact() {}
+
   /**
    * The contact’s business address.
    */
@@ -72,5 +74,7 @@ global class DatacloudContact {
    * The date of the most recent change to this contact’s information.
    */
   global Datetime updatedDate;
+
+  global Object clone() {}
 
 }

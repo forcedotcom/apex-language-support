@@ -3,6 +3,8 @@
  */
 global class LeadConvertResult {
 
+  global LeadConvertResult() {}
+
   /**
    * The ID of the new account (if a new account was specified) or the ID of the account specified when convertLead was invoked.
    * @return ID
@@ -44,5 +46,7 @@ global class LeadConvertResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

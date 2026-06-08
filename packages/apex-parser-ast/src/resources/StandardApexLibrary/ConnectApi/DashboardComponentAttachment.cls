@@ -3,6 +3,8 @@
  */
 global class DashboardComponentAttachment extends ConnectApi.FeedItemAttachment {
 
+  global DashboardComponentAttachment() {}
+
   /**
    * Component’s 18–character ID.
    */
@@ -52,5 +54,7 @@ global class DashboardComponentAttachment extends ConnectApi.FeedItemAttachment 
    * URL of the thumbnail-sized dashboard image.
    */
   global String thumbnailUrl;
+
+  global Object clone() {}
 
 }

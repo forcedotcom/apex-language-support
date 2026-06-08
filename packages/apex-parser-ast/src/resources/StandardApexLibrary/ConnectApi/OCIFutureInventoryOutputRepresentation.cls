@@ -3,6 +3,8 @@
  */
 global class OCIFutureInventoryOutputRepresentation {
 
+  global OCIFutureInventoryOutputRepresentation() {}
+
   /**
    * Date when the future inventory is expected.
    */
@@ -12,5 +14,7 @@ global class OCIFutureInventoryOutputRepresentation {
    * Quantity of the future inventory.
    */
   global Double quantity;
+
+  global Object clone() {}
 
 }

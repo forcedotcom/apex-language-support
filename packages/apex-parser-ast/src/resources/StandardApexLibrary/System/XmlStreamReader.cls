@@ -207,4 +207,6 @@ global class XmlStreamReader {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class XmlNode {
 
+  global XmlNode() {}
+
   /**
    * Creates a child element node for this node.
    * @param name The name argument can't have a null value.
@@ -179,5 +181,7 @@ global class XmlNode {
    * @param namespace 
    */
   public void setNamespace(String prefix, String namespace) {}
+
+  global Object clone() {}
 
 }

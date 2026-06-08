@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmGenerationSafetyScoreOutput {
 
+  global EinsteinLlmGenerationSafetyScoreOutput() {}
+
   /**
    * A higher value means the generated response is more likely to contain text that expresses, incites, or promotes hatred, violence, or severe harm towards the targeted group. Minimum value of 0.0 . Maximum value of 1.0 .
    */
@@ -37,5 +39,7 @@ global class EinsteinLlmGenerationSafetyScoreOutput {
    * A higher value means the generated response is more likely to contain text that promotes or glorifies violence or celebrates the suffering or humiliation of others. Minimum value of 0.0 . Maximum value of 1.0 .
    */
   global Double violenceScore;
+
+  global Object clone() {}
 
 }

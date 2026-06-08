@@ -3,6 +3,8 @@
  */
 global class ProductOutputRepresentation {
 
+  global ProductOutputRepresentation() {}
+
   /**
    * Output representation for expand feature.
    */
@@ -12,5 +14,7 @@ global class ProductOutputRepresentation {
    * Product data.
    */
   global String products;
+
+  global Object clone() {}
 
 }

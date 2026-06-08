@@ -3,6 +3,8 @@
  */
 global class CartInput {
 
+  global CartInput() {}
+
   /**
    * Currency ISO code of the cart.
    */
@@ -42,5 +44,7 @@ global class CartInput {
    * Type of the cart provided as a string.
    */
   global String typeAsString;
+
+  global Object clone() {}
 
 }

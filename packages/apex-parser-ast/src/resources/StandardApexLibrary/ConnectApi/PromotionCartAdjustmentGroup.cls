@@ -3,6 +3,8 @@
  */
 global class PromotionCartAdjustmentGroup {
 
+  global PromotionCartAdjustmentGroup() {}
+
   /**
    * ID of the associated coupon, if applicable.
    */
@@ -47,5 +49,7 @@ global class PromotionCartAdjustmentGroup {
    * Where in the sequence of adjustments this adjustment was applied.
    */
   global Integer priority;
+
+  global Object clone() {}
 
 }

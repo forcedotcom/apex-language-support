@@ -3,6 +3,8 @@
  */
 global class ManagedContentUnpublishInput {
 
+  global ManagedContentUnpublishInput() {}
+
   /**
    * IDs of content to unpublish. All variants of the content are unpublished.
    */
@@ -22,5 +24,7 @@ global class ManagedContentUnpublishInput {
    * IDs of variants to unpublish. All variants must be from the same content space.
    */
   global List < String > variantIds;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class OCIUpdateReservationErrorOutputRepresentation {
 
+  global OCIUpdateReservationErrorOutputRepresentation() {}
+
   /**
    * The error code.
    */
@@ -12,5 +14,7 @@ global class OCIUpdateReservationErrorOutputRepresentation {
    * Details of the error, if available.
    */
   global String message;
+
+  global Object clone() {}
 
 }

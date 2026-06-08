@@ -3,6 +3,8 @@
  */
 global class ProductSearchInput {
 
+  global ProductSearchInput() {}
+
   /**
    * Category ID returns results for products in this category or its subcategories. If you omit categoryId from the request, all categories are searched. If you specify categoryId and searchTerm , only products in the specified category are searched.
    */
@@ -52,5 +54,7 @@ global class ProductSearchInput {
    * ID of the sort rule that specifies the order of products in the search results.
    */
   global String sortRuleId;
+
+  global Object clone() {}
 
 }

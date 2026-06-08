@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannelSummary extends ConnectApi.AbstractManagedContentChannelRepresentation {
 
+  global ManagedContentChannelSummary() {}
+
   /**
    * Domain URL of the channel.
    */
@@ -37,5 +39,7 @@ global class ManagedContentChannelSummary extends ConnectApi.AbstractManagedCont
    * URL to the channel resource.
    */
   global String url;
+
+  global Object clone() {}
 
 }

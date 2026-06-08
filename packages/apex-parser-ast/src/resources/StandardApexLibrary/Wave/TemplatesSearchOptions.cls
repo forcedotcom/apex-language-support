@@ -3,10 +3,14 @@
  */
 global class TemplatesSearchOptions {
 
-  global String filterGroup;
+  global TemplatesSearchOptions() {}
 
-  global String options;
+  public String filterGroup;
 
-  global String type;
+  public String options;
+
+  public String type;
+
+  global Object clone() {}
 
 }

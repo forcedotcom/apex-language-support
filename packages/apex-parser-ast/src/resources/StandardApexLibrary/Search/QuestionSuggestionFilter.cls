@@ -3,6 +3,8 @@
  */
 global class QuestionSuggestionFilter {
 
+  global QuestionSuggestionFilter() {}
+
   /**
    * Adds a filter to display questions associated with the single specified group whose ID is passed in as an argument. This filter is optional.
    * @param groupId The ID for a group.
@@ -44,5 +46,7 @@ global class QuestionSuggestionFilter {
    * @param userIds A list of user IDs.
    */
   public void setUserIds(List<String> userIds) {}
+
+  global Object clone() {}
 
 }

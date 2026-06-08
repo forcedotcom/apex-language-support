@@ -3,6 +3,8 @@
  */
 global class FeedElement {
 
+  global FeedElement() {}
+
   /**
    * Information about the feed element. Important Use the header.text property as the default value for rendering text because the body.text property can be null .
    */
@@ -52,5 +54,7 @@ global class FeedElement {
    * Connect REST API URL to this feed element.
    */
   global String url;
+
+  global Object clone() {}
 
 }

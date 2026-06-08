@@ -7,4 +7,16 @@ global class TimeSlotOption {
 
   public TimeSlotOption(Datetime startTime, Integer duration) {}
 
+  public Integer duration;
+
+  public Integer durationValue;
+
+  public Datetime endTimeValue;
+
+  public Datetime startTime;
+
+  public Datetime startTimeValue;
+
+  global Object clone() {}
+
 }

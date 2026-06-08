@@ -3,6 +3,8 @@
  */
 global class DistinctFacetValue extends ConnectApi.FacetValue {
 
+  global DistinctFacetValue() {}
+
   /**
    * Map of metadata required for rendering the facet value.
    */
@@ -22,5 +24,7 @@ global class DistinctFacetValue extends ConnectApi.FacetValue {
    * Number of products in the search result that match the facet value.
    */
   global Long productCount;
+
+  global Object clone() {}
 
 }

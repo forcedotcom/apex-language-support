@@ -3,6 +3,8 @@
  */
 global class CreateQuoteFromCartOutput {
 
+  global CreateQuoteFromCartOutput() {}
+
   /**
    * Detailed error message if the create quote from a cart operation was unsuccessful.
    */
@@ -12,5 +14,7 @@ global class CreateQuoteFromCartOutput {
    * ID of the quote created from the cart.
    */
   global String quoteId;
+
+  global Object clone() {}
 
 }

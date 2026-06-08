@@ -3,6 +3,8 @@
  */
 global class ReportTypeColumn {
 
+  global ReportTypeColumn() {}
+
   /**
    * Returns the data type of the field.
    * @return Reports.ColumnDataType
@@ -32,5 +34,7 @@ global class ReportTypeColumn {
    * @return String
    */
   public String getName() {}
+
+  global Object clone() {}
 
 }

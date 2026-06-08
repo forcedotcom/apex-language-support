@@ -3,6 +3,8 @@
  */
 global class MergeResult {
 
+  global MergeResult() {}
+
   /**
    * Returns a list of Database.Error objects representing the errors encountered, if any, during a merge operation using the Database. merge method. If no error occurred, returns null.
    * @return List<Database.Error>
@@ -32,5 +34,7 @@ global class MergeResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

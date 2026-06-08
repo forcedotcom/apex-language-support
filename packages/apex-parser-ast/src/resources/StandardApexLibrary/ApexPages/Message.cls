@@ -33,4 +33,6 @@ global class Message {
    */
   public String getSummary() {}
 
+  global Object clone() {}
+
 }

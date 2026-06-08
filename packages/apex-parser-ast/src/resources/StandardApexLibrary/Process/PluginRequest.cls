@@ -3,6 +3,10 @@
  */
 global class PluginRequest {
 
-  global Map inputParameters;
+  global PluginRequest() {}
+
+  public Map<String,Object> inputParameters;
+
+  global Object clone() {}
 
 }

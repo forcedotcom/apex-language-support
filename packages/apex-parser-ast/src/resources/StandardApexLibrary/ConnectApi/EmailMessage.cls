@@ -3,6 +3,8 @@
  */
 global class EmailMessage extends ConnectApi.FeedItemAttachment {
 
+  global EmailMessage() {}
+
   /**
    * The direction of the email message. Inbound —An inbound message (sent by a customer). Outbound —An outbound message (sent to a customer by a support agent).
    */
@@ -27,5 +29,7 @@ global class EmailMessage extends ConnectApi.FeedItemAttachment {
    * A list of email addresses to send the message to.
    */
   global List < ConnectApi.EmailAddress > toAddresses;
+
+  global Object clone() {}
 
 }

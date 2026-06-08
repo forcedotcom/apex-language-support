@@ -3,6 +3,8 @@
  */
 global class Integer {
 
+  global Integer() {}
+
   /**
    * Returns the integer as a string using the locale of the context user.
    * @return String
@@ -22,5 +24,7 @@ global class Integer {
    * @return Integer
    */
   public static Integer valueOf(Object fieldValue) {}
+
+  global Object clone() {}
 
 }

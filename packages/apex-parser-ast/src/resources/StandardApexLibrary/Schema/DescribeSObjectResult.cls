@@ -3,6 +3,78 @@
  */
 global class DescribeSObjectResult {
 
+  global DescribeSObjectResult() {}
+
+  public Boolean accessible;
+
+  public String associateentitytype;
+
+  public String associateparententity;
+
+  public List<Schema.ChildRelationship> childrelationships;
+
+  public Boolean createable;
+
+  public Boolean custom;
+
+  public Boolean customsetting;
+
+  public Boolean datatranslationenabled;
+
+  public String defaultimplementation;
+
+  public Boolean deletable;
+
+  public Boolean deprecatedandhidden;
+
+  public Boolean feedenabled;
+
+  public Schema.SObjectTypeFields fields;
+
+  public Schema.SObjectTypeFieldSets fieldsets;
+
+  public Boolean hassubtypes;
+
+  public String implementedby;
+
+  public String implementsinterfaces;
+
+  public Boolean isinterface;
+
+  public String keyprefix;
+
+  public String label;
+
+  public String labelplural;
+
+  public String localname;
+
+  public Boolean mergeable;
+
+  public Boolean mruenabled;
+
+  public String name;
+
+  public Boolean queryable;
+
+  public List<Schema.RecordTypeInfo> recordtypeinfos;
+
+  public Map<String,Schema.RecordTypeInfo> recordtypeinfosbydevelopername;
+
+  public Map<Id,Schema.RecordTypeInfo> recordtypeinfosbyid;
+
+  public Map<String,Schema.RecordTypeInfo> recordtypeinfosbyname;
+
+  public Boolean searchable;
+
+  public Schema.SObjectDescribeOptions sobjectdescribeoption;
+
+  public Schema.SObjectType sobjecttype;
+
+  public Boolean undeletable;
+
+  public Boolean updateable;
+
   public Boolean equals(Object obj) {}
 
   public String getAssociateParentEntity() {}
@@ -190,5 +262,7 @@ global class DescribeSObjectResult {
   public Boolean isUpdateable() {}
 
   public String toString() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ProductAttributeSetSummary {
 
+  global ProductAttributeSetSummary() {}
+
   /**
    * API name of the attribute set.
    */
@@ -17,5 +19,7 @@ global class ProductAttributeSetSummary {
    * Display label of the attribute set.
    */
   global String label;
+
+  global Object clone() {}
 
 }

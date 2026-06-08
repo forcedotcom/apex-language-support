@@ -3,6 +3,8 @@
  */
 global class Network {
 
+  global Network() {}
+
   /**
    * Returns a Page Reference to the default landing page for the Experience Cloud site. This is the first tab of the site.
    * @return String
@@ -58,5 +60,7 @@ global class Network {
    * @return Integer
    */
   public static Integer loadAllPackageDefaultNetworkPulseSettings() {}
+
+  global Object clone() {}
 
 }

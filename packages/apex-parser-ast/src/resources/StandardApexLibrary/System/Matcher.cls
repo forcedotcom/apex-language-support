@@ -3,6 +3,8 @@
  */
 global class Matcher {
 
+  global Matcher() {}
+
   /**
    * Returns the position after the last matched character.
    * @return Integer
@@ -177,5 +179,7 @@ global class Matcher {
    * @return Matcher object
    */
   public Matcher object useTransparentBounds(Boolean transparentBounds) {}
+
+  global Object clone() {}
 
 }

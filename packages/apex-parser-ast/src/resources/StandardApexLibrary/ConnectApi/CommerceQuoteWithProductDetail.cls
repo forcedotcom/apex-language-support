@@ -3,6 +3,8 @@
  */
 global class CommerceQuoteWithProductDetail {
 
+  global CommerceQuoteWithProductDetail() {}
+
   /**
    * Record field containing the quote record details.
    */
@@ -27,5 +29,7 @@ global class CommerceQuoteWithProductDetail {
    * Status of the quote.
    */
   global String status;
+
+  global Object clone() {}
 
 }

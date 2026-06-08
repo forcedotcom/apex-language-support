@@ -3,6 +3,8 @@
  */
 global class Photo {
 
+  global Photo() {}
+
   /**
    * A temporary URL to the large profile picture. The URL expires after 30 days and is available to unauthenticated users.
    */
@@ -37,5 +39,7 @@ global class Photo {
    * A resource that returns a Photo object: for example, /services/data/v67.0/chatter/users/005D0000001LL8OIAW/photo .
    */
   global String url;
+
+  global Object clone() {}
 
 }

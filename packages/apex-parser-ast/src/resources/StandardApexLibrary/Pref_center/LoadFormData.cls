@@ -23,4 +23,6 @@ global class LoadFormData {
 
   public void setTextValue(String fieldId, String value) {}
 
+  global Object clone() {}
+
 }

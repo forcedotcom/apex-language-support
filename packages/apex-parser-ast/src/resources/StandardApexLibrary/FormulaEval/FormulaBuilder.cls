@@ -3,6 +3,8 @@
  */
 global class FormulaBuilder {
 
+  global FormulaBuilder() {}
+
   public FormulaEval.FormulaInstance build() {}
 
   public formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
@@ -18,5 +20,7 @@ global class FormulaBuilder {
   public formulaeval.FormulaBuilder withType(System.Type contextType) {}
 
   public formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
+
+  global Object clone() {}
 
 }

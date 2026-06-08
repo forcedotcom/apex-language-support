@@ -3,6 +3,8 @@
  */
 global class System {
 
+  global System() {}
+
   public static void abortJob(String jobId) {}
 
   /**
@@ -268,5 +270,7 @@ global class System {
    * @return Date
    */
   public static Date today() {}
+
+  global Object clone() {}
 
 }

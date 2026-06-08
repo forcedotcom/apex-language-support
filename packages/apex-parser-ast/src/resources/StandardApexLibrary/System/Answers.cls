@@ -3,6 +3,8 @@
  */
 global class Answers {
 
+  global Answers() {}
+
   /**
    * Returns a list of similar questions based on the title of the specified question.
    * @param yourQuestion 
@@ -16,5 +18,7 @@ global class Answers {
    * @param replyId 
    */
   public static void setBestReply(String questionId, String replyId) {}
+
+  global Object clone() {}
 
 }

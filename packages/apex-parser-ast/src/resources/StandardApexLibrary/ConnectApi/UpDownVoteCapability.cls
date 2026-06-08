@@ -3,6 +3,8 @@
  */
 global class UpDownVoteCapability extends ConnectApi.FeedElementCapability {
 
+  global UpDownVoteCapability() {}
+
   /**
    * Number of downvotes.
    */
@@ -17,5 +19,7 @@ global class UpDownVoteCapability extends ConnectApi.FeedElementCapability {
    * Number of upvotes.
    */
   global Long upVoteCount;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Address {
 
+  global Address() {}
+
   /**
    * Returns the city field of this address.
    * @return String
@@ -70,5 +72,7 @@ global class Address {
    * @return String
    */
   public String getStreet() {}
+
+  global Object clone() {}
 
 }

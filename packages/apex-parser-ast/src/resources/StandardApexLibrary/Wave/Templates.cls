@@ -3,6 +3,8 @@
  */
 global class Templates {
 
+  global Templates() {}
+
   public static Map<String,Object> getTemplate(String templateIdOrApiName) {}
 
   public static Map<String,Object> getTemplateConfig(String templateIdOrApiName) {}
@@ -10,5 +12,7 @@ global class Templates {
   public static Map<String,Object> getTemplates(Wave.TemplatesSearchOptions options) {}
 
   public static Map<String,Object> getTemplates() {}
+
+  global Object clone() {}
 
 }

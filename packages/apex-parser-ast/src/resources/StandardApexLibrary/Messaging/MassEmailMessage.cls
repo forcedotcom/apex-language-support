@@ -3,6 +3,8 @@
  */
 global class MassEmailMessage {
 
+  global MassEmailMessage() {}
+
   /**
    * The description of the email.
    * @param description 
@@ -20,5 +22,7 @@ global class MassEmailMessage {
    * @param whatIds 
    */
   public void setWhatIds(ID[] whatIds) {}
+
+  global Object clone() {}
 
 }

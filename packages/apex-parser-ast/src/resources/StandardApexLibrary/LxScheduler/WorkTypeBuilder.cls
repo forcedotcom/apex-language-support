@@ -3,6 +3,8 @@
  */
 global class WorkTypeBuilder {
 
+  global WorkTypeBuilder() {}
+
   public lxscheduler.WorkType build() {}
 
   public lxscheduler.WorkTypeBuilder setBlockTimeAfterAppointmentInMinutes(Integer blockTimeAfterAppointmentInMinutes) {}
@@ -20,5 +22,7 @@ global class WorkTypeBuilder {
   public lxscheduler.WorkTypeBuilder setTimeFrameEndInMinutes(Integer timeFrameEndInMinutes) {}
 
   public lxscheduler.WorkTypeBuilder setTimeFrameStartInMinutes(Integer timeFrameStartInMinutes) {}
+
+  global Object clone() {}
 
 }

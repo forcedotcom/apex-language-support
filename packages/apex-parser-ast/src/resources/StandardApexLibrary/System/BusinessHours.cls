@@ -3,6 +3,8 @@
  */
 global class BusinessHours {
 
+  global BusinessHours() {}
+
   /**
    * Adds an interval of time from a start Datetime traversing business hours only. Returns the result Datetime in the local time zone.
    * @param businessHoursId 
@@ -45,5 +47,7 @@ global class BusinessHours {
    * @return Datetime
    */
   public static Datetime nextStartDate(String businessHoursId, Datetime targetDate) {}
+
+  global Object clone() {}
 
 }

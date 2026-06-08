@@ -3,6 +3,8 @@
  */
 global class Messaging {
 
+  global Messaging() {}
+
   /**
    * Use this method in your email service code to control how to parse and process forwarded or attached emails. Returns an instance of Messaging.InboundEmail from a stream of data that is in RFC822 format. The data stream can be a forwarded email in an attachment to an existing InboundEmail, or a stream from another source.
    * @param source An instance of Messaging.InboundEmail.BinaryAttachment whose MimeTypeSubtype is message/rfc822 or a Blob. If source is a Blob, then supply a byte array in RFC822 format.
@@ -71,5 +73,7 @@ global class Messaging {
    * @return Messaging.SingleEmailMessage
    */
   public static Messaging.SingleEmailMessage renderStoredEmailTemplate(String templateId, String whoId, String whatId, Messaging.AttachmentRetrievalOption attachmentRetrievalOption, Boolean updateEmailTemplateUsage) {}
+
+  global Object clone() {}
 
 }

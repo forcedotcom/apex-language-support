@@ -3,6 +3,8 @@
  */
 global class DuplicateError {
 
+  global DuplicateError() {}
+
   /**
    * Returns the details of a duplicate rule and duplicate records found by the duplicate rule.
    * @return Datacloud.DuplicateResult
@@ -26,5 +28,7 @@ global class DuplicateError {
    * @return StatusCode
    */
   public StatusCode getStatusCode() {}
+
+  global Object clone() {}
 
 }

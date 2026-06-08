@@ -3,6 +3,8 @@
  */
 global class CommunityPage {
 
+  global CommunityPage() {}
+
   /**
    * List of Experience Cloud sites the context user has access to.
    */
@@ -12,5 +14,7 @@ global class CommunityPage {
    * Total number of Experience Cloud sites.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

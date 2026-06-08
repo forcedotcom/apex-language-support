@@ -3,10 +3,14 @@
  */
 global class AsyncDeleteCallback {
 
+  global AsyncDeleteCallback() {}
+
   /**
    * Override this method to define actions that Salesforce executes after a remote Database.deleteAsync operation is completed. For example, based on the results of the remote operation, you can update custom object data or other data that's stored in the Salesforce org..
    * @param deleteResult The result of the asynchronous delete operation.
    */
   public void processDelete(Database.DeleteResult deleteResult) {}
+
+  global Object clone() {}
 
 }

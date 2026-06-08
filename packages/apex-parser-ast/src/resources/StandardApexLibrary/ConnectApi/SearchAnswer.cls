@@ -3,6 +3,8 @@
  */
 global class SearchAnswer {
 
+  global SearchAnswer() {}
+
   /**
    * AI generated response.
    */
@@ -22,5 +24,7 @@ global class SearchAnswer {
    * Record results for the natural language search.
    */
   global List < ConnectApi.SearchObject > searchObjects;
+
+  global Object clone() {}
 
 }

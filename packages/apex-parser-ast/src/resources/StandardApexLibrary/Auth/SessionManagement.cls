@@ -3,6 +3,8 @@
  */
 global class SessionManagement {
 
+  global SessionManagement() {}
+
   /**
    * Finishes the My Domain Login Discovery login process.
    * @param method Verification method used with My Domain Login Discovery.
@@ -121,5 +123,7 @@ global class SessionManagement {
    * @return System.PageReference
    */
   public static System.PageReference verifyDeviceFlow(String userCode, String startUrl) {}
+
+  global Object clone() {}
 
 }

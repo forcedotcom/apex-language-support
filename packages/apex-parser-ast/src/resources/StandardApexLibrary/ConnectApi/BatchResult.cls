@@ -3,6 +3,8 @@
  */
 global class BatchResult {
 
+  global BatchResult() {}
+
   public ConnectApi.ConnectApiException getError() {}
 
   public String getErrorMessage() {}
@@ -12,5 +14,7 @@ global class BatchResult {
   public Object getResult() {}
 
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

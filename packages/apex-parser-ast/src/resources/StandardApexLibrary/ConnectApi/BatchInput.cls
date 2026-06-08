@@ -3,4 +3,8 @@
  */
 global class BatchInput {
 
+  global BatchInput() {}
+
+  global Object clone() {}
+
 }

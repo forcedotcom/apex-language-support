@@ -3,6 +3,8 @@
  */
 global class MaintenanceInfo {
 
+  global MaintenanceInfo() {}
+
   /**
    * Description of the maintenance.
    */
@@ -47,5 +49,7 @@ global class MaintenanceInfo {
    * Scheduled start time of maintenance. null for Downtime maintenance type.
    */
   global Datetime scheduledStartMaintenanceTime;
+
+  global Object clone() {}
 
 }

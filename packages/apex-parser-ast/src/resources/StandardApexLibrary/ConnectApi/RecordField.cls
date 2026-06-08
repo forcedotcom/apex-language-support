@@ -3,4 +3,8 @@
  */
 global class RecordField extends ConnectApi.LabeledRecordField {
 
+  global RecordField() {}
+
+  global Object clone() {}
+
 }

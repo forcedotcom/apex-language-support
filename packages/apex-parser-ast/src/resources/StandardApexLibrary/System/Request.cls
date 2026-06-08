@@ -3,6 +3,8 @@
  */
 global class Request {
 
+  global Request() {}
+
   /**
    * Returns the current Request object that contains the request ID and Quiddity value.
    * @return System.Request
@@ -20,5 +22,7 @@ global class Request {
    * @return String
    */
   public String getRequestId() {}
+
+  global Object clone() {}
 
 }

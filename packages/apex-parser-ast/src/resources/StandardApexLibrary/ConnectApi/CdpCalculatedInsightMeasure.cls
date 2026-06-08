@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightMeasure {
 
+  global CdpCalculatedInsightMeasure() {}
+
   /**
    * API name of the measure.
    */
@@ -42,5 +44,7 @@ global class CdpCalculatedInsightMeasure {
    * Formula of the measure.
    */
   global String formula;
+
+  global Object clone() {}
 
 }

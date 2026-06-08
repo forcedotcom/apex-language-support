@@ -3,4 +3,8 @@
  */
 global class EmailMessages {
 
+  global EmailMessages() {}
+
+  global Object clone() {}
+
 }

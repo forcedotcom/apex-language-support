@@ -3,6 +3,8 @@
  */
 global class OCICreateReservationInputRepresentation {
 
+  global OCICreateReservationInputRepresentation() {}
+
   /**
    * A UUID that identifies the request. Use the action request IDs in response data to identify which requests succeeded or failed. If the OmnichannelInventoryService class's createReservation method is called, the actionRequestId is used for the reservationId.
    */
@@ -32,5 +34,7 @@ global class OCICreateReservationInputRepresentation {
    * The time at which to record the reservation. Example: 2020-07-24T21:13:00Z
    */
   global String reservationTime;
+
+  global Object clone() {}
 
 }

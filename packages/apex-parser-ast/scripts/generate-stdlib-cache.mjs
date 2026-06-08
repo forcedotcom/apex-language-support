@@ -49,10 +49,22 @@ const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
 // Classes in this set are excluded from StandardApexLibrary/System/ and loaded from builtins/ instead.
 // If a class is not in builtins/, do NOT add it here or it will disappear from the stdlib entirely.
 const BUILTIN_CLASSES = new Set([
-  'Blob.cls',    // hand-crafted: methods not fully covered in docs
-  'Integer.cls', // hand-crafted: conversion methods not in docs
-  'Long.cls',    // hand-crafted: conversion methods not in docs
-  'Object.cls',  // hand-crafted: equals(), hashCode(), toString()
+  'Blob.cls',           // hand-crafted: methods not fully covered in docs
+  'Integer.cls',        // hand-crafted: conversion methods not in docs
+  'Long.cls',           // hand-crafted: conversion methods not in docs
+  'Object.cls',         // hand-crafted: equals(), hashCode(), toString()
+  // System namespace overrides (scraper produces wrong output):
+  'Continuation.cls',   // hand-crafted: PascalCase fields (ContinuationMethod, Timeout)
+  'RestContext.cls',    // hand-crafted: request/response must be static fields
+  'RestResponse.cls',   // hand-crafted: statusCode casing and no-arg constructor
+]);
+
+// Builtin classes that live in a namespace OTHER than System.
+// Map of filename -> namespace. These are excluded from their respective namespace
+// in StandardApexLibrary and loaded from builtins/ with the correct namespace.
+const BUILTIN_NAMESPACED_CLASSES = new Map([
+  ['DMLOptions.cls',           'Database'], // hand-crafted: PascalCase fields, correct inner class structure
+  ['DescribeSObjectResult.cls','Schema'],   // hand-crafted: correct Map/List return types on getters
 ]);
 
 /**
@@ -129,10 +141,13 @@ function findAllClasses(sourceDir, builtinsDir) {
         // Directory name is the namespace
         processDir(fullPath, entry.name);
       } else if (entry.name.endsWith('.cls')) {
-        // Skip builtin classes in System/ folder
+        // Skip builtin classes in System/ folder or their declared namespace folder
         const isBuiltinInSystem =
           namespace === 'System' && BUILTIN_CLASSES.has(entry.name);
-        if (!isBuiltinInSystem) {
+        const builtinNamespace = BUILTIN_NAMESPACED_CLASSES.get(entry.name);
+        const isBuiltinInNamespace =
+          builtinNamespace !== undefined && namespace === builtinNamespace;
+        if (!isBuiltinInSystem && !isBuiltinInNamespace) {
           const ns = namespace || 'System';
           if (!namespaces.has(ns)) {
             namespaces.set(ns, []);
@@ -149,7 +164,7 @@ function findAllClasses(sourceDir, builtinsDir) {
 
   processDir(sourceDir);
 
-  // Add builtins to System namespace
+  // Add builtins to their respective namespaces
   if (existsSync(builtinsDir)) {
     if (!namespaces.has('System')) {
       namespaces.set('System', []);
@@ -157,9 +172,14 @@ function findAllClasses(sourceDir, builtinsDir) {
     const builtinEntries = readdirSync(builtinsDir, { withFileTypes: true });
     for (const entry of builtinEntries) {
       if (entry.isFile() && entry.name.endsWith('.cls')) {
-        namespaces.get('System').push({
+        // Namespaced builtins go into their declared namespace; all others go into System
+        const targetNs = BUILTIN_NAMESPACED_CLASSES.get(entry.name) ?? 'System';
+        if (!namespaces.has(targetNs)) {
+          namespaces.set(targetNs, []);
+        }
+        namespaces.get(targetNs).push({
           path: join(builtinsDir, entry.name),
-          namespace: 'System',
+          namespace: targetNs,
           className: entry.name.replace('.cls', ''),
         });
       }

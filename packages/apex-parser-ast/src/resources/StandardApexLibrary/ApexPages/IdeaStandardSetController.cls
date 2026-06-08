@@ -3,10 +3,14 @@
  */
 global class IdeaStandardSetController {
 
+  global IdeaStandardSetController() {}
+
   /**
    * Returns the list of read-only ideas in the current page set.
    * @return Idea[]
    */
   public Idea[] getIdeaList() {}
+
+  global Object clone() {}
 
 }

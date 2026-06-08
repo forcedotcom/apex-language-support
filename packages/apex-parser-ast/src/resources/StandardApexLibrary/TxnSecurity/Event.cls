@@ -3,20 +3,24 @@
  */
 global class Event {
 
-  global String action;
+  global Event() {}
 
-  global Map data;
+  public String action;
 
-  global String entityId;
+  public Map<String,String> data;
 
-  global String entityName;
+  public String entityId;
 
-  global String organizationId;
+  public String entityName;
 
-  global String resourceType;
+  public String organizationId;
 
-  global Datetime timeStamp;
+  public String resourceType;
 
-  global String userId;
+  public Datetime timeStamp;
+
+  public String userId;
+
+  global Object clone() {}
 
 }

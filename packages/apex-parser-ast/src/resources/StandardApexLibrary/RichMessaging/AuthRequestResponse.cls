@@ -11,4 +11,6 @@ global class AuthRequestResponse {
 
   public String getContextRecordId() {}
 
+  global Object clone() {}
+
 }

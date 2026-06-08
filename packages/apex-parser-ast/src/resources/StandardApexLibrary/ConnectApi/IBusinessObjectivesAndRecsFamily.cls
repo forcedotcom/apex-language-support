@@ -3,6 +3,8 @@
  */
 global class IBusinessObjectivesAndRecsFamily {
 
+  global IBusinessObjectivesAndRecsFamily() {}
+
   public static ConnectApi.RecRepresentation createRecommendations(ConnectApi.BusObjRecommendationInputRepresentation busObjRecommendationInput) {}
 
   public static ConnectApi.BusinessObjectivesSummaryOutputRepresentation getBusinessObjectives(String webstoreId, String channelId, String kpiName, Boolean includeRecSummary, Boolean includeInsightSummary) {}
@@ -14,5 +16,7 @@ global class IBusinessObjectivesAndRecsFamily {
   public static ConnectApi.RecRepresentation patchRecommendations(ConnectApi.BusObjRecommendationInputRepresentation busObjRecommendationInput) {}
 
   public static ConnectApi.RecRepresentation updateRecommendations(ConnectApi.BusObjRecommendationInputRepresentation busObjRecommendationInput) {}
+
+  global Object clone() {}
 
 }

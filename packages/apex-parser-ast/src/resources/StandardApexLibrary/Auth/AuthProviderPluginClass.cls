@@ -3,6 +3,8 @@
  */
 global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
 
+  global AuthProviderPluginClass() {}
+
   /**
    * Returns the custom metadata type API name for a custom OAuth-based authentication provider for single sign-on to Salesforce.
    * @return String
@@ -40,5 +42,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * @return Auth.OAuthRefreshResult
    */
   public Auth.OAuthRefreshResult refresh(Map<String,String> authProviderConfiguration, String refreshToken) {}
+
+  global Object clone() {}
 
 }

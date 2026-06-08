@@ -7,4 +7,12 @@ global class OAuthRefreshResult {
 
   public OAuthRefreshResult(String accessToken, String refreshToken) {}
 
+  public String accessToken;
+
+  public String error;
+
+  public String refreshToken;
+
+  global Object clone() {}
+
 }

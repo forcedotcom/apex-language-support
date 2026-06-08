@@ -3,6 +3,8 @@
  */
 global class CaptureRequest extends ConnectApi.BaseRequest {
 
+  global CaptureRequest() {}
+
   /**
    * ID of the account linked to the capture request.
    */
@@ -37,5 +39,7 @@ global class CaptureRequest extends ConnectApi.BaseRequest {
    * Details about the payment group record associated with the payment request.
    */
   global ConnectApi.PaymentGroupRequest paymentGroup;
+
+  global Object clone() {}
 
 }

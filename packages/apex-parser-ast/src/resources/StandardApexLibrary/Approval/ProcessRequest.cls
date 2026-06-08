@@ -3,6 +3,8 @@
  */
 global class ProcessRequest {
 
+  global ProcessRequest() {}
+
   /**
    * Returns the comments that have been added previously to the approval request.
    * @return String
@@ -26,5 +28,7 @@ global class ProcessRequest {
    * @param nextApproverIds Must be a single-entry list.
    */
   public void setNextApproverIds(ID[] nextApproverIds) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ProductCategoryData {
 
+  global ProductCategoryData() {}
+
   /**
    * Description of the category.
    */
@@ -22,5 +24,7 @@ global class ProductCategoryData {
    * SEO-friendly URL slug of the category.
    */
   global String urlSlug;
+
+  global Object clone() {}
 
 }

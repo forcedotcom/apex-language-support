@@ -3,6 +3,8 @@
  */
 global class Database {
 
+  global Database() {}
+
   public static Database.LeadConvertResult convertLead(Database.LeadConvert leadToConvert, System.AccessLevel accessLevel) {}
 
   public static List<Database.LeadConvertResult> convertLead(List<Database.LeadConvert> leadConverts, System.AccessLevel accessLevel) {}
@@ -930,5 +932,7 @@ global class Database {
    * @return Database.SaveResult
    */
   public static Database.SaveResult updateImmediate(SObject sobject, System.AccessLevel accessLevel) {}
+
+  global Object clone() {}
 
 }

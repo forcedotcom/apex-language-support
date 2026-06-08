@@ -58,4 +58,6 @@ global class StandardController {
    */
   public System.PageReference view() {}
 
+  global Object clone() {}
+
 }

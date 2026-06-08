@@ -3,6 +3,8 @@
  */
 global class ZipEntry {
 
+  global ZipEntry() {}
+
   public Boolean equals(Object obj) {}
 
   public Integer hashcode() {}
@@ -32,5 +34,7 @@ global class ZipEntry {
   public Compression.ZipEntry setMethod(Compression.Method method) {}
 
   public string toString() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Blob {
 
+  global Blob() {}
+
   /**
    * Returns the number of bytes in the Blob.
    * @return Integer
@@ -28,5 +30,7 @@ global class Blob {
    * @return Blob
    */
   public static Blob valueOf(String stringToBlob) {}
+
+  global Object clone() {}
 
 }

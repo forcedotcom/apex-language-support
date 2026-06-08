@@ -3,6 +3,8 @@
  */
 global class RouteLocationOutputRepresentation {
 
+  global RouteLocationOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -22,5 +24,7 @@ global class RouteLocationOutputRepresentation {
    * Indicates whether the request succeeded.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

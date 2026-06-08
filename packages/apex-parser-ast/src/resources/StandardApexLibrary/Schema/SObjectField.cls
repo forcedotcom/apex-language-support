@@ -3,6 +3,8 @@
  */
 global class SObjectField {
 
+  global SObjectField() {}
+
   /**
    * Returns the describe field result for this field.
    * @return Schema.DescribeFieldResult
@@ -15,5 +17,7 @@ global class SObjectField {
    * @return Schema.DescribeFieldResult
    */
   public Schema.DescribeFieldResult getDescribe(Object options) {}
+
+  global Object clone() {}
 
 }

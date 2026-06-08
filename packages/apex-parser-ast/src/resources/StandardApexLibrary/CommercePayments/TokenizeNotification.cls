@@ -3,6 +3,8 @@
  */
 global class TokenizeNotification {
 
+  global TokenizeNotification() {}
+
   public void setAmount(Double amount) {}
 
   public void setGatewayAvsCode(String gatewayAvsCode) {}
@@ -28,5 +30,7 @@ global class TokenizeNotification {
   public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
 
   public void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
 
 }

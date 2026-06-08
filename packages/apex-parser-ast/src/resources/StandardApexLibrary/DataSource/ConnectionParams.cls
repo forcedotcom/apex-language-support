@@ -3,20 +3,24 @@
  */
 global class ConnectionParams {
 
-  global String certificateName;
+  global ConnectionParams() {}
 
-  global String endpoint;
+  public String certificateName;
 
-  global String oauthToken;
+  public String endpoint;
 
-  global String password;
+  public String oauthToken;
 
-  global DataSource.IdentityType principalType;
+  public String password;
 
-  global DataSource.AuthenticationProtocol protocol;
+  public DataSource.IdentityType principalType;
 
-  global String repository;
+  public DataSource.AuthenticationProtocol protocol;
 
-  global String username;
+  public String repository;
+
+  public String username;
+
+  global Object clone() {}
 
 }

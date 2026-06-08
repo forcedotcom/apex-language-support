@@ -3,6 +3,8 @@
  */
 global class RenderEmailTemplateError {
 
+  global RenderEmailTemplateError() {}
+
   /**
    * Returns the name of the merge field in the error.
    * @return String
@@ -26,5 +28,7 @@ global class RenderEmailTemplateError {
    * @return System.StatusCode
    */
   public System.StatusCode getStatusCode() {}
+
+  global Object clone() {}
 
 }

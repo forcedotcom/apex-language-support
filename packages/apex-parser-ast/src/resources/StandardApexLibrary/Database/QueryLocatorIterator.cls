@@ -3,6 +3,8 @@
  */
 global class QueryLocatorIterator {
 
+  global QueryLocatorIterator() {}
+
   /**
    * Returns true if there are one or more records remaining in the collection; otherwise, returns false .
    * @return Boolean
@@ -14,5 +16,7 @@ global class QueryLocatorIterator {
    * @return sObject
    */
   public sObject next() {}
+
+  global Object clone() {}
 
 }

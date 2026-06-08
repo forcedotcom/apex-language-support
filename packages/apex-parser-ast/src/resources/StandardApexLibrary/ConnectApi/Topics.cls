@@ -3,6 +3,8 @@
  */
 global class Topics {
 
+  global Topics() {}
+
   public static ConnectApi.Topic assignTopic(String communityId, String recordId, String topicId) {}
 
   public static ConnectApi.Topic assignTopicByName(String communityId, String recordId, String topicName) {}
@@ -88,5 +90,7 @@ global class Topics {
   public static void setTestGetTrendingTopics(String communityId, ConnectApi.TopicPage result) {}
 
   public static void setTestGetTrendingTopics(String communityId, Integer maxResults, ConnectApi.TopicPage result) {}
+
+  global Object clone() {}
 
 }

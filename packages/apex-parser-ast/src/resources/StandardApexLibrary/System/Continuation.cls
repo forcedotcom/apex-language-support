@@ -5,6 +5,12 @@ global class Continuation {
 
   public Continuation(Integer timeout) {}
 
+  public String continuationMethod;
+
+  public Integer timeout;
+
+  public Object state;
+
   /**
    * Adds the HTTP request for the callout that is associated with this continuation.
    * @param request The HTTP request to be sent to the external service by this continuation.
@@ -24,5 +30,7 @@ global class Continuation {
    * @return HttpResponse
    */
   public static HttpResponse getResponse(String requestLabel) {}
+
+  global Object clone() {}
 
 }

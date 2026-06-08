@@ -3,6 +3,8 @@
  */
 global class UpsertResult {
 
+  global UpsertResult() {}
+
   /**
    * If an error occurred, returns an array of one or more database error objects providing the error code and description. If no error occurred, returns an empty set.
    * @return Database.Error[]
@@ -26,5 +28,7 @@ global class UpsertResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

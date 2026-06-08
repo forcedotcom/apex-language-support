@@ -3,6 +3,8 @@
  */
 global class RoutingProductInputRepresentation {
 
+  global RoutingProductInputRepresentation() {}
+
   /**
    * The quantity of the requested product. Enter a value greater than 0.
    */
@@ -12,5 +14,7 @@ global class RoutingProductInputRepresentation {
    * The product's stock keeping unit (SKU).
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

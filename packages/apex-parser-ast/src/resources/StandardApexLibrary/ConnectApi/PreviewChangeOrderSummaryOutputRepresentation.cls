@@ -3,6 +3,8 @@
  */
 global class PreviewChangeOrderSummaryOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global PreviewChangeOrderSummaryOutputRepresentation() {}
+
   /**
    * The expected financial values for the proposed change Order Summary action.
    */
@@ -12,5 +14,7 @@ global class PreviewChangeOrderSummaryOutputRepresentation extends ConnectApi.Ba
    * The ID of the OrderSummary.
    */
   global String orderSummaryId;
+
+  global Object clone() {}
 
 }

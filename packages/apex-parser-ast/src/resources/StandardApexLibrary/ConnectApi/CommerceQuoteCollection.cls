@@ -3,6 +3,8 @@
  */
 global class CommerceQuoteCollection {
 
+  global CommerceQuoteCollection() {}
+
   /**
    * Number of quotes in the current page.
    */
@@ -47,5 +49,7 @@ global class CommerceQuoteCollection {
    * Collection of quotes associated with an user account.
    */
   global List < ConnectApi.CommerceQuoteDetail > quotes;
+
+  global Object clone() {}
 
 }

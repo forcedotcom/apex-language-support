@@ -3,6 +3,8 @@
  */
 global class PostAuthorizationResponse extends AbstractTransactionResponse {
 
+  global PostAuthorizationResponse() {}
+
   global void setAlternativePaymentMethodResponse(commercepayments.AlternativePaymentMethodResponse paymentMethodResponse) {}
 
   public void setAmount(Double amount) {}
@@ -32,5 +34,7 @@ global class PostAuthorizationResponse extends AbstractTransactionResponse {
   global void setPaymentMethodTokenizationResponse(commercepayments.PaymentMethodTokenizationResponse paymentMethodTokenizationResponse) {}
 
   public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

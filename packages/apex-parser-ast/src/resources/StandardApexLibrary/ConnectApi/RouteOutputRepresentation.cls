@@ -3,6 +3,8 @@
  */
 global class RouteOutputRepresentation {
 
+  global RouteOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -22,5 +24,7 @@ global class RouteOutputRepresentation {
    * The aggregated score for this route.
    */
   global Double totalScore;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class UserProvisioningLog {
 
+  global UserProvisioningLog() {}
+
   /**
    * Writes a specific message, such as an error message, to monitor the progress of a user provisioning request.
    * @param userProvisioningRequestId A unique identifier for the user provisioning request.
@@ -27,5 +29,7 @@ global class UserProvisioningLog {
    * @param details The text for the message.
    */
   public void log(String userProvisioningRequestId, String externalUserId, String externalUserName, String userId, String details) {}
+
+  global Object clone() {}
 
 }

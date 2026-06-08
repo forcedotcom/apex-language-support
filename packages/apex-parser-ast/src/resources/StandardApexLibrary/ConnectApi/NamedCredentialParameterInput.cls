@@ -3,6 +3,8 @@
  */
 global class NamedCredentialParameterInput {
 
+  global NamedCredentialParameterInput() {}
+
   /**
    * ID of the parameter.
    */
@@ -27,5 +29,7 @@ global class NamedCredentialParameterInput {
    * Value of the parameter.
    */
   global String parameterValue;
+
+  global Object clone() {}
 
 }

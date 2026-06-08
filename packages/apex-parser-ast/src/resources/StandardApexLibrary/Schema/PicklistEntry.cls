@@ -3,6 +3,8 @@
  */
 global class PicklistEntry {
 
+  global PicklistEntry() {}
+
   /**
    * Returns the display name of this item in the picklist.
    * @return String
@@ -26,5 +28,7 @@ global class PicklistEntry {
    * @return Boolean
    */
   public Boolean isDefaultValue() {}
+
+  global Object clone() {}
 
 }

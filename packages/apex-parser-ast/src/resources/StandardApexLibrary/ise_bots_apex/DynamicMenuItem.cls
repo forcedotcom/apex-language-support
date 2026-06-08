@@ -3,24 +3,28 @@
  */
 global class DynamicMenuItem {
 
-  global String EntityId;
+  global DynamicMenuItem() {}
 
-  global String EntityIdValue;
+  public String EntityId;
 
-  global String EntityName;
+  public String EntityIdValue;
 
-  global String EntityNameValue;
+  public String EntityName;
 
-  global String Label;
+  public String EntityNameValue;
 
-  global String LabelValue;
+  public String Label;
 
-  global String SummaryTextWithFormula;
+  public String LabelValue;
 
-  global String SummaryTextWithFormulaValue;
+  public String SummaryTextWithFormula;
 
-  global Date sortByDate;
+  public String SummaryTextWithFormulaValue;
 
-  global Date sortByDateValue;
+  public Date sortByDate;
+
+  public Date sortByDateValue;
+
+  global Object clone() {}
 
 }

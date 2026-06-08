@@ -3,6 +3,8 @@
  */
 global class DeliveryRoutingEngineInputRepresentation {
 
+  global DeliveryRoutingEngineInputRepresentation() {}
+
   /**
    * The destination address for delivery. Use a valid address format. Coordinates: latitude and longitude Postal: country code and postal code Geographic: country code, state, and city
    */
@@ -27,5 +29,7 @@ global class DeliveryRoutingEngineInputRepresentation {
    * The list of products to route. Enter a value between 1 to 2,000 items.
    */
   global List < ConnectApi.RoutingProductInputRepresentation > products;
+
+  global Object clone() {}
 
 }

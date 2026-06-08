@@ -3,4 +3,8 @@
  */
 global class BinaryInput {
 
+  global BinaryInput() {}
+
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class CdpSegment {
 
+  global CdpSegment() {}
+
   public static ConnectApi.CdpSegmentOutput createSegment(ConnectApi.CdpSegmentInput input) {}
 
   public static ConnectApi.CdpSegmentOutput createSegment(ConnectApi.CdpSegmentInput input, String dataspace) {}
@@ -30,5 +32,7 @@ global class CdpSegment {
   public static ConnectApi.CdpSegmentContainerOutput getSegmentsFilteredPaginated(Integer batchSize, Integer offset, String orderBy, String dataspace, String filters) {}
 
   public static ConnectApi.CdpSegmentOutput updateSegment(String segmentApiName, ConnectApi.CdpSegmentInput input) {}
+
+  global Object clone() {}
 
 }

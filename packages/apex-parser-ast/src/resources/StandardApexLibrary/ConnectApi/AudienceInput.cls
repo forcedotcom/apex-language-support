@@ -3,6 +3,8 @@
  */
 global class AudienceInput {
 
+  global AudienceInput() {}
+
   /**
    * List of audience criteria to update or add. An audience can have up to 100 criteria.
    */
@@ -22,5 +24,7 @@ global class AudienceInput {
    * Name of the audience.
    */
   global String name;
+
+  global Object clone() {}
 
 }

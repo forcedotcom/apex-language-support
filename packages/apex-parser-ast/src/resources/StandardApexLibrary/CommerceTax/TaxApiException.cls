@@ -7,4 +7,6 @@ global class TaxApiException {
 
   global TaxApiException(Exception var1) {}
 
+  global Object clone() {}
+
 }

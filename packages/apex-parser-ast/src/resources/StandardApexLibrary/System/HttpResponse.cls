@@ -3,6 +3,8 @@
  */
 global class HttpResponse {
 
+  global HttpResponse() {}
+
   /**
    * Retrieves the body returned in the response.
    * @return String
@@ -88,5 +90,7 @@ global class HttpResponse {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }

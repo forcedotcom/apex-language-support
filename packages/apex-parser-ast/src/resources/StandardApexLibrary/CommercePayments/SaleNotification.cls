@@ -3,6 +3,8 @@
  */
 global class SaleNotification {
 
+  global SaleNotification() {}
+
   public void setAmount(Double amount) {}
 
   public void setGatewayAvsCode(String gatewayAvsCode) {}
@@ -28,5 +30,7 @@ global class SaleNotification {
   public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
 
   public void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
 
 }

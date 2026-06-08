@@ -11,4 +11,6 @@ global class Resolution {
 
   public CommerceExtension.ResolutionStates getResolutionState() {}
 
+  global Object clone() {}
+
 }

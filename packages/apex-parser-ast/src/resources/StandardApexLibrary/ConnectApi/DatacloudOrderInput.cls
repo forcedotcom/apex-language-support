@@ -3,6 +3,8 @@
  */
 global class DatacloudOrderInput {
 
+  global DatacloudOrderInput() {}
+
   /**
    * A comma-separated list of identification numbers for the companies to be purchased. You can’t include any contact IDs or your purchase fails.
    */
@@ -17,5 +19,7 @@ global class DatacloudOrderInput {
    * Indicates the Data.com user type to be used. There are two user types. Monthly (default) Listpool
    */
   global ConnectDatacloudUserTypeEnum userType;
+
+  global Object clone() {}
 
 }

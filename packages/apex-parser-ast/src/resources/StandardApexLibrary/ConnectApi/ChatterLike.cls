@@ -3,6 +3,8 @@
  */
 global class ChatterLike {
 
+  global ChatterLike() {}
+
   /**
    * Like’s 18-character ID
    */
@@ -22,5 +24,7 @@ global class ChatterLike {
    * Like’s creator
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

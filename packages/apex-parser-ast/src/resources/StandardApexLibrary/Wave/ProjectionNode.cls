@@ -3,6 +3,8 @@
  */
 global class ProjectionNode {
 
+  global ProjectionNode() {}
+
   /**
    * Returns the sum of a numeric field.
    * @return wave.ProjectionNode
@@ -45,5 +47,7 @@ global class ProjectionNode {
    * @return wave.ProjectionNode
    */
   public wave.ProjectionNode alias(String name) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommerceWishlist {
 
+  global CommerceWishlist() {}
+
   public static ConnectApi.WishlistItem addItemToWishlist(String webstoreId, String wishlistId, ConnectApi.WishlistItemInput wishlistItemInput) {}
 
   public static ConnectApi.WishlistItem addItemToWishlist(String webstoreId, String effectiveAccountId, String wishlistId, ConnectApi.WishlistItemInput wishlistItemInput) {}
@@ -42,5 +44,7 @@ global class CommerceWishlist {
   public static ConnectApi.WishlistSummary updateWishlist(String webstoreId, String wishlistId, ConnectApi.WishlistUpdateInput wishlistUpdateInput) {}
 
   public static ConnectApi.WishlistSummary updateWishlist(String webstoreId, String effectiveAccountId, String wishlistId, ConnectApi.WishlistUpdateInput wishlistUpdateInput) {}
+
+  global Object clone() {}
 
 }

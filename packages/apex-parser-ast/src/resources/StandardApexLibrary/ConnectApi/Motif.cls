@@ -3,6 +3,8 @@
  */
 global class Motif {
 
+  global Motif() {}
+
   /**
    * A hex value representing the base color of the record type, or null .
    */
@@ -27,5 +29,7 @@ global class Motif {
    * An icon in SVG format indicating the record type, or null if the icon doesn’t exist.
    */
   global String svgIconUrl;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class File {
 
+  global File() {}
+
   global String getAppId() {}
 
   global String getAppName() {}
@@ -651,5 +653,7 @@ global class File {
   global Slack.FilesSharedPublicURLRequest build() {}
 
   global Slack.FilesSharedPublicURLRequest.Builder file(String file) {}
+
+  global Object clone() {}
 
 }

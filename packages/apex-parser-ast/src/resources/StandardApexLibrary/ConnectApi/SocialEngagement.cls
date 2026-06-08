@@ -3,6 +3,8 @@
  */
 global class SocialEngagement {
 
+  global SocialEngagement() {}
+
   public static ConnectApi.DeleteSocialPostIntent deleteSocialPost(String socialPostId, String socialAccountId) {}
 
   public static ConnectApi.FollowSocialPersonaIntent followSocialPersona(String socialPersonaId, String socialAccountId) {}
@@ -34,5 +36,7 @@ global class SocialEngagement {
   public static void unhideSocialPost(String socialPostId, String socialAccountId) {}
 
   public static void unlikeSocialPost(String socialPostId, String socialAccountId) {}
+
+  global Object clone() {}
 
 }

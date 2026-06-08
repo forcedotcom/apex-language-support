@@ -3,6 +3,10 @@
  */
 global class OptimizationFiles {
 
+  global OptimizationFiles() {}
+
   public static ConnectApi.FetchFilesOutputRepresentation FetchOptimizationFiles(ConnectApi.fetchFilesInput fetchFilesInput) {}
+
+  global Object clone() {}
 
 }

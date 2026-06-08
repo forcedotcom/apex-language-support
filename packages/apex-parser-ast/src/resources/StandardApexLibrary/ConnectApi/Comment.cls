@@ -3,6 +3,8 @@
  */
 global class Comment {
 
+  global Comment() {}
+
   /**
    * If the comment contains an attachment, property value is ContentAttachment . If the comment does not contain an attachment, it is null . Important As of version 32.0, use the capabilities property.
    */
@@ -102,5 +104,7 @@ global class Comment {
    * Information about the comment author.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

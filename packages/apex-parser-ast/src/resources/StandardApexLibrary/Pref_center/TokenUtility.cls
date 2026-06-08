@@ -3,6 +3,8 @@
  */
 global class TokenUtility {
 
+  global TokenUtility() {}
+
   public static String generateToken(String tokenValue, pref_center.TokenType tokenType) {}
 
   public static String generateToken(String tokenValue) {}
@@ -10,5 +12,7 @@ global class TokenUtility {
   public static Map<String,String> generateTokens(List<String> tokenValues, pref_center.TokenType tokenType) {}
 
   public static Map<String,String> generateTokens(List<String> tokenValues) {}
+
+  global Object clone() {}
 
 }

@@ -7,6 +7,18 @@ global class TokenValidationResult {
 
   public TokenValidationResult(Boolean valid) {}
 
+  public String customErrorMsg;
+
+  public Object data;
+
+  public Boolean isValid;
+
+  public String token;
+
+  public Auth.OAuth2TokenExchangeType tokenType;
+
+  public Auth.UserData userData;
+
   public String getCustomErrorMessage() {}
 
   public Object getData() {}
@@ -16,5 +28,7 @@ global class TokenValidationResult {
   public Auth.OAuth2TokenExchangeType getTokenType() {}
 
   public Auth.UserData getUserData() {}
+
+  global Object clone() {}
 
 }

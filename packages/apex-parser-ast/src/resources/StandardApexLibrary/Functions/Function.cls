@@ -3,6 +3,8 @@
  */
 global class Function {
 
+  global Function() {}
+
   /**
    * Returns the Function instance for the named Function and Project. The Function must be properly deployed and have appropriate permissions to work with the org running your Apex code.
    * @param functionName The name of the Salesforce Function and the Functions Project that the Function is part of. The format of the parameter string is “ project name . function name ”. For example, to retrieve the generatepdf Function in the Onboarding Function Project, use Onboarding.generatepdf . The Function and Project must be deployed to a compute environment connected to the org.
@@ -32,5 +34,7 @@ global class Function {
    * @return functions.FunctionInvocation
    */
   public functions.FunctionInvocation invoke(String payload) {}
+
+  global Object clone() {}
 
 }

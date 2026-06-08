@@ -3,6 +3,8 @@
  */
 global class DescribeFieldResult {
 
+  global DescribeFieldResult() {}
+
   /**
    * For variable-length fields (including binary fields), returns the maximum size of the field, in bytes.
    * @return Integer
@@ -304,5 +306,7 @@ global class DescribeFieldResult {
    * @return Boolean
    */
   public Boolean isWriteRequiresMasterRead() {}
+
+  global Object clone() {}
 
 }

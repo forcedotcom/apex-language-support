@@ -3,6 +3,8 @@
  */
 global class Type {
 
+  global Type() {}
+
   /**
    * Returns true if the specified type is equal to the current type; otherwise, returns false .
    * @param typeToCompare The type to compare with the current type.
@@ -55,5 +57,7 @@ global class Type {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }

@@ -5,6 +5,18 @@ global class AuthorizationRequest {
 
   global AuthorizationRequest(Double amount) {}
 
+  global String accountId;
+
+  global Double amount;
+
+  global String comments;
+
+  global String currencyIsoCode;
+
+  global AuthApiPaymentMethodRequest paymentMethod;
+
+  public Map<String,String> paymentMethodData;
+
   /**
    * Maintains the integrity of lists of type AuthorizationRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -23,5 +35,7 @@ global class AuthorizationRequest {
    * @return String
    */
   global String toString() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Assert {
 
+  global Assert() {}
+
   /**
    * Asserts that the first two arguments are the same.
    * @param expected Expected value.
@@ -125,5 +127,7 @@ global class Assert {
    * @param condition Condition you’re checking to determine if it’s true .
    */
   public static void isTrue(Boolean condition) {}
+
+  global Object clone() {}
 
 }

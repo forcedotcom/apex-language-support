@@ -3,6 +3,8 @@
  */
 global class ProductMedia {
 
+  global ProductMedia() {}
+
   /**
    * Alternative text for the product media.
    */
@@ -42,5 +44,7 @@ global class ProductMedia {
    * URL of the product media.
    */
   global String url;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class AssignedResourcesInput {
 
+  global AssignedResourcesInput() {}
+
   /**
    * Use to add values to any of the fields, including custom fields.
    */
@@ -22,5 +24,7 @@ global class AssignedResourcesInput {
    * The ID of the service resource assigned to the service appointment.
    */
   global String serviceResourceId;
+
+  global Object clone() {}
 
 }

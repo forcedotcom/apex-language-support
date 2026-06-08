@@ -3,6 +3,8 @@
  */
 global class Http {
 
+  global Http() {}
+
   /**
    * Sends an HttpRequest and returns the response.
    * @param request 
@@ -15,5 +17,7 @@ global class Http {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }

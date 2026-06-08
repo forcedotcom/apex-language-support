@@ -3,8 +3,12 @@
  */
 global class Cursor {
 
+  global Cursor() {}
+
   public static List<SObject> fetch(Integer position, Integer count) {}
 
   public static Integer getNumRecords() {}
+
+  global Object clone() {}
 
 }

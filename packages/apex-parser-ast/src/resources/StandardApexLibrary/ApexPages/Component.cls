@@ -3,10 +3,14 @@
  */
 global class Component {
 
-  global List childComponents;
+  global Component() {}
 
-  global String expressions;
+  public List <ApexPages.Component> childComponents;
 
-  global String facets;
+  public String expressions;
+
+  public String facets;
+
+  global Object clone() {}
 
 }

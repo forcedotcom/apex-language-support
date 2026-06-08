@@ -3,6 +3,8 @@
  */
 global class FieldSet {
 
+  global FieldSet() {}
+
   /**
    * Returns the field set’s description.
    * @return String
@@ -38,5 +40,7 @@ global class FieldSet {
    * @return Schema.SObjectType
    */
   public Schema.SObjectType getSObjectType() {}
+
+  global Object clone() {}
 
 }

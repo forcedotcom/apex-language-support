@@ -3,6 +3,8 @@
  */
 global class GatewayLogResponse {
 
+  global GatewayLogResponse() {}
+
   /**
    * Date when the gateway log was created.
    */
@@ -22,5 +24,7 @@ global class GatewayLogResponse {
    * Gateway interaction status. It can be SUCCESS, FAILED, or TIMEOUT.
    */
   global String interactionStatus;
+
+  global Object clone() {}
 
 }

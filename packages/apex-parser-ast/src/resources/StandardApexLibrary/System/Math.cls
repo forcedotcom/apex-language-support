@@ -3,6 +3,8 @@
  */
 global class Math {
 
+  global Math() {}
+
   /**
    * Returns the absolute value of the specified Decimal.
    * @param decimalValue 
@@ -420,5 +422,7 @@ global class Math {
    * @return Double
    */
   public static Double tanh(Double doubleAngle) {}
+
+  global Object clone() {}
 
 }

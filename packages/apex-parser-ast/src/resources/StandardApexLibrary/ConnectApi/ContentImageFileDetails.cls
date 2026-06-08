@@ -3,6 +3,8 @@
  */
 global class ContentImageFileDetails {
 
+  global ContentImageFileDetails() {}
+
   /**
    * Image’s height in pixels.
    */
@@ -22,5 +24,7 @@ global class ContentImageFileDetails {
    * Image’s width in pixels.
    */
   global Integer width;
+
+  global Object clone() {}
 
 }

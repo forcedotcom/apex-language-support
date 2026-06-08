@@ -3,6 +3,8 @@
  */
 global class SearchFacet {
 
+  global SearchFacet() {}
+
   /**
    * Search attribute type. Values are: Custom PricebookEntry ProductAttribute ProductCategory Product2 Standard
    */
@@ -32,5 +34,7 @@ global class SearchFacet {
    * Developer name of the attribute. In version 52.0 and later, the ID of the attribute isn’t supported.
    */
   global String nameOrId;
+
+  global Object clone() {}
 
 }

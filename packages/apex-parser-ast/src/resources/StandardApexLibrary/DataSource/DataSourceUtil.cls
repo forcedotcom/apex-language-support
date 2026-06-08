@@ -3,6 +3,8 @@
  */
 global class DataSourceUtil {
 
+  global DataSourceUtil() {}
+
   /**
    * Logs the error message in the debug log.
    * @param message The error message.
@@ -14,5 +16,7 @@ global class DataSourceUtil {
    * @param message Error message to display to the user.
    */
   public void throwException(String message) {}
+
+  global Object clone() {}
 
 }

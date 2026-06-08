@@ -3,6 +3,10 @@
  */
 global class CdpAudienceDMO {
 
+  global CdpAudienceDMO() {}
+
   public static ConnectApi.AudienceDMOCollection getActivationData(String activationId) {}
+
+  global Object clone() {}
 
 }

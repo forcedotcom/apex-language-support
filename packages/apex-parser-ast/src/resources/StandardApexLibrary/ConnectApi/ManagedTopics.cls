@@ -3,6 +3,8 @@
  */
 global class ManagedTopics {
 
+  global ManagedTopics() {}
+
   public static ConnectApi.ManagedTopic createManagedTopic(String communityId, String recordId, ConnectApi.ManagedTopicType managedTopicType) {}
 
   public static ConnectApi.ManagedTopic createManagedTopic(String communityId, String recordId, ConnectApi.ManagedTopicType managedTopicType, String parentId) {}
@@ -30,5 +32,7 @@ global class ManagedTopics {
   public static ConnectApi.ManagedTopicCollection reorderManagedTopics(String communityId, ConnectApi.ManagedTopicPositionCollectionInput managedTopicPositionCollection) {}
 
   public static ConnectApi.ManagedTopicCollection getManagedTopics(String communityId, ConnectApi.ManagedTopicType managedTopicType, String recordId, Integer depth) {}
+
+  global Object clone() {}
 
 }

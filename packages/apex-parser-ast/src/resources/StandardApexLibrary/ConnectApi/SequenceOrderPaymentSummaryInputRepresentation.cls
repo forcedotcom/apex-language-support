@@ -3,6 +3,8 @@
  */
 global class SequenceOrderPaymentSummaryInputRepresentation {
 
+  global SequenceOrderPaymentSummaryInputRepresentation() {}
+
   /**
    * Amount to apply to the OrderPaymentSummary.
    */
@@ -12,5 +14,7 @@ global class SequenceOrderPaymentSummaryInputRepresentation {
    * ID of the OrderPaymentSummary to apply the Amount to.
    */
   global String orderPaymentSummaryId;
+
+  global Object clone() {}
 
 }

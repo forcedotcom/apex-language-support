@@ -3,6 +3,8 @@
  */
 global class DescribeLayoutItem {
 
+  global DescribeLayoutItem() {}
+
   /**
    * Returns the label text for this item.
    * @return String
@@ -38,5 +40,7 @@ global class DescribeLayoutItem {
    * @return Boolean
    */
   public Boolean isRequired() {}
+
+  global Object clone() {}
 
 }

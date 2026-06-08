@@ -3,6 +3,8 @@
  */
 global class FlexQueue {
 
+  global FlexQueue() {}
+
   /**
    * Moves the job with the ID jobToMoveId immediately after the job with the ID jobInQueueId in the flex queue. You can move jobToMoveId forward or backward in the queue. If either job isn’t in the queue, it throws an element-not-found exception. Returns true if the job is moved, or false if jobToMoveId is already immediately after jobInQueueId , so no change is made.
    * @param jobToMoveId The ID of the job to move.
@@ -32,5 +34,7 @@ global class FlexQueue {
    * @return Boolean
    */
   public static Boolean moveJobToFront(Id jobId) {}
+
+  global Object clone() {}
 
 }

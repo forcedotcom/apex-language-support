@@ -3,20 +3,32 @@
  */
 global class ChangeEventHeader {
 
-  global String changeorigin;
+  global ChangeEventHeader() {}
 
-  global String changetype;
+  public List<String> changedfields;
 
-  global Long commitnumber;
+  public String changeorigin;
 
-  global Long committimestamp;
+  public String changetype;
 
-  global String commituser;
+  public Long commitnumber;
 
-  global String entityname;
+  public Long committimestamp;
 
-  global Integer sequencenumber;
+  public String commituser;
 
-  global String transactionkey;
+  public List<String> difffields;
+
+  public String entityname;
+
+  public List<String> nulledfields;
+
+  public List<String> recordids;
+
+  public Integer sequencenumber;
+
+  public String transactionkey;
+
+  global Object clone() {}
 
 }

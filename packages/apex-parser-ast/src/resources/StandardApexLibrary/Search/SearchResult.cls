@@ -3,6 +3,8 @@
  */
 global class SearchResult {
 
+  global SearchResult() {}
+
   /**
    * Returns an sObject from a SearchResult object.
    * @return SObject
@@ -21,5 +23,7 @@ global class SearchResult {
    * @return String
    */
   public String getSnippet() {}
+
+  global Object clone() {}
 
 }

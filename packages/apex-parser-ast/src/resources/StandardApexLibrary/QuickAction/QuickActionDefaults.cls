@@ -3,6 +3,8 @@
  */
 global class QuickActionDefaults {
 
+  global QuickActionDefaults() {}
+
   /**
    * Returns the name of the standard Email Action on Case Feed (Case.Email).
    * @return String
@@ -26,5 +28,7 @@ global class QuickActionDefaults {
    * @return SObject
    */
   public SObject getTargetSObject() {}
+
+  global Object clone() {}
 
 }

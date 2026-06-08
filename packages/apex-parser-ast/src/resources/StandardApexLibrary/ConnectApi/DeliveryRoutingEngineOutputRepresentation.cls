@@ -3,6 +3,8 @@
  */
 global class DeliveryRoutingEngineOutputRepresentation {
 
+  global DeliveryRoutingEngineOutputRepresentation() {}
+
   /**
    * The best fulfillment locations for each SKU. The map key is the SKU string.
    */
@@ -22,5 +24,7 @@ global class DeliveryRoutingEngineOutputRepresentation {
    * Indicates whether the request succeeded.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

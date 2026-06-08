@@ -3,6 +3,8 @@
  */
 global class AlternativePaymentMethodResponse {
 
+  global AlternativePaymentMethodResponse() {}
+
   public void setAccountId(Id accountId) {}
 
   public void setComments(String comments) {}
@@ -14,5 +16,7 @@ global class AlternativePaymentMethodResponse {
   public void setGatewayTokenDetails(String gatewayTokenDetails) {}
 
   public void setName(String name) {}
+
+  global Object clone() {}
 
 }

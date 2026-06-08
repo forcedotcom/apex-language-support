@@ -3,6 +3,8 @@
  */
 global class MetadataValue {
 
+  global MetadataValue() {}
+
   /**
    * Makes a duplicate copy of the Metadata.MetadataValue .
    * @return Object

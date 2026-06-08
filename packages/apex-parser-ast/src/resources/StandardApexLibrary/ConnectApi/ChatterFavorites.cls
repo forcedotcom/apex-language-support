@@ -3,6 +3,8 @@
  */
 global class ChatterFavorites {
 
+  global ChatterFavorites() {}
+
   public static ConnectApi.FeedFavorite addFavorite(String communityId, String subjectId, String searchText) {}
 
   public static ConnectApi.FeedFavorite addRecordFavorite(String communityId, String subjectId, String targetId) {}
@@ -38,5 +40,7 @@ global class ChatterFavorites {
   public static void setTestGetFeedItems(String communityId, String subjectId, String favoriteId, String pageParam, Integer pageSize, FeedSortOrder sortParam, ConnectApi.FeedItemPage result) {}
 
   public static void setTestGetFeedItems(String communityId, String subjectId, String favoriteId, Integer recentCommentCount, String pageParam, Integer pageSize, FeedSortOrder sortParam, ConnectApi.FeedItemPage result) {}
+
+  global Object clone() {}
 
 }

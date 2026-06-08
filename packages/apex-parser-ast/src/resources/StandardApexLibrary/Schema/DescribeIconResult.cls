@@ -3,6 +3,8 @@
  */
 global class DescribeIconResult {
 
+  global DescribeIconResult() {}
+
   /**
    * Returns the tab icon’s content type, such as image/png .
    * @return String
@@ -32,5 +34,7 @@ global class DescribeIconResult {
    * @return Integer
    */
   public Integer getWidth() {}
+
+  global Object clone() {}
 
 }

@@ -101,4 +101,6 @@ global class BucketField {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

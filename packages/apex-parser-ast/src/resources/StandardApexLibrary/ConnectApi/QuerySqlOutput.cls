@@ -3,6 +3,8 @@
  */
 global class QuerySqlOutput {
 
+  global QuerySqlOutput() {}
+
   /**
    * Data associated with the SQL.
    */
@@ -22,5 +24,7 @@ global class QuerySqlOutput {
    * Metadata related to the status of an SQL query.
    */
   global ConnectApi.QuerySqlStatus status;
+
+  global Object clone() {}
 
 }

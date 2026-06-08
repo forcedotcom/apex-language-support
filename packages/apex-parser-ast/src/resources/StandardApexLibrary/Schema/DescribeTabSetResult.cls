@@ -3,6 +3,8 @@
  */
 global class DescribeTabSetResult {
 
+  global DescribeTabSetResult() {}
+
   /**
    * Returns the display description for the standard or custom app.
    * @return String
@@ -34,5 +36,7 @@ global class DescribeTabSetResult {
   public List<Schema.DescribeTabResult> getTabs() {}
 
   public Boolean isSelected() {}
+
+  global Object clone() {}
 
 }

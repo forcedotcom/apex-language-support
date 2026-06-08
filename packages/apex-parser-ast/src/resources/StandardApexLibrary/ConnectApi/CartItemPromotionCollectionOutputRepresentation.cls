@@ -3,6 +3,8 @@
  */
 global class CartItemPromotionCollectionOutputRepresentation {
 
+  global CartItemPromotionCollectionOutputRepresentation() {}
+
   /**
    * Currency code associated with the cart.
    */
@@ -12,5 +14,7 @@ global class CartItemPromotionCollectionOutputRepresentation {
    * Collection of promotions.
    */
   global Map < String , ConnectApi.CartPromotionListRepresentation > items;
+
+  global Object clone() {}
 
 }

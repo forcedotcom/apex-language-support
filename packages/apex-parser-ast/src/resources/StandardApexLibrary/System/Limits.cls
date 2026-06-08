@@ -3,6 +3,8 @@
  */
 global class Limits {
 
+  global Limits() {}
+
   /**
    * Returns the number of aggregate queries that have been processed with any SOQL query statement.
    * @return Integer
@@ -268,5 +270,7 @@ global class Limits {
    * @return Integer
    */
   public static Integer getLimitSoslQueries() {}
+
+  global Object clone() {}
 
 }

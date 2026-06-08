@@ -3,6 +3,8 @@
  */
 global class DataSpaceInfoRepresentation {
 
+  global DataSpaceInfoRepresentation() {}
+
   /**
    * Description of the data space.
    */
@@ -17,5 +19,7 @@ global class DataSpaceInfoRepresentation {
    * Status of the data space. Active —The data space is active. Error —The data space has an error. Processing —The data space is being processed.
    */
   global DataSpaceStatusEnum status;
+
+  global Object clone() {}
 
 }

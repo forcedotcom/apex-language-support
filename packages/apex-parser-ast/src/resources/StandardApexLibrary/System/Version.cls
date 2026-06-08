@@ -32,4 +32,6 @@ global class Version {
    */
   public Integer patch() {}
 
+  global Object clone() {}
+
 }

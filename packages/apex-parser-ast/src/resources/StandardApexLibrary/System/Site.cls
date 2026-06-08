@@ -3,6 +3,8 @@
  */
 global class Site {
 
+  global Site() {}
+
   /**
    * Changes the password of the current user.
    * @param newPassword 
@@ -264,5 +266,7 @@ global class Site {
    * @param confirmPassword The password reentered by the user to confirm the password.
    */
   public static void validatePassword(SObject user, String password, String confirmPassword) {}
+
+  global Object clone() {}
 
 }

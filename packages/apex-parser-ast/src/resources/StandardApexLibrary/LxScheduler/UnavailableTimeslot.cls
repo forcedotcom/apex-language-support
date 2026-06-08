@@ -5,4 +5,10 @@ global class UnavailableTimeslot {
 
   public UnavailableTimeslot(Datetime timeMin, Datetime timeMax) {}
 
+  public Datetime timeMax;
+
+  public Datetime timeMin;
+
+  global Object clone() {}
+
 }

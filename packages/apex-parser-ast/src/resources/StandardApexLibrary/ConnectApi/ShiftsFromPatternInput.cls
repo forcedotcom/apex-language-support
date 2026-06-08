@@ -3,6 +3,8 @@
  */
 global class ShiftsFromPatternInput {
 
+  global ShiftsFromPatternInput() {}
+
   /**
    * Scheduling end date in YYYY-MM-DD format. Provide schedulingEndDate or schedulingOccurrences . Don’t provide both.
    */
@@ -37,5 +39,7 @@ global class ShiftsFromPatternInput {
    * Status of the shifts. Default values are: Confirmed Published Tentative Additional status values can be created.
    */
   global String shiftStatus;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class SObjectAccessDecision {
 
+  global SObjectAccessDecision() {}
+
   public Set<Integer> getModifiedIndexes() {}
 
   public List<SObject> getRecords() {}
@@ -12,5 +14,7 @@ global class SObjectAccessDecision {
    * @return Map<String,Set<String>>
    */
   public Map<String,Set<String>> getRemovedFields() {}
+
+  global Object clone() {}
 
 }

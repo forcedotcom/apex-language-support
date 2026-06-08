@@ -3,6 +3,8 @@
  */
 global class Boolean {
 
+  global Boolean() {}
+
   /**
    * Converts the specified string to a Boolean value and returns true if the specified string value is true . Otherwise, returns false .
    * @param stringToBoolean 
@@ -16,5 +18,7 @@ global class Boolean {
    * @return Boolean
    */
   public static Boolean valueOf(Object fieldValue) {}
+
+  global Object clone() {}
 
 }

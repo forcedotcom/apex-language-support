@@ -3,6 +3,8 @@
  */
 global class ChangeOrderItemTaxLineItemSummaryInputRepresentation {
 
+  global ChangeOrderItemTaxLineItemSummaryInputRepresentation() {}
+
   /**
    * Whether a new order item tax line item summary is being created or an existing summary is being updated. Valid values are New or Update.
    */
@@ -17,5 +19,7 @@ global class ChangeOrderItemTaxLineItemSummaryInputRepresentation {
    * The unique reference ID for this order tax line item summary. This field is valid only if the Change Type value is New.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

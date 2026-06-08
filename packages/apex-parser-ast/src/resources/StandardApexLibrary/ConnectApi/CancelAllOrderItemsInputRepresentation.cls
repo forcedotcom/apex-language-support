@@ -3,6 +3,8 @@
  */
 global class CancelAllOrderItemsInputRepresentation {
 
+  global CancelAllOrderItemsInputRepresentation() {}
+
   /**
    * List of input data for fees, including taxes, associated with the order items being canceled.
    */
@@ -22,5 +24,7 @@ global class CancelAllOrderItemsInputRepresentation {
    * Reason text used for the return insights. The value has a max of 255 characters.
    */
   global String reasonText;
+
+  global Object clone() {}
 
 }

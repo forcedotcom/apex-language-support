@@ -3,6 +3,8 @@
  */
 global class AuditParamsRequest {
 
+  global AuditParamsRequest() {}
+
   /**
    * Email of the client that made the request.
    */
@@ -22,5 +24,7 @@ global class AuditParamsRequest {
    * Phone number of the client that made the request.
    */
   global String phone;
+
+  global Object clone() {}
 
 }

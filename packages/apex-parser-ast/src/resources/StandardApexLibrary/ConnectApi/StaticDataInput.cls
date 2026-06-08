@@ -3,6 +3,8 @@
  */
 global class StaticDataInput {
 
+  global StaticDataInput() {}
+
   /**
    * Name of the static attribute.
    */
@@ -12,5 +14,7 @@ global class StaticDataInput {
    * Value of the static attribute.
    */
   global String value;
+
+  global Object clone() {}
 
 }

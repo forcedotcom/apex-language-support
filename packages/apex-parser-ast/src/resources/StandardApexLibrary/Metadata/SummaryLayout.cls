@@ -3,6 +3,20 @@
  */
 global class SummaryLayout {
 
+  global SummaryLayout() {}
+
+  public String masterLabel;
+
+  public Integer sizeX;
+
+  public Integer sizeY;
+
+  public Integer sizeZ;
+
+  public List<Metadata.SummaryLayoutItem> summaryLayoutItems;
+
+  public Metadata.SummaryLayoutStyleEnum summaryLayoutStyle;
+
   /**
    * Makes a duplicate copy of the Metadata.SummaryLayout .
    * @return Object

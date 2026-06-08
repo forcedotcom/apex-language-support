@@ -3,6 +3,8 @@
  */
 global class DescribeTabResult {
 
+  global DescribeTabResult() {}
+
   /**
    * Returns a list of color metadata information for all colors associated with this tab. Each color is associated with a theme and context.
    * @return List<Schema.DescribeColorResult>
@@ -50,5 +52,7 @@ global class DescribeTabResult {
    * @return Boolean
    */
   public Boolean isCustom() {}
+
+  global Object clone() {}
 
 }

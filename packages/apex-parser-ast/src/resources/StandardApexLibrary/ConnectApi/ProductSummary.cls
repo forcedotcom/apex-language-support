@@ -3,6 +3,8 @@
  */
 global class ProductSummary {
 
+  global ProductSummary() {}
+
   /**
    * Default image of the product.
    */
@@ -52,5 +54,7 @@ global class ProductSummary {
    * Variation attribute set that’s associated with the product.
    */
   global ConnectApi.ProductAttributeSetSummary variationAttributeSet;
+
+  global Object clone() {}
 
 }

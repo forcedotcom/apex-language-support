@@ -3,9 +3,13 @@
  */
 global class DistinctFacetValueDisplayMetadataRepresentation {
 
+  global DistinctFacetValueDisplayMetadataRepresentation() {}
+
   /**
    * Map of swatch display metadata for the distinct facet value.
    */
   global Map < String , String > swatch;
+
+  global Object clone() {}
 
 }

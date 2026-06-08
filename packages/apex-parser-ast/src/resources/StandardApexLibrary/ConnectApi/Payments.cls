@@ -3,6 +3,8 @@
  */
 global class Payments {
 
+  global Payments() {}
+
   global static ConnectApi.AuthorizationResponse authorize(ConnectApi.AuthorizationRequest authorizePayment) {}
 
   global static ConnectApi.PostAuthorizationResponse postAuth(ConnectApi.PostAuthRequest postAuthorizePayment) {}
@@ -16,5 +18,7 @@ global class Payments {
   global static ConnectApi.SaleResponse sale(ConnectApi.SaleRequest sale) {}
 
   global static ConnectApi.PaymentMethodTokenizationResponse tokenizePaymentMethod(ConnectApi.PaymentMethodTokenizationRequest tokenizePaymentMethodInput) {}
+
+  global Object clone() {}
 
 }

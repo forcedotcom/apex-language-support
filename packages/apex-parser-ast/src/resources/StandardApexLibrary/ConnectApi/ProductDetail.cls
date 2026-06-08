@@ -3,6 +3,8 @@
  */
 global class ProductDetail {
 
+  global ProductDetail() {}
+
   /**
    * Map of the attribute set developer name to its metadata.
    */
@@ -72,5 +74,7 @@ global class ProductDetail {
    * ID of the variation parent.
    */
   global String variationParentId;
+
+  global Object clone() {}
 
 }

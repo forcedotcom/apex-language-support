@@ -3,9 +3,13 @@
  */
 global class QuerySqlRow {
 
+  global QuerySqlRow() {}
+
   /**
    * List of column values.
    */
   global List < Object > row;
+
+  global Object clone() {}
 
 }

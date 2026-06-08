@@ -3,6 +3,8 @@
  */
 global class GroupMemberPage {
 
+  global GroupMemberPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -32,5 +34,7 @@ global class GroupMemberPage {
    * Total number of group members across all pages.
    */
   global Integer totalMemberCount;
+
+  global Object clone() {}
 
 }

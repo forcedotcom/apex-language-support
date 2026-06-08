@@ -3,6 +3,8 @@
  */
 global class ChatterMessages {
 
+  global ChatterMessages() {}
+
   public static ConnectApi.ChatterConversation getConversation(String conversationId) {}
 
   public static ConnectApi.ChatterConversation getConversation(String conversationId, String pageParam, Integer pageSize) {}
@@ -70,5 +72,7 @@ global class ChatterMessages {
   public static ConnectApi.ChatterMessage sendMessage(String text, String recipients) {}
 
   public static ConnectApi.ChatterMessage sendMessage(String communityId, String text, String recipients) {}
+
+  global Object clone() {}
 
 }

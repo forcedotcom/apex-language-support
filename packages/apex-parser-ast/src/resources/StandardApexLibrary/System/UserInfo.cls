@@ -3,6 +3,8 @@
  */
 global class UserInfo {
 
+  global UserInfo() {}
+
   public static String getCurrentUvid() {}
 
   /**
@@ -139,5 +141,7 @@ global class UserInfo {
    * @return Boolean
    */
   public static Boolean isMultiCurrencyOrganization() {}
+
+  global Object clone() {}
 
 }

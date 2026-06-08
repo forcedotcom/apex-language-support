@@ -3,6 +3,8 @@
  */
 global class CommerceAddressOutput {
 
+  global CommerceAddressOutput() {}
+
   /**
    * ID of the address.
    */
@@ -87,5 +89,7 @@ global class CommerceAddressOutput {
    * The address street.
    */
   global String street;
+
+  global Object clone() {}
 
 }

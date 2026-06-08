@@ -3,6 +3,8 @@
  */
 global class PaymentMethodDetails {
 
+  global PaymentMethodDetails() {}
+
   /**
    * Alternative Payment Method details.
    */
@@ -12,5 +14,7 @@ global class PaymentMethodDetails {
    * Card Payment Method details.
    */
   global ConnectApi.CardPaymentMethodOutput cardPaymentMethod;
+
+  global Object clone() {}
 
 }

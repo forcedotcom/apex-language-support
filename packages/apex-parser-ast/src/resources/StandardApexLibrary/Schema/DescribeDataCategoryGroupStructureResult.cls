@@ -3,6 +3,8 @@
  */
 global class DescribeDataCategoryGroupStructureResult {
 
+  global DescribeDataCategoryGroupStructureResult() {}
+
   /**
    * Returns the description of the data category group.
    * @return String
@@ -32,5 +34,7 @@ global class DescribeDataCategoryGroupStructureResult {
    * @return List<Schema.DataCategory>
    */
   public List<Schema.DataCategory> getTopCategories() {}
+
+  global Object clone() {}
 
 }

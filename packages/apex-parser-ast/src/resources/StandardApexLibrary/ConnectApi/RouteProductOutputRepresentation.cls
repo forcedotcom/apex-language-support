@@ -3,6 +3,8 @@
  */
 global class RouteProductOutputRepresentation {
 
+  global RouteProductOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -27,5 +29,7 @@ global class RouteProductOutputRepresentation {
    * The score for this product at this location.
    */
   global Double unitScore;
+
+  global Object clone() {}
 
 }

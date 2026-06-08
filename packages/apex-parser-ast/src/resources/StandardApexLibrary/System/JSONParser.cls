@@ -3,6 +3,8 @@
  */
 global class JSONParser {
 
+  global JSONParser() {}
+
   /**
    * Removes the current token.
    */
@@ -128,5 +130,7 @@ global class JSONParser {
    * Skips all child tokens of type JSONToken.START_ARRAY and JSONToken.START_OBJECT that the parser currently points to.
    */
   public void skipChildren() {}
+
+  global Object clone() {}
 
 }

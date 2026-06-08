@@ -3,6 +3,8 @@
  */
 global class StandardFilterInfo {
 
+  global StandardFilterInfo() {}
+
   /**
    * Returns the display label of the standard filter.
    * @return String
@@ -14,5 +16,7 @@ global class StandardFilterInfo {
    * @return Reports.StandardFilterType
    */
   public Reports.StandardFilterType getType() {}
+
+  global Object clone() {}
 
 }

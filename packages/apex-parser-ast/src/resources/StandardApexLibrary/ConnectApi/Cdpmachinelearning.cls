@@ -3,6 +3,10 @@
  */
 global class CdpMachineLearning {
 
+  global CdpMachineLearning() {}
+
   public static ConnectApi.CdpMlPredictResult predict(ConnectApi.CdpMlBasePredictInput predict) {}
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class BotClient {
 
+  global BotClient() {}
+
   global Slack.AppsUninstallResponse appsUninstall(Slack.AppsUninstallRequest req) {}
 
   global Slack.AuthRevokeResponse authRevoke(Slack.AuthRevokeRequest req) {}
@@ -165,5 +167,7 @@ global class BotClient {
   global Slack.WorkflowsStepFailedResponse workflowsStepFailed(Slack.WorkflowsStepFailedRequest req) {}
 
   global Slack.WorkflowsUpdateStepResponse workflowsUpdateStep(Slack.WorkflowsUpdateStepRequest req) {}
+
+  global Object clone() {}
 
 }

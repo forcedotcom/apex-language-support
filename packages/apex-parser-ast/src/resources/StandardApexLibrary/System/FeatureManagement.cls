@@ -3,6 +3,8 @@
  */
 global class FeatureManagement {
 
+  global FeatureManagement() {}
+
   /**
    * Hides or reveals custom permissions, or reveals custom objects, in your subscriber’s org.
    * @param apiName The API name of the custom object or custom permission to show or hide—for example, ' MyCustomObject__c ' or ' MyCustomPermission ' .
@@ -59,5 +61,7 @@ global class FeatureManagement {
    * @param value The value to assign to the value__c field on the FeatureParameterInteger__c record that associates the feature parameter with its related license.
    */
   public static void setPackageIntegerValue(String apiName, Integer value) {}
+
+  global Object clone() {}
 
 }

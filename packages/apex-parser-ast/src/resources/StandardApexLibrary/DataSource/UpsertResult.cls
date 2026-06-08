@@ -3,6 +3,14 @@
  */
 global class UpsertResult {
 
+  global UpsertResult() {}
+
+  public String errorMessage;
+
+  public String externalId;
+
+  public Boolean success;
+
   /**
    * Maintains the integrity of lists of type UpsertResult by determining the equality of external object records in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -30,5 +38,7 @@ global class UpsertResult {
    * @return DataSource.UpsertResult
    */
   public static DataSource.UpsertResult success(String externalId) {}
+
+  global Object clone() {}
 
 }

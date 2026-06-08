@@ -3,4 +3,8 @@
  */
 global class SmartDataDiscovery {
 
+  global SmartDataDiscovery() {}
+
+  global Object clone() {}
+
 }

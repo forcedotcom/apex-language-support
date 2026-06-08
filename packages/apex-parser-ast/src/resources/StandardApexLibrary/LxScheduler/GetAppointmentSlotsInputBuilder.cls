@@ -3,6 +3,8 @@
  */
 global class GetAppointmentSlotsInputBuilder {
 
+  global GetAppointmentSlotsInputBuilder() {}
+
   public lxscheduler.GetAppointmentSlotsInput build() {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setAccountId(String accountId) {}
@@ -30,5 +32,7 @@ global class GetAppointmentSlotsInputBuilder {
   public lxscheduler.GetAppointmentSlotsInputBuilder setWorkType(lxscheduler.WorkType workType) {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setWorkTypeGroupId(String workTypeGroupId) {}
+
+  global Object clone() {}
 
 }

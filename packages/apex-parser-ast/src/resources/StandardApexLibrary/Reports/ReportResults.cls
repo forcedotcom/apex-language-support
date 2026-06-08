@@ -3,6 +3,8 @@
  */
 global class ReportResults {
 
+  global ReportResults() {}
+
   /**
    * Returns all report data.
    * @return Boolean
@@ -11,9 +13,9 @@ global class ReportResults {
 
   /**
    * Returns summary-level data or summary and detailed data for each row or column grouping. Detailed data is available if the includeDetails parameter is set to true when the report is run.
-   * @return MAP<String,Reports.ReportFact>
+   * @return Map<String,Reports.ReportFact>
    */
-  public MAP<String,Reports.ReportFact> getFactMap() {}
+  public Map<String,Reports.ReportFact> getFactMap() {}
 
   /**
    * Returns a collection of column groupings, keys, and values.
@@ -44,5 +46,7 @@ global class ReportResults {
    * @return Reports.ReportMetadata
    */
   public Reports.ReportMetadata getReportMetadata() {}
+
+  global Object clone() {}
 
 }

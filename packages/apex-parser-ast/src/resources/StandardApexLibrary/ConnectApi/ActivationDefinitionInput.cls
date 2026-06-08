@@ -3,6 +3,8 @@
  */
 global class ActivationDefinitionInput {
 
+  global ActivationDefinitionInput() {}
+
   /**
    * Name of the activation target. Either activationTargetName or dataExportDefinitionId must be present.
    */
@@ -107,5 +109,7 @@ global class ActivationDefinitionInput {
    * Configuration of static data, which adds metadata or campaign details in the ouput. For example, campaignId or campaignName .
    */
   global List < ConnectApi.StaticDataInput > staticDataConfig;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommunitiesUtil {
 
+  global CommunitiesUtil() {}
+
   /**
    * Returns the page to display after the current Experience Cloud user logs out.
    * @return String
@@ -26,5 +28,7 @@ global class CommunitiesUtil {
    * @return Boolean
    */
   public static Boolean isInternalUser() {}
+
+  global Object clone() {}
 
 }

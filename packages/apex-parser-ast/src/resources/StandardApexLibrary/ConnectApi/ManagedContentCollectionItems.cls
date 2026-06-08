@@ -3,6 +3,8 @@
  */
 global class ManagedContentCollectionItems {
 
+  global ManagedContentCollectionItems() {}
+
   /**
    * Information about the managed content channel.
    */
@@ -72,5 +74,7 @@ global class ManagedContentCollectionItems {
    * URL name of the collection.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

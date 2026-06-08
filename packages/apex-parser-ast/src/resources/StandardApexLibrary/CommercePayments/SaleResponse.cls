@@ -3,6 +3,8 @@
  */
 global class SaleResponse {
 
+  global SaleResponse() {}
+
   /**
    * Sets the transaction amount. Must be a non-negative value.
    * @param amount The amount of the transaction.
@@ -68,5 +70,7 @@ global class SaleResponse {
    * @param salesforceResultCodeInfo Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

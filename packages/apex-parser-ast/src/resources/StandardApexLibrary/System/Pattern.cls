@@ -3,6 +3,8 @@
  */
 global class Pattern {
 
+  global Pattern() {}
+
   /**
    * Compiles the regular expression into a Pattern object.
    * @param regExp 
@@ -52,5 +54,7 @@ global class Pattern {
    * @return String[]
    */
   public String[] split(String regExp, Integer limit) {}
+
+  global Object clone() {}
 
 }

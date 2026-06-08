@@ -3,6 +3,10 @@
  */
 global class OauthToken {
 
+  global OauthToken() {}
+
   public static Boolean revokeToken(Auth.OauthTokenType type, String authToken) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CardPaymentMethodResponse {
 
+  global CardPaymentMethodResponse() {}
+
   public void setAccountId(Id accountId) {}
 
   public void setAutoPay(Boolean autoPay) {}
@@ -38,5 +40,7 @@ global class CardPaymentMethodResponse {
   public void setStartMonth(Integer startMonth) {}
 
   public void setStartYear(Integer startYear) {}
+
+  global Object clone() {}
 
 }

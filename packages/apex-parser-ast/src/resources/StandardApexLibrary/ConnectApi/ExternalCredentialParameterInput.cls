@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialParameterInput {
 
+  global ExternalCredentialParameterInput() {}
+
   /**
    * Parameter ID.
    */
@@ -27,5 +29,7 @@ global class ExternalCredentialParameterInput {
    * Parameter value of the external credential.
    */
   global String parameterValue;
+
+  global Object clone() {}
 
 }

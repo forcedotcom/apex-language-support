@@ -3,6 +3,8 @@
  */
 global class Org {
 
+  global Org() {}
+
   /**
    * Returns true if the org cache contains a cached value corresponding to the specified key.
    * @param key A case-sensitive string value that uniquely identifies a cached value. For information about the format of the key name, see Usage .
@@ -166,6 +168,8 @@ global class Org {
    * @return Boolean
    */
   public static Boolean remove(System.Type cacheBuilder, String key) {}
+
+  global Object clone() {}
 
   global class OrgCacheException extends Exception {}
 

@@ -3,6 +3,8 @@
  */
 global class NBARecommendation {
 
+  global NBARecommendation() {}
+
   /**
    * Reserved for future use.
    */
@@ -52,5 +54,7 @@ global class NBARecommendation {
    * Action to recommend.
    */
   global ConnectApi.AbstractNBAAction targetAction;
+
+  global Object clone() {}
 
 }

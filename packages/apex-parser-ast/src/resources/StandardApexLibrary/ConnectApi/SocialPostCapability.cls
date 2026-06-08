@@ -3,6 +3,8 @@
  */
 global class SocialPostCapability extends ConnectApi.FeedElementCapabilities {
 
+  global SocialPostCapability() {}
+
   /**
    * Social account that authored the social post.
    */
@@ -87,5 +89,7 @@ global class SocialPostCapability extends ConnectApi.FeedElementCapabilities {
    * Status of the social post.
    */
   global ConnectApi.SocialPostStatus status;
+
+  global Object clone() {}
 
 }

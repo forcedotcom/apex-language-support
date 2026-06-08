@@ -3,9 +3,13 @@
  */
 global class QueryPathConfig {
 
+  global QueryPathConfig() {}
+
   /**
    * Query path.
    */
   global List < ConnectApi.QueryPath > queryPath;
+
+  global Object clone() {}
 
 }

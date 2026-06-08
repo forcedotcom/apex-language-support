@@ -3,6 +3,8 @@
  */
 global class ManagedContentPublishInput {
 
+  global ManagedContentPublishInput() {}
+
   /**
    * IDs of content to publish. All variants of the content are published.
    */
@@ -27,5 +29,7 @@ global class ManagedContentPublishInput {
    * IDs of variants to publish. All variants must be from the same content space.
    */
   global List < String > variantIds;
+
+  global Object clone() {}
 
 }

@@ -11,4 +11,6 @@ global class ThresholdInformation {
    */
   public List<Reports.EvaluatedCondition> getEvaluatedConditions() {}
 
+  global Object clone() {}
+
 }

@@ -3,4 +3,8 @@
  */
 global class PickTicket {
 
+  global PickTicket() {}
+
+  global Object clone() {}
+
 }

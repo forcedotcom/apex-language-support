@@ -3,6 +3,8 @@
  */
 global class OmnichannelInventoryService {
 
+  global OmnichannelInventoryService() {}
+
   public static ConnectApi.OCICreateReservationOutputRepresentation createReservation(ConnectApi.OCICreateReservationInputRepresentation createReservationInputRepresentation) {}
 
   public static ConnectApi.OCIFulfillReservationOutputRepresentation fulfillReservation(ConnectApi.OCIFulfillReservationInputRepresentation fulfillReservationInputRepresentation) {}
@@ -22,5 +24,7 @@ global class OmnichannelInventoryService {
   public static ConnectApi.OCITransferReservationOutputRepresentation transferReservation(ConnectApi.OCITransferReservationInputRepresentation transferReservationInputRepresentation) {}
 
   public static ConnectApi.OCIUpdateReservationOutputRepresentation updateReservation(ConnectApi.OCIUpdateReservationInputRepresentation updateReservationInputRepresentation) {}
+
+  global Object clone() {}
 
 }

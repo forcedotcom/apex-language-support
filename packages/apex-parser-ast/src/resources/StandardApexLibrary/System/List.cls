@@ -3,6 +3,8 @@
  */
 global class List {
 
+  global List() {}
+
   /**
    * Adds an element to the end of the list.
    * @param listElement 

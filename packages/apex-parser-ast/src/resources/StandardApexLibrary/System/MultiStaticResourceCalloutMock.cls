@@ -3,6 +3,8 @@
  */
 global class MultiStaticResourceCalloutMock {
 
+  global MultiStaticResourceCalloutMock() {}
+
   /**
    * Sets the specified header name and value for the fake response.
    * @param headerName 
@@ -28,5 +30,7 @@ global class MultiStaticResourceCalloutMock {
    * @param httpStatusCode 
    */
   public void setStatusCode(Integer httpStatusCode) {}
+
+  global Object clone() {}
 
 }

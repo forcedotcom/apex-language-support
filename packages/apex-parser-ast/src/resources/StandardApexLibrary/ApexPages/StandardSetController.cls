@@ -113,4 +113,6 @@ global class StandardSetController {
 
   public void setSelected(sObject[] selectedRecords) {}
 
+  global Object clone() {}
+
 }

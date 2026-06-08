@@ -3,6 +3,8 @@
  */
 global class CartFromQuoteOutput {
 
+  global CartFromQuoteOutput() {}
+
   /**
    * ID of the cart created from the quote.
    */
@@ -12,5 +14,7 @@ global class CartFromQuoteOutput {
    * Detailed error message if the create cart from a quote operation was unsuccessful.
    */
   global List < ConnectApi.QuoteError > errors;
+
+  global Object clone() {}
 
 }

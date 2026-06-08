@@ -41,4 +41,6 @@ global class TopRows {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

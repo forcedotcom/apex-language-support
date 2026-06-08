@@ -3,6 +3,18 @@
  */
 global class SummaryLayoutItem {
 
+  global SummaryLayoutItem() {}
+
+  public String customLink;
+
+  public String field;
+
+  public Integer posX;
+
+  public Integer posY;
+
+  public Integer posZ;
+
   /**
    * Makes a duplicate copy of the Metadata.SummaryLayoutItem .
    * @return Object

@@ -3,11 +3,15 @@
  */
 global class ConnectorTestUtil {
 
+  global ConnectorTestUtil() {}
+
   /**
    * Creates an instance of a connected app to simulate provisioning.
    * @param connectedAppName Name of the connected app to test for provisioning.
    * @return ConnectedApplication
    */
   public static ConnectedApplication createConnectedApp(String connectedAppName) {}
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class MultipleAsyncOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global MultipleAsyncOutputRepresentation() {}
+
   /**
    * List of IDs of background operations.
    */
   global List < ConnectApi.AsyncOutputRepresentation > asyncOutputs;
+
+  global Object clone() {}
 
 }

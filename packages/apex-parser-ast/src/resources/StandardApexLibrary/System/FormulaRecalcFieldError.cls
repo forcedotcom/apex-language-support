@@ -3,6 +3,8 @@
  */
 global class FormulaRecalcFieldError {
 
+  global FormulaRecalcFieldError() {}
+
   /**
    * Returns a message describing the errors encountered during formula recalculation.
    * @return String
@@ -14,5 +16,7 @@ global class FormulaRecalcFieldError {
    * @return String
    */
   public String getFieldName() {}
+
+  global Object clone() {}
 
 }

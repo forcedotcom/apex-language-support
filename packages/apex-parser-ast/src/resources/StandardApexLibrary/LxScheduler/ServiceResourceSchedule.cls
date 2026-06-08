@@ -5,4 +5,10 @@ global class ServiceResourceSchedule {
 
   public ServiceResourceSchedule(String serviceResourceId, Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots) {}
 
+  public String serviceResourceId;
+
+  public Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots;
+
+  global Object clone() {}
+
 }

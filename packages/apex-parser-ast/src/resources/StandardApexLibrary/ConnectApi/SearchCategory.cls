@@ -3,6 +3,8 @@
  */
 global class SearchCategory {
 
+  global SearchCategory() {}
+
   /**
    * Information about the category.
    */
@@ -17,5 +19,7 @@ global class SearchCategory {
    * Number of products in the search results that belong to the category.
    */
   global Long productCount;
+
+  global Object clone() {}
 
 }

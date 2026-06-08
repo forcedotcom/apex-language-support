@@ -3,6 +3,8 @@
  */
 global class GroupingValue {
 
+  global GroupingValue() {}
+
   /**
    * Returns a list of second- or third-level row or column groupings. If there are none, the value is an empty array.
    * @return LIST<Reports.GroupingValue>
@@ -26,5 +28,7 @@ global class GroupingValue {
    * @return Object
    */
   public Object getValue() {}
+
+  global Object clone() {}
 
 }

@@ -63,4 +63,6 @@ global class ReportFilter {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

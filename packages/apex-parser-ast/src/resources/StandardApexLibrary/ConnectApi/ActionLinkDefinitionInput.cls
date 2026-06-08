@@ -3,6 +3,8 @@
  */
 global class ActionLinkDefinitionInput {
 
+  global ActionLinkDefinitionInput() {}
+
   /**
    * Defines the type of action link. Values are: Api —The action link calls a synchronous API at the action URL. Salesforce sets the status to SuccessfulStatus or FailedStatus based on the HTTP status code returned by your server. ApiAsync —The action link calls an asynchronous API at the action URL. The action remains in a PendingStatus state until a third party makes a request to /connect/action-links/ actionLinkId to set the status to SuccessfulStatus or FailedStatus when the asynchronous operation is complete. Download —The action link downloads a file from the action URL. Ui —The action link takes the user to a web page at the action URL. Use Ui if you need to load a page before the user performs an action, for example, to have the user provide input or view something before the action happens. Note Invoking ApiAsync action links from an app requires a call to set the status. However, there isn’t currently a way to set the status of an action link using Apex. To set the status, use Connect REST API. See the Action Link resource in the Connect REST API Developer Guide for more information.
    */
@@ -52,5 +54,7 @@ global class ActionLinkDefinitionInput {
    * The ID of the user who can execute the action. If not specified or null , any user can execute the action. If you specify a userId , you can’t specify an excludedUserId .
    */
   global String userId;
+
+  global Object clone() {}
 
 }

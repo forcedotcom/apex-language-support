@@ -3,6 +3,8 @@
  */
 global class MatchRecord {
 
+  global MatchRecord() {}
+
   /**
    * Returns other information about a matched record. For example, a matchGrade represents the quality of the data for the D&B fields in the matched record.
    * @return List<Datacloud.AdditionalInformationMap>
@@ -26,5 +28,7 @@ global class MatchRecord {
    * @return SObject
    */
   public SObject getRecord() {}
+
+  global Object clone() {}
 
 }

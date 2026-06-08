@@ -3,6 +3,8 @@
  */
 global class ChangeOrderSummaryInputRepresentation {
 
+  global ChangeOrderSummaryInputRepresentation() {}
+
   /**
    * The order reference number value for the Change Order associated with the current request.
    */
@@ -42,5 +44,7 @@ global class ChangeOrderSummaryInputRepresentation {
    * The order summary sObject representation that contains the changes for the Order Summary.
    */
   global SObject orderSummary;
+
+  global Object clone() {}
 
 }

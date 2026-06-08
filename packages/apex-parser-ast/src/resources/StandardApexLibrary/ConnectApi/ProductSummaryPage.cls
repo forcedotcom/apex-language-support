@@ -3,6 +3,8 @@
  */
 global class ProductSummaryPage {
 
+  global ProductSummaryPage() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -22,5 +24,7 @@ global class ProductSummaryPage {
    * Total number of products in the search results.
    */
   global Long total;
+
+  global Object clone() {}
 
 }

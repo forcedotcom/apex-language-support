@@ -3,6 +3,8 @@
  */
 global class NotificationSaveResult {
 
+  global NotificationSaveResult() {}
+
   /**
    * Gets the error message, if any, from the payment platform regarding its attempt to save the notification sent from the payment gateway.
    * @return String
@@ -20,5 +22,7 @@ global class NotificationSaveResult {
    * @return Boolean
    */
   global Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

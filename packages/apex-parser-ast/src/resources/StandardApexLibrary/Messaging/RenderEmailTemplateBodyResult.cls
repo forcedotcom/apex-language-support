@@ -3,6 +3,8 @@
  */
 global class RenderEmailTemplateBodyResult {
 
+  global RenderEmailTemplateBodyResult() {}
+
   /**
    * If an error occurred during the renderEmailTemplate method, a RenderEmailTemplateError object is returned.
    * @return List<Messaging.RenderEmailTemplateError>
@@ -20,5 +22,7 @@ global class RenderEmailTemplateBodyResult {
    * @return Boolean
    */
   public Boolean getSuccess() {}
+
+  global Object clone() {}
 
 }

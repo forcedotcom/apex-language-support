@@ -3,6 +3,8 @@
  */
 global class FormulaRecalcResult {
 
+  global FormulaRecalcResult() {}
+
   /**
    * If an error occurs during formula recalculation, an array of one or more database error objects, along with error codes and descriptions, is returned.
    * @return List<System.FormulaRecalcFieldError>
@@ -20,5 +22,7 @@ global class FormulaRecalcResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

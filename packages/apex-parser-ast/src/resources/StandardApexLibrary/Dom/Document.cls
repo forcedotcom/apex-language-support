@@ -3,6 +3,8 @@
  */
 global class Document {
 
+  global Document() {}
+
   /**
    * Creates the top-level root element for a document.
    * @param name 
@@ -29,5 +31,7 @@ global class Document {
    * @return String
    */
   public String toXmlString() {}
+
+  global Object clone() {}
 
 }

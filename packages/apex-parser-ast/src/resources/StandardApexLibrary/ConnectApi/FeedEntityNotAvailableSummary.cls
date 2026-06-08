@@ -3,4 +3,8 @@
  */
 global class FeedEntityNotAvailableSummary extends ConnectApi.FeedEntitySummary {
 
+  global FeedEntityNotAvailableSummary() {}
+
+  global Object clone() {}
+
 }

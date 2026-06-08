@@ -3,10 +3,14 @@
  */
 global class Script {
 
+  global Script() {}
+
   public static createScript(String scriptName) {}
 
   public static dataweave.Script createScript(String namespace, String scriptName) {}
 
   public String toString() {}
+
+  global Object clone() {}
 
 }

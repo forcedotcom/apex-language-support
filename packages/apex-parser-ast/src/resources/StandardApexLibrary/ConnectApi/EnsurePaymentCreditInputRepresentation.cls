@@ -3,6 +3,8 @@
  */
 global class EnsurePaymentCreditInputRepresentation {
 
+  global EnsurePaymentCreditInputRepresentation() {}
+
   /**
    * The credit memo that’s being credited.
    */
@@ -12,5 +14,7 @@ global class EnsurePaymentCreditInputRepresentation {
    * The ordering sequence of payments being used for the payment credit application.
    */
   global List < ConnectApi.PaymentCreditSequenceInputRepresentation > paymentCreditSequence;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ReportScopeValue {
 
+  global ReportScopeValue() {}
+
   /**
    * Returns a boolean value that indicates whether you can segment the report by this scope.
    * @return Boolean
@@ -20,5 +22,7 @@ global class ReportScopeValue {
    * @return String
    */
   public String getValue() {}
+
+  global Object clone() {}
 
 }

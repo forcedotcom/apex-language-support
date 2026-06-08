@@ -3,6 +3,8 @@
  */
 global class Test {
 
+  global Test() {}
+
   public static void calculatePermissionSetGroup(List<String> psgIds) {}
 
   public static void calculatePermissionSetGroup(String psgId) {}
@@ -175,5 +177,7 @@ global class Test {
    * @param uninstallImplementation A class that implements the UninstallHandler interface.
    */
   public static void testUninstall(UninstallHandler uninstallImplementation) {}
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class RecordView extends ConnectApi.AbstractRecordView {
 
+  global RecordView() {}
+
   /**
    * List of record view sections.
    */
   global List < ConnectApi.RecordViewSection > sections;
+
+  global Object clone() {}
 
 }

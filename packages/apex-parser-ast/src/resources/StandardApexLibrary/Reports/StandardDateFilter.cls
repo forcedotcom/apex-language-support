@@ -3,6 +3,8 @@
  */
 global class StandardDateFilter {
 
+  global StandardDateFilter() {}
+
   /**
    * Returns the API name of the standard date filter column.
    * @return String
@@ -50,5 +52,7 @@ global class StandardDateFilter {
    * @param startDate 
    */
   public void setStartDate(String startDate) {}
+
+  global Object clone() {}
 
 }

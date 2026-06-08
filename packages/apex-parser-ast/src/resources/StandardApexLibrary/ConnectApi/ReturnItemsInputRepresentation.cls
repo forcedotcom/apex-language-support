@@ -3,6 +3,8 @@
  */
 global class ReturnItemsInputRepresentation {
 
+  global ReturnItemsInputRepresentation() {}
+
   /**
    * The payment credit sequence, credit types, and refund sequence that provide information for optimal refund processing.
    */
@@ -22,5 +24,7 @@ global class ReturnItemsInputRepresentation {
    * List of ReturnOrderLineItems to process that represent products, along with data about how to process them.
    */
   global List < ConnectApi.ReturnOrderItemInputRepresentation > returnOrderItems;
+
+  global Object clone() {}
 
 }

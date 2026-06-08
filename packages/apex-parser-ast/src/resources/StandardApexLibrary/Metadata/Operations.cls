@@ -3,6 +3,8 @@
  */
 global class Operations {
 
+  global Operations() {}
+
   /**
    * Makes a duplicate copy of the Metadata.Operations .
    * @return Object

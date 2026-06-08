@@ -3,6 +3,8 @@
  */
 global class Long {
 
+  global Long() {}
+
   /**
    * Returns the String format for this Long using the locale of the context user.
    * @return String
@@ -21,5 +23,7 @@ global class Long {
    * @return Long
    */
   public static Long valueOf(String stringToLong) {}
+
+  global Object clone() {}
 
 }

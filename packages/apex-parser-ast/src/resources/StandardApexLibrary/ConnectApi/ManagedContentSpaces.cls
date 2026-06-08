@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpaces {
 
+  global ManagedContentSpaces() {}
+
   public static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) {}
 
   public static ConnectApi.ManagedContentSpaceChannelsRepresentation getManagedContentSpaceChannels(String contentSpaceId, Integer pageParam, Integer pageSize) {}
@@ -14,5 +16,7 @@ global class ManagedContentSpaces {
   public static ConnectApi.ManagedContentSpaceChannelsRepresentation patchManagedContentSpaceChannels(String contentSpaceId, ConnectApi.ManagedContentSpaceChannelsInputRepresentation spaceChannels) {}
 
   public static ConnectApi.ManagedContentSpace postManagedContentSpace(ConnectApi.ManagedContentSpaceInput ManagedContentSpaceInput) {}
+
+  global Object clone() {}
 
 }

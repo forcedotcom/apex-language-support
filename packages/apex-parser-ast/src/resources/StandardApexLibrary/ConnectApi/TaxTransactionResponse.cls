@@ -3,6 +3,8 @@
  */
 global class TaxTransactionResponse {
 
+  global TaxTransactionResponse() {}
+
   /**
    * The Ship From, Ship To, and Sold To addresses used during tax calculation.
    */
@@ -57,5 +59,7 @@ global class TaxTransactionResponse {
    * The date that the tax transaction occurred.
    */
   global Datetime transactionDate;
+
+  global Object clone() {}
 
 }

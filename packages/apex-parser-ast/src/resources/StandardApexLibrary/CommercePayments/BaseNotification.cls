@@ -3,6 +3,8 @@
  */
 global class BaseNotification {
 
+  global BaseNotification() {}
+
   /**
    * Sets the transaction amount. Must be a non-negative value.
    * @param amount The amount of the transaction.
@@ -64,5 +66,7 @@ global class BaseNotification {
    * @param status Shows whether the payments platform successfully received the notification from the gateway.
    */
   global void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
 
 }

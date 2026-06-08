@@ -3,6 +3,8 @@
  */
 global class DeployCallbackContext {
 
+  global DeployCallbackContext() {}
+
   /**
    * Makes a duplicate copy of the Metadata.DeployCallbackContext .
    * @return Object

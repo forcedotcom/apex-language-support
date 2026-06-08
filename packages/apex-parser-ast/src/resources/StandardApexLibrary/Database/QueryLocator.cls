@@ -3,6 +3,8 @@
  */
 global class QueryLocator {
 
+  global QueryLocator() {}
+
   /**
    * Returns the query used to instantiate the Database.QueryLocator object. This is useful when testing the start method.
    * @return String
@@ -14,5 +16,7 @@ global class QueryLocator {
    * @return Database.QueryLocatorIterator
    */
   public Database.QueryLocatorIterator iterator() {}
+
+  global Object clone() {}
 
 }

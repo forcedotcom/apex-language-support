@@ -45,10 +45,21 @@ async function generateZip() {
     // List, Map, Set, String, Time) have been retired from builtins and are now sourced
     // directly from StandardApexLibrary/System/ as generated stubs.
     const builtinClasses = new Set([
-      'Blob.cls',    // hand-crafted: append(), subBlob(), toHexString(), toPdf(), valueOf(String, encoding)
-      'Integer.cls', // hand-crafted: decimalValue(), doubleValue(), longValue()
-      'Long.cls',    // hand-crafted: decimalValue(), doubleValue(), intValue()
-      'Object.cls',  // hand-crafted: equals(), hashCode(), toString() (minimal in docs)
+      'Blob.cls',           // hand-crafted: append(), subBlob(), toHexString(), toPdf(), valueOf(String, encoding)
+      'Integer.cls',        // hand-crafted: decimalValue(), doubleValue(), longValue()
+      'Long.cls',           // hand-crafted: decimalValue(), doubleValue(), intValue()
+      'Object.cls',         // hand-crafted: equals(), hashCode(), toString() (minimal in docs)
+      // System namespace overrides (scraper produces wrong output):
+      'Continuation.cls',   // hand-crafted: PascalCase fields (ContinuationMethod, Timeout)
+      'RestContext.cls',    // hand-crafted: request/response must be static fields
+      'RestResponse.cls',   // hand-crafted: statusCode casing and no-arg constructor
+    ]);
+
+    // Builtin classes that live in a namespace OTHER than System.
+    // Map of filename -> target namespace path segment in the ZIP.
+    const builtinNamespacedClasses = new Map([
+      ['DMLOptions.cls',           'Database'], // hand-crafted: PascalCase fields, correct inner class structure
+      ['DescribeSObjectResult.cls','Schema'],   // hand-crafted: correct Map/List return types on getters
     ]);
 
     // Get all files from the StandardApexLibrary directory
@@ -58,29 +69,33 @@ async function generateZip() {
       process.cwd(),
     );
 
-    // Filter out builtin classes from StandardApexLibrary/System/
+    // Filter out builtin classes from StandardApexLibrary/System/ and their declared namespace folders
     const files = {};
     for (const [filePath, data] of Object.entries(standardLibraryFiles)) {
-      // Check if this is a builtin class in System/ folder
+      const fileName = path.basename(filePath);
       const isBuiltinInSystem =
         filePath.includes('StandardApexLibrary/System/') &&
-        builtinClasses.has(path.basename(filePath));
+        builtinClasses.has(fileName);
+      const builtinNs = builtinNamespacedClasses.get(fileName);
+      const isBuiltinInNamespace =
+        builtinNs !== undefined &&
+        filePath.includes(`StandardApexLibrary/${builtinNs}/`);
 
-      if (!isBuiltinInSystem) {
+      if (!isBuiltinInSystem && !isBuiltinInNamespace) {
         files[filePath] = data;
       }
     }
 
-    // Get all files from builtins/ directory and map them to StandardApexLibrary/System/
+    // Get all files from builtins/ directory and map them to the correct namespace path in the ZIP
     const builtinsDir = path.join('src', 'resources', 'builtins');
     try {
       const builtinsFiles = await getAllFiles(builtinsDir, process.cwd());
 
-      // Map builtins files to StandardApexLibrary/System/ paths in ZIP
       for (const [filePath, data] of Object.entries(builtinsFiles)) {
-        // Convert builtins/Blob.cls -> src/resources/StandardApexLibrary/System/Blob.cls
         const fileName = path.basename(filePath);
-        const zipPath = `src/resources/StandardApexLibrary/System/${fileName}`;
+        // Namespaced builtins go into their declared namespace; all others go into System
+        const targetNs = builtinNamespacedClasses.get(fileName) ?? 'System';
+        const zipPath = `src/resources/StandardApexLibrary/${targetNs}/${fileName}`;
         files[zipPath] = data;
       }
     } catch (error) {

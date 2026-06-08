@@ -3,6 +3,8 @@
  */
 global class AttributeSetInputRepresentation {
 
+  global AttributeSetInputRepresentation() {}
+
   /**
    * List of up to 5 attribute API names. Required if creating a new attribute set.
    */
@@ -17,5 +19,7 @@ global class AttributeSetInputRepresentation {
    * Attribute set name for a new attribute set.
    */
   global String name;
+
+  global Object clone() {}
 
 }

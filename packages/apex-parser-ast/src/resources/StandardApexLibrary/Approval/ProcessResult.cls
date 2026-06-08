@@ -3,6 +3,8 @@
  */
 global class ProcessResult {
 
+  global ProcessResult() {}
+
   /**
    * The ID of the record being processed.
    * @return String
@@ -38,5 +40,7 @@ global class ProcessResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

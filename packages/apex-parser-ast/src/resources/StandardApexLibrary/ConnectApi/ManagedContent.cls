@@ -3,6 +3,8 @@
  */
 global class ManagedContent {
 
+  global ManagedContent() {}
+
   public static ConnectApi.ManagedContentDocumentClone cloneManagedContentDocument(String contentKeyOrId, ConnectApi.ManagedContentDocumentCloneInput ManagedContentCloneInputParam) {}
 
   public static ConnectApi.ManagedContentDocument createManagedContent(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam) {}
@@ -68,5 +70,7 @@ global class ManagedContent {
   public static ConnectApi.ManagedContentProviderInstance updateManagedContentProviderInstance(String providerInstanceId, ConnectApi.ManagedContentProviderInput providerInstanceInput) {}
 
   public static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) {}
+
+  global Object clone() {}
 
 }

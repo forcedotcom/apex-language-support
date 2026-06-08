@@ -3,6 +3,12 @@
  */
 global class QueryContext {
 
+  global QueryContext() {}
+
+  public String queryMoreToken;
+
+  public DataSource.TableSelection tableSelection;
+
   /**
    * Creates an instance of the QueryContext class.
    * @param metadata List of table metadata that describes the external system’s tables to query.
@@ -12,5 +18,7 @@ global class QueryContext {
    * @return DataSource.QueryContext
    */
   public static DataSource.QueryContext get(List<DataSource.Table> metadata, Integer offset, Integer maxResults, DataSource.TableSelection tableSelection) {}
+
+  global Object clone() {}
 
 }

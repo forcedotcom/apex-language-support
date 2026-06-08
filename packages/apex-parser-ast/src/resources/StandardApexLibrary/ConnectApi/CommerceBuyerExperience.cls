@@ -3,6 +3,8 @@
  */
 global class CommerceBuyerExperience {
 
+  global CommerceBuyerExperience() {}
+
   public static ConnectApi.OrderToCartResult addOrderToCart(String webstoreId, String orderSummaryId, ConnectApi.OrderToCartInput orderToCartInput) {}
 
   public static ConnectApi.OrderToCartResult addOrderToCart(String webstoreId, String orderSummaryId, ConnectApi.OrderToCartInput orderToCartInput, String effectiveAccountId) {}
@@ -104,5 +106,7 @@ global class CommerceBuyerExperience {
   public static ConnectApi.OrderSummaryLookupOutput lookupOrderSummary(String webstoreId, String effectiveAccountId, List<String> fields, ConnectApi.OrderSummaryLookupInput orderSummaryLookupInput) {}
 
   public static ConnectApi.OrderSummaryLookupOutput lookupOrderSummary(String webstoreId, String effectiveAccountId, ConnectApi.OrderSummaryLookupInput orderSummaryLookupInput) {}
+
+  global Object clone() {}
 
 }

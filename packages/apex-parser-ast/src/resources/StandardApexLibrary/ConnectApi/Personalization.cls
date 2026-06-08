@@ -3,6 +3,8 @@
  */
 global class Personalization {
 
+  global Personalization() {}
+
   public static ConnectApi.Audience createAudience(String communityId, ConnectApi.AudienceInput audience) {}
 
   public static ConnectApi.TargetCollection createTargets(String communityId, ConnectApi.TargetCollectionInput target) {}
@@ -28,5 +30,7 @@ global class Personalization {
   public static ConnectApi.Audience updateAudience(String communityId, String audienceId, ConnectApi.AudienceInput audience) {}
 
   public static ConnectApi.TargetCollection updateTargets(String communityId, ConnectApi.TargetCollectionUpdateInput target) {}
+
+  global Object clone() {}
 
 }

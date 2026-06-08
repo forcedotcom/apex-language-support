@@ -3,6 +3,8 @@
  */
 global class ReportScopeInfo {
 
+  global ReportScopeInfo() {}
+
   /**
    * Returns the default scope of the data to display in the report.
    * @return String
@@ -14,5 +16,7 @@ global class ReportScopeInfo {
    * @return List<Reports.ReportScopeValue>
    */
   public List<Reports.ReportScopeValue> getValues() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateAttachmentExclusionInfo {
 
+  global EinsteinPromptTemplateAttachmentExclusionInfo() {}
+
   /**
    * Reason for file exclusion from LLM request
    */
@@ -12,5 +14,7 @@ global class EinsteinPromptTemplateAttachmentExclusionInfo {
    * True if the file is excluded from LLM request, false otherwise
    */
   global Boolean isExcluded;
+
+  global Object clone() {}
 
 }

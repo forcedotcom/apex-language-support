@@ -3,6 +3,8 @@
  */
 global class PublishingService {
 
+  global PublishingService() {}
+
   /**
    * Archives an online version of an article. If the specified scheduledDate is null, the article is archived immediately. Otherwise, it archives the article on the scheduled date.
    * @param articleId 
@@ -134,5 +136,7 @@ global class PublishingService {
    * @return String
    */
   public static String submitForTranslation(String articleId, String language, String assigneeId, Datetime dueDate) {}
+
+  global Object clone() {}
 
 }

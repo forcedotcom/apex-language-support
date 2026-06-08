@@ -3,6 +3,8 @@
  */
 global class EncodingUtil {
 
+  global EncodingUtil() {}
+
   /**
    * Converts a Base64-encoded String to a Blob representing its normal form.
    * @param inputString 
@@ -46,5 +48,7 @@ global class EncodingUtil {
    * @return String
    */
   public static String urlEncode(String inputString, String encodingScheme) {}
+
+  global Object clone() {}
 
 }

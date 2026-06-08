@@ -3,6 +3,8 @@
  */
 global class ReportCurrency {
 
+  global ReportCurrency() {}
+
   /**
    * Returns the amount of the currency value.
    * @return Decimal
@@ -14,5 +16,7 @@ global class ReportCurrency {
    * @return String
    */
   public String getCurrencyCode() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Partition {
 
+  global Partition() {}
+
   /**
    * Returns true if the cache partition contains a cached value corresponding to the specified key.
    * @param key A case-sensitive string value that uniquely identifies a cached value.
@@ -209,5 +211,7 @@ global class Partition {
    * @param name The name of the partition to validate.
    */
   public static void validatePartitionName(String name) {}
+
+  global Object clone() {}
 
 }

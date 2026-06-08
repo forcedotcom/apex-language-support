@@ -71,4 +71,6 @@ global class CrossFilter {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

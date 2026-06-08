@@ -3,6 +3,8 @@
  */
 global class ProductCartItem {
 
+  global ProductCartItem() {}
+
   /**
    * Items in a cart.
    */
@@ -12,5 +14,7 @@ global class ProductCartItem {
    * Product summary for a cart item.
    */
   global ConnectApi.CartItemProduct product;
+
+  global Object clone() {}
 
 }

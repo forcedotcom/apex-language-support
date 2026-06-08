@@ -3,6 +3,8 @@
  */
 global class RequestHeaderInput {
 
+  global RequestHeaderInput() {}
+
   /**
    * The name of the request header.
    */
@@ -12,5 +14,7 @@ global class RequestHeaderInput {
    * The value of the request header.
    */
   global String value;
+
+  global Object clone() {}
 
 }

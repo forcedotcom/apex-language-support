@@ -3,8 +3,12 @@
  */
 global class RestContext {
 
-  global System.RestRequest request;
+  global RestContext() {}
 
-  global System.RestResponse response;
+  public RestRequest request;
+
+  public RestResponse response;
+
+  global Object clone() {}
 
 }

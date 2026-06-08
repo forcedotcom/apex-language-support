@@ -3,6 +3,8 @@
  */
 global class SuggestionResults {
 
+  global SuggestionResults() {}
+
   /**
    * Returns a list of SuggestionResult objects from the response to a call to Search.suggest( String , String , Search.SuggestionOption) .
    * @return List<Search.SuggestionResult>
@@ -14,5 +16,7 @@ global class SuggestionResults {
    * @return Boolean
    */
   public Boolean hasMoreResults() {}
+
+  global Object clone() {}
 
 }

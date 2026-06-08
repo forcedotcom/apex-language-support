@@ -3,6 +3,8 @@
  */
 global class DetailColumn {
 
+  global DetailColumn() {}
+
   /**
    * Returns the unique API name of the detail column field.
    * @return String
@@ -20,5 +22,7 @@ global class DetailColumn {
    * @return Reports.ColumnDataType
    */
   public Reports.ColumnDataType getDataType() {}
+
+  global Object clone() {}
 
 }

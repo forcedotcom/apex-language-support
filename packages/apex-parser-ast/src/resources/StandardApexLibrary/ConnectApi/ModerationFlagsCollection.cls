@@ -3,6 +3,8 @@
  */
 global class ModerationFlagsCollection {
 
+  global ModerationFlagsCollection() {}
+
   /**
    * Token identifying the current page.
    */
@@ -32,5 +34,7 @@ global class ModerationFlagsCollection {
    * Number of items per page.
    */
   global Integer pageSize;
+
+  global Object clone() {}
 
 }

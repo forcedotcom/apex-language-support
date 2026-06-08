@@ -3,6 +3,8 @@
  */
 global class CommerceQuoteLineItem {
 
+  global CommerceQuoteLineItem() {}
+
   /**
    * Record field containing the quote line item details.
    */
@@ -17,5 +19,7 @@ global class CommerceQuoteLineItem {
    * Details of buyer's product summary for the line item.
    */
   global ConnectApi.BuyerProductSummary product;
+
+  global Object clone() {}
 
 }

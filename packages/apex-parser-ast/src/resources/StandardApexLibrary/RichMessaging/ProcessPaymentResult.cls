@@ -7,4 +7,10 @@ global class ProcessPaymentResult {
 
   public ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus) {}
 
+  public String errorMessage;
+
+  public RichMessaging.ProcessPaymentResultStatus resultStatus;
+
+  global Object clone() {}
+
 }

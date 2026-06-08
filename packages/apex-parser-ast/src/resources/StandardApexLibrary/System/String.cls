@@ -3,6 +3,8 @@
  */
 global class String {
 
+  global String() {}
+
   /**
    * Returns an abbreviated version of the String, of the specified length and with ellipses appended if the current String is longer than the specified length; otherwise, returns the original String without ellipses.
    * @param maxWidth If maxWidth is less than four, this method throws a run-time exception.
@@ -876,5 +878,7 @@ global class String {
    * @return String
    */
   public static String valueOfGmt(Datetime datetimeToConvert) {}
+
+  global Object clone() {}
 
 }

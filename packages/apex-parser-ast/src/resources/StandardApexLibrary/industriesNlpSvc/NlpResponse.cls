@@ -3,8 +3,12 @@
  */
 global class NlpResponse {
 
+  global NlpResponse() {}
+
   public industriesNlpSvc.NlpSummarizationResult summarizationResult;
 
   public List<String> errors;
+
+  global Object clone() {}
 
 }

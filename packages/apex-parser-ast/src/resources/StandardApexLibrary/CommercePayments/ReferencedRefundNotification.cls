@@ -3,6 +3,8 @@
  */
 global class ReferencedRefundNotification {
 
+  global ReferencedRefundNotification() {}
+
   /**
    * Sets the transaction amount. Can be positive, negative, or zero.
    * @param amount The amount to be debited or captured.
@@ -64,5 +66,7 @@ global class ReferencedRefundNotification {
    * @param status Indicates whether the payments platform successfully received the notification from the payment gateway.
    */
   global void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
 
 }

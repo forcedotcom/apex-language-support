@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionReconciliationRuleOutput {
 
+  global CdpIdentityResolutionReconciliationRuleOutput() {}
+
   /**
    * API name of the Data Model Object the reconciliation rule applies to.
    */
@@ -37,5 +39,7 @@ global class CdpIdentityResolutionReconciliationRuleOutput {
    * API name of the unified data model object created by the identity resolution process.
    */
   global String unifiedDmoName;
+
+  global Object clone() {}
 
 }

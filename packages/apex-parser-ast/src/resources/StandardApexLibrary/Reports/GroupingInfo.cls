@@ -3,6 +3,8 @@
  */
 global class GroupingInfo {
 
+  global GroupingInfo() {}
+
   /**
    * Returns the unique API name of the field or bucket field that is used for row or column grouping.
    * @return String
@@ -26,5 +28,7 @@ global class GroupingInfo {
    * @return String
    */
   public String getSortAggregate() {}
+
+  global Object clone() {}
 
 }

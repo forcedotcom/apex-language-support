@@ -3,6 +3,8 @@
  */
 global class Formula {
 
+  global Formula() {}
+
   public static formulaeval.FormulaBuilder builder() {}
 
   /**
@@ -11,5 +13,7 @@ global class Formula {
    * @return List<System.FormulaRecalcResult>
    */
   public static List<System.FormulaRecalcResult> recalculateFormulas(List<SObject> sobjects) {}
+
+  global Object clone() {}
 
 }

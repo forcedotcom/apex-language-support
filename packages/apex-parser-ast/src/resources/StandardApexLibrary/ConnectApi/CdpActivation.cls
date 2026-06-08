@@ -3,6 +3,8 @@
  */
 global class CdpActivation {
 
+  global CdpActivation() {}
+
   public static ConnectApi.ActivationCollection getActivations() {}
 
   public static ConnectApi.ActivationCollection getActivationsPaginated(Integer batchSize, Integer offset, String orderBy, String filters) {}
@@ -14,5 +16,7 @@ global class CdpActivation {
   public static ConnectApi.Activation getActivation(String activationId) {}
 
   public static ConnectApi.Activation updateActivation(String activationId, ConnectApi.ActivationDefinitionInput input) {}
+
+  global Object clone() {}
 
 }

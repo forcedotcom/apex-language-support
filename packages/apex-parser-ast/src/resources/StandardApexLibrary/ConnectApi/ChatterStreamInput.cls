@@ -3,6 +3,8 @@
  */
 global class ChatterStreamInput {
 
+  global ChatterStreamInput() {}
+
   /**
    * Description of the stream, up to 1,000 characters.
    */
@@ -22,5 +24,7 @@ global class ChatterStreamInput {
    * List of entities whose feeds are removed from the stream. Removing an entity that is already removed results in no operation. Including the same entity in subscriptionsToAdd and subscriptionsToRemove results in no operation.
    */
   global List < ConnectApi.StreamSubscriptionInput > subscriptionsToRemove;
+
+  global Object clone() {}
 
 }

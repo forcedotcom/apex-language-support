@@ -3,6 +3,10 @@
  */
 global class SalesforceInbox {
 
+  global SalesforceInbox() {}
+
   public static ConnectApi.ActivitySharingResult shareActivity(String activityId, ConnectApi.ActivitySharingInput sharingInfo) {}
+
+  global Object clone() {}
 
 }

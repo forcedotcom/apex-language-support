@@ -3,6 +3,8 @@
  */
 global class LeadConvert {
 
+  global LeadConvert() {}
+
   /**
    * Gets the ID of the account into which the lead will be merged.
    * @return ID
@@ -140,5 +142,7 @@ global class LeadConvert {
    * @param sendEmail 
    */
   public void setSendNotificationEmail(Boolean sendEmail) {}
+
+  global Object clone() {}
 
 }

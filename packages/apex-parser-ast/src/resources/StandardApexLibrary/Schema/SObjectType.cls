@@ -3,6 +3,8 @@
  */
 global class SObjectType {
 
+  global SObjectType() {}
+
   /**
    * Returns the describe sObject result for this field.
    * @return Schema.DescribeSObjectResult
@@ -36,5 +38,7 @@ global class SObjectType {
    * @return sObject
    */
   public sObject newSObject(ID recordTypeId, Boolean loadDefaults) {}
+
+  global Object clone() {}
 
 }

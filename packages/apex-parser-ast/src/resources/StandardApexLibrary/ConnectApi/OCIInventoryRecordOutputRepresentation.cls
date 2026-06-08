@@ -3,6 +3,8 @@
  */
 global class OCIInventoryRecordOutputRepresentation {
 
+  global OCIInventoryRecordOutputRepresentation() {}
+
   /**
    * The Available To Fulfill quantity.
    */
@@ -47,5 +49,7 @@ global class OCIInventoryRecordOutputRepresentation {
    * The SKU of the product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

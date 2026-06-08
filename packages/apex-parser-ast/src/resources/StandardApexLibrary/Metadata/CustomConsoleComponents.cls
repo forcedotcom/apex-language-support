@@ -3,6 +3,12 @@
  */
 global class CustomConsoleComponents {
 
+  global CustomConsoleComponents() {}
+
+  public Metadata.PrimaryTabComponents primaryTabComponents;
+
+  public Metadata.SubtabComponents subtabComponents;
+
   /**
    * Makes a duplicate copy of the Metadata.CustomConsoleComponents .
    * @return Object

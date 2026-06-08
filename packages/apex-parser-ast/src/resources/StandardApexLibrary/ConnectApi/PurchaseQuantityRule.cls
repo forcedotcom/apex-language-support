@@ -3,6 +3,8 @@
  */
 global class PurchaseQuantityRule {
 
+  global PurchaseQuantityRule() {}
+
   /**
    * Increment value of the quantity that can be purchased.
    */
@@ -17,5 +19,7 @@ global class PurchaseQuantityRule {
    * Minimum quantity that can be purchased.
    */
   global String minimum;
+
+  global Object clone() {}
 
 }

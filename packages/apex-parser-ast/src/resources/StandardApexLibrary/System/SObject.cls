@@ -3,6 +3,8 @@
  */
 global class SObject {
 
+  global SObject() {}
+
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.

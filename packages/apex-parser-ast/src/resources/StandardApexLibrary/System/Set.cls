@@ -3,6 +3,8 @@
  */
 global class Set {
 
+  global Set() {}
+
   /**
    * Adds an element to the set if it is not already present.
    * @param setElement 

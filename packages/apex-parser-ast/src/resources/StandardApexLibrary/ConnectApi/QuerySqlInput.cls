@@ -3,6 +3,8 @@
  */
 global class QuerySqlInput {
 
+  global QuerySqlInput() {}
+
   /**
    * Amount of time (in seconds) for the query engine to respond to the request. 0 will return the queryId, status, and metadata, but no data associated with the SQL. The maximum value is 15 .
    */
@@ -27,5 +29,7 @@ global class QuerySqlInput {
    * Value and type information about the SQL parameters.
    */
   global List < ConnectApi.QuerySqlParameterItem > sqlParameters;
+
+  global Object clone() {}
 
 }

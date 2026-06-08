@@ -3,6 +3,8 @@
  */
 global class Id {
 
+  global Id() {}
+
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
@@ -55,5 +57,7 @@ global class Id {
    * @return Id
    */
   public static Id valueOf(String str, Boolean restoreCasing) {}
+
+  global Object clone() {}
 
 }

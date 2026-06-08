@@ -3,6 +3,8 @@
  */
 global class ReportTypeMetadata {
 
+  global ReportTypeMetadata() {}
+
   /**
    * Returns all fields in the report type. The fields are organized by section.
    * @return LIST<Reports.ReportTypeColumnCategory>
@@ -32,5 +34,7 @@ global class ReportTypeMetadata {
    * @return Map<String,Reports.StandardFilterInfo>
    */
   public Map<String,Reports.StandardFilterInfo> getStandardFilterInfos() {}
+
+  global Object clone() {}
 
 }

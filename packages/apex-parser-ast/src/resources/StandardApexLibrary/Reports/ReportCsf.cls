@@ -137,4 +137,6 @@ global class ReportCsf {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

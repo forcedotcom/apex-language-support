@@ -3,6 +3,8 @@
  */
 global class DomainCreator {
 
+  global DomainCreator() {}
+
   public static String getContentHostname() {}
 
   public static String getExperienceCloudSitesBuilderHostname() {}
@@ -24,5 +26,7 @@ global class DomainCreator {
   public static String getSetupHostname() {}
 
   public static String getVisualforceHostname(String packageName) {}
+
+  global Object clone() {}
 
 }

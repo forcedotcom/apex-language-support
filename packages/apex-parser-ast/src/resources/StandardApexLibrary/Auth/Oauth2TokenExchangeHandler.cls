@@ -3,8 +3,12 @@
  */
 global class Oauth2TokenExchangeHandler {
 
+  global Oauth2TokenExchangeHandler() {}
+
   public User getUserForTokenSubject(Id networkId, Auth.TokenValidationResult result, Boolean canCreateUser, String appDeveloperName, Auth.IntegratingAppType appType) {}
 
   public Auth.TokenValidationResult validateIncomingToken(String appDeveloperName, Auth.IntegratingAppType appType, String incomingToken, Auth.OAuth2TokenExchangeType tokenType) {}
+
+  global Object clone() {}
 
 }

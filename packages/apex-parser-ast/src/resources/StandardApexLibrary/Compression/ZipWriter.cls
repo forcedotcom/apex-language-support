@@ -3,6 +3,8 @@
  */
 global class ZipWriter {
 
+  global ZipWriter() {}
+
   public Compression.ZipEntry addEntry(string name, blob data) {}
 
   public Compression.ZipEntry addEntry(compression.ZipEntry prototype) {}
@@ -26,5 +28,7 @@ global class ZipWriter {
   public Compression.ZipWriter setLevel(compression.Level value) {}
 
   public Compression.ZipWriter setMethod(compression.Method value) {}
+
+  global Object clone() {}
 
 }

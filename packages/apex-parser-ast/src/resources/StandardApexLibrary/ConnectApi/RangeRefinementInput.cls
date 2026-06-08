@@ -3,6 +3,8 @@
  */
 global class RangeRefinementInput {
 
+  global RangeRefinementInput() {}
+
   /**
    * Type of search attribute for the refinement. Values are: Custom Standard PricebookEntry
    */
@@ -27,5 +29,7 @@ global class RangeRefinementInput {
    * Type of the refinement. Values is: Range
    */
   global String type;
+
+  global Object clone() {}
 
 }

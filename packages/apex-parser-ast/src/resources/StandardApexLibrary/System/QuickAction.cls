@@ -3,6 +3,8 @@
  */
 global class QuickAction {
 
+  global QuickAction() {}
+
   /**
    * Returns metadata information for the available quick actions of the provided parent object.
    * @param parentType The parent object type. This can be an object type name ('Account') or 'Global' (meaning that this method is called at a global level and not an entity level).
@@ -46,5 +48,7 @@ global class QuickAction {
    * @return List<QuickAction.QuickActionResult>
    */
   public static List<QuickAction.QuickActionResult> performQuickActions(List<QuickAction.QuickActionRequest> quickActionRequests, Boolean allOrNothing) {}
+
+  global Object clone() {}
 
 }

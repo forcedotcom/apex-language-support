@@ -5,6 +5,24 @@ global class SaleRequest {
 
   global SaleRequest(Double amount) {}
 
+  global String accountId;
+
+  global Double amount;
+
+  global String comments;
+
+  global String currencyIsoCode;
+
+  public commercepayments.EnhancedPaymentDataInput enhancedPaymentData;
+
+  public String paymentInitiationSourceId;
+
+  global commercepayments.SaleApiPaymentMethodRequest paymentMethod;
+
+  public Map<String,String> paymentMethodData;
+
+  public Boolean submittedByMerchant;
+
   /**
    * Compares this object with the specified object and returns true if both objects are equal; otherwise, returns false .
    * @param obj 
@@ -23,5 +41,7 @@ global class SaleRequest {
    * @return String
    */
   global String toString() {}
+
+  global Object clone() {}
 
 }

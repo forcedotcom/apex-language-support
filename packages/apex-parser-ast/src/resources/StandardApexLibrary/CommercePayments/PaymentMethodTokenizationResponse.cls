@@ -3,6 +3,8 @@
  */
 global class PaymentMethodTokenizationResponse {
 
+  global PaymentMethodTokenizationResponse() {}
+
   public void setAmount(Double amount) {}
 
   public void setAsync(Boolean async) {}
@@ -66,5 +68,7 @@ global class PaymentMethodTokenizationResponse {
    * @param salesforceResultCodeInfo Description of the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

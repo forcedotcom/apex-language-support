@@ -3,6 +3,8 @@
  */
 global class ReportDescribeResult {
 
+  global ReportDescribeResult() {}
+
   /**
    * Returns additional information about grouping and summaries.
    * @return Reports.ReportExtendedMetadata
@@ -20,5 +22,7 @@ global class ReportDescribeResult {
    * @return Reports.ReportTypeMetadata
    */
   public Reports.ReportTypeMetadata getReportTypeMetadata() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CreatedFile {
 
+  global CreatedFile() {}
+
   /**
    * The id of the content version created in the org for this file.
    */
@@ -12,5 +14,7 @@ global class CreatedFile {
    * Indicates whether the file was created successfully. Returns true if the Content Version record was created without errors.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class DuplicateResult {
 
+  global DuplicateResult() {}
+
   /**
    * Returns the developer name of the executed duplicate rule that returned duplicate records.
    * @return String
@@ -26,5 +28,7 @@ global class DuplicateResult {
    * @return Boolean
    */
   public Boolean isAllowSave() {}
+
+  global Object clone() {}
 
 }

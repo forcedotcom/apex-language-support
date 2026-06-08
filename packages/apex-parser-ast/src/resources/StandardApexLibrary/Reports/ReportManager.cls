@@ -3,6 +3,8 @@
  */
 global class ReportManager {
 
+  global ReportManager() {}
+
   /**
    * Retrieves report, report type, and extended metadata for a tabular, summary, or matrix report.
    * @param reportId 
@@ -12,9 +14,9 @@ global class ReportManager {
 
   /**
    * Lists the field data types that you can use to filter the report.
-   * @return MAP<String,LIST<Reports.FilterOperator>>
+   * @return Map<String,LIST<Reports.FilterOperator>>
    */
-  public static MAP<String,LIST<Reports.FilterOperator>> getDatatypeFilterOperatorMap() {}
+  public static Map<String,LIST<Reports.FilterOperator>> getDatatypeFilterOperatorMap() {}
 
   /**
    * Retrieves results for an instance of a report that has been run asynchronously. The settings you use when you run your asynchronous report determine whether you can retrieve summary data or detailed data.
@@ -93,5 +95,7 @@ global class ReportManager {
    * @return Reports.ReportResults
    */
   public static Reports.ReportResults runReport(Id reportId) {}
+
+  global Object clone() {}
 
 }

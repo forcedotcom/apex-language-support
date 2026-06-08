@@ -3,10 +3,14 @@
  */
 global class IdeaStandardController {
 
+  global IdeaStandardController() {}
+
   /**
    * Returns the list of read-only comments from the current page.
    * @return IdeaComment[]
    */
   public IdeaComment[] getCommentList() {}
+
+  global Object clone() {}
 
 }

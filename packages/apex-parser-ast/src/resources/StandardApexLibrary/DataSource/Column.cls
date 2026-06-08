@@ -3,6 +3,34 @@
  */
 global class Column {
 
+  global Column() {}
+
+  public Integer decimalPlaces;
+
+  public String description;
+
+  public Boolean filterable;
+
+  public Boolean isPicklistAlphabeticallySorted;
+
+  public Boolean isPicklistRestricted;
+
+  public String label;
+
+  public Integer length;
+
+  public String name;
+
+  public List<Map<String,String>> picklistValues;
+
+  public String referenceTargetField;
+
+  public String referenceTo;
+
+  public Boolean sortable;
+
+  public DataSource.DataType type;
+
   /**
    * Returns a new column of data type BOOLEAN_TYPE .
    * @param name Name of the column.
@@ -181,5 +209,7 @@ global class Column {
    * @return DataSource.Column
    */
   public static DataSource.Column url(String name) {}
+
+  global Object clone() {}
 
 }

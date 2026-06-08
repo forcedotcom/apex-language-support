@@ -3,6 +3,8 @@
  */
 global class ReportType {
 
+  global ReportType() {}
+
   /**
    * Returns the localized display name of the report type.
    * @return String
@@ -14,5 +16,7 @@ global class ReportType {
    * @return String
    */
   public String getType() {}
+
+  global Object clone() {}
 
 }

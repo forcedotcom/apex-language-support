@@ -3,6 +3,14 @@
  */
 global class PlatformActionList {
 
+  global PlatformActionList() {}
+
+  public Metadata.PlatformActionListContextEnum actionListContext;
+
+  public List<Metadata.PlatformActionListItem> platformActionListItems;
+
+  public String relatedSourceEntity;
+
   /**
    * Makes a duplicate copy of the Metadata.PlatformActionList .
    * @return Object

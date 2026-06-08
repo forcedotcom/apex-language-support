@@ -3,6 +3,8 @@
  */
 global class ChatterConversationPage {
 
+  global ChatterConversationPage() {}
+
   /**
    * List of conversations on the page.
    */
@@ -27,5 +29,7 @@ global class ChatterConversationPage {
    * Connect REST API URL identifying the next page, or null if there isn’t a next page.
    */
   global String nextPageUrl;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,12 @@
  */
 global class DescribeLayoutSection {
 
+  global DescribeLayoutSection() {}
+
+  public Boolean collapsed;
+
+  public Id layoutsectionid;
+
   /**
    * Returns the number of columns in the QuickAction.DescribeLayoutSection .
    * @return Integer
@@ -56,5 +62,7 @@ global class DescribeLayoutSection {
    * @return Boolean
    */
   public Boolean isUseHeading() {}
+
+  global Object clone() {}
 
 }

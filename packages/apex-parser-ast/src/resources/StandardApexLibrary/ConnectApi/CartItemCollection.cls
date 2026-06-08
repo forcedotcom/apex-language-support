@@ -3,6 +3,8 @@
  */
 global class CartItemCollection {
 
+  global CartItemCollection() {}
+
   /**
    * List of approaching discounts for the cart items.
    */
@@ -77,5 +79,7 @@ global class CartItemCollection {
    * Total number of pages for the given page size.
    */
   global Integer totalNumberOfPages;
+
+  global Object clone() {}
 
 }

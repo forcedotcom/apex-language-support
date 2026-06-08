@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannelDetail {
 
+  global ManagedContentChannelDetail() {}
+
   /**
    * ID of the managed content channel.
    */
@@ -37,5 +39,7 @@ global class ManagedContentChannelDetail {
    * Specifies whether the channel’s domain is locked and can’t be changed ( true ) or not ( false ).
    */
   global Boolean isDomainLocked;
+
+  global Object clone() {}
 
 }

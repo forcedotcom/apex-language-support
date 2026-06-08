@@ -3,6 +3,8 @@
  */
 global class OrderShipment {
 
+  global OrderShipment() {}
+
   /**
    * Expected delivery date for the shipment.
    */
@@ -32,5 +34,7 @@ global class OrderShipment {
    * Status of the shipment.
    */
   global String status;
+
+  global Object clone() {}
 
 }

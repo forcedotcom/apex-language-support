@@ -3,6 +3,8 @@
  */
 global class ProcessSubmitRequest {
 
+  global ProcessSubmitRequest() {}
+
   /**
    * Returns the ID of the record that has been submitted for approval. For example, it can return an account, contact, or custom object record.
    * @return String
@@ -50,5 +52,7 @@ global class ProcessSubmitRequest {
    * @param userID The user ID on behalf of which the record is submitted. If set to null , the current user is the submitter. If the submitter is not set with this method, the default submitter is null (the current user).
    */
   public void setSubmitterId(String userID) {}
+
+  global Object clone() {}
 
 }

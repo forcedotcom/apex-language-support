@@ -3,6 +3,8 @@
  */
 global class FilterOperator {
 
+  global FilterOperator() {}
+
   /**
    * Returns the localized display name of the filter operator. Possible values for this name are restricted based on the data type of the column being filtered.
    * @return String
@@ -14,5 +16,7 @@ global class FilterOperator {
    * @return String
    */
   public String getName() {}
+
+  global Object clone() {}
 
 }

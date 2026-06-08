@@ -3,6 +3,8 @@
  */
 global class CreateServiceAppointmentInput {
 
+  global CreateServiceAppointmentInput() {}
+
   /**
    * Represents the service resources to be assigned to a service appointment. Note When creating an appointment, use extendedFields to add values to any of the fields, including custom fields, in assignedResources as long as you have edit access to those fields.
    */
@@ -22,5 +24,7 @@ global class CreateServiceAppointmentInput {
    * Represents the service appointment details to book an appointment. Note When creating an appointment, use extendedFields to add values to any of the fields, including custom fields, in assignedResources as long as you have edit access to those fields.
    */
   global ConnectApi.ServiceAppointmentInput serviceAppointment;
+
+  global Object clone() {}
 
 }

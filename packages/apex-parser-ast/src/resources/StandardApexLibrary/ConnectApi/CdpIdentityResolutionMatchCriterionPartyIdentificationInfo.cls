@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionMatchCriterionPartyIdentificationInfo {
 
+  global CdpIdentityResolutionMatchCriterionPartyIdentificationInfo() {}
+
   /**
    * Party identification name.
    */
@@ -12,5 +14,7 @@ global class CdpIdentityResolutionMatchCriterionPartyIdentificationInfo {
    * Party identification type.
    */
   global String partyType;
+
+  global Object clone() {}
 
 }

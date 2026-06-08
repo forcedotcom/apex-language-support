@@ -3,6 +3,12 @@
  */
 global class FindDuplicatesResult {
 
+  global FindDuplicatesResult() {}
+
+  public List<Database.Error> errors;
+
+  public Boolean success;
+
   /**
    * Returns a list of DuplicateResult objects representing the results of calling FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids) . Elements in the list correspond to sObjects or IDs in the input list.
    * @return List<Datacloud.DuplicateResult>
@@ -20,5 +26,7 @@ global class FindDuplicatesResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

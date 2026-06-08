@@ -3,6 +3,8 @@
  */
 global class SendEmailQuickActionDefaults {
 
+  global SendEmailQuickActionDefaults() {}
+
   /**
    * Returns a list of email addresses that are available in the From: address drop-down menu for the standard Email Action.
    * @return List<String>
@@ -32,5 +34,7 @@ global class SendEmailQuickActionDefaults {
    * @param templateId The template ID.
    */
   public void setTemplateId(Id templateId) {}
+
+  global Object clone() {}
 
 }

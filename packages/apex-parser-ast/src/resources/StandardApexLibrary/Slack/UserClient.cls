@@ -1,5 +1,7 @@
 global class UserClient {
 
+  global UserClient() {}
+
   global Slack.ApiTestResponse apiTest(Slack.ApiTestRequest req) {}
 
   global Slack.AppsEventAuthorizationsListResponse appsEventAuthorizationsList(Slack.AppsEventAuthorizationsListRequest req) {}
@@ -199,5 +201,7 @@ global class UserClient {
   global Slack.ViewsPushResponse viewsPush(Slack.ViewsPushRequest req) {}
 
   global Slack.ViewsUpdateResponse viewsUpdate(Slack.ViewsUpdateRequest req) {}
+
+  global Object clone() {}
 
 }

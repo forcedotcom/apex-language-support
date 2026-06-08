@@ -3,6 +3,8 @@
  */
 global class LearningEvaluationResult {
 
+  global LearningEvaluationResult() {}
+
   public Double getLearningItemProgress() {}
 
   public sfdc_enablement.LearningItemProgressStatus getLearningItemProgressStatus() {}
@@ -10,5 +12,7 @@ global class LearningEvaluationResult {
   public void setLearningItemProgress(Double learningItemProgress) {}
 
   public void setLearningItemProgressStatus(sfdc_enablement.LearningItemProgressStatus learningItemProgressStatus) {}
+
+  global Object clone() {}
 
 }

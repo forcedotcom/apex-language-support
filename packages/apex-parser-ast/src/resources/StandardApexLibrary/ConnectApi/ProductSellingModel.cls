@@ -3,6 +3,8 @@
  */
 global class ProductSellingModel {
 
+  global ProductSellingModel() {}
+
   /**
    * Description of the product selling model displayed on the UI.
    */
@@ -42,5 +44,7 @@ global class ProductSellingModel {
    * Rules for the subscription term.
    */
   global ConnectApi.SubscriptionTermRule subscriptionTermRule;
+
+  global Object clone() {}
 
 }

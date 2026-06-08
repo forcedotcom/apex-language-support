@@ -3,6 +3,8 @@
  */
 global class Datetime {
 
+  global Datetime() {}
+
   /**
    * Adds the specified number of days to a Datetime.
    * @param additionalDays 
@@ -310,5 +312,7 @@ global class Datetime {
    * @return Integer
    */
   public Integer yearGmt() {}
+
+  global Object clone() {}
 
 }

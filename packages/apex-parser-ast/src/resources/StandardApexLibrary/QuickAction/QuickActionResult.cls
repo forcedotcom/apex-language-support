@@ -3,6 +3,8 @@
  */
 global class QuickActionResult {
 
+  global QuickActionResult() {}
+
   /**
    * If an error occurs, an array of one or more database error objects, along with error codes and descriptions, is returned.
    * @return List<Database.Error>
@@ -32,5 +34,7 @@ global class QuickActionResult {
    * @return Boolean
    */
   public Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

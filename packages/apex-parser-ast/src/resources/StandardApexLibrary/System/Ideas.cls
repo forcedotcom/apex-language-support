@@ -3,6 +3,8 @@
  */
 global class Ideas {
 
+  global Ideas() {}
+
   /**
    * Returns a list of similar ideas based on the title of the specified idea.
    * @param idea 
@@ -39,5 +41,7 @@ global class Ideas {
    * @param ideaID 
    */
   public static void markRead(String ideaID) {}
+
+  global Object clone() {}
 
 }

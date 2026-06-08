@@ -5,6 +5,12 @@ global class VerificationResult {
 
   public VerificationResult(System.PageReference redirect, Boolean success, String message) {}
 
+  public String message;
+
+  public System.PageReference redirect;
+
+  public Boolean success;
+
   /**
    * Duplicates the Auth.VerificationResult object.
    * @return Object

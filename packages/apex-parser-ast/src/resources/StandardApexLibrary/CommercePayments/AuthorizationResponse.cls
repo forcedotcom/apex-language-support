@@ -3,6 +3,8 @@
  */
 global class AuthorizationResponse {
 
+  global AuthorizationResponse() {}
+
   /**
    * Sets the amount of the authorization. Must be a non-zero value.
    * @param amount 
@@ -76,5 +78,7 @@ global class AuthorizationResponse {
    * @param salesforceResultCodeInfo Description of the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

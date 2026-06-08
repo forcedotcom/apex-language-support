@@ -47,4 +47,6 @@ global class CustomNotification {
    */
   public void setTargetPageRef(String pageRef) {}
 
+  global Object clone() {}
+
 }

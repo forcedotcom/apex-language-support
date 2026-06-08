@@ -3,6 +3,8 @@
  */
 global class StandardFilterInfoPicklist {
 
+  global StandardFilterInfoPicklist() {}
+
   /**
    * Returns the default value for the standard filter picklist.
    * @return String
@@ -26,5 +28,7 @@ global class StandardFilterInfoPicklist {
    * @return Reports.StandardFilterType
    */
   public Reports.StandardFilterType getType() {}
+
+  global Object clone() {}
 
 }

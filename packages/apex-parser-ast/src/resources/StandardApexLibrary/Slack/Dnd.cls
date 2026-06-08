@@ -1,5 +1,7 @@
 global class Dnd {
 
+  global Dnd() {}
+
   global static Slack.DndEndDndRequest.Builder builder() {}
 
   global Slack.DndEndDndRequest build() {}
@@ -57,5 +59,7 @@ global class Dnd {
   global Map<String,Slack.DndTeamInfoResponse.DndTeamMemberInfo> getUsers() {}
 
   global void setUsers(Slack.DndTeamInfoResponse.DndTeamMemberInfo> users) {}
+
+  global Object clone() {}
 
 }

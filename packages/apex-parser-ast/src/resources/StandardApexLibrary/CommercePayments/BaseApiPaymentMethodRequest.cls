@@ -5,6 +5,14 @@ global class BaseApiPaymentMethodRequest {
 
   global BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) {}
 
+  global commercepayments.AddressRequest address;
+
+  global String id;
+
+  public commercepayments.PaymentMethodIdType idType;
+
+  global Boolean saveForFuture;
+
   /**
    * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -23,5 +31,7 @@ global class BaseApiPaymentMethodRequest {
    * @return String
    */
   global String toString() {}
+
+  global Object clone() {}
 
 }

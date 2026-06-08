@@ -3,6 +3,8 @@
  */
 global class ExternalAuthIdentityProvider {
 
+  global ExternalAuthIdentityProvider() {}
+
   /**
    * Authentication flow to get tokens to call protected APIs. Values are: AuthorizationCode ClientCredentials
    */
@@ -82,5 +84,7 @@ global class ExternalAuthIdentityProvider {
    * User info URL to retrieve user profile information from the external system.
    */
   global String userInfoUrl;
+
+  global Object clone() {}
 
 }

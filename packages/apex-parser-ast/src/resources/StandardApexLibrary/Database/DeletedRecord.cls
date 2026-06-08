@@ -3,6 +3,8 @@
  */
 global class DeletedRecord {
 
+  global DeletedRecord() {}
+
   /**
    * Returns the deleted date of this record.
    * @return Date
@@ -14,5 +16,7 @@ global class DeletedRecord {
    * @return Id
    */
   public Id getId() {}
+
+  global Object clone() {}
 
 }

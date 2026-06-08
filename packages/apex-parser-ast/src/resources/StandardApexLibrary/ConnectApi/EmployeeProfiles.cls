@@ -3,6 +3,8 @@
  */
 global class EmployeeProfiles {
 
+  global EmployeeProfiles() {}
+
   public static void deleteBannerPhoto(String employeeId) {}
 
   public static void deletePhoto(String employeeId) {}
@@ -26,5 +28,7 @@ global class EmployeeProfiles {
   public static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo) {}
 
   public static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo, ConnectApi.BinaryInput fileUpload) {}
+
+  global Object clone() {}
 
 }

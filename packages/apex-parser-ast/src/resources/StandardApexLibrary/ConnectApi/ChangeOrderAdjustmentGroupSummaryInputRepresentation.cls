@@ -3,6 +3,8 @@
  */
 global class ChangeOrderAdjustmentGroupSummaryInputRepresentation {
 
+  global ChangeOrderAdjustmentGroupSummaryInputRepresentation() {}
+
   /**
    * Whether a new order adjustment group summary is being created or an existing summary is being updated. Valid values are New or Update.
    */
@@ -17,5 +19,7 @@ global class ChangeOrderAdjustmentGroupSummaryInputRepresentation {
    * The unique reference ID for this order adjustment group summary. This field is valid only if the Change Type value is New.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

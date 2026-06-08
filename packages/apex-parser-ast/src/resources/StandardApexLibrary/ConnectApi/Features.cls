@@ -3,6 +3,8 @@
  */
 global class Features {
 
+  global Features() {}
+
   /**
    * Reserved for future use.
    */
@@ -247,5 +249,7 @@ global class Features {
    * Specifies whether CRM Analytics is enabled.
    */
   global Boolean wave;
+
+  global Object clone() {}
 
 }

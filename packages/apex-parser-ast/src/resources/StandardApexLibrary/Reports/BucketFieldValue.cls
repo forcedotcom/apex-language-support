@@ -47,4 +47,6 @@ global class BucketFieldValue {
    */
   public String toString() {}
 
+  global Object clone() {}
+
 }

@@ -37,4 +37,6 @@ global class PageReference {
 
   public System.PageReference setRedirectCode(Integer redirectCode) {}
 
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class PricingResultLineItem {
 
+  global PricingResultLineItem() {}
+
   /**
    * Error code and message.
    */
@@ -37,5 +39,7 @@ global class PricingResultLineItem {
    * Unit price for the product.
    */
   global String unitPrice;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class BestLocationPerSKUOutputRepresentation {
 
+  global BestLocationPerSKUOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -27,5 +29,7 @@ global class BestLocationPerSKUOutputRepresentation {
    * The score for this SKU at this location.
    */
   global Double unitScore;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class RangeSearchFacet {
 
+  global RangeSearchFacet() {}
+
   /**
    * Type of search attribute for the refinement. Values are: Custom Standard PricebookEntry
    */
@@ -47,5 +49,7 @@ global class RangeSearchFacet {
    * Developer name of the attribute for the refinement.
    */
   global String nameOrId;
+
+  global Object clone() {}
 
 }

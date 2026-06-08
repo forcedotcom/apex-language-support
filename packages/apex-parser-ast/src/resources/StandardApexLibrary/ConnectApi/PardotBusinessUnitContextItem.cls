@@ -3,6 +3,8 @@
  */
 global class PardotBusinessUnitContextItem {
 
+  global PardotBusinessUnitContextItem() {}
+
   /**
    * ID of the PardotTenant record.
    */
@@ -17,5 +19,7 @@ global class PardotBusinessUnitContextItem {
    * Name of the Pardot business unit as it is specified in the MasterLabel of the PardotTenant record.
    */
   global String name;
+
+  global Object clone() {}
 
 }

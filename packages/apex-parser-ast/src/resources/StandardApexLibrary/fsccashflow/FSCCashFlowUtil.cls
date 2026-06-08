@@ -3,4 +3,8 @@
  */
 global class FSCCashFlowUtil {
 
+  global FSCCashFlowUtil() {}
+
+  global Object clone() {}
+
 }

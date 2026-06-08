@@ -3,6 +3,8 @@
  */
 global class SortColumn {
 
+  global SortColumn() {}
+
   /**
    * Returns the column used to sort the records in the report.
    * @return String
@@ -26,5 +28,7 @@ global class SortColumn {
    * @param sortOrder 
    */
   public void setSortOrder(Reports.ColumnSortOrder sortOrder) {}
+
+  global Object clone() {}
 
 }

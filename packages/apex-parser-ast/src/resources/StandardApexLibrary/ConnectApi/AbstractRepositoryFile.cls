@@ -3,6 +3,8 @@
  */
 global class AbstractRepositoryFile extends ConnectApi.AbstractRepositoryItem {
 
+  global AbstractRepositoryFile() {}
+
   /**
    * Checkin comment of the file.
    */
@@ -77,5 +79,7 @@ global class AbstractRepositoryFile extends ConnectApi.AbstractRepositoryItem {
    * ID of the file version in the external system.
    */
   global String versionId;
+
+  global Object clone() {}
 
 }

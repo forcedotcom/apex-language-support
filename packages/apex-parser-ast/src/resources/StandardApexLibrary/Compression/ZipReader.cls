@@ -17,4 +17,6 @@ global class ZipReader {
 
   public List<String> getEntryNames() {}
 
+  global Object clone() {}
+
 }

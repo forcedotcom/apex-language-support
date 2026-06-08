@@ -3,6 +3,8 @@
  */
 global class CapacityRequestInputRepresentation {
 
+  global CapacityRequestInputRepresentation() {}
+
   /**
    * Unique string that identifies the request. Can be a UUID. Use the action request IDs in response data to identify which requests succeeded or failed.
    */
@@ -12,5 +14,7 @@ global class CapacityRequestInputRepresentation {
    * ID of the location associated with the request.
    */
   global String locationId;
+
+  global Object clone() {}
 
 }

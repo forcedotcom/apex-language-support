@@ -3,9 +3,13 @@
  */
 global class PaymentCreditSequenceItemOutputRepresentation {
 
+  global PaymentCreditSequenceItemOutputRepresentation() {}
+
   /**
    * The type of payment credit that is being issued. Must be a valid value on the Credit Type picklist.
    */
   global String creditType;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class DescribeDataCategoryGroupResult {
 
+  global DescribeDataCategoryGroupResult() {}
+
   /**
    * Returns the number of visible data categories in the data category group.
    * @return Integer
@@ -32,5 +34,7 @@ global class DescribeDataCategoryGroupResult {
    * @return String
    */
   public String getSobject() {}
+
+  global Object clone() {}
 
 }

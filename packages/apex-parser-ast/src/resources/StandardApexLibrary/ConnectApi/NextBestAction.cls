@@ -3,6 +3,8 @@
  */
 global class NextBestAction {
 
+  global NextBestAction() {}
+
   public static void deleteRecommendationReaction(String reactionId) {}
 
   public static ConnectApi.NBARecommendations executeStrategy(String strategyName, Integer maxResults, String contextRecordId) {}
@@ -18,5 +20,7 @@ global class NextBestAction {
   public static ConnectApi.RecommendationReactions getRecommendationReactions(String onBehalfOfId, String createdById, String targetId, String contextRecordId, Integer pageParam, Integer pageSize) {}
 
   public static ConnectApi.RecommendationReaction setRecommendationReaction(ConnectApi.RecommendationReactionInput reaction) {}
+
+  global Object clone() {}
 
 }

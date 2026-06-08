@@ -3,6 +3,8 @@
  */
 global class SchedulerResources {
 
+  global SchedulerResources() {}
+
   public static String getAppointmentCandidates(lxscheduler.GetAppointmentCandidatesInput getAppointmentCandidatesInput) {}
 
   public static String getAppointmentSlots(lxscheduler.GetAppointmentSlotsInput getAppointmentSlotsInput) {}
@@ -10,5 +12,7 @@ global class SchedulerResources {
   public static void setAppointmentCandidatesMock(String expectedResponse) {}
 
   public static void setAppointmentSlotsMock(String expectedResponse) {}
+
+  global Object clone() {}
 
 }

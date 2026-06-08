@@ -3,6 +3,8 @@
  */
 global class Announcements {
 
+  global Announcements() {}
+
   public static void deleteAnnouncement(String communityId, String announcementId) {}
 
   public static ConnectApi.Announcement getAnnouncement(String communityId, String announcementId) {}
@@ -14,5 +16,7 @@ global class Announcements {
   public static ConnectApi.Announcement postAnnouncement(String communityId, ConnectApi.AnnouncementInput announcement) {}
 
   public static ConnectApi.Announcement updateAnnouncement(String communityId, String announcementId, Datetime expirationDate) {}
+
+  global Object clone() {}
 
 }

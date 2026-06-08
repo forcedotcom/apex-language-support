@@ -3,6 +3,8 @@
  */
 global class BuyerProductSummaryRepresentation {
 
+  global BuyerProductSummaryRepresentation() {}
+
   /**
    * ID of the product.
    */
@@ -42,5 +44,7 @@ global class BuyerProductSummaryRepresentation {
    * Indicates whether the request was successful ( true ) or not ( false ).
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

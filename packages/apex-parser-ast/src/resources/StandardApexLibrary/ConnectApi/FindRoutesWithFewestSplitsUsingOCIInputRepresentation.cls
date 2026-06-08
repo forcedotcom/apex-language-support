@@ -3,9 +3,13 @@
  */
 global class FindRoutesWithFewestSplitsUsingOCIInputRepresentation {
 
+  global FindRoutesWithFewestSplitsUsingOCIInputRepresentation() {}
+
   /**
    * Each list element represents a routing request for one order.
    */
   global List < ConnectApi.FindRoutesWithFewestSplitsGroupUsingOCIInputRepresentation > findRoutesWithFewestSplitsUsingOCIInputs;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class JSONGenerator {
 
+  global JSONGenerator() {}
+
   /**
    * Closes the JSON generator.
    */
@@ -212,5 +214,7 @@ global class JSONGenerator {
    * @param timeValue 
    */
   public void writeTimeField(String fieldName, Time timeValue) {}
+
+  global Object clone() {}
 
 }

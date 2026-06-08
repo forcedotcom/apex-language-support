@@ -3,6 +3,8 @@
  */
 global class Location {
 
+  global Location() {}
+
   /**
    * Calculates the distance between this location and the specified location, using an approximation of the haversine formula and the specified unit.
    * @param toLocation The Location to which you want to calculate the distance from the current Location .
@@ -39,5 +41,7 @@ global class Location {
    * @return Location
    */
   public static Location newInstance(Decimal latitude, Decimal longitude) {}
+
+  global Object clone() {}
 
 }

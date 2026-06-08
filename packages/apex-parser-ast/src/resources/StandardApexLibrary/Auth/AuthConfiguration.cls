@@ -147,4 +147,6 @@ global class AuthConfiguration {
    */
   public Boolean isCommunityUsingSiteAsContainer() {}
 
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class ReturnOrderLineItemFeeInputRepresentation {
 
+  global ReturnOrderLineItemFeeInputRepresentation() {}
+
   /**
    * Value used to calculate the fee amount, as described by the amountType . It must be a positive value.
    */
@@ -27,5 +29,7 @@ global class ReturnOrderLineItemFeeInputRepresentation {
    * Reason for the fee. The value must match an entry in the ReturnOrderLineItem object’s ReasonForReturn picklist.
    */
   global String reason;
+
+  global Object clone() {}
 
 }

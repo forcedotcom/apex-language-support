@@ -3,6 +3,8 @@
  */
 global class LearningEvaluation {
 
+  global LearningEvaluation() {}
+
   public Map<String,Object> getDetails() {}
 
   public String getLearningItemId() {}
@@ -10,5 +12,7 @@ global class LearningEvaluation {
   public void setDetails(Map<String,Object> details) {}
 
   public void setLearningItemId(String learningItemId) {}
+
+  global Object clone() {}
 
 }

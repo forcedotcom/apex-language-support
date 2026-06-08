@@ -3,6 +3,8 @@
  */
 global class ReturnOrderItemSplitLineOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global ReturnOrderItemSplitLineOutputRepresentation() {}
+
   /**
    * ID of the new ReturnOrderLineItem that holds the remaining return quantity.
    */
@@ -12,5 +14,7 @@ global class ReturnOrderItemSplitLineOutputRepresentation extends ConnectApi.Bas
    * ID of the original ReturnOrderLineItem.
    */
   global String originalReturnOrderItemId;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class Workflow {
 
+  global Workflow() {}
+
   global static Slack.WorkflowsStepCompletedRequest.Builder builder() {}
 
   global Slack.WorkflowsStepCompletedRequest build() {}
@@ -59,5 +61,7 @@ global class Workflow {
   global Slack.WorkflowsUpdateStepRequest.Builder stepName(String stepName) {}
 
   global Slack.WorkflowsUpdateStepRequest.Builder workflowStepEditId(String workflowStepEditId) {}
+
+  global Object clone() {}
 
 }

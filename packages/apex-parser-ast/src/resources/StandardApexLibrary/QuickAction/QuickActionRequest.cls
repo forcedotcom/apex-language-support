@@ -3,6 +3,8 @@
  */
 global class QuickActionRequest {
 
+  global QuickActionRequest() {}
+
   /**
    * Returns this QuickAction’s context record ID.
    * @return Id
@@ -38,5 +40,7 @@ global class QuickActionRequest {
    * @param record 
    */
   public void setRecord(SObject record) {}
+
+  global Object clone() {}
 
 }

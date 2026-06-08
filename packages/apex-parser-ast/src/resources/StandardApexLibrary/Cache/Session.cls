@@ -3,6 +3,8 @@
  */
 global class Session {
 
+  global Session() {}
+
   /**
    * Returns true if the session cache contains a cached value corresponding to the specified key.
    * @param key A case-sensitive string value that uniquely identifies a cached value. For information about the format of the key name, see Usage .
@@ -165,6 +167,8 @@ global class Session {
    * @return Boolean
    */
   public static Boolean remove(System.Type cacheBuilder, String key) {}
+
+  global Object clone() {}
 
   global class SessionCacheException extends Exception {}
 

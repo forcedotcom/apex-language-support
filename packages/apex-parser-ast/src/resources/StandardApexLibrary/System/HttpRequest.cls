@@ -3,6 +3,8 @@
  */
 global class HttpRequest {
 
+  global HttpRequest() {}
+
   /**
    * Retrieves the body of this request.
    * @return String
@@ -113,5 +115,7 @@ global class HttpRequest {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }

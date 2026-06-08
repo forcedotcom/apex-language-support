@@ -3,12 +3,16 @@
  */
 global class Interview {
 
-  public static Flow.Interview createInterview(String namespace, String flowName, Map<String,ANY> inputVariables) {}
+  global Interview() {}
+
+  public static Flow.Interview createInterview(String namespace, String flowName, Map<String,Object> inputVariables) {}
 
   public static Flow.Interview createInterview(String flowName, Map<String,Object> inputVariables) {}
 
   public Object getVariableValue(String variableName) {}
 
   public void start() {}
+
+  global Object clone() {}
 
 }

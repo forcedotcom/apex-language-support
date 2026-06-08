@@ -3,6 +3,8 @@
  */
 global class RuleDetailsResponse {
 
+  global RuleDetailsResponse() {}
+
   global void RuleDetailsResponse() {}
 
   global void setNonTaxableRuleId(String nonTaxableRuleId) {}
@@ -12,5 +14,7 @@ global class RuleDetailsResponse {
   global void setRateRuleId(String rateRuleId) {}
 
   global void setRateSourceId(String rateSourceId) {}
+
+  global Object clone() {}
 
 }

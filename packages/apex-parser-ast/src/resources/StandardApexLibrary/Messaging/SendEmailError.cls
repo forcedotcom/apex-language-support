@@ -3,6 +3,8 @@
  */
 global class SendEmailError {
 
+  global SendEmailError() {}
+
   /**
    * A list of one or more field names. Identifies which fields in the object, if any, affected the error condition.
    * @return String[]
@@ -26,5 +28,7 @@ global class SendEmailError {
    * @return String
    */
   public String getTargetObjectId() {}
+
+  global Object clone() {}
 
 }

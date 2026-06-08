@@ -3,6 +3,8 @@
  */
 global class Crypto {
 
+  global Crypto() {}
+
   public static Blob decrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob cipherText) {}
 
   public static Blob decryptWithManagedIV(String algorithmName, Blob secretKey, Blob IVAndCipherText) {}
@@ -36,5 +38,7 @@ global class Crypto {
   public static Boolean verify(String algorithmName, Blob data, Blob signature, String certDevName) {}
 
   public static Boolean verifyHMac(String algorithmName, Blob data, Blob privateKey, Blob macToVerify) {}
+
+  global Object clone() {}
 
 }

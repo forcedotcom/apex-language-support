@@ -3,6 +3,8 @@
  */
 global class Decimal {
 
+  global Decimal() {}
+
   /**
    * Returns the absolute value of the Decimal.
    * @return Decimal
@@ -129,5 +131,7 @@ global class Decimal {
    * @return Decimal
    */
   public static Decimal valueOf(String stringToDecimal) {}
+
+  global Object clone() {}
 
 }

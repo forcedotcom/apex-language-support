@@ -1,5 +1,7 @@
 global class Action {
 
+  global Action() {}
+
   global Boolean allowUnauthenticatedUsers() {}
 
   global static Slack.ActionHandler ack(Slack.RunnableHandler handler) {}
@@ -31,5 +33,7 @@ global class Action {
   global Slack.ActionPayload.Builder type(String type) {}
 
   global Slack.ActionPayload.Builder value(Object value) {}
+
+  global Object clone() {}
 
 }

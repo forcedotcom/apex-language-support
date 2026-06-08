@@ -3,6 +3,8 @@
  */
 global class RecordsetFilterCriteria {
 
+  global RecordsetFilterCriteria() {}
+
   /**
    * Recordset filter criteria ID.
    */
@@ -12,5 +14,7 @@ global class RecordsetFilterCriteria {
    * List of filtered record IDs.
    */
   global List < String > recordIds;
+
+  global Object clone() {}
 
 }

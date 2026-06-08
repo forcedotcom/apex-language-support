@@ -3,6 +3,8 @@
  */
 global class StandardFilter {
 
+  global StandardFilter() {}
+
   /**
    * Return the API name of the standard filter.
    * @return String
@@ -26,5 +28,7 @@ global class StandardFilter {
    * @param value 
    */
   public void setValue(String value) {}
+
+  global Object clone() {}
 
 }

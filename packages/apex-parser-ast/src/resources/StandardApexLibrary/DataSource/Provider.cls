@@ -3,6 +3,8 @@
  */
 global class Provider extends DataSource.Provider {
 
+  global Provider() {}
+
   /**
    * Returns the types of authentication that can be used to access the external system.
    * @return List<DataSource.AuthenticationCapability>
@@ -21,5 +23,7 @@ global class Provider extends DataSource.Provider {
    * @return DataSource.Connection
    */
   public DataSource.Connection getConnection(DataSource.ConnectionParams connectionParams) {}
+
+  global Object clone() {}
 
 }

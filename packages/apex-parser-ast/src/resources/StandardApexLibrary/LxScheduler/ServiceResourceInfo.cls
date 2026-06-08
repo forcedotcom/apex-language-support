@@ -41,4 +41,6 @@ global class ServiceResourceInfo {
    */
   public String getUserName() {}
 
+  global Object clone() {}
+
 }

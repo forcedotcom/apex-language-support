@@ -3,6 +3,8 @@
  */
 global class BusObjRecommendationsOutputRepresentation {
 
+  global BusObjRecommendationsOutputRepresentation() {}
+
   /**
    * Count of active recommended actions.
    */
@@ -17,5 +19,7 @@ global class BusObjRecommendationsOutputRepresentation {
    * Count of total recommended actions, including both completed and active.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

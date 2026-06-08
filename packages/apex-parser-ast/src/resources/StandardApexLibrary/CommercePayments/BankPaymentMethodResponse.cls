@@ -3,6 +3,8 @@
  */
 global class BankPaymentMethodResponse {
 
+  global BankPaymentMethodResponse() {}
+
   public void setAccountHolderType(commercepayments.AccountHolderType accountHolderType) {}
 
   public void setAccountId(String accountId) {}
@@ -30,5 +32,7 @@ global class BankPaymentMethodResponse {
   public void setSavedPaymentMethodId(String savedPaymentMethodId) {}
 
   public void setStandardEntryClassCode(commercepayments.StandardEntryClassCode standardEntryClassCode) {}
+
+  global Object clone() {}
 
 }

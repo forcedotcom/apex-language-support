@@ -3,6 +3,8 @@
  */
 global class GetDeletedResult {
 
+  global GetDeletedResult() {}
+
   /**
    * Returns a list of deleted records for the time window specified in the Database.getDeleted method call.
    * @return List<Database.DeletedRecord>
@@ -20,5 +22,7 @@ global class GetDeletedResult {
    * @return Date
    */
   public Date getLatestDateCovered() {}
+
+  global Object clone() {}
 
 }

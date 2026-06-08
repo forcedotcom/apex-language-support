@@ -55,4 +55,6 @@ global class SelectOption {
    */
   public void setValue(String value) {}
 
+  global Object clone() {}
+
 }

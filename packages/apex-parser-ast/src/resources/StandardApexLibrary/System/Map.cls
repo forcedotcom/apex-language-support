@@ -3,6 +3,8 @@
  */
 global class Map {
 
+  global Map() {}
+
   /**
    * Removes all of the key-value mappings from the map.
    */

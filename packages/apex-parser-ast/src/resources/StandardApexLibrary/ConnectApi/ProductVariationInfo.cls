@@ -3,6 +3,8 @@
  */
 global class ProductVariationInfo {
 
+  global ProductVariationInfo() {}
+
   /**
    * List ordered by ProductAttribute.Sequence values that map the attribute value combinations to the variation product ID.
    */
@@ -12,5 +14,7 @@ global class ProductVariationInfo {
    * Map of field API name to product attribute information.
    */
   global Map < String , ConnectApi.ProductAttributeInfo > variationAttributeInfo;
+
+  global Object clone() {}
 
 }

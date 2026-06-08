@@ -3,6 +3,8 @@
  */
 global class CdpUser {
 
+  global CdpUser() {}
+
   /**
    * The 18-character ID of the user.
    */
@@ -17,5 +19,7 @@ global class CdpUser {
    * Profile photo of the user,
    */
   global String profilePhotoUrl;
+
+  global Object clone() {}
 
 }

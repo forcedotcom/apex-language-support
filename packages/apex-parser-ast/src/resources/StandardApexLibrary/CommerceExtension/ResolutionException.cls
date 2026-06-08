@@ -11,4 +11,6 @@ global class ResolutionException {
 
   public String getTypeName() {}
 
+  global Object clone() {}
+
 }

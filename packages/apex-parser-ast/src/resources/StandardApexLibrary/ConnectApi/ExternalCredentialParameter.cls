@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialParameter {
 
+  global ExternalCredentialParameter() {}
+
   /**
    * Parameter ID.
    */
@@ -27,5 +29,7 @@ global class ExternalCredentialParameter {
    * Parameter value. If the parameterType is JwtBodyClaim or JwtHeaderClaim , the parameter value can contain formulas. If the parameterType is AuthProvider or SigningCertificate , the parameter value is the fully qualified entity name of the corresponding entity.
    */
   global String parameterValue;
+
+  global Object clone() {}
 
 }

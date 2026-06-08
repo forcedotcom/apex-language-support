@@ -3,4 +3,8 @@
  */
 global class Cases {
 
+  global Cases() {}
+
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class FilePreviewCollection {
 
+  global FilePreviewCollection() {}
+
   /**
    * ID of the file.
    */
@@ -22,5 +24,7 @@ global class FilePreviewCollection {
    * Version number of the file.
    */
   global String versionNumber;
+
+  global Object clone() {}
 
 }

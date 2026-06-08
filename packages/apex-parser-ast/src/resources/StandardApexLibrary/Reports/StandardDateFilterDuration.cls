@@ -3,6 +3,8 @@
  */
 global class StandardDateFilterDuration {
 
+  global StandardDateFilterDuration() {}
+
   /**
    * Returns the end date of the date filter.
    * @return String
@@ -26,5 +28,7 @@ global class StandardDateFilterDuration {
    * @return String
    */
   public String getValue() {}
+
+  global Object clone() {}
 
 }

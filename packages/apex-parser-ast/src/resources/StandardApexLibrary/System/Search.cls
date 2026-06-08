@@ -3,6 +3,8 @@
  */
 global class Search {
 
+  global Search() {}
+
   /**
    * Performs a dynamic SOSL query that can include the SOSL WITH SNIPPET clause. Snippets provide more context for users in Salesforce Knowledge article search results.
    * @param searchQuery A SOSL query string.
@@ -51,5 +53,7 @@ global class Search {
    * @return Search.SuggestionResults
    */
   public static Search.SuggestionResults suggest(String searchQuery, String sObjectType, Search.SuggestionOption suggestions, System.AccessLevel accessLevel) {}
+
+  global Object clone() {}
 
 }

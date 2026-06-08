@@ -3,6 +3,8 @@
  */
 global class Approval {
 
+  global Approval() {}
+
   /**
    * Returns true if the record with the ID id is locked, or false if it’s not.
    * @param id The ID of the record whose lock or unlock status is in question.
@@ -180,5 +182,7 @@ global class Approval {
    * @return List<Approval.UnlockResult>
    */
   public static List<Approval.UnlockResult> unlock(List<SObject> recordsToUnlock, Boolean allOrNothing) {}
+
+  global Object clone() {}
 
 }

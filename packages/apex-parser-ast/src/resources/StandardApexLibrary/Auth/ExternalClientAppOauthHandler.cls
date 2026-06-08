@@ -3,10 +3,14 @@
  */
 global class ExternalClientAppOauthHandler {
 
+  global ExternalClientAppOauthHandler() {}
+
   public Boolean authorize(Id userId, Id ecAppId, Boolean isAdminApproved, Auth.InvocationContext context) {}
 
   public Map<String,String> customAttributes(Id userId, Id ecAppId, Map<String,String> formulaDefinedAttributes, Auth.InvocationContext context) {}
 
   public void refresh(Id userId, Id ecAppId, Auth.InvocationContext context) {}
+
+  global Object clone() {}
 
 }

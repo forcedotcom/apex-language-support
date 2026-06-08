@@ -3,6 +3,8 @@
  */
 global class ReportDataCell {
 
+  global ReportDataCell() {}
+
   /**
    * Returns the localized display name of the value of a specified cell in the report.
    * @return String
@@ -14,5 +16,7 @@ global class ReportDataCell {
    * @return Object
    */
   public Object getValue() {}
+
+  global Object clone() {}
 
 }

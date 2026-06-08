@@ -3,6 +3,8 @@
  */
 global class SummaryValue {
 
+  global SummaryValue() {}
+
   /**
    * Returns the formatted summary data for a specified cell.
    * @return String
@@ -14,5 +16,7 @@ global class SummaryValue {
    * @return Object
    */
   public Object getValue() {}
+
+  global Object clone() {}
 
 }

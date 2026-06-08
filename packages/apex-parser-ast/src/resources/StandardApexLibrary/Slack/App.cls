@@ -1,5 +1,7 @@
 global class App {
 
+  global App() {}
+
   global String getAppKey() {}
 
   global Slack.AppClient getAppClient() {}
@@ -15,5 +17,7 @@ global class App {
   global String getConnectedSlackUserId(String teamId, String salesforceUserId) {}
 
   global Map<String, String> getConnectedSlackUserIdMap(String teamId, List<String> salesforceUserIds) {}
+
+  global Object clone() {}
 
 }

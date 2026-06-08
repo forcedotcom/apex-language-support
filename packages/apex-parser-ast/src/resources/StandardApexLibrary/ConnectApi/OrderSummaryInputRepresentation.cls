@@ -3,6 +3,8 @@
  */
 global class OrderSummaryInputRepresentation {
 
+  global OrderSummaryInputRepresentation() {}
+
   /**
    * The order’s business model. It can have one of these values: B2B B2C
    */
@@ -37,5 +39,7 @@ global class OrderSummaryInputRepresentation {
    * Specifies a status to assign to the order summary. The value must match one of the picklist values on the Status field of the OrderSummary object.
    */
   global String status;
+
+  global Object clone() {}
 
 }

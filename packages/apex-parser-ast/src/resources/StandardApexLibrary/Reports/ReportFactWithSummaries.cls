@@ -3,6 +3,8 @@
  */
 global class ReportFactWithSummaries {
 
+  global ReportFactWithSummaries() {}
+
   /**
    * Returns summary-level data for a report, including the record count.
    * @return LIST<Reports.SummaryValue>
@@ -20,5 +22,7 @@ global class ReportFactWithSummaries {
    * @return String
    */
   public String toString() {}
+
+  global Object clone() {}
 
 }
