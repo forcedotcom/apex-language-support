@@ -3,13 +3,13 @@
  */
 global class AuthProviderCallbackState {
 
-  public AuthProviderCallbackState(Map<String,String> headers, String body, Map<String,String> queryParameters) {}
+  global AuthProviderCallbackState(Map<String,String> headers, String body, Map<String,String> queryParameters) {}
 
-  public String body;
+  global String body;
 
-  public Map<String,String> headers;
+  global Map<String,String> headers;
 
-  public Map<String,String> queryParameters;
+  global Map<String,String> queryParameters;
 
   global Object clone() {}
 

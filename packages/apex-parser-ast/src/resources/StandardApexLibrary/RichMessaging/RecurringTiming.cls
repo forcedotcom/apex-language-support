@@ -3,25 +3,25 @@
  */
 global class RecurringTiming {
 
-  public RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) {}
+  global RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) {}
 
-  public Date endDate;
+  global Date endDate;
 
-  public Date endDateValue;
+  global Date endDateValue;
 
-  public Integer intervalCount;
+  global Integer intervalCount;
 
-  public Integer intervalCountValue;
+  global Integer intervalCountValue;
 
-  public String intervalUnit;
+  global String intervalUnit;
 
-  public RichMessaging.TimingIntervalUnit intervalUnitValue;
+  global RichMessaging.TimingIntervalUnit intervalUnitValue;
 
-  public Date startDate;
+  global Date startDate;
 
-  public Date startDateValue;
+  global Date startDateValue;
 
-  public String timingType;
+  global String timingType;
 
   global Object clone() {}
 

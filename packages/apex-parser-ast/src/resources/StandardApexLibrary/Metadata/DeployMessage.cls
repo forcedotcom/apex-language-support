@@ -5,36 +5,36 @@ global class DeployMessage {
 
   global DeployMessage() {}
 
-  public Boolean changed;
+  global Boolean changed;
 
-  public Integer columnNumber;
+  global Integer columnNumber;
 
-  public String componentType;
+  global String componentType;
 
-  public Boolean created;
+  global Boolean created;
 
-  public Datetime createdDate;
+  global Datetime createdDate;
 
-  public Boolean deleted;
+  global Boolean deleted;
 
-  public String fileName;
+  global String fileName;
 
-  public String fullName;
+  global String fullName;
 
-  public Id id;
+  global Id id;
 
-  public Integer lineNumber;
+  global Integer lineNumber;
 
-  public String problem;
+  global String problem;
 
-  public Metadata.DeployProblemType problemType;
+  global Metadata.DeployProblemType problemType;
 
-  public Boolean success;
+  global Boolean success;
 
   /**
    * Makes a duplicate copy of the Metadata.DeployMessage .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

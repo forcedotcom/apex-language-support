@@ -5,14 +5,14 @@ global class PrimaryTabComponents {
 
   global PrimaryTabComponents() {}
 
-  public List<Metadata.ConsoleComponent> component;
+  global List<Metadata.ConsoleComponent> component;
 
-  public List<Metadata.Container> containers;
+  global List<Metadata.Container> containers;
 
   /**
    * Makes a duplicate copy of the Metadata.PrimaryTabComponents .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

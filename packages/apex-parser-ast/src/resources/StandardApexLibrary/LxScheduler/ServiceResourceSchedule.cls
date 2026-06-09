@@ -3,11 +3,11 @@
  */
 global class ServiceResourceSchedule {
 
-  public ServiceResourceSchedule(String serviceResourceId, Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots) {}
+  global ServiceResourceSchedule(String serviceResourceId, Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots) {}
 
-  public String serviceResourceId;
+  global String serviceResourceId;
 
-  public Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots;
+  global Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots;
 
   global Object clone() {}
 

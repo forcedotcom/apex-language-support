@@ -3,13 +3,13 @@
  */
 global class ApexMap {
 
-  public ApexMap(String key, String value) {}
+  global ApexMap(String key, String value) {}
 
-  public String key;
+  global String key;
 
-  public String value;
+  global String value;
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

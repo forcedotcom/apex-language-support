@@ -5,21 +5,21 @@ global class Event {
 
   global Event() {}
 
-  public String action;
+  global String action;
 
-  public Map<String,String> data;
+  global Map<String,String> data;
 
-  public String entityId;
+  global String entityId;
 
-  public String entityName;
+  global String entityName;
 
-  public String organizationId;
+  global String organizationId;
 
-  public String resourceType;
+  global String resourceType;
 
-  public Datetime timeStamp;
+  global Datetime timeStamp;
 
-  public String userId;
+  global String userId;
 
   global Object clone() {}
 

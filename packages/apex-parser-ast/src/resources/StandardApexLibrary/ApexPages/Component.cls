@@ -5,11 +5,11 @@ global class Component {
 
   global Component() {}
 
-  public List <ApexPages.Component> childComponents;
+  global List <ApexPages.Component> childComponents;
 
-  public String expressions;
+  global String expressions;
 
-  public String facets;
+  global String facets;
 
   global Object clone() {}
 

@@ -5,9 +5,9 @@ global class InboundEmailResult {
 
   global InboundEmailResult() {}
 
-  public String message;
+  global String message;
 
-  public Boolean success;
+  global Boolean success;
 
   global Object clone() {}
 

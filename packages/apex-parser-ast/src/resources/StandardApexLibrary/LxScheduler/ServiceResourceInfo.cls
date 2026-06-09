@@ -3,43 +3,43 @@
  */
 global class ServiceResourceInfo {
 
-  public ServiceResourceInfo(String userId, String userName, String email, String serviceResourceId, List<String> territoryIds, String resourceType) {}
+  global ServiceResourceInfo(String userId, String userName, String email, String serviceResourceId, List<String> territoryIds, String resourceType) {}
 
   /**
    * Returns the email ID of the service resource.
    * @return String
    */
-  public String getEmail() {}
+  global String getEmail() {}
 
   /**
    * Returns the type of the service resource such as Technician or Asset.
    * @return String
    */
-  public String getResourceType() {}
+  global String getResourceType() {}
 
   /**
    * Returns the ID of the service resource.
    * @return String
    */
-  public String getServiceResourceId() {}
+  global String getServiceResourceId() {}
 
   /**
    * Returns a list of requested service territories for the service resource.
    * @return List<String>
    */
-  public List<String> getTerritoryIds() {}
+  global List<String> getTerritoryIds() {}
 
   /**
    * Returns the user ID of the service resource.
    * @return String
    */
-  public String getUserId() {}
+  global String getUserId() {}
 
   /**
    * Returns the user name of the service resource.
    * @return String
    */
-  public String getUserName() {}
+  global String getUserName() {}
 
   global Object clone() {}
 

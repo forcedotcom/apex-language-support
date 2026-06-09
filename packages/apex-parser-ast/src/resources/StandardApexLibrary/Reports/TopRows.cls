@@ -3,43 +3,43 @@
  */
 global class TopRows {
 
-  public TopRows(Integer rowLimit, Reports.ColumnSortOrder direction) {}
+  global TopRows(Integer rowLimit, Reports.ColumnSortOrder direction) {}
 
   /**
    * Returns the sort order of the report rows.
    * @return Reports.ColumnSortOrder
    */
-  public Reports.ColumnSortOrder getDirection() {}
+  global Reports.ColumnSortOrder getDirection() {}
 
   /**
    * Returns the maximum number of rows shown in the report.
    * @return Integer
    */
-  public Integer getRowLimit() {}
+  global Integer getRowLimit() {}
 
   /**
    * Sets the sort order of the report’s rows.
    * @param value For possible values, see Reports.ColumnSortOrder .
    */
-  public void setDirection(String value) {}
+  global void setDirection(String value) {}
 
   /**
    * Sets the sort order of the report’s rows.
    * @param direction 
    */
-  public void setDirection(Reports.ColumnSortOrder direction) {}
+  global void setDirection(Reports.ColumnSortOrder direction) {}
 
   /**
    * Sets the maximum number of rows included in the report.
    * @param rowLimit 
    */
-  public void setRowLimit(Integer rowLimit) {}
+  global void setRowLimit(Integer rowLimit) {}
 
   /**
    * Returns a string.
    * @return String
    */
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

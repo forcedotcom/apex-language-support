@@ -9,31 +9,31 @@ global class SendEmailQuickActionDefaults {
    * Returns a list of email addresses that are available in the From: address drop-down menu for the standard Email Action.
    * @return List<String>
    */
-  public List<String> getFromAddressList() {}
+  global List<String> getFromAddressList() {}
 
   /**
    * Returns the email message ID of the email to which the reply/reply all action has been invoked.
    * @return Id
    */
-  public Id getInReplyToId() {}
+  global Id getInReplyToId() {}
 
   /**
    * Specifies whether the template subject should be ignored (true), thus using the original subject, or whether the template subject should replace the original subject (false).
    * @param useOriginalSubject 
    */
-  public void setIgnoreTemplateSubject(Boolean useOriginalSubject) {}
+  global void setIgnoreTemplateSubject(Boolean useOriginalSubject) {}
 
   /**
    * Specifies whether the template body should be inserted above the original body content (true) or whether it should replace the entire content with the template body (false).
    * @param keepOriginalBodyContent 
    */
-  public void setInsertTemplateBody(Boolean keepOriginalBodyContent) {}
+  global void setInsertTemplateBody(Boolean keepOriginalBodyContent) {}
 
   /**
    * Sets the email template ID to load into the email body.
    * @param templateId The template ID.
    */
-  public void setTemplateId(Id templateId) {}
+  global void setTemplateId(Id templateId) {}
 
   global Object clone() {}
 

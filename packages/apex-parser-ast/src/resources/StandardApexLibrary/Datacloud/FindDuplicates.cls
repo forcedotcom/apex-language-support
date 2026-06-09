@@ -10,7 +10,7 @@ global class FindDuplicates {
    * @param sObjects An array of sObjects for which you want to find duplicates.
    * @return List<Datacloud.FindDuplicatesResult>
    */
-  public static List<Datacloud.FindDuplicatesResult> findDuplicates(List<SObject> sObjects) {}
+  global static List<Datacloud.FindDuplicatesResult> findDuplicates(List<SObject> sObjects) {}
 
   global Object clone() {}
 

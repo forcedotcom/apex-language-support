@@ -41,9 +41,9 @@ global class AbstractResponse {
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
 
-  public void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
 
-  public void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
   global Object clone() {}
 

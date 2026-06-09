@@ -3,31 +3,31 @@
  */
 global class PaymentLineItem {
 
-  public PaymentLineItem(String label, Double amount, RichMessaging.AbstractTiming timing) {}
+  global PaymentLineItem(String label, Double amount, RichMessaging.AbstractTiming timing) {}
 
-  public PaymentLineItem(String label, Double amount) {}
+  global PaymentLineItem(String label, Double amount) {}
 
-  public Double amount;
+  global Double amount;
 
-  public Double amountValue;
+  global Double amountValue;
 
-  public Double automaticReloadPaymentThresholdAmount;
+  global Double automaticReloadPaymentThresholdAmount;
 
-  public Double automaticReloadPaymentThresholdAmountValue;
+  global Double automaticReloadPaymentThresholdAmountValue;
 
-  public String label;
+  global String label;
 
-  public String labelValue;
+  global String labelValue;
 
-  public String lineItemType;
+  global String lineItemType;
 
-  public String status;
+  global String status;
 
-  public RichMessaging.PaymentItemStatus statusValue;
+  global RichMessaging.PaymentItemStatus statusValue;
 
-  public RichMessaging.AbstractTiming timing;
+  global RichMessaging.AbstractTiming timing;
 
-  public RichMessaging.AbstractTiming timingValue;
+  global RichMessaging.AbstractTiming timingValue;
 
   global Object clone() {}
 

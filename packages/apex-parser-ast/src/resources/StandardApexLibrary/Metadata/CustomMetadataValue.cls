@@ -5,14 +5,14 @@ global class CustomMetadataValue {
 
   global CustomMetadataValue() {}
 
-  public String field;
+  global String field;
 
-  public Object value;
+  global Object value;
 
   /**
    * Makes a duplicate copy of the Metadata.CustomMetadataValue .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

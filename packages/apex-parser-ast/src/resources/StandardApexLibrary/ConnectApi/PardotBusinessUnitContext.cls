@@ -5,9 +5,9 @@ global class PardotBusinessUnitContext {
 
   global PardotBusinessUnitContext() {}
 
-  public static ConnectApi.PardotBusinessUnitContextOutput getBusinessUnitContext() {}
+  global static ConnectApi.PardotBusinessUnitContextOutput getBusinessUnitContext() {}
 
-  public static ConnectApi.PardotBusinessUnitContextOutput getBusinessUnitContextByIsCurrentStatus(Boolean isCurrent) {}
+  global static ConnectApi.PardotBusinessUnitContextOutput getBusinessUnitContextByIsCurrentStatus(Boolean isCurrent) {}
 
   global Object clone() {}
 

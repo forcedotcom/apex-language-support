@@ -9,25 +9,25 @@ global class DescribeAvailableQuickActionResult {
    * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
    * @return String
    */
-  public String getActionEnumOrId() {}
+  global String getActionEnumOrId() {}
 
   /**
    * The quick action label.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * The quick action name.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * The quick action type.
    * @return String
    */
-  public String getType() {}
+  global String getType() {}
 
   global Object clone() {}
 

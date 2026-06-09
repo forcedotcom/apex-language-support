@@ -5,30 +5,30 @@ global class AnalyticsCloudComponentLayoutItem {
 
   global AnalyticsCloudComponentLayoutItem() {}
 
-  public String assetType;
+  global String assetType;
 
-  public String devName;
+  global String devName;
 
-  public String error;
+  global String error;
 
-  public String filter;
+  global String filter;
 
-  public Integer height;
+  global Integer height;
 
-  public Boolean hideOnError;
+  global Boolean hideOnError;
 
-  public Boolean showHeader;
+  global Boolean showHeader;
 
-  public Boolean showSharing;
+  global Boolean showSharing;
 
-  public Boolean showTitle;
+  global Boolean showTitle;
 
-  public String width;
+  global String width;
 
   /**
    * Makes a duplicate copy of the Metadata.AnalyticsCloudComponentLayoutItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

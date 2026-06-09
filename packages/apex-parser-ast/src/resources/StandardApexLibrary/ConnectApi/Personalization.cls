@@ -5,31 +5,31 @@ global class Personalization {
 
   global Personalization() {}
 
-  public static ConnectApi.Audience createAudience(String communityId, ConnectApi.AudienceInput audience) {}
+  global static ConnectApi.Audience createAudience(String communityId, ConnectApi.AudienceInput audience) {}
 
-  public static ConnectApi.TargetCollection createTargets(String communityId, ConnectApi.TargetCollectionInput target) {}
+  global static ConnectApi.TargetCollection createTargets(String communityId, ConnectApi.TargetCollectionInput target) {}
 
-  public static void deleteAudience(String communityId, String audienceId) {}
+  global static void deleteAudience(String communityId, String audienceId) {}
 
-  public static void deleteTarget(String communityId, String targetId) {}
+  global static void deleteTarget(String communityId, String targetId) {}
 
-  public static ConnectApi.Audience getAudience(String communityId, String audienceId, Boolean includeAudienceCriteria) {}
+  global static ConnectApi.Audience getAudience(String communityId, String audienceId, Boolean includeAudienceCriteria) {}
 
-  public static ConnectApi.BatchResult[] getAudienceBatch(String communityId, List<String> audienceIds) {}
+  global static ConnectApi.BatchResult[] getAudienceBatch(String communityId, List<String> audienceIds) {}
 
-  public static ConnectApi.AudienceCollection getAudiences(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, Boolean includeAudienceCriteria, List<String> targetTypes, String recordId) {}
+  global static ConnectApi.AudienceCollection getAudiences(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, Boolean includeAudienceCriteria, List<String> targetTypes, String recordId) {}
 
-  public static ConnectApi.AudienceCollection getAudiences(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, Boolean includeAudienceCriteria, List<String> targetTypes) {}
+  global static ConnectApi.AudienceCollection getAudiences(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, Boolean includeAudienceCriteria, List<String> targetTypes) {}
 
-  public static ConnectApi.Target getTarget(String communityId, String targetId) {}
+  global static ConnectApi.Target getTarget(String communityId, String targetId) {}
 
-  public static ConnectApi.BatchResult[] getTargetBatch(String communityId, List<String> targetIds) {}
+  global static ConnectApi.BatchResult[] getTargetBatch(String communityId, List<String> targetIds) {}
 
-  public static ConnectApi.TargetCollection getTargets(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, String recordId, List<String> targetTypes, Boolean includeAudience, Boolean includeAllMatchingTargetsWithinGroup, List<String> groupNames) {}
+  global static ConnectApi.TargetCollection getTargets(String communityId, String ipAddress, String domain, String userId, ConnectApi.PublishStatus publishStatus, String recordId, List<String> targetTypes, Boolean includeAudience, Boolean includeAllMatchingTargetsWithinGroup, List<String> groupNames) {}
 
-  public static ConnectApi.Audience updateAudience(String communityId, String audienceId, ConnectApi.AudienceInput audience) {}
+  global static ConnectApi.Audience updateAudience(String communityId, String audienceId, ConnectApi.AudienceInput audience) {}
 
-  public static ConnectApi.TargetCollection updateTargets(String communityId, ConnectApi.TargetCollectionUpdateInput target) {}
+  global static ConnectApi.TargetCollection updateTargets(String communityId, ConnectApi.TargetCollectionUpdateInput target) {}
 
   global Object clone() {}
 

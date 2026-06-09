@@ -5,15 +5,15 @@ global class OMSAnalytics {
 
   global OMSAnalytics() {}
 
-  public static ConnectApi.TextClassificationsBulkResultsOutputRepresentation getTextClassificationsBulkResults(List<String> ids) {}
+  global static ConnectApi.TextClassificationsBulkResultsOutputRepresentation getTextClassificationsBulkResults(List<String> ids) {}
 
-  public static ConnectApi.ProductsListOutputRepresentation productsExpand(String scope, List<String> products, List<ConnectApi.ProductExpandType> expand) {}
+  global static ConnectApi.ProductsListOutputRepresentation productsExpand(String scope, List<String> products, List<ConnectApi.ProductExpandType> expand) {}
 
-  public static ConnectApi.ProductReturnRateListOutputRepresentation productsReturnRate(Integer pageParam, Integer pageSize) {}
+  global static ConnectApi.ProductReturnRateListOutputRepresentation productsReturnRate(Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.ProductReturnRateListOutputRepresentation productsReturnRate(Integer pageParam, Integer pageSize, List<String> products) {}
+  global static ConnectApi.ProductReturnRateListOutputRepresentation productsReturnRate(Integer pageParam, Integer pageSize, List<String> products) {}
 
-  public static ConnectApi.TextClassificationsOutputRepresentation submitTextClassificationsRequest(ConnectApi.TextClassificationsInputRepresentation textClassificationsRequestInput, String llmType) {}
+  global static ConnectApi.TextClassificationsOutputRepresentation submitTextClassificationsRequest(ConnectApi.TextClassificationsInputRepresentation textClassificationsRequestInput, String llmType) {}
 
   global Object clone() {}
 

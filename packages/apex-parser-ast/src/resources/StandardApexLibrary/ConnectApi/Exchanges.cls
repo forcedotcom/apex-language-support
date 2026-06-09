@@ -5,7 +5,7 @@ global class Exchanges {
 
   global Exchanges() {}
 
-  public static ConnectApi.PreviewCartToExchangeOrderOutputRepresentation previewCartToExchangeOrder(ConnectApi.PreviewCartToExchangeOrderInputRepresentation previewCartToExchangeOrderInput) {}
+  global static ConnectApi.PreviewCartToExchangeOrderOutputRepresentation previewCartToExchangeOrder(ConnectApi.PreviewCartToExchangeOrderInputRepresentation previewCartToExchangeOrderInput) {}
 
   global Object clone() {}
 

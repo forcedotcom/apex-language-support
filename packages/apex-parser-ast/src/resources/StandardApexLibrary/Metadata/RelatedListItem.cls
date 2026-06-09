@@ -5,24 +5,24 @@ global class RelatedListItem {
 
   global RelatedListItem() {}
 
-  public List<String> customButtons;
+  global List<String> customButtons;
 
-  public List<String> excludeButtons;
+  global List<String> excludeButtons;
 
-  public List<String> fields;
+  global List<String> fields;
 
-  public List<String> quickActions;
+  global List<String> quickActions;
 
-  public String relatedList;
+  global String relatedList;
 
-  public String sortField;
+  global String sortField;
 
-  public Metadata.SortOrder sortOrder;
+  global Metadata.SortOrder sortOrder;
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedListItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

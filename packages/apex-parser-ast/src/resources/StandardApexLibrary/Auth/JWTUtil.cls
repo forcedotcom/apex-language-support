@@ -5,13 +5,13 @@ global class JWTUtil {
 
   global JWTUtil() {}
 
-  public static Auth.JWT parseJWTFromStringWithoutValidation(String incomingJWT) {}
+  global static Auth.JWT parseJWTFromStringWithoutValidation(String incomingJWT) {}
 
-  public static Auth.JWT validateJWTWithCert(String incomingJWT, String certDeveloperName) {}
+  global static Auth.JWT validateJWTWithCert(String incomingJWT, String certDeveloperName) {}
 
-  public static Auth.JWT validateJWTWithKey(String incomingJWT, String publicKey) {}
+  global static Auth.JWT validateJWTWithKey(String incomingJWT, String publicKey) {}
 
-  public static Auth.JWT validateJWTWithKeysEndpoint(String incomingJWT, String keysEndpoint, Boolean shouldUseCache) {}
+  global static Auth.JWT validateJWTWithKeysEndpoint(String incomingJWT, String keysEndpoint, Boolean shouldUseCache) {}
 
   global Object clone() {}
 

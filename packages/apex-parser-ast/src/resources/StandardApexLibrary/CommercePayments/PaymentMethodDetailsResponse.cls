@@ -5,9 +5,9 @@ global class PaymentMethodDetailsResponse {
 
   global PaymentMethodDetailsResponse() {}
 
-  public void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) {}
+  global void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) {}
 
-  public void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) {}
+  global void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) {}
 
   global Object clone() {}
 

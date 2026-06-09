@@ -5,263 +5,263 @@ global class DescribeSObjectResult {
 
   global DescribeSObjectResult() {}
 
-  public Boolean accessible;
+  global Boolean accessible;
 
-  public String associateentitytype;
+  global String associateentitytype;
 
-  public String associateparententity;
+  global String associateparententity;
 
-  public List<Schema.ChildRelationship> childrelationships;
+  global List<Schema.ChildRelationship> childrelationships;
 
-  public Boolean createable;
+  global Boolean createable;
 
-  public Boolean custom;
+  global Boolean custom;
 
-  public Boolean customsetting;
+  global Boolean customsetting;
 
-  public Boolean datatranslationenabled;
+  global Boolean datatranslationenabled;
 
-  public String defaultimplementation;
+  global String defaultimplementation;
 
-  public Boolean deletable;
+  global Boolean deletable;
 
-  public Boolean deprecatedandhidden;
+  global Boolean deprecatedandhidden;
 
-  public Boolean feedenabled;
+  global Boolean feedenabled;
 
-  public Schema.SObjectTypeFields fields;
+  global Schema.SObjectTypeFields fields;
 
-  public Schema.SObjectTypeFieldSets fieldsets;
+  global Schema.SObjectTypeFieldSets fieldsets;
 
-  public Boolean hassubtypes;
+  global Boolean hassubtypes;
 
-  public String implementedby;
+  global String implementedby;
 
-  public String implementsinterfaces;
+  global String implementsinterfaces;
 
-  public Boolean isinterface;
+  global Boolean isinterface;
 
-  public String keyprefix;
+  global String keyprefix;
 
-  public String label;
+  global String label;
 
-  public String labelplural;
+  global String labelplural;
 
-  public String localname;
+  global String localname;
 
-  public Boolean mergeable;
+  global Boolean mergeable;
 
-  public Boolean mruenabled;
+  global Boolean mruenabled;
 
-  public String name;
+  global String name;
 
-  public Boolean queryable;
+  global Boolean queryable;
 
-  public List<Schema.RecordTypeInfo> recordtypeinfos;
+  global List<Schema.RecordTypeInfo> recordtypeinfos;
 
-  public Map<String,Schema.RecordTypeInfo> recordtypeinfosbydevelopername;
+  global Map<String,Schema.RecordTypeInfo> recordtypeinfosbydevelopername;
 
-  public Map<Id,Schema.RecordTypeInfo> recordtypeinfosbyid;
+  global Map<Id,Schema.RecordTypeInfo> recordtypeinfosbyid;
 
-  public Map<String,Schema.RecordTypeInfo> recordtypeinfosbyname;
+  global Map<String,Schema.RecordTypeInfo> recordtypeinfosbyname;
 
-  public Boolean searchable;
+  global Boolean searchable;
 
-  public Schema.SObjectDescribeOptions sobjectdescribeoption;
+  global Schema.SObjectDescribeOptions sobjectdescribeoption;
 
-  public Schema.SObjectType sobjecttype;
+  global Schema.SObjectType sobjecttype;
 
-  public Boolean undeletable;
+  global Boolean undeletable;
 
-  public Boolean updateable;
+  global Boolean updateable;
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public String getAssociateParentEntity() {}
+  global String getAssociateParentEntity() {}
 
   /**
    * Returns a list of child relationships, which are the names of the sObjects that have a foreign key to the sObject being described.
    * @return Schema.ChildRelationship
    */
-  public Schema.ChildRelationship getChildRelationships() {}
+  global Schema.ChildRelationship getChildRelationships() {}
 
-  public Boolean getDataTranslationEnabled() {}
-
-  /**
-   * Reserved for future use.
-   * @return String
-   */
-  public String getDefaultImplementation() {}
-
-  public Schema.SObjectTypeFields getFields() {}
-
-  public Schema.SObjectTypeFieldSets getFieldSets() {}
+  global Boolean getDataTranslationEnabled() {}
 
   /**
    * Reserved for future use.
    * @return String
    */
-  public String getImplementedBy() {}
+  global String getDefaultImplementation() {}
+
+  global Schema.SObjectTypeFields getFields() {}
+
+  global Schema.SObjectTypeFieldSets getFieldSets() {}
 
   /**
    * Reserved for future use.
    * @return String
    */
-  public String getImplementsInterfaces() {}
+  global String getImplementedBy() {}
+
+  /**
+   * Reserved for future use.
+   * @return String
+   */
+  global String getImplementsInterfaces() {}
 
   /**
    * Reserved for future use.
    * @return Boolean
    */
-  public Boolean getIsInterface() {}
+  global Boolean getIsInterface() {}
 
   /**
    * Returns the three-character prefix code for the object. Record IDs are prefixed with three-character codes that specify the type of the object (for example, accounts have a prefix of 001 and opportunities have a prefix of 006 ).
    * @return String
    */
-  public String getKeyPrefix() {}
+  global String getKeyPrefix() {}
 
   /**
    * Returns the object's label, which may or may not match the object name.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the object's plural label, which may or may not match the object name.
    * @return String
    */
-  public String getLabelPlural() {}
+  global String getLabelPlural() {}
 
   /**
    * Returns the name of the object, similar to the getName method. However, if the object is part of the current namespace, the namespace portion of the name is omitted.
    * @return String
    */
-  public String getLocalName() {}
+  global String getLocalName() {}
 
   /**
    * Returns the name of the object.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns a list of the record types supported by this object. The current user is not required to have access to a record type to see it in this list.
    * @return List<Schema.RecordTypeInfo>
    */
-  public List<Schema.RecordTypeInfo> getRecordTypeInfos() {}
+  global List<Schema.RecordTypeInfo> getRecordTypeInfos() {}
 
   /**
    * Returns a map that matches developer names to their associated record type. The current user is not required to have access to a record type to see it in this map.
    * @return Map<String, Schema.RecordTypeInfo>
    */
-  public Map<String, Schema.RecordTypeInfo> getRecordTypeInfosByDeveloperName() {}
+  global Map<String, Schema.RecordTypeInfo> getRecordTypeInfosByDeveloperName() {}
 
   /**
    * Returns a map that matches record IDs to their associated record types. The current user is not required to have access to a record type to see it in this map.
    * @return Schema.RecordTypeInfo
    */
-  public Schema.RecordTypeInfo getRecordTypeInfosById() {}
+  global Schema.RecordTypeInfo getRecordTypeInfosById() {}
 
   /**
    * Returns a map that matches record labels to their associated record type. The current user is not required to have access to a record type to see it in this map.
    * @return Schema.RecordTypeInfo
    */
-  public Schema.RecordTypeInfo getRecordTypeInfosByName() {}
+  global Schema.RecordTypeInfo getRecordTypeInfosByName() {}
 
   /**
    * Returns the effective describe option used by the system for the SObject.
    * @return Schema.SObjectDescribeOptions
    */
-  public Schema.SObjectDescribeOptions getSObjectDescribeOption() {}
+  global Schema.SObjectDescribeOptions getSObjectDescribeOption() {}
 
   /**
    * Returns the Schema.SObjectType object for the sObject. You can use this to create a similar sObject.
    * @return Schema.SObjectType
    */
-  public Schema.SObjectType getSobjectType() {}
+  global Schema.SObjectType getSobjectType() {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
   /**
    * Returns true if the current user can see this object, false otherwise.
    * @return Boolean
    */
-  public Boolean isAccessible() {}
+  global Boolean isAccessible() {}
 
   /**
    * Returns true if the object can be created by the current user, false otherwise.
    * @return Boolean
    */
-  public Boolean isCreateable() {}
+  global Boolean isCreateable() {}
 
   /**
    * Returns true if the object is a custom object, false if it is a standard object.
    * @return Boolean
    */
-  public Boolean isCustom() {}
+  global Boolean isCustom() {}
 
   /**
    * Returns true if the object is a custom setting, false otherwise.
    * @return Boolean
    */
-  public Boolean isCustomSetting() {}
+  global Boolean isCustomSetting() {}
 
   /**
    * Returns true if the object can be deleted by the current user, false otherwise.
    * @return Boolean
    */
-  public Boolean isDeletable() {}
+  global Boolean isDeletable() {}
 
   /**
    * Reserved for future use.
    * @return Boolean
    */
-  public Boolean isDeprecatedAndHidden() {}
+  global Boolean isDeprecatedAndHidden() {}
 
   /**
    * Returns true if Chatter feeds are enabled for the object, false otherwise. This method is only available for Apex classes and triggers saved using SalesforceAPI version 19.0 and later.
    * @return Boolean
    */
-  public Boolean isFeedEnabled() {}
+  global Boolean isFeedEnabled() {}
 
   /**
    * Returns true if the object can be merged with other objects of its type by the current user, false otherwise. true is returned for leads, contacts, and accounts.
    * @return Boolean
    */
-  public Boolean isMergeable() {}
+  global Boolean isMergeable() {}
 
   /**
    * Returns true if Most Recently Used (MRU) list functionality is enabled for the object, false otherwise.
    * @return Boolean
    */
-  public Boolean isMruEnabled() {}
+  global Boolean isMruEnabled() {}
 
   /**
    * Returns true if the object can be queried by the current user, false otherwise
    * @return Boolean
    */
-  public Boolean isQueryable() {}
+  global Boolean isQueryable() {}
 
   /**
    * Returns true if the object can be searched by the current user, false otherwise.
    * @return Boolean
    */
-  public Boolean isSearchable() {}
+  global Boolean isSearchable() {}
 
   /**
    * Returns true if the object can be undeleted by the current user, false otherwise.
    * @return Boolean
    */
-  public Boolean isUndeletable() {}
+  global Boolean isUndeletable() {}
 
   /**
    * Returns true if the object can be updated by the current user, false otherwise.
    * @return Boolean
    */
-  public Boolean isUpdateable() {}
+  global Boolean isUpdateable() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

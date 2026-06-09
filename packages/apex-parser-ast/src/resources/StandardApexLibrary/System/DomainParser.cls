@@ -5,9 +5,9 @@ global class DomainParser {
 
   global DomainParser() {}
 
-  public static System.Domain parse(String hostname) {}
+  global static System.Domain parse(String hostname) {}
 
-  public static System.Domain parse(System.URL url) {}
+  global static System.Domain parse(System.URL url) {}
 
   global Object clone() {}
 

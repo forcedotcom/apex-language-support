@@ -3,13 +3,13 @@
  */
 global class AuthRequestResult {
 
-  public AuthRequestResult(System.PageReference redirectPageReference, RichMessaging.AuthRequestResultStatus resultStatus, Datetime expirationDateTime) {}
+  global AuthRequestResult(System.PageReference redirectPageReference, RichMessaging.AuthRequestResultStatus resultStatus, Datetime expirationDateTime) {}
 
-  public Datetime expirationDateTime;
+  global Datetime expirationDateTime;
 
-  public System.PageReference redirectPageReference;
+  global System.PageReference redirectPageReference;
 
-  public RichMessaging.AuthRequestResultStatus resultStatus;
+  global RichMessaging.AuthRequestResultStatus resultStatus;
 
   global Object clone() {}
 

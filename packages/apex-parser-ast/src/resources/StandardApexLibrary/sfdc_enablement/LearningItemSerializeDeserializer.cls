@@ -5,9 +5,9 @@ global class LearningItemSerializeDeserializer {
 
   global LearningItemSerializeDeserializer() {}
 
-  public String deserialize(String serializedOutput) {}
+  global String deserialize(String serializedOutput) {}
 
-  public String serialize(String learningItemId) {}
+  global String serialize(String learningItemId) {}
 
   global Object clone() {}
 

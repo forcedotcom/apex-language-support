@@ -9,7 +9,7 @@ global class TaxAddressesRequest {
 
   global commercetax.TaxAddressRequest shipFrom;
 
-  public commercetax.TaxAddressRequest shipTo;
+  global commercetax.TaxAddressRequest shipTo;
 
   global commercetax.TaxAddressRequest soldTo;
 

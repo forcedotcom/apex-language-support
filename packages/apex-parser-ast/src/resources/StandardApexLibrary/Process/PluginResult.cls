@@ -5,7 +5,7 @@ global class PluginResult {
 
   global PluginResult() {}
 
-  public Map<String, Object> outputParameters;
+  global Map<String, Object> outputParameters;
 
   global Object clone() {}
 

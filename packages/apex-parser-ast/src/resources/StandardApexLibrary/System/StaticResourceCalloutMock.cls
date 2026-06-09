@@ -10,25 +10,25 @@ global class StaticResourceCalloutMock {
    * @param headerName 
    * @param headerValue 
    */
-  public void setHeader(String headerName, String headerValue) {}
+  global void setHeader(String headerName, String headerValue) {}
 
   /**
    * Sets the specified static resource, which contains the response body.
    * @param resourceName 
    */
-  public void setStaticResource(String resourceName) {}
+  global void setStaticResource(String resourceName) {}
 
   /**
    * Sets the specified HTTP status for the response.
    * @param httpStatus 
    */
-  public void setStatus(String httpStatus) {}
+  global void setStatus(String httpStatus) {}
 
   /**
    * Sets the specified HTTP status for the response.
    * @param httpStatusCode 
    */
-  public void setStatusCode(Integer httpStatusCode) {}
+  global void setStatusCode(Integer httpStatusCode) {}
 
   global Object clone() {}
 

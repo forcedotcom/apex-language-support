@@ -9,19 +9,19 @@ global class LockResult {
    * If an error occurred, returns an array of one or more database error objects, providing the error code and description.
    * @return List<Database.Error>
    */
-  public List<Database.Error> getErrors() {}
+  global List<Database.Error> getErrors() {}
 
   /**
    * Returns the ID of the sObject you are trying to lock.
    * @return Id
    */
-  public Id getId() {}
+  global Id getId() {}
 
   /**
    * A Boolean value that is set to true if the lock operation is successful for this object, or false otherwise.
    * @return Boolean
    */
-  public Boolean isSuccess() {}
+  global Boolean isSuccess() {}
 
   global Object clone() {}
 

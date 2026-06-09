@@ -5,15 +5,15 @@ global class DMLOptions {
 
   global DMLOptions() {}
 
-  public Boolean allowFieldTruncation;
+  global Boolean allowFieldTruncation;
 
-  public AssignmentRuleHeader assignmentRuleHeader;
+  global AssignmentRuleHeader assignmentRuleHeader;
 
-  public EmailHeader emailHeader;
+  global EmailHeader emailHeader;
 
-  public LocaleOptions localeOptions;
+  global LocaleOptions localeOptions;
 
-  public Boolean optAllOrNone;
+  global Boolean optAllOrNone;
 
   global Object clone() {}
 
@@ -24,9 +24,9 @@ global class DMLOptions {
 
     global AssignmentRuleHeader() {}
 
-    public Id assignmentRuleID;
+    global Id assignmentRuleID;
 
-    public Boolean useDefaultRule;
+    global Boolean useDefaultRule;
 
     global Object clone() {}
 
@@ -39,9 +39,9 @@ global class DMLOptions {
 
     global DuplicateRuleHeader() {}
 
-    public Boolean allowSave;
+    global Boolean allowSave;
 
-    public Boolean runAsCurrentUser;
+    global Boolean runAsCurrentUser;
 
     global Object clone() {}
 
@@ -54,11 +54,11 @@ global class DMLOptions {
 
     global EmailHeader() {}
 
-    public Boolean triggerAutoResponseEmail;
+    global Boolean triggerAutoResponseEmail;
 
-    public Boolean triggerOtherEmail;
+    global Boolean triggerOtherEmail;
 
-    public Boolean triggerUserEmail;
+    global Boolean triggerUserEmail;
 
     global Object clone() {}
 

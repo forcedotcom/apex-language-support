@@ -5,46 +5,46 @@ global class Column {
 
   global Column() {}
 
-  public Integer decimalPlaces;
+  global Integer decimalPlaces;
 
-  public String description;
+  global String description;
 
-  public Boolean filterable;
+  global Boolean filterable;
 
-  public Boolean isPicklistAlphabeticallySorted;
+  global Boolean isPicklistAlphabeticallySorted;
 
-  public Boolean isPicklistRestricted;
+  global Boolean isPicklistRestricted;
 
-  public String label;
+  global String label;
 
-  public Integer length;
+  global Integer length;
 
-  public String name;
+  global String name;
 
-  public List<Map<String,String>> picklistValues;
+  global List<Map<String,String>> picklistValues;
 
-  public String referenceTargetField;
+  global String referenceTargetField;
 
-  public String referenceTo;
+  global String referenceTo;
 
-  public Boolean sortable;
+  global Boolean sortable;
 
-  public DataSource.DataType type;
+  global DataSource.DataType type;
 
   /**
    * Returns a new column of data type BOOLEAN_TYPE .
    * @param name Name of the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column boolean(String name) {}
+  global static DataSource.Column boolean(String name) {}
 
-  public static DataSource.Column currency(String name, Integer length, Integer decimalPlaces) {}
+  global static DataSource.Column currency(String name, Integer length, Integer decimalPlaces) {}
 
-  public static DataSource.Column date(String name) {}
+  global static DataSource.Column date(String name) {}
 
-  public static DataSource.Column datetime(String name) {}
+  global static DataSource.Column datetime(String name) {}
 
-  public static DataSource.Column email(String name) {}
+  global static DataSource.Column email(String name) {}
 
   /**
    * Returns a new column of data type EXTERNAL_LOOKUP_TYPE .
@@ -52,7 +52,7 @@ global class Column {
    * @param domain API name of the parent object in the external lookup relationship.
    * @return DataSource.Column
    */
-  public static DataSource.Column externalLookup(String name, String domain) {}
+  global static DataSource.Column externalLookup(String name, String domain) {}
 
   /**
    * Returns a new column with the ten specified Column property values.
@@ -71,7 +71,7 @@ global class Column {
    * @param isPicklistRestricted 
    * @return DataSource.Column
    */
-  public static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces, String referenceTo, String referenceTargetField, Object picklistValuesObj, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+  global static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces, String referenceTo, String referenceTargetField, Object picklistValuesObj, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
   /**
    * Returns a new column with the ten specified Column property values.
@@ -87,7 +87,7 @@ global class Column {
    * @param referenceTargetField 
    * @return DataSource.Column
    */
-  public static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces, String referenceTo, String referenceTargetField) {}
+  global static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces, String referenceTo, String referenceTargetField) {}
 
   /**
    * Returns a new column with the ten specified Column property values.
@@ -101,7 +101,7 @@ global class Column {
    * @param decimalPlaces 
    * @return DataSource.Column
    */
-  public static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces) {}
+  global static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces) {}
 
   /**
    * Returns a new column with the ten specified Column property values.
@@ -114,7 +114,7 @@ global class Column {
    * @param length 
    * @return DataSource.Column
    */
-  public static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length) {}
+  global static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length) {}
 
   /**
    * Returns a new column of data type INDIRECT_LOOKUP_TYPE .
@@ -123,7 +123,7 @@ global class Column {
    * @param targetField API name of the custom field on the parent object whose values are compared against this column’s values. Matching values identify related records in an indirect lookup relationship.
    * @return DataSource.Column
    */
-  public static DataSource.Column indirectLookup(String name, String domain, String targetField) {}
+  global static DataSource.Column indirectLookup(String name, String domain, String targetField) {}
 
   /**
    * Returns a new numeric column with no decimal places using the specified name and length.
@@ -131,7 +131,7 @@ global class Column {
    * @param length The column length.
    * @return DataSource.Column
    */
-  public static DataSource.Column integer(String name, Integer length) {}
+  global static DataSource.Column integer(String name, Integer length) {}
 
   /**
    * Returns a new column of data type LOOKUP_TYPE .
@@ -139,11 +139,11 @@ global class Column {
    * @param domain API name of the parent object in the lookup relationship.
    * @return DataSource.Column
    */
-  public static DataSource.Column lookup(String name, String domain) {}
+  global static DataSource.Column lookup(String name, String domain) {}
 
-  public static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+  global static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
-  public static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues) {}
+  global static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues) {}
 
   /**
    * Returns a new column of data type NUMBER_TYPE .
@@ -152,15 +152,15 @@ global class Column {
    * @param decimalPlaces 
    * @return DataSource.Column
    */
-  public static DataSource.Column number(String name, Integer length, Integer decimalPlaces) {}
+  global static DataSource.Column number(String name, Integer length, Integer decimalPlaces) {}
 
-  public static DataSource.Column percent(String name, Integer length, Integer decimalPlaces) {}
+  global static DataSource.Column percent(String name, Integer length, Integer decimalPlaces) {}
 
-  public static DataSource.Column phone(String name) {}
+  global static DataSource.Column phone(String name) {}
 
-  public static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+  global static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
-  public static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues) {}
+  global static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues) {}
 
   /**
    * Returns a new column of data type STRING_SHORT_TYPE or STRING_LONG_TYPE , with the specified name, label, and length.
@@ -169,7 +169,7 @@ global class Column {
    * @param length Number of characters allowed in the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column text(String name, String label, Integer length) {}
+  global static DataSource.Column text(String name, String label, Integer length) {}
 
   /**
    * Returns a new column of data type STRING_SHORT_TYPE or STRING_LONG_TYPE , with the specified name, label, and length.
@@ -177,23 +177,23 @@ global class Column {
    * @param length Number of characters allowed in the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column text(String name, Integer length) {}
+  global static DataSource.Column text(String name, Integer length) {}
 
   /**
    * Returns a new column of data type STRING_SHORT_TYPE or STRING_LONG_TYPE , with the specified name, label, and length.
    * @param name Name of the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column text(String name) {}
+  global static DataSource.Column text(String name) {}
 
   /**
    * Returns a new column of data type STRING_LONG_TYPE with the specified name and the length of 32,000 characters.
    * @param name Name of the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column textarea(String name) {}
+  global static DataSource.Column textarea(String name) {}
 
-  public static DataSource.Column time(String name) {}
+  global static DataSource.Column time(String name) {}
 
   /**
    * Returns a new column of data type URL_TYPE with the specified name and length.
@@ -201,14 +201,14 @@ global class Column {
    * @param length Number of characters allowed in the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column url(String name, Integer length) {}
+  global static DataSource.Column url(String name, Integer length) {}
 
   /**
    * Returns a new column of data type URL_TYPE with the specified name and length.
    * @param name Name of the column.
    * @return DataSource.Column
    */
-  public static DataSource.Column url(String name) {}
+  global static DataSource.Column url(String name) {}
 
   global Object clone() {}
 

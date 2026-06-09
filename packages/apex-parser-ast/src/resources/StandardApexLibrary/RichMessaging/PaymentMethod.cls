@@ -3,13 +3,13 @@
  */
 global class PaymentMethod {
 
-  public PaymentMethod(String network, String paymentType, String displayName) {}
+  global PaymentMethod(String network, String paymentType, String displayName) {}
 
-  public String displayName;
+  global String displayName;
 
-  public String network;
+  global String network;
 
-  public String paymentType;
+  global String paymentType;
 
   global Object clone() {}
 

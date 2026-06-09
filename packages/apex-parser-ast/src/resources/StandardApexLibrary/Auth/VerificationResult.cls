@@ -3,18 +3,18 @@
  */
 global class VerificationResult {
 
-  public VerificationResult(System.PageReference redirect, Boolean success, String message) {}
+  global VerificationResult(System.PageReference redirect, Boolean success, String message) {}
 
-  public String message;
+  global String message;
 
-  public System.PageReference redirect;
+  global System.PageReference redirect;
 
-  public Boolean success;
+  global Boolean success;
 
   /**
    * Duplicates the Auth.VerificationResult object.
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

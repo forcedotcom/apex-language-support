@@ -5,13 +5,13 @@ global class PluginDescribeResult {
 
   global PluginDescribeResult() {}
 
-  public String description;
+  global String description;
 
-  public List<Process.PluginDescribeResult.InputParameter> inputParameters;
+  global List<Process.PluginDescribeResult.InputParameter> inputParameters;
 
-  public String name;
+  global String name;
 
-  public List<Process.PluginDescribeResult.OutputParameter> outputParameters;
+  global List<Process.PluginDescribeResult.OutputParameter> outputParameters;
 
   global Object clone() {}
 
@@ -22,13 +22,13 @@ global class PluginDescribeResult {
 
     global InputParameter() {}
 
-    public String Description;
+    global String Description;
 
-    public String Name;
+    global String Name;
 
-    public Process.PluginDescribeResult.ParameterType ParameterType;
+    global Process.PluginDescribeResult.ParameterType ParameterType;
 
-    public Boolean Required;
+    global Boolean Required;
 
     global Object clone() {}
 
@@ -41,11 +41,11 @@ global class PluginDescribeResult {
 
     global OutputParameter() {}
 
-    public String Description;
+    global String Description;
 
-    public String Name;
+    global String Name;
 
-    public Process.PluginDescribeResult.ParameterType ParameterType;
+    global Process.PluginDescribeResult.ParameterType ParameterType;
 
     global Object clone() {}
 

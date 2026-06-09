@@ -5,7 +5,7 @@ global class CdpConnection {
 
   global CdpConnection() {}
 
-  public static ConnectApi.ConnectionDbSchemaCollection getDatabaseSchemas(String connectionId, ConnectApi.ConnectionDbSchemaCollectionInputRepresentation getDatabaseSchemasInput) {}
+  global static ConnectApi.ConnectionDbSchemaCollection getDatabaseSchemas(String connectionId, ConnectApi.ConnectionDbSchemaCollectionInputRepresentation getDatabaseSchemasInput) {}
 
   global Object clone() {}
 

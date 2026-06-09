@@ -5,13 +5,13 @@ global class TableSelection {
 
   global TableSelection() {}
 
-  public List<DataSource.ColumnSelection> columnsSelected;
+  global List<DataSource.ColumnSelection> columnsSelected;
 
-  public DataSource.Filter filter;
+  global DataSource.Filter filter;
 
-  public List<DataSource.Order> order;
+  global List<DataSource.Order> order;
 
-  public String tableSelected;
+  global String tableSelected;
 
   global Object clone() {}
 

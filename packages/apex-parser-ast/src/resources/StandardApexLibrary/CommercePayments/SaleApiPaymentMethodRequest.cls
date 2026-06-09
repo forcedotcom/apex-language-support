@@ -7,7 +7,7 @@ global class SaleApiPaymentMethodRequest {
 
   global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
 
-  public commercepayments.StandardEntryClassCode standardEntryClassCode;
+  global commercepayments.StandardEntryClassCode standardEntryClassCode;
 
   /**
    * Maintains the integrity of lists of type SaleApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

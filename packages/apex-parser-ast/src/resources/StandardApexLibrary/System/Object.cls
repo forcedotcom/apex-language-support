@@ -5,11 +5,11 @@ global class Object {
 
   global Object() {}
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

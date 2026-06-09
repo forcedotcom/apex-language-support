@@ -5,29 +5,29 @@ global class EmployeeProfiles {
 
   global EmployeeProfiles() {}
 
-  public static void deleteBannerPhoto(String employeeId) {}
+  global static void deleteBannerPhoto(String employeeId) {}
 
-  public static void deletePhoto(String employeeId) {}
+  global static void deletePhoto(String employeeId) {}
 
-  public static ConnectApi.BannerPhoto getBannerPhoto(String employeeId) {}
+  global static ConnectApi.BannerPhoto getBannerPhoto(String employeeId) {}
 
-  public static ConnectApi.Photo getPhoto(String employeeId) {}
+  global static ConnectApi.Photo getPhoto(String employeeId) {}
 
-  public static ConnectApi.BannerPhoto setBannerPhoto(String employeeId, String fileId, Integer versionNumber) {}
+  global static ConnectApi.BannerPhoto setBannerPhoto(String employeeId, String fileId, Integer versionNumber) {}
 
-  public static ConnectApi.BannerPhoto setBannerPhoto(String employeeId, ConnectApi.BinaryInput fileUpload) {}
+  global static ConnectApi.BannerPhoto setBannerPhoto(String employeeId, ConnectApi.BinaryInput fileUpload) {}
 
-  public static ConnectApi.BannerPhoto setBannerPhotoWithAttributes(String employeeId, ConnectApi.BannerPhotoInput bannerPhoto) {}
+  global static ConnectApi.BannerPhoto setBannerPhotoWithAttributes(String employeeId, ConnectApi.BannerPhotoInput bannerPhoto) {}
 
-  public static ConnectApi.BannerPhoto setBannerPhotoWithAttributes(String employeeId, ConnectApi.BannerPhotoInput bannerPhoto, ConnectApi.BinaryInput fileUpload) {}
+  global static ConnectApi.BannerPhoto setBannerPhotoWithAttributes(String employeeId, ConnectApi.BannerPhotoInput bannerPhoto, ConnectApi.BinaryInput fileUpload) {}
 
-  public static ConnectApi.Photo setPhoto(String employeeId, String fileId, Integer versionNumber) {}
+  global static ConnectApi.Photo setPhoto(String employeeId, String fileId, Integer versionNumber) {}
 
-  public static ConnectApi.Photo setPhoto(String employeeId, ConnectApi.BinaryInput fileUpload) {}
+  global static ConnectApi.Photo setPhoto(String employeeId, ConnectApi.BinaryInput fileUpload) {}
 
-  public static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo) {}
+  global static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo) {}
 
-  public static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo, ConnectApi.BinaryInput fileUpload) {}
+  global static ConnectApi.Photo setPhotoWithAttributes(String employeeId, ConnectApi.PhotoInput photo, ConnectApi.BinaryInput fileUpload) {}
 
   global Object clone() {}
 

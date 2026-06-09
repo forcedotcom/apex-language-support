@@ -11,7 +11,7 @@ global class SaleResponse {
    */
   global void setAmount(Double amount) {}
 
-  public void setAsync(Boolean async) {}
+  global void setAsync(Boolean async) {}
 
   /**
    * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
@@ -61,9 +61,9 @@ global class SaleResponse {
    */
   global void setPaymentMethodTokenizationResponse(commercepayments.PaymentMethodTokenizationResponse paymentMethodTokenizationResponse) {}
 
-  public void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
 
-  public void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
   /**
    * Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.

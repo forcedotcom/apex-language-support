@@ -5,13 +5,13 @@ global class ExtensionInfo {
 
   global ExtensionInfo() {}
 
-  public static Double getClientApiVersion() {}
+  global static Double getClientApiVersion() {}
 
-  public static String getCustomParameterField(String fieldName) {}
+  global static String getCustomParameterField(String fieldName) {}
 
-  public static String getLocaleString() {}
+  global static String getLocaleString() {}
 
-  public static Boolean isCustomParametersAvailable() {}
+  global static Boolean isCustomParametersAvailable() {}
 
   global Object clone() {}
 

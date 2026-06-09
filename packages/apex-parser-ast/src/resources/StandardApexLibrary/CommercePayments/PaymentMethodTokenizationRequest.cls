@@ -7,11 +7,11 @@ global class PaymentMethodTokenizationRequest {
 
   global commercepayments.AddressRequest address;
 
-  public commercepayments.BankPaymentMethodRequest bankPaymentMethod;
+  global commercepayments.BankPaymentMethodRequest bankPaymentMethod;
 
   global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
 
-  public Boolean savedByMerchant;
+  global Boolean savedByMerchant;
 
   /**
    * Maintains the integrity of lists of type PaymentMethodTokenizationRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

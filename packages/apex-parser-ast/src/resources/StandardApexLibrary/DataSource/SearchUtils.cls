@@ -11,7 +11,7 @@ global class SearchUtils {
    * @param connection The DataSource.Connection class that connects to the external system.
    * @return List<DataSource.TableResult>
    */
-  public static List<DataSource.TableResult> searchByName(DataSource.SearchContext searchDetails, DataSource.Connection connection) {}
+  global static List<DataSource.TableResult> searchByName(DataSource.SearchContext searchDetails, DataSource.Connection connection) {}
 
   global Object clone() {}
 

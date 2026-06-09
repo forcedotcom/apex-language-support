@@ -5,12 +5,12 @@ global class RelatedContentItem {
 
   global RelatedContentItem() {}
 
-  public Metadata.LayoutItem layoutItem;
+  global Metadata.LayoutItem layoutItem;
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedContentItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

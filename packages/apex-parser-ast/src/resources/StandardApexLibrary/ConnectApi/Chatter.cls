@@ -5,15 +5,15 @@ global class Chatter {
 
   global Chatter() {}
 
-  public static void deleteSubscription(String communityId, String subscriptionId) {}
+  global static void deleteSubscription(String communityId, String subscriptionId) {}
 
-  public static ConnectApi.FollowerPage getFollowers(String communityId, String recordId) {}
+  global static ConnectApi.FollowerPage getFollowers(String communityId, String recordId) {}
 
-  public static ConnectApi.FollowerPage getFollowers(String communityId, String recordId, Integer pageParam, Integer pageSize) {}
+  global static ConnectApi.FollowerPage getFollowers(String communityId, String recordId, Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.Subscription getSubscription(String communityId, String subscriptionId) {}
+  global static ConnectApi.Subscription getSubscription(String communityId, String subscriptionId) {}
 
-  public static ConnectApi.DigestJobRepresentation submitDigestJob(ConnectApi.DigestPeriod period) {}
+  global static ConnectApi.DigestJobRepresentation submitDigestJob(ConnectApi.DigestPeriod period) {}
 
   global Object clone() {}
 

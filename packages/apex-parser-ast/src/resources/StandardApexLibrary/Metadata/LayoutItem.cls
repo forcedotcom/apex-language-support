@@ -5,38 +5,38 @@ global class LayoutItem {
 
   global LayoutItem() {}
 
-  public Metadata.AnalyticsCloudComponentLayoutItem analyticsCloudComponent;
+  global Metadata.AnalyticsCloudComponentLayoutItem analyticsCloudComponent;
 
-  public Metadata.UiBehavior behavior;
+  global Metadata.UiBehavior behavior;
 
-  public String canvas;
+  global String canvas;
 
-  public String component;
+  global String component;
 
-  public String customLink;
+  global String customLink;
 
-  public Boolean emptySpace;
+  global Boolean emptySpace;
 
-  public String field;
+  global String field;
 
-  public Integer height;
+  global Integer height;
 
-  public String page_x;
+  global String page_x;
 
-  public Metadata.ReportChartComponentLayoutItem reportChartComponent;
+  global Metadata.ReportChartComponentLayoutItem reportChartComponent;
 
-  public String scontrol;
+  global String scontrol;
 
-  public Boolean showLabel;
+  global Boolean showLabel;
 
-  public Boolean showScrollbars;
+  global Boolean showScrollbars;
 
-  public String width;
+  global String width;
 
   /**
    * Makes a duplicate copy of the Metadata.LayoutItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

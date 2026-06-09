@@ -5,7 +5,7 @@ global class LoadParameters {
 
   global LoadParameters() {}
 
-  public String getRecordId() {}
+  global String getRecordId() {}
 
   global Object clone() {}
 

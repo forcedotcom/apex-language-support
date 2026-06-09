@@ -5,9 +5,9 @@ global class RestContext {
 
   global RestContext() {}
 
-  public RestRequest request;
+  global RestRequest request;
 
-  public RestResponse response;
+  global RestResponse response;
 
   global Object clone() {}
 

@@ -3,34 +3,34 @@
  */
 global class Version {
 
-  public Version(Integer major, Integer minor) {}
+  global Version(Integer major, Integer minor) {}
 
-  public Version(Integer major, Integer minor, Integer patch) {}
+  global Version(Integer major, Integer minor, Integer patch) {}
 
   /**
    * Compares the current version with the specified version.
    * @param version 
    * @return Integer
    */
-  public Integer compareTo(System.Version version) {}
+  global Integer compareTo(System.Version version) {}
 
   /**
    * Returns the major package version of the of the calling code.
    * @return Integer
    */
-  public Integer major() {}
+  global Integer major() {}
 
   /**
    * Returns the minor package version of the calling code.
    * @return Integer
    */
-  public Integer minor() {}
+  global Integer minor() {}
 
   /**
    * Returns the patch package version of the calling code or null if there is no patch version.
    * @return Integer
    */
-  public Integer patch() {}
+  global Integer patch() {}
 
   global Object clone() {}
 

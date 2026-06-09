@@ -5,22 +5,22 @@ global class LayoutSection {
 
   global LayoutSection() {}
 
-  public Boolean customLabel;
+  global Boolean customLabel;
 
-  public Boolean detailHeading;
+  global Boolean detailHeading;
 
-  public Boolean editHeading;
+  global Boolean editHeading;
 
-  public String label;
+  global String label;
 
-  public List<Metadata.LayoutColumn> layoutColumns;
+  global List<Metadata.LayoutColumn> layoutColumns;
 
-  public Metadata.LayoutSectionStyle style;
+  global Metadata.LayoutSectionStyle style;
 
   /**
    * Makes a duplicate copy of the Metadata.LayoutSection .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

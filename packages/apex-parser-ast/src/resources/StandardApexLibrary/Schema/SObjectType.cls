@@ -9,27 +9,27 @@ global class SObjectType {
    * Returns the describe sObject result for this field.
    * @return Schema.DescribeSObjectResult
    */
-  public Schema.DescribeSObjectResult getDescribe() {}
+  global Schema.DescribeSObjectResult getDescribe() {}
 
   /**
    * Returns the describe sObject result for this field.
    * @param options 
    * @return Schema.DescribeSObjectResult
    */
-  public Schema.DescribeSObjectResult getDescribe(Object options) {}
+  global Schema.DescribeSObjectResult getDescribe(Object options) {}
 
   /**
    * Constructs a new sObject of this type.
    * @return sObject
    */
-  public sObject newSObject() {}
+  global sObject newSObject() {}
 
   /**
    * Constructs a new sObject of this type.
    * @param id 
    * @return sObject
    */
-  public sObject newSObject(ID id) {}
+  global sObject newSObject(ID id) {}
 
   /**
    * Constructs a new sObject of this type.
@@ -37,7 +37,7 @@ global class SObjectType {
    * @param loadDefaults 
    * @return sObject
    */
-  public sObject newSObject(ID recordTypeId, Boolean loadDefaults) {}
+  global sObject newSObject(ID recordTypeId, Boolean loadDefaults) {}
 
   global Object clone() {}
 

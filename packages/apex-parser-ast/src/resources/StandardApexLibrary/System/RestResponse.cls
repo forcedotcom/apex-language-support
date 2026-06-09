@@ -5,18 +5,18 @@ global class RestResponse {
 
   global RestResponse() {}
 
-  public Blob responseBody;
+  global Blob responseBody;
 
-  public Map<String, String> headers;
+  global Map<String, String> headers;
 
-  public Integer statuscode;
+  global Integer statuscode;
 
   /**
    * Adds a header to the response header map.
    * @param name 
    * @param value 
    */
-  public void addHeader(String name, String value) {}
+  global void addHeader(String name, String value) {}
 
   global Object clone() {}
 

@@ -5,54 +5,54 @@ global class DeployResult {
 
   global DeployResult() {}
 
-  public String canceledBy;
+  global String canceledBy;
 
-  public String canceledByName;
+  global String canceledByName;
 
-  public Boolean checkOnly;
+  global Boolean checkOnly;
 
-  public Datetime completedDate;
+  global Datetime completedDate;
 
-  public String createdBy;
+  global String createdBy;
 
-  public String createdByName;
+  global String createdByName;
 
-  public Datetime createdDate;
+  global Datetime createdDate;
 
-  public Metadata.DeployDetails details;
+  global Metadata.DeployDetails details;
 
-  public Boolean done;
+  global Boolean done;
 
-  public String errorMessage;
+  global String errorMessage;
 
-  public String errorStatusCode;
+  global String errorStatusCode;
 
-  public Id id;
+  global Id id;
 
-  public Boolean ignoreWarnings;
+  global Boolean ignoreWarnings;
 
-  public Datetime lastModifiedDate;
+  global Datetime lastModifiedDate;
 
-  public Integer numberComponentErrors;
+  global Integer numberComponentErrors;
 
-  public Integer numberComponentsDeployed;
+  global Integer numberComponentsDeployed;
 
-  public Integer numberComponentsTotal;
+  global Integer numberComponentsTotal;
 
-  public Boolean rollbackOnError;
+  global Boolean rollbackOnError;
 
-  public Datetime startDate;
+  global Datetime startDate;
 
-  public String stateDetail;
+  global String stateDetail;
 
-  public Metadata.DeployStatus status;
+  global Metadata.DeployStatus status;
 
-  public Boolean success;
+  global Boolean success;
 
   /**
    * Makes a duplicate copy of the Metadata.DeployResult .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

@@ -3,19 +3,19 @@
  */
 global class NotificationActionContext {
 
-  public NotificationActionContext(Reports.ReportInstance reportInstance, Reports.ThresholdInformation thresholdInformation) {}
+  global NotificationActionContext(Reports.ReportInstance reportInstance, Reports.ThresholdInformation thresholdInformation) {}
 
   /**
    * Returns the report instance associated with the notification.
    * @return Reports.ReportInstance
    */
-  public Reports.ReportInstance getReportInstance() {}
+  global Reports.ReportInstance getReportInstance() {}
 
   /**
    * Returns the threshold information associated with the notification.
    * @return Reports.ThresholdInformation
    */
-  public Reports.ThresholdInformation getThresholdInformation() {}
+  global Reports.ThresholdInformation getThresholdInformation() {}
 
   global Object clone() {}
 

@@ -9,7 +9,7 @@ global class SuggestionResult {
    * Returns the sObject from a SuggestionResult object.
    * @return SObject
    */
-  public SObject getSObject() {}
+  global SObject getSObject() {}
 
   global Object clone() {}
 

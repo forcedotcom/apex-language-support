@@ -5,15 +5,15 @@ global class Domain {
 
   global Domain() {}
 
-  public System.DomainType getDomainType() {}
+  global System.DomainType getDomainType() {}
 
-  public String getMyDomainName() {}
+  global String getMyDomainName() {}
 
-  public String getPackageName() {}
+  global String getPackageName() {}
 
-  public String getSandboxName() {}
+  global String getSandboxName() {}
 
-  public String getSitesSubdomainName() {}
+  global String getSitesSubdomainName() {}
 
   global Object clone() {}
 

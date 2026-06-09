@@ -5,7 +5,7 @@ global class TaxLineItemRequest {
 
   global TaxLineItemRequest(commercetax.LineTaxAddressesRequest addresses, Double amount, String description, String productCode, Double quantity, String lineNumber, String taxCode, Datetime effectiveDate) {}
 
-  public commercetax.LineTaxAddressesRequest addresses;
+  global commercetax.LineTaxAddressesRequest addresses;
 
   global Double amount;
 

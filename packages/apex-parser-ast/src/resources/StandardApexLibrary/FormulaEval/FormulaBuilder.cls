@@ -5,21 +5,21 @@ global class FormulaBuilder {
 
   global FormulaBuilder() {}
 
-  public FormulaEval.FormulaInstance build() {}
+  global FormulaEval.FormulaInstance build() {}
 
-  public formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
+  global formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
 
-  public FormulaEval.FormulaBuilder treatNumericNullAsZero(Boolean isNumericNullZero) {}
+  global FormulaEval.FormulaBuilder treatNumericNullAsZero(Boolean isNumericNullZero) {}
 
-  public FormulaEval.FormulaBuilder withFormula(String formulaText) {}
+  global FormulaEval.FormulaBuilder withFormula(String formulaText) {}
 
-  public FormulaEval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) {}
+  global FormulaEval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) {}
 
-  public FormulaEval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) {}
+  global FormulaEval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) {}
 
-  public formulaeval.FormulaBuilder withType(System.Type contextType) {}
+  global formulaeval.FormulaBuilder withType(System.Type contextType) {}
 
-  public formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
+  global formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
 
   global Object clone() {}
 

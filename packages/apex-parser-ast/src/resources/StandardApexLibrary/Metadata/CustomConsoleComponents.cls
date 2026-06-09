@@ -5,14 +5,14 @@ global class CustomConsoleComponents {
 
   global CustomConsoleComponents() {}
 
-  public Metadata.PrimaryTabComponents primaryTabComponents;
+  global Metadata.PrimaryTabComponents primaryTabComponents;
 
-  public Metadata.SubtabComponents subtabComponents;
+  global Metadata.SubtabComponents subtabComponents;
 
   /**
    * Makes a duplicate copy of the Metadata.CustomConsoleComponents .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

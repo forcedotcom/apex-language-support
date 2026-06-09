@@ -5,34 +5,34 @@ global class SidebarComponent {
 
   global SidebarComponent() {}
 
-  public String componentType;
+  global String componentType;
 
-  public String createAction;
+  global String createAction;
 
-  public Boolean enableLinking;
+  global Boolean enableLinking;
 
-  public Integer height;
+  global Integer height;
 
-  public Boolean knowledgeOneEnable;
+  global Boolean knowledgeOneEnable;
 
-  public String label;
+  global String label;
 
-  public String lookup;
+  global String lookup;
 
-  public String page_x;
+  global String page_x;
 
-  public List<Metadata.RelatedList> relatedLists;
+  global List<Metadata.RelatedList> relatedLists;
 
-  public String unit;
+  global String unit;
 
-  public String updateAction;
+  global String updateAction;
 
-  public Integer width;
+  global Integer width;
 
   /**
    * Makes a duplicate copy of the Metadata.SidebarComponent .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

@@ -5,18 +5,18 @@ global class CustomMetadata {
 
   global CustomMetadata() {}
 
-  public String description;
+  global String description;
 
-  public String label;
+  global String label;
 
-  public Boolean protected_x;
+  global Boolean protected_x;
 
-  public List<Metadata.CustomMetadataValue> values;
+  global List<Metadata.CustomMetadataValue> values;
 
   /**
    * Makes a duplicate copy of the Metadata.CustomMetadata .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

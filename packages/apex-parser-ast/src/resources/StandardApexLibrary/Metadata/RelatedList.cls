@@ -5,14 +5,14 @@ global class RelatedList {
 
   global RelatedList() {}
 
-  public Boolean hideOnDetail;
+  global Boolean hideOnDetail;
 
-  public String name;
+  global String name;
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedList .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

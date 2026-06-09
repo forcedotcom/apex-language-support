@@ -5,9 +5,9 @@ global class BotVersionActivation {
 
   global BotVersionActivation() {}
 
-  public static ConnectApi.BotVersionActivationInfo getVersionActivationInfo(String botVersionId) {}
+  global static ConnectApi.BotVersionActivationInfo getVersionActivationInfo(String botVersionId) {}
 
-  public static ConnectApi.BotVersionActivationInfo updateVersionStatus(String botVersionId, ConnectApi.BotVersionActivationStatus status, ConnectApi.BotVersionActivationInput postBody) {}
+  global static ConnectApi.BotVersionActivationInfo updateVersionStatus(String botVersionId, ConnectApi.BotVersionActivationStatus status, ConnectApi.BotVersionActivationInput postBody) {}
 
   global Object clone() {}
 

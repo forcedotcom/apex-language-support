@@ -9,19 +9,19 @@ global class ReportScopeValue {
    * Returns a boolean value that indicates whether you can segment the report by this scope.
    * @return Boolean
    */
-  public Boolean getAllowsDivision() {}
+  global Boolean getAllowsDivision() {}
 
   /**
    * Returns the display name of the scope of the report.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the scope value for the report.
    * @return String
    */
-  public String getValue() {}
+  global String getValue() {}
 
   global Object clone() {}
 

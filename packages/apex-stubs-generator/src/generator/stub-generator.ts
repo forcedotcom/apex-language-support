@@ -37,6 +37,11 @@ const uniqueBy = <T>(items: readonly T[], keyFn: (item: T) => string): T[] => {
   return output;
 };
 
+// Apex rule: members of a global class cannot be less visible than global.
+// Docs sometimes declare methods as public on a global class — upgrade them.
+const resolveVisibility = (vis: string | undefined): string =>
+  vis === 'public' ? 'global' : (vis ?? 'global');
+
 /**
  * Generate stub files for all namespaces
  */
@@ -206,7 +211,7 @@ const generateClassContent = (apexClass: ApexClass): string => {
   }
 
   for (const ctor of uniqueConstructors) {
-    const vis = ctor.visibility ?? 'global';
+    const vis = resolveVisibility(ctor.visibility);
     const params = ctor.parameters
       .map((p) => `${normalizeUrlType(p.type)} ${p.name}`)
       .join(', ');
@@ -220,7 +225,7 @@ const generateClassContent = (apexClass: ApexClass): string => {
       lines.push(`   * ${prop.description}`);
       lines.push('   */');
     }
-    const propVisibility = prop.visibility ?? 'global';
+    const propVisibility = resolveVisibility(prop.visibility);
     const staticKeyword = prop.isStatic ? 'static ' : '';
     const resolvedType = resolveInnerClassPropertyType(
       normalizeUrlType(prop.type),
@@ -248,7 +253,7 @@ const generateClassContent = (apexClass: ApexClass): string => {
       lines.push('   */');
     }
 
-    const methodVisibility = method.visibility ?? 'global';
+    const methodVisibility = resolveVisibility(method.visibility);
     const staticKeyword = method.isStatic ? 'static ' : '';
     const returnTypeNorm = normalizeUrlType(method.returnType);
     const params = method.parameters
@@ -336,7 +341,7 @@ const generateInnerClassContent = (inner: ApexInnerClass): string => {
   }
 
   for (const ctor of uniqueConstructors) {
-    const vis = ctor.visibility ?? 'global';
+    const vis = resolveVisibility(ctor.visibility);
     const params = ctor.parameters
       .map((p) => `${normalizeUrlType(p.type)} ${p.name}`)
       .join(', ');
@@ -350,7 +355,7 @@ const generateInnerClassContent = (inner: ApexInnerClass): string => {
       lines.push(`     * ${prop.description}`);
       lines.push('     */');
     }
-    const propVisibility = prop.visibility ?? 'global';
+    const propVisibility = resolveVisibility(prop.visibility);
     const staticKeyword = prop.isStatic ? 'static ' : '';
     lines.push(
       `    ${propVisibility} ${staticKeyword}${normalizeUrlType(prop.type)} ${prop.name};`,
@@ -370,7 +375,7 @@ const generateInnerClassContent = (inner: ApexInnerClass): string => {
       }
       lines.push('     */');
     }
-    const methodVisibility = method.visibility ?? 'global';
+    const methodVisibility = resolveVisibility(method.visibility);
     const staticKeyword = method.isStatic ? 'static ' : '';
     const returnTypeNorm = normalizeUrlType(method.returnType);
     const params = method.parameters

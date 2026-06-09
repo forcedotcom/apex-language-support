@@ -9,7 +9,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * Returns the custom metadata type API name for a custom OAuth-based authentication provider for single sign-on to Salesforce.
    * @return String
    */
-  public String getCustomMetadataType() {}
+  global String getCustomMetadataType() {}
 
   /**
    * Returns information from the custom authentication provider about the current user. This information is used by the registration handler and in other authentication provider flows.
@@ -17,7 +17,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * @param response The OAuth access token, OAuth secret or refresh token, and state provided by the authentication provider to authenticate the current user.
    * @return Auth.UserData
    */
-  public Auth.UserData getUserInfo(Map<String,String> authProviderConfiguration, Auth.AuthProviderTokenResponse response) {}
+  global Auth.UserData getUserInfo(Map<String,String> authProviderConfiguration, Auth.AuthProviderTokenResponse response) {}
 
   /**
    * Uses the authentication provider’s supported authentication protocol to return an OAuth access token, OAuth secret or refresh token, and the state passed in when the request for the current user was initiated.
@@ -25,7 +25,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * @param callbackState The class that contains the HTTP headers, body, and queryParams of the authentication request.
    * @return Auth.AuthProviderTokenResponse
    */
-  public Auth.AuthProviderTokenResponse handleCallback(Map<String,String> authProviderConfiguration, Auth.AuthProviderCallbackState callbackState) {}
+  global Auth.AuthProviderTokenResponse handleCallback(Map<String,String> authProviderConfiguration, Auth.AuthProviderCallbackState callbackState) {}
 
   /**
    * Returns the URL where the user is redirected for authentication.
@@ -33,7 +33,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * @param stateToPropagate The state passed in to initiate the authentication request for the user.
    * @return System.PageReference
    */
-  public System.PageReference initiate(Map<String,String> authProviderConfiguration, String stateToPropagate) {}
+  global System.PageReference initiate(Map<String,String> authProviderConfiguration, String stateToPropagate) {}
 
   /**
    * Returns a new access token, which is used to update an expired access token.
@@ -41,7 +41,7 @@ global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
    * @param refreshToken The refresh token for the user who is logged in.
    * @return Auth.OAuthRefreshResult
    */
-  public Auth.OAuthRefreshResult refresh(Map<String,String> authProviderConfiguration, String refreshToken) {}
+  global Auth.OAuthRefreshResult refresh(Map<String,String> authProviderConfiguration, String refreshToken) {}
 
   global Object clone() {}
 

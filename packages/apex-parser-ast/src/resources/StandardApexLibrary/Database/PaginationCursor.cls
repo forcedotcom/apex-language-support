@@ -5,11 +5,11 @@ global class PaginationCursor {
 
   global PaginationCursor() {}
 
-  public Integer fetchDeleted(Integer start, Integer pageSize) {}
+  global Integer fetchDeleted(Integer start, Integer pageSize) {}
 
-  public Database.CursorFetchResult fetchPage(Integer start, Integer pageSize) {}
+  global Database.CursorFetchResult fetchPage(Integer start, Integer pageSize) {}
 
-  public Integer getNumRecords() {}
+  global Integer getNumRecords() {}
 
   global Object clone() {}
 

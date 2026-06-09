@@ -9,49 +9,49 @@ global class StandardDateFilter {
    * Returns the API name of the standard date filter column.
    * @return String
    */
-  public String getColumn() {}
+  global String getColumn() {}
 
   /**
    * Returns duration information about a standard date filter, such as start date, end date, and display name and API name of the date filter.
    * @return String
    */
-  public String getDurationValue() {}
+  global String getDurationValue() {}
 
   /**
    * Returns the end date of the standard date filter.
    * @return String
    */
-  public String getEndDate() {}
+  global String getEndDate() {}
 
   /**
    * Returns the start date for the standard date filter.
    * @return String
    */
-  public String getStartDate() {}
+  global String getStartDate() {}
 
   /**
    * Sets the API name of the standard date filter column.
    * @param standardDateFilterColumnName 
    */
-  public void setColumn(String standardDateFilterColumnName) {}
+  global void setColumn(String standardDateFilterColumnName) {}
 
   /**
    * Sets the API name of the standard date filter.
    * @param durationName 
    */
-  public void setDurationValue(String durationName) {}
+  global void setDurationValue(String durationName) {}
 
   /**
    * Sets the end date for the standard date filter.
    * @param endDate 
    */
-  public void setEndDate(String endDate) {}
+  global void setEndDate(String endDate) {}
 
   /**
    * Sets the start date for the standard date filter.
    * @param startDate 
    */
-  public void setStartDate(String startDate) {}
+  global void setStartDate(String startDate) {}
 
   global Object clone() {}
 

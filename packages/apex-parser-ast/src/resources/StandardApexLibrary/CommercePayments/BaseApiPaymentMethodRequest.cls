@@ -9,7 +9,7 @@ global class BaseApiPaymentMethodRequest {
 
   global String id;
 
-  public commercepayments.PaymentMethodIdType idType;
+  global commercepayments.PaymentMethodIdType idType;
 
   global Boolean saveForFuture;
 

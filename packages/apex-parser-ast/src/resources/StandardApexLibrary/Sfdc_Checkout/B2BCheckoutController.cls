@@ -10,7 +10,7 @@ global class B2BCheckoutController {
    * @param cartId The cartId of a web cart from which an order is created.
    * @param orderId The orderId of the order you created from the cart.
    */
-  public static void licenseCompliance(String cartId, String orderId) {}
+  global static void licenseCompliance(String cartId, String orderId) {}
 
   global Object clone() {}
 

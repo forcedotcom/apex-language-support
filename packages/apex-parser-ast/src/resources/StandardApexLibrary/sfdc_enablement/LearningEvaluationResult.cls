@@ -5,13 +5,13 @@ global class LearningEvaluationResult {
 
   global LearningEvaluationResult() {}
 
-  public Double getLearningItemProgress() {}
+  global Double getLearningItemProgress() {}
 
-  public sfdc_enablement.LearningItemProgressStatus getLearningItemProgressStatus() {}
+  global sfdc_enablement.LearningItemProgressStatus getLearningItemProgressStatus() {}
 
-  public void setLearningItemProgress(Double learningItemProgress) {}
+  global void setLearningItemProgress(Double learningItemProgress) {}
 
-  public void setLearningItemProgressStatus(sfdc_enablement.LearningItemProgressStatus learningItemProgressStatus) {}
+  global void setLearningItemProgressStatus(sfdc_enablement.LearningItemProgressStatus learningItemProgressStatus) {}
 
   global Object clone() {}
 

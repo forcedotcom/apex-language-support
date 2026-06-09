@@ -5,17 +5,17 @@ global class CdpIdentityResolution {
 
   global CdpIdentityResolution() {}
 
-  public static ConnectApi.CdpIdentityResolutionOutput createIdentityResolution(ConnectApi.CdpIdentityResolutionConfigInput input) {}
+  global static ConnectApi.CdpIdentityResolutionOutput createIdentityResolution(ConnectApi.CdpIdentityResolutionConfigInput input) {}
 
-  public static void deleteIdentityResolution(String identityResolution) {}
+  global static void deleteIdentityResolution(String identityResolution) {}
 
-  public static ConnectApi.CdpIdentityResolutionOutput getIdentityResolution(String identityResolution) {}
+  global static ConnectApi.CdpIdentityResolutionOutput getIdentityResolution(String identityResolution) {}
 
-  public static ConnectApi.CdpIdentityResolutionsOutput getIdentityResolutions() {}
+  global static ConnectApi.CdpIdentityResolutionsOutput getIdentityResolutions() {}
 
-  public static ConnectApi.CdpIdentityResolutionRunNowOutput runIdentityResolutionNow(String identityResolution, ConnectApi.CdpIdentityResolutionRunNowInput input) {}
+  global static ConnectApi.CdpIdentityResolutionRunNowOutput runIdentityResolutionNow(String identityResolution, ConnectApi.CdpIdentityResolutionRunNowInput input) {}
 
-  public static ConnectApi.CdpIdentityResolutionOutput updateIdentityResolution(String identityResolution, ConnectApi.CdpIdentityResolutionConfigPatchInput input) {}
+  global static ConnectApi.CdpIdentityResolutionOutput updateIdentityResolution(String identityResolution, ConnectApi.CdpIdentityResolutionConfigPatchInput input) {}
 
   global Object clone() {}
 

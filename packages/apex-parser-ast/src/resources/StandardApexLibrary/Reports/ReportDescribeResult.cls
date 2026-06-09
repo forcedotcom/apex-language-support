@@ -9,19 +9,19 @@ global class ReportDescribeResult {
    * Returns additional information about grouping and summaries.
    * @return Reports.ReportExtendedMetadata
    */
-  public Reports.ReportExtendedMetadata getReportExtendedMetadata() {}
+  global Reports.ReportExtendedMetadata getReportExtendedMetadata() {}
 
   /**
    * Returns unique identifiers for groupings and summaries.
    * @return Reports.ReportMetadata
    */
-  public Reports.ReportMetadata getReportMetadata() {}
+  global Reports.ReportMetadata getReportMetadata() {}
 
   /**
    * Returns the fields in each section of a report type, plus filtering information for those fields.
    * @return Reports.ReportTypeMetadata
    */
-  public Reports.ReportTypeMetadata getReportTypeMetadata() {}
+  global Reports.ReportTypeMetadata getReportTypeMetadata() {}
 
   global Object clone() {}
 

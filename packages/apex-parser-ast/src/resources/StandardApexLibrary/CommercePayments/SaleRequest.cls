@@ -13,15 +13,15 @@ global class SaleRequest {
 
   global String currencyIsoCode;
 
-  public commercepayments.EnhancedPaymentDataInput enhancedPaymentData;
+  global commercepayments.EnhancedPaymentDataInput enhancedPaymentData;
 
-  public String paymentInitiationSourceId;
+  global String paymentInitiationSourceId;
 
   global commercepayments.SaleApiPaymentMethodRequest paymentMethod;
 
-  public Map<String,String> paymentMethodData;
+  global Map<String,String> paymentMethodData;
 
-  public Boolean submittedByMerchant;
+  global Boolean submittedByMerchant;
 
   /**
    * Compares this object with the specified object and returns true if both objects are equal; otherwise, returns false .

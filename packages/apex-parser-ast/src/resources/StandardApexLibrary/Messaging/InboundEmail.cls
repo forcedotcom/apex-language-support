@@ -5,39 +5,39 @@ global class InboundEmail {
 
   global InboundEmail() {}
 
-  public AuthenticationResult[] authenticationResults;
+  global AuthenticationResult[] authenticationResults;
 
-  public BinaryAttachment[] binaryAttachments;
+  global BinaryAttachment[] binaryAttachments;
 
-  public String[] ccAddresses;
+  global String[] ccAddresses;
 
-  public String fromAddress;
+  global String fromAddress;
 
-  public String fromName;
+  global String fromName;
 
-  public Header[] headers;
+  global Header[] headers;
 
-  public String htmlBody;
+  global String htmlBody;
 
-  public Boolean htmlBodyIsTruncated;
+  global Boolean htmlBodyIsTruncated;
 
-  public String inReplyTo;
+  global String inReplyTo;
 
-  public String messageId;
+  global String messageId;
 
-  public String plainTextBody;
+  global String plainTextBody;
 
-  public Boolean plainTextBodyIsTruncated;
+  global Boolean plainTextBodyIsTruncated;
 
-  public String[] references;
+  global String[] references;
 
-  public String replyTo;
+  global String replyTo;
 
-  public String subject;
+  global String subject;
 
-  public TextAttachment[] textAttachments;
+  global TextAttachment[] textAttachments;
 
-  public String[] toAddresses;
+  global String[] toAddresses;
 
   global Object clone() {}
 
@@ -48,11 +48,11 @@ global class InboundEmail {
 
     global AuthenticationResult() {}
 
-    public InboundEmail.AuthenticationResultField[] authenticationResultFields;
+    global InboundEmail.AuthenticationResultField[] authenticationResultFields;
 
-    public String method;
+    global String method;
 
-    public String result;
+    global String result;
 
     global Object clone() {}
 
@@ -65,9 +65,9 @@ global class InboundEmail {
 
     global AuthenticationResultField() {}
 
-    public String name;
+    global String name;
 
-    public String value;
+    global String value;
 
     global Object clone() {}
 
@@ -80,11 +80,11 @@ global class InboundEmail {
 
     global BinaryAttachment() {}
 
-    public Blob body;
+    global Blob body;
 
-    public String fileName;
+    global String fileName;
 
-    public String mimeTypeSubType;
+    global String mimeTypeSubType;
 
     global Object clone() {}
 
@@ -97,17 +97,17 @@ global class InboundEmail {
 
     global TextAttachment() {}
 
-    public String body;
+    global String body;
 
-    public Boolean bodyIsTruncated;
+    global Boolean bodyIsTruncated;
 
-    public String charset;
+    global String charset;
 
-    public String fileName;
+    global String fileName;
 
-    public List<Messaging.InboundEmail.Header> headers;
+    global List<Messaging.InboundEmail.Header> headers;
 
-    public String mimeTypeSubType;
+    global String mimeTypeSubType;
 
     global Object clone() {}
 
@@ -120,9 +120,9 @@ global class InboundEmail {
 
     global Header() {}
 
-    public String name;
+    global String name;
 
-    public String value;
+    global String value;
 
     global Object clone() {}
 

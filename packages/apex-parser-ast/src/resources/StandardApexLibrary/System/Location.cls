@@ -11,7 +11,7 @@ global class Location {
    * @param unit The distance unit you want to use: mi or km .
    * @return Double
    */
-  public Double getDistance(Location toLocation, String unit) {}
+  global Double getDistance(Location toLocation, String unit) {}
 
   /**
    * Calculates the distance between this location and the specified location, using an approximation of the haversine formula and the specified unit.
@@ -20,19 +20,19 @@ global class Location {
    * @param unit The distance unit you want to use: mi or km .
    * @return Double
    */
-  public static Double getDistance(Location firstLocation, Location secondLocation, String unit) {}
+  global static Double getDistance(Location firstLocation, Location secondLocation, String unit) {}
 
   /**
    * Returns the latitude field of this location.
    * @return Double
    */
-  public Double getLatitude() {}
+  global Double getLatitude() {}
 
   /**
    * Returns the longitude field of this location.
    * @return Double
    */
-  public Double getLongitude() {}
+  global Double getLongitude() {}
 
   /**
    * Creates an instance of the Location class, with the specified latitude and longitude.
@@ -40,7 +40,7 @@ global class Location {
    * @param longitude 
    * @return Location
    */
-  public static Location newInstance(Decimal latitude, Decimal longitude) {}
+  global static Location newInstance(Decimal latitude, Decimal longitude) {}
 
   global Object clone() {}
 

@@ -5,25 +5,25 @@ global class DynamicMenuItem {
 
   global DynamicMenuItem() {}
 
-  public String EntityId;
+  global String EntityId;
 
-  public String EntityIdValue;
+  global String EntityIdValue;
 
-  public String EntityName;
+  global String EntityName;
 
-  public String EntityNameValue;
+  global String EntityNameValue;
 
-  public String Label;
+  global String Label;
 
-  public String LabelValue;
+  global String LabelValue;
 
-  public String SummaryTextWithFormula;
+  global String SummaryTextWithFormula;
 
-  public String SummaryTextWithFormulaValue;
+  global String SummaryTextWithFormulaValue;
 
-  public Date sortByDate;
+  global Date sortByDate;
 
-  public Date sortByDateValue;
+  global Date sortByDateValue;
 
   global Object clone() {}
 

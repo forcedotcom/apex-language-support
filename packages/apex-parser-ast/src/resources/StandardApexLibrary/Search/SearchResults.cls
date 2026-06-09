@@ -10,7 +10,7 @@ global class SearchResults {
    * @param sObjectType The name of an sObject in the dynamic SOSL query passed to the Search.find( String ) method.
    * @return List<Search.SearchResult>
    */
-  public List<Search.SearchResult> get(String sObjectType) {}
+  global List<Search.SearchResult> get(String sObjectType) {}
 
   global Object clone() {}
 

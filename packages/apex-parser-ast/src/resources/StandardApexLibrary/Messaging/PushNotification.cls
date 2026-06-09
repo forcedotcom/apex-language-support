@@ -5,11 +5,11 @@ global class PushNotification {
 
   global PushNotification() {}
 
-  public void send(String application, Set<String> users) {}
+  global void send(String application, Set<String> users) {}
 
-  public void setPayload(Map<String,Object> payload) {}
+  global void setPayload(Map<String,Object> payload) {}
 
-  public void setTtl(Integer ttl) {}
+  global void setTtl(Integer ttl) {}
 
   global Object clone() {}
 

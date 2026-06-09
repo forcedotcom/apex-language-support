@@ -5,9 +5,9 @@ global class Result {
 
   global Result() {}
 
-  public Object getValue() {}
+  global Object getValue() {}
 
-  public String getValueAsString() {}
+  global String getValueAsString() {}
 
   global Object clone() {}
 

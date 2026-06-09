@@ -5,15 +5,15 @@ global class ManagedContentChannels {
 
   global ManagedContentChannels() {}
 
-  public static void deleteManagedContentChannel(String channelId) {}
+  global static void deleteManagedContentChannel(String channelId) {}
 
-  public static ConnectApi.ManagedContentChannel getManagedContentChannel(String channelId) {}
+  global static ConnectApi.ManagedContentChannel getManagedContentChannel(String channelId) {}
 
-  public static ConnectApi.ManagedContentChannelsRepresentation getManagedContentChannels(Integer pageParam, Integer pageSize, Boolean showDetails) {}
+  global static ConnectApi.ManagedContentChannelsRepresentation getManagedContentChannels(Integer pageParam, Integer pageSize, Boolean showDetails) {}
 
-  public static ConnectApi.ManagedContentChannel patchManagedContentChannel(String channelId, ConnectApi.ManagedContentChannelUpdateRepresentation ManagedContentChannelInput) {}
+  global static ConnectApi.ManagedContentChannel patchManagedContentChannel(String channelId, ConnectApi.ManagedContentChannelUpdateRepresentation ManagedContentChannelInput) {}
 
-  public static ConnectApi.ManagedContentChannel postManagedContentChannel(ConnectApi.ManagedContentChannelCreateRepresentation ManagedContentCreateInputParam) {}
+  global static ConnectApi.ManagedContentChannel postManagedContentChannel(ConnectApi.ManagedContentChannelCreateRepresentation ManagedContentCreateInputParam) {}
 
   global Object clone() {}
 

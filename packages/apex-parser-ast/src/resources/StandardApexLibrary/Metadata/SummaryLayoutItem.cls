@@ -5,20 +5,20 @@ global class SummaryLayoutItem {
 
   global SummaryLayoutItem() {}
 
-  public String customLink;
+  global String customLink;
 
-  public String field;
+  global String field;
 
-  public Integer posX;
+  global Integer posX;
 
-  public Integer posY;
+  global Integer posY;
 
-  public Integer posZ;
+  global Integer posZ;
 
   /**
    * Makes a duplicate copy of the Metadata.SummaryLayoutItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

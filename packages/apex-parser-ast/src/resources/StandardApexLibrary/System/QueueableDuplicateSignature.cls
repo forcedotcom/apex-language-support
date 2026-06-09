@@ -5,7 +5,7 @@ global class QueueableDuplicateSignature {
 
   global QueueableDuplicateSignature() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 
@@ -16,19 +16,19 @@ global class QueueableDuplicateSignature {
 
     global Builder() {}
 
-    public System.QueueableDuplicateSignature.Builder addId(Id id) {}
+    global System.QueueableDuplicateSignature.Builder addId(Id id) {}
 
-    public System.QueueableDuplicateSignature.Builder addInteger(Integer i) {}
+    global System.QueueableDuplicateSignature.Builder addInteger(Integer i) {}
 
-    public System.QueueableDuplicateSignature.Builder addString(String s) {}
+    global System.QueueableDuplicateSignature.Builder addString(String s) {}
 
-    public System.QueueableDuplicateSignature build() {}
+    global System.QueueableDuplicateSignature build() {}
 
-    public Integer getMaxSize() {}
+    global Integer getMaxSize() {}
 
-    public Integer getRemainingSize() {}
+    global Integer getRemainingSize() {}
 
-    public Integer getSize() {}
+    global Integer getSize() {}
 
     global Object clone() {}
 

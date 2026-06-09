@@ -5,11 +5,11 @@ global class Order {
 
   global Order() {}
 
-  public String columnName;
+  global String columnName;
 
-  public DataSource.OrderDirection direction;
+  global DataSource.OrderDirection direction;
 
-  public String tableName;
+  global String tableName;
 
   /**
    * Creates an instance of the DataSource.Order class.
@@ -18,7 +18,7 @@ global class Order {
    * @param direction Direction for sorting rows based on column values.
    * @return DataSource.Order
    */
-  public static DataSource.Order get(String tableName, String columnName, DataSource.OrderDirection direction) {}
+  global static DataSource.Order get(String tableName, String columnName, DataSource.OrderDirection direction) {}
 
   global Object clone() {}
 

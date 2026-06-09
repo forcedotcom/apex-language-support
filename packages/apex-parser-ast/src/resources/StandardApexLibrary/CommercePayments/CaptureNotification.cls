@@ -11,7 +11,7 @@ global class CaptureNotification {
    */
   global void setAmount(Double amount) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
   /**
    * Sets the date that the transaction occurred. Some gateways don’t send this value.

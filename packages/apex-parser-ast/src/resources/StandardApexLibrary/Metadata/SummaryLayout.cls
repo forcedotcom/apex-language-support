@@ -5,22 +5,22 @@ global class SummaryLayout {
 
   global SummaryLayout() {}
 
-  public String masterLabel;
+  global String masterLabel;
 
-  public Integer sizeX;
+  global Integer sizeX;
 
-  public Integer sizeY;
+  global Integer sizeY;
 
-  public Integer sizeZ;
+  global Integer sizeZ;
 
-  public List<Metadata.SummaryLayoutItem> summaryLayoutItems;
+  global List<Metadata.SummaryLayoutItem> summaryLayoutItems;
 
-  public Metadata.SummaryLayoutStyleEnum summaryLayoutStyle;
+  global Metadata.SummaryLayoutStyleEnum summaryLayoutStyle;
 
   /**
    * Makes a duplicate copy of the Metadata.SummaryLayout .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

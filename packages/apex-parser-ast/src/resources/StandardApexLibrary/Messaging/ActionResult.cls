@@ -5,11 +5,11 @@ global class ActionResult {
 
   global ActionResult() {}
 
-  public Messaging.ActionError getErrorCode() {}
+  global Messaging.ActionError getErrorCode() {}
 
-  public String getMessage() {}
+  global String getMessage() {}
 
-  public Boolean isSuccess() {}
+  global Boolean isSuccess() {}
 
   global Object clone() {}
 
@@ -20,13 +20,13 @@ global class ActionResult {
 
     global Builder() {}
 
-    public Messaging.ActionResult build() {}
+    global Messaging.ActionResult build() {}
 
-    public Messaging.ActionResult.Builder withErrorCode(Messaging.ActionError errorCode) {}
+    global Messaging.ActionResult.Builder withErrorCode(Messaging.ActionError errorCode) {}
 
-    public Messaging.ActionResult.Builder withMessage(String message) {}
+    global Messaging.ActionResult.Builder withMessage(String message) {}
 
-    public Messaging.ActionResult.Builder withSuccess(Boolean success) {}
+    global Messaging.ActionResult.Builder withSuccess(Boolean success) {}
 
     global Object clone() {}
 

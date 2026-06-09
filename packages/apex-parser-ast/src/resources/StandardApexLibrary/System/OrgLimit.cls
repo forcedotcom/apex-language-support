@@ -9,21 +9,21 @@ global class OrgLimit {
    * Returns the maximum allowed limit value.
    * @return Integer
    */
-  public Integer getLimit() {}
+  global Integer getLimit() {}
 
   /**
    * Returns the limit’s name.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the limit usage value.
    * @return Integer
    */
-  public Integer getValue() {}
+  global Integer getValue() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

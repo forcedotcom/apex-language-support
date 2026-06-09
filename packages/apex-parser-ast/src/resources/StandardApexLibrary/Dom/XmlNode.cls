@@ -12,21 +12,21 @@ global class XmlNode {
    * @param prefix 
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode addChildElement(String name, String namespace, String prefix) {}
+  global Dom.XmlNode addChildElement(String name, String namespace, String prefix) {}
 
   /**
    * Creates a child comment node for this node.
    * @param text The text argument can't have a null value.
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode addCommentNode(String text) {}
+  global Dom.XmlNode addCommentNode(String text) {}
 
   /**
    * Creates a child text node for this node.
    * @param text The text argument can't have a null value.
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode addTextNode(String text) {}
+  global Dom.XmlNode addTextNode(String text) {}
 
   /**
    * Returns namespacePrefix:attributeValue for the given key and key namespace.
@@ -34,27 +34,27 @@ global class XmlNode {
    * @param keyNamespace 
    * @return String
    */
-  public String getAttribute(String key, String keyNamespace) {}
+  global String getAttribute(String key, String keyNamespace) {}
 
   /**
    * Returns the number of attributes for this node.
    * @return Integer
    */
-  public Integer getAttributeCount() {}
+  global Integer getAttributeCount() {}
 
   /**
    * Returns the attribute key for the given index. Index values start at 0.
    * @param index 
    * @return String
    */
-  public String getAttributeKeyAt(Integer index) {}
+  global String getAttributeKeyAt(Integer index) {}
 
   /**
    * Returns the attribute key namespace for the given index.
    * @param index 
    * @return String
    */
-  public String getAttributeKeyNsAt(Integer index) {}
+  global String getAttributeKeyNsAt(Integer index) {}
 
   /**
    * Returns the attribute value for the given key and key namespace.
@@ -62,7 +62,7 @@ global class XmlNode {
    * @param keyNamespace 
    * @return String
    */
-  public String getAttributeValue(String key, String keyNamespace) {}
+  global String getAttributeValue(String key, String keyNamespace) {}
 
   /**
    * Returns the attribute value namespace for the given key and key namespace.
@@ -70,7 +70,7 @@ global class XmlNode {
    * @param keyNamespace 
    * @return String
    */
-  public String getAttributeValueNs(String key, String keyNamespace) {}
+  global String getAttributeValueNs(String key, String keyNamespace) {}
 
   /**
    * Returns the child element node for the node with the given name and namespace.
@@ -78,63 +78,63 @@ global class XmlNode {
    * @param namespace 
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode getChildElement(String name, String namespace) {}
+  global Dom.XmlNode getChildElement(String name, String namespace) {}
 
   /**
    * Returns the child element nodes for this node. This doesn't include child text or comment nodes.
    * @return Dom.XmlNode[]
    */
-  public Dom.XmlNode[] getChildElements() {}
+  global Dom.XmlNode[] getChildElements() {}
 
   /**
    * Returns the child nodes for this node. This includes all node types.
    * @return Dom.XmlNode[]
    */
-  public Dom.XmlNode[] getChildren() {}
+  global Dom.XmlNode[] getChildren() {}
 
   /**
    * Returns the element name.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the namespace of the element.
    * @return String
    */
-  public String getNamespace() {}
+  global String getNamespace() {}
 
   /**
    * Returns the namespace of the element for the given prefix.
    * @param prefix 
    * @return String
    */
-  public String getNamespaceFor(String prefix) {}
+  global String getNamespaceFor(String prefix) {}
 
   /**
    * Returns the node type.
    * @return Dom.XmlNodeType
    */
-  public Dom.XmlNodeType getNodeType() {}
+  global Dom.XmlNodeType getNodeType() {}
 
   /**
    * Returns the parent of this element.
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode getParent() {}
+  global Dom.XmlNode getParent() {}
 
   /**
    * Returns the prefix of the given namespace.
    * @param namespace The namespace argument can't have a null value.
    * @return String
    */
-  public String getPrefixFor(String namespace) {}
+  global String getPrefixFor(String namespace) {}
 
   /**
    * Returns the text for this node.
    * @return String
    */
-  public String getText() {}
+  global String getText() {}
 
   /**
    * Inserts a new child node before the specified node.
@@ -142,7 +142,7 @@ global class XmlNode {
    * @param refChild The node before the new node.
    * @return Dom.XmlNode
    */
-  public Dom.XmlNode insertBefore(Dom.XmlNode newChild, Dom.XmlNode refChild) {}
+  global Dom.XmlNode insertBefore(Dom.XmlNode newChild, Dom.XmlNode refChild) {}
 
   /**
    * Removes the attribute with the given key and key namespace. Returns true if successful, false otherwise.
@@ -150,21 +150,21 @@ global class XmlNode {
    * @param keyNamespace 
    * @return Boolean
    */
-  public Boolean removeAttribute(String key, String keyNamespace) {}
+  global Boolean removeAttribute(String key, String keyNamespace) {}
 
   /**
    * Removes the given child node.
    * @param childNode 
    * @return Boolean
    */
-  public Boolean removeChild(Dom.XmlNode childNode) {}
+  global Boolean removeChild(Dom.XmlNode childNode) {}
 
   /**
    * Sets the key attribute value.
    * @param key 
    * @param value 
    */
-  public void setAttribute(String key, String value) {}
+  global void setAttribute(String key, String value) {}
 
   /**
    * Sets the key attribute value.
@@ -173,14 +173,14 @@ global class XmlNode {
    * @param keyNamespace 
    * @param valueNamespace 
    */
-  public void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) {}
+  global void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) {}
 
   /**
    * Sets the namespace for the given prefix.
    * @param prefix 
    * @param namespace 
    */
-  public void setNamespace(String prefix, String namespace) {}
+  global void setNamespace(String prefix, String namespace) {}
 
   global Object clone() {}
 

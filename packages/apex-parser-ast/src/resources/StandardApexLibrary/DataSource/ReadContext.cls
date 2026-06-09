@@ -5,11 +5,11 @@ global class ReadContext {
 
   global ReadContext() {}
 
-  public Integer maxResults;
+  global Integer maxResults;
 
-  public List<DataSource.Table> metadata;
+  global List<DataSource.Table> metadata;
 
-  public Integer offset;
+  global Integer offset;
 
   global Object clone() {}
 

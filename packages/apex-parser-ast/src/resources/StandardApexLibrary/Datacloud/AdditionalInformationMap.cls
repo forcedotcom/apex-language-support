@@ -9,13 +9,13 @@ global class AdditionalInformationMap {
    * Returns the element name.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the value of the element.
    * @return String
    */
-  public String getValue() {}
+  global String getValue() {}
 
   global Object clone() {}
 

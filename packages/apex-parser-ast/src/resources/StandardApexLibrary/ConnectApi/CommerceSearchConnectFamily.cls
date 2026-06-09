@@ -5,7 +5,7 @@ global class CommerceSearchConnectFamily {
 
   global CommerceSearchConnectFamily() {}
 
-  public static ConnectApi.CommerceProductSearchResults searchProducts(String webstoreId, String searchTerm, List<String> searchFields, String categoryId, String sortRuleId, String grouping, List<String> fields, String refinements, Integer page, Integer pageSize, String effectiveAccountId, List<String> effectiveBuyerGroupIds, Boolean includeQuantityRule, Boolean includeProductVariationInfo) {}
+  global static ConnectApi.CommerceProductSearchResults searchProducts(String webstoreId, String searchTerm, List<String> searchFields, String categoryId, String sortRuleId, String grouping, List<String> fields, String refinements, Integer page, Integer pageSize, String effectiveAccountId, List<String> effectiveBuyerGroupIds, Boolean includeQuantityRule, Boolean includeProductVariationInfo) {}
 
   global Object clone() {}
 

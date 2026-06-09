@@ -3,21 +3,21 @@
  */
 global class AddressableContact {
 
-  public AddressableContact(String givenName, String phoneticGivenName, String familyName, String phoneticFamilyName, String emailAddress, String phoneNumber, RichMessaging.PostalAddress postalAddress) {}
+  global AddressableContact(String givenName, String phoneticGivenName, String familyName, String phoneticFamilyName, String emailAddress, String phoneNumber, RichMessaging.PostalAddress postalAddress) {}
 
-  public String emailAddress;
+  global String emailAddress;
 
-  public String familyName;
+  global String familyName;
 
-  public String givenName;
+  global String givenName;
 
-  public String phoneNumber;
+  global String phoneNumber;
 
-  public String phoneticFamilyName;
+  global String phoneticFamilyName;
 
-  public String phoneticGivenName;
+  global String phoneticGivenName;
 
-  public RichMessaging.PostalAddress postalAddress;
+  global RichMessaging.PostalAddress postalAddress;
 
   global Object clone() {}
 

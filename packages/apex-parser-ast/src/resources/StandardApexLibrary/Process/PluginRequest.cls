@@ -5,7 +5,7 @@ global class PluginRequest {
 
   global PluginRequest() {}
 
-  public Map<String,Object> inputParameters;
+  global Map<String,Object> inputParameters;
 
   global Object clone() {}
 

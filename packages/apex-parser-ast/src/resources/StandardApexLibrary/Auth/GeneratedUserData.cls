@@ -3,25 +3,25 @@
  */
 global class GeneratedUserData {
 
-  public GeneratedUserData(String firstName, String lastName, String email, String username, String alias, String languageLocaleKey, String localesIdKey, String emailEncodingKey, String timeZoneSidKey) {}
+  global GeneratedUserData(String firstName, String lastName, String email, String username, String alias, String languageLocaleKey, String localesIdKey, String emailEncodingKey, String timeZoneSidKey) {}
 
-  public String alias;
+  global String alias;
 
-  public String email;
+  global String email;
 
-  public String emailEncodingKey;
+  global String emailEncodingKey;
 
-  public String firstName;
+  global String firstName;
 
-  public String languageLocaleKey;
+  global String languageLocaleKey;
 
-  public String lastName;
+  global String lastName;
 
-  public String localesIdKey;
+  global String localesIdKey;
 
-  public String timeZoneSidKey;
+  global String timeZoneSidKey;
 
-  public String username;
+  global String username;
 
   global Object clone() {}
 

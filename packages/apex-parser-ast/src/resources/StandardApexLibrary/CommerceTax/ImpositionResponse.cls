@@ -11,7 +11,7 @@ global class ImpositionResponse {
 
   global void setSubType(String subType) {}
 
-  public void setType(String type) {}
+  global void setType(String type) {}
 
   global Object clone() {}
 

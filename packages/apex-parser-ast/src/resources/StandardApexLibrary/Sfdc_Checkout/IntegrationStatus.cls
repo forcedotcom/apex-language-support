@@ -5,7 +5,7 @@ global class IntegrationStatus {
 
   global IntegrationStatus() {}
 
-  public sfdc_checkout.IntegrationStatus.Status status;
+  global sfdc_checkout.IntegrationStatus.Status status;
 
   global Object clone() {}
 

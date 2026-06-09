@@ -5,15 +5,15 @@ global class UUID {
 
   global UUID() {}
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public static System.UUID fromString(String str) {}
+  global static System.UUID fromString(String str) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public static System.UUID randomUUID() {}
+  global static System.UUID randomUUID() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

@@ -5,11 +5,11 @@ global class ContentDownloadHandler {
 
   global ContentDownloadHandler() {}
 
-  public String downloadErrorMessage;
+  global String downloadErrorMessage;
 
-  public Boolean isDownloadAllowed;
+  global Boolean isDownloadAllowed;
 
-  public String redirectUrl;
+  global String redirectUrl;
 
   global Object clone() {}
 

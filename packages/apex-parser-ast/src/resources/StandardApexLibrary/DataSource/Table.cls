@@ -5,17 +5,17 @@ global class Table {
 
   global Table() {}
 
-  public List<DataSource.Column> columns;
+  global List<DataSource.Column> columns;
 
-  public String description;
+  global String description;
 
-  public String labelPlural;
+  global String labelPlural;
 
-  public String labelSingular;
+  global String labelSingular;
 
-  public String name;
+  global String name;
 
-  public String nameColumn;
+  global String nameColumn;
 
   /**
    * Returns the table metadata with the specified parameter values.
@@ -27,7 +27,7 @@ global class Table {
    * @param columns List of table columns.
    * @return DataSource.Table
    */
-  public static DataSource.Table get(String name, String labelSingular, String labelPlural, String description, String nameColumn, List<DataSource.Column> columns) {}
+  global static DataSource.Table get(String name, String labelSingular, String labelPlural, String description, String nameColumn, List<DataSource.Column> columns) {}
 
   /**
    * Returns the table metadata with the specified parameter values.
@@ -36,7 +36,7 @@ global class Table {
    * @param columns List of table columns.
    * @return DataSource.Table
    */
-  public static DataSource.Table get(String name, String nameColumn, List<DataSource.Column> columns) {}
+  global static DataSource.Table get(String name, String nameColumn, List<DataSource.Column> columns) {}
 
   global Object clone() {}
 

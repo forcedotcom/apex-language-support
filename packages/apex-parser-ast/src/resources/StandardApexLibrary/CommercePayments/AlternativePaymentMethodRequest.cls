@@ -3,23 +3,23 @@
  */
 global class AlternativePaymentMethodRequest {
 
-  public AlternativePaymentMethodRequest(String gatewayToken) {}
+  global AlternativePaymentMethodRequest(String gatewayToken) {}
 
-  public String accountId;
+  global String accountId;
 
-  public String email;
+  global String email;
 
-  public String gatewayToken;
+  global String gatewayToken;
 
-  public String gatewayTokenDetails;
+  global String gatewayTokenDetails;
 
-  public String name;
+  global String name;
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

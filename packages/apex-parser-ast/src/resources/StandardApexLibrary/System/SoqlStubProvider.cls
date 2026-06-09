@@ -5,7 +5,7 @@ global class SoqlStubProvider {
 
   global SoqlStubProvider() {}
 
-  public List<SObject> handleSoqlQuery(Schema.SObjectType targetType, String stubbedQuery, Map<String,Object> bindMap) {}
+  global List<SObject> handleSoqlQuery(Schema.SObjectType targetType, String stubbedQuery, Map<String,Object> bindMap) {}
 
   global Object clone() {}
 

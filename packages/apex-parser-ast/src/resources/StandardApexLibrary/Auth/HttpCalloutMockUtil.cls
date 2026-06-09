@@ -5,7 +5,7 @@ global class HttpCalloutMockUtil {
 
   global HttpCalloutMockUtil() {}
 
-  public static void setHttpMock(System.HttpCalloutMock mock) {}
+  global static void setHttpMock(System.HttpCalloutMock mock) {}
 
   global Object clone() {}
 

@@ -5,13 +5,13 @@ global class CursorFetchResult {
 
   global CursorFetchResult() {}
 
-  public Integer getNextIndex() {}
+  global Integer getNextIndex() {}
 
-  public Integer getNumDeletedRecords() {}
+  global Integer getNumDeletedRecords() {}
 
-  public List<SObject> getRecords() {}
+  global List<SObject> getRecords() {}
 
-  public Boolean isDone() {}
+  global Boolean isDone() {}
 
   global Object clone() {}
 

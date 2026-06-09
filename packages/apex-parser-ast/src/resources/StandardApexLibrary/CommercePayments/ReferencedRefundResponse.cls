@@ -11,7 +11,7 @@ global class ReferencedRefundResponse {
    */
   global void setAmount(Double amount) {}
 
-  public void setAsync(Boolean async) {}
+  global void setAsync(Boolean async) {}
 
   /**
    * Sets the payment gateway’s address verification system (AVS) code.

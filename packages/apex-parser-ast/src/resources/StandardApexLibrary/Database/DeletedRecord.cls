@@ -9,13 +9,13 @@ global class DeletedRecord {
    * Returns the deleted date of this record.
    * @return Date
    */
-  public Date getDeletedDate() {}
+  global Date getDeletedDate() {}
 
   /**
    * Returns the ID of a record deleted within the time window specified in the Database.getDeleted method.
    * @return Id
    */
-  public Id getId() {}
+  global Id getId() {}
 
   global Object clone() {}
 

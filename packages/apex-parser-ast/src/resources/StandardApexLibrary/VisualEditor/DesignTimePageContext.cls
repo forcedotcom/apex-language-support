@@ -5,14 +5,14 @@ global class DesignTimePageContext extends VisualEditor.DynamicPickList {
 
   global DesignTimePageContext() {}
 
-  public String entityName;
+  global String entityName;
 
-  public String pageType;
+  global String pageType;
 
   /**
    * Makes a duplicate copy of the VisualEditor.DesignTimePageContext object.
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

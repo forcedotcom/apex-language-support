@@ -9,7 +9,7 @@ global class ReportDetailRow {
    * Returns a list of data cells for a detail row.
    * @return LIST<Reports.ReportDataCell>
    */
-  public LIST<Reports.ReportDataCell> getDataCells() {}
+  global LIST<Reports.ReportDataCell> getDataCells() {}
 
   global Object clone() {}
 

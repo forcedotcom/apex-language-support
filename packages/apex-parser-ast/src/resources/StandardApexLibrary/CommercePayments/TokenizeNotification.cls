@@ -5,31 +5,31 @@ global class TokenizeNotification {
 
   global TokenizeNotification() {}
 
-  public void setAmount(Double amount) {}
+  global void setAmount(Double amount) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
-  public void setGatewayDate(Datetime gatewayDate) {}
+  global void setGatewayDate(Datetime gatewayDate) {}
 
-  public void setGatewayMessage(String gatewayMessage) {}
+  global void setGatewayMessage(String gatewayMessage) {}
 
-  public void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
 
-  public void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
 
-  public void setGatewayResultCode(String gatewayResultCode) {}
+  global void setGatewayResultCode(String gatewayResultCode) {}
 
-  public void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
 
-  public void setGatewayToken(String gatewayToken) {}
+  global void setGatewayToken(String gatewayToken) {}
 
-  public void setGatewayTokenEncrypted(String gatewayTokenEncrypted) {}
+  global void setGatewayTokenEncrypted(String gatewayTokenEncrypted) {}
 
-  public void setId(String id) {}
+  global void setId(String id) {}
 
-  public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
 
-  public void setStatus(commercepayments.NotificationStatus status) {}
+  global void setStatus(commercepayments.NotificationStatus status) {}
 
   global Object clone() {}
 

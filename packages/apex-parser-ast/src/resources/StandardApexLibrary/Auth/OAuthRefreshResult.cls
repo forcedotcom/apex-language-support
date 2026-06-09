@@ -3,15 +3,15 @@
  */
 global class OAuthRefreshResult {
 
-  public OAuthRefreshResult(String accessToken, String refreshToken, String error) {}
+  global OAuthRefreshResult(String accessToken, String refreshToken, String error) {}
 
-  public OAuthRefreshResult(String accessToken, String refreshToken) {}
+  global OAuthRefreshResult(String accessToken, String refreshToken) {}
 
-  public String accessToken;
+  global String accessToken;
 
-  public String error;
+  global String error;
 
-  public String refreshToken;
+  global String refreshToken;
 
   global Object clone() {}
 

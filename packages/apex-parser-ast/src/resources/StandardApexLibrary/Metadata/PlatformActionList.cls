@@ -5,16 +5,16 @@ global class PlatformActionList {
 
   global PlatformActionList() {}
 
-  public Metadata.PlatformActionListContextEnum actionListContext;
+  global Metadata.PlatformActionListContextEnum actionListContext;
 
-  public List<Metadata.PlatformActionListItem> platformActionListItems;
+  global List<Metadata.PlatformActionListItem> platformActionListItems;
 
-  public String relatedSourceEntity;
+  global String relatedSourceEntity;
 
   /**
    * Makes a duplicate copy of the Metadata.PlatformActionList .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

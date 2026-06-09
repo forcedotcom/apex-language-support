@@ -5,9 +5,9 @@ global class UpsertContext {
 
   global UpsertContext() {}
 
-  public List<Map<String,Object>> rows;
+  global List<Map<String,Object>> rows;
 
-  public String tableSelected;
+  global String tableSelected;
 
   global Object clone() {}
 

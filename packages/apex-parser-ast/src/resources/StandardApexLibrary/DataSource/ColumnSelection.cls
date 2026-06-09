@@ -5,11 +5,11 @@ global class ColumnSelection {
 
   global ColumnSelection() {}
 
-  public DataSource.QueryAggregation aggregation;
+  global DataSource.QueryAggregation aggregation;
 
-  public String columnName;
+  global String columnName;
 
-  public String tableName;
+  global String tableName;
 
   global Object clone() {}
 

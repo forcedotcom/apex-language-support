@@ -3,17 +3,17 @@
  */
 global class AuthProviderTokenResponse {
 
-  public AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state) {}
+  global AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state) {}
 
-  public String oauthSecretOrRefreshToken;
+  global String oauthSecretOrRefreshToken;
 
-  public String oauthToken;
+  global String oauthToken;
 
-  public String provider;
+  global String provider;
 
-  public String state;
+  global String state;
 
-  public String idToken;
+  global String idToken;
 
   global Object clone() {}
 

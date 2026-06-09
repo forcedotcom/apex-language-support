@@ -5,11 +5,11 @@ global class AsyncOptions {
 
   global AsyncOptions() {}
 
-  public System.QueueableDuplicateSignature DuplicateSignature;
+  global System.QueueableDuplicateSignature DuplicateSignature;
 
-  public Integer MaximumQueueableStackDepth;
+  global Integer MaximumQueueableStackDepth;
 
-  public Integer MinimumQueueableDelayInMinutes;
+  global Integer MinimumQueueableDelayInMinutes;
 
   global Object clone() {}
 

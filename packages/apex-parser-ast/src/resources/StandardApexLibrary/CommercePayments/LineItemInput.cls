@@ -5,45 +5,45 @@ global class LineItemInput {
 
   global LineItemInput() {}
 
-  public Map<String,String> additionalAttributes;
+  global Map<String,String> additionalAttributes;
 
-  public String commodityCode;
+  global String commodityCode;
 
-  public String description;
+  global String description;
 
-  public Double discount;
+  global Double discount;
 
-  public Boolean discountIndicator;
+  global Boolean discountIndicator;
 
-  public Double dutyAmount;
+  global Double dutyAmount;
 
-  public String grossNetIndicator;
+  global String grossNetIndicator;
 
-  public String lineItemId;
+  global String lineItemId;
 
-  public Double lineItemTotal;
+  global Double lineItemTotal;
 
-  public String name;
+  global String name;
 
-  public Integer quantity;
+  global Integer quantity;
 
-  public Double shippingAmount;
+  global Double shippingAmount;
 
-  public String sku;
+  global String sku;
 
-  public Double taxAmount;
+  global Double taxAmount;
 
-  public Double taxRate;
+  global Double taxRate;
 
-  public Double unitPrice;
+  global Double unitPrice;
 
-  public String uom;
+  global String uom;
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

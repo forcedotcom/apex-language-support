@@ -9,25 +9,25 @@ global class DescribeLayoutComponent {
    * Returns the vertical lines displayed for a field. Applies to textarea and multi-select picklist fields.
    * @return Integer
    */
-  public Integer getDisplayLines() {}
+  global Integer getDisplayLines() {}
 
   /**
    * Returns the tab order for the item in the row.
    * @return Integer
    */
-  public Integer getTabOrder() {}
+  global Integer getTabOrder() {}
 
   /**
    * Returns the name of the QuickAction.DescribeLayoutComponent type for this component.
    * @return String
    */
-  public String getType() {}
+  global String getType() {}
 
   /**
    * Returns the name of the field if the type for QuickAction.DescribeLayoutComponent is textarea .
    * @return String
    */
-  public String getValue() {}
+  global String getValue() {}
 
   global Object clone() {}
 

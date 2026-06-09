@@ -5,9 +5,9 @@ global class DeleteContext {
 
   global DeleteContext() {}
 
-  public List<String> externalIds;
+  global List<String> externalIds;
 
-  public String tableSelected;
+  global String tableSelected;
 
   global Object clone() {}
 

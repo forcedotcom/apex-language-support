@@ -9,13 +9,13 @@ global class FormulaRecalcFieldError {
    * Returns a message describing the errors encountered during formula recalculation.
    * @return String
    */
-  public String getFieldError() {}
+  global String getFieldError() {}
 
   /**
    * Returns the name of the formula recalculation error field.
    * @return String
    */
-  public String getFieldName() {}
+  global String getFieldName() {}
 
   global Object clone() {}
 

@@ -5,13 +5,13 @@ global class AsyncInfo {
 
   global AsyncInfo() {}
 
-  public static Integer getCurrentQueueableStackDepth() {}
+  global static Integer getCurrentQueueableStackDepth() {}
 
-  public static Integer getMaximumQueueableStackDepth() {}
+  global static Integer getMaximumQueueableStackDepth() {}
 
-  public static Integer getMinimumQueueableDelayInMinutes() {}
+  global static Integer getMinimumQueueableDelayInMinutes() {}
 
-  public static Boolean hasMaxStackDepth() {}
+  global static Boolean hasMaxStackDepth() {}
 
   global Object clone() {}
 

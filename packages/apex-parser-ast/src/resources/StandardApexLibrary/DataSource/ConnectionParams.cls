@@ -5,21 +5,21 @@ global class ConnectionParams {
 
   global ConnectionParams() {}
 
-  public String certificateName;
+  global String certificateName;
 
-  public String endpoint;
+  global String endpoint;
 
-  public String oauthToken;
+  global String oauthToken;
 
-  public String password;
+  global String password;
 
-  public DataSource.IdentityType principalType;
+  global DataSource.IdentityType principalType;
 
-  public DataSource.AuthenticationProtocol protocol;
+  global DataSource.AuthenticationProtocol protocol;
 
-  public String repository;
+  global String repository;
 
-  public String username;
+  global String username;
 
   global Object clone() {}
 

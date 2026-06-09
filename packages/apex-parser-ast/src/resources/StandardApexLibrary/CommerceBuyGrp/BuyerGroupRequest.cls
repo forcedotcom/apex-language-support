@@ -20,11 +20,11 @@ global class BuyerGroupRequest {
    */
   global String locale;
 
-  public String getAccountId() {}
+  global String getAccountId() {}
 
-  public String getStoreId() {}
+  global String getStoreId() {}
 
-  public Map<String,Object> getRequestContextParameters() {}
+  global Map<String,Object> getRequestContextParameters() {}
 
   global Object clone() {}
 

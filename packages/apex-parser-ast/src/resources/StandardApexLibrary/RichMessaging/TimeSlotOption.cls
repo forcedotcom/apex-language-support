@@ -3,19 +3,19 @@
  */
 global class TimeSlotOption {
 
-  public TimeSlotOption(Datetime startTime, Datetime endTime) {}
+  global TimeSlotOption(Datetime startTime, Datetime endTime) {}
 
-  public TimeSlotOption(Datetime startTime, Integer duration) {}
+  global TimeSlotOption(Datetime startTime, Integer duration) {}
 
-  public Integer duration;
+  global Integer duration;
 
-  public Integer durationValue;
+  global Integer durationValue;
 
-  public Datetime endTimeValue;
+  global Datetime endTimeValue;
 
-  public Datetime startTime;
+  global Datetime startTime;
 
-  public Datetime startTimeValue;
+  global Datetime startTimeValue;
 
   global Object clone() {}
 

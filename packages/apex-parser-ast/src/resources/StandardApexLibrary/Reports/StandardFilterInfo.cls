@@ -9,13 +9,13 @@ global class StandardFilterInfo {
    * Returns the display label of the standard filter.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the type of standard filter.
    * @return Reports.StandardFilterType
    */
-  public Reports.StandardFilterType getType() {}
+  global Reports.StandardFilterType getType() {}
 
   global Object clone() {}
 

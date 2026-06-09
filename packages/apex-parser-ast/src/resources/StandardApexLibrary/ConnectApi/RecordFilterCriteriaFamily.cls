@@ -5,7 +5,7 @@ global class RecordFilterCriteriaFamily {
 
   global RecordFilterCriteriaFamily() {}
 
-  public static ConnectApi.RecordsetFilterCriteriaCollection evaluateRecordsetFilterCriteria(ConnectApi.RecordsetFilterCriteriaInput recordsetFilterCriteriaInput) {}
+  global static ConnectApi.RecordsetFilterCriteriaCollection evaluateRecordsetFilterCriteria(ConnectApi.RecordsetFilterCriteriaInput recordsetFilterCriteriaInput) {}
 
   global Object clone() {}
 

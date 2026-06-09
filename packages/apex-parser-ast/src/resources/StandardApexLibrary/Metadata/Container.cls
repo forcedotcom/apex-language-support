@@ -5,24 +5,24 @@ global class Container {
 
   global Container() {}
 
-  public Integer height;
+  global Integer height;
 
-  public Boolean isContainerAutoSizeEnabled;
+  global Boolean isContainerAutoSizeEnabled;
 
-  public String region;
+  global String region;
 
-  public List<Metadata.SidebarComponent> sidebarComponents;
+  global List<Metadata.SidebarComponent> sidebarComponents;
 
-  public String style;
+  global String style;
 
-  public String unit;
+  global String unit;
 
-  public Integer width;
+  global Integer width;
 
   /**
    * Makes a duplicate copy of the Metadata.Container .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

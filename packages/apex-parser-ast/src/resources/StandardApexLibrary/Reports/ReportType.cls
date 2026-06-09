@@ -9,13 +9,13 @@ global class ReportType {
    * Returns the localized display name of the report type.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the unique identifier of the report type.
    * @return String
    */
-  public String getType() {}
+  global String getType() {}
 
   global Object clone() {}
 

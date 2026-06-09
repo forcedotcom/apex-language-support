@@ -5,17 +5,17 @@ global class AlternativePaymentMethodResponse {
 
   global AlternativePaymentMethodResponse() {}
 
-  public void setAccountId(Id accountId) {}
+  global void setAccountId(Id accountId) {}
 
-  public void setComments(String comments) {}
+  global void setComments(String comments) {}
 
-  public void setEmail(String email) {}
+  global void setEmail(String email) {}
 
-  public void setGatewayToken(String gatewayToken) {}
+  global void setGatewayToken(String gatewayToken) {}
 
-  public void setGatewayTokenDetails(String gatewayTokenDetails) {}
+  global void setGatewayTokenDetails(String gatewayTokenDetails) {}
 
-  public void setName(String name) {}
+  global void setName(String name) {}
 
   global Object clone() {}
 

@@ -9,13 +9,13 @@ global class DataSourceUtil {
    * Logs the error message in the debug log.
    * @param message The error message.
    */
-  public void logWarning(String message) {}
+  global void logWarning(String message) {}
 
   /**
    * Throws a DataSourceException and displays the provided message to the user.
    * @param message Error message to display to the user.
    */
-  public void throwException(String message) {}
+  global void throwException(String message) {}
 
   global Object clone() {}
 

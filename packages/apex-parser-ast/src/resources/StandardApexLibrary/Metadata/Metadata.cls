@@ -5,12 +5,12 @@ global class Metadata {
 
   global Metadata() {}
 
-  public String fullName;
+  global String fullName;
 
   /**
    * Makes a duplicate copy of the Metadata.Metadata .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

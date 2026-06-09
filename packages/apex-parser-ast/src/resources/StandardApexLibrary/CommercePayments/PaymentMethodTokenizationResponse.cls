@@ -5,15 +5,15 @@ global class PaymentMethodTokenizationResponse {
 
   global PaymentMethodTokenizationResponse() {}
 
-  public void setAmount(Double amount) {}
+  global void setAmount(Double amount) {}
 
-  public void setAsync(Boolean async) {}
+  global void setAsync(Boolean async) {}
 
-  public void setBankName(String bankName) {}
+  global void setBankName(String bankName) {}
 
-  public void setChecksum(String checksum) {}
+  global void setChecksum(String checksum) {}
 
-  public void setCustomerReference(String customerReference) {}
+  global void setCustomerReference(String customerReference) {}
 
   /**
    * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
@@ -33,9 +33,9 @@ global class PaymentMethodTokenizationResponse {
    */
   global void setGatewayMessage(String gatewayMessage) {}
 
-  public void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
 
-  public void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
 
   /**
    * Sets a gateway-specific result code. The code may be mapped to a Salesforce-specific result code. Maximum length of 64 characters.

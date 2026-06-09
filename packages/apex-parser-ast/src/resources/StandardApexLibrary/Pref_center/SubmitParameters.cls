@@ -5,7 +5,7 @@ global class SubmitParameters {
 
   global SubmitParameters() {}
 
-  public String getRecordId() {}
+  global String getRecordId() {}
 
   global Object clone() {}
 

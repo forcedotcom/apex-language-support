@@ -5,12 +5,12 @@ global class QuickActionListItem {
 
   global QuickActionListItem() {}
 
-  public String quickActionName;
+  global String quickActionName;
 
   /**
    * Makes a duplicate copy of the Metadata.QuickActionListItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

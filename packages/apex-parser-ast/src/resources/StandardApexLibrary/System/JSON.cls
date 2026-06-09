@@ -10,14 +10,14 @@ global class JSON {
    * @param prettyPrint Determines whether the JSON generator creates JSON content in pretty-print format with the content indented. Set to true to create indented content.
    * @return System.JSONGenerator
    */
-  public static System.JSONGenerator createGenerator(Boolean prettyPrint) {}
+  global static System.JSONGenerator createGenerator(Boolean prettyPrint) {}
 
   /**
    * Returns a new JSON parser.
    * @param jsonString The JSON content to parse.
    * @return System.JSONParser
    */
-  public static System.JSONParser createParser(String jsonString) {}
+  global static System.JSONParser createParser(String jsonString) {}
 
   /**
    * Deserializes the specified JSON string into an Apex object of the specified type.
@@ -25,7 +25,7 @@ global class JSON {
    * @param apexType The Apex type of the object that this method creates after deserializing the JSON content.
    * @return Object
    */
-  public static Object deserialize(String jsonString, System.Type apexType) {}
+  global static Object deserialize(String jsonString, System.Type apexType) {}
 
   /**
    * Deserializes the specified JSON string into an Apex object of the specified type.
@@ -33,21 +33,21 @@ global class JSON {
    * @param apexType The Apex type of the object that this method creates after deserializing the JSON content.
    * @return Object
    */
-  public static Object deserializeStrict(String jsonString, System.Type apexType) {}
+  global static Object deserializeStrict(String jsonString, System.Type apexType) {}
 
   /**
    * Deserializes the specified JSON string into collections of primitive data types.
    * @param jsonString The JSON content to deserialize.
    * @return Object
    */
-  public static Object deserializeUntyped(String jsonString) {}
+  global static Object deserializeUntyped(String jsonString) {}
 
   /**
    * Serializes Apex objects into JSON content.
    * @param objectToSerialize The Apex object to serialize.
    * @return String
    */
-  public static String serialize(Object objectToSerialize) {}
+  global static String serialize(Object objectToSerialize) {}
 
   /**
    * Serializes Apex objects into JSON content.
@@ -55,14 +55,14 @@ global class JSON {
    * @param suppressApexObjectNulls 
    * @return String
    */
-  public static String serialize(Object objectToSerialize, Boolean suppressApexObjectNulls) {}
+  global static String serialize(Object objectToSerialize, Boolean suppressApexObjectNulls) {}
 
   /**
    * Serializes Apex objects into JSON content and generates indented content using the pretty-print format.
    * @param objectToSerialize The Apex object to serialize.
    * @return String
    */
-  public static String serializePretty(Object objectToSerialize) {}
+  global static String serializePretty(Object objectToSerialize) {}
 
   /**
    * Serializes Apex objects into JSON content and generates indented content using the pretty-print format.
@@ -70,7 +70,7 @@ global class JSON {
    * @param suppressApexObjectNulls 
    * @return String
    */
-  public static String serializePretty(Object objectToSerialize, Boolean suppressApexObjectNulls) {}
+  global static String serializePretty(Object objectToSerialize, Boolean suppressApexObjectNulls) {}
 
   global Object clone() {}
 

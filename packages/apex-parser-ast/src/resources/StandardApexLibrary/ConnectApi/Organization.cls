@@ -5,7 +5,7 @@ global class Organization {
 
   global Organization() {}
 
-  public static ConnectApi.OrganizationSettings getSettings() {}
+  global static ConnectApi.OrganizationSettings getSettings() {}
 
   global Object clone() {}
 

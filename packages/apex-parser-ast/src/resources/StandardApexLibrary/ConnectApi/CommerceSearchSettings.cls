@@ -5,13 +5,13 @@ global class CommerceSearchSettings {
 
   global CommerceSearchSettings() {}
 
-  public static ConnectApi.CommerceSearchIndex createCommerceSearchIndex(String webstoreId, String indexBuildType) {}
+  global static ConnectApi.CommerceSearchIndex createCommerceSearchIndex(String webstoreId, String indexBuildType) {}
 
-  public static ConnectApi.CommerceSearchIndex getSingleCommerceSearchIndex(String webstoreId, String indexId) {}
+  global static ConnectApi.CommerceSearchIndex getSingleCommerceSearchIndex(String webstoreId, String indexId) {}
 
-  public static ConnectApi.CommerceSearchIndexCollection getCommerceSearchIndexes(String webstoreId) {}
+  global static ConnectApi.CommerceSearchIndexCollection getCommerceSearchIndexes(String webstoreId) {}
 
-  public static ConnectApi.CommerceSearchIndexLogCollection getCommerceSearchIndexLogs(String webstoreId) {}
+  global static ConnectApi.CommerceSearchIndexLogCollection getCommerceSearchIndexLogs(String webstoreId) {}
 
   global Object clone() {}
 

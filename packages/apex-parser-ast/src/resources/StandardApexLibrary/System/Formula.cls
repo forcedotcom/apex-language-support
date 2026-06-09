@@ -5,14 +5,14 @@ global class Formula {
 
   global Formula() {}
 
-  public static formulaeval.FormulaBuilder builder() {}
+  global static formulaeval.FormulaBuilder builder() {}
 
   /**
    * Updates (recalculates) all formula fields on the input SObjects .
    * @param sobjects List of sObjects whose formula fields are to be recalculated.
    * @return List<System.FormulaRecalcResult>
    */
-  public static List<System.FormulaRecalcResult> recalculateFormulas(List<SObject> sobjects) {}
+  global static List<System.FormulaRecalcResult> recalculateFormulas(List<SObject> sobjects) {}
 
   global Object clone() {}
 

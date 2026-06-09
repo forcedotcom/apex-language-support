@@ -3,19 +3,19 @@
  */
 global class Action {
 
-  public Action(String action) {}
+  global Action(String action) {}
 
   /**
    * Returns the expression that is evaluated when the action is invoked.
    * @return String
    */
-  public String getExpression() {}
+  global String getExpression() {}
 
   /**
    * Invokes the action.
    * @return System.PageReference
    */
-  public System.PageReference invoke() {}
+  global System.PageReference invoke() {}
 
   global Object clone() {}
 

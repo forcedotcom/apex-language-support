@@ -9,34 +9,34 @@ global class SObject {
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
    */
-  public void addError(String errorMsg) {}
+  global void addError(String errorMsg) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
    * @param escape 
    */
-  public void addError(String errorMsg, Boolean escape) {}
+  global void addError(String errorMsg, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
    */
-  public void addError(Exception exceptionError) {}
+  global void addError(Exception exceptionError) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
    * @param escape 
    */
-  public void addError(Exception exceptionError, Boolean escape) {}
+  global void addError(Exception exceptionError, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param fieldName 
    * @param errorMsg The error message to mark the record with.
    */
-  public void addError(String fieldName, String errorMsg) {}
+  global void addError(String fieldName, String errorMsg) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
@@ -44,7 +44,7 @@ global class SObject {
    * @param errorMsg The error message to mark the record with.
    * @param escape 
    */
-  public void addError(String fieldName, String errorMsg, Boolean escape) {}
+  global void addError(String fieldName, String errorMsg, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
@@ -52,19 +52,19 @@ global class SObject {
    * @param errorMsg The error message to mark the record with.
    * @param escape 
    */
-  public void addError(Schema.SObjectField fieldToken, String errorMsg, Boolean escape) {}
+  global void addError(Schema.SObjectField fieldToken, String errorMsg, Boolean escape) {}
 
   /**
    * Clears all field values
    */
-  public void clear() {}
+  global void clear() {}
 
   /**
    * Creates a copy of the SObject record.
    * @param preserveId 
    * @return SObject
    */
-  public SObject clone(Boolean preserveId) {}
+  global SObject clone(Boolean preserveId) {}
 
   /**
    * Creates a copy of the SObject record.
@@ -72,7 +72,7 @@ global class SObject {
    * @param isDeepClone 
    * @return SObject
    */
-  public SObject clone(Boolean preserveId, Boolean isDeepClone) {}
+  global SObject clone(Boolean preserveId, Boolean isDeepClone) {}
 
   /**
    * Creates a copy of the SObject record.
@@ -81,7 +81,7 @@ global class SObject {
    * @param preserveReadonlyTimestamps 
    * @return SObject
    */
-  public SObject clone(Boolean preserveId, Boolean isDeepClone, Boolean preserveReadonlyTimestamps) {}
+  global SObject clone(Boolean preserveId, Boolean isDeepClone, Boolean preserveReadonlyTimestamps) {}
 
   /**
    * Creates a copy of the SObject record.
@@ -91,111 +91,111 @@ global class SObject {
    * @param preserveAutonumber 
    * @return SObject
    */
-  public SObject clone(Boolean preserveId, Boolean isDeepClone, Boolean preserveReadonlyTimestamps, Boolean preserveAutonumber) {}
+  global SObject clone(Boolean preserveId, Boolean isDeepClone, Boolean preserveReadonlyTimestamps, Boolean preserveAutonumber) {}
 
   /**
    * Returns the value for the field specified by fieldName , such as AccountNumber .
    * @param fieldName 
    * @return Object
    */
-  public Object get(String fieldName) {}
+  global Object get(String fieldName) {}
 
   /**
    * Returns the value for the field specified by fieldName , such as AccountNumber .
    * @param field 
    * @return Object
    */
-  public Object get(Schema.sObjectField field) {}
+  global Object get(Schema.sObjectField field) {}
 
   /**
    * Returns the ID of the entity from which an object was cloned. You can use it for objects cloned through the Salesforce user interface. You can also use it for objects created using the System.SObject. clone(preserveId, isDeepClone, preserveReadonlyTimestamps, preserveAutonumber) method, provided that the preserveId parameter wasn’t used or was set to false . The getCloneSourceId() method can only be used within the transaction where the entity is cloned, as clone information doesn’t persist in subsequent transactions.
    * @return Id
    */
-  public Id getCloneSourceId() {}
+  global Id getCloneSourceId() {}
 
   /**
    * Returns a list of Database.Error objects for an SObject instance. If the SObject has no errors, an empty list is returned.
    * @return List<Database.Error>
    */
-  public List<Database.Error> getErrors() {}
+  global List<Database.Error> getErrors() {}
 
   /**
    * Returns the database.DMLOptions object for the SObject.
    * @return Database.DMLOptions
    */
-  public Database.DMLOptions getOptions() {}
+  global Database.DMLOptions getOptions() {}
 
   /**
    * Returns a map of populated field names and their corresponding values. The map contains only the fields that have been populated in memory for the SObject instance.
    * @return Map<String,Object>
    */
-  public Map<String,Object> getPopulatedFieldsAsMap() {}
+  global Map<String,Object> getPopulatedFieldsAsMap() {}
 
   /**
    * Returns the value for the specified field. This method is primarily used with dynamic DML to access values for external IDs.
    * @param fieldName 
    * @return SObject
    */
-  public SObject getSObject(String fieldName) {}
+  global SObject getSObject(String fieldName) {}
 
   /**
    * Returns the value for the specified field. This method is primarily used with dynamic DML to access values for external IDs.
    * @param field 
    * @return SObject
    */
-  public SObject getSObject(Schema.SObjectField field) {}
+  global SObject getSObject(Schema.SObjectField field) {}
 
   /**
    * Returns the values for the specified field. This method is primarily used with dynamic DML to access values for associated objects, such as child relationships.
    * @param fieldName 
    * @return SObject[]
    */
-  public SObject[] getSObjects(String fieldName) {}
+  global SObject[] getSObjects(String fieldName) {}
 
   /**
    * Returns the values for the specified field. This method is primarily used with dynamic DML to access values for associated objects, such as child relationships.
    * @param fieldName 
    * @return SObject[]
    */
-  public SObject[] getSObjects(Schema.SObjectType fieldName) {}
+  global SObject[] getSObjects(Schema.SObjectType fieldName) {}
 
   /**
    * Returns the token for this SObject. This method is primarily used with describe information.
    * @return Schema.SObjectType
    */
-  public Schema.SObjectType getSObjectType() {}
+  global Schema.SObjectType getSObjectType() {}
 
   /**
    * Retrieves the name of a quick action associated with this SObject. Typically used in triggers.
    * @return String
    */
-  public String getQuickActionName() {}
+  global String getQuickActionName() {}
 
   /**
    * Returns true if an SObject instance has associated errors. The error message can be associated to the SObject instance by using SObject.addError() , validation rules, or by other means.
    * @return Boolean
    */
-  public Boolean hasErrors() {}
+  global Boolean hasErrors() {}
 
   /**
    * Returns true if an entity is cloned from something, even if the entity hasn’t been saved. The method can only be used within the transaction where the entity is cloned, as clone information doesn’t persist in subsequent transactions.
    * @return Boolean
    */
-  public Boolean isClone() {}
+  global Boolean isClone() {}
 
   /**
    * Returns information about the queried sObject field. Returns true if the sObject field is populated, either by direct assignment or by inclusion in a SOQL query. Returns false if the sObject field isn’t set. If an invalid field is specified, an SObjectException is thrown.
    * @param fieldName 
    * @return Boolean
    */
-  public Boolean isSet(String fieldName) {}
+  global Boolean isSet(String fieldName) {}
 
   /**
    * Returns information about the queried sObject field. Returns true if the sObject field is populated, either by direct assignment or by inclusion in a SOQL query. Returns false if the sObject field isn’t set. If an invalid field is specified, an SObjectException is thrown.
    * @param field 
    * @return Boolean
    */
-  public Boolean isSet(Schema.SObjectField field) {}
+  global Boolean isSet(Schema.SObjectField field) {}
 
   /**
    * Sets the value for the specified field and returns the previous value for the field.
@@ -203,7 +203,7 @@ global class SObject {
    * @param value 
    * @return Object
    */
-  public Object put(String fieldName, Object value) {}
+  global Object put(String fieldName, Object value) {}
 
   /**
    * Sets the value for the specified field and returns the previous value for the field.
@@ -211,7 +211,7 @@ global class SObject {
    * @param value 
    * @return Object
    */
-  public Object put(Schema.SObjectField field, Object value) {}
+  global Object put(Schema.SObjectField field, Object value) {}
 
   /**
    * Sets the value for the specified field. This method is primarily used with dynamic DML for setting external IDs. The method returns the previous value of the field.
@@ -219,7 +219,7 @@ global class SObject {
    * @param value 
    * @return SObject
    */
-  public SObject putSObject(String fieldName, SObject value) {}
+  global SObject putSObject(String fieldName, SObject value) {}
 
   /**
    * Sets the value for the specified field. This method is primarily used with dynamic DML for setting external IDs. The method returns the previous value of the field.
@@ -227,14 +227,14 @@ global class SObject {
    * @param value 
    * @return SObject
    */
-  public SObject putSObject(Schema.SObjectType fieldName, SObject value) {}
+  global SObject putSObject(Schema.SObjectType fieldName, SObject value) {}
 
-  public void recalculateFormulas() {}
+  global void recalculateFormulas() {}
 
   /**
    * Sets the DMLOptions object for the SObject.
    * @param DMLOptions 
    */
-  public void setOptions(database.DMLOptions DMLOptions) {}
+  global void setOptions(database.DMLOptions DMLOptions) {}
 
 }

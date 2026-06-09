@@ -5,15 +5,15 @@ global class BatchResult {
 
   global BatchResult() {}
 
-  public ConnectApi.ConnectApiException getError() {}
+  global ConnectApi.ConnectApiException getError() {}
 
-  public String getErrorMessage() {}
+  global String getErrorMessage() {}
 
-  public String getErrorTypeName() {}
+  global String getErrorTypeName() {}
 
-  public Object getResult() {}
+  global Object getResult() {}
 
-  public Boolean isSuccess() {}
+  global Boolean isSuccess() {}
 
   global Object clone() {}
 

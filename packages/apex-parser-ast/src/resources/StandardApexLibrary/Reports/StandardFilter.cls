@@ -9,25 +9,25 @@ global class StandardFilter {
    * Return the API name of the standard filter.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the standard filter value.
    * @return String
    */
-  public String getValue() {}
+  global String getValue() {}
 
   /**
    * Sets the API name of the standard filter.
    * @param name 
    */
-  public void setName(String name) {}
+  global void setName(String name) {}
 
   /**
    * Sets the standard filter value.
    * @param value 
    */
-  public void setValue(String value) {}
+  global void setValue(String value) {}
 
   global Object clone() {}
 

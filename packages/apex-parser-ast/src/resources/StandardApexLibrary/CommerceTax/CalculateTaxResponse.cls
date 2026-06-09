@@ -27,7 +27,7 @@ global class CalculateTaxResponse {
 
   global void setStatusDescription(String statusDescription) {}
 
-  public void setTaxTransactionId(String taxTrxnId) {}
+  global void setTaxTransactionId(String taxTrxnId) {}
 
   global void setTaxTransactionType(commercetax.TaxTransactionType taxTransactionType) {}
 

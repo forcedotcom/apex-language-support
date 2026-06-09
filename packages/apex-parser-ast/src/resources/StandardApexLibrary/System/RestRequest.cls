@@ -5,33 +5,33 @@ global class RestRequest {
 
   global RestRequest() {}
 
-  public Map<String, String> headers;
+  global Map<String, String> headers;
 
-  public String httpMethod;
+  global String httpMethod;
 
-  public Map <String, String> params;
+  global Map <String, String> params;
 
-  public String remoteAddress;
+  global String remoteAddress;
 
-  public Blob requestBody;
+  global Blob requestBody;
 
-  public String requestURI;
+  global String requestURI;
 
-  public String resourcePath;
+  global String resourcePath;
 
   /**
    * Adds a header to the request header map in an Apex test.
    * @param name 
    * @param value 
    */
-  public void addHeader(String name, String value) {}
+  global void addHeader(String name, String value) {}
 
   /**
    * Adds a parameter to the request params map in an Apex test.
    * @param name 
    * @param value 
    */
-  public void addParameter(String name, String value) {}
+  global void addParameter(String name, String value) {}
 
   global Object clone() {}
 

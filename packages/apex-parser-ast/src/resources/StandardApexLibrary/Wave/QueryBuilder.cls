@@ -11,20 +11,20 @@ global class QueryBuilder {
    * @param datasetVersionID The ID identifying the version of the dataset.
    * @return wave.QueryNode
    */
-  public static wave.QueryNode load(String datasetID, String datasetVersionID) {}
+  global static wave.QueryNode load(String datasetID, String datasetVersionID) {}
 
   /**
    * Calculate the number of rows that match the query criteria.
    * @return wave.ProjectionNode
    */
-  public static wave.ProjectionNode count() {}
+  global static wave.ProjectionNode count() {}
 
   /**
    * Query by selecting specific attributes.
    * @param proj The name of the column to query.
    * @return wave.ProjectionNode
    */
-  public static wave.ProjectionNode get(String proj) {}
+  global static wave.ProjectionNode get(String proj) {}
 
   /**
    * Combine multiple result sets into one result set.

@@ -5,14 +5,14 @@ global class SubtabComponents {
 
   global SubtabComponents() {}
 
-  public List<Metadata.ConsoleComponent> component;
+  global List<Metadata.ConsoleComponent> component;
 
-  public List<Metadata.Container> containers;
+  global List<Metadata.Container> containers;
 
   /**
    * Makes a duplicate copy of the Metadata.SubtabComponents .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

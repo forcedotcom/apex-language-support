@@ -10,91 +10,91 @@ global class Datetime {
    * @param additionalDays 
    * @return Datetime
    */
-  public Datetime addDays(Integer additionalDays) {}
+  global Datetime addDays(Integer additionalDays) {}
 
   /**
    * Adds the specified number of hours to a Datetime.
    * @param additionalHours 
    * @return Datetime
    */
-  public Datetime addHours(Integer additionalHours) {}
+  global Datetime addHours(Integer additionalHours) {}
 
   /**
    * Adds the specified number of minutes to a Datetime.
    * @param additionalMinutes 
    * @return Datetime
    */
-  public Datetime addMinutes(Integer additionalMinutes) {}
+  global Datetime addMinutes(Integer additionalMinutes) {}
 
   /**
    * Adds the specified number of months to a Datetime.
    * @param additionalMonths 
    * @return Datetime
    */
-  public Datetime addMonths(Integer additionalMonths) {}
+  global Datetime addMonths(Integer additionalMonths) {}
 
   /**
    * Adds the specified number of seconds to a Datetime.
    * @param additionalSeconds 
    * @return Datetime
    */
-  public Datetime addSeconds(Integer additionalSeconds) {}
+  global Datetime addSeconds(Integer additionalSeconds) {}
 
   /**
    * Adds the specified number of years to a Datetime.
    * @param additionalYears 
    * @return Datetime
    */
-  public Datetime addYears(Integer additionalYears) {}
+  global Datetime addYears(Integer additionalYears) {}
 
   /**
    * Returns the Date component of a Datetime in the local time zone of the context user.
    * @return Date
    */
-  public Date date() {}
+  global Date date() {}
 
   /**
    * Return the Date component of a Datetime in the GMT time zone.
    * @return Date
    */
-  public Date dateGMT() {}
+  global Date dateGMT() {}
 
   /**
    * Returns the day-of-month component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer day() {}
+  global Integer day() {}
 
   /**
    * Returns the day-of-month component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer dayGmt() {}
+  global Integer dayGmt() {}
 
   /**
    * Returns the day-of-year component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer dayOfYear() {}
+  global Integer dayOfYear() {}
 
   /**
    * Returns the day-of-year component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer dayOfYearGmt() {}
+  global Integer dayOfYearGmt() {}
 
   /**
    * Converts the date to the local time zone and returns the converted date as a formatted string using the locale of the context user. If the time zone cannot be determined, GMT is used.
    * @return String
    */
-  public String format() {}
+  global String format() {}
 
   /**
    * Converts the date to the local time zone and returns the converted date as a formatted string using the locale of the context user. If the time zone cannot be determined, GMT is used.
    * @param dateFormatString 
    * @return String
    */
-  public String format(String dateFormatString) {}
+  global String format(String dateFormatString) {}
 
   /**
    * Converts the date to the local time zone and returns the converted date as a formatted string using the locale of the context user. If the time zone cannot be determined, GMT is used.
@@ -102,88 +102,88 @@ global class Datetime {
    * @param timezone 
    * @return String
    */
-  public String format(String dateFormatString, String timezone) {}
+  global String format(String dateFormatString, String timezone) {}
 
   /**
    * Returns a Datetime as a string using the supplied Java simple date format and the GMT time zone.
    * @param dateFormatString 
    * @return String
    */
-  public String formatGmt(String dateFormatString) {}
+  global String formatGmt(String dateFormatString) {}
 
   /**
    * Converts the date to the local time zone and returns the converted date in long date format.
    * @return String
    */
-  public String formatLong() {}
+  global String formatLong() {}
 
   /**
    * Returns the number of milliseconds since January 1, 1970, 00:00:00 GMT represented by this DateTime object.
    * @return Long
    */
-  public Long getTime() {}
+  global Long getTime() {}
 
   /**
    * Returns the hour component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer hour() {}
+  global Integer hour() {}
 
   /**
    * Returns the hour component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer hourGmt() {}
+  global Integer hourGmt() {}
 
   /**
    * Returns true if the Datetime that called the method is the same as the specified Datetime in the local time zone of the context user.
    * @param dateToCompare 
    * @return Boolean
    */
-  public Boolean isSameDay(Datetime dateToCompare) {}
+  global Boolean isSameDay(Datetime dateToCompare) {}
 
   /**
    * Return the millisecond component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer millisecond() {}
+  global Integer millisecond() {}
 
   /**
    * Return the millisecond component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer millisecondGmt() {}
+  global Integer millisecondGmt() {}
 
   /**
    * Returns the minute component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer minute() {}
+  global Integer minute() {}
 
   /**
    * Returns the minute component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer minuteGmt() {}
+  global Integer minuteGmt() {}
 
   /**
    * Returns the month component of a Datetime in the local time zone of the context user (1=Jan).
    * @return Integer
    */
-  public Integer month() {}
+  global Integer month() {}
 
   /**
    * Returns the month component of a Datetime in the GMT time zone (1=Jan).
    * @return Integer
    */
-  public Integer monthGmt() {}
+  global Integer monthGmt() {}
 
   /**
    * Constructs a Datetime and initializes it to represent the specified number of milliseconds since January 1, 1970, 00:00:00 GMT.
    * @param milliseconds 
    * @return Datetime
    */
-  public static Datetime newInstance(Long milliseconds) {}
+  global static Datetime newInstance(Long milliseconds) {}
 
   /**
    * Constructs a Datetime and initializes it to represent the specified number of milliseconds since January 1, 1970, 00:00:00 GMT.
@@ -191,7 +191,7 @@ global class Datetime {
    * @param time 
    * @return Datetime
    */
-  public static Datetime newInstance(Date date, Time time) {}
+  global static Datetime newInstance(Date date, Time time) {}
 
   /**
    * Constructs a Datetime and initializes it to represent the specified number of milliseconds since January 1, 1970, 00:00:00 GMT.
@@ -200,7 +200,7 @@ global class Datetime {
    * @param day 
    * @return Datetime
    */
-  public static Datetime newInstance(Integer year, Integer month, Integer day) {}
+  global static Datetime newInstance(Integer year, Integer month, Integer day) {}
 
   /**
    * Constructs a Datetime and initializes it to represent the specified number of milliseconds since January 1, 1970, 00:00:00 GMT.
@@ -212,7 +212,7 @@ global class Datetime {
    * @param second 
    * @return Datetime
    */
-  public static Datetime newInstance(Integer year, Integer month, Integer day, Integer hour, Integer minute, Integer second) {}
+  global static Datetime newInstance(Integer year, Integer month, Integer day, Integer hour, Integer minute, Integer second) {}
 
   /**
    * Constructs a DateTime from the specified date and time in the GMT time zone.
@@ -220,7 +220,7 @@ global class Datetime {
    * @param time 
    * @return Datetime
    */
-  public static Datetime newInstanceGmt(Date date, Time time) {}
+  global static Datetime newInstanceGmt(Date date, Time time) {}
 
   /**
    * Constructs a DateTime from the specified date and time in the GMT time zone.
@@ -229,7 +229,7 @@ global class Datetime {
    * @param date 
    * @return Datetime
    */
-  public static Datetime newInstanceGmt(Integer year, Integer month, Integer date) {}
+  global static Datetime newInstanceGmt(Integer year, Integer month, Integer date) {}
 
   /**
    * Constructs a DateTime from the specified date and time in the GMT time zone.
@@ -241,77 +241,77 @@ global class Datetime {
    * @param second 
    * @return Datetime
    */
-  public static Datetime newInstanceGmt(Integer year, Integer month, Integer date, Integer hour, Integer minute, Integer second) {}
+  global static Datetime newInstanceGmt(Integer year, Integer month, Integer date, Integer hour, Integer minute, Integer second) {}
 
   /**
    * Returns the current Datetime based on a GMT calendar.
    * @return Datetime
    */
-  public static Datetime now() {}
+  global static Datetime now() {}
 
   /**
    * Constructs a Datetime from the given String in the local time zone and in the format of the user locale.
    * @param datetimeString 
    * @return Datetime
    */
-  public static Datetime parse(String datetimeString) {}
+  global static Datetime parse(String datetimeString) {}
 
   /**
    * Returns the second component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer second() {}
+  global Integer second() {}
 
   /**
    * Returns the second component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer secondGmt() {}
+  global Integer secondGmt() {}
 
   /**
    * Returns the time component of a Datetime in the local time zone of the context user.
    * @return Time
    */
-  public Time time() {}
+  global Time time() {}
 
   /**
    * Returns the time component of a Datetime in the GMT time zone.
    * @return Time
    */
-  public Time timeGmt() {}
+  global Time timeGmt() {}
 
   /**
    * Returns a Datetime that contains the value of the specified string.
    * @param dateTimeString 
    * @return Datetime
    */
-  public static Datetime valueOf(String dateTimeString) {}
+  global static Datetime valueOf(String dateTimeString) {}
 
   /**
    * Returns a Datetime that contains the value of the specified string.
    * @param fieldValue 
    * @return Datetime
    */
-  public static Datetime valueOf(Object fieldValue) {}
+  global static Datetime valueOf(Object fieldValue) {}
 
   /**
    * Returns a Datetime that contains the value of the specified String.
    * @param dateTimeString 
    * @return Datetime
    */
-  public static Datetime valueOfGmt(String dateTimeString) {}
+  global static Datetime valueOfGmt(String dateTimeString) {}
 
   /**
    * Returns the year component of a Datetime in the local time zone of the context user.
    * @return Integer
    */
-  public Integer year() {}
+  global Integer year() {}
 
   /**
    * Returns the year component of a Datetime in the GMT time zone.
    * @return Integer
    */
-  public Integer yearGmt() {}
+  global Integer yearGmt() {}
 
   global Object clone() {}
 

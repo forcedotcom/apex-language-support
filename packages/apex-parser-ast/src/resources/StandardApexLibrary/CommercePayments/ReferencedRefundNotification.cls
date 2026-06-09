@@ -11,7 +11,7 @@ global class ReferencedRefundNotification {
    */
   global void setAmount(Double amount) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
   /**
    * Sets the date that communication for the refund notification occurred with the payment gateway.

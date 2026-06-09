@@ -5,14 +5,14 @@ global class LayoutColumn {
 
   global LayoutColumn() {}
 
-  public List<Metadata.LayoutItem> layoutItems;
+  global List<Metadata.LayoutItem> layoutItems;
 
-  public String reserved;
+  global String reserved;
 
   /**
    * Makes a duplicate copy of the Metadata.LayoutColumn .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

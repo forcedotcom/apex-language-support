@@ -5,18 +5,18 @@ global class PlatformActionListItem {
 
   global PlatformActionListItem() {}
 
-  public String actionName;
+  global String actionName;
 
-  public Metadata.PlatformActionTypeEnum actionType;
+  global Metadata.PlatformActionTypeEnum actionType;
 
-  public Integer sortOrder;
+  global Integer sortOrder;
 
-  public String subtype;
+  global String subtype;
 
   /**
    * Makes a duplicate copy of the Metadata.PlatformActionListItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

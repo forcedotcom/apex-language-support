@@ -3,13 +3,13 @@
  */
 global class ResolutionException {
 
-  public ResolutionException(String errorMessage, Exception exception) {}
+  global ResolutionException(String errorMessage, Exception exception) {}
 
-  public ResolutionException(Exception exception) {}
+  global ResolutionException(Exception exception) {}
 
-  public ResolutionException(String errorMessage) {}
+  global ResolutionException(String errorMessage) {}
 
-  public String getTypeName() {}
+  global String getTypeName() {}
 
   global Object clone() {}
 

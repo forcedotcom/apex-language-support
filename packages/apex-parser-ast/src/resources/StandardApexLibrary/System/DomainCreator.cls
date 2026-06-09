@@ -5,27 +5,27 @@ global class DomainCreator {
 
   global DomainCreator() {}
 
-  public static String getContentHostname() {}
+  global static String getContentHostname() {}
 
-  public static String getExperienceCloudSitesBuilderHostname() {}
+  global static String getExperienceCloudSitesBuilderHostname() {}
 
-  public static String getExperienceCloudSitesHostname() {}
+  global static String getExperienceCloudSitesHostname() {}
 
-  public static String getExperienceCloudSitesLivePreviewHostname() {}
+  global static String getExperienceCloudSitesLivePreviewHostname() {}
 
-  public static String getExperienceCloudSitesPreviewHostname() {}
+  global static String getExperienceCloudSitesPreviewHostname() {}
 
-  public static String getLightningContainerComponentHostname(String packageName) {}
+  global static String getLightningContainerComponentHostname(String packageName) {}
 
-  public static String getLightningHostname() {}
+  global static String getLightningHostname() {}
 
-  public static String getOrgMyDomainHostname() {}
+  global static String getOrgMyDomainHostname() {}
 
-  public static String getSalesforceSitesHostname() {}
+  global static String getSalesforceSitesHostname() {}
 
-  public static String getSetupHostname() {}
+  global static String getSetupHostname() {}
 
-  public static String getVisualforceHostname(String packageName) {}
+  global static String getVisualforceHostname(String packageName) {}
 
   global Object clone() {}
 

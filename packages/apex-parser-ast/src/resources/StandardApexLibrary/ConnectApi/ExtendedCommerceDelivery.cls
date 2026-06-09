@@ -5,7 +5,7 @@ global class ExtendedCommerceDelivery {
 
   global ExtendedCommerceDelivery() {}
 
-  public static ConnectApi.EstimateDeliveryDateOutputRepresentation estimateDeliveryDate(ConnectApi.EstimateDeliveryDateInputRepresentation estimateDeliveryDateInput, String externalReference) {}
+  global static ConnectApi.EstimateDeliveryDateOutputRepresentation estimateDeliveryDate(ConnectApi.EstimateDeliveryDateInputRepresentation estimateDeliveryDateInput, String externalReference) {}
 
   global Object clone() {}
 

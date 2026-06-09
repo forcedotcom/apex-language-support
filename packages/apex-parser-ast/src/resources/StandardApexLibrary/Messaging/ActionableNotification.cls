@@ -5,17 +5,17 @@ global class ActionableNotification {
 
   global ActionableNotification() {}
 
-  public String getActionIdentifier() {}
+  global String getActionIdentifier() {}
 
-  public String getNotificationTypeId() {}
+  global String getNotificationTypeId() {}
 
-  public String getRecipientId() {}
+  global String getRecipientId() {}
 
-  public String getSenderId() {}
+  global String getSenderId() {}
 
-  public String getTargetId() {}
+  global String getTargetId() {}
 
-  public String getTargetPageRef() {}
+  global String getTargetPageRef() {}
 
   global Object clone() {}
 
@@ -26,13 +26,13 @@ global class ActionableNotification {
 
     global Builder() {}
 
-    public Messaging.ActionableNotification build() {}
+    global Messaging.ActionableNotification build() {}
 
-    public Messaging.ActionableNotification.Builder withNotificationTypeId(String notificationTypeId) {}
+    global Messaging.ActionableNotification.Builder withNotificationTypeId(String notificationTypeId) {}
 
-    public Messaging.ActionableNotification.Builder withRecipientId(String recipientId) {}
+    global Messaging.ActionableNotification.Builder withRecipientId(String recipientId) {}
 
-    public Messaging.ActionableNotification.Builder withSenderId(String senderId) {}
+    global Messaging.ActionableNotification.Builder withSenderId(String senderId) {}
 
     global Object clone() {}
 

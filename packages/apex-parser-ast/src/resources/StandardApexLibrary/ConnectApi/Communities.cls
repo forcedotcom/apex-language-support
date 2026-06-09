@@ -5,11 +5,11 @@ global class Communities {
 
   global Communities() {}
 
-  public static ConnectApi.CommunityPage getCommunities() {}
+  global static ConnectApi.CommunityPage getCommunities() {}
 
-  public static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus communityStatus) {}
+  global static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus communityStatus) {}
 
-  public static ConnectApi.Community getCommunity(String communityId) {}
+  global static ConnectApi.Community getCommunity(String communityId) {}
 
   global Object clone() {}
 

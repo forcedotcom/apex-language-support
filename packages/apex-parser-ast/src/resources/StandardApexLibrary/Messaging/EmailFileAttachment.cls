@@ -5,15 +5,15 @@ global class EmailFileAttachment {
 
   global EmailFileAttachment() {}
 
-  public Blob body;
+  global Blob body;
 
-  public String contenttype;
+  global String contenttype;
 
-  public String filename;
+  global String filename;
 
-  public Id id;
+  global Id id;
 
-  public Boolean inline;
+  global Boolean inline;
 
   global Object clone() {}
 

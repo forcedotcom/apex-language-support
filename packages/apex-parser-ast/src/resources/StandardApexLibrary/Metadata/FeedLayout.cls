@@ -5,30 +5,30 @@ global class FeedLayout {
 
   global FeedLayout() {}
 
-  public Boolean autocollapsePublisher;
+  global Boolean autocollapsePublisher;
 
-  public Boolean compactFeed;
+  global Boolean compactFeed;
 
-  public Metadata.FeedLayoutFilterPosition feedFilterPosition;
+  global Metadata.FeedLayoutFilterPosition feedFilterPosition;
 
-  public List<Metadata.FeedLayoutFilter> feedFilters;
+  global List<Metadata.FeedLayoutFilter> feedFilters;
 
-  public Boolean fullWidthFeed;
+  global Boolean fullWidthFeed;
 
-  public Boolean hideSidebar;
+  global Boolean hideSidebar;
 
-  public Boolean highlightExternalFeedItems;
+  global Boolean highlightExternalFeedItems;
 
-  public List<Metadata.FeedLayoutComponent> leftComponents;
+  global List<Metadata.FeedLayoutComponent> leftComponents;
 
-  public List<Metadata.FeedLayoutComponent> rightComponents;
+  global List<Metadata.FeedLayoutComponent> rightComponents;
 
-  public Boolean useInlineFiltersInConsole;
+  global Boolean useInlineFiltersInConsole;
 
   /**
    * Makes a duplicate copy of the Metadata.FeedLayout .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

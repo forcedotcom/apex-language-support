@@ -5,9 +5,9 @@ global class IntegrationInfo {
 
   global IntegrationInfo() {}
 
-  public String integrationId;
+  global String integrationId;
 
-  public String jobId;
+  global String jobId;
 
   global Object clone() {}
 

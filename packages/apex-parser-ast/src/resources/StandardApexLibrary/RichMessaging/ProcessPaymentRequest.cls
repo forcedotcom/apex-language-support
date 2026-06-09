@@ -3,21 +3,21 @@
  */
 global class ProcessPaymentRequest {
 
-  public ProcessPaymentRequest(String transactionIdentifier, String paymentData, RichMessaging.AddressableContact billingContact, RichMessaging.AddressableContact shippingContact, RichMessaging.PaymentMethod paymentMethod, RichMessaging.ShippingMethod shippingMethod, String contextRecordId) {}
+  global ProcessPaymentRequest(String transactionIdentifier, String paymentData, RichMessaging.AddressableContact billingContact, RichMessaging.AddressableContact shippingContact, RichMessaging.PaymentMethod paymentMethod, RichMessaging.ShippingMethod shippingMethod, String contextRecordId) {}
 
-  public RichMessaging.AddressableContact billingContact;
+  global RichMessaging.AddressableContact billingContact;
 
-  public String contextRecordId;
+  global String contextRecordId;
 
-  public String paymentData;
+  global String paymentData;
 
-  public RichMessaging.PaymentMethod paymentMethod;
+  global RichMessaging.PaymentMethod paymentMethod;
 
-  public RichMessaging.AddressableContact shippingContact;
+  global RichMessaging.AddressableContact shippingContact;
 
-  public RichMessaging.ShippingMethod shippingMethod;
+  global RichMessaging.ShippingMethod shippingMethod;
 
-  public String transactionIdentifier;
+  global String transactionIdentifier;
 
   global Object clone() {}
 

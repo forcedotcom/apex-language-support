@@ -5,7 +5,7 @@ global class BuyerGroupEvaluationService {
 
   global BuyerGroupEvaluationService() {}
 
-  public CommerceBuyGrp.BuyerGroupResponse getBuyerGroupIds(CommerceBuyGrp.BuyerGroupRequest request) {}
+  global CommerceBuyGrp.BuyerGroupResponse getBuyerGroupIds(CommerceBuyGrp.BuyerGroupRequest request) {}
 
   global Object clone() {}
 

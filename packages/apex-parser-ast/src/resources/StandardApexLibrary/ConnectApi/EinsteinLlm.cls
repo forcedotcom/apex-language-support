@@ -5,9 +5,9 @@ global class EinsteinLLM {
 
   global EinsteinLLM() {}
 
-  public static ConnectApi.EinsteinPromptTemplateGenerationsRepresentation generateMessagesForPromptTemplate(String promptTemplateDevName, ConnectApi.EinsteinPromptTemplateGenerationsInput promptTemplateGenerationsInput) {}
+  global static ConnectApi.EinsteinPromptTemplateGenerationsRepresentation generateMessagesForPromptTemplate(String promptTemplateDevName, ConnectApi.EinsteinPromptTemplateGenerationsInput promptTemplateGenerationsInput) {}
 
-  public static ConnectApi.EinsteinPromptRecordCollectionOutputRepresentation getPromptTemplates(String query, String sortBy, Integer offset, Integer pageLimit, List<String> fields, String type, String relatedEntity, Boolean isActive) {}
+  global static ConnectApi.EinsteinPromptRecordCollectionOutputRepresentation getPromptTemplates(String query, String sortBy, Integer offset, Integer pageLimit, List<String> fields, String type, String relatedEntity, Boolean isActive) {}
 
   global Object clone() {}
 

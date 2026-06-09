@@ -5,16 +5,16 @@ global class FeedLayoutFilter {
 
   global FeedLayoutFilter() {}
 
-  public String feedFilterName;
+  global String feedFilterName;
 
-  public Metadata.FeedLayoutFilterType feedFilterType;
+  global Metadata.FeedLayoutFilterType feedFilterType;
 
-  public Metadata.FeedItemTypeEnum feedItemType;
+  global Metadata.FeedItemTypeEnum feedItemType;
 
   /**
    * Makes a duplicate copy of the Metadata.FeedLayoutFilter .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

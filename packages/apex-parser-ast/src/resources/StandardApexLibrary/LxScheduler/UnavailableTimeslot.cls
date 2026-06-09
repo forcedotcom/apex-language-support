@@ -3,11 +3,11 @@
  */
 global class UnavailableTimeslot {
 
-  public UnavailableTimeslot(Datetime timeMin, Datetime timeMax) {}
+  global UnavailableTimeslot(Datetime timeMin, Datetime timeMax) {}
 
-  public Datetime timeMax;
+  global Datetime timeMax;
 
-  public Datetime timeMin;
+  global Datetime timeMin;
 
   global Object clone() {}
 

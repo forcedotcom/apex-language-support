@@ -5,15 +5,15 @@ global class Filter {
 
   global Filter() {}
 
-  public String columnName;
+  global String columnName;
 
-  public Object columnValue;
+  global Object columnValue;
 
-  public List<DataSource.Filter> subfilters;
+  global List<DataSource.Filter> subfilters;
 
-  public String tableName;
+  global String tableName;
 
-  public DataSource.FilterType type;
+  global DataSource.FilterType type;
 
   global Object clone() {}
 

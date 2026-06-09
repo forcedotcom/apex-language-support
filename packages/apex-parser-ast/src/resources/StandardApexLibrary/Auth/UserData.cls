@@ -3,37 +3,37 @@
  */
 global class UserData {
 
-  public UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String userName, String locale, String provider, String siteLoginUrl, Map<String,String> attributeMap) {}
+  global UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String userName, String locale, String provider, String siteLoginUrl, Map<String,String> attributeMap) {}
 
-  public UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map<String,String> attributeMap, String idToken, String userInfoJSONString) {}
+  global UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map<String,String> attributeMap, String idToken, String userInfoJSONString) {}
 
-  public String identifier;
+  global String identifier;
 
-  public String firstName;
+  global String firstName;
 
-  public String lastName;
+  global String lastName;
 
-  public String fullName;
+  global String fullName;
 
-  public String email;
+  global String email;
 
-  public String link;
+  global String link;
 
-  public String username;
+  global String username;
 
-  public String locale;
+  global String locale;
 
-  public String provider;
+  global String provider;
 
-  public String siteLoginUrl;
+  global String siteLoginUrl;
 
-  public Map<String, String> attributeMap;
+  global Map<String, String> attributeMap;
 
-  public String idToken;
+  global String idToken;
 
-  public String userInfoJSONString;
+  global String userInfoJSONString;
 
-  public String idTokenJSONString;
+  global String idTokenJSONString;
 
   global Object clone() {}
 

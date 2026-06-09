@@ -5,7 +5,7 @@ global class ConversationApplicationDefinition {
 
   global ConversationApplicationDefinition() {}
 
-  public static ConnectApi.ConversationApplicationDefinitionDetailRespresentation getConversationApplicationDefinition(String integrationName) {}
+  global static ConnectApi.ConversationApplicationDefinitionDetailRespresentation getConversationApplicationDefinition(String integrationName) {}
 
   global Object clone() {}
 

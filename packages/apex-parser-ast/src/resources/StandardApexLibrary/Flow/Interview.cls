@@ -5,13 +5,13 @@ global class Interview {
 
   global Interview() {}
 
-  public static Flow.Interview createInterview(String namespace, String flowName, Map<String,Object> inputVariables) {}
+  global static Flow.Interview createInterview(String namespace, String flowName, Map<String,Object> inputVariables) {}
 
-  public static Flow.Interview createInterview(String flowName, Map<String,Object> inputVariables) {}
+  global static Flow.Interview createInterview(String flowName, Map<String,Object> inputVariables) {}
 
-  public Object getVariableValue(String variableName) {}
+  global Object getVariableValue(String variableName) {}
 
-  public void start() {}
+  global void start() {}
 
   global Object clone() {}
 

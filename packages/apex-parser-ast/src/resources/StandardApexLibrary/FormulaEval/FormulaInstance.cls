@@ -5,9 +5,9 @@ global class FormulaInstance {
 
   global FormulaInstance() {}
 
-  public Object evaluate(Object contextObject) {}
+  global Object evaluate(Object contextObject) {}
 
-  public Set<String> getReferencedFields() {}
+  global Set<String> getReferencedFields() {}
 
   global Object clone() {}
 

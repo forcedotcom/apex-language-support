@@ -5,17 +5,17 @@ global class DescribeQuickActionParameter {
 
   global DescribeQuickActionParameter() {}
 
-  public String parametername;
+  global String parametername;
 
-  public String parametertype;
+  global String parametertype;
 
-  public String parametervalue;
+  global String parametervalue;
 
-  public String getParameterName() {}
+  global String getParameterName() {}
 
-  public String getParameterType() {}
+  global String getParameterType() {}
 
-  public String getParameterValue() {}
+  global String getParameterValue() {}
 
   global Object clone() {}
 

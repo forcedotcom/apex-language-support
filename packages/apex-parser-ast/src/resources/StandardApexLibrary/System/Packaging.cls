@@ -9,7 +9,7 @@ global class Packaging {
    * Returns the context packageID in managed and unlocked packages.
    * @return String
    */
-  public String getCurrentPackageId() {}
+  global String getCurrentPackageId() {}
 
   global Object clone() {}
 

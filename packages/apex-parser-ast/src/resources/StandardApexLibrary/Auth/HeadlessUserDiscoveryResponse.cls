@@ -3,11 +3,11 @@
  */
 global class HeadlessUserDiscoveryResponse {
 
-  public HeadlessUserDiscoveryResponse(Set<Id> userIds, String customErrorMessage) {}
+  global HeadlessUserDiscoveryResponse(Set<Id> userIds, String customErrorMessage) {}
 
-  public String customErrorMessage;
+  global String customErrorMessage;
 
-  public Set<Id> userIds;
+  global Set<Id> userIds;
 
   global Object clone() {}
 

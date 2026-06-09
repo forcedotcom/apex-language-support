@@ -3,13 +3,13 @@
  */
 global class ProcessPaymentResult {
 
-  public ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage) {}
+  global ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage) {}
 
-  public ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus) {}
+  global ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus) {}
 
-  public String errorMessage;
+  global String errorMessage;
 
-  public RichMessaging.ProcessPaymentResultStatus resultStatus;
+  global RichMessaging.ProcessPaymentResultStatus resultStatus;
 
   global Object clone() {}
 

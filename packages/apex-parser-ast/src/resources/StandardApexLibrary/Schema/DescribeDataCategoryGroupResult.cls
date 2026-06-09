@@ -9,31 +9,31 @@ global class DescribeDataCategoryGroupResult {
    * Returns the number of visible data categories in the data category group.
    * @return Integer
    */
-  public Integer getCategoryCount() {}
+  global Integer getCategoryCount() {}
 
   /**
    * Returns the description of the data category group.
    * @return String
    */
-  public String getDescription() {}
+  global String getDescription() {}
 
   /**
    * Returns the label for the data category group used in the Salesforce user interface.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the unique name used by the API to access to the data category group.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the object name associated with the data category group.
    * @return String
    */
-  public String getSobject() {}
+  global String getSobject() {}
 
   global Object clone() {}
 

@@ -5,11 +5,11 @@ global class TemplatesSearchOptions {
 
   global TemplatesSearchOptions() {}
 
-  public String filterGroup;
+  global String filterGroup;
 
-  public String options;
+  global String options;
 
-  public String type;
+  global String type;
 
   global Object clone() {}
 

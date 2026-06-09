@@ -5,26 +5,26 @@ global class ReportChartComponentLayoutItem {
 
   global ReportChartComponentLayoutItem() {}
 
-  public Boolean cacheData;
+  global Boolean cacheData;
 
-  public String contextFilterableField;
+  global String contextFilterableField;
 
-  public String error;
+  global String error;
 
-  public Boolean hideOnError;
+  global Boolean hideOnError;
 
-  public Boolean includeContext;
+  global Boolean includeContext;
 
-  public String reportName;
+  global String reportName;
 
-  public Boolean showTitle;
+  global Boolean showTitle;
 
-  public Metadata.ReportChartComponentSize size;
+  global Metadata.ReportChartComponentSize size;
 
   /**
    * Makes a duplicate copy of the Metadata.ReportChartComponentLayoutItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

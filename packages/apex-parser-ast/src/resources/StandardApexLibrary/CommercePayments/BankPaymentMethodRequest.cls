@@ -5,41 +5,41 @@ global class BankPaymentMethodRequest {
 
   global BankPaymentMethodRequest() {}
 
-  public String accountHolderFirstName;
+  global String accountHolderFirstName;
 
-  public String accountHolderLastName;
+  global String accountHolderLastName;
 
-  public String accountHolderName;
+  global String accountHolderName;
 
-  public commercepayments.AccountHolderType accountHolderType;
+  global commercepayments.AccountHolderType accountHolderType;
 
-  public String accountId;
+  global String accountId;
 
-  public String accountNumber;
+  global String accountNumber;
 
-  public commercepayments.AccountType accountType;
+  global commercepayments.AccountType accountType;
 
-  public Boolean autoPay;
+  global Boolean autoPay;
 
-  public String bankCode;
+  global String bankCode;
 
-  public commercepayments.BankType bankType;
+  global commercepayments.BankType bankType;
 
-  public String comments;
+  global String comments;
 
-  public String email;
+  global String email;
 
-  public String mandate;
+  global String mandate;
 
-  public String nickName;
+  global String nickName;
 
-  public commercepayments.StandardEntryClassCode standardEntryClassCode;
+  global commercepayments.StandardEntryClassCode standardEntryClassCode;
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

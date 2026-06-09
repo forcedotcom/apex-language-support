@@ -5,9 +5,9 @@ global class InboundEnvelope {
 
   global InboundEnvelope() {}
 
-  public String fromAddress;
+  global String fromAddress;
 
-  public String toAddress;
+  global String toAddress;
 
   global Object clone() {}
 

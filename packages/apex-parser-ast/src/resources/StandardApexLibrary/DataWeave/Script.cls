@@ -5,11 +5,11 @@ global class Script {
 
   global Script() {}
 
-  public static createScript(String scriptName) {}
+  global static createScript(String scriptName) {}
 
-  public static dataweave.Script createScript(String namespace, String scriptName) {}
+  global static dataweave.Script createScript(String namespace, String scriptName) {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

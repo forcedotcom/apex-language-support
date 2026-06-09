@@ -3,20 +3,20 @@
  */
 global class KnowledgeArticleVersionStandardController {
 
-  public KnowledgeArticleVersionStandardController(SObject article) {}
+  global KnowledgeArticleVersionStandardController(SObject article) {}
 
   /**
    * Returns the ID for the source object record when creating a new article from another object.
    * @return String
    */
-  public String getSourceId() {}
+  global String getSourceId() {}
 
   /**
    * Specifies a default data category for the specified data category group when creating a new article.
    * @param categoryGroup 
    * @param category 
    */
-  public void setDataCategory(String categoryGroup, String category) {}
+  global void setDataCategory(String categoryGroup, String category) {}
 
   global Object clone() {}
 

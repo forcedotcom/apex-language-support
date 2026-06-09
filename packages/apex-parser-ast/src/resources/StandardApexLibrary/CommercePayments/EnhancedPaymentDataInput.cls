@@ -5,37 +5,37 @@ global class EnhancedPaymentDataInput {
 
   global EnhancedPaymentDataInput() {}
 
-  public Map<String,String> additionalAttributes;
+  global Map<String,String> additionalAttributes;
 
-  public Double discountAmount;
+  global Double discountAmount;
 
-  public Double dutyAmount;
+  global Double dutyAmount;
 
-  public String invoiceNumber;
+  global String invoiceNumber;
 
-  public List<commercepayments.LineItemInput> lineItems;
+  global List<commercepayments.LineItemInput> lineItems;
 
-  public String referenceId;
+  global String referenceId;
 
-  public Double salesTaxAmount;
+  global Double salesTaxAmount;
 
-  public String shipFromZip;
+  global String shipFromZip;
 
-  public String shipToCountry;
+  global String shipToCountry;
 
-  public String shipToZip;
+  global String shipToZip;
 
-  public Double shippingAmount;
+  global Double shippingAmount;
 
-  public Double taxRate;
+  global Double taxRate;
 
-  public Double totalTaxAmount;
+  global Double totalTaxAmount;
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
   global Object clone() {}
 

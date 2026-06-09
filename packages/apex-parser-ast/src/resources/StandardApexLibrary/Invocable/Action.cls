@@ -5,35 +5,35 @@ global class Action {
 
   global Action() {}
 
-  public Invocable.Action addInvocation() {}
+  global Invocable.Action addInvocation() {}
 
-  public Invocable.Action clearInvocations() {}
+  global Invocable.Action clearInvocations() {}
 
-  public Object clone() {}
+  global Object clone() {}
 
-  public static Invocable.Action createCustomAction(String type, String namespace, String name) {}
+  global static Invocable.Action createCustomAction(String type, String namespace, String name) {}
 
-  public static Invocable.Action createCustomAction(String type, String name) {}
+  global static Invocable.Action createCustomAction(String type, String name) {}
 
-  public static Invocable.Action createStandardAction(String type) {}
+  global static Invocable.Action createStandardAction(String type) {}
 
-  public List<Invocable.Action.DescribeResult> getDescribe() {}
+  global List<Invocable.Action.DescribeResult> getDescribe() {}
 
-  public String getName() {}
+  global String getName() {}
 
-  public String getNamespace() {}
+  global String getNamespace() {}
 
-  public String getType() {}
+  global String getType() {}
 
-  public String getVersion() {}
+  global String getVersion() {}
 
-  public List<Invocable.Action.Result> invoke() {}
+  global List<Invocable.Action.Result> invoke() {}
 
-  public Boolean isStandard() {}
+  global Boolean isStandard() {}
 
-  public Invocable.Action setInvocationParameter(String parameterName, Object parameterValue) {}
+  global Invocable.Action setInvocationParameter(String parameterName, Object parameterValue) {}
 
-  public Invocable.Action setInvocations(List<Map<String,Object>> invocations) {}
+  global Invocable.Action setInvocations(List<Map<String,Object>> invocations) {}
 
   /**
    * Contains methods to get metadata about attributes associated with invocable action parameters.
@@ -42,29 +42,29 @@ global class Action {
 
     global AdditionalAttribute() {}
 
-    public String getApexClass() {}
+    global String getApexClass() {}
 
-    public String getDataType() {}
+    global String getDataType() {}
 
-    public Boolean getIsCollection() {}
+    global Boolean getIsCollection() {}
 
-    public String getName() {}
+    global String getName() {}
 
-    public Object getValue() {}
+    global Object getValue() {}
 
-    public List<Boolean> getValueAsBooleanList() {}
+    global List<Boolean> getValueAsBooleanList() {}
 
-    public List<Date> getValueAsDateList() {}
+    global List<Date> getValueAsDateList() {}
 
-    public List<Double> getValueAsDoubleList() {}
+    global List<Double> getValueAsDoubleList() {}
 
-    public List<Integer> getValueAsIntegerList() {}
+    global List<Integer> getValueAsIntegerList() {}
 
-    public List<Object> getValueAsList() {}
+    global List<Object> getValueAsList() {}
 
-    public List<Long> getValueAsLongList() {}
+    global List<Long> getValueAsLongList() {}
 
-    public List<String> getValueAsStringList() {}
+    global List<String> getValueAsStringList() {}
 
     global Object clone() {}
 
@@ -77,45 +77,45 @@ global class Action {
 
     global DescribeResult() {}
 
-    public Invocable.Action getAction() {}
+    global Invocable.Action getAction() {}
 
-    public Boolean getAllowsTransactionControl() {}
+    global Boolean getAllowsTransactionControl() {}
 
-    public List<String> getCapabilityTypes() {}
+    global List<String> getCapabilityTypes() {}
 
-    public String getCategory() {}
+    global String getCategory() {}
 
-    public String getConfigurationEditor() {}
+    global String getConfigurationEditor() {}
 
-    public String getDescription() {}
+    global String getDescription() {}
 
-    public List<Invocable.Action.GenericType> getGenericTypes() {}
+    global List<Invocable.Action.GenericType> getGenericTypes() {}
 
-    public Boolean getHasCallout() {}
+    global Boolean getHasCallout() {}
 
-    public Boolean getHasSystemGeneratedOutput() {}
+    global Boolean getHasSystemGeneratedOutput() {}
 
-    public String getIconId() {}
+    global String getIconId() {}
 
-    public String getIconName() {}
+    global String getIconName() {}
 
-    public List<Invocable.Action.InputParameter> getInputs() {}
+    global List<Invocable.Action.InputParameter> getInputs() {}
 
-    public String getLabel() {}
+    global String getLabel() {}
 
-    public String getMethodDescription() {}
+    global String getMethodDescription() {}
 
-    public String getMethodLabel() {}
+    global String getMethodLabel() {}
 
-    public String getMethodName() {}
+    global String getMethodName() {}
 
-    public String getName() {}
+    global String getName() {}
 
-    public List<Invocable.Action.OutputParameter> getOutputs() {}
+    global List<Invocable.Action.OutputParameter> getOutputs() {}
 
-    public String getTargetEntityName() {}
+    global String getTargetEntityName() {}
 
-    public String getType() {}
+    global String getType() {}
 
     global Object clone() {}
 
@@ -128,11 +128,11 @@ global class Action {
 
     global Error() {}
 
-    public Object clone() {}
+    global Object clone() {}
 
-    public String getCode() {}
+    global String getCode() {}
 
-    public String getMessage() {}
+    global String getMessage() {}
 
   }
 
@@ -143,13 +143,13 @@ global class Action {
 
     global GenericType() {}
 
-    public String getDescription() {}
+    global String getDescription() {}
 
-    public String getLabel() {}
+    global String getLabel() {}
 
-    public String getName() {}
+    global String getName() {}
 
-    public String getSuperType() {}
+    global String getSuperType() {}
 
     global Object clone() {}
 
@@ -162,37 +162,37 @@ global class Action {
 
     global InputParameter() {}
 
-    public List<Invocable.Action.AdditionalAttribute> getAdditionalAttributes() {}
+    global List<Invocable.Action.AdditionalAttribute> getAdditionalAttributes() {}
 
-    public String getApexClass() {}
+    global String getApexClass() {}
 
-    public Integer getByteLength() {}
+    global Integer getByteLength() {}
 
-    public Boolean getConfiguration() {}
+    global Boolean getConfiguration() {}
 
-    public Object getDefaultValue() {}
+    global Object getDefaultValue() {}
 
-    public String getDescription() {}
+    global String getDescription() {}
 
-    public String getLabel() {}
+    global String getLabel() {}
 
-    public Integer getMaxOccurs() {}
+    global Integer getMaxOccurs() {}
 
-    public String getName() {}
+    global String getName() {}
 
-    public List<Invocable.Action.PicklistValue> getPicklistValues() {}
+    global List<Invocable.Action.PicklistValue> getPicklistValues() {}
 
-    public String getPlaceholderText() {}
+    global String getPlaceholderText() {}
 
-    public Boolean getRequired() {}
+    global Boolean getRequired() {}
 
-    public String getSObjectType() {}
+    global String getSObjectType() {}
 
-    public List<String> getSetupReferenceType() {}
+    global List<String> getSetupReferenceType() {}
 
-    public String getToolingType() {}
+    global String getToolingType() {}
 
-    public String getType() {}
+    global String getType() {}
 
     global Object clone() {}
 
@@ -205,23 +205,23 @@ global class Action {
 
     global OutputParameter() {}
 
-    public List<Invocable.Action.AdditionalAttribute> getAdditionalAttributes() {}
+    global List<Invocable.Action.AdditionalAttribute> getAdditionalAttributes() {}
 
-    public String getApexClass() {}
+    global String getApexClass() {}
 
-    public String getDescription() {}
+    global String getDescription() {}
 
-    public String getLabel() {}
+    global String getLabel() {}
 
-    public Integer getMaxOccurs() {}
+    global Integer getMaxOccurs() {}
 
-    public String getName() {}
+    global String getName() {}
 
-    public List<Invocable.Action.PicklistValue> getPicklistValues() {}
+    global List<Invocable.Action.PicklistValue> getPicklistValues() {}
 
-    public String getSObjectType() {}
+    global String getSObjectType() {}
 
-    public String getType() {}
+    global String getType() {}
 
     global Object clone() {}
 
@@ -234,15 +234,15 @@ global class Action {
 
     global PicklistValue() {}
 
-    public Boolean getActive() {}
+    global Boolean getActive() {}
 
-    public Boolean getDefaultValue() {}
+    global Boolean getDefaultValue() {}
 
-    public String getLabel() {}
+    global String getLabel() {}
 
-    public String getValidFor() {}
+    global String getValidFor() {}
 
-    public String getValue() {}
+    global String getValue() {}
 
     global Object clone() {}
 
@@ -255,17 +255,17 @@ global class Action {
 
     global Result() {}
 
-    public Object clone() {}
+    global Object clone() {}
 
-    public Invocable.Action getAction() {}
+    global Invocable.Action getAction() {}
 
-    public List<Invocable.Action.Error> getErrors() {}
+    global List<Invocable.Action.Error> getErrors() {}
 
-    public Map<String,Object> getInvocationParameters() {}
+    global Map<String,Object> getInvocationParameters() {}
 
-    public Map<String,Object> getOutputParameters() {}
+    global Map<String,Object> getOutputParameters() {}
 
-    public Boolean isSuccess() {}
+    global Boolean isSuccess() {}
 
   }
 

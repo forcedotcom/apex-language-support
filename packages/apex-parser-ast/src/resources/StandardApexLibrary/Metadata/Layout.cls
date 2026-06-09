@@ -5,56 +5,56 @@ global class Layout {
 
   global Layout() {}
 
-  public List<String> customButtons;
+  global List<String> customButtons;
 
-  public Metadata.CustomConsoleComponents customConsoleComponents;
+  global Metadata.CustomConsoleComponents customConsoleComponents;
 
-  public Boolean emailDefault;
+  global Boolean emailDefault;
 
-  public List<String> excludeButtons;
+  global List<String> excludeButtons;
 
-  public Metadata.FeedLayout feedLayout;
+  global Metadata.FeedLayout feedLayout;
 
-  public List<Metadata.LayoutHeader> headers;
+  global List<Metadata.LayoutHeader> headers;
 
-  public List<Metadata.LayoutSection> layoutSections;
+  global List<Metadata.LayoutSection> layoutSections;
 
-  public Metadata.MiniLayout miniLayout;
+  global Metadata.MiniLayout miniLayout;
 
-  public List<String> multilineLayoutFields;
+  global List<String> multilineLayoutFields;
 
-  public Metadata.PlatformActionList platformActionList;
+  global Metadata.PlatformActionList platformActionList;
 
-  public Metadata.QuickActionList quickActionList;
+  global Metadata.QuickActionList quickActionList;
 
-  public Metadata.RelatedContent relatedContent;
+  global Metadata.RelatedContent relatedContent;
 
-  public List<Metadata.RelatedListItem> relatedLists;
+  global List<Metadata.RelatedListItem> relatedLists;
 
-  public List<String> relatedObjects;
+  global List<String> relatedObjects;
 
-  public Boolean runAssignmentRulesDefault;
+  global Boolean runAssignmentRulesDefault;
 
-  public Boolean showEmailCheckbox;
+  global Boolean showEmailCheckbox;
 
-  public Boolean showHighlightsPanel;
+  global Boolean showHighlightsPanel;
 
-  public Boolean showInteractionLogPanel;
+  global Boolean showInteractionLogPanel;
 
-  public Boolean showKnowledgeComponent;
+  global Boolean showKnowledgeComponent;
 
-  public Boolean showRunAssignmentRulesCheckbox;
+  global Boolean showRunAssignmentRulesCheckbox;
 
-  public Boolean showSolutionSection;
+  global Boolean showSolutionSection;
 
-  public Boolean showSubmitAndAttachButton;
+  global Boolean showSubmitAndAttachButton;
 
-  public Metadata.SummaryLayout summaryLayout;
+  global Metadata.SummaryLayout summaryLayout;
 
   /**
    * Makes a duplicate copy of the Metadata.Layout .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

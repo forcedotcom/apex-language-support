@@ -3,23 +3,23 @@
  */
 global class PostalAddress {
 
-  public PostalAddress(List<String> addressLines, String subLocality, String locality, String postalCode, String subAdministrativeArea, String administrativeArea, String country, String countryCode) {}
+  global PostalAddress(List<String> addressLines, String subLocality, String locality, String postalCode, String subAdministrativeArea, String administrativeArea, String country, String countryCode) {}
 
-  public List<String> addressLines;
+  global List<String> addressLines;
 
-  public String administrativeArea;
+  global String administrativeArea;
 
-  public String country;
+  global String country;
 
-  public String countryCode;
+  global String countryCode;
 
-  public String locality;
+  global String locality;
 
-  public String postalCode;
+  global String postalCode;
 
-  public String subAdministrativeArea;
+  global String subAdministrativeArea;
 
-  public String subLocality;
+  global String subLocality;
 
   global Object clone() {}
 

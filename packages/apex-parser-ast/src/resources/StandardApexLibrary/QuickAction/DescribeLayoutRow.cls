@@ -9,13 +9,13 @@ global class DescribeLayoutRow {
    * Returns either a specific field or an empty QuickAction.DescribeLayoutItem (one that contains no QuickAction.DescribeLayoutComponent objects).
    * @return List<QuickAction.DescribeLayoutItem>
    */
-  public List<QuickAction.DescribeLayoutItem> getLayoutItems() {}
+  global List<QuickAction.DescribeLayoutItem> getLayoutItems() {}
 
   /**
    * Returns the number of QuickAction.DescribeLayoutItem .
    * @return Integer
    */
-  public Integer getNumItems() {}
+  global Integer getNumItems() {}
 
   global Object clone() {}
 

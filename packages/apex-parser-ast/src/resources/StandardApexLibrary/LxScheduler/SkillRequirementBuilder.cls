@@ -5,11 +5,11 @@ global class SkillRequirementBuilder {
 
   global SkillRequirementBuilder() {}
 
-  public lxscheduler.SkillRequirement build() {}
+  global lxscheduler.SkillRequirement build() {}
 
-  public lxscheduler.SkillRequirementBuilder setSkillId(String skillId) {}
+  global lxscheduler.SkillRequirementBuilder setSkillId(String skillId) {}
 
-  public lxscheduler.SkillRequirementBuilder setSkillLevel(Double skillLevel) {}
+  global lxscheduler.SkillRequirementBuilder setSkillLevel(Double skillLevel) {}
 
   global Object clone() {}
 

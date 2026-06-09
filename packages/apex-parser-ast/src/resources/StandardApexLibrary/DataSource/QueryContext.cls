@@ -5,9 +5,9 @@ global class QueryContext {
 
   global QueryContext() {}
 
-  public String queryMoreToken;
+  global String queryMoreToken;
 
-  public DataSource.TableSelection tableSelection;
+  global DataSource.TableSelection tableSelection;
 
   /**
    * Creates an instance of the QueryContext class.
@@ -17,7 +17,7 @@ global class QueryContext {
    * @param tableSelection Query details that represent the FROM , ORDER BY , SELECT , and WHERE clauses in a SOQL or SOSL query.
    * @return DataSource.QueryContext
    */
-  public static DataSource.QueryContext get(List<DataSource.Table> metadata, Integer offset, Integer maxResults, DataSource.TableSelection tableSelection) {}
+  global static DataSource.QueryContext get(List<DataSource.Table> metadata, Integer offset, Integer maxResults, DataSource.TableSelection tableSelection) {}
 
   global Object clone() {}
 

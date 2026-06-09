@@ -5,18 +5,18 @@ global class ConsoleComponent {
 
   global ConsoleComponent() {}
 
-  public Integer height;
+  global Integer height;
 
-  public String location;
+  global String location;
 
-  public String visualforcePage;
+  global String visualforcePage;
 
-  public Integer width;
+  global Integer width;
 
   /**
    * Makes a duplicate copy of the Metadata.ConsoleComponent .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

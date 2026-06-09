@@ -5,7 +5,7 @@ global class NlpSummarizationResult {
 
   global NlpSummarizationResult() {}
 
-  public String summary;
+  global String summary;
 
   global Object clone() {}
 

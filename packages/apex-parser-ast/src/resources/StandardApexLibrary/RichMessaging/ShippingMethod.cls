@@ -3,25 +3,25 @@
  */
 global class ShippingMethod {
 
-  public ShippingMethod(String label, Double amount, String detail, String identifier) {}
+  global ShippingMethod(String label, Double amount, String detail, String identifier) {}
 
-  public Double amount;
+  global Double amount;
 
-  public Double amountValue;
+  global Double amountValue;
 
-  public String detail;
+  global String detail;
 
-  public String detailValue;
+  global String detailValue;
 
-  public String identifier;
+  global String identifier;
 
-  public String identifierValue;
+  global String identifierValue;
 
-  public String label;
+  global String label;
 
-  public String labelValue;
+  global String labelValue;
 
-  public String shippingMethodType;
+  global String shippingMethodType;
 
   global Object clone() {}
 

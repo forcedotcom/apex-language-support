@@ -5,41 +5,41 @@ global class CardPaymentMethodResponse {
 
   global CardPaymentMethodResponse() {}
 
-  public void setAccountId(Id accountId) {}
+  global void setAccountId(Id accountId) {}
 
-  public void setAutoPay(Boolean autoPay) {}
+  global void setAutoPay(Boolean autoPay) {}
 
-  public void setCardBin(String cardBin) {}
+  global void setCardBin(String cardBin) {}
 
-  public void setCardCategory(commercepayments.CardCategory cardCategory) {}
+  global void setCardCategory(commercepayments.CardCategory cardCategory) {}
 
-  public void setCardHolderFirstName(String cardHolderFirstName) {}
+  global void setCardHolderFirstName(String cardHolderFirstName) {}
 
-  public void setCardHolderLastName(String cardHolderLastName) {}
+  global void setCardHolderLastName(String cardHolderLastName) {}
 
-  public void setCardHolderName(String cardHolderName) {}
+  global void setCardHolderName(String cardHolderName) {}
 
-  public void setCardLastFour(String cardLastFour) {}
+  global void setCardLastFour(String cardLastFour) {}
 
-  public void setCardType(String cardType) {}
+  global void setCardType(String cardType) {}
 
-  public void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
+  global void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
 
-  public void setComments(String comments) {}
+  global void setComments(String comments) {}
 
-  public void setDisplayCardNumber(String displayCardNumber) {}
+  global void setDisplayCardNumber(String displayCardNumber) {}
 
-  public void setEmail(String email) {}
+  global void setEmail(String email) {}
 
-  public void setExpiryMonth(Integer expiryMonth) {}
+  global void setExpiryMonth(Integer expiryMonth) {}
 
-  public void setExpiryYear(Integer expiryYear) {}
+  global void setExpiryYear(Integer expiryYear) {}
 
-  public void setNickName(String nickName) {}
+  global void setNickName(String nickName) {}
 
-  public void setStartMonth(Integer startMonth) {}
+  global void setStartMonth(Integer startMonth) {}
 
-  public void setStartYear(Integer startYear) {}
+  global void setStartYear(Integer startYear) {}
 
   global Object clone() {}
 

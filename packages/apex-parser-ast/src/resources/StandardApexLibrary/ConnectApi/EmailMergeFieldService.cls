@@ -5,7 +5,7 @@ global class EmailMergeFieldService {
 
   global EmailMergeFieldService() {}
 
-  public static ConnectApi.EmailMergeFieldInfo getMergeFields(List<String> objectApiNames) {}
+  global static ConnectApi.EmailMergeFieldInfo getMergeFields(List<String> objectApiNames) {}
 
   global Object clone() {}
 
