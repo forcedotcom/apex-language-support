@@ -27,4 +27,24 @@ global class DistinctFacetValue extends ConnectApi.FacetValue {
 
   global Object clone() {}
 
+  global ConnectApi.DistinctFacetValueDisplayMetadataRepresentation getDisplayMetadata() {}
+
+  global String getDisplayName() {}
+
+  global String getNameOrId() {}
+
+  global Long getProductCount() {}
+
+  global ConnectApi.CommerceSearchFacetType getType() {}
+
+  global void setDisplayMetadata(ConnectApi.DistinctFacetValueDisplayMetadataRepresentation value) {}
+
+  global void setDisplayName(String value) {}
+
+  global void setNameOrId(String value) {}
+
+  global void setProductCount(Long value) {}
+
+  global void setType(ConnectApi.CommerceSearchFacetType value) {}
+
 }

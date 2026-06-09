@@ -263,6 +263,12 @@ global class DescribeSObjectResult {
 
   global String toString() {}
 
+  global String getAssociateEntityType() {}
+
+  global Boolean getHasSubtypes() {}
+
+  global Boolean getIsSubtype() {}
+
   global Object clone() {}
 
 }

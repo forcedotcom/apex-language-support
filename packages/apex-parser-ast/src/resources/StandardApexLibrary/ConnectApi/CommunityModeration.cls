@@ -69,4 +69,6 @@ global class CommunityModeration {
 
   global Object clone() {}
 
+  global static void removeFlagFromFeedItem(String communityId, String feedItemId, String userId) {}
+
 }

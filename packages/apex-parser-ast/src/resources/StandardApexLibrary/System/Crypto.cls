@@ -41,4 +41,6 @@ global class Crypto {
 
   global Object clone() {}
 
+  global static Blob generateAesKey(Integer size) {}
+
 }

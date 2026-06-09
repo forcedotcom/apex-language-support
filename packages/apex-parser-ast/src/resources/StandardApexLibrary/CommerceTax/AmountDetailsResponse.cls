@@ -15,4 +15,6 @@ global class AmountDetailsResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.AmountDetailsEngineResponse getDelegate() {}
+
 }

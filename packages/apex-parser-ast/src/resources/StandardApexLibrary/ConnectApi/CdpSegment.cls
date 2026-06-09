@@ -35,4 +35,12 @@ global class CdpSegment {
 
   global Object clone() {}
 
+  global static void deleteSegment(String segmentApiName, String dataspace) {}
+
+  global static ConnectApi.CdpSegmentActionOutput executeCountAsync(String segmentApiName, ConnectApi.CdpSegmentActionInput input) {}
+
+  global static ConnectApi.CdpSegmentActionOutput executeCountAsync(String segmentApiName) {}
+
+  global static ConnectApi.CdpSegmentOutput updateSegment(String segmentApiName, ConnectApi.CdpSegmentInput input, String dataspace) {}
+
 }

@@ -63,6 +63,8 @@ global class DescribeLayoutSection {
    */
   global Boolean isUseHeading() {}
 
+  global String getTabOrder() {}
+
   global Object clone() {}
 
 }

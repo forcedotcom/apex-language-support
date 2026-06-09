@@ -27,4 +27,28 @@ global class ProductAttributesToProductEntry {
 
   global Object clone() {}
 
+  global String getCanonicalKey() {}
+
+  global ConnectApi.ProductMedia getImage() {}
+
+  global List<ConnectApi.ProductMedia> getMediaItems() {}
+
+  global String getProductId() {}
+
+  global List<ConnectApi.ProductAttributeSelectionInfo> getSelectedAttributes() {}
+
+  global String getUrlName() {}
+
+  global void setCanonicalKey(String value) {}
+
+  global void setImage(ConnectApi.ProductMedia value) {}
+
+  global void setMediaItems(List<ConnectApi.ProductMedia> value) {}
+
+  global void setProductId(String value) {}
+
+  global void setSelectedAttributes(List<ConnectApi.ProductAttributeSelectionInfo> value) {}
+
+  global void setUrlName(String value) {}
+
 }

@@ -31,4 +31,6 @@ global class TokenValidationResult {
 
   global Object clone() {}
 
+  global Boolean isValid() {}
+
 }

@@ -41,6 +41,12 @@ global class Schema {
 
   global static List<Schema.DescribeDataCategoryGroupStructureResult> describeDataCategoryGroupStructures(List<Schema.DataCategoryGroupSobjectTypePair> pairs, Boolean topCategoriesOnly) {}
 
+  global static Map<String,Schema.SObjectType> getAppDescribe(String appName) {}
+
+  global static Map<String,Schema.SObjectType> getModuleDescribe(String moduleName) {}
+
+  global static Map<String,Schema.SObjectType> getModuleDescribe() {}
+
   global Object clone() {}
 
 }

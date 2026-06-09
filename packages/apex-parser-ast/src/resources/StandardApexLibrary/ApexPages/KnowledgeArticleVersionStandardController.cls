@@ -18,6 +18,18 @@ global class KnowledgeArticleVersionStandardController {
    */
   global void setDataCategory(String categoryGroup, String category) {}
 
+  global void addFields(List<String> fieldNames) {}
+
+  global System.PageReference cancel() {}
+
+  global String getId() {}
+
+  global SObject getRecord() {}
+
+  global void selectDataCategory(String categoryGroup, String category) {}
+
+  global System.PageReference view() {}
+
   global Object clone() {}
 
 }

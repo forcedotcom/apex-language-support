@@ -20,4 +20,8 @@ global class App {
 
   global Object clone() {}
 
+  global static Slack.App getAppByKey(String key) {}
+
+  global static Slack.App getAppByName(String developerName) {}
+
 }

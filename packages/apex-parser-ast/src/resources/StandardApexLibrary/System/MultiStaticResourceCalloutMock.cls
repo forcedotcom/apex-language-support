@@ -33,4 +33,6 @@ global class MultiStaticResourceCalloutMock {
 
   global Object clone() {}
 
+  global System.HttpResponse respond(System.HttpRequest request) {}
+
 }

@@ -314,4 +314,14 @@ global class Message {
 
   global Object clone() {}
 
+  global String getAppId() {}
+
+  global Slack.Message.Metadata getMetadata() {}
+
+  global Boolean isLocked() {}
+
+  global void setAppId(String appId) {}
+
+  global void setMetadata(Slack.Message.Metadata metadata) {}
+
 }

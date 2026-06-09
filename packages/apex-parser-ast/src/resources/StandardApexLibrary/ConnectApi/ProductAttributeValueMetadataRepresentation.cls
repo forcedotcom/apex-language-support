@@ -27,4 +27,20 @@ global class ProductAttributeValueMetadataRepresentation {
 
   global Object clone() {}
 
+  global String getApiName() {}
+
+  global String getColorHexCode() {}
+
+  global String getLabel() {}
+
+  global Boolean getVariantAvailable() {}
+
+  global void setApiName(String value) {}
+
+  global void setColorHexCode(String value) {}
+
+  global void setLabel(String value) {}
+
+  global void setVariantAvailable(Boolean value) {}
+
 }

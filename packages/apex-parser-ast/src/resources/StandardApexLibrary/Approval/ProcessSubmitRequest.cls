@@ -53,6 +53,14 @@ global class ProcessSubmitRequest {
    */
   global void setSubmitterId(String userID) {}
 
+  global String getComments() {}
+
+  global List<Id> getNextApproverIds() {}
+
+  global void setComments(String arg0) {}
+
+  global void setNextApproverIds(List<Id> arg0) {}
+
   global Object clone() {}
 
 }

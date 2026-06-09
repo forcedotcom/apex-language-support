@@ -27,4 +27,20 @@ global class ProductSummaryPage {
 
   global Object clone() {}
 
+  global String getCurrencyIsoCode() {}
+
+  global Integer getPageSize() {}
+
+  global List<ConnectApi.ProductSummary> getProducts() {}
+
+  global Long getTotal() {}
+
+  global void setCurrencyIsoCode(String value) {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setProducts(List<ConnectApi.ProductSummary> value) {}
+
+  global void setTotal(Long value) {}
+
 }

@@ -49,4 +49,6 @@ global class CustomNotification {
 
   global Object clone() {}
 
+  global void setActionGroup(String actionGroup) {}
+
 }

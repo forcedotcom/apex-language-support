@@ -14,6 +14,10 @@ global class WebServiceCallout {
    */
   global static void invoke(Object stub, Object request, Map<String,Object> response, List<String> infoArray) {}
 
+  global static Object beginInvoke(Object stub, Object request, Object returnType, Object continuation, List info) {}
+
+  global static Object endInvoke(Object future) {}
+
   global Object clone() {}
 
 }

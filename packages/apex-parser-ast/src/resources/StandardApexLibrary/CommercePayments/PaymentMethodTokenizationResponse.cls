@@ -71,4 +71,8 @@ global class PaymentMethodTokenizationResponse {
 
   global Object clone() {}
 
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+
 }

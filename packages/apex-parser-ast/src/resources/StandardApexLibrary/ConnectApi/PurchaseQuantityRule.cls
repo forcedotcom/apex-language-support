@@ -22,4 +22,16 @@ global class PurchaseQuantityRule {
 
   global Object clone() {}
 
+  global String getIncrement() {}
+
+  global String getMaximum() {}
+
+  global String getMinimum() {}
+
+  global void setIncrement(String value) {}
+
+  global void setMaximum(String value) {}
+
+  global void setMinimum(String value) {}
+
 }

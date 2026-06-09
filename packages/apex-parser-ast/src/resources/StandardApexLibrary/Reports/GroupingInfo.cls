@@ -31,4 +31,12 @@ global class GroupingInfo {
 
   global Object clone() {}
 
+  global void setDateGranularity(String value) {}
+
+  global void setName(String name) {}
+
+  global void setSortAggregate(String sortAggregate) {}
+
+  global void setSortOrder(String value) {}
+
 }

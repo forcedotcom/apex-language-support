@@ -17,4 +17,12 @@ global class ProductSearchGroupingInput {
 
   global Object clone() {}
 
+  global ConnectApi.CommerceSearchGroupingOption getGroupingOption() {}
+
+  global ConnectApi.CommerceSearchTopProductType getTopProductType() {}
+
+  global void setGroupingOption(ConnectApi.CommerceSearchGroupingOption value) {}
+
+  global void setTopProductType(ConnectApi.CommerceSearchTopProductType value) {}
+
 }

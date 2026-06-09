@@ -13,4 +13,6 @@ global class Communities {
 
   global Object clone() {}
 
+  global static ConnectApi.CommunityTemplates getCommunityTemplates() {}
+
 }

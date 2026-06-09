@@ -15,4 +15,6 @@ global class TokenUtility {
 
   global Object clone() {}
 
+  global static Map<String,String> generateTokens(List<String> tokenValues, pref_center.TokenType tokenType, pref_center.DataCloudIdTokenType dataCloudIdTokenType) {}
+
 }

@@ -113,6 +113,8 @@ global class StandardSetController {
 
   global void setSelected(sObject[] selectedRecords) {}
 
+  global void addFields(List<String> fieldNames) {}
+
   global Object clone() {}
 
 }

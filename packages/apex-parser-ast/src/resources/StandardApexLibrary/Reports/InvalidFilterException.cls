@@ -4,4 +4,6 @@ global class InvalidFilterException {
 
   global Object clone() {}
 
+  global List<String> getFilterErrors() {}
+
 }

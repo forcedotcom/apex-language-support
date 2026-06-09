@@ -12,4 +12,8 @@ global class FacetValue {
 
   global Object clone() {}
 
+  global ConnectApi.CommerceSearchFacetType getType() {}
+
+  global void setType(ConnectApi.CommerceSearchFacetType value) {}
+
 }

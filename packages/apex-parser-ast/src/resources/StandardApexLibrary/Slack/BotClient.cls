@@ -168,6 +168,22 @@ global class BotClient {
 
   global Slack.WorkflowsUpdateStepResponse workflowsUpdateStep(Slack.WorkflowsUpdateStepRequest req) {}
 
+  global Slack.BookmarksAddResponse bookmarksAdd(Slack.BookmarksAddRequest req) {}
+
+  global Slack.BookmarksEditResponse bookmarksEdit(Slack.BookmarksEditRequest req) {}
+
+  global Slack.BookmarksListResponse bookmarksList(Slack.BookmarksListRequest req) {}
+
+  global Slack.BookmarksRemoveResponse bookmarksRemove(Slack.BookmarksRemoveRequest req) {}
+
   global Object clone() {}
+
+  global Slack.ConversationsAcceptSharedInviteResponse conversationsAcceptSharedInvite(Slack.ConversationsAcceptSharedInviteRequest req) {}
+
+  global Slack.ConversationsDeclineSharedInviteResponse conversationsDeclineSharedInvite(Slack.ConversationsDeclineSharedInviteRequest req) {}
+
+  global Slack.ConversationsInviteSharedResponse conversationsInviteShared(Slack.ConversationsInviteSharedRequest req) {}
+
+  global Slack.ConversationsListConnectInvitesResponse conversationsListConnectInvites(Slack.ConversationsListConnectInvitesRequest req) {}
 
 }

@@ -22,4 +22,16 @@ global class ProductAttributeSetSummary {
 
   global Object clone() {}
 
+  global String getApiName() {}
+
+  global List<ConnectApi.ProductAttributeSummary> getAttributes() {}
+
+  global String getLabel() {}
+
+  global void setApiName(String value) {}
+
+  global void setAttributes(List<ConnectApi.ProductAttributeSummary> value) {}
+
+  global void setLabel(String value) {}
+
 }

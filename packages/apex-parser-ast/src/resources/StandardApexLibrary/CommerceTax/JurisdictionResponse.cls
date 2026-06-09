@@ -19,4 +19,6 @@ global class JurisdictionResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.JurisdictionEngineResponse getDelegate() {}
+
 }

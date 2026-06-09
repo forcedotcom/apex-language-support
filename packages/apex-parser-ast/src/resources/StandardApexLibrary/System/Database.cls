@@ -933,6 +933,22 @@ global class Database {
    */
   global static Database.SaveResult updateImmediate(SObject sobject, System.AccessLevel accessLevel) {}
 
+  global static Database.LeadConvertResult convertLead(Database.LeadConvert leadConvert) {}
+
+  global static Database.DeleteResult delete(Id id) {}
+
+  global static List<Database.SaveResult> insert(List<SObject> sobjects) {}
+
+  global static List<Database.NestedSaveResult> treeSave(List<SObject> sobjects) {}
+
+  global static Database.UndeleteResult undelete(Id id) {}
+
+  global static List<Database.SaveResult> update(List<SObject> sobjects) {}
+
+  global static List<Database.UpsertResult> upsert(List<SObject> sobjects, Object accessLevel) {}
+
+  global static List<Database.UpsertResult> upsert(List<SObject> sobjects) {}
+
   global Object clone() {}
 
 }

@@ -27,4 +27,20 @@ global class ProductAttributeSummary {
 
   global Object clone() {}
 
+  global String getApiName() {}
+
+  global String getLabel() {}
+
+  global Integer getSequence() {}
+
+  global String getValue() {}
+
+  global void setApiName(String value) {}
+
+  global void setLabel(String value) {}
+
+  global void setSequence(Integer value) {}
+
+  global void setValue(String value) {}
+
 }

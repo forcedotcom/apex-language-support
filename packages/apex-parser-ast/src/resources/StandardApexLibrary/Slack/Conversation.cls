@@ -444,4 +444,12 @@ global class Conversation {
 
   global Object clone() {}
 
+  global String getContextTeamId() {}
+
+  global Long getUpdated() {}
+
+  global void setContextTeamId(String contextTeamId) {}
+
+  global void setUpdated(Long updated) {}
+
 }

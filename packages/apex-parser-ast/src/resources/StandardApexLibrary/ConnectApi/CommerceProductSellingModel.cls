@@ -12,4 +12,8 @@ global class CommerceProductSellingModel {
 
   global Object clone() {}
 
+  global Boolean getIsSubscriptionProduct() {}
+
+  global void setIsSubscriptionProduct(Boolean value) {}
+
 }

@@ -107,4 +107,18 @@ global class ChatterGroups {
 
   global Object clone() {}
 
+  global static ConnectApi.ChatterGroupDetail createGroup(String communityId, ConnectApi.ChatterGroupInput groupInput) {}
+
+  global static ConnectApi.Subscription follow(String communityId, String groupId, String subjectId) {}
+
+  global static ConnectApi.FollowingPage getFollowings(String communityId, String groupId, String filterType, Integer pageParam, Integer pageSize) {}
+
+  global static ConnectApi.FollowingPage getFollowings(String communityId, String groupId, Integer pageParam, Integer pageSize) {}
+
+  global static ConnectApi.FollowingPage getFollowings(String communityId, String groupId, Integer pageParam) {}
+
+  global static ConnectApi.FollowingPage getFollowings(String communityId, String groupId) {}
+
+  global static void setTestSearchGroups(String communityId, String q, ConnectApi.GroupArchiveStatus archiveStatus, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
+
 }

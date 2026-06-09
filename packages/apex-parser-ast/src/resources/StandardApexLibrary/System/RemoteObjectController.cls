@@ -41,4 +41,6 @@ global class RemoteObjectController {
 
   global Object clone() {}
 
+  global static Map<String,Object> updat(String type, List<String> ids, Map<String,Object> fields) {}
+
 }

@@ -4,4 +4,6 @@ global class RateLimitException {
 
   global Object clone() {}
 
+  global String getErrorCode() {}
+
 }

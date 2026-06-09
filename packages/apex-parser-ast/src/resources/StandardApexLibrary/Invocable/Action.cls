@@ -35,6 +35,10 @@ global class Action {
 
   global Invocable.Action setInvocations(List<Map<String,Object>> invocations) {}
 
+  global static Invocable.Action createCustomAction(String type, String namespace, String name, String version) {}
+
+  global static Invocable.Action createStandardAction(String type, String version) {}
+
   /**
    * Contains methods to get metadata about attributes associated with invocable action parameters.
    */

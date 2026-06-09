@@ -14,4 +14,6 @@ global class PaymentsHttp {
 
   global Object clone() {}
 
+  global void setExcludeResponseLogging(Boolean excludeResponseLogging) {}
+
 }

@@ -307,6 +307,24 @@ global class DescribeFieldResult {
    */
   global Boolean isWriteRequiresMasterRead() {}
 
+  global String getCompoundFieldName() {}
+
+  global Boolean getDataTranslationEnabled() {}
+
+  global Schema.FilteredLookupInfo getFilteredLookupInfo() {}
+
+  global String getMask() {}
+
+  global String getMaskType() {}
+
+  global Boolean isAggregatable() {}
+
+  global Boolean isDisplayLocationInDecimal() {}
+
+  global Boolean isHighScaleNumber() {}
+
+  global Boolean isQueryByDistance() {}
+
   global Object clone() {}
 
 }

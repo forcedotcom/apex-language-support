@@ -424,4 +424,6 @@ global class User {
 
   global Object clone() {}
 
+  global String getWhoCanShareContactCard() {}
+
 }

@@ -46,4 +46,10 @@ global class RequestContext {
 
   global Object clone() {}
 
+  global Slack.App getApp() {}
+
+  global Slack.UserType getUserType() {}
+
+  global Boolean isDefaultOrg() {}
+
 }

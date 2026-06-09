@@ -32,4 +32,24 @@ global class RangeRefinementInput {
 
   global Object clone() {}
 
+  global ConnectApi.CommerceSearchAttributeType getAttributeType() {}
+
+  global String getMax() {}
+
+  global String getMin() {}
+
+  global String getNameOrId() {}
+
+  global ConnectApi.CommerceSearchFacetType getType() {}
+
+  global void setAttributeType(ConnectApi.CommerceSearchAttributeType value) {}
+
+  global void setMax(String value) {}
+
+  global void setMin(String value) {}
+
+  global void setNameOrId(String value) {}
+
+  global void setType(ConnectApi.CommerceSearchFacetType value) {}
+
 }

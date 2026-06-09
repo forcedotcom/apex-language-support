@@ -57,4 +57,44 @@ global class ProductSearchInput {
 
   global Object clone() {}
 
+  global String getCategoryId() {}
+
+  global List<String> getFields() {}
+
+  global ConnectApi.ProductSearchGroupingInput getGrouping() {}
+
+  global Boolean getIncludePrices() {}
+
+  global Boolean getIncludeQuantityRule() {}
+
+  global Integer getPage() {}
+
+  global Integer getPageSize() {}
+
+  global List<ConnectApi.RefinementInput> getRefinements() {}
+
+  global String getSearchTerm() {}
+
+  global String getSortRuleId() {}
+
+  global void setCategoryId(String value) {}
+
+  global void setFields(List<String> value) {}
+
+  global void setGrouping(ConnectApi.ProductSearchGroupingInput value) {}
+
+  global void setIncludePrices(Boolean value) {}
+
+  global void setIncludeQuantityRule(Boolean value) {}
+
+  global void setPage(Integer value) {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setRefinements(List<ConnectApi.RefinementInput> value) {}
+
+  global void setSearchTerm(String value) {}
+
+  global void setSortRuleId(String value) {}
+
 }

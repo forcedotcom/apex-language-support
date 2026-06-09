@@ -63,4 +63,8 @@ global class Network {
 
   global Object clone() {}
 
+  global static System.PageReference forwardToAuthPage(String startUrl, String displayType) {}
+
+  global static Integer loadAllPackageDefaultNetworkWorkspaceMetricSettings() {}
+
 }

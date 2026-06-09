@@ -26,4 +26,8 @@ global class Provider extends DataSource.Provider {
 
   global Object clone() {}
 
+  global void logWarning(String msg) {}
+
+  global void throwException(String msg) {}
+
 }

@@ -12,4 +12,8 @@ global class FieldValue {
 
   global Object clone() {}
 
+  global String getValue() {}
+
+  global void setValue(String value) {}
+
 }

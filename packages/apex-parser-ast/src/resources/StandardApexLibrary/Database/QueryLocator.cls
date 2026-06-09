@@ -17,6 +17,8 @@ global class QueryLocator {
    */
   global Database.QueryLocatorIterator iterator() {}
 
+  global List<SObject> querymore(Integer num) {}
+
   global Object clone() {}
 
 }

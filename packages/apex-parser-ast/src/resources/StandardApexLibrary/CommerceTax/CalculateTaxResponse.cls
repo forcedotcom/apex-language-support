@@ -37,4 +37,6 @@ global class CalculateTaxResponse {
 
   global Object clone() {}
 
+  global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) {}
+
 }

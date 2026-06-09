@@ -15,11 +15,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "ProcessFormHandler",
-    "namespace": "RichMessaging",
-  },
-  {
-    "className": "SoapType",
+    "className": "SOAPType",
     "namespace": "Schema",
   },
   {

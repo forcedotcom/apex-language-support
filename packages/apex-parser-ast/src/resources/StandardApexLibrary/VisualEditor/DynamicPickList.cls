@@ -37,4 +37,6 @@ global class DynamicPickList {
    */
   global Boolean isValid(Object attributeValue) {}
 
+  global VisualEditor.DynamicPickListRows getValuesForSemanticSearch(String semanticSearchQuery) {}
+
 }

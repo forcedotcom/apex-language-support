@@ -32,4 +32,24 @@ global class ProductSearchResults {
 
   global Object clone() {}
 
+  global ConnectApi.SearchCategory getCategories() {}
+
+  global String getCorrelationId() {}
+
+  global List<ConnectApi.SearchFacet> getFacets() {}
+
+  global String getLocale() {}
+
+  global ConnectApi.ProductSummaryPage getProductsPage() {}
+
+  global void setCategories(ConnectApi.SearchCategory value) {}
+
+  global void setCorrelationId(String value) {}
+
+  global void setFacets(List<ConnectApi.SearchFacet> value) {}
+
+  global void setLocale(String value) {}
+
+  global void setProductsPage(ConnectApi.ProductSummaryPage value) {}
+
 }

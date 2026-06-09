@@ -39,4 +39,6 @@ global class QueryUtils {
 
   global Object clone() {}
 
+  global static List<Map<String,Object>> filterAndSort(DataSource.QueryContext c, List<Map<String,Object>> rows) {}
+
 }

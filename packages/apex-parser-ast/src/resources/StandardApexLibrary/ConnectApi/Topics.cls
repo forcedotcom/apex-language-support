@@ -93,4 +93,8 @@ global class Topics {
 
   global Object clone() {}
 
+  global static void setTestGetRecentlyTalkingAboutTopicsForGroup(String communityId, String groupId, ConnectApi.TopicPage result) {}
+
+  global static void setTestGetTopicSuggestions(String communityId, String recordId, ConnectApi.TopicSuggestionPage result) {}
+
 }

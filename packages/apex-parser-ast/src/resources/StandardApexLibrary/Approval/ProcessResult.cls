@@ -41,6 +41,8 @@ global class ProcessResult {
    */
   global Boolean isSuccess() {}
 
+  global List<Id> getActorIds() {}
+
   global Object clone() {}
 
 }

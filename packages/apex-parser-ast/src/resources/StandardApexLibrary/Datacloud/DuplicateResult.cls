@@ -29,6 +29,8 @@ global class DuplicateResult {
    */
   global Boolean isAllowSave() {}
 
+  global String getDuplicateRuleEntityType() {}
+
   global Object clone() {}
 
 }

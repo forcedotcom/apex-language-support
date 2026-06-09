@@ -151,4 +151,12 @@ global class ContentHub {
 
   global Object clone() {}
 
+  global static void deleteRepositoryFile(String communityId, String repositoryId, String repositoryFileId) {}
+
+  global static void deleteRepositoryFile(String repositoryId, String repositoryFileId) {}
+
+  global static void deleteRepositoryFolder(String communityId, String repositoryId, String repositoryFolderId) {}
+
+  global static void deleteRepositoryFolder(String repositoryId, String repositoryFolderId) {}
+
 }

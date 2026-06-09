@@ -37,6 +37,8 @@ global class DescribeTabSetResult {
 
   global Boolean isSelected() {}
 
+  global String getTabSetId() {}
+
   global Object clone() {}
 
 }

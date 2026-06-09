@@ -17,4 +17,12 @@ global class ProductOverviewCollection {
 
   global Object clone() {}
 
+  global List<ConnectApi.ProductOverview> getProducts() {}
+
+  global Integer getTotal() {}
+
+  global void setProducts(List<ConnectApi.ProductOverview> value) {}
+
+  global void setTotal(Integer value) {}
+
 }

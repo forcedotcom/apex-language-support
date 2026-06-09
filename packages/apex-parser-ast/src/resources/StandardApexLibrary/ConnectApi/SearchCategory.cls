@@ -22,4 +22,16 @@ global class SearchCategory {
 
   global Object clone() {}
 
+  global ConnectApi.ProductCategoryData getCategory() {}
+
+  global List<ConnectApi.SearchCategory> getChildren() {}
+
+  global Long getProductCount() {}
+
+  global void setCategory(ConnectApi.ProductCategoryData value) {}
+
+  global void setChildren(List<ConnectApi.SearchCategory> value) {}
+
+  global void setProductCount(Long value) {}
+
 }

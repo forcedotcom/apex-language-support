@@ -48,6 +48,8 @@ global class ProjectionNode {
    */
   global wave.ProjectionNode alias(String name) {}
 
+  global String build() {}
+
   global Object clone() {}
 
 }

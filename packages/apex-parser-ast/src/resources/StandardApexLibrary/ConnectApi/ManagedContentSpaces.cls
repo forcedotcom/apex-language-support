@@ -19,4 +19,8 @@ global class ManagedContentSpaces {
 
   global Object clone() {}
 
+  global static ConnectApi.ManagedContentSpaceCollectionRepresentation getManagedContentSpaces(Integer pageParam, Integer pageSize, String nameFragment, String businessUnitId, Boolean hasBusinessUnit, ConnectApi.ConnectManagedContentSpaceType spaceType) {}
+
+  global static ConnectApi.ManagedContentSpaceCollectionRepresentation getManagedContentSpacesByBusinessUnitStatus(Integer pageParam, Integer pageSize, String nameFragment, String businessUnitId, Boolean hasBusinessUnit, ConnectApi.ConnectManagedContentSpaceType spaceType, String businessUnitStatus) {}
+
 }

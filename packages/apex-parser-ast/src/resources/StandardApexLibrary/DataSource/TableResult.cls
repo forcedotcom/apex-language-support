@@ -63,4 +63,6 @@ global class TableResult {
 
   global Object clone() {}
 
+  global static DataSource.TableResult get(Boolean success, String errorMessage, String tableName, List<Map<String,Object>> rows, Integer totalSize, String queryMoreToken) {}
+
 }

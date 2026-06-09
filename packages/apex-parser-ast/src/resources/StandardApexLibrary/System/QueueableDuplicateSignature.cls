@@ -7,6 +7,8 @@ global class QueueableDuplicateSignature {
 
   global String toString() {}
 
+  global static System.QueueableDuplicateSignature.Builder builder() {}
+
   global Object clone() {}
 
   /**

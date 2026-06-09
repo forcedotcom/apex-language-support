@@ -73,4 +73,14 @@ global class ManagedContent {
 
   global Object clone() {}
 
+  global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion, ConnectApi.BinaryInput contentData) {}
+
+  global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion) {}
+
+  global static void deleteManagedContent(String contentSpaceId, String managedContentId) {}
+
+  global static void deleteManagedContentSpace(String contentSpaceId) {}
+
+  global static ConnectApi.ManagedContentOutput updateManagedContent(String contentSpaceId, String managedContentId, ConnectApi.ManagedContentInput contentVersion) {}
+
 }

@@ -4,4 +4,6 @@ global class InvalidSnapshotDateException {
 
   global Object clone() {}
 
+  global List<String> getSnapshotDateErrors() {}
+
 }

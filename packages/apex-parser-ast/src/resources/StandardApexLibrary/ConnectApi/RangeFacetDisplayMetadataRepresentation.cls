@@ -12,4 +12,8 @@ global class RangeFacetDisplayMetadataRepresentation {
 
   global Object clone() {}
 
+  global Map<String,String> getCurrencyInfo() {}
+
+  global void setCurrencyInfo(Map<String,String> value) {}
+
 }

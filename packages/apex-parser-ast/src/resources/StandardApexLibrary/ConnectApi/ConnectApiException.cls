@@ -4,4 +4,6 @@ global class ConnectApiException {
 
   global Object clone() {}
 
+  global String getErrorCode() {}
+
 }

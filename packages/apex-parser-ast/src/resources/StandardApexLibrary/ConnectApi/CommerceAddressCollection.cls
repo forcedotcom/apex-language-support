@@ -57,4 +57,44 @@ global class CommerceAddressCollection {
 
   global Object clone() {}
 
+  global Integer getCount() {}
+
+  global String getCurrentPageToken() {}
+
+  global String getCurrentPageUrl() {}
+
+  global List<ConnectApi.CommerceAddressOutput> getItems() {}
+
+  global String getNextPageToken() {}
+
+  global String getNextPageUrl() {}
+
+  global Integer getPageSize() {}
+
+  global String getPreviousPageToken() {}
+
+  global String getPreviousPageUrl() {}
+
+  global ConnectApi.CommerceAddressSort getSortOrder() {}
+
+  global void setCount(Integer value) {}
+
+  global void setCurrentPageToken(String value) {}
+
+  global void setCurrentPageUrl(String value) {}
+
+  global void setItems(List<ConnectApi.CommerceAddressOutput> value) {}
+
+  global void setNextPageToken(String value) {}
+
+  global void setNextPageUrl(String value) {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setPreviousPageToken(String value) {}
+
+  global void setPreviousPageUrl(String value) {}
+
+  global void setSortOrder(ConnectApi.CommerceAddressSort value) {}
+
 }

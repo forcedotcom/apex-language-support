@@ -23,6 +23,44 @@ global class MassEmailMessage {
    */
   global void setWhatIds(ID[] whatIds) {}
 
+  global Boolean getBccSender() {}
+
+  global String getDescription() {}
+
+  global String getEmailPriority() {}
+
+  global String getReplyTo() {}
+
+  global Boolean getSaveAsActivity() {}
+
+  global String getSenderDisplayName() {}
+
+  global String getSubject() {}
+
+  global List<Id> getTargetObjectIds() {}
+
+  global Id getTemplateId() {}
+
+  global Boolean getUseSignature() {}
+
+  global List<Id> getWhatIds() {}
+
+  global void setBccSender(Boolean arg0) {}
+
+  global void setEmailPriority(String arg0) {}
+
+  global void setReplyTo(String arg0) {}
+
+  global void setSaveAsActivity(Boolean arg0) {}
+
+  global void setSenderDisplayName(String arg0) {}
+
+  global void setSubject(String arg0) {}
+
+  global void setTemplateId(Id arg0) {}
+
+  global void setUseSignature(Boolean arg0) {}
+
   global Object clone() {}
 
 }

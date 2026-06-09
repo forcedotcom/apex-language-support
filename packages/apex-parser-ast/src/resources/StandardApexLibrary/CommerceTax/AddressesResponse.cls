@@ -13,4 +13,6 @@ global class AddressesResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.AddressesEngineResponse getDelegate() {}
+
 }

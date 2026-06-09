@@ -22,4 +22,16 @@ global class CommerceProductSummaryPage {
 
   global Object clone() {}
 
+  global Integer getPageSize() {}
+
+  global List<ConnectApi.CommerceProductSummary> getProducts() {}
+
+  global Long getTotal() {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setProducts(List<ConnectApi.CommerceProductSummary> value) {}
+
+  global void setTotal(Long value) {}
+
 }

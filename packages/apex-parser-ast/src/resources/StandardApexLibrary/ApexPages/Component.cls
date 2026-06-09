@@ -13,4 +13,6 @@ global class Component {
 
   global Object clone() {}
 
+  global ApexPages.Component getComponentById(String id) {}
+
 }

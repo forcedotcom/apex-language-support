@@ -35,6 +35,8 @@ global class QuickActionResult {
    */
   global Boolean isSuccess() {}
 
+  global Id getContextId() {}
+
   global Object clone() {}
 
 }

@@ -49,6 +49,10 @@ global class QuickAction {
    */
   global static List<QuickAction.QuickActionResult> performQuickActions(List<QuickAction.QuickActionRequest> quickActionRequests, Boolean allOrNothing) {}
 
+  global static QuickAction.QuickActionTemplateResult retrieveQuickActionTemplate(String quickActionName, Id contextId) {}
+
+  global static List<QuickAction.QuickActionTemplateResult> retrieveQuickActionTemplates(List<String> quickActionNames, Id contextId) {}
+
   global Object clone() {}
 
 }

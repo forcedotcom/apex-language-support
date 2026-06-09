@@ -19,4 +19,8 @@ global class ReportType {
 
   global Object clone() {}
 
+  global void setLabel(String label) {}
+
+  global void setType(String type) {}
+
 }

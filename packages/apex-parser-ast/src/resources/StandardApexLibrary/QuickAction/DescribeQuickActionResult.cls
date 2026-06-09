@@ -231,6 +231,14 @@ global class DescribeQuickActionResult {
    */
   global Integer getWidth() {}
 
+  global String getAccessLevelRequired() {}
+
+  global String getCanvasApplicationId() {}
+
+  global String getMobileExtensionId() {}
+
+  global List<QuickAction.DescribeQuickActionParameter> getParameters() {}
+
   global Object clone() {}
 
 }

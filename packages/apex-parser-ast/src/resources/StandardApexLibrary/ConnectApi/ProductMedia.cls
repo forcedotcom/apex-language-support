@@ -47,4 +47,36 @@ global class ProductMedia {
 
   global Object clone() {}
 
+  global String getAlternateText() {}
+
+  global String getContentVersionId() {}
+
+  global String getId() {}
+
+  global ConnectApi.ProductMediaType getMediaType() {}
+
+  global Integer getSortOrder() {}
+
+  global String getThumbnailUrl() {}
+
+  global String getTitle() {}
+
+  global String getUrl() {}
+
+  global void setAlternateText(String value) {}
+
+  global void setContentVersionId(String value) {}
+
+  global void setId(String value) {}
+
+  global void setMediaType(ConnectApi.ProductMediaType value) {}
+
+  global void setSortOrder(Integer value) {}
+
+  global void setThumbnailUrl(String value) {}
+
+  global void setTitle(String value) {}
+
+  global void setUrl(String value) {}
+
 }

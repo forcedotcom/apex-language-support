@@ -15,4 +15,6 @@ global class ImpositionResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.ImpositionEngineResponse getDelegate() {}
+
 }

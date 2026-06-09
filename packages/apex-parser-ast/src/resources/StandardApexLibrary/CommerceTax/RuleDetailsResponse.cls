@@ -17,4 +17,6 @@ global class RuleDetailsResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.RuleDetailsEngineResponse getDelegate() {}
+
 }

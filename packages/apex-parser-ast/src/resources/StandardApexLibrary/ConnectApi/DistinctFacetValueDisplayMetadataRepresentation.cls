@@ -12,4 +12,8 @@ global class DistinctFacetValueDisplayMetadataRepresentation {
 
   global Object clone() {}
 
+  global Map<String,String> getSwatch() {}
+
+  global void setSwatch(Map<String,String> value) {}
+
 }

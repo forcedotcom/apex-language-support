@@ -29,6 +29,14 @@ global class ProcessWorkitemRequest {
    */
   global void setWorkitemId(String id) {}
 
+  global String getComments() {}
+
+  global List<Id> getNextApproverIds() {}
+
+  global void setComments(String arg0) {}
+
+  global void setNextApproverIds(List<Id> arg0) {}
+
   global Object clone() {}
 
 }

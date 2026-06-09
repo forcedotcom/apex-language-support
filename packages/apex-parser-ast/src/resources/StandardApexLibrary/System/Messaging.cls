@@ -74,6 +74,10 @@ global class Messaging {
    */
   global static Messaging.SingleEmailMessage renderStoredEmailTemplate(String templateId, String whoId, String whatId, Messaging.AttachmentRetrievalOption attachmentRetrievalOption, Boolean updateEmailTemplateUsage) {}
 
+  global static List<Messaging.SendEmailResult> sendEmail(List<Messaging.Email> emailMessages) {}
+
+  global static List<Messaging.SendEmailResult> sendEmailMessage(List<Id> emailMessagesIds) {}
+
   global Object clone() {}
 
 }

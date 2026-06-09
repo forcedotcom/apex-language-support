@@ -267,6 +267,20 @@ global class Site {
    */
   global static void validatePassword(SObject user, String password, String confirmPassword) {}
 
+  global static System.PageReference changePassword(String newPassword, String verifyNewPassword) {}
+
   global Object clone() {}
+
+  global static Id createPortalUser(SObject user, String accountId, String password) {}
+
+  global static Id createPortalUser(SObject user, String accountId) {}
+
+  global static Boolean forgotPassword(String username, String emailTemplateName) {}
+
+  global static String getCurrentSiteUrl() {}
+
+  global static String getCustomWebAddress() {}
+
+  global static String getPrefix() {}
 
 }

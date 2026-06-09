@@ -102,4 +102,84 @@ global class CartItem extends ConnectApi.AbstractCartItem {
 
   global Object clone() {}
 
+  global ConnectApi.CartItemCollection getCartData() {}
+
+  global String getCurrencyIsoCode() {}
+
+  global String getFirstPymtTotalAmount() {}
+
+  global String getFirstPymtTotalListPrice() {}
+
+  global String getFirstPymtTotalPrice() {}
+
+  global String getFirstPymtTotalTax() {}
+
+  global String getItemizedAdjustmentAmount() {}
+
+  global String getListPrice() {}
+
+  global ConnectApi.ProductClass getProductClass() {}
+
+  global String getQuoteLineItemId() {}
+
+  global String getSalesPrice() {}
+
+  global String getTotalAdjustmentAmount() {}
+
+  global String getTotalAmount() {}
+
+  global String getTotalListPrice() {}
+
+  global String getTotalPrice() {}
+
+  global String getTotalTax() {}
+
+  global String getUnitAdjustedPrice() {}
+
+  global String getUnitAdjustedPriceWithItemAdj() {}
+
+  global String getUnitAdjustmentAmount() {}
+
+  global String getUnitItemAdjustmentAmount() {}
+
+  global void setCartData(ConnectApi.CartItemCollection value) {}
+
+  global void setCurrencyIsoCode(String value) {}
+
+  global void setFirstPymtTotalAmount(String value) {}
+
+  global void setFirstPymtTotalListPrice(String value) {}
+
+  global void setFirstPymtTotalPrice(String value) {}
+
+  global void setFirstPymtTotalTax(String value) {}
+
+  global void setItemizedAdjustmentAmount(String value) {}
+
+  global void setListPrice(String value) {}
+
+  global void setProductClass(ConnectApi.ProductClass value) {}
+
+  global void setQuoteLineItemId(String value) {}
+
+  global void setSalesPrice(String value) {}
+
+  global void setTotalAdjustmentAmount(String value) {}
+
+  global void setTotalAmount(String value) {}
+
+  global void setTotalListPrice(String value) {}
+
+  global void setTotalPrice(String value) {}
+
+  global void setTotalTax(String value) {}
+
+  global void setUnitAdjustedPrice(String value) {}
+
+  global void setUnitAdjustedPriceWithItemAdj(String value) {}
+
+  global void setUnitAdjustmentAmount(String value) {}
+
+  global void setUnitItemAdjustmentAmount(String value) {}
+
 }

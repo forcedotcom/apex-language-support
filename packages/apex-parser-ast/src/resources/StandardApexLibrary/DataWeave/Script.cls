@@ -13,4 +13,8 @@ global class Script {
 
   global Object clone() {}
 
+  global dataweave.Result execute(Map<String,Object> parameters) {}
+
+  global dataweave.Result execute() {}
+
 }

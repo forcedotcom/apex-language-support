@@ -19,4 +19,6 @@ global class Operations {
    */
   global static List<Metadata.Metadata> retrieve(Metadata.MetadataType type, List<String> fullNames) {}
 
+  global static Id enqueueDeployment(Metadata.DeployContainer container, Metadata.DeployCallback callback) {}
+
 }

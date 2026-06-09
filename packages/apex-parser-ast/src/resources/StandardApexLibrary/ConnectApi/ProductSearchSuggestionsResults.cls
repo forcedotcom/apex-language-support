@@ -12,4 +12,8 @@ global class ProductSearchSuggestionsResults {
 
   global Object clone() {}
 
+  global List<ConnectApi.AbstractSearchSuggestion> getRecentSearchSuggestions() {}
+
+  global void setRecentSearchSuggestions(List<ConnectApi.AbstractSearchSuggestion> value) {}
+
 }

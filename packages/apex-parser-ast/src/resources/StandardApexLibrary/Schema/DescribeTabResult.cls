@@ -53,6 +53,12 @@ global class DescribeTabResult {
    */
   global Boolean isCustom() {}
 
+  global String getMobileUrl() {}
+
+  global String getName() {}
+
+  global String getTabEnumOrId() {}
+
   global Object clone() {}
 
 }

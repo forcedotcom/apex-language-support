@@ -22,4 +22,16 @@ global class RefinementInput {
 
   global Object clone() {}
 
+  global ConnectApi.CommerceSearchAttributeType getAttributeType() {}
+
+  global String getNameOrId() {}
+
+  global ConnectApi.CommerceSearchFacetType getType() {}
+
+  global void setAttributeType(ConnectApi.CommerceSearchAttributeType value) {}
+
+  global void setNameOrId(String value) {}
+
+  global void setType(ConnectApi.CommerceSearchFacetType value) {}
+
 }

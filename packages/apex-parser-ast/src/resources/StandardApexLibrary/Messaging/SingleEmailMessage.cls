@@ -133,6 +133,76 @@ global class SingleEmailMessage {
    */
   global void setWhatId(ID whatId) {}
 
+  global List<String> getBccAddresses() {}
+
+  global Boolean getBccSender() {}
+
+  global List<String> getCcAddresses() {}
+
+  global String getCharset() {}
+
+  global Map<String,String> getCustomHeaders() {}
+
+  global String getEmailPriority() {}
+
+  global List<String> getEntityAttachments() {}
+
+  global List<Messaging.EmailFileAttachment> getFileAttachments() {}
+
+  global String getHtmlBody() {}
+
+  global String getInReplyTo() {}
+
+  global String getOptOutPolicy() {}
+
+  global Id getOrgWideEmailAddressId() {}
+
+  global String getPlainTextBody() {}
+
+  global String getReferences() {}
+
+  global String getReplyTo() {}
+
+  global Boolean getSaveAsActivity() {}
+
+  global String getSenderDisplayName() {}
+
+  global String getSubject() {}
+
+  global Id getTargetObjectId() {}
+
+  global Id getTemplateId() {}
+
+  global List<String> getToAddresses() {}
+
+  global String getUnsubscribeComment() {}
+
+  global List<String> getUnsubscribeUrls() {}
+
+  global Boolean getUseSignature() {}
+
+  global Id getWhatId() {}
+
+  global Boolean isTreatBodiesAsTemplate() {}
+
+  global Boolean isTreatTargetObjectAsRecipient() {}
+
+  global Boolean isUserMail() {}
+
+  global void setBccSender(Boolean arg0) {}
+
+  global void setCustomHeaders(Map<String,String> arg0) {}
+
+  global void setEmailPriority(String arg0) {}
+
+  global void setReplyTo(String arg0) {}
+
+  global void setSaveAsActivity(Boolean arg0) {}
+
+  global void setSenderDisplayName(String arg0) {}
+
+  global void setUseSignature(Boolean arg0) {}
+
   global Object clone() {}
 
 }

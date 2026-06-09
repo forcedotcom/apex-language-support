@@ -271,6 +271,16 @@ global class System {
    */
   global static Date today() {}
 
+  global static void assert(Boolean condition) {}
+
+  global static void assertEquals(Object expected, Object actual) {}
+
+  global static void assertNotEquals(Object expected, Object actual) {}
+
+  global static void changeOwnPassword(String oldPassword, String newPassword) {}
+
+  global static void runAs(SObject user, Object block) {}
+
   global Object clone() {}
 
 }

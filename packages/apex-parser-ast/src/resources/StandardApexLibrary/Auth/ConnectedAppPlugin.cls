@@ -69,4 +69,6 @@ global class ConnectedAppPlugin {
 
   global Object clone() {}
 
+  global Map<String,String> customAttributes(Id userId, Map<String,String> formulaDefinedAttributes) {}
+
 }

@@ -149,4 +149,6 @@ global class AuthConfiguration {
 
   global Object clone() {}
 
+  global Boolean getEmbeddedLoginEnabled() {}
+
 }

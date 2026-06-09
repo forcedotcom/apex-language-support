@@ -271,6 +271,32 @@ global class Limits {
    */
   global static Integer getLimitSoslQueries() {}
 
+  global static Integer getDatabaseTime() {}
+
+  global static Integer getFieldSetsDescribes() {}
+
+  global static Integer getFieldsDescribes() {}
+
+  global static Integer getLimitChildRelationshipsDescribes() {}
+
+  global static Integer getLimitDatabaseTime() {}
+
+  global static Integer getLimitFieldSetsDescribes() {}
+
+  global static Integer getLimitFieldsDescribes() {}
+
+  global static Integer getLimitPicklistDescribes() {}
+
+  global static Integer getLimitRecordTypesDescribes() {}
+
+  global static Integer getLimitScriptStatements() {}
+
+  global static Integer getPicklistDescribes() {}
+
+  global static Integer getRecordTypesDescribes() {}
+
+  global static Integer getScriptStatements() {}
+
   global Object clone() {}
 
 }

@@ -304,4 +304,8 @@ global class Team {
 
   global Object clone() {}
 
+  global String getAvatarBaseUrl() {}
+
+  global void setAvatarBaseUrl(String avatarBaseUrl) {}
+
 }

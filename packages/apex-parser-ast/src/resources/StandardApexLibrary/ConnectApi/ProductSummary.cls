@@ -57,4 +57,44 @@ global class ProductSummary {
 
   global Object clone() {}
 
+  global ConnectApi.ProductMedia getDefaultImage() {}
+
+  global Map<String,ConnectApi.FieldValue> getFields() {}
+
+  global String getId() {}
+
+  global String getName() {}
+
+  global ConnectApi.PricingResultLineItem getPrices() {}
+
+  global ConnectApi.ProductClass getProductClass() {}
+
+  global ConnectApi.CommerceProductSellingModel getProductSellingModelInformation() {}
+
+  global ConnectApi.PurchaseQuantityRule getPurchaseQuantityRule() {}
+
+  global String getUrlName() {}
+
+  global ConnectApi.ProductAttributeSetSummary getVariationAttributeSet() {}
+
+  global void setDefaultImage(ConnectApi.ProductMedia value) {}
+
+  global void setFields(Map<String,ConnectApi.FieldValue> value) {}
+
+  global void setId(String value) {}
+
+  global void setName(String value) {}
+
+  global void setPrices(ConnectApi.PricingResultLineItem value) {}
+
+  global void setProductClass(ConnectApi.ProductClass value) {}
+
+  global void setProductSellingModelInformation(ConnectApi.CommerceProductSellingModel value) {}
+
+  global void setPurchaseQuantityRule(ConnectApi.PurchaseQuantityRule value) {}
+
+  global void setUrlName(String value) {}
+
+  global void setVariationAttributeSet(ConnectApi.ProductAttributeSetSummary value) {}
+
 }

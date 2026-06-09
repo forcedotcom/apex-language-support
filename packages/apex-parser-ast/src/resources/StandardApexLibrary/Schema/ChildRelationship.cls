@@ -41,6 +41,10 @@ global class ChildRelationship {
    */
   global Boolean isRestrictedDelete() {}
 
+  global List<String> getJunctionIdListNames() {}
+
+  global List<Schema.SObjectType> getJunctionReferenceTo() {}
+
   global Object clone() {}
 
 }

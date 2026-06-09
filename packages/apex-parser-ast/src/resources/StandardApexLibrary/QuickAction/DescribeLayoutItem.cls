@@ -41,6 +41,8 @@ global class DescribeLayoutItem {
    */
   global Boolean isRequired() {}
 
+  global String getUiBehavior() {}
+
   global Object clone() {}
 
 }

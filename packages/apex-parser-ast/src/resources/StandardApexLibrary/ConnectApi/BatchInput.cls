@@ -7,4 +7,8 @@ global class BatchInput {
 
   global Object clone() {}
 
+  global List<ConnectApi.BinaryInput> getBinaries() {}
+
+  global Object getInput() {}
+
 }

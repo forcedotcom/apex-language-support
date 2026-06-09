@@ -143,6 +143,28 @@ global class LeadConvert {
    */
   global void setSendNotificationEmail(Boolean sendEmail) {}
 
+  global SObject getAccountRecord() {}
+
+  global Boolean getBypassAccountDedupeCheck() {}
+
+  global Boolean getBypassContactDedupeCheck() {}
+
+  global SObject getContactRecord() {}
+
+  global SObject getOpportunityRecord() {}
+
+  global void setAccountRecord(SObject arg0) {}
+
+  global void setBypassAccountDedupeCheck(Boolean arg0) {}
+
+  global void setBypassContactDedupeCheck(Boolean arg0) {}
+
+  global void setContactRecord(SObject arg0) {}
+
+  global void setOpportunityRecord(SObject arg0) {}
+
+  global void setRelatedPersonAccountRecord(SObject arg0) {}
+
   global Object clone() {}
 
 }

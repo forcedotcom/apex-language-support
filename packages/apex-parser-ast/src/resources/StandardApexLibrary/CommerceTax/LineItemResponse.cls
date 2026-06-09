@@ -27,4 +27,6 @@ global class LineItemResponse {
 
   global Object clone() {}
 
+  global java:commerce.tax.impl.engine.integration.response.LineItemEngineResponse getDelegate() {}
+
 }

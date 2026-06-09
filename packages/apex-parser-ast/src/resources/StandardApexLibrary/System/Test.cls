@@ -180,4 +180,16 @@ global class Test {
 
   global Object clone() {}
 
+  global static System.ExternalServiceTest getExternalService() {}
+
+  global static Component.apex.page invokePage(System.PageReference p) {}
+
+  global static void testInstall(System.InstallHandler script, System.Version version, Boolean isPush, Boolean isRunAsInstallUser) {}
+
+  global static void testInstall(System.InstallHandler script, System.Version version) {}
+
+  global static Messaging.ActionResult testNotificationActionHandler(Messaging.NotificationActionHandler handler, Messaging.ActionableNotification actionableNotification) {}
+
+  global static void testUninstall(System.UninstallHandler script, Boolean isRunAsInstallUser) {}
+
 }
