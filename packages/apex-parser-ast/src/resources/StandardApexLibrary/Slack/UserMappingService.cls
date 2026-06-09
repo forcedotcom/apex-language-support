@@ -1,6 +1,6 @@
-global class UserMapping Service {
+global class UserMappingService {
 
-  global UserMapping Service() {}
+  global UserMappingService() {}
 
   global String getSalesforceUserId(String slackUserId) {}
 
