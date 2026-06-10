@@ -12,6 +12,7 @@ import type {
   DeferredReferenceProcessingSettings,
   SymbolGraphSettings,
   TelemetrySettings,
+  ExperimentalSettings,
 } from '../server/ApexLanguageServerSettings';
 
 /**
@@ -126,6 +127,14 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     validation: {
       versionSpecificValidation: {
         enabled: false, // Disabled by default
+      },
+    },
+
+    experimental: {
+      workers: {
+        enabled: true,
+        poolSize: 2,
+        resourceLoader: true,
       },
     },
 
@@ -255,6 +264,8 @@ export function validateApexSettings(obj: any): ValidationResult {
     scheduler: 'object',
     deferredReferenceProcessing: 'object',
     symbolGraph: 'object',
+    validation: 'object',
+    experimental: 'object',
     telemetry: 'object',
     worker: 'object',
     version: 'string',
@@ -417,6 +428,16 @@ export function mergeWithDefaults(
             ...userSettings.apex?.telemetry,
           }
         : userSettings.apex?.telemetry,
+      experimental: baseApex.experimental
+        ? {
+            ...baseApex.experimental,
+            ...userSettings.apex?.experimental,
+            workers: {
+              ...baseApex.experimental.workers,
+              ...userSettings.apex?.experimental?.workers,
+            },
+          }
+        : userSettings.apex?.experimental,
       worker: {
         ...baseApex.worker,
         ...userSettings.apex?.worker,
@@ -531,6 +552,19 @@ export function mergeWithExisting(
               ...existingSettings.apex.telemetry,
               ...partialSettings.apex?.telemetry,
             } as TelemetrySettings)
+          : undefined,
+      experimental:
+        existingSettings.apex.experimental || partialSettings.apex?.experimental
+          ? ({
+              ...DEFAULT_APEX_SETTINGS.apex.experimental!,
+              ...existingSettings.apex.experimental,
+              ...partialSettings.apex?.experimental,
+              workers: {
+                ...DEFAULT_APEX_SETTINGS.apex.experimental!.workers,
+                ...existingSettings.apex.experimental?.workers,
+                ...partialSettings.apex?.experimental?.workers,
+              },
+            } as ExperimentalSettings)
           : undefined,
       worker: {
         ...existingSettings.apex.worker,

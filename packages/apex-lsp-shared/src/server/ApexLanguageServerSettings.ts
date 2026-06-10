@@ -300,6 +300,39 @@ export interface SymbolGraphSettings {
 }
 
 /**
+ * Worker topology settings (internal language-server worker pool).
+ *
+ * The worker topology is fully internal to the server process; the LSP client
+ * is unaware of it. These settings are surfaced to users under
+ * `apex.experimental.workers.*` and mirrored here so the server resolves the
+ * same defaults regardless of which client (VS Code, web, tests, direct LSP)
+ * supplies the configuration.
+ */
+export interface WorkerTopologySettings {
+  /** Enable the internal worker topology (default: true) */
+  enabled: boolean;
+
+  /**
+   * Number of enrichment workers in the pool.
+   * Bounded by the client manifest to [1, cpus-2]; default: 2.
+   */
+  poolSize: number;
+
+  /** Run the resource loader in a dedicated worker (default: true) */
+  resourceLoader: boolean;
+}
+
+/**
+ * Experimental feature settings.
+ *
+ * Surfaced to users under `apex.experimental.*`.
+ */
+export interface ExperimentalSettings {
+  /** Internal worker topology configuration */
+  workers: WorkerTopologySettings;
+}
+
+/**
  * Validation settings
  */
 export interface ValidationSettings {
@@ -353,6 +386,9 @@ export interface ApexLanguageServerSettings {
 
     /** Validation configuration */
     validation?: ValidationSettings;
+
+    /** Experimental feature settings (e.g. internal worker topology) */
+    experimental?: ExperimentalSettings;
 
     /** Telemetry settings for OpenTelemetry-based observability */
     telemetry?: TelemetrySettings;
