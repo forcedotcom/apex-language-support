@@ -1639,10 +1639,10 @@ export class LCSAdapter {
       try {
         require.resolve('node:worker_threads');
         const workerSettings =
-          LSPConfigurationManager.getInstance().getSettings().apex as any;
+          LSPConfigurationManager.getInstance().getSettings().apex;
         const workersEnabled =
           process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
-          workerSettings?.experimental?.workers?.enabled === true;
+          workerSettings.experimental?.workers?.enabled === true;
         if (workersEnabled) {
           this.initializeWorkerTopology();
         }
@@ -1651,10 +1651,10 @@ export class LCSAdapter {
       }
     } else {
       // Browser: gate on setting same as Node
-      const workerSettings = LSPConfigurationManager.getInstance().getSettings()
-        .apex as any;
+      const workerSettings =
+        LSPConfigurationManager.getInstance().getSettings().apex;
       const workersEnabled =
-        workerSettings?.experimental?.workers?.enabled === true;
+        workerSettings.experimental?.workers?.enabled === true;
       if (workersEnabled) {
         this.initializeWorkerTopology();
       }
@@ -2091,26 +2091,20 @@ export class LCSAdapter {
 
       const { Scope } = yield* Effect.promise(() => import('effect'));
 
-      const apexSettings = LSPConfigurationManager.getInstance().getSettings()
-        .apex as Record<string, any>;
-      const workerCfg =
-        (apexSettings?.experimental as Record<string, unknown>)?.workers ??
-        ({} as Record<string, unknown>);
+      const apexSettings =
+        LSPConfigurationManager.getInstance().getSettings().apex;
+      const workerCfg = apexSettings.experimental?.workers;
 
-      const enableResourceLoader =
-        (workerCfg as Record<string, unknown>).resourceLoader !== false;
+      const enableResourceLoader = workerCfg?.resourceLoader !== false;
 
       const serverMode = LSPConfigurationManager.getInstance()
         .getCapabilitiesManager()
         .getMode();
 
-      const mainLogLevel =
-        (LSPConfigurationManager.getInstance().getSettings()?.apex as any)
-          ?.logLevel ?? 'error';
+      const mainLogLevel = apexSettings.logLevel ?? 'error';
 
       const config = {
-        poolSize:
-          ((workerCfg as Record<string, unknown>).poolSize as number) ?? 2,
+        poolSize: workerCfg?.poolSize ?? 2,
         enableResourceLoader,
         logger: this.logger,
         logLevel: mainLogLevel,
