@@ -3,6 +3,8 @@
  */
 global class ProductSearchOutputRepresentation {
 
+  global ProductSearchOutputRepresentation() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -37,5 +39,7 @@ global class ProductSearchOutputRepresentation {
    * Total products found.
    */
   global Integer totalRecordsFound;
+
+  global Object clone() {}
 
 }

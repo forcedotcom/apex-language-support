@@ -3,12 +3,14 @@
  */
 global class Resolution {
 
-  public Resolution(CommerceExtension.ResolutionStates resolutionState) {}
+  global Resolution(CommerceExtension.ResolutionStates resolutionState) {}
 
-  public Resolution(String providerName) {}
+  global Resolution(String providerName) {}
 
-  public String getProviderName() {}
+  global String getProviderName() {}
 
-  public CommerceExtension.ResolutionStates getResolutionState() {}
+  global CommerceExtension.ResolutionStates getResolutionState() {}
+
+  global Object clone() {}
 
 }

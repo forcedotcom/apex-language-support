@@ -3,6 +3,8 @@
  */
 global class PaymentAuthAdjustmentResponse {
 
+  global PaymentAuthAdjustmentResponse() {}
+
   /**
    * ID of the account containing the payment authorization being adjusted.
    */
@@ -42,5 +44,7 @@ global class PaymentAuthAdjustmentResponse {
    * Status of the payment authorization adjustment.Possible values are: Canceled : The payment authorization reversal has been canceled. The parent authorization has returned to its pre-reversal balance. Draft : The payment authorization reversal can be edited before applying it against the parent authorization. Processed : The payment authorization reversal has been finalized. Users can change the status as follows: Draft to Processed Processed to Canceled Draft to Canceled
    */
   global String status;
+
+  global Object clone() {}
 
 }

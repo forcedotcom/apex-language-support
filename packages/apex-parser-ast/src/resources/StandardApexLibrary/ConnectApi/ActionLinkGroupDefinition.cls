@@ -3,6 +3,8 @@
  */
 global class ActionLinkGroupDefinition {
 
+  global ActionLinkGroupDefinition() {}
+
   /**
    * A collection of action link definitions that make up the action link group. Within an action link group, action links are displayed in the order listed in the actionLinks property of the ConnectApi.ActionLinkGroupDefinitionInput class. Within a feed item, action link groups are displayed in the order specified in the actionLinkGroupIds property of the ConnectApi.AssociatedActionsCapabilityInput class.
    */
@@ -47,5 +49,7 @@ global class ActionLinkGroupDefinition {
    * The URL for this action link group definition.
    */
   global String url;
+
+  global Object clone() {}
 
 }

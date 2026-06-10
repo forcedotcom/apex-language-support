@@ -3,6 +3,8 @@
  */
 global class CardPaymentMethodOutput {
 
+  global CardPaymentMethodOutput() {}
+
   /**
    * Salesforce Payments account to which this payment method is linked.
    */
@@ -87,5 +89,7 @@ global class CardPaymentMethodOutput {
    * Year when card becomes active
    */
   global Integer startYear;
+
+  global Object clone() {}
 
 }

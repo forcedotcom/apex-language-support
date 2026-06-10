@@ -3,6 +3,8 @@
  */
 global class CdpSegmentOutput {
 
+  global CdpSegmentOutput() {}
+
   /**
    * API name of the segment.
    */
@@ -107,5 +109,7 @@ global class CdpSegmentOutput {
    * Type of segment.
    */
   global String segmentType;
+
+  global Object clone() {}
 
 }

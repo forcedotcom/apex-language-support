@@ -3,4 +3,8 @@
  */
 global class ManagedSocialAccount extends ConnectApi.BaseManagedSocialAccount {
 
+  global ManagedSocialAccount() {}
+
+  global Object clone() {}
+
 }

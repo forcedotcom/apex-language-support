@@ -3,6 +3,8 @@
  */
 global class ChatterGroupPage {
 
+  global ChatterGroupPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -22,5 +24,7 @@ global class ChatterGroupPage {
    * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

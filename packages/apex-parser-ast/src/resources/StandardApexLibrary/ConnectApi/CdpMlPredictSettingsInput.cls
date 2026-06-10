@@ -3,6 +3,8 @@
  */
 global class CdpMlPredictSettingsInput {
 
+  global CdpMlPredictSettingsInput() {}
+
   /**
    * List of aggregate functions for the prediction.
    */
@@ -22,5 +24,7 @@ global class CdpMlPredictSettingsInput {
    * The minimum impact percentage of the prescriptions to return. Only prescriptions whose impact percentage is greater than or equal to the specified percentage are returned. The default value is 0 and the allowed range is 0 through 100 .
    */
   global Integer prescriptionImpactPercentage;
+
+  global Object clone() {}
 
 }

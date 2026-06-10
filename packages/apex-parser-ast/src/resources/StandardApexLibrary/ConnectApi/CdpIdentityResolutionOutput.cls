@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionOutput {
 
+  global CdpIdentityResolutionOutput() {}
+
   /**
    * Count of anonymous unified profiles created by running the identity resolution ruleset.
    */
@@ -97,5 +99,7 @@ global class CdpIdentityResolutionOutput {
    * Count of unified profiles created by running the identity resolution ruleset.
    */
   global Long totalUnifiedProfiles;
+
+  global Object clone() {}
 
 }

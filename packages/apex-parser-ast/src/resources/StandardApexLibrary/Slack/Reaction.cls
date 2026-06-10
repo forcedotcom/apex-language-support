@@ -1,5 +1,7 @@
 global class Reaction {
 
+  global Reaction() {}
+
   global Integer getCount() {}
 
   global String getName() {}
@@ -249,5 +251,7 @@ global class Reaction {
   global Slack.ReactionsRemoveRequest.Builder full(Boolean full) {}
 
   global Slack.ReactionsRemoveRequest.Builder timestamp(String timestamp) {}
+
+  global Object clone() {}
 
 }

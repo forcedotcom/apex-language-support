@@ -3,12 +3,14 @@
  */
 global class AuthRequestResponse {
 
-  public AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) {}
+  global AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) {}
 
-  public String getAccessToken() {}
+  global String getAccessToken() {}
 
-  public String getAuthProviderName() {}
+  global String getAuthProviderName() {}
 
-  public String getContextRecordId() {}
+  global String getContextRecordId() {}
+
+  global Object clone() {}
 
 }

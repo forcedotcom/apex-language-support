@@ -3,6 +3,8 @@
  */
 global class BasicTemplateAttachment extends ConnectApi.FeedItemAttachment {
 
+  global BasicTemplateAttachment() {}
+
   /**
    * An optional description with a 500 character limit.
    */
@@ -27,5 +29,7 @@ global class BasicTemplateAttachment extends ConnectApi.FeedItemAttachment {
    * An optional title to the detail page. If linkUrl is specified, the title links to linkUrl .
    */
   global String title;
+
+  global Object clone() {}
 
 }

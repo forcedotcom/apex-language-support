@@ -3,9 +3,13 @@
  */
 global class MultipleFulfillmentOrderOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global MultipleFulfillmentOrderOutputRepresentation() {}
+
   /**
    * A list of response data for created and failed FulfillmentOrders.
    */
   global List < ConnectApi.FulfillmentGroupOutputRepresentation > fulfillmentOrders;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class AddressRequest {
 
+  global AddressRequest() {}
+
   /**
    * Payment method city.
    */
@@ -32,5 +34,7 @@ global class AddressRequest {
    * Payment method street.
    */
   global String street;
+
+  global Object clone() {}
 
 }

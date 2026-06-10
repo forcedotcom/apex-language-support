@@ -3,6 +3,10 @@
  */
 global class NlpSummarizationResult {
 
-  public String summary;
+  global NlpSummarizationResult() {}
+
+  global String summary;
+
+  global Object clone() {}
 
 }

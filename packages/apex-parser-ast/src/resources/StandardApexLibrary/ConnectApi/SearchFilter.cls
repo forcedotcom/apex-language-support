@@ -3,6 +3,8 @@
  */
 global class SearchFilter {
 
+  global SearchFilter() {}
+
   /**
    * Field to use in the filter.
    */
@@ -17,5 +19,7 @@ global class SearchFilter {
    * Values of the filter, it can be a List of String, Boolean, Long, or Double. Do not mix data types for filter values, for example, ["A", "B", "C"] is valid, but ["A", -7, false] isn't.
    */
   global List < ConnectApi.AbstractList > values;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class PreserveCart {
 
+  global PreserveCart() {}
+
   /**
    * ID of the authenticated cart.
    */
@@ -37,5 +39,7 @@ global class PreserveCart {
    * List of products successfully transferred from the guest cart to the authenticated cart.
    */
   global List < ConnectApi.CartItemBasicResult > succeededCartItems;
+
+  global Object clone() {}
 
 }

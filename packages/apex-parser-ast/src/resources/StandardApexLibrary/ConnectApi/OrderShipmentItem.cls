@@ -3,6 +3,8 @@
  */
 global class OrderShipmentItem {
 
+  global OrderShipmentItem() {}
+
   /**
    * Map of requested fields.
    */
@@ -37,5 +39,7 @@ global class OrderShipmentItem {
    * ID of the shipment item.
    */
   global String shipmentItemId;
+
+  global Object clone() {}
 
 }

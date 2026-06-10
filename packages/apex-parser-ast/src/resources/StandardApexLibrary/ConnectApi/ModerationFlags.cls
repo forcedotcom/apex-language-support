@@ -3,6 +3,8 @@
  */
 global class ModerationFlags {
 
+  global ModerationFlags() {}
+
   /**
    * Number of moderation flags on this feed item, comment, or file. If the context user is not a moderator, the property is null .
    */
@@ -22,5 +24,7 @@ global class ModerationFlags {
    * Collection of flags.
    */
   global ConnectApi.ModerationFlagsCollection flags;
+
+  global Object clone() {}
 
 }

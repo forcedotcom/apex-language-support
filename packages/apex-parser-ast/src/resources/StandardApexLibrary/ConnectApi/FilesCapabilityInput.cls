@@ -3,9 +3,13 @@
  */
 global class FilesCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global FilesCapabilityInput() {}
+
   /**
    * List of file IDs and operations to be carried out on those files.
    */
   global List < ConnectApi.FileIdInput > items;
+
+  global Object clone() {}
 
 }

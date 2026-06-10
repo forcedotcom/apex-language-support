@@ -3,14 +3,18 @@
  */
 global class BatchResult {
 
-  public ConnectApi.ConnectApiException getError() {}
+  global BatchResult() {}
 
-  public String getErrorMessage() {}
+  global ConnectApi.ConnectApiException getError() {}
 
-  public String getErrorTypeName() {}
+  global String getErrorMessage() {}
 
-  public Object getResult() {}
+  global String getErrorTypeName() {}
 
-  public Boolean isSuccess() {}
+  global Object getResult() {}
+
+  global Boolean isSuccess() {}
+
+  global Object clone() {}
 
 }

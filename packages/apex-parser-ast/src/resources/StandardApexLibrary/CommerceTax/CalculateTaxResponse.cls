@@ -3,6 +3,8 @@
  */
 global class CalculateTaxResponse {
 
+  global CalculateTaxResponse() {}
+
   global void setAddresses(commercetax.AddressesResponse addresses) {}
 
   global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) {}
@@ -25,12 +27,16 @@ global class CalculateTaxResponse {
 
   global void setStatusDescription(String statusDescription) {}
 
-  public void setTaxTransactionId(String taxTrxnId) {}
+  global void setTaxTransactionId(String taxTrxnId) {}
 
   global void setTaxTransactionType(commercetax.TaxTransactionType taxTransactionType) {}
 
   global void setTaxType(commercetax.CalculateTaxType taxType) {}
 
   global void setTransactionDate(Datetime transactionDate) {}
+
+  global Object clone() {}
+
+  global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class WishlistItem {
 
+  global WishlistItem() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -32,5 +34,7 @@ global class WishlistItem {
    * ID of the wishlist item.
    */
   global String wishlistItemId;
+
+  global Object clone() {}
 
 }

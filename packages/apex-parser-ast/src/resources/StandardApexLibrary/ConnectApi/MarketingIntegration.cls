@@ -3,10 +3,14 @@
  */
 global class MarketingIntegration {
 
-  public static ConnectApi.Form getForm(String siteId, String formId) {}
+  global MarketingIntegration() {}
 
-  public static ConnectApi.Form saveForm(String siteId, ConnectApi.FormInput formInput) {}
+  global static ConnectApi.Form getForm(String siteId, String formId) {}
 
-  public static ConnectApi.FormSubmission submitForm(String siteId, String formId, ConnectApi.FormSubmissionInput formSubmissionInput) {}
+  global static ConnectApi.Form saveForm(String siteId, ConnectApi.FormInput formInput) {}
+
+  global static ConnectApi.FormSubmission submitForm(String siteId, String formId, ConnectApi.FormSubmissionInput formSubmissionInput) {}
+
+  global Object clone() {}
 
 }

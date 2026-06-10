@@ -3,6 +3,8 @@
  */
 global class RefundRequest {
 
+  global RefundRequest() {}
+
   /**
    * Maintains the integrity of lists of type RefundRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj 
@@ -15,5 +17,7 @@ global class RefundRequest {
    * @return Integer
    */
   global Integer hashCode() {}
+
+  global Object clone() {}
 
 }

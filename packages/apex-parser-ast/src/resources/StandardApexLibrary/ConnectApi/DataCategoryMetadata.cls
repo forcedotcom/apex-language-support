@@ -3,6 +3,8 @@
  */
 global class DataCategoryMetadata {
 
+  global DataCategoryMetadata() {}
+
   /**
    * Group name of the data category.
    */
@@ -17,5 +19,7 @@ global class DataCategoryMetadata {
    * Map of values for the current data category.
    */
   global Map < String , ConnectApi.DataCategoryValueMetadata > values;
+
+  global Object clone() {}
 
 }

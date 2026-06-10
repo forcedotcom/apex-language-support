@@ -3,6 +3,8 @@
  */
 global class RepositoryGroupSummary extends ConnectApi.AbstractDirectoryEntrySummary {
 
+  global RepositoryGroupSummary() {}
+
   /**
    * Type of group. Values are: Everybody —Group is public to everybody. EverybodyInDomain —Group is public to everybody in the same domain. Unknown —Group type is unknown.
    */
@@ -12,5 +14,7 @@ global class RepositoryGroupSummary extends ConnectApi.AbstractDirectoryEntrySum
    * Name of the group.
    */
   global String name;
+
+  global Object clone() {}
 
 }

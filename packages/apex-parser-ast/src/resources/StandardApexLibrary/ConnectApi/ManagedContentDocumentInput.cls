@@ -3,6 +3,8 @@
  */
 global class ManagedContentDocumentInput {
 
+  global ManagedContentDocumentInput() {}
+
   /**
    * API name of the managed content.
    */
@@ -42,5 +44,7 @@ global class ManagedContentDocumentInput {
    * URL name of the managed content within the org.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

@@ -3,28 +3,32 @@
  */
 global class RenderEmailTemplateError {
 
+  global RenderEmailTemplateError() {}
+
   /**
    * Returns the name of the merge field in the error.
    * @return String
    */
-  public String getFieldName() {}
+  global String getFieldName() {}
 
   /**
    * Returns a message describing the error.
    * @return String
    */
-  public String getMessage() {}
+  global String getMessage() {}
 
   /**
    * Returns the offset within the supplied body text where the error was discovered. If the offset cannot be determined, -1 is returned.
    * @return Integer
    */
-  public Integer getOffset() {}
+  global Integer getOffset() {}
 
   /**
    * Returns a Salesforce API status code.
    * @return System.StatusCode
    */
-  public System.StatusCode getStatusCode() {}
+  global System.StatusCode getStatusCode() {}
+
+  global Object clone() {}
 
 }

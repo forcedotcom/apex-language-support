@@ -3,11 +3,15 @@
  */
 global class TestBroker {
 
+  global TestBroker() {}
+
   /**
    * Delivers platform event messages to the test event bus. Use this method to deliver test event messages multiple times and verify that event subscribers have processed the test events each step of the way.
    */
-  public void deliver() {}
+  global void deliver() {}
 
-  public void fail() {}
+  global void fail() {}
+
+  global Object clone() {}
 
 }

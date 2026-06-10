@@ -3,6 +3,8 @@
  */
 global class ProductReturnRateOutputRepresentation {
 
+  global ProductReturnRateOutputRepresentation() {}
+
   /**
    * ID of the product.
    */
@@ -12,5 +14,7 @@ global class ProductReturnRateOutputRepresentation {
    * Return rate of specified product. Values range from 0 to 1.
    */
   global Double returnRate;
+
+  global Object clone() {}
 
 }

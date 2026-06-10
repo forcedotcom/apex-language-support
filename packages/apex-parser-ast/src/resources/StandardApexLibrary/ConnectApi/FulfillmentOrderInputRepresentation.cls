@@ -3,6 +3,8 @@
  */
 global class FulfillmentOrderInputRepresentation {
 
+  global FulfillmentOrderInputRepresentation() {}
+
   /**
    * Default activation status for a new fulfillment order. If you don't specify a value, the default value is Allocated , which belongs to the Activated status category. This default can be changed, but the replacement status must also have a status category of Activated .
    */
@@ -22,5 +24,7 @@ global class FulfillmentOrderInputRepresentation {
    * ID of the OrderSummary.
    */
   global String orderSummaryId;
+
+  global Object clone() {}
 
 }

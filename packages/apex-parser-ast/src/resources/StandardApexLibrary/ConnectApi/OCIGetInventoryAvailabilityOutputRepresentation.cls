@@ -3,6 +3,8 @@
  */
 global class OCIGetInventoryAvailabilityOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
+  global OCIGetInventoryAvailabilityOutputRepresentation() {}
+
   /**
    * A list of inventory availability data for individual location groups.
    */
@@ -12,5 +14,7 @@ global class OCIGetInventoryAvailabilityOutputRepresentation extends ConnectApi.
    * A list of inventory availability data for individual locations.
    */
   global List < ConnectApi.OCILocationAvailabilityOutputRepresentation > locations;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Content {
 
+  global Content() {}
+
   /**
    * MD5 checksum for the file.
    */
@@ -112,5 +114,7 @@ global class Content {
    * Version ID of the file.
    */
   global String versionId;
+
+  global Object clone() {}
 
 }

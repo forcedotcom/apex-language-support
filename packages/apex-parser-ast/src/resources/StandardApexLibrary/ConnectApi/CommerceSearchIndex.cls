@@ -3,6 +3,8 @@
  */
 global class CommerceSearchIndex {
 
+  global CommerceSearchIndex() {}
+
   /**
    * Completion date and time of the index.
    */
@@ -52,5 +54,7 @@ global class CommerceSearchIndex {
    * Detailed message for the index status.
    */
   global String message;
+
+  global Object clone() {}
 
 }

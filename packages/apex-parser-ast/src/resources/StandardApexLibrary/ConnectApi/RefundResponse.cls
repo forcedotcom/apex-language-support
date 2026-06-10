@@ -3,6 +3,8 @@
  */
 global class RefundResponse {
 
+  global RefundResponse() {}
+
   /**
    * ID of the account related to the refund record.
    */
@@ -42,5 +44,7 @@ global class RefundResponse {
    * Indicates the results of processing the refund transaction in the gateway. Can be DRAFT, PROCESSED or CANCELLED.
    */
   global String status;
+
+  global Object clone() {}
 
 }

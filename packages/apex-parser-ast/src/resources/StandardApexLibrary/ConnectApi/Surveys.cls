@@ -3,6 +3,10 @@
  */
 global class Surveys {
 
-  public static ConnectApi.SurveyInvitationEmailOutput sendSurveyInvitationEmail(String surveyID, ConnectApi.SurveyInvitationEmailInput SurveyEmailInput) {}
+  global Surveys() {}
+
+  global static ConnectApi.SurveyInvitationEmailOutput sendSurveyInvitationEmail(String surveyID, ConnectApi.SurveyInvitationEmailInput SurveyEmailInput) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class SearchOrderBy {
 
+  global SearchOrderBy() {}
+
   /**
    * Field to sort the results by.
    */
@@ -17,5 +19,7 @@ global class SearchOrderBy {
    * Null value order. Values are: Firsts —Null values are sorted first. Lasts —Null values are sorted last. Default value is Firsts .
    */
   global ConnectApi.OrderNulls orderNulls;
+
+  global Object clone() {}
 
 }

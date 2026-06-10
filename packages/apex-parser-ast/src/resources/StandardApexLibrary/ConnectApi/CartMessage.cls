@@ -3,6 +3,8 @@
  */
 global class CartMessage {
 
+  global CartMessage() {}
+
   /**
    * Cart message.
    */
@@ -32,5 +34,7 @@ global class CartMessage {
    * Specifies whether the message is visible ( true ) or dismissed ( false ).
    */
   global Boolean visible;
+
+  global Object clone() {}
 
 }

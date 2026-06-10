@@ -3,6 +3,8 @@
  */
 global class CredentialInput {
 
+  global CredentialInput() {}
+
   /**
    * Authentication protocol of the external credential. Values are: AwsSv4 Basic Custom Jwt OAuth
    */
@@ -32,5 +34,7 @@ global class CredentialInput {
    * Type of credential principal. Values are: AwsStsPrincipal NamedPrincipal PerUserPrincipal
    */
   global ConnectApi.CredentialPrincipalType principalType;
+
+  global Object clone() {}
 
 }

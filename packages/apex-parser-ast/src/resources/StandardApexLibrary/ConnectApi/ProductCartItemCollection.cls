@@ -3,6 +3,8 @@
  */
 global class ProductCartItemCollection {
 
+  global ProductCartItemCollection() {}
+
   /**
    * Number of cart items returned on the current page
    */
@@ -32,5 +34,7 @@ global class ProductCartItemCollection {
    * Total number of pages for the given page size.
    */
   global Integer totalNumberOfPages;
+
+  global Object clone() {}
 
 }

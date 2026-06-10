@@ -11,4 +11,6 @@ global class ReferencedRefundRequest {
 
   global Double amount;
 
+  global Object clone() {}
+
 }

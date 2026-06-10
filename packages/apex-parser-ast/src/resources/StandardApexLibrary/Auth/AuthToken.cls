@@ -3,13 +3,15 @@
  */
 global class AuthToken {
 
+  global AuthToken() {}
+
   /**
    * Returns an access token for the current user using the specified 18-character identifier of an AuthProvider definition in your org and the proper name of the provider, such as Salesforce or Facebook.
    * @param authProviderId 
    * @param providerName The proper name of the provider. Here are valid values for each provider type. Apple— Apple Custom—For a custom authentication provider, use the value in the FriendlyName field on the AuthProvider object , such as MyProvider . Facebook— Facebook GitHub— GitHub Google— Google Janrain—Use the proper name of the third party, such as Yahoo! . LinkedIn— LinkedIn Microsoft— Microsoft Microsoft Access Control Service— Microsoft Access Control Service MuleSoft— MuleSoft Open ID Connect— Open ID Connect Salesforce— Salesforce Slack— Slack Twitter—This method doesn’t support the Twitter authentication provider.
    * @return String
    */
-  public static String getAccessToken(String authProviderId, String providerName) {}
+  global static String getAccessToken(String authProviderId, String providerName) {}
 
   /**
    * Returns a map from the provider’s identifier to the access token for the currently logged-in Salesforce user. The identifier value depends on the provider. For example, for Salesforce, it’s the user ID, while for Facebook, it’s the user number.
@@ -17,7 +19,7 @@ global class AuthToken {
    * @param providerName The proper name of the provider. Here are valid values for each provider type. Apple— Apple Custom—For a custom authentication provider, use the value in the FriendlyName field on the AuthProvider object , such as MyProvider . Facebook— Facebook GitHub— GitHub Google— Google Janrain—Use the proper name of the third party, such as Yahoo! . LinkedIn— LinkedIn Microsoft— Microsoft Microsoft Access Control Service— Microsoft Access Control Service MuleSoft— MuleSoft Open ID Connect— Open ID Connect Salesforce— Salesforce Slack— Slack Twitter—This method doesn’t support the Twitter authentication provider.
    * @return Map<String, String>
    */
-  public static Map<String, String> getAccessTokenMap(String authProviderId, String providerName) {}
+  global static Map<String, String> getAccessTokenMap(String authProviderId, String providerName) {}
 
   /**
    * Returns a map from the third-party provider’s identifier containing a refreshed access token for the currently logged-in Salesforce user.
@@ -26,7 +28,7 @@ global class AuthToken {
    * @param oldAccessToken 
    * @return Map<String, String>
    */
-  public static Map<String, String> refreshAccessToken(String authProviderId, String providerName, String oldAccessToken) {}
+  global static Map<String, String> refreshAccessToken(String authProviderId, String providerName, String oldAccessToken) {}
 
   /**
    * Revokes the access token for a specified SSO user from a provider such as Facebook. You can use this method only if the IsNotSsoUsable field on the associated ThirdPartyAccountLink object is set to false .
@@ -36,6 +38,8 @@ global class AuthToken {
    * @param remoteIdentifier The unique ID for the user in the third-party system (this value is in the associated ThirdPartyAccountLink standard object).
    * @return Boolean
    */
-  public static Boolean revokeAccess(String authProviderId, String providerName, String userId, String remoteIdentifier) {}
+  global static Boolean revokeAccess(String authProviderId, String providerName, String userId, String remoteIdentifier) {}
+
+  global Object clone() {}
 
 }

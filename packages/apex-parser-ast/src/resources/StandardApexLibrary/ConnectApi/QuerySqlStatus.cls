@@ -3,6 +3,8 @@
  */
 global class QuerySqlStatus {
 
+  global QuerySqlStatus() {}
+
   /**
    * Number of chunks available for extraction.
    */
@@ -32,5 +34,7 @@ global class QuerySqlStatus {
    * Number of rows available for extraction.
    */
   global Long rowCount;
+
+  global Object clone() {}
 
 }

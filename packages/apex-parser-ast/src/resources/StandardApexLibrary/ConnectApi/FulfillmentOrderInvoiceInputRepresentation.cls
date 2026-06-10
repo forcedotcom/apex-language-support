@@ -3,4 +3,8 @@
  */
 global class FulfillmentOrderInvoiceInputRepresentation {
 
+  global FulfillmentOrderInvoiceInputRepresentation() {}
+
+  global Object clone() {}
+
 }

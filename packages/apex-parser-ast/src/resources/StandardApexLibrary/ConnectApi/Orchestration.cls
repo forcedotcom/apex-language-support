@@ -3,10 +3,14 @@
  */
 global class Orchestration {
 
-  public static ConnectApi.OrchestrationInstance getOrchestrationInstance(String instanceId) {}
+  global Orchestration() {}
 
-  public static ConnectApi.OrchestrationInstanceCollection getOrchestrationInstanceCollection(String relatedRecordId) {}
+  global static ConnectApi.OrchestrationInstance getOrchestrationInstance(String instanceId) {}
 
-  public static ConnectApi.OrchestrationInstanceCollection getOrchestrationInstanceCollection(String relatedRecordId, String relatedOrchestrationId) {}
+  global static ConnectApi.OrchestrationInstanceCollection getOrchestrationInstanceCollection(String relatedRecordId) {}
+
+  global static ConnectApi.OrchestrationInstanceCollection getOrchestrationInstanceCollection(String relatedRecordId, String relatedOrchestrationId) {}
+
+  global Object clone() {}
 
 }

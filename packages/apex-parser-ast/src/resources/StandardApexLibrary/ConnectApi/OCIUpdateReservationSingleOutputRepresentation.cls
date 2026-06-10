@@ -3,6 +3,8 @@
  */
 global class OCIUpdateReservationSingleOutputRepresentation {
 
+  global OCIUpdateReservationSingleOutputRepresentation() {}
+
   /**
    * The total reservation adjustment.
    */
@@ -32,5 +34,7 @@ global class OCIUpdateReservationSingleOutputRepresentation {
    * The SKU of the updated product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

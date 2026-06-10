@@ -3,6 +3,8 @@
  */
 global class ManagedContentDeliveryDocumentCollection {
 
+  global ManagedContentDeliveryDocumentCollection() {}
+
   /**
    * Information about the managed content channel.
    */
@@ -42,5 +44,7 @@ global class ManagedContentDeliveryDocumentCollection {
    * List of references.
    */
   global List < ConnectApi.AbstractManagedContentReference > referencesList;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class MCSFolderShare {
 
+  global MCSFolderShare() {}
+
   /**
    * Specifies whether the user has permission to unshare with the target space ( true ) or not ( false ). Content Manager or higher role in the target workspace has permission to unshare.
    */
@@ -22,5 +24,7 @@ global class MCSFolderShare {
    * Label of the share target.
    */
   global String targetLabel;
+
+  global Object clone() {}
 
 }

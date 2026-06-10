@@ -3,6 +3,8 @@
  */
 global class SocialPostIntents {
 
+  global SocialPostIntents() {}
+
   /**
    * Approval intent for the social post.
    */
@@ -32,5 +34,7 @@ global class SocialPostIntents {
    * Reply intents for the social post.
    */
   global ConnectApi.ReplyIntents replyIntent;
+
+  global Object clone() {}
 
 }

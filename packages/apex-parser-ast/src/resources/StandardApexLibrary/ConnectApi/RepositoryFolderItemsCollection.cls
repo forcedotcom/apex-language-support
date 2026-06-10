@@ -3,6 +3,8 @@
  */
 global class RepositoryFolderItemsCollection {
 
+  global RepositoryFolderItemsCollection() {}
+
   /**
    * URL to the current page of items.
    */
@@ -22,5 +24,7 @@ global class RepositoryFolderItemsCollection {
    * URL to the previous page of items, or null if there isn’t a previous page.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

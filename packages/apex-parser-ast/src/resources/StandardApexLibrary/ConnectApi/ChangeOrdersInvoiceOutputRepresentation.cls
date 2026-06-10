@@ -3,4 +3,8 @@
  */
 global class ChangeOrdersInvoiceOutputRepresentation extends ConnectApi.BaseInvoiceOutputRepresentation {
 
+  global ChangeOrdersInvoiceOutputRepresentation() {}
+
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class CuratedEntityInput {
 
+  global CuratedEntityInput() {}
+
   /**
    * DMO label of the curated entity.
    */
@@ -12,5 +14,7 @@ global class CuratedEntityInput {
    * DMO API name of the curated entity.
    */
   global String name;
+
+  global Object clone() {}
 
 }

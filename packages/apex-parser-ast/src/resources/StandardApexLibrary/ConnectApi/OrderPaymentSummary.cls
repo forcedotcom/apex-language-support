@@ -3,6 +3,10 @@
  */
 global class OrderPaymentSummary {
 
-  public static ConnectApi.CreateOrderPaymentSummaryOutputRepresentation createOrderPaymentSummary(ConnectApi.CreateOrderPaymentSummaryInputRepresentation orderPaymentSummaryInput) {}
+  global OrderPaymentSummary() {}
+
+  global static ConnectApi.CreateOrderPaymentSummaryOutputRepresentation createOrderPaymentSummary(ConnectApi.CreateOrderPaymentSummaryInputRepresentation orderPaymentSummaryInput) {}
+
+  global Object clone() {}
 
 }

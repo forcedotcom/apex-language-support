@@ -3,6 +3,8 @@
  */
 global class ContractInputRepresentation {
 
+  global ContractInputRepresentation() {}
+
   /**
    * Specifies whether automatic document generation is required or not.
    */
@@ -22,5 +24,7 @@ global class ContractInputRepresentation {
    * Document template name for document generation.
    */
   global String templateName;
+
+  global Object clone() {}
 
 }

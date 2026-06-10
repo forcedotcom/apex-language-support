@@ -3,6 +3,14 @@
  */
 global class Order {
 
+  global Order() {}
+
+  global String columnName;
+
+  global DataSource.OrderDirection direction;
+
+  global String tableName;
+
   /**
    * Creates an instance of the DataSource.Order class.
    * @param tableName Name of the table whose column values are used to sort the rows in the result set.
@@ -10,6 +18,8 @@ global class Order {
    * @param direction Direction for sorting rows based on column values.
    * @return DataSource.Order
    */
-  public static DataSource.Order get(String tableName, String columnName, DataSource.OrderDirection direction) {}
+  global static DataSource.Order get(String tableName, String columnName, DataSource.OrderDirection direction) {}
+
+  global Object clone() {}
 
 }

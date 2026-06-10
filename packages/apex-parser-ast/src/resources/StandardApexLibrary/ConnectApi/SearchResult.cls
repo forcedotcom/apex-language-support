@@ -3,6 +3,8 @@
  */
 global class SearchResult {
 
+  global SearchResult() {}
+
   /**
    * Object API name.
    */
@@ -32,5 +34,7 @@ global class SearchResult {
    * Source URL from where the record originated.
    */
   global String sourceUrl;
+
+  global Object clone() {}
 
 }

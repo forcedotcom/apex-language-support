@@ -3,6 +3,8 @@
  */
 global class NamedCredentialInput {
 
+  global NamedCredentialInput() {}
+
   /**
    * Callout options.
    */
@@ -52,5 +54,7 @@ global class NamedCredentialInput {
    * Type of named credential. Values are: PrivateEndpoint SecuredEndpoint
    */
   global ConnectApi.NamedCredentialType type;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ContentAttachment extends ConnectApi.FeedItemAttachment {
 
+  global ContentAttachment() {}
+
   /**
    * MD5 checksum for the file.
    */
@@ -107,5 +109,7 @@ global class ContentAttachment extends ConnectApi.FeedItemAttachment {
    * 18-character ID for this version of the content.
    */
   global String versionId;
+
+  global Object clone() {}
 
 }

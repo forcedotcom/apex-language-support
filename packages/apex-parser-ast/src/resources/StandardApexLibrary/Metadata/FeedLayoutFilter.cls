@@ -3,10 +3,18 @@
  */
 global class FeedLayoutFilter {
 
+  global FeedLayoutFilter() {}
+
+  global String feedFilterName;
+
+  global Metadata.FeedLayoutFilterType feedFilterType;
+
+  global Metadata.FeedItemTypeEnum feedItemType;
+
   /**
    * Makes a duplicate copy of the Metadata.FeedLayoutFilter .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

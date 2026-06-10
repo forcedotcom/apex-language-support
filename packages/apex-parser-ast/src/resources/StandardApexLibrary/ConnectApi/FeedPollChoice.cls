@@ -3,6 +3,8 @@
  */
 global class FeedPollChoice {
 
+  global FeedPollChoice() {}
+
   /**
    * Poll choice ID.
    */
@@ -27,5 +29,7 @@ global class FeedPollChoice {
    * The ratio of total number of votes for this poll choice to all votes cast in the poll. Multiply the ratio by 100 to get the percentage of votes cast for this poll choice.
    */
   global Double voteCountRatio;
+
+  global Object clone() {}
 
 }

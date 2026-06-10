@@ -3,6 +3,8 @@
  */
 global class FeedEntityIsEditable {
 
+  global FeedEntityIsEditable() {}
+
   /**
    * true if the context user can add and remove attachments on the feed element or comment, false otherwise.
    */
@@ -17,5 +19,7 @@ global class FeedEntityIsEditable {
    * true if the context user can edit the feed element or comment, false otherwise.
    */
   global Boolean isEditableByMe;
+
+  global Object clone() {}
 
 }

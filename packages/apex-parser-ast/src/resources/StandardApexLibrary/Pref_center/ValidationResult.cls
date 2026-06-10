@@ -3,4 +3,8 @@
  */
 global class ValidationResult {
 
+  global ValidationResult() {}
+
+  global Object clone() {}
+
 }

@@ -3,10 +3,16 @@
  */
 global class Communities {
 
-  public static ConnectApi.CommunityPage getCommunities() {}
+  global Communities() {}
 
-  public static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus communityStatus) {}
+  global static ConnectApi.CommunityPage getCommunities() {}
 
-  public static ConnectApi.Community getCommunity(String communityId) {}
+  global static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus communityStatus) {}
+
+  global static ConnectApi.Community getCommunity(String communityId) {}
+
+  global Object clone() {}
+
+  global static ConnectApi.CommunityTemplates getCommunityTemplates() {}
 
 }

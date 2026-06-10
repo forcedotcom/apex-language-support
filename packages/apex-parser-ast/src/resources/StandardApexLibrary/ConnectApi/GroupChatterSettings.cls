@@ -3,9 +3,13 @@
  */
 global class GroupChatterSettings {
 
+  global GroupChatterSettings() {}
+
   /**
    * The frequency with which a group member receives email from a group.
    */
   global ConnectApi.GroupEmailFrequency emailFrequency;
+
+  global Object clone() {}
 
 }

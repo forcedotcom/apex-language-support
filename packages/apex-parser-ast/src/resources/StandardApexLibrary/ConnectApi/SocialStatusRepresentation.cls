@@ -3,6 +3,8 @@
  */
 global class SocialStatusRepresentation {
 
+  global SocialStatusRepresentation() {}
+
   /**
    * Detailed error message if the operation was unsuccessful.
    */
@@ -12,5 +14,7 @@ global class SocialStatusRepresentation {
    * Specifies whether the operation was successful ( true ) or not ( false ).
    */
   global Boolean isSuccess;
+
+  global Object clone() {}
 
 }

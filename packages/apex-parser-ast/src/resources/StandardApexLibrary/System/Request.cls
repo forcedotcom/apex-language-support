@@ -3,22 +3,26 @@
  */
 global class Request {
 
+  global Request() {}
+
   /**
    * Returns the current Request object that contains the request ID and Quiddity value.
    * @return System.Request
    */
-  public static System.Request getCurrent() {}
+  global static System.Request getCurrent() {}
 
   /**
    * Returns the Quiddity value of the current Request object.
    * @return System.Quiddity
    */
-  public System.Quiddity getQuiddity() {}
+  global System.Quiddity getQuiddity() {}
 
   /**
    * Returns the request ID of the current Request object.
    * @return String
    */
-  public String getRequestId() {}
+  global String getRequestId() {}
+
+  global Object clone() {}
 
 }

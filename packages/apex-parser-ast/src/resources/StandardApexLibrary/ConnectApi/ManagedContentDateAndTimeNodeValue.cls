@@ -3,6 +3,8 @@
  */
 global class ManagedContentDateAndTimeNodeValue extends ConnectApi.ManagedContentNodeValue {
 
+  global ManagedContentDateAndTimeNodeValue() {}
+
   /**
    * UTC date and time value of the managed content node.
    */
@@ -12,5 +14,7 @@ global class ManagedContentDateAndTimeNodeValue extends ConnectApi.ManagedConten
    * Time zone in which the date and time is authored.
    */
   global String timeZone;
+
+  global Object clone() {}
 
 }

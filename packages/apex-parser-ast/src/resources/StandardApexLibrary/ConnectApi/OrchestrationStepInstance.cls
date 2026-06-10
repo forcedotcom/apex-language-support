@@ -3,6 +3,8 @@
  */
 global class OrchestrationStepInstance {
 
+  global OrchestrationStepInstance() {}
+
   /**
    * The ID of the user, group, or queue that's assigned to a work item.
    */
@@ -62,5 +64,7 @@ global class OrchestrationStepInstance {
    * Orchestration step instance work items.
    */
   global List < ConnectApi.OrchestrationWorkItem > workItems;
+
+  global Object clone() {}
 
 }

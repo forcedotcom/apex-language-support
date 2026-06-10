@@ -3,5 +3,6 @@ global enum MaintenanceTypeEnum {
   GenerallyAvailable,
   MaintenanceAndAvailable,
   MaintenanceWithDowntime,
-  ReadOnly
+  ReadOnly,
+  ServiceAgreement
 }

@@ -3,8 +3,12 @@
  */
 global class PaymentMethodDetailsResponse {
 
-  public void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) {}
+  global PaymentMethodDetailsResponse() {}
 
-  public void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) {}
+  global void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) {}
+
+  global void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) {}
+
+  global Object clone() {}
 
 }

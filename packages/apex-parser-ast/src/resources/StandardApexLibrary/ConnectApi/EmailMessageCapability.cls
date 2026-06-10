@@ -3,6 +3,8 @@
  */
 global class EmailMessageCapability extends ConnectApi.FeedElementCapability {
 
+  global EmailMessageCapability() {}
+
   /**
    * Attachments in the email message.
    */
@@ -82,5 +84,7 @@ global class EmailMessageCapability extends ConnectApi.FeedElementCapability {
    * Total number of attachments in the email message.
    */
   global Integer totalAttachments;
+
+  global Object clone() {}
 
 }

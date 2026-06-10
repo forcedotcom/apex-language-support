@@ -3,6 +3,8 @@
  */
 global class Announcement {
 
+  global Announcement() {}
+
   /**
    * The Salesforce UI displays an announcement until 11:59 p.m. on this date unless another announcement is posted first. The Salesforce UI ignores the time value in the expirationDate . However, you can use the time value to create your own display logic in your own UI.
    */
@@ -32,5 +34,7 @@ global class Announcement {
    * The URL to the announcement.
    */
   global String url;
+
+  global Object clone() {}
 
 }

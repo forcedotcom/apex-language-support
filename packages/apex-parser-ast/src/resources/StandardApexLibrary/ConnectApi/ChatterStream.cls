@@ -3,6 +3,8 @@
  */
 global class ChatterStream {
 
+  global ChatterStream() {}
+
   /**
    * Experience Cloud site where the stream is.
    */
@@ -37,5 +39,7 @@ global class ChatterStream {
    * URL to the stream.
    */
   global String url;
+
+  global Object clone() {}
 
 }

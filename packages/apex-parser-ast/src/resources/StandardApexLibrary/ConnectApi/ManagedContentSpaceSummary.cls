@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpaceSummary {
 
+  global ManagedContentSpaceSummary() {}
+
   /**
    * ID of the managed content space.
    */
@@ -12,5 +14,7 @@ global class ManagedContentSpaceSummary {
    * Resource URL of the managed content space.
    */
   global String resourceUrl;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommerceSearchIndexLog {
 
+  global CommerceSearchIndexLog() {}
+
   /**
    * Catalog snapshot time of the index build.
    */
@@ -42,5 +44,7 @@ global class CommerceSearchIndexLog {
    * Number of new or changed products in the index build.
    */
   global Integer numberOfProducts;
+
+  global Object clone() {}
 
 }

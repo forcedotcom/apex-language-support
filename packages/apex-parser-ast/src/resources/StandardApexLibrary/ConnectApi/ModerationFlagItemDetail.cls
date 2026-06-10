@@ -3,6 +3,8 @@
  */
 global class ModerationFlagItemDetail {
 
+  global ModerationFlagItemDetail() {}
+
   /**
    * ID of the user who flagged the item.
    */
@@ -32,5 +34,7 @@ global class ModerationFlagItemDetail {
    * Visibility behavior of a flag for various user types. Values are: ModeratorsOnly —The flag is visible only to users with moderation permissions on the flagged element or item. SelfAndModerators —The flag is visible to the creator of the flag and to users with moderation permissions on the flagged element or item.
    */
   global ConnectApi.CommunityFlagVisibility visibility;
+
+  global Object clone() {}
 
 }

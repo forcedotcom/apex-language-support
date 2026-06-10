@@ -3,6 +3,8 @@
  */
 global class BusObjInputRepresentation {
 
+  global BusObjInputRepresentation() {}
+
   /**
    * List of business objective associations.
    */
@@ -17,5 +19,7 @@ global class BusObjInputRepresentation {
    * Label name of the business objective.
    */
   global String labelName;
+
+  global Object clone() {}
 
 }

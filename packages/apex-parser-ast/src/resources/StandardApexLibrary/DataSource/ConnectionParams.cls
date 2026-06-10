@@ -3,6 +3,8 @@
  */
 global class ConnectionParams {
 
+  global ConnectionParams() {}
+
   global String certificateName;
 
   global String endpoint;
@@ -18,5 +20,7 @@ global class ConnectionParams {
   global String repository;
 
   global String username;
+
+  global Object clone() {}
 
 }

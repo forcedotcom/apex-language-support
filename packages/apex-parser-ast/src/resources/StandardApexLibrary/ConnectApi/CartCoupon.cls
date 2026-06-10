@@ -3,6 +3,8 @@
  */
 global class CartCoupon {
 
+  global CartCoupon() {}
+
   /**
    * ID of the cart coupon code.
    */
@@ -12,5 +14,7 @@ global class CartCoupon {
    * The coupon code a buyer can use to manually apply a promotion to the cart.
    */
   global String couponCode;
+
+  global Object clone() {}
 
 }

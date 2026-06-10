@@ -3,6 +3,8 @@
  */
 global class ManagedTopic {
 
+  global ManagedTopic() {}
+
   /**
    * Children managed topics of the managed topic; null if the depth request parameter isn’t specified or is 1 .
    */
@@ -32,5 +34,7 @@ global class ManagedTopic {
    * Connect REST API URL to the managed topic.
    */
   global String url;
+
+  global Object clone() {}
 
 }

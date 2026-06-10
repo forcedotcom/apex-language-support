@@ -3,6 +3,8 @@
  */
 global class EgressPropertiesInput {
 
+  global EgressPropertiesInput() {}
+
   /**
    * Path of the child folder. The child folder is created in the parent directory for copying activation files.
    */
@@ -57,5 +59,7 @@ global class EgressPropertiesInput {
    * Predetermined name of the output file. Either customFilename or predeterminedFilename must be present. Activation Segment SegmentActivation
    */
   global PreDeterminedFileNameEnum predeterminedFilename;
+
+  global Object clone() {}
 
 }

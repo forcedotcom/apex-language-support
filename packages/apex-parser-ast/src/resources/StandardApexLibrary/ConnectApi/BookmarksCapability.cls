@@ -3,9 +3,13 @@
  */
 global class BookmarksCapability extends ConnectApi.FeedElementCapability {
 
+  global BookmarksCapability() {}
+
   /**
    * Indicates whether the feed element has been bookmarked by the context user ( true ) or not ( false ).
    */
   global Boolean isBookmarkedByCurrentUser;
+
+  global Object clone() {}
 
 }

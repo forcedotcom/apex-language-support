@@ -3,6 +3,8 @@
  */
 global class RepositoryUserSummary extends ConnectApi.AbstractDirectoryEntrySummary {
 
+  global RepositoryUserSummary() {}
+
   /**
    * First name of the user.
    */
@@ -12,5 +14,7 @@ global class RepositoryUserSummary extends ConnectApi.AbstractDirectoryEntrySumm
    * Last name of the user.
    */
   global String lastName;
+
+  global Object clone() {}
 
 }

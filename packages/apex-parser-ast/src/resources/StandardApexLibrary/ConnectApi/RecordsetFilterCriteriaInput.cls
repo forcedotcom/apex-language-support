@@ -3,6 +3,8 @@
  */
 global class RecordsetFilterCriteriaInput {
 
+  global RecordsetFilterCriteriaInput() {}
+
   /**
    * Recordset filter criteria IDs.
    */
@@ -22,5 +24,7 @@ global class RecordsetFilterCriteriaInput {
    * List of record IDs of the filtered object.
    */
   global List < String > recordIds;
+
+  global Object clone() {}
 
 }

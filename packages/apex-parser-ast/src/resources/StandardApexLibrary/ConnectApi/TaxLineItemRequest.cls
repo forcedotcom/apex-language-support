@@ -3,6 +3,8 @@
  */
 global class TaxLineItemRequest {
 
+  global TaxLineItemRequest() {}
+
   /**
    * Addresses, including the Bill To address, Ship From address, Ship To address, and Sold To address.
    */
@@ -62,5 +64,7 @@ global class TaxLineItemRequest {
    * Unit price of the product.
    */
   global Double unitPrice;
+
+  global Object clone() {}
 
 }

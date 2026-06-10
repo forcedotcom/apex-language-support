@@ -3,6 +3,8 @@
  */
 global class AlternativeInput {
 
+  global AlternativeInput() {}
+
   /**
    * Text representation of the extension.
    */
@@ -17,5 +19,7 @@ global class AlternativeInput {
    * Title of the extension.
    */
   global String title;
+
+  global Object clone() {}
 
 }

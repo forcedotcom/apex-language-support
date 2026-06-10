@@ -3,6 +3,8 @@
  */
 global class ContentHubRepository extends ConnectApi.ActorWithId {
 
+  global ContentHubRepository() {}
+
   /**
    * Repository authentication information.
    */
@@ -32,5 +34,7 @@ global class ContentHubRepository extends ConnectApi.ActorWithId {
    * URL to the list of items in the repository root folder.
    */
   global String rootFolderItemsUrl;
+
+  global Object clone() {}
 
 }

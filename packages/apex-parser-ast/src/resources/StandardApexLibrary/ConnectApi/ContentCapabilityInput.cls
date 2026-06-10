@@ -3,6 +3,8 @@
  */
 global class ContentCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global ContentCapabilityInput() {}
+
   /**
    * ID of the existing content.
    */
@@ -22,5 +24,7 @@ global class ContentCapabilityInput extends ConnectApi.FeedElementCapabilityInpu
    * Title of the file. This value is used as the file name for new content. For example, if the title is My Title, and the file is a .txt file, the file name is My Title.txt.
    */
   global String title;
+
+  global Object clone() {}
 
 }

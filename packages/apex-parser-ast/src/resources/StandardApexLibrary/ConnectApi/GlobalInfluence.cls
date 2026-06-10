@@ -3,6 +3,8 @@
  */
 global class GlobalInfluence {
 
+  global GlobalInfluence() {}
+
   /**
    * Percentile value for the user’s influence rank within the org or Experience Cloud site.
    */
@@ -12,5 +14,7 @@ global class GlobalInfluence {
    * Number indicating the user’s influence rank, relative to all other users within the org or Experience Cloud site.
    */
   global Integer rank;
+
+  global Object clone() {}
 
 }

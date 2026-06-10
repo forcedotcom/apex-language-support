@@ -3,6 +3,8 @@
  */
 global class SubmitReturnOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global SubmitReturnOutputRepresentation() {}
+
   /**
    * Financial values resulting from the return.
    */
@@ -17,5 +19,7 @@ global class SubmitReturnOutputRepresentation extends ConnectApi.BaseOutputRepre
    * ID of the change order created by returning order items with associated return fees. Use this change order to create an invoice.
    */
   global String feeChangeOrderId;
+
+  global Object clone() {}
 
 }

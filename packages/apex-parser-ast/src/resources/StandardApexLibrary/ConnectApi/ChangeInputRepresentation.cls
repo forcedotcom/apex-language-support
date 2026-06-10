@@ -3,9 +3,13 @@
  */
 global class ChangeInputRepresentation {
 
+  global ChangeInputRepresentation() {}
+
   /**
    * List of changes to OrderItemSummaries.
    */
   global List < ConnectApi.ChangeItemInputRepresentation > changeItems;
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class DigestJob {
 
+  global DigestJob() {}
+
   /**
    * Time period that’s included in a Chatter email digest. Values are: DailyDigest —The email includes up to the 50 latest posts from the previous day. WeeklyDigest —The email includes up to the 50 latest posts from the previous week.
    */
   global ConnectApi.DigestPeriod period;
+
+  global Object clone() {}
 
 }

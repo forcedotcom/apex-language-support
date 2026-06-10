@@ -3,6 +3,8 @@
  */
 global class CdpSegmentActionOutput extends ConnectApi.CdpActionResponse {
 
+  global CdpSegmentActionOutput() {}
+
   /**
    * Error code associated with the action, if any.
    */
@@ -37,5 +39,7 @@ global class CdpSegmentActionOutput extends ConnectApi.CdpActionResponse {
    * ID of the segment.
    */
   global String segmentId;
+
+  global Object clone() {}
 
 }

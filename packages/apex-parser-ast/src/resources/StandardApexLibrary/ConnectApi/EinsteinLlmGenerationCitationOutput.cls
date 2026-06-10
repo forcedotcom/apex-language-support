@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmGenerationCitationOutput {
 
+  global EinsteinLlmGenerationCitationOutput() {}
+
   /**
    * List of metadata for the sources that are cited in the generated response.
    */
@@ -12,5 +14,7 @@ global class EinsteinLlmGenerationCitationOutput {
    * List of sources from one or more data providers.
    */
   global List < ConnectApi.EinsteinLlmGenAiSourceReference > sourceReferences;
+
+  global Object clone() {}
 
 }

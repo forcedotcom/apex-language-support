@@ -3,6 +3,8 @@
  */
 global class ExtensionDefinition {
 
+  global ExtensionDefinition() {}
+
   /**
    * Indicates whether users can access the extension when it’s associated with a feed element.
    */
@@ -57,5 +59,7 @@ global class ExtensionDefinition {
    * Position in which the extension is displayed in the publisher.
    */
   global Integer position;
+
+  global Object clone() {}
 
 }

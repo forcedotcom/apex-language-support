@@ -3,6 +3,8 @@
  */
 global class PicklistValue {
 
+  global PicklistValue() {}
+
   /**
    * Picklist value attributes.
    */
@@ -22,5 +24,7 @@ global class PicklistValue {
    * Value of the picklist to use.
    */
   global String value;
+
+  global Object clone() {}
 
 }

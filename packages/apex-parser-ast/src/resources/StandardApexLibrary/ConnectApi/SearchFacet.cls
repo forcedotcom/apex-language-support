@@ -3,6 +3,8 @@
  */
 global class SearchFacet {
 
+  global SearchFacet() {}
+
   /**
    * Search attribute type. Values are: Custom PricebookEntry ProductAttribute ProductCategory Product2 Standard
    */
@@ -32,5 +34,31 @@ global class SearchFacet {
    * Developer name of the attribute. In version 52.0 and later, the ID of the attribute isn’t supported.
    */
   global String nameOrId;
+
+  global Object clone() {}
+
+  global ConnectApi.CommerceSearchAttributeType getAttributeType() {}
+
+  global String getDisplayName() {}
+
+  global Integer getDisplayRank() {}
+
+  global ConnectApi.CommerceSearchFacetDisplayType getDisplayType() {}
+
+  global ConnectApi.CommerceSearchFacetType getFacetType() {}
+
+  global String getNameOrId() {}
+
+  global void setAttributeType(ConnectApi.CommerceSearchAttributeType value) {}
+
+  global void setDisplayName(String value) {}
+
+  global void setDisplayRank(Integer value) {}
+
+  global void setDisplayType(ConnectApi.CommerceSearchFacetDisplayType value) {}
+
+  global void setFacetType(ConnectApi.CommerceSearchFacetType value) {}
+
+  global void setNameOrId(String value) {}
 
 }

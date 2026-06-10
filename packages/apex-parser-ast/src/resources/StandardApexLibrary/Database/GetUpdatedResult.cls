@@ -3,16 +3,20 @@
  */
 global class GetUpdatedResult {
 
+  global GetUpdatedResult() {}
+
   /**
    * Returns the IDs of records updated within the time window specified in the Database.getUpdated method.
    * @return List<Id>
    */
-  public List<Id> getIds() {}
+  global List<Id> getIds() {}
 
   /**
    * Returns the date in Coordinated Universal Time (UTC) of the last date covered in the Database.getUpdated call.
    * @return Date
    */
-  public Date getLatestDateCovered() {}
+  global Date getLatestDateCovered() {}
+
+  global Object clone() {}
 
 }

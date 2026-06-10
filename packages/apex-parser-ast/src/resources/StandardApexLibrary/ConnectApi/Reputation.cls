@@ -3,6 +3,8 @@
  */
 global class Reputation {
 
+  global Reputation() {}
+
   /**
    * User’s reputation level.
    */
@@ -17,5 +19,7 @@ global class Reputation {
    * Connect REST API URL to the reputation.
    */
   global String url;
+
+  global Object clone() {}
 
 }

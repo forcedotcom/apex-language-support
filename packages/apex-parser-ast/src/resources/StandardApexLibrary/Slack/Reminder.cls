@@ -1,5 +1,7 @@
 global class Reminder {
 
+  global Reminder() {}
+
   global String getChannel() {}
 
   global Integer getCompleteTs() {}
@@ -57,5 +59,7 @@ global class Reminder {
   global List<Slack.Reminder> getReminders() {}
 
   global void setReminders(List<Slack.Reminder> reminders) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmAdditionalConfigInput {
 
+  global EinsteinLlmAdditionalConfigInput() {}
+
   /**
    * Map of parameters and values for the LLM provider.
    */
@@ -47,5 +49,7 @@ global class EinsteinLlmAdditionalConfigInput {
    * Sampling temperature to use. Higher values mean the model takes more risks. Lower temperatures mean that generations are less random. Minimum value is 0.0 , and maximum value is 1.0
    */
   global Double temperature;
+
+  global Object clone() {}
 
 }

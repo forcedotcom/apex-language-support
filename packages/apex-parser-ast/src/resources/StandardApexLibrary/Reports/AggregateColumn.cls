@@ -3,34 +3,38 @@
  */
 global class AggregateColumn {
 
+  global AggregateColumn() {}
+
   /**
    * Returns the unique API name of the summary field.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
 
   /**
    * Returns the localized display name for the summarized or custom summary formula field.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the data type of the summarized or custom summary formula field.
    * @return Reports.ColumnDataType
    */
-  public Reports.ColumnDataType getDataType() {}
+  global Reports.ColumnDataType getDataType() {}
 
   /**
    * Returns the column grouping in the report where the summary field is displayed.
    * @return String
    */
-  public String getAcrossGroupingContext() {}
+  global String getAcrossGroupingContext() {}
 
   /**
    * Returns the row grouping in the report where the summary field is displayed.
    * @return String
    */
-  public String getDownGroupingContext() {}
+  global String getDownGroupingContext() {}
+
+  global Object clone() {}
 
 }

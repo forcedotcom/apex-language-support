@@ -3,6 +3,8 @@
  */
 global class FollowingCounts {
 
+  global FollowingCounts() {}
+
   /**
    * Number of people user is following.
    */
@@ -17,5 +19,7 @@ global class FollowingCounts {
    * Total number of items user is following.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

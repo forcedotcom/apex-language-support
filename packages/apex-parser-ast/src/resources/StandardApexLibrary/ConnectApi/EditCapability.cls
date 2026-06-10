@@ -3,6 +3,8 @@
  */
 global class EditCapability {
 
+  global EditCapability() {}
+
   /**
    * Specifies whether editing this feed element or comment is restricted. If true , the context user can’t edit this feed element or comment. If false , the context user may or may not have permission to edit this feed element or comment. To determine if the context user can edit a feed element or comment, use the isFeedElementEditableByMe(communityId, feedElementId) or isCommentEditableByMe(communityId, commentId) method.
    */
@@ -32,5 +34,7 @@ global class EditCapability {
    * Relative last edited date, for example, “2h ago.”
    */
   global String relativeLastEditedDate;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class OCIUploadInventoryAvailabilityStatusOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
+  global OCIUploadInventoryAvailabilityStatusOutputRepresentation() {}
+
   /**
    * The UTC time when the job finished. (for example: "2020-07-06T22:54:08.012Z")
    */
@@ -47,5 +49,7 @@ global class OCIUploadInventoryAvailabilityStatusOutputRepresentation extends Co
    * The validation status of the job.
    */
   global String validationStatus;
+
+  global Object clone() {}
 
 }

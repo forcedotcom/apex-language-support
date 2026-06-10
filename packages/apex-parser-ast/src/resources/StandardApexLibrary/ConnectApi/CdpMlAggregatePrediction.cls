@@ -3,6 +3,8 @@
  */
 global class CdpMlAggregatePrediction {
 
+  global CdpMlAggregatePrediction() {}
+
   /**
    * Top factors associated with this aggregate prediction.
    */
@@ -27,5 +29,7 @@ global class CdpMlAggregatePrediction {
    * Value of the aggregate prediction.
    */
   global Double value;
+
+  global Object clone() {}
 
 }

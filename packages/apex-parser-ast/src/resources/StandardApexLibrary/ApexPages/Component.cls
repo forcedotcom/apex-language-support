@@ -3,10 +3,16 @@
  */
 global class Component {
 
-  global List childComponents;
+  global Component() {}
+
+  global List <ApexPages.Component> childComponents;
 
   global String expressions;
 
   global String facets;
+
+  global Object clone() {}
+
+  global ApexPages.Component getComponentById(String id) {}
 
 }

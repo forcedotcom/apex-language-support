@@ -3,6 +3,8 @@
  */
 global class KnowledgeArticleVersion {
 
+  global KnowledgeArticleVersion() {}
+
   /**
    * Type of the knowledge article.
    */
@@ -37,5 +39,7 @@ global class KnowledgeArticleVersion {
    * URL name of the knowledge article.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

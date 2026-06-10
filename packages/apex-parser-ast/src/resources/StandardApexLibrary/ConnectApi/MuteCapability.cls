@@ -3,9 +3,13 @@
  */
 global class MuteCapability extends ConnectApi.FeedElementCapability {
 
+  global MuteCapability() {}
+
   /**
    * Indicates whether the context user muted the feed element.
    */
   global Boolean isMutedByMe;
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class ConnectionDbSchemaCollectionInput {
 
+  global ConnectionDbSchemaCollectionInput() {}
+
   /**
    * The database name and other connector-specific properties that are required to fetch a list of database schemas.
    */
   global Map < String , String > advancedAttributes;
+
+  global Object clone() {}
 
 }

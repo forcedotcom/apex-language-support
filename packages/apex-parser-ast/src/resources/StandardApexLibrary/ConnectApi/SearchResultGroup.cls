@@ -3,6 +3,8 @@
  */
 global class SearchResultGroup {
 
+  global SearchResultGroup() {}
+
   /**
    * Object API name.
    */
@@ -12,5 +14,7 @@ global class SearchResultGroup {
    * List of search results.
    */
   global List < ConnectApi.SearchResult > results;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class RecommendationAudiencePage {
 
+  global RecommendationAudiencePage() {}
+
   /**
    * The total number of custom recommendation audiences.
    */
@@ -27,5 +29,7 @@ global class RecommendationAudiencePage {
    * A list of custom recommendation audiences.
    */
   global List < ConnectApi.RecommendationAudience > recommendationAudiences;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommentPage {
 
+  global CommentPage() {}
+
   /**
    * Collection of comments. Important As of version 32.0, use the items property.
    */
@@ -47,5 +49,7 @@ global class CommentPage {
    * Total number of published comments for the parent feed element.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

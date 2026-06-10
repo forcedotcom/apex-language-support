@@ -3,6 +3,8 @@
  */
 global class WebStoreMetaConfig {
 
+  global WebStoreMetaConfig() {}
+
   /**
    * External key for Meta Ad Account.
    */
@@ -47,5 +49,7 @@ global class WebStoreMetaConfig {
    * ID of the webstore.
    */
   global String webStoreId;
+
+  global Object clone() {}
 
 }

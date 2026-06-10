@@ -3,6 +3,8 @@
  */
 global class CartItemBasic {
 
+  global CartItemBasic() {}
+
   /**
    * ID of the cart item.
    */
@@ -27,5 +29,7 @@ global class CartItemBasic {
    * Type of item in a cart. Value is Product.
    */
   global ConnectApi.CartItemType type;
+
+  global Object clone() {}
 
 }

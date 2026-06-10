@@ -3,6 +3,8 @@
  */
 global class SharedOrderPaymentSummarySequenceInputRepresentation {
 
+  global SharedOrderPaymentSummarySequenceInputRepresentation() {}
+
   /**
    * Shared order payment summary ID.
    */
@@ -12,5 +14,7 @@ global class SharedOrderPaymentSummarySequenceInputRepresentation {
    * Balance amount to be reserved.
    */
   global Double reservedBalanceAmount;
+
+  global Object clone() {}
 
 }

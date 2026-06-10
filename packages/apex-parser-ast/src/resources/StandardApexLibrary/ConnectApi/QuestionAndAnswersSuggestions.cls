@@ -3,6 +3,8 @@
  */
 global class QuestionAndAnswersSuggestions {
 
+  global QuestionAndAnswersSuggestions() {}
+
   /**
    * List of articles.
    */
@@ -12,5 +14,7 @@ global class QuestionAndAnswersSuggestions {
    * List of questions.
    */
   global List < ConnectApi.FeedElement > questions;
+
+  global Object clone() {}
 
 }

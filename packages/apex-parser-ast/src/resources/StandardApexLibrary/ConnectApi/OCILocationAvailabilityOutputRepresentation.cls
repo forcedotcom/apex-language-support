@@ -3,6 +3,8 @@
  */
 global class OCILocationAvailabilityOutputRepresentation {
 
+  global OCILocationAvailabilityOutputRepresentation() {}
+
   /**
    * A list of availability data for individual products at this location.
    */
@@ -12,5 +14,7 @@ global class OCILocationAvailabilityOutputRepresentation {
    * The identifier of the location.
    */
   global String locationIdentifier;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ProductVariationAttributeValueOutputRepresentation {
 
+  global ProductVariationAttributeValueOutputRepresentation() {}
+
   /**
    * API Name of the attribute this value belongs to.
    */
@@ -17,5 +19,7 @@ global class ProductVariationAttributeValueOutputRepresentation {
    * Value of the value.
    */
   global String value;
+
+  global Object clone() {}
 
 }

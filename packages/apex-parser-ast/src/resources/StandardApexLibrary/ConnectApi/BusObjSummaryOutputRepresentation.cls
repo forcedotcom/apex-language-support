@@ -3,6 +3,8 @@
  */
 global class BusObjSummaryOutputRepresentation {
 
+  global BusObjSummaryOutputRepresentation() {}
+
   /**
    * Description of the business objective.
    */
@@ -32,5 +34,7 @@ global class BusObjSummaryOutputRepresentation {
    * Summary of recommended actions for the business objective.
    */
   global ConnectApi.BusObjRecommendationsOutputRepresentation recommendationSummary;
+
+  global Object clone() {}
 
 }

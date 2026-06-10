@@ -3,4 +3,8 @@
  */
 global class FeedItemAttachmentInput {
 
+  global FeedItemAttachmentInput() {}
+
+  global Object clone() {}
+
 }

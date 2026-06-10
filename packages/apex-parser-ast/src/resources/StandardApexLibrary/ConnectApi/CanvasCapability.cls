@@ -3,6 +3,8 @@
  */
 global class CanvasCapability extends ConnectApi.FeedElementCapability {
 
+  global CanvasCapability() {}
+
   /**
    * A description of the canvas app. The maximum size is 255 characters.
    */
@@ -42,5 +44,7 @@ global class CanvasCapability extends ConnectApi.FeedElementCapability {
    * A title for the canvas link.
    */
   global String title;
+
+  global Object clone() {}
 
 }

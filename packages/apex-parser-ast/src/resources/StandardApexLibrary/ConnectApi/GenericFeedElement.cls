@@ -3,4 +3,8 @@
  */
 global class GenericFeedElement extends ConnectApi.FeedElement {
 
+  global GenericFeedElement() {}
+
+  global Object clone() {}
+
 }

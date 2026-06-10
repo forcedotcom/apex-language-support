@@ -3,6 +3,8 @@
  */
 global class BusObjInsightsOutputRepresentation {
 
+  global BusObjInsightsOutputRepresentation() {}
+
   /**
    * The three-letter ISO currency code associated with the KPI values. For example, 'USD' for US dollars or 'EUR' for euros.
    */
@@ -52,5 +54,7 @@ global class BusObjInsightsOutputRepresentation {
    * Unit for an insight. Values are: Count Currency Dollar Number Percent
    */
   global ConnectApi.ConnectInsightUnitEnum unit;
+
+  global Object clone() {}
 
 }

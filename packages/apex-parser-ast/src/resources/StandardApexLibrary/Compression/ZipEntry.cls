@@ -3,34 +3,38 @@
  */
 global class ZipEntry {
 
-  public Boolean equals(Object obj) {}
+  global ZipEntry() {}
 
-  public Integer hashcode() {}
+  global Boolean equals(Object obj) {}
 
-  public string getComment() {}
+  global Integer hashcode() {}
 
-  public long getCompressedSize() {}
+  global string getComment() {}
 
-  public blob getContent() {}
+  global long getCompressedSize() {}
 
-  public long getCrc() {}
+  global blob getContent() {}
 
-  public Datetime getLastModifiedTime() {}
+  global long getCrc() {}
 
-  public Compression.Method getMethod() {}
+  global Datetime getLastModifiedTime() {}
 
-  public string getName() {}
+  global Compression.Method getMethod() {}
 
-  public long getUncompressedSize() {}
+  global string getName() {}
 
-  public Compression.ZipEntry setComment(String comment) {}
+  global long getUncompressedSize() {}
 
-  public Compression.ZipEntry setContent(Blob blob) {}
+  global Compression.ZipEntry setComment(String comment) {}
 
-  public Compression.ZipEntry setLastModifiedTime(Datetime modTime) {}
+  global Compression.ZipEntry setContent(Blob blob) {}
 
-  public Compression.ZipEntry setMethod(Compression.Method method) {}
+  global Compression.ZipEntry setLastModifiedTime(Datetime modTime) {}
 
-  public string toString() {}
+  global Compression.ZipEntry setMethod(Compression.Method method) {}
+
+  global string toString() {}
+
+  global Object clone() {}
 
 }

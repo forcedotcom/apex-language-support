@@ -3,6 +3,8 @@
  */
 global class ExternalCredential {
 
+  global ExternalCredential() {}
+
   /**
    * Authentication protocol of the external credential. Values are: AwsSv4 Basic Custom Jwt OAuth
    */
@@ -62,5 +64,7 @@ global class ExternalCredential {
    * Connect REST API URL for the external credential.
    */
   global String url;
+
+  global Object clone() {}
 
 }

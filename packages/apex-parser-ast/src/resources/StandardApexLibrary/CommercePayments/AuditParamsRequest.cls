@@ -13,4 +13,6 @@ global class AuditParamsRequest {
 
   global String phone;
 
+  global Object clone() {}
+
 }

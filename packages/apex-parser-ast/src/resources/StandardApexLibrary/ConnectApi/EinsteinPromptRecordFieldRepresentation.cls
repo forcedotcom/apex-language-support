@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptRecordFieldRepresentation {
 
+  global EinsteinPromptRecordFieldRepresentation() {}
+
   /**
    * Visible value of a prompt template record field.
    */
@@ -12,5 +14,7 @@ global class EinsteinPromptRecordFieldRepresentation {
    * Raw data value of a prompt template record field.
    */
   global Object value;
+
+  global Object clone() {}
 
 }

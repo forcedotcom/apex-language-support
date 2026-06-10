@@ -3,9 +3,13 @@
  */
 global class AssociatedActionsCapability {
 
+  global AssociatedActionsCapability() {}
+
   /**
    * The platform action groups associated with a feed element. Platform action groups are returned in the order specified in the ConnectApi.AssociatedActionsCapabilityInput class.
    */
   global List < ConnectApi.PlatformActionGroup > platformActionGroups;
+
+  global Object clone() {}
 
 }

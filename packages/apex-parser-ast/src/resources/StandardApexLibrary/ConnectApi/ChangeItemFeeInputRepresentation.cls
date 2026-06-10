@@ -3,6 +3,8 @@
  */
 global class ChangeItemFeeInputRepresentation {
 
+  global ChangeItemFeeInputRepresentation() {}
+
   /**
    * Positive value used to calculate the fee amount, as described by the amountType .
    */
@@ -32,5 +34,7 @@ global class ChangeItemFeeInputRepresentation {
    * Reason for the fee. The value must match an entry in the OrderProductSummaryChange object’s Reason picklist.
    */
   global String reason;
+
+  global Object clone() {}
 
 }

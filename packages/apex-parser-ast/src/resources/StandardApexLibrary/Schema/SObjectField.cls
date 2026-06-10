@@ -3,17 +3,21 @@
  */
 global class SObjectField {
 
+  global SObjectField() {}
+
   /**
    * Returns the describe field result for this field.
    * @return Schema.DescribeFieldResult
    */
-  public Schema.DescribeFieldResult getDescribe() {}
+  global Schema.DescribeFieldResult getDescribe() {}
 
   /**
    * Returns the describe field result for this field.
    * @param options 
    * @return Schema.DescribeFieldResult
    */
-  public Schema.DescribeFieldResult getDescribe(Object options) {}
+  global Schema.DescribeFieldResult getDescribe(Object options) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedDirectory {
 
+  global FeedDirectory() {}
+
   /**
    * A list of feed favorites
    */
@@ -12,5 +14,7 @@ global class FeedDirectory {
    * A list of feeds
    */
   global List < ConnectApi.FeedDirectoryItem > feeds;
+
+  global Object clone() {}
 
 }

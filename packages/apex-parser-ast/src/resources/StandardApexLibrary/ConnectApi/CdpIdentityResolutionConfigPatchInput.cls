@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionConfigPatchInput {
 
+  global CdpIdentityResolutionConfigPatchInput() {}
+
   /**
    * Description of the identity resolution ruleset.
    */
@@ -27,5 +29,7 @@ global class CdpIdentityResolutionConfigPatchInput {
    * List of reconciliation rules for the identity resolution ruleset.
    */
   global List < ConnectApi.CdpIdentityResolutionReconciliationRule > reconciliationRules;
+
+  global Object clone() {}
 
 }

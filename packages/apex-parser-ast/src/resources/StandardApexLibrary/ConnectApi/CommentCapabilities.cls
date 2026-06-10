@@ -3,6 +3,8 @@
  */
 global class CommentCapabilities {
 
+  global CommentCapabilities() {}
+
   /**
    * If a comment has this capability, it has threaded comments.
    */
@@ -42,5 +44,7 @@ global class CommentCapabilities {
    * If a comment has this capability, users with permission can mark it as verified or unverified.
    */
   global ConnectApi.VerifiedCapability verified;
+
+  global Object clone() {}
 
 }

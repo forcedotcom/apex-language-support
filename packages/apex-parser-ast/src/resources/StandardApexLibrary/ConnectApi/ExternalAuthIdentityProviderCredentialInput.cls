@@ -3,6 +3,8 @@
  */
 global class ExternalAuthIdentityProviderCredentialInput {
 
+  global ExternalAuthIdentityProviderCredentialInput() {}
+
   /**
    * Name of the external auth identity provider credential.
    */
@@ -12,5 +14,7 @@ global class ExternalAuthIdentityProviderCredentialInput {
    * Value of the external auth identity provider credential.
    */
   global String credentialValue;
+
+  global Object clone() {}
 
 }

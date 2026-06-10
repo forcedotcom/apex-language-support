@@ -3,6 +3,8 @@
  */
 global class WishlistSummary {
 
+  global WishlistSummary() {}
+
   /**
    * Created date for the wishlist in ISO 8601 format, for example, 2011-02-25T18:24:31.000Z.
    */
@@ -27,5 +29,7 @@ global class WishlistSummary {
    * Unique product count in the wishlist.
    */
   global Integer wishlistProductCount;
+
+  global Object clone() {}
 
 }

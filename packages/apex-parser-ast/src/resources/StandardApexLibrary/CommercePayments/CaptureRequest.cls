@@ -11,4 +11,6 @@ global class CaptureRequest {
 
   global String paymentAuthorizationId;
 
+  global Object clone() {}
+
 }

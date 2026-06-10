@@ -3,6 +3,8 @@
  */
 global class ManagedContentDeliveryChannelsRepresentation {
 
+  global ManagedContentDeliveryChannelsRepresentation() {}
+
   /**
    * List of managed content delivery channels.
    */
@@ -27,5 +29,7 @@ global class ManagedContentDeliveryChannelsRepresentation {
    * Total number of managed content delivery channels.
    */
   global Integer totalChannels;
+
+  global Object clone() {}
 
 }

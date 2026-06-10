@@ -3,6 +3,8 @@
  */
 global class NamedCredential {
 
+  global NamedCredential() {}
+
   /**
    * Callout options for the named credential.
    */
@@ -72,5 +74,7 @@ global class NamedCredential {
    * Connect REST API URL of the named credential.
    */
   global String url;
+
+  global Object clone() {}
 
 }
