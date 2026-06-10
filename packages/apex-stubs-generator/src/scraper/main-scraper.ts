@@ -2,6 +2,7 @@ import { Effect, Console } from 'effect';
 import {
   fetchDocumentStructure,
   fetchPageContent,
+  setActiveDocVersion,
   ApiScrapingError,
 } from './json-api-scraper';
 import {
@@ -408,6 +409,10 @@ const scrapeExceptions = (ref: ClassReference) =>
     const description = yield* extractClassDescriptionFromHtml(content.content);
 
     if (extracted.length === 0) {
+      yield* Console.error(
+        `  WARNING: Exception page for ${ref.namespace} (${ref.pageId}) returned content but 0 class names were extracted. ` +
+          `HTML structure may have changed. Falling back to single class stub.`,
+      );
       yield* Console.log(
         `    Fallback: treating as single exception class ${ref.name}`,
       );
@@ -635,6 +640,13 @@ const scrapeSlackNamespace = (limitClasses?: number) =>
     const classRefs = extractSlackClassReferences(slackPageContent.content);
     yield* Console.log(`  Found ${classRefs.length} Slack classes`);
 
+    if (classRefs.length === 0) {
+      yield* Console.error(
+        '  ERROR: Slack namespace page returned content but 0 class references were extracted.\n' +
+          '  This likely means the page HTML structure has changed. Slack stubs will be MISSING from output.',
+      );
+    }
+
     const classesToScrape = limitClasses
       ? classRefs.slice(0, limitClasses)
       : classRefs;
@@ -677,6 +689,11 @@ export const scrapeAllDocumentation = (
     yield* Console.log('=== Starting Documentation Scraping ===\n');
 
     const docStructure = yield* getDocumentStructure(cacheFile);
+
+    const docVersion: string = docStructure?.version?.doc_version ?? '262.0';
+    setActiveDocVersion(docVersion);
+    yield* Console.log(`Using doc version: ${docVersion}`);
+
     const namespaces = yield* parseTocStructure(docStructure);
 
     yield* Console.log(
