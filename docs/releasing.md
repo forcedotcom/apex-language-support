@@ -68,7 +68,7 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
 ```
  nightly.yml (daily 04:00 UTC)
    └─> nightly-extensions.yml
-         bump (odd minor) → package → publish nightly → GitHub Release + tag
+         bump (odd minor) → package → GitHub Release + tag (no marketplace publish)
                                                               │
  promote-prerelease.yml (Wed 07:00 UTC)                       │
    └─> takes a nightly ≥7 days old ──────────────────────────┘
@@ -87,10 +87,10 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
      (`fix:` → patch, `feat:` → minor, `feat!:`/`BREAKING CHANGE:` → major).
   2. Bumps to the next **odd** minor (`ext-version-bumper`), commits
      `chore: bump versions for release [skip ci]`, and tags
-     `apex-language-server-extension-v{VERSION}-nightly.{DATE}`.
+     `v{VERSION}-nightly.{DATE}` (e.g. `v0.5.3-nightly.20260301`; non-main branches append the branch: `v{VERSION}-nightly.{BRANCH}.{DATE}`).
   3. Packages the VSIX (`npm run package:packages:prerelease`).
-  4. Publishes to both registries with `--pre-release`.
-  5. Creates a GitHub Release with the VSIX + MD5 checksum attached.
+  4. Creates a GitHub Release with the VSIX + MD5 checksum attached (no marketplace publish at this stage).
+  5. The internal CBWeb marketplace receives the web VSIX via `publish-to-cbweb-marketplace`.
 - **Manual dispatch inputs:** `branch`, `extensions`, `dry-run`.
 
 ### Stage 2 — Promote to pre-release (`promote-prerelease.yml`)
@@ -122,7 +122,7 @@ Run it from **Actions → Manual Publish → Run workflow**. Inputs:
 | Input | Notes |
 | --- | --- |
 | `extension` | `apex-lsp-vscode-extension` (only option) |
-| `version-tag` | **Tag path (normal):** a nightly GH release tag, e.g. `apex-language-server-extension-v0.5.3-nightly.20260301`. Mutually exclusive with `source-run-id`. |
+| `version-tag` | **Tag path (normal):** a nightly git tag, e.g. `v0.5.3-nightly.20260301`. Mutually exclusive with `source-run-id`. |
 | `source-run-id` | **Run path (bypass):** an Actions run ID whose VSIX artifact to publish. For branch builds with no GH release. Requires `skip-quality-checks=true` **and** `confirm-bypass=BYPASS`. |
 | `slot` | `pre-release` or `stable`. |
 | `registries` | `all` (default), `vsce`, or `ovsx`. |
