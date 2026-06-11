@@ -12,7 +12,6 @@ export type {
 } from './CompletionStrategy';
 export { MemberAccessCompletionStrategy } from './MemberAccessCompletionStrategy';
 export { GeneralCompletionStrategy } from './GeneralCompletionStrategy';
-export { RelationshipCompletionStrategy } from './RelationshipCompletionStrategy';
 export { SystemNamespaceCompletionStrategy } from './SystemNamespaceCompletionStrategy';
 export { TriggerCompletionStrategy } from './TriggerCompletionStrategy';
 export { OverrideCompletionStrategy } from './OverrideCompletionStrategy';

@@ -31,7 +31,6 @@ import {
   CompletionCandidate,
   MemberAccessCompletionStrategy,
   GeneralCompletionStrategy,
-  RelationshipCompletionStrategy,
   SystemNamespaceCompletionStrategy,
   TriggerCompletionStrategy,
   OverrideCompletionStrategy,
@@ -149,7 +148,6 @@ export class CompletionProcessingService implements ICompletionProcessor {
       new TriggerCompletionStrategy(),
       new SystemNamespaceCompletionStrategy(this.logger, this.symbolManager),
       new GeneralCompletionStrategy(this.logger, this.symbolManager),
-      new RelationshipCompletionStrategy(this.logger, this.symbolManager),
     ];
   }
 
