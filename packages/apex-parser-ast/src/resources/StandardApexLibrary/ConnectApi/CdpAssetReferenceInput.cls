@@ -3,6 +3,8 @@
  */
 global class CdpAssetReferenceInput {
 
+  global CdpAssetReferenceInput() {}
+
   /**
    * ID of the asset.
    */
@@ -17,5 +19,7 @@ global class CdpAssetReferenceInput {
    * Namespace of the asset. The default namespace is used by default.
    */
   global String namespace;
+
+  global Object clone() {}
 
 }

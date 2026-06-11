@@ -3,6 +3,8 @@
  */
 global class ChatterGroupInput {
 
+  global ChatterGroupInput() {}
+
   /**
    * The 18-character ID of an announcement. An announcement displays in a designated location in the Salesforce UI until 11:59 p.m. on its expiration date, unless it’s deleted or replaced by another announcement.
    */
@@ -47,5 +49,7 @@ global class ChatterGroupInput {
    * Group visibility type. PrivateAccess —Only members of the group can see posts to this group. PublicAccess —All users within the Experience Cloud site can see posts to this group. Unlisted —Reserved for future use.
    */
   global ConnectApi.GroupVisibilityType visibility;
+
+  global Object clone() {}
 
 }

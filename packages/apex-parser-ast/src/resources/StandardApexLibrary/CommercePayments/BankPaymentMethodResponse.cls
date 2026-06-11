@@ -3,32 +3,36 @@
  */
 global class BankPaymentMethodResponse {
 
-  public void setAccountHolderType(commercepayments.AccountHolderType accountHolderType) {}
+  global BankPaymentMethodResponse() {}
 
-  public void setAccountId(String accountId) {}
+  global void setAccountHolderType(commercepayments.AccountHolderType accountHolderType) {}
 
-  public void setAccountType(commercepayments.AccountType accountType) {}
+  global void setAccountId(String accountId) {}
 
-  public void setBankCode(String bankCode) {}
+  global void setAccountType(commercepayments.AccountType accountType) {}
 
-  public void setBankName(String bankName) {}
+  global void setBankCode(String bankCode) {}
 
-  public void setBankType(commercepayments.BankType bankType) {}
+  global void setBankName(String bankName) {}
 
-  public void setComments(String comments) {}
+  global void setBankType(commercepayments.BankType bankType) {}
 
-  public void setEmail(String email) {}
+  global void setComments(String comments) {}
 
-  public void setGatewayToken(String gatewayToken) {}
+  global void setEmail(String email) {}
 
-  public void setGatewayTokenDetails(String gatewayTokenDetails) {}
+  global void setGatewayToken(String gatewayToken) {}
 
-  public void setLast4(String lastFour) {}
+  global void setGatewayTokenDetails(String gatewayTokenDetails) {}
 
-  public void setName(String name) {}
+  global void setLast4(String lastFour) {}
 
-  public void setSavedPaymentMethodId(String savedPaymentMethodId) {}
+  global void setName(String name) {}
 
-  public void setStandardEntryClassCode(commercepayments.StandardEntryClassCode standardEntryClassCode) {}
+  global void setSavedPaymentMethodId(String savedPaymentMethodId) {}
+
+  global void setStandardEntryClassCode(commercepayments.StandardEntryClassCode standardEntryClassCode) {}
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class MigrationExchange {
 
+  global MigrationExchange() {}
+
   global static Slack.MigrationExchangeRequest.Builder builder() {}
 
   global Slack.MigrationExchangeRequest build() {}
@@ -15,5 +17,7 @@ global class MigrationExchange {
   global List<String> getInvalidUserIds() {}
 
   global String getTeamId() {}
+
+  global Object clone() {}
 
 }

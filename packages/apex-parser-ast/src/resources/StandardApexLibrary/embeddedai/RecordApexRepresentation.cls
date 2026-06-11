@@ -3,10 +3,18 @@
  */
 global class RecordApexRepresentation {
 
-  public RecordApexRepresentation(String objectType, List<embeddedai.ApexMap> recordData, List<embeddedai.RecordApexRepresentation> relatedRecordData) {}
+  global RecordApexRepresentation(String objectType, List<embeddedai.ApexMap> recordData, List<embeddedai.RecordApexRepresentation> relatedRecordData) {}
 
-  public static embeddedai.RecordApexRepresentation toRecordApexRep(String jsonString) {}
+  global String objectType;
 
-  public String toString() {}
+  global List<embeddedai.ApexMap> recordData;
+
+  global List<embeddedai.RecordApexRepresentation> relatedRecordData;
+
+  global static embeddedai.RecordApexRepresentation toRecordApexRep(String jsonString) {}
+
+  global String toString() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateGenerationsError {
 
+  global EinsteinPromptTemplateGenerationsError() {}
+
   /**
    * Message stating the reason for the error, if any.
    */
@@ -22,5 +24,7 @@ global class EinsteinPromptTemplateGenerationsError {
    * Message code associated with the error message, if any.
    */
   global String messageCode;
+
+  global Object clone() {}
 
 }

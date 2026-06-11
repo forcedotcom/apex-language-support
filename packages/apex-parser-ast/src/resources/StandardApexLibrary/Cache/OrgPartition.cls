@@ -3,4 +3,8 @@
  */
 global class OrgPartition extends Cache.Partition {
 
+  global OrgPartition() {}
+
+  global Object clone() {}
+
 }

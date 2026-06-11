@@ -3,9 +3,13 @@
  */
 global class FilesCapability extends ConnectApi.FeedElementCapability {
 
+  global FilesCapability() {}
+
   /**
    * Collection of files.
    */
   global List < ConnectApi.Content > items;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class QueryPath {
 
+  global QueryPath() {}
+
   /**
    * Label of the field.
    */
@@ -22,5 +24,7 @@ global class QueryPath {
    * Name of the object.
    */
   global String objectName;
+
+  global Object clone() {}
 
 }

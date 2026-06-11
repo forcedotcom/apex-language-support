@@ -3,6 +3,8 @@
  */
 global class ActionInfoInputRepresentation {
 
+  global ActionInfoInputRepresentation() {}
+
   /**
    * Name of the Lightning web component used for dynamically rendering the recommended action.
    */
@@ -12,5 +14,7 @@ global class ActionInfoInputRepresentation {
    * Parameters required for processing and displaying the recommended action.
    */
   global String parameters;
+
+  global Object clone() {}
 
 }

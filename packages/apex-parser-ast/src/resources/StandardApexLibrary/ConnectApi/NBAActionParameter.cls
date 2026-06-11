@@ -3,6 +3,8 @@
  */
 global class NBAActionParameter {
 
+  global NBAActionParameter() {}
+
   /**
    * Name of the parameter.
    */
@@ -17,5 +19,7 @@ global class NBAActionParameter {
    * Value of the parameter.
    */
   global String value;
+
+  global Object clone() {}
 
 }

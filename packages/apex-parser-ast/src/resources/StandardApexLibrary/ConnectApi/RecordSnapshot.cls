@@ -3,6 +3,8 @@
  */
 global class RecordSnapshot {
 
+  global RecordSnapshot() {}
+
   /**
    * ID of the record.
    */
@@ -12,5 +14,7 @@ global class RecordSnapshot {
    * Name of the record when the ID was recorded.
    */
   global String nameAtSnapshot;
+
+  global Object clone() {}
 
 }

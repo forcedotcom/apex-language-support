@@ -3,6 +3,8 @@
  */
 global class PromotionApproachingDiscount {
 
+  global PromotionApproachingDiscount() {}
+
   /**
    * ID of the promotion with an approaching discount.
    */
@@ -22,5 +24,7 @@ global class PromotionApproachingDiscount {
    * Target type of a promotion discount. Shipping —Promotion discounts shipping amount. Transaction —Promotion discounts total transaction amount.
    */
   global ConnectApi.TargetType targetType;
+
+  global Object clone() {}
 
 }

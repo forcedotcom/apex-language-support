@@ -3,6 +3,8 @@
  */
 global class ShiftsFromPattern {
 
+  global ShiftsFromPattern() {}
+
   /**
    * Total count of created shifts.
    */
@@ -22,5 +24,7 @@ global class ShiftsFromPattern {
    * Collection of created shift IDs.
    */
   global List < String > recordIds;
+
+  global Object clone() {}
 
 }

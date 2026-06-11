@@ -3,6 +3,8 @@
  */
 global class TextClassificationsResultOutputRepresentation {
 
+  global TextClassificationsResultOutputRepresentation() {}
+
   /**
    * List of classifications that each text string was given after analysis.
    */
@@ -12,5 +14,7 @@ global class TextClassificationsResultOutputRepresentation {
    * Response ID to receive feedback for classification.
    */
   global String classificationsId;
+
+  global Object clone() {}
 
 }

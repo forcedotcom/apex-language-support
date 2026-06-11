@@ -11,4 +11,6 @@ global interface LoginDiscoveryHandler {
    */
   System.PageReference login(String identifier, String startUrl);
 
+  System.PageReference login(String arg0, String arg1, Map<String,String> arg2);
+
 }

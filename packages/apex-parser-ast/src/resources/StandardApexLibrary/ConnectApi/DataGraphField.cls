@@ -3,6 +3,8 @@
  */
 global class DataGraphField {
 
+  global DataGraphField() {}
+
   /**
    * Type of the calculated insight field. Dimension Measure ObjectTypeUnspecified
    */
@@ -52,5 +54,7 @@ global class DataGraphField {
    * Indicates whether the field represents a key qualifier field ( KEY_QUALIFIER ) or not ( NONE ).
    */
   global String usageTag;
+
+  global Object clone() {}
 
 }

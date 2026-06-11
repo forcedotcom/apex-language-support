@@ -3,6 +3,8 @@
  */
 global class ActivationContactPointFieldConfig {
 
+  global ActivationContactPointFieldConfig() {}
+
   /**
    * ID of the attribute.
    */
@@ -22,5 +24,7 @@ global class ActivationContactPointFieldConfig {
    * Preferred name of the attribute.
    */
   global String preferredName;
+
+  global Object clone() {}
 
 }

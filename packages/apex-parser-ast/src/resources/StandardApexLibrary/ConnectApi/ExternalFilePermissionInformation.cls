@@ -3,6 +3,8 @@
  */
 global class ExternalFilePermissionInformation {
 
+  global ExternalFilePermissionInformation() {}
+
   /**
    * Available permission types for the parent folder of the external file, or null for non-external files or when includeExternalFilePermissionsInfo is false .
    */
@@ -27,5 +29,7 @@ global class ExternalFilePermissionInformation {
    * Available public groups in the external repository or null for non-external files or when includeExternalFilePermissionsInfo is false .
    */
   global List < ConnectApi.RepositoryGroupSummary > repositoryPublicGroups;
+
+  global Object clone() {}
 
 }

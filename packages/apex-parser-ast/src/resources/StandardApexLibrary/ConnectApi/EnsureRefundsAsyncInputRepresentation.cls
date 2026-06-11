@@ -3,6 +3,8 @@
  */
 global class EnsureRefundsAsyncInputRepresentation {
 
+  global EnsureRefundsAsyncInputRepresentation() {}
+
   /**
    * ID of the credit memo that represents a refund amount.
    */
@@ -32,5 +34,7 @@ global class EnsureRefundsAsyncInputRepresentation {
    * Ordered list of refund amounts and OrderPaymentSummaries to apply them to. An OrderPaymentSummary must either belong to the order summary or be a reference to the order summary in the OrderPaymentSummaryReference entity. The process traverses this list in order and stops when it's refunded the full amount.
    */
   global List < ConnectApi.SequenceOrderPaymentSummaryInputRepresentation > sequences;
+
+  global Object clone() {}
 
 }

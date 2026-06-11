@@ -3,6 +3,8 @@
  */
 global class UserActivitySummary {
 
+  global UserActivitySummary() {}
+
   /**
    * Date of the user activity.
    */
@@ -22,5 +24,7 @@ global class UserActivitySummary {
    * Experience Cloud site in which the user performed the activity.
    */
   global ConnectApi.CommunitySummary community;
+
+  global Object clone() {}
 
 }

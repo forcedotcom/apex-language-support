@@ -3,6 +3,8 @@
  */
 global class PromotionCartDeliveryMethodAdjustment {
 
+  global PromotionCartDeliveryMethodAdjustment() {}
+
   /**
    * Type of price adjustment. Valid values are: AdjustmentAmount —The adjustment is a fixed amount. AdjustmentPercentage —The adjustment is a percentage.
    */
@@ -27,5 +29,7 @@ global class PromotionCartDeliveryMethodAdjustment {
    * Where in the sequence of adjustments this adjustment was applied.
    */
   global Integer priority;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CommerceAddressFieldInput {
 
+  global CommerceAddressFieldInput() {}
+
   /**
    * The name of the custom address field.
    */
@@ -12,5 +14,7 @@ global class CommerceAddressFieldInput {
    * The value of the custom address field.
    */
   global String text;
+
+  global Object clone() {}
 
 }

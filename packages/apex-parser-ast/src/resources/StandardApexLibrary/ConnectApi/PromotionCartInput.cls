@@ -3,6 +3,8 @@
  */
 global class PromotionCartInput {
 
+  global PromotionCartInput() {}
+
   /**
    * Collection of cart adjustment groups associated with the items in the cart.
    */
@@ -27,5 +29,7 @@ global class PromotionCartInput {
    * ID of the cart.
    */
   global String id;
+
+  global Object clone() {}
 
 }

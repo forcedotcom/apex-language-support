@@ -3,14 +3,18 @@
  */
 global class UUID {
 
-  public Boolean equals(Object obj) {}
+  global UUID() {}
 
-  public static System.UUID fromString(String str) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global static System.UUID fromString(String str) {}
 
-  public static System.UUID randomUUID() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global static System.UUID randomUUID() {}
+
+  global String toString() {}
+
+  global Object clone() {}
 
 }

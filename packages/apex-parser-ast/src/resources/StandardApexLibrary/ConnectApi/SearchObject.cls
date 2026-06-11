@@ -3,6 +3,8 @@
  */
 global class SearchObject {
 
+  global SearchObject() {}
+
   /**
    * Fields to display from the response.
    */
@@ -37,5 +39,7 @@ global class SearchObject {
    * Provides status on the object search such as error messages and warnings.
    */
   global ConnectApi.SearchStatus status;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,14 @@
  */
 global class DeferredTiming {
 
-  public DeferredTiming(Datetime deferredDate) {}
+  global DeferredTiming(Datetime deferredDate) {}
+
+  global Datetime deferredDate;
+
+  global Datetime deferredDateValue;
+
+  global String timingType;
+
+  global Object clone() {}
 
 }

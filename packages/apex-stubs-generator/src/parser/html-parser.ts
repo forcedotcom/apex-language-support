@@ -342,6 +342,48 @@ export const extractClassDescriptionFromHtml = (html: string) =>
   });
 
 /**
+ * Detect whether a class page documents an inner class by inspecting the page heading.
+ *
+ * Salesforce docs render inner class headings as two-segment names without a namespace prefix:
+ *   "DmlOptions.AssignmentRuleHeader Class"
+ *   "DMLOptions.DuplicateRuleHeader Class"
+ *
+ * Top-level class pages use a single-segment heading:
+ *   "DMLOptions Class"
+ *
+ * If the h1 heading has the form "OuterClass.InnerClass [Class|Interface|...]",
+ * and InnerClass matches the expected class name, return OuterClass.
+ * Returns undefined for top-level classes.
+ */
+export const extractOuterClassFromHtml = (
+  html: string,
+  _namespace: string,
+  className: string,
+): string | undefined => {
+  // h1 heading may be plain text or wrapped in a <span class="titlecodeph">
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (!h1Match) return undefined;
+
+  // Strip tags and trailing type keyword ("Class", "Interface", "Enum", "Exception")
+  const heading = stripHtmlTags(h1Match[1])
+    .trim()
+    .replace(/\s+(?:Class|Interface|Enum|Exception)\s*$/i, '')
+    .trim();
+
+  const dotIdx = heading.indexOf('.');
+  if (dotIdx < 0) return undefined; // single segment → top-level class
+
+  const outerPart = heading.slice(0, dotIdx);
+  const innerPart = heading.slice(dotIdx + 1);
+
+  // Confirm the inner part matches the class we're scraping (case-insensitive,
+  // since docs sometimes use different casing than the TOC, e.g. "Assignmentruleheader")
+  if (innerPart.toLowerCase() !== className.toLowerCase()) return undefined;
+
+  return outerPart;
+};
+
+/**
  * Returns true when the page's shortdesc marks the class as internal-use only.
  *
  * Known variants in Salesforce docs:
@@ -367,24 +409,37 @@ export const isInternalUseOnly = (html: string): boolean => {
  * Returns the class name as written in the docs (may be namespace-qualified,
  * e.g. "Cache.Partition"). Apex accepts both qualified and unqualified forms.
  */
+/** A valid Apex class reference: word chars, dots, and angle-bracket generics only — no spaces. */
+const isValidClassReference = (name: string): boolean =>
+  /^[\w][\w.<>,\[\]]*$/.test(name);
+
 export const extractSuperClassFromHtml = (html: string): string | undefined => {
   // Variant 1: link wraps a <samp> element
   const sampPattern =
     /\bextends\s+(?:<a[^>]*>)?<samp[^>]*codeph[^>]*>([^<]+)<\/samp>/i;
   const sampMatch = html.match(sampPattern);
-  if (sampMatch) return stripCodeTags(sampMatch[1]) || undefined;
+  if (sampMatch) {
+    const candidate = stripCodeTags(sampMatch[1]).trim();
+    if (candidate && isValidClassReference(candidate)) return candidate;
+  }
 
   // Variant 2: "extends" keyword with plain link text
   const linkPattern = /\bextends\s+<a[^>]*>([^<]+)<\/a>/i;
   const linkMatch = html.match(linkPattern);
-  if (linkMatch) return stripHtmlTags(linkMatch[1]).trim() || undefined;
+  if (linkMatch) {
+    const candidate = stripHtmlTags(linkMatch[1]).trim();
+    if (candidate && isValidClassReference(candidate)) return candidate;
+  }
 
   // Variant 3: "Subclass of <a>TypeName</a>" prose (used by ConnectApi and others)
   const subclassPattern = /\bSubclass of\s+<a[^>]*>([^<]+)<\/a>/i;
   const subclassMatch = html.match(subclassPattern);
-  return subclassMatch
-    ? stripHtmlTags(subclassMatch[1]).trim() || undefined
-    : undefined;
+  if (subclassMatch) {
+    const candidate = stripHtmlTags(subclassMatch[1]).trim();
+    if (candidate && isValidClassReference(candidate)) return candidate;
+  }
+
+  return undefined;
 };
 
 /**
@@ -507,6 +562,36 @@ export const extractExceptionClassNamesFromHtml = (
 
     yield* Console.log(`  Found ${results.length} exception classes`);
     return results;
+  });
+
+/**
+ * Extract properties from a page where all members are expressed as inline
+ * Signature/Syntax blocks using property accessor syntax (`{ get; set; }`).
+ *
+ * Used by pages like Database.DMLOptions that have no property table but do have
+ * individual <h2/h4>Signature</h2/h4> blocks for each property.
+ */
+export const extractPropertiesFromSignaturesHtml = (
+  html: string,
+  className: string,
+) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing signature-based properties for: ${className}`);
+    const properties: ApexProperty[] = [];
+    const signatures = extractSignatures(html);
+    for (const sig of signatures) {
+      const prop = parsePropertyFromSignature(sig);
+      if (prop) {
+        properties.push(prop);
+        yield* Console.log(
+          `    Property (signature): ${prop.type} ${prop.name}`,
+        );
+      }
+    }
+    yield* Console.log(
+      `Extracted ${properties.length} signature-based properties from ${className}`,
+    );
+    return properties;
   });
 
 /**

@@ -3,9 +3,13 @@
  */
 global class ExtensionsCapability extends ConnectApi.FeedElementCapability {
 
+  global ExtensionsCapability() {}
+
   /**
    * List of extensions associated with the feed element.
    */
   global List < ConnectApi.Extension > items;
+
+  global Object clone() {}
 
 }

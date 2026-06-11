@@ -3,13 +3,15 @@
  */
 global class ReferencedRefundResponse {
 
+  global ReferencedRefundResponse() {}
+
   /**
    * Sets the transaction amount. The value must be a postive number.
    * @param amount The amount to be debited or captured.
    */
   global void setAmount(Double amount) {}
 
-  public void setAsync(Boolean async) {}
+  global void setAsync(Boolean async) {}
 
   /**
    * Sets the payment gateway’s address verification system (AVS) code.
@@ -58,5 +60,11 @@ global class ReferencedRefundResponse {
    * @param salesforceResultCodeInfo Describes the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

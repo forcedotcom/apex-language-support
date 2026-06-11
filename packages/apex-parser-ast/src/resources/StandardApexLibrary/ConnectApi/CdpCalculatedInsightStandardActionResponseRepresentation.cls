@@ -3,4 +3,8 @@
  */
 global class CdpCalculatedInsightStandardActionResponseRepresentation extends ConnectApi.CdpActionResponse {
 
+  global CdpCalculatedInsightStandardActionResponseRepresentation() {}
+
+  global Object clone() {}
+
 }

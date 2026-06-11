@@ -3,6 +3,8 @@
  */
 global class OCICreateReservationErrorOutputRepresentation {
 
+  global OCICreateReservationErrorOutputRepresentation() {}
+
   /**
    * The error code.
    */
@@ -12,5 +14,7 @@ global class OCICreateReservationErrorOutputRepresentation {
    * Details of the error, if available.
    */
   global String message;
+
+  global Object clone() {}
 
 }

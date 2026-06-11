@@ -3,6 +3,8 @@
  */
 global class CredentialValue {
 
+  global CredentialValue() {}
+
   /**
    * Specifies whether the credential value is encrypted ( true ) or not ( false ).
    */
@@ -17,5 +19,7 @@ global class CredentialValue {
    * Value of the credential.
    */
   global String value;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ZonePage {
 
+  global ZonePage() {}
+
   /**
    * A list of one or more zones.
    */
@@ -17,5 +19,7 @@ global class ZonePage {
    * Connect REST API URL identifying the next page, or null if there isn’t a next page.
    */
   global String nextPageUrl;
+
+  global Object clone() {}
 
 }

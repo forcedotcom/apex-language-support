@@ -3,6 +3,8 @@
  */
 global class DirectMessageMemberPage {
 
+  global DirectMessageMemberPage() {}
+
   /**
    * Page token to access the current page of direct message members.
    */
@@ -27,5 +29,7 @@ global class DirectMessageMemberPage {
    * Collection of direct message members.
    */
   global List < ConnectApi.UserSummary > users;
+
+  global Object clone() {}
 
 }

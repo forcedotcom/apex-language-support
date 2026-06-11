@@ -3,6 +3,8 @@
  */
 global class TaxAddressRequest {
 
+  global TaxAddressRequest() {}
+
   /**
    * City.
    */
@@ -42,5 +44,7 @@ global class TaxAddressRequest {
    * Street.
    */
   global String street;
+
+  global Object clone() {}
 
 }

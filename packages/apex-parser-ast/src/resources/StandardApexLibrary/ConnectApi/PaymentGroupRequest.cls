@@ -3,6 +3,8 @@
  */
 global class PaymentGroupRequest {
 
+  global PaymentGroupRequest() {}
+
   /**
    * Specifies whether Salesforce needs to create a payment group ( true ) or not ( false ).
    */
@@ -22,5 +24,7 @@ global class PaymentGroupRequest {
    * Source object ID of the payment group record. Supports only OrderId.
    */
   global String sourceObjectId;
+
+  global Object clone() {}
 
 }

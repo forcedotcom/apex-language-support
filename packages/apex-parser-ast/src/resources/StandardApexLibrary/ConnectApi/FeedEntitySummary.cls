@@ -3,6 +3,8 @@
  */
 global class FeedEntitySummary {
 
+  global FeedEntitySummary() {}
+
   /**
    * Entity that created the feed entity.
    */
@@ -47,5 +49,7 @@ global class FeedEntitySummary {
    * URL to the feed entity.
    */
   global String url;
+
+  global Object clone() {}
 
 }

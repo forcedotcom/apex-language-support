@@ -3,9 +3,13 @@
  */
 global class AbstractRecordView extends ConnectApi.ActorWithId {
 
+  global AbstractRecordView() {}
+
   /**
    * The localized name of the record.
    */
   global String name;
+
+  global Object clone() {}
 
 }

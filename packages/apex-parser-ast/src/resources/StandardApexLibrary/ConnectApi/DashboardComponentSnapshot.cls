@@ -3,6 +3,8 @@
  */
 global class DashboardComponentSnapshot {
 
+  global DashboardComponentSnapshot() {}
+
   /**
    * 18-character ID of the dashboard component.
    */
@@ -52,5 +54,7 @@ global class DashboardComponentSnapshot {
    * The source URL to retrieve the thumbnail image of a snapshot. Access this URL with OAuth credentials.
    */
   global String thumbnailUrl;
+
+  global Object clone() {}
 
 }

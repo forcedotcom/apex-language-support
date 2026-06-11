@@ -3,6 +3,8 @@
  */
 global class PostAuthGatewayResponse {
 
+  global PostAuthGatewayResponse() {}
+
   /**
    * Code used to authorize the payment that the payment gateway is processing.
    */
@@ -12,5 +14,7 @@ global class PostAuthGatewayResponse {
    * Details about the payment method.
    */
   global ConnectApi.PaymentMethodDetails paymentMethodDetails;
+
+  global Object clone() {}
 
 }

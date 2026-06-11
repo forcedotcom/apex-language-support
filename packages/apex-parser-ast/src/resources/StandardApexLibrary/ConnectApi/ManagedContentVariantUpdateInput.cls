@@ -3,6 +3,8 @@
  */
 global class ManagedContentVariantUpdateInput {
 
+  global ManagedContentVariantUpdateInput() {}
+
   /**
    * API name of the managed content variant.
    */
@@ -22,5 +24,7 @@ global class ManagedContentVariantUpdateInput {
    * URL name of the managed content variant within the org.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

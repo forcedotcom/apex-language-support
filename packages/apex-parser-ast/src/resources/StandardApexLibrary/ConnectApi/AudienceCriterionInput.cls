@@ -3,6 +3,8 @@
  */
 global class AudienceCriterionInput {
 
+  global AudienceCriterionInput() {}
+
   /**
    * List of mappings of audience criteria fields and values.
    */
@@ -22,5 +24,7 @@ global class AudienceCriterionInput {
    * Type of personalization audience criterion. Values are: Audience —Criterion based on audience. Default —Audience has no criteria. Domain —Criterion based on domain. FieldBased —Criterion based on object fields. GeoLocation —Criterion based on location. Permission —Criterion based on standard or custom permissions. Profile —Criterion based on profile.
    */
   global ConnectApi.AudienceCriteriaType criterionType;
+
+  global Object clone() {}
 
 }

@@ -3,10 +3,22 @@
  */
 global class SummaryLayoutItem {
 
+  global SummaryLayoutItem() {}
+
+  global String customLink;
+
+  global String field;
+
+  global Integer posX;
+
+  global Integer posY;
+
+  global Integer posZ;
+
   /**
    * Makes a duplicate copy of the Metadata.SummaryLayoutItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

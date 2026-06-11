@@ -3,6 +3,8 @@
  */
 global class NetworkConnectionInput {
 
+  global NetworkConnectionInput() {}
+
   /**
    * Developer name of the network connection.
    */
@@ -12,5 +14,7 @@ global class NetworkConnectionInput {
    * Namespace of the network connection.
    */
   global String namespace;
+
+  global Object clone() {}
 
 }

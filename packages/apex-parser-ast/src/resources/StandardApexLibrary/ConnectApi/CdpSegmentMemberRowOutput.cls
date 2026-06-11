@@ -3,6 +3,8 @@
  */
 global class CdpSegmentMemberRowOutput {
 
+  global CdpSegmentMemberRowOutput() {}
+
   /**
    * Delta type, for example, new , existing , or removed .
    */
@@ -32,5 +34,7 @@ global class CdpSegmentMemberRowOutput {
    * Version timestamp.
    */
   global String versionStamp;
+
+  global Object clone() {}
 
 }

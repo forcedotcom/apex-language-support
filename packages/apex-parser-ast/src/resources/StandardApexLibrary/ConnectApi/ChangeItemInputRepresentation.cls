@@ -3,6 +3,8 @@
  */
 global class ChangeItemInputRepresentation {
 
+  global ChangeItemInputRepresentation() {}
+
   /**
    * List of input data for fees associated with the order item being returned or canceled.
    */
@@ -32,5 +34,7 @@ global class ChangeItemInputRepresentation {
    * Specifies whether to prorate the shipping charge.
    */
   global Boolean shippingReductionFlag;
+
+  global Object clone() {}
 
 }

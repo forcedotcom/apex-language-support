@@ -3,9 +3,11 @@
  */
 global class PostAuthorizationResponse extends AbstractTransactionResponse {
 
+  global PostAuthorizationResponse() {}
+
   global void setAlternativePaymentMethodResponse(commercepayments.AlternativePaymentMethodResponse paymentMethodResponse) {}
 
-  public void setAmount(Double amount) {}
+  global void setAmount(Double amount) {}
 
   global void setAsync(Boolean async) {}
 
@@ -13,24 +15,30 @@ global class PostAuthorizationResponse extends AbstractTransactionResponse {
 
   global void setGatewayAuthCode(String gatewayAuthCode) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
-  public void setGatewayDate(Datetime gatewayDate) {}
+  global void setGatewayDate(Datetime gatewayDate) {}
 
-  public void setGatewayMessage(String gatewayMessage) {}
+  global void setGatewayMessage(String gatewayMessage) {}
 
-  public void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
 
-  public void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
 
-  public void setGatewayResultCode(String gatewayResultCode) {}
+  global void setGatewayResultCode(String gatewayResultCode) {}
 
-  public void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
 
-  public void setPaymentMethodDetails(commercepayments.PaymentMethodDetailsResponse paymentMethodDetails) {}
+  global void setPaymentMethodDetails(commercepayments.PaymentMethodDetailsResponse paymentMethodDetails) {}
 
   global void setPaymentMethodTokenizationResponse(commercepayments.PaymentMethodTokenizationResponse paymentMethodTokenizationResponse) {}
 
-  public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

@@ -10,6 +10,9 @@
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages/apex-stubs-generator"
   },
+  "dependencies": {
+    "fast-xml-parser": "^5.8.0"
+  },
   "scripts": {
     "compile": "wireit",
     "clean": "rimraf out .wireit tsconfig.tsbuildinfo output-test",

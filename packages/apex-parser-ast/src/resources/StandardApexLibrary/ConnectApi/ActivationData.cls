@@ -3,6 +3,8 @@
  */
 global class ActivationData {
 
+  global ActivationData() {}
+
   /**
    * Fully Qualified Key (FQK) of the activated entity.
    */
@@ -42,5 +44,7 @@ global class ActivationData {
    * Fully Qualified Key (FQK) of the segmented entity.
    */
   global String segmentedEntityFqk;
+
+  global Object clone() {}
 
 }

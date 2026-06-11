@@ -3,6 +3,10 @@
  */
 global class AddressResponse {
 
+  global AddressResponse() {}
+
   global void setLocationCode(String locationCode) {}
+
+  global Object clone() {}
 
 }

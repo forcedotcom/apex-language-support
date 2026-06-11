@@ -3,16 +3,20 @@
  */
 global class QueryLocatorIterator {
 
+  global QueryLocatorIterator() {}
+
   /**
    * Returns true if there are one or more records remaining in the collection; otherwise, returns false .
    * @return Boolean
    */
-  public Boolean hasNext() {}
+  global Boolean hasNext() {}
 
   /**
    * Advances the iterator to the next sObject record and returns the sObject.
    * @return sObject
    */
-  public sObject next() {}
+  global sObject next() {}
+
+  global Object clone() {}
 
 }

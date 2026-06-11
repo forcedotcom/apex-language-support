@@ -3,6 +3,8 @@
  */
 global class PromotionCartDeliveryGroupMethod {
 
+  global PromotionCartDeliveryGroupMethod() {}
+
   /**
    * List of cart delivery method adjustments.
    */
@@ -32,5 +34,7 @@ global class PromotionCartDeliveryGroupMethod {
    * Final price of the cart item after all adjustments.
    */
   global String totalNetAmount;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ChatterStreamPage {
 
+  global ChatterStreamPage() {}
+
   /**
    * URL to the current page of streams.
    */
@@ -22,5 +24,7 @@ global class ChatterStreamPage {
    * Total number of streams in the collection.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

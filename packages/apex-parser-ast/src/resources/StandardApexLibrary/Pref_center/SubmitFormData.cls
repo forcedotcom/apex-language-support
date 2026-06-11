@@ -3,18 +3,22 @@
  */
 global class SubmitFormData {
 
-  public String getButtonClicked() {}
+  global SubmitFormData() {}
 
-  public String getOldSelectedValue(String fieldId) {}
+  global String getButtonClicked() {}
 
-  public List<String> getOldSelectedValues(String fieldId) {}
+  global String getOldSelectedValue(String fieldId) {}
 
-  public String getOldStringValue(String fieldId) {}
+  global List<String> getOldSelectedValues(String fieldId) {}
 
-  public String getSelectedValue(String fieldId) {}
+  global String getOldStringValue(String fieldId) {}
 
-  public List<String> getSelectedValues(String fieldId) {}
+  global String getSelectedValue(String fieldId) {}
 
-  public String getStringValue(String fieldId) {}
+  global List<String> getSelectedValues(String fieldId) {}
+
+  global String getStringValue(String fieldId) {}
+
+  global Object clone() {}
 
 }

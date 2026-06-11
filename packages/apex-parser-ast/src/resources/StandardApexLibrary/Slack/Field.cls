@@ -1,5 +1,7 @@
 global class Field {
 
+  global Field() {}
+
   global String getTitle() {}
 
   global String getValue() {}
@@ -11,5 +13,7 @@ global class Field {
   global void setValue(String value) {}
 
   global void setValueShortEnough(Boolean valueShortEnough) {}
+
+  global Object clone() {}
 
 }

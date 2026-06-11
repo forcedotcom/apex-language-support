@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptRecordCollectionOutputRepresentation {
 
+  global EinsteinPromptRecordCollectionOutputRepresentation() {}
+
   /**
    * Specifies whether the query returned more prompt template records (true) or not (false) .
    */
@@ -17,5 +19,7 @@ global class EinsteinPromptRecordCollectionOutputRepresentation {
    * Number of prompt template records returned.
    */
   global Integer totalPromptRecords;
+
+  global Object clone() {}
 
 }

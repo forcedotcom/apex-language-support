@@ -3,18 +3,34 @@
  */
 global class TokenValidationResult {
 
-  public TokenValidationResult(Boolean isValid, Object data, Auth.UserData userData, String token, Auth.OAuth2TokenExchangeType tokenType, String customErrorMsg) {}
+  global TokenValidationResult(Boolean isValid, Object data, Auth.UserData userData, String token, Auth.OAuth2TokenExchangeType tokenType, String customErrorMsg) {}
 
-  public TokenValidationResult(Boolean valid) {}
+  global TokenValidationResult(Boolean valid) {}
 
-  public String getCustomErrorMessage() {}
+  global String customErrorMsg;
 
-  public Object getData() {}
+  global Object data;
 
-  public String getToken() {}
+  global Boolean isValid;
 
-  public Auth.OAuth2TokenExchangeType getTokenType() {}
+  global String token;
 
-  public Auth.UserData getUserData() {}
+  global Auth.OAuth2TokenExchangeType tokenType;
+
+  global Auth.UserData userData;
+
+  global String getCustomErrorMessage() {}
+
+  global Object getData() {}
+
+  global String getToken() {}
+
+  global Auth.OAuth2TokenExchangeType getTokenType() {}
+
+  global Auth.UserData getUserData() {}
+
+  global Object clone() {}
+
+  global Boolean isValid() {}
 
 }

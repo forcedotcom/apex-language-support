@@ -3,6 +3,8 @@
  */
 global class OrchestrationWorkItem {
 
+  global OrchestrationWorkItem() {}
+
   /**
    * ID of the assignee for the orchestration work item.
    */
@@ -62,5 +64,7 @@ global class OrchestrationWorkItem {
    * Status of the orchestration work item. Values are: Assigned Completed
    */
   global ConnectApi.OrchestrationWorkItemStatus status;
+
+  global Object clone() {}
 
 }

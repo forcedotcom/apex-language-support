@@ -1,5 +1,7 @@
 global class TestHarness {
 
+  global TestHarness() {}
+
   global Slack.TestHarness.State getNewSlackState() {}
 
   global Object getComponent(Integer idx, System.Type clazz) {}

@@ -3,6 +3,8 @@
  */
 global class WishlistToCartResult {
 
+  global WishlistToCartResult() {}
+
   /**
    * ID of the cart to which the products were added.
    */
@@ -32,5 +34,7 @@ global class WishlistToCartResult {
    * Wishlist items that were successfully added to the cart.
    */
   global List < ConnectApi.CartItemResult > succeededWishlistToCartItems;
+
+  global Object clone() {}
 
 }

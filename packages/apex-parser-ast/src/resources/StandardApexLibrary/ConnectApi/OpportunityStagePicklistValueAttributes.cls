@@ -3,6 +3,8 @@
  */
 global class OpportunityStagePicklistValueAttributes extends ConnectApi.AbstractPicklistValueAttributes {
 
+  global OpportunityStagePicklistValueAttributes() {}
+
   /**
    * Specifies whether the opportunity has a stage of closed ( true ) or not ( false ). Multiple opportunity stage values can represent a closed opportunity.
    */
@@ -22,5 +24,7 @@ global class OpportunityStagePicklistValueAttributes extends ConnectApi.Abstract
    * Specifies whether the opportunity has a stage of won ( true ) or not ( false ). Multiple opportunity stage values can represent a won opportunity.
    */
   global Boolean won;
+
+  global Object clone() {}
 
 }

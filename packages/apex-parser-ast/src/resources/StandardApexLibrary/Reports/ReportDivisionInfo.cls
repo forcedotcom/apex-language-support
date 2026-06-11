@@ -3,16 +3,20 @@
  */
 global class ReportDivisionInfo {
 
+  global ReportDivisionInfo() {}
+
   /**
    * Returns the default division for the report.
    * @return String
    */
-  public String getDefaultValue() {}
+  global String getDefaultValue() {}
 
   /**
    * Returns a list of all possible divisions for the report.
    * @return List<Reports.FilterValue>
    */
-  public List<Reports.FilterValue> getValues() {}
+  global List<Reports.FilterValue> getValues() {}
+
+  global Object clone() {}
 
 }

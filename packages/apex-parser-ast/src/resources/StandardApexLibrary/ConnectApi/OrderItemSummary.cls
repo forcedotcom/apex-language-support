@@ -3,6 +3,8 @@
  */
 global class OrderItemSummary {
 
+  global OrderItemSummary() {}
+
   /**
    * Adjustment aggregates associated with an order item summary.
    */
@@ -27,5 +29,7 @@ global class OrderItemSummary {
    * Associated product item information.
    */
   global ConnectApi.OrderItemSummaryProduct product;
+
+  global Object clone() {}
 
 }

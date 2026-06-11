@@ -3,6 +3,10 @@
  */
 global class HttpCalloutMockUtil {
 
-  public static void setHttpMock(System.HttpCalloutMock mock) {}
+  global HttpCalloutMockUtil() {}
+
+  global static void setHttpMock(System.HttpCalloutMock mock) {}
+
+  global Object clone() {}
 
 }

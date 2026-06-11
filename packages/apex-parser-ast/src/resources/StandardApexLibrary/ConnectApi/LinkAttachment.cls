@@ -3,6 +3,8 @@
  */
 global class LinkAttachment extends ConnectApi.FeedItemAttachment {
 
+  global LinkAttachment() {}
+
   /**
    * Title given to the link if available, otherwise, null .
    */
@@ -12,5 +14,7 @@ global class LinkAttachment extends ConnectApi.FeedItemAttachment {
    * The link URL.
    */
   global String url;
+
+  global Object clone() {}
 
 }

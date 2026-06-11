@@ -3,6 +3,8 @@
  */
 global class ChatterConversation {
 
+  global ChatterConversation() {}
+
   /**
    * ID for the conversation.
    */
@@ -27,5 +29,7 @@ global class ChatterConversation {
    * Specifies if the conversation is read ( true ) or not read ( false ).
    */
   global Boolean read;
+
+  global Object clone() {}
 
 }

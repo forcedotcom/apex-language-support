@@ -3,6 +3,8 @@
  */
 global class OriginCapability extends ConnectApi.FeedElementCapability {
 
+  global OriginCapability() {}
+
   /**
    * The user who executed the feed action.
    */
@@ -12,5 +14,7 @@ global class OriginCapability extends ConnectApi.FeedElementCapability {
    * A reference to the feed element containing the feed action.
    */
   global ConnectApi.Reference originRecord;
+
+  global Object clone() {}
 
 }

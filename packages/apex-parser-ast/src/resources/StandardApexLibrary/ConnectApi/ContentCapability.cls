@@ -3,6 +3,8 @@
  */
 global class ContentCapability extends ConnectApi.FeedElementCapability {
 
+  global ContentCapability() {}
+
   /**
    * MD5 checksum for the file.
    */
@@ -107,5 +109,7 @@ global class ContentCapability extends ConnectApi.FeedElementCapability {
    * Version ID of the file.
    */
   global String versionId;
+
+  global Object clone() {}
 
 }

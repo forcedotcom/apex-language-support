@@ -3,6 +3,8 @@
  */
 global class WorkStepPicklistValueAttribute extends ConnectApi.AbstractPicklistValueAttributes {
 
+  global WorkStepPicklistValueAttribute() {}
+
   /**
    * Order in which the work step statuses are displayed in the status category’s picklist.
    */
@@ -12,5 +14,7 @@ global class WorkStepPicklistValueAttribute extends ConnectApi.AbstractPicklistV
    * Status category of the work step.
    */
   global String statusCode;
+
+  global Object clone() {}
 
 }

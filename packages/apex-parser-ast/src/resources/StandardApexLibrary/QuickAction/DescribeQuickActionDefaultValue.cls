@@ -3,16 +3,20 @@
  */
 global class DescribeQuickActionDefaultValue {
 
+  global DescribeQuickActionDefaultValue() {}
+
   /**
    * Returns the default value of the quick action.
    * @return String
    */
-  public String getDefaultValue() {}
+  global String getDefaultValue() {}
 
   /**
    * Returns the field name of the action.
    * @return String
    */
-  public String getField() {}
+  global String getField() {}
+
+  global Object clone() {}
 
 }

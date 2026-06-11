@@ -3,6 +3,8 @@
  */
 global class WishlistItemCollection {
 
+  global WishlistItemCollection() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -47,5 +49,7 @@ global class WishlistItemCollection {
    * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

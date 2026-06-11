@@ -3,6 +3,8 @@
  */
 global class UserGroupPage {
 
+  global UserGroupPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -27,5 +29,7 @@ global class UserGroupPage {
    * Total number of groups across all pages.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

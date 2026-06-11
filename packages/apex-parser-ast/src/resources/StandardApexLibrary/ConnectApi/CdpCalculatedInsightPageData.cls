@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightPageData {
 
+  global CdpCalculatedInsightPageData() {}
+
   /**
    * Number of results returned in the page.
    */
@@ -47,5 +49,7 @@ global class CdpCalculatedInsightPageData {
    * Total row count of calculated insights.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

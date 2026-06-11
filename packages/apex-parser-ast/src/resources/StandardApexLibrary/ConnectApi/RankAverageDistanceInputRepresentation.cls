@@ -3,6 +3,8 @@
  */
 global class RankAverageDistanceInputRepresentation {
 
+  global RankAverageDistanceInputRepresentation() {}
+
   /**
    * The country code of the order recipient.
    */
@@ -27,5 +29,7 @@ global class RankAverageDistanceInputRepresentation {
    * Each element is a set of inventory locations that can combine to fulfill the order.
    */
   global List < ConnectApi.TargetLocationInputRepresentation > targetLocations;
+
+  global Object clone() {}
 
 }

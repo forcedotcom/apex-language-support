@@ -3,6 +3,8 @@
  */
 global class OrderDeliveryGroupSummaryLookupOutput {
 
+  global OrderDeliveryGroupSummaryLookupOutput() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the order delivery group summary record.
    */
@@ -27,5 +29,7 @@ global class OrderDeliveryGroupSummaryLookupOutput {
    * Line items associated with the order delivery group summary.
    */
   global List < ConnectApi.OrderSummaryLookupOutput > lineItems;
+
+  global Object clone() {}
 
 }

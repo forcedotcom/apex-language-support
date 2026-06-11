@@ -3,8 +3,12 @@
  */
 global class IntegrationInfo {
 
+  global IntegrationInfo() {}
+
   global String integrationId;
 
   global String jobId;
+
+  global Object clone() {}
 
 }

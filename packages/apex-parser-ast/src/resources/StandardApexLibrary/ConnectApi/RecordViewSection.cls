@@ -3,6 +3,8 @@
  */
 global class RecordViewSection {
 
+  global RecordViewSection() {}
+
   /**
    * Number of columns to use to lay out the fields in a record section.
    */
@@ -27,5 +29,7 @@ global class RecordViewSection {
    * Indicates whether the section can be collapsed to hide all the fields ( true ) or not ( false ).
    */
   global Boolean isCollapsible;
+
+  global Object clone() {}
 
 }

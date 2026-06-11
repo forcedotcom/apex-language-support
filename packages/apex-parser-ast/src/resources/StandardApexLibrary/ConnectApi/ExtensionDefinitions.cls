@@ -3,6 +3,8 @@
  */
 global class ExtensionDefinitions {
 
+  global ExtensionDefinitions() {}
+
   /**
    * Token identifying the current page.
    */
@@ -32,5 +34,7 @@ global class ExtensionDefinitions {
    * Total number of extensions returned.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ManagedContentVersion {
 
+  global ManagedContentVersion() {}
+
   /**
    * Content topics associated with the managed content.
    */
@@ -57,5 +59,7 @@ global class ManagedContentVersion {
    * Unauthenticated delivery URL.
    */
   global String unauthenticatedUrl;
+
+  global Object clone() {}
 
 }

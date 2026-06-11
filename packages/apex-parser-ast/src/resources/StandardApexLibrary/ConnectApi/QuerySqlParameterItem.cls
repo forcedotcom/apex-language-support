@@ -3,6 +3,8 @@
  */
 global class QuerySqlParameterItem {
 
+  global QuerySqlParameterItem() {}
+
   /**
    * Name of the SQL parameter.
    */
@@ -17,5 +19,7 @@ global class QuerySqlParameterItem {
    * Value of the SQL parameter.
    */
   global String value;
+
+  global Object clone() {}
 
 }

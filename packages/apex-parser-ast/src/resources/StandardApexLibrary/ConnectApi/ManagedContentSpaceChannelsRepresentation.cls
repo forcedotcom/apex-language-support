@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpaceChannelsRepresentation {
 
+  global ManagedContentSpaceChannelsRepresentation() {}
+
   /**
    * URL to the current page of managed content space channels.
    */
@@ -27,5 +29,7 @@ global class ManagedContentSpaceChannelsRepresentation {
    * Total count of managed content space channels returned for the request.
    */
   global Integer totalSpaceChannels;
+
+  global Object clone() {}
 
 }

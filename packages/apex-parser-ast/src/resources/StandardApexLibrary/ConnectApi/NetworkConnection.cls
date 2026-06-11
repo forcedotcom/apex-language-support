@@ -3,6 +3,8 @@
  */
 global class NetworkConnection {
 
+  global NetworkConnection() {}
+
   /**
    * Name of the network connection.
    */
@@ -22,5 +24,7 @@ global class NetworkConnection {
    * Namespace prefix of the network connection.
    */
   global String namespacePrefix;
+
+  global Object clone() {}
 
 }

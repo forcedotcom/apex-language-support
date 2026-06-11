@@ -3,6 +3,8 @@
  */
 global class CdpMlPredictSettings {
 
+  global CdpMlPredictSettings() {}
+
   /**
    * List of aggregate functions.
    */
@@ -22,5 +24,7 @@ global class CdpMlPredictSettings {
    * Impact percentage of prescriptions. The default value is 0 and the range of values is 0 through 100 .
    */
   global Integer prescriptionImpactPercentage;
+
+  global Object clone() {}
 
 }

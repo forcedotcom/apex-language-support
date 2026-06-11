@@ -3,6 +3,8 @@
  */
 global class ProductImageGroupOutputRepresentation {
 
+  global ProductImageGroupOutputRepresentation() {}
+
   /**
    * List of product images in the group.
    */
@@ -12,5 +14,7 @@ global class ProductImageGroupOutputRepresentation {
    * The type of product images in the group.
    */
   global String viewType;
+
+  global Object clone() {}
 
 }

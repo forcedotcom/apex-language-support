@@ -3,6 +3,8 @@
  */
 global class FieldMetadata {
 
+  global FieldMetadata() {}
+
   /**
    * The object that the field is associated with.
    */
@@ -42,5 +44,7 @@ global class FieldMetadata {
    * Specifies whether the field is sortable ( true ) or not ( false ).
    */
   global Boolean sortable;
+
+  global Object clone() {}
 
 }

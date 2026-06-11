@@ -3,30 +3,34 @@
  */
 global class SaleNotification {
 
-  public void setAmount(Double amount) {}
+  global SaleNotification() {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setAmount(Double amount) {}
 
-  public void setGatewayDate(Datetime gatewayDate) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
-  public void setGatewayMessage(String gatewayMessage) {}
+  global void setGatewayDate(Datetime gatewayDate) {}
 
-  public void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+  global void setGatewayMessage(String gatewayMessage) {}
 
-  public void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
 
-  public void setGatewayResultCode(String gatewayResultCode) {}
+  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
 
-  public void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+  global void setGatewayResultCode(String gatewayResultCode) {}
 
-  public void setId(String id) {}
+  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
 
-  public void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+  global void setId(String id) {}
 
-  public void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
 
-  public void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
-  public void setStatus(commercepayments.NotificationStatus status) {}
+  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ThemeInfo {
 
+  global ThemeInfo() {}
+
   /**
    * Color that represents the object.
    */
@@ -12,5 +14,7 @@ global class ThemeInfo {
    * Icon that represents the object.
    */
   global String iconUrl;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionConfigInput {
 
+  global CdpIdentityResolutionConfigInput() {}
+
   /**
    * Source object for an identity resolution ruleset. Values are: Account Individual
    */
@@ -37,5 +39,7 @@ global class CdpIdentityResolutionConfigInput {
    * Extended ID of the ruleset used to differentiate between rulesets created for comparison. The ruleset ID must be unique and can't be longer than 4 characters.
    */
   global String rulesetId;
+
+  global Object clone() {}
 
 }

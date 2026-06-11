@@ -3,6 +3,8 @@
  */
 global class PaymentMethodResponse {
 
+  global PaymentMethodResponse() {}
+
   /**
    * Salesforce Payments account to which this payment method is linked.
    */
@@ -22,5 +24,7 @@ global class PaymentMethodResponse {
    * Status of the payment method.
    */
   global String status;
+
+  global Object clone() {}
 
 }

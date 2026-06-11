@@ -3,6 +3,8 @@
  */
 global class UserPage {
 
+  global UserPage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -37,5 +39,7 @@ global class UserPage {
    * List of user detail information. If the context user doesn’t have permission to see a property, the property is set to null .
    */
   global List < ConnectApi.UserDetail > users;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class PostAuthApiPaymentMethodRequest extends ConnectApi.BaseApiPaymentMethodRequest {
 
+  global PostAuthApiPaymentMethodRequest() {}
+
   /**
    * Alternative payment method.
    */
@@ -12,5 +14,7 @@ global class PostAuthApiPaymentMethodRequest extends ConnectApi.BaseApiPaymentMe
    * Card payment method.
    */
   global ConnectApi.CardPaymentMethodRequest cardPaymentMethod;
+
+  global Object clone() {}
 
 }

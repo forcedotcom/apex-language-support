@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialPrincipalAccess {
 
+  global ExternalCredentialPrincipalAccess() {}
+
   /**
    * Developer name of the associated access entity.
    */
@@ -17,5 +19,7 @@ global class ExternalCredentialPrincipalAccess {
    * Access type of the external credential principal. Values are: PermissionSet PermissionSetGroup Profile
    */
   global ConnectApi.ExternalCredentialPrincipalAccessType type;
+
+  global Object clone() {}
 
 }

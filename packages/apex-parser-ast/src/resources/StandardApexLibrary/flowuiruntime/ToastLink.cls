@@ -3,4 +3,8 @@
  */
 global class ToastLink {
 
+  global ToastLink() {}
+
+  global Object clone() {}
+
 }

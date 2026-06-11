@@ -3,6 +3,8 @@
  */
 global class RecordSummaryList {
 
+  global RecordSummaryList() {}
+
   /**
    * A list of records.
    */
@@ -12,5 +14,7 @@ global class RecordSummaryList {
    * The URL to this list of records.
    */
   global String url;
+
+  global Object clone() {}
 
 }

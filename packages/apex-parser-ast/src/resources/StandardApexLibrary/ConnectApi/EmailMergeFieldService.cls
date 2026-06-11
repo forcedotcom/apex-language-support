@@ -3,6 +3,10 @@
  */
 global class EmailMergeFieldService {
 
-  public static ConnectApi.EmailMergeFieldInfo getMergeFields(List<String> objectApiNames) {}
+  global EmailMergeFieldService() {}
+
+  global static ConnectApi.EmailMergeFieldInfo getMergeFields(List<String> objectApiNames) {}
+
+  global Object clone() {}
 
 }

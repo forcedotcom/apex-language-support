@@ -3,6 +3,8 @@
  */
 global class ExternalManagedAccountAddressOutput {
 
+  global ExternalManagedAccountAddressOutput() {}
+
   /**
    * City of the external managed account record.
    */
@@ -42,5 +44,7 @@ global class ExternalManagedAccountAddressOutput {
    * Postal code of the external managed account record.
    */
   global String zip;
+
+  global Object clone() {}
 
 }

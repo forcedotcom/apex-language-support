@@ -3,6 +3,8 @@
  */
 global class ManagedContentCloneStatus {
 
+  global ManagedContentCloneStatus() {}
+
   /**
    * Localized label for the status.
    */
@@ -11,6 +13,8 @@ global class ManagedContentCloneStatus {
   /**
    * Status of the managed content clone. Values are: PartialSuccess Success
    */
-  global ConnectApi.ManagedContentCloneStatus status;
+  global Object status;
+
+  global Object clone() {}
 
 }

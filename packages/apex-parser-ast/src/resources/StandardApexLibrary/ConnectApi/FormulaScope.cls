@@ -3,6 +3,8 @@
  */
 global class FormulaScope {
 
+  global FormulaScope() {}
+
   /**
    * Map of context values for the scope. Note In version 52.0 and later, use the contextValuesMap property.
    */
@@ -22,5 +24,7 @@ global class FormulaScope {
    * Formula of the scope.
    */
   global String formula;
+
+  global Object clone() {}
 
 }

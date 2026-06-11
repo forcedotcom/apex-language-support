@@ -3,4 +3,8 @@
  */
 global class EnsureRefundsAsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
 
+  global EnsureRefundsAsyncOutputRepresentation() {}
+
+  global Object clone() {}
+
 }

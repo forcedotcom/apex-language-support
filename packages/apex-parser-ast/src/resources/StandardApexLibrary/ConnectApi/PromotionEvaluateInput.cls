@@ -3,6 +3,8 @@
  */
 global class PromotionEvaluateInput {
 
+  global PromotionEvaluateInput() {}
+
   /**
    * Cart and its items.
    */
@@ -47,5 +49,7 @@ global class PromotionEvaluateInput {
    * ID of the store for which the request is made. If unspecified, defined segments must be used instead.
    */
   global String webStoreId;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class OrderSummaryLookupOutput {
 
+  global OrderSummaryLookupOutput() {}
+
   /**
    * Adjustment aggregates associated with the order summary.
    */
@@ -37,5 +39,7 @@ global class OrderSummaryLookupOutput {
    * Status associated with the order summary.
    */
   global String status;
+
+  global Object clone() {}
 
 }

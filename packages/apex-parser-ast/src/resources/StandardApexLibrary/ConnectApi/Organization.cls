@@ -3,6 +3,10 @@
  */
 global class Organization {
 
-  public static ConnectApi.OrganizationSettings getSettings() {}
+  global Organization() {}
+
+  global static ConnectApi.OrganizationSettings getSettings() {}
+
+  global Object clone() {}
 
 }

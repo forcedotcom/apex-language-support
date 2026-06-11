@@ -3,12 +3,16 @@
  */
 global class ExtensionInfo {
 
-  public static Double getClientApiVersion() {}
+  global ExtensionInfo() {}
 
-  public static String getCustomParameterField(String fieldName) {}
+  global static Double getClientApiVersion() {}
 
-  public static String getLocaleString() {}
+  global static String getCustomParameterField(String fieldName) {}
 
-  public static Boolean isCustomParametersAvailable() {}
+  global static String getLocaleString() {}
+
+  global static Boolean isCustomParametersAvailable() {}
+
+  global Object clone() {}
 
 }

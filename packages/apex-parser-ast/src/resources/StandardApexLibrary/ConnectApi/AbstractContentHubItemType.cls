@@ -3,6 +3,8 @@
  */
 global class AbstractContentHubItemType {
 
+  global AbstractContentHubItemType() {}
+
   /**
    * Support for content streaming. Values are: ContentStreamAllowed ContentStreamNotAllowed ContentStreamRequired
    */
@@ -32,5 +34,7 @@ global class AbstractContentHubItemType {
    * URL to the detailed information of the item type.
    */
   global String url;
+
+  global Object clone() {}
 
 }

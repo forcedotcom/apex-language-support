@@ -3,6 +3,8 @@
  */
 global class SiteSearchResult {
 
+  global SiteSearchResult() {}
+
   /**
    * Token for the current page of search results.
    */
@@ -52,5 +54,7 @@ global class SiteSearchResult {
    * Total number of items in the search results across all pages.
    */
   global Integer totalItems;
+
+  global Object clone() {}
 
 }

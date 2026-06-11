@@ -3,14 +3,65 @@
  */
 global class DMLOptions {
 
+  global DMLOptions() {}
+
   global Boolean allowFieldTruncation;
 
-  global Database.DMLOptions assignmentRuleHeader;
+  global AssignmentRuleHeader assignmentRuleHeader;
 
-  global Database.DMLOptions emailHeader;
+  global EmailHeader emailHeader;
 
-  global Database.DMLOptions localeOptions;
+  global LocaleOptions localeOptions;
 
   global Boolean optAllOrNone;
+
+  global Object clone() {}
+
+  /**
+   * Enables setting assignment rule options.
+   */
+  global class AssignmentRuleHeader {
+
+    global AssignmentRuleHeader() {}
+
+    global Id assignmentRuleID;
+
+    global Boolean useDefaultRule;
+
+    global Object clone() {}
+
+  }
+
+  /**
+   * Determines options for using duplicate rules to detect duplicate records. Duplicate rules are part of the Duplicate Management feature.
+   */
+  global class DuplicateRuleHeader {
+
+    global DuplicateRuleHeader() {}
+
+    global Boolean allowSave;
+
+    global Boolean runAsCurrentUser;
+
+    global Object clone() {}
+
+  }
+
+  /**
+   * Enables setting email options.
+   */
+  global class EmailHeader {
+
+    global EmailHeader() {}
+
+    global Boolean triggerAutoResponseEmail;
+
+    global Boolean triggerOtherEmail;
+
+    global Boolean triggerUserEmail;
+
+    global Object clone() {}
+
+  }
 
 }

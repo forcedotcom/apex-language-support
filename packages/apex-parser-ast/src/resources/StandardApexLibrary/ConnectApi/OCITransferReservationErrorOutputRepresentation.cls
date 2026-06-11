@@ -3,6 +3,8 @@
  */
 global class OCITransferReservationErrorOutputRepresentation {
 
+  global OCITransferReservationErrorOutputRepresentation() {}
+
   /**
    * Details of the transferred reservation, if successful.
    */
@@ -17,5 +19,7 @@ global class OCITransferReservationErrorOutputRepresentation {
    * Details of the error, if available.
    */
   global String message;
+
+  global Object clone() {}
 
 }

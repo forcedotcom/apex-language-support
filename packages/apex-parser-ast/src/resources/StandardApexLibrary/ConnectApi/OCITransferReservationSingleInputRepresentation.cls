@@ -3,6 +3,8 @@
  */
 global class OCITransferReservationSingleInputRepresentation {
 
+  global OCITransferReservationSingleInputRepresentation() {}
+
   /**
    * A UUID that identifies the request. Use the action request IDs in response data to identify which requests succeeded or failed.
    */
@@ -52,5 +54,7 @@ global class OCITransferReservationSingleInputRepresentation {
    * The identifier of the location receiving the reservation.
    */
   global String toLocationIdentifier;
+
+  global Object clone() {}
 
 }

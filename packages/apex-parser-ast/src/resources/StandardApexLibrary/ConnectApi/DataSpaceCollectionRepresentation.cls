@@ -3,9 +3,13 @@
  */
 global class DataSpaceCollectionRepresentation {
 
+  global DataSpaceCollectionRepresentation() {}
+
   /**
    * List of all data spaces.
    */
   global List < ConnectApi.DataSpaceInfoRepresentation > dataSpaces;
+
+  global Object clone() {}
 
 }

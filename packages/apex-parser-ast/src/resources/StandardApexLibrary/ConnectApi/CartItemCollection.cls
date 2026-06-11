@@ -3,6 +3,8 @@
  */
 global class CartItemCollection {
 
+  global CartItemCollection() {}
+
   /**
    * List of approaching discounts for the cart items.
    */
@@ -77,5 +79,75 @@ global class CartItemCollection {
    * Total number of pages for the given page size.
    */
   global Integer totalNumberOfPages;
+
+  global Object clone() {}
+
+  global List<String> getApproachingDiscounts() {}
+
+  global ConnectApi.CartCouponCollection getCartCoupons() {}
+
+  global List<ConnectApi.CartItemResult> getCartItems() {}
+
+  global ConnectApi.CartPromotionCollection getCartPromotions() {}
+
+  global ConnectApi.CartSummary getCartSummary() {}
+
+  global String getCheckoutUrl() {}
+
+  global Integer getCount() {}
+
+  global Integer getCurrentPage() {}
+
+  global String getCurrentPageToken() {}
+
+  global String getCurrentPageUrl() {}
+
+  global Boolean getHasErrors() {}
+
+  global String getNextPageToken() {}
+
+  global String getNextPageUrl() {}
+
+  global String getPreviousPageToken() {}
+
+  global String getPreviousPageUrl() {}
+
+  global Integer getTotal() {}
+
+  global Integer getTotalNumberOfPages() {}
+
+  global void setApproachingDiscounts(List<String> value) {}
+
+  global void setCartCoupons(ConnectApi.CartCouponCollection value) {}
+
+  global void setCartItems(List<ConnectApi.CartItemResult> value) {}
+
+  global void setCartPromotions(ConnectApi.CartPromotionCollection value) {}
+
+  global void setCartSummary(ConnectApi.CartSummary value) {}
+
+  global void setCheckoutUrl(String value) {}
+
+  global void setCount(Integer value) {}
+
+  global void setCurrentPage(Integer value) {}
+
+  global void setCurrentPageToken(String value) {}
+
+  global void setCurrentPageUrl(String value) {}
+
+  global void setHasErrors(Boolean value) {}
+
+  global void setNextPageToken(String value) {}
+
+  global void setNextPageUrl(String value) {}
+
+  global void setPreviousPageToken(String value) {}
+
+  global void setPreviousPageUrl(String value) {}
+
+  global void setTotal(Integer value) {}
+
+  global void setTotalNumberOfPages(Integer value) {}
 
 }

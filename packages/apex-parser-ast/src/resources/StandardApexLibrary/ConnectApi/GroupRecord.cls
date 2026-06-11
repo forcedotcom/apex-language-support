@@ -3,6 +3,8 @@
  */
 global class GroupRecord {
 
+  global GroupRecord() {}
+
   /**
    * Record’s 18-character ID.
    */
@@ -17,5 +19,7 @@ global class GroupRecord {
    * Record URL.
    */
   global String url;
+
+  global Object clone() {}
 
 }

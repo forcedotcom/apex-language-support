@@ -3,6 +3,8 @@
  */
 global class ExtensionsCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global ExtensionsCapabilityInput() {}
+
   /**
    * List of extensions to associate with the feed element.
    */
@@ -12,5 +14,7 @@ global class ExtensionsCapabilityInput extends ConnectApi.FeedElementCapabilityI
    * List of attachment IDs to remove from the feed element.
    */
   global List < String > itemsToRemove;
+
+  global Object clone() {}
 
 }

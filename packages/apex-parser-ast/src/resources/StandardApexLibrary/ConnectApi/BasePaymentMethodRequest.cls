@@ -3,4 +3,8 @@
  */
 global class BasePaymentMethodRequest {
 
+  global BasePaymentMethodRequest() {}
+
+  global Object clone() {}
+
 }

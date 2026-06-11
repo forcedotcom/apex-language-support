@@ -3,6 +3,8 @@
  */
 global class TargetUpdateInput {
 
+  global TargetUpdateInput() {}
+
   /**
    * ID of the audience to assign to the target.
    */
@@ -17,5 +19,7 @@ global class TargetUpdateInput {
    * ID of the target to update.
    */
   global String targetId;
+
+  global Object clone() {}
 
 }

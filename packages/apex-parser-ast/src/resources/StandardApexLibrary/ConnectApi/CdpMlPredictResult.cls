@@ -3,6 +3,8 @@
  */
 global class CdpMlPredictResult {
 
+  global CdpMlPredictResult() {}
+
   /**
    * List of aggregate results.
    */
@@ -27,5 +29,7 @@ global class CdpMlPredictResult {
    * Settings used for the prediction.
    */
   global ConnectApi.CdpMlPredictSettings settings;
+
+  global Object clone() {}
 
 }

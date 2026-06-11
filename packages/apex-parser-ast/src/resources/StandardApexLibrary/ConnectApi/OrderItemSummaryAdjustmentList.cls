@@ -3,9 +3,13 @@
  */
 global class OrderItemSummaryAdjustmentList {
 
+  global OrderItemSummaryAdjustmentList() {}
+
   /**
    * Adjustments associated with an order item summary.
    */
   global List < ConnectApi.OrderSummaryAdjustment > adjustments;
+
+  global Object clone() {}
 
 }

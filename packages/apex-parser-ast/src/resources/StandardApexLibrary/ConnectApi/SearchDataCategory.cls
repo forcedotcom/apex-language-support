@@ -3,6 +3,8 @@
  */
 global class SearchDataCategory {
 
+  global SearchDataCategory() {}
+
   /**
    * List of data category names to filter.
    */
@@ -17,5 +19,7 @@ global class SearchDataCategory {
    * Data category operator. Above —Queries the data category and all of its parent categories. AboveOrBelow —Queries the data category, all of its parent categories, and all of its subcategories. At —Queries the data category. Below —Queries the data category and all of its subcategories.
    */
   global ConnectApi.DataCategoryOperator operator;
+
+  global Object clone() {}
 
 }

@@ -3,22 +3,26 @@
  */
 global class WorkTypeBuilder {
 
-  public lxscheduler.WorkType build() {}
+  global WorkTypeBuilder() {}
 
-  public lxscheduler.WorkTypeBuilder setBlockTimeAfterAppointmentInMinutes(Integer blockTimeAfterAppointmentInMinutes) {}
+  global lxscheduler.WorkType build() {}
 
-  public lxscheduler.WorkTypeBuilder setBlockTimeBeforeAppointmentInMinutes(Integer blockTimeBeforeAppointmentInMinutes) {}
+  global lxscheduler.WorkTypeBuilder setBlockTimeAfterAppointmentInMinutes(Integer blockTimeAfterAppointmentInMinutes) {}
 
-  public lxscheduler.WorkTypeBuilder setDurationInMinutes(Integer durationInMinutes) {}
+  global lxscheduler.WorkTypeBuilder setBlockTimeBeforeAppointmentInMinutes(Integer blockTimeBeforeAppointmentInMinutes) {}
 
-  public lxscheduler.WorkTypeBuilder setId(String id) {}
+  global lxscheduler.WorkTypeBuilder setDurationInMinutes(Integer durationInMinutes) {}
 
-  public lxscheduler.WorkTypeBuilder setOperatingHoursId(String operatingHoursId) {}
+  global lxscheduler.WorkTypeBuilder setId(String id) {}
 
-  public lxscheduler.WorkTypeBuilder setSkillRequirements(List<lxscheduler.SkillRequirement> skillRequirements) {}
+  global lxscheduler.WorkTypeBuilder setOperatingHoursId(String operatingHoursId) {}
 
-  public lxscheduler.WorkTypeBuilder setTimeFrameEndInMinutes(Integer timeFrameEndInMinutes) {}
+  global lxscheduler.WorkTypeBuilder setSkillRequirements(List<lxscheduler.SkillRequirement> skillRequirements) {}
 
-  public lxscheduler.WorkTypeBuilder setTimeFrameStartInMinutes(Integer timeFrameStartInMinutes) {}
+  global lxscheduler.WorkTypeBuilder setTimeFrameEndInMinutes(Integer timeFrameEndInMinutes) {}
+
+  global lxscheduler.WorkTypeBuilder setTimeFrameStartInMinutes(Integer timeFrameStartInMinutes) {}
+
+  global Object clone() {}
 
 }

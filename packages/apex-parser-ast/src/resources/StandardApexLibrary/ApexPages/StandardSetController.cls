@@ -3,114 +3,118 @@
  */
 global class StandardSetController {
 
-  public StandardSetController(Database.QueryLocator queryLocator) {}
+  global StandardSetController(Database.QueryLocator queryLocator) {}
 
-  public StandardSetController(List<sObject> controllerSObjects) {}
+  global StandardSetController(List<sObject> controllerSObjects) {}
 
   /**
    * Returns the PageReference of the original page, if known, or the home page.
    * @return System.PageReference
    */
-  public System.PageReference cancel() {}
+  global System.PageReference cancel() {}
 
-  public void first() {}
+  global void first() {}
 
   /**
    * Indicates whether there are more records in the set than the maximum record limit. If this is false, there are more records than you can process using the list controller. The maximum record limit is 10,000 records.
    * @return Boolean
    */
-  public Boolean getCompleteResult() {}
+  global Boolean getCompleteResult() {}
 
   /**
    * Returns the ID of the filter that is currently in context.
    * @return String
    */
-  public String getFilterId() {}
+  global String getFilterId() {}
 
   /**
    * Indicates whether there are more records after the current page set.
    * @return Boolean
    */
-  public Boolean getHasNext() {}
+  global Boolean getHasNext() {}
 
   /**
    * Indicates whether there are more records before the current page set.
    * @return Boolean
    */
-  public Boolean getHasPrevious() {}
+  global Boolean getHasPrevious() {}
 
   /**
    * Returns a list of the listviews available to the current user.
    * @return System.SelectOption
    */
-  public System.SelectOption getListViewOptions() {}
+  global System.SelectOption getListViewOptions() {}
 
   /**
    * Returns the page number of the current page set. Note that the first page returns 1.
    * @return Integer
    */
-  public Integer getPageNumber() {}
+  global Integer getPageNumber() {}
 
   /**
    * Returns the number of records included in each page set.
    * @return Integer
    */
-  public Integer getPageSize() {}
+  global Integer getPageSize() {}
 
   /**
    * Returns the sObject that represents the changes to the selected records. This retrieves the prototype object contained within the class, and is used for performing mass updates.
    * @return sObject
    */
-  public sObject getRecord() {}
+  global sObject getRecord() {}
 
   /**
    * Returns the list of sObjects in the current page set. This list is immutable, i.e. you can't call clear () on it.
    * @return sObject[]
    */
-  public sObject[] getRecords() {}
+  global sObject[] getRecords() {}
 
   /**
    * Returns the number of records in the set.
    * @return Integer
    */
-  public Integer getResultSize() {}
+  global Integer getResultSize() {}
 
   /**
    * Returns the list of sObjects that have been selected.
    * @return sObject[]
    */
-  public sObject[] getSelected() {}
+  global sObject[] getSelected() {}
 
-  public void last() {}
+  global void last() {}
 
-  public void next() {}
+  global void next() {}
 
-  public void previous() {}
+  global void previous() {}
 
   /**
    * Inserts new records or updates existing records that have been changed. After this operation is finished, it returns a PageReference to the original page, if known, or the home page.
    * @return System.PageReference
    */
-  public System.PageReference save() {}
+  global System.PageReference save() {}
 
   /**
    * Sets the filter ID of the controller.
    * @param filterId 
    */
-  public void setFilterID(String filterId) {}
+  global void setFilterID(String filterId) {}
 
   /**
    * Sets the page number.
    * @param pageNumber 
    */
-  public void setpageNumber(Integer pageNumber) {}
+  global void setpageNumber(Integer pageNumber) {}
 
   /**
    * Sets the number of records in each page set.
    * @param pageSize 
    */
-  public void setPageSize(Integer pageSize) {}
+  global void setPageSize(Integer pageSize) {}
 
-  public void setSelected(sObject[] selectedRecords) {}
+  global void setSelected(sObject[] selectedRecords) {}
+
+  global void addFields(List<String> fieldNames) {}
+
+  global Object clone() {}
 
 }

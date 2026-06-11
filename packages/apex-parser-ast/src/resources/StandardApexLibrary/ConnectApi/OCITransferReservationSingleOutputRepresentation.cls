@@ -3,6 +3,8 @@
  */
 global class OCITransferReservationSingleOutputRepresentation {
 
+  global OCITransferReservationSingleOutputRepresentation() {}
+
   /**
    * The UUID that identifies the original transfer reservation request.
    */
@@ -47,5 +49,7 @@ global class OCITransferReservationSingleOutputRepresentation {
    * The identifier of the location that received the reservation.
    */
   global String toLocationIdentifier;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class GroupInformation {
 
+  global GroupInformation() {}
+
   /**
    * The text of the “Information” section of the group.
    */
@@ -12,5 +14,7 @@ global class GroupInformation {
    * The title of the “Information” section of the group.
    */
   global String title;
+
+  global Object clone() {}
 
 }

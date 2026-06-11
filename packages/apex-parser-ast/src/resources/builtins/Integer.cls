@@ -29,11 +29,18 @@ public class Integer {
 	public String format() { }
 
 	/**
-	 * Returns the String representation of the Integer argument.
-	 * @param i The Integer to convert
-	 * @return String representation
+	 * Returns an Integer that contains the value of the specified String.
+	 * @param stringToInteger The String to convert
+	 * @return Integer value of the String
 	 */
-	public static String valueOf(Integer i) { }
+	public static Integer valueOf(String stringToInteger) { }
+
+	/**
+	 * Returns an Integer that contains the value of the specified Object.
+	 * @param fieldValue The Object to convert
+	 * @return Integer value of the Object
+	 */
+	public static Integer valueOf(Object fieldValue) { }
 
 }
 

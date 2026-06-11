@@ -3,16 +3,20 @@
  */
 global class StandardDateFilterDurationGroup {
 
+  global StandardDateFilterDurationGroup() {}
+
   /**
    * Returns the display label for the standard date filter grouping.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the standard date filter groupings.
    * @return List<Reports.StandardDateFilterDuration>
    */
-  public List<Reports.StandardDateFilterDuration> getStandardDateFilterDurations() {}
+  global List<Reports.StandardDateFilterDuration> getStandardDateFilterDurations() {}
+
+  global Object clone() {}
 
 }

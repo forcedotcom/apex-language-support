@@ -3,6 +3,8 @@
  */
 global class FollowerPage {
 
+  global FollowerPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -27,5 +29,7 @@ global class FollowerPage {
    * Total number of followers across all pages.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

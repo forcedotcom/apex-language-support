@@ -3,6 +3,8 @@
  */
 global class FileAsset {
 
+  global FileAsset() {}
+
   /**
    * Base download URL of the asset.
    */
@@ -42,5 +44,7 @@ global class FileAsset {
    * Type of asset.
    */
   global String type;
+
+  global Object clone() {}
 
 }

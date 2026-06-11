@@ -3,6 +3,8 @@
  */
 global class RecencyCriteria {
 
+  global RecencyCriteria() {}
+
   /**
    * API name of the field to which recency criteria is applied.
    */
@@ -22,5 +24,7 @@ global class RecencyCriteria {
    * Unit of measure for the recency criteria. For a value of type time , the valid value is DAY . For a value of type record , the valid value is RECORD .
    */
   global String valueUnit;
+
+  global Object clone() {}
 
 }

@@ -3,10 +3,16 @@
  */
 global class RelatedList {
 
+  global RelatedList() {}
+
+  global Boolean hideOnDetail;
+
+  global String name;
+
   /**
    * Makes a duplicate copy of the Metadata.RelatedList .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

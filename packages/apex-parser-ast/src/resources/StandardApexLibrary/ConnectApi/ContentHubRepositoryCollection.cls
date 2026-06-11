@@ -3,6 +3,8 @@
  */
 global class ContentHubRepositoryCollection {
 
+  global ContentHubRepositoryCollection() {}
+
   /**
    * URL to the current page of repositories.
    */
@@ -22,5 +24,7 @@ global class ContentHubRepositoryCollection {
    * Collection of repositories.
    */
   global List < ConnectApi.ContentHubRepository > repositories;
+
+  global Object clone() {}
 
 }

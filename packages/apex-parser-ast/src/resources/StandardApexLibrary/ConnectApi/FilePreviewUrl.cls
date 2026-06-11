@@ -3,6 +3,8 @@
  */
 global class FilePreviewUrl {
 
+  global FilePreviewUrl() {}
+
   /**
    * Preview page number starting from zero, or null for PDF files.
    */
@@ -12,5 +14,7 @@ global class FilePreviewUrl {
    * File preview URL.
    */
   global String previewUrl;
+
+  global Object clone() {}
 
 }

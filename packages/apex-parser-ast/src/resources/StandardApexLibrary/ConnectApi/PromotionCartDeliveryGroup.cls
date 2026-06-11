@@ -3,6 +3,8 @@
  */
 global class PromotionCartDeliveryGroup {
 
+  global PromotionCartDeliveryGroup() {}
+
   /**
    * ID of the cart delivery group.
    */
@@ -17,5 +19,7 @@ global class PromotionCartDeliveryGroup {
    * ID of the cart.
    */
   global String id;
+
+  global Object clone() {}
 
 }

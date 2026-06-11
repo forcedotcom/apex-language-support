@@ -3,6 +3,8 @@
  */
 global class LinkMetadata {
 
+  global LinkMetadata() {}
+
   /**
    * Description of the link.
    */
@@ -57,5 +59,7 @@ global class LinkMetadata {
    * Width required to display the HTML.
    */
   global Integer width;
+
+  global Object clone() {}
 
 }

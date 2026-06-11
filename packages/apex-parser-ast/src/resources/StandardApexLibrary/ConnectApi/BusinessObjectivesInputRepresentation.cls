@@ -3,6 +3,8 @@
  */
 global class BusinessObjectivesInputRepresentation {
 
+  global BusinessObjectivesInputRepresentation() {}
+
   /**
    * ID of the business objective.
    */
@@ -12,5 +14,7 @@ global class BusinessObjectivesInputRepresentation {
    * A summary of insights about the business objective.
    */
   global ConnectApi.BusObjInsightsInputRepresentation insightSummary;
+
+  global Object clone() {}
 
 }

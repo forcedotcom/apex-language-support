@@ -9,5 +9,6 @@ global enum LoggingLevel {
   DEBUG,
   FINE,
   FINER,
-  FINEST
+  FINEST,
+  INTERNAL
 }

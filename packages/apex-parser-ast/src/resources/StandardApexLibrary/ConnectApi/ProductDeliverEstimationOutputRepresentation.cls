@@ -3,6 +3,8 @@
  */
 global class ProductDeliverEstimationOutputRepresentation {
 
+  global ProductDeliverEstimationOutputRepresentation() {}
+
   /**
    * Estimated delivery date.
    */
@@ -27,5 +29,7 @@ global class ProductDeliverEstimationOutputRepresentation {
    * Product stock keeping unit (SKU).
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

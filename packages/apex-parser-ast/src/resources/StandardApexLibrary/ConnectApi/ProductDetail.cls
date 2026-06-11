@@ -3,6 +3,8 @@
  */
 global class ProductDetail {
 
+  global ProductDetail() {}
+
   /**
    * Map of the attribute set developer name to its metadata.
    */
@@ -72,5 +74,71 @@ global class ProductDetail {
    * ID of the variation parent.
    */
   global String variationParentId;
+
+  global Object clone() {}
+
+  global Map<String,ConnectApi.ProductAttributeSetInfo> getAttributeSetInfo() {}
+
+  global ConnectApi.ProductMedia getDefaultImage() {}
+
+  global Integer getDynamicAttributeCount() {}
+
+  global ConnectApi.ProductEntitlement getEntitlement() {}
+
+  global Map<String,String> getFields() {}
+
+  global String getId() {}
+
+  global Boolean getIsConfigurationAllowed() {}
+
+  global List<ConnectApi.ProductMediaGroup> getMediaGroups() {}
+
+  global ConnectApi.ProductCategoryPath getPrimaryProductCategoryPath() {}
+
+  global ConnectApi.ProductClass getProductClass() {}
+
+  global List<ConnectApi.ProductSellingModel> getProductSellingModels() {}
+
+  global ConnectApi.PurchaseQuantityRule getPurchaseQuantityRule() {}
+
+  global String getUrlName() {}
+
+  global ConnectApi.ProductAttributeSet getVariationAttributeSet() {}
+
+  global ConnectApi.ProductVariationInfo getVariationInfo() {}
+
+  global String getVariationParentId() {}
+
+  global void setAttributeSetInfo(Map<String,ConnectApi.ProductAttributeSetInfo> value) {}
+
+  global void setDefaultImage(ConnectApi.ProductMedia value) {}
+
+  global void setDynamicAttributeCount(Integer value) {}
+
+  global void setEntitlement(ConnectApi.ProductEntitlement value) {}
+
+  global void setFields(Map<String,String> value) {}
+
+  global void setId(String value) {}
+
+  global void setIsConfigurationAllowed(Boolean value) {}
+
+  global void setMediaGroups(List<ConnectApi.ProductMediaGroup> value) {}
+
+  global void setPrimaryProductCategoryPath(ConnectApi.ProductCategoryPath value) {}
+
+  global void setProductClass(ConnectApi.ProductClass value) {}
+
+  global void setProductSellingModels(List<ConnectApi.ProductSellingModel> value) {}
+
+  global void setPurchaseQuantityRule(ConnectApi.PurchaseQuantityRule value) {}
+
+  global void setUrlName(String value) {}
+
+  global void setVariationAttributeSet(ConnectApi.ProductAttributeSet value) {}
+
+  global void setVariationInfo(ConnectApi.ProductVariationInfo value) {}
+
+  global void setVariationParentId(String value) {}
 
 }

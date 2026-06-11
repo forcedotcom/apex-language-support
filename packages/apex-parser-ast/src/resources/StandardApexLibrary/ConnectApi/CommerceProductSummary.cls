@@ -3,6 +3,8 @@
  */
 global class CommerceProductSummary {
 
+  global CommerceProductSummary() {}
+
   /**
    * Default image of the product.
    */
@@ -57,5 +59,51 @@ global class CommerceProductSummary {
    * Variation attribute set that’s associated with the product.
    */
   global ConnectApi.ProductAttributeSetSummary variationAttributeSet;
+
+  global Object clone() {}
+
+  global ConnectApi.ProductMedia getDefaultImage() {}
+
+  global Map<String,ConnectApi.FieldValue> getFields() {}
+
+  global String getId() {}
+
+  global Boolean getIsConfigurationAllowed() {}
+
+  global String getName() {}
+
+  global ConnectApi.ProductClass getProductClass() {}
+
+  global ConnectApi.CommerceProductSellingModel getProductSellingModelInformation() {}
+
+  global ConnectApi.ProductVariationInfo getProductVariationInfo() {}
+
+  global ConnectApi.PurchaseQuantityRule getPurchaseQuantityRule() {}
+
+  global String getUrlName() {}
+
+  global ConnectApi.CommerceProductAttributeSetSummary getVariationAttributeSet() {}
+
+  global void setDefaultImage(ConnectApi.ProductMedia value) {}
+
+  global void setFields(Map<String,ConnectApi.FieldValue> value) {}
+
+  global void setId(String value) {}
+
+  global void setIsConfigurationAllowed(Boolean value) {}
+
+  global void setName(String value) {}
+
+  global void setProductClass(ConnectApi.ProductClass value) {}
+
+  global void setProductSellingModelInformation(ConnectApi.CommerceProductSellingModel value) {}
+
+  global void setProductVariationInfo(ConnectApi.ProductVariationInfo value) {}
+
+  global void setPurchaseQuantityRule(ConnectApi.PurchaseQuantityRule value) {}
+
+  global void setUrlName(String value) {}
+
+  global void setVariationAttributeSet(ConnectApi.CommerceProductAttributeSetSummary value) {}
 
 }

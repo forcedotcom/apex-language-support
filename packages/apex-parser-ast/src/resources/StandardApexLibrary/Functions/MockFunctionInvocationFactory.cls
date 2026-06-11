@@ -3,8 +3,12 @@
  */
 global class MockFunctionInvocationFactory {
 
-  public static functions.FunctionInvocation createErrorResponse(String invocationId, functions.FunctionErrorType functionsErrorType, String errMsg) {}
+  global MockFunctionInvocationFactory() {}
 
-  public static functions.FunctionInvocation createSuccessResponse(String invocationId, String response) {}
+  global static functions.FunctionInvocation createErrorResponse(String invocationId, functions.FunctionErrorType functionsErrorType, String errMsg) {}
+
+  global static functions.FunctionInvocation createSuccessResponse(String invocationId, String response) {}
+
+  global Object clone() {}
 
 }

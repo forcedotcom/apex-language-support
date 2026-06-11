@@ -3,6 +3,8 @@
  */
 global class CredentialCustomHeader {
 
+  global CredentialCustomHeader() {}
+
   /**
    * Header name.
    */
@@ -22,5 +24,7 @@ global class CredentialCustomHeader {
    * Sequence number of the header. The sequence number determines the order of the header.
    */
   global Integer sequenceNumber;
+
+  global Object clone() {}
 
 }

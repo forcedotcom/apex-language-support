@@ -3,6 +3,8 @@
  */
 global class CdpErrorResponse {
 
+  global CdpErrorResponse() {}
+
   /**
    * Error code.
    */
@@ -12,5 +14,7 @@ global class CdpErrorResponse {
    * Message stating the reason for the error, if any.
    */
   global String message;
+
+  global Object clone() {}
 
 }

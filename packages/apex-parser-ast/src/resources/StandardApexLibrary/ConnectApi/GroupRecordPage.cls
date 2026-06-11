@@ -3,6 +3,8 @@
  */
 global class GroupRecordPage {
 
+  global GroupRecordPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -27,5 +29,7 @@ global class GroupRecordPage {
    * Total number of records associated with the group.
    */
   global Integer totalRecordCount;
+
+  global Object clone() {}
 
 }

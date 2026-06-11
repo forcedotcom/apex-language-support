@@ -3,6 +3,8 @@
  */
 global class MCSFolderShareTarget {
 
+  global MCSFolderShareTarget() {}
+
   /**
    * ID of the share target.
    */
@@ -17,5 +19,7 @@ global class MCSFolderShareTarget {
    * Resource URL of the share target that provides target details.
    */
   global String resourceUrl;
+
+  global Object clone() {}
 
 }

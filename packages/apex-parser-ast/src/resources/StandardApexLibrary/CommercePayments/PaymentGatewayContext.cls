@@ -17,4 +17,6 @@ global class PaymentGatewayContext {
    */
   global String getPaymentRequestType() {}
 
+  global Object clone() {}
+
 }

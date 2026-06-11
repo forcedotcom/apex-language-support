@@ -3,6 +3,8 @@
  */
 global class RecordCapability extends ConnectApi.FeedElementCapability {
 
+  global RecordCapability() {}
+
   /**
    * ID of the record.
    */
@@ -12,5 +14,7 @@ global class RecordCapability extends ConnectApi.FeedElementCapability {
    * URL to the record.
    */
   global String url;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class InviteInput {
 
+  global InviteInput() {}
+
   /**
    * List of email addresses to send the invitation to.
    */
@@ -12,5 +14,7 @@ global class InviteInput {
    * Message to include in the invitation.
    */
   global String message;
+
+  global Object clone() {}
 
 }

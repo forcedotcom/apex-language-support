@@ -3,6 +3,8 @@
  */
 global class FeedEnabledEntity {
 
+  global FeedEnabledEntity() {}
+
   /**
    * The 18-character ID of the record.
    */
@@ -27,5 +29,7 @@ global class FeedEnabledEntity {
    * URL to the record.
    */
   global String url;
+
+  global Object clone() {}
 
 }

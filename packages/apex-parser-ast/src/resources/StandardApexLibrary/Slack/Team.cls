@@ -1,5 +1,7 @@
 global class Team {
 
+  global Team() {}
+
   global List<String> getDefaultChannels() {}
 
   global String getDiscoverable() {}
@@ -299,5 +301,11 @@ global class Team {
   global Slack.TeamProfileGetResponse.Profiles getProfile() {}
 
   global void setProfile(Slack.TeamProfileGetResponse.Profiles profile) {}
+
+  global Object clone() {}
+
+  global String getAvatarBaseUrl() {}
+
+  global void setAvatarBaseUrl(String avatarBaseUrl) {}
 
 }

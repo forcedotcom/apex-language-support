@@ -3,6 +3,8 @@
  */
 global class AuthorizationResponse {
 
+  global AuthorizationResponse() {}
+
   /**
    * Error representation for the payment authorization.
    */
@@ -37,5 +39,7 @@ global class AuthorizationResponse {
    * Payment method representation for the payment authorization.
    */
   global ConnectApi.PaymentMethodResponse paymentMethod;
+
+  global Object clone() {}
 
 }

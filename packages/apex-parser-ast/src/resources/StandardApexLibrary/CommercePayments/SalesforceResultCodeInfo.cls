@@ -7,4 +7,6 @@ global class SalesforceResultCodeInfo {
 
   global SalesforceResultCodeInfo(commercepayments.SalesforceResultCode salesforceResultCode) {}
 
+  global Object clone() {}
+
 }
