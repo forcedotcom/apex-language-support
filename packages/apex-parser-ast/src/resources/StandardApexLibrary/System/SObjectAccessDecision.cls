@@ -3,14 +3,18 @@
  */
 global class SObjectAccessDecision {
 
-  public Set<Integer> getModifiedIndexes() {}
+  global SObjectAccessDecision() {}
 
-  public List<SObject> getRecords() {}
+  global Set<Integer> getModifiedIndexes() {}
+
+  global List<SObject> getRecords() {}
 
   /**
    * Returns a map of sObject types to their corresponding inaccessible fields. The map key is a string representation of the sObject type. The map value is a set of strings, which denote the fields names that are inaccessible.
    * @return Map<String,Set<String>>
    */
-  public Map<String,Set<String>> getRemovedFields() {}
+  global Map<String,Set<String>> getRemovedFields() {}
+
+  global Object clone() {}
 
 }

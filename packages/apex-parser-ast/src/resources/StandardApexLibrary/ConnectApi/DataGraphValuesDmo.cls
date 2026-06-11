@@ -3,6 +3,8 @@
  */
 global class DataGraphValuesDmo {
 
+  global DataGraphValuesDmo() {}
+
   /**
    * Developer name of the DMO.
    */
@@ -12,5 +14,7 @@ global class DataGraphValuesDmo {
    * List of fields for the DMO.
    */
   global List < ConnectApi.DataGraphValuesDmoField > fields;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptRecordRepresentation {
 
+  global EinsteinPromptRecordRepresentation() {}
+
   /**
    * API name of the prompt template record.
    */
@@ -27,5 +29,7 @@ global class EinsteinPromptRecordRepresentation {
    * Specifies whether the prompt template record is a standard prompt template (true) or user-created prompt template (false) .
    */
   global Boolean isStandard;
+
+  global Object clone() {}
 
 }

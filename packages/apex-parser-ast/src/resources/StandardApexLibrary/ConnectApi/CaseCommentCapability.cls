@@ -3,6 +3,8 @@
  */
 global class CaseCommentCapability extends ConnectApi.FeedElementCapability {
 
+  global CaseCommentCapability() {}
+
   /**
    * Specifies the type of user who made the comment.
    */
@@ -37,5 +39,7 @@ global class CaseCommentCapability extends ConnectApi.FeedElementCapability {
    * Text of the case comment.
    */
   global String text;
+
+  global Object clone() {}
 
 }

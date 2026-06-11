@@ -3,6 +3,12 @@
  */
 global class SearchContext {
 
-  public SearchContext(List<DataSource.Table> metadata, Integer offset, Integer maxResults, List<DataSource.TableSelection> tableSelections, String searchPhrase) {}
+  global SearchContext(List<DataSource.Table> metadata, Integer offset, Integer maxResults, List<DataSource.TableSelection> tableSelections, String searchPhrase) {}
+
+  global String searchPhrase;
+
+  global List<DataSource.TableSelection> tableSelections;
+
+  global Object clone() {}
 
 }

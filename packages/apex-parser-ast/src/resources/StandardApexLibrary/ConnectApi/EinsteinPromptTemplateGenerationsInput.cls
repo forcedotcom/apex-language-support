@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateGenerationsInput {
 
+  global EinsteinPromptTemplateGenerationsInput() {}
+
   /**
    * Configuration information for the LLM provider.
    */
@@ -32,5 +34,7 @@ global class EinsteinPromptTemplateGenerationsInput {
    * Map of wrapped values, such as free-form user feedback, that can be used to resolve a specified prompt template.
    */
   global ConnectApi.WrappedValue tags;
+
+  global Object clone() {}
 
 }

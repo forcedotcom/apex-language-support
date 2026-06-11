@@ -3,6 +3,8 @@
  */
 global class OCICreateReservationSingleInputRepresentation {
 
+  global OCICreateReservationSingleInputRepresentation() {}
+
   /**
    * Identifier of the location group at which to reserve inventory.
    */
@@ -22,5 +24,7 @@ global class OCICreateReservationSingleInputRepresentation {
    * The SKU of the product to reserve.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ServiceAppointmentResult {
 
+  global ServiceAppointmentResult() {}
+
   /**
    * The IDs of the assigned resources.
    */
@@ -17,5 +19,7 @@ global class ServiceAppointmentResult {
    * The ID of the service appointment record.
    */
   global String serviceAppointmentId;
+
+  global Object clone() {}
 
 }

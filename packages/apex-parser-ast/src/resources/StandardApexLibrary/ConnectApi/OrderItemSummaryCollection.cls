@@ -3,6 +3,8 @@
  */
 global class OrderItemSummaryCollection {
 
+  global OrderItemSummaryCollection() {}
+
   /**
    * Token identifying the current page of items.
    */
@@ -37,5 +39,7 @@ global class OrderItemSummaryCollection {
    * URL to the previous page of items.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

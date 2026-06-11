@@ -3,6 +3,8 @@
  */
 global class PromotionParentProductsInput {
 
+  global PromotionParentProductsInput() {}
+
   /**
    * ID of the variation product.
    */
@@ -12,5 +14,7 @@ global class PromotionParentProductsInput {
    * ID of the parent product.
    */
   global String parentProductId;
+
+  global Object clone() {}
 
 }

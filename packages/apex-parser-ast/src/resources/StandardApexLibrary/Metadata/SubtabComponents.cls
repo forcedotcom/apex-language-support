@@ -3,10 +3,16 @@
  */
 global class SubtabComponents {
 
+  global SubtabComponents() {}
+
+  global List<Metadata.ConsoleComponent> component;
+
+  global List<Metadata.Container> containers;
+
   /**
    * Makes a duplicate copy of the Metadata.SubtabComponents .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpMlBasePredictInput {
 
+  global CdpMlBasePredictInput() {}
+
   /**
    * A reference to the model to use to generate the prediction.
    */
@@ -17,5 +19,7 @@ global class CdpMlBasePredictInput {
    * Type of input data for the prediction. RawData -Raw data. RecordOverrides -Record IDs with user-provided overrides. Records -Record IDs.
    */
   global CdpMlPredictTypeEnum type;
+
+  global Object clone() {}
 
 }

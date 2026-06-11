@@ -3,10 +3,16 @@
  */
 global class MiniLayout {
 
+  global MiniLayout() {}
+
+  global List<String> fields;
+
+  global List<Metadata.RelatedListItem> relatedLists;
+
   /**
    * Makes a duplicate copy of the Metadata.MiniLayout .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

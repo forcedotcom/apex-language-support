@@ -3,18 +3,22 @@
  */
 global class Datacloud {
 
-  public static ConnectApi.DatacloudCompanies getCompaniesFromOrder(String orderId, String pageSize, String page) {}
+  global Datacloud() {}
 
-  public static ConnectApi.DatacloudCompany getCompany(String companyId) {}
+  global static ConnectApi.DatacloudCompanies getCompaniesFromOrder(String orderId, String pageSize, String page) {}
 
-  public static ConnectApi.DatacloudContact getContact(String contactId) {}
+  global static ConnectApi.DatacloudCompany getCompany(String companyId) {}
 
-  public static ConnectApi.DatacloudContacts getContactsFromOrder(String orderId, String page, String pageSize) {}
+  global static ConnectApi.DatacloudContact getContact(String contactId) {}
 
-  public static ConnectApi.DatacloudOrder getOrder(String orderId) {}
+  global static ConnectApi.DatacloudContacts getContactsFromOrder(String orderId, String page, String pageSize) {}
 
-  public static ConnectApi.DatacloudPurchaseUsage getUsage(String userId) {}
+  global static ConnectApi.DatacloudOrder getOrder(String orderId) {}
 
-  public static ConnectApi.DatacloudOrder postOrder(ConnectApi.DatacloudOrderInput orderInput) {}
+  global static ConnectApi.DatacloudPurchaseUsage getUsage(String userId) {}
+
+  global static ConnectApi.DatacloudOrder postOrder(ConnectApi.DatacloudOrderInput orderInput) {}
+
+  global Object clone() {}
 
 }

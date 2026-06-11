@@ -3,6 +3,8 @@
  */
 global class MentionSegment extends ConnectApi.MessageSegment {
 
+  global MentionSegment() {}
+
   /**
    * Specifies whether the mentioned user or group can see the post in which they are mentioned ( true ) or not ( false ).
    */
@@ -22,5 +24,7 @@ global class MentionSegment extends ConnectApi.MessageSegment {
    * Information about the mentioned user. Important In versions 29.0 and later, use the record property.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

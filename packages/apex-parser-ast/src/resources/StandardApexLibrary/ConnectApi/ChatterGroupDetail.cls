@@ -3,6 +3,8 @@
  */
 global class ChatterGroupDetail extends ConnectApi.ChatterGroup {
 
+  global ChatterGroupDetail() {}
+
   /**
    * The number of files posted to the group.
    */
@@ -17,5 +19,7 @@ global class ChatterGroupDetail extends ConnectApi.ChatterGroup {
    * The number of requests to join a group that are in a pending state.
    */
   global Integer pendingRequests;
+
+  global Object clone() {}
 
 }

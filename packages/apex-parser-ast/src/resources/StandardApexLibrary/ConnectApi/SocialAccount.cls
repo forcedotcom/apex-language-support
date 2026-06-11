@@ -3,6 +3,8 @@
  */
 global class SocialAccount {
 
+  global SocialAccount() {}
+
   /**
    * ID of the external social account, if available.
    */
@@ -27,5 +29,7 @@ global class SocialAccount {
    * ID of the social persona account, if the external social account ID isn’t available.
    */
   global String socialPersonaId;
+
+  global Object clone() {}
 
 }

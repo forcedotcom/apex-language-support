@@ -3,6 +3,8 @@
  */
 global class AudienceDMOCollection {
 
+  global AudienceDMOCollection() {}
+
   /**
    * Batch size
    */
@@ -17,5 +19,7 @@ global class AudienceDMOCollection {
    * Start offset of the next batch.
    */
   global Integer offset;
+
+  global Object clone() {}
 
 }

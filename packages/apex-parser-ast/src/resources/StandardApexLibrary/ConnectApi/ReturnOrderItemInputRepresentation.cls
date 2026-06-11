@@ -3,6 +3,8 @@
  */
 global class ReturnOrderItemInputRepresentation {
 
+  global ReturnOrderItemInputRepresentation() {}
+
   /**
    * The quantity of the ReturnOrderLineItem that has been received. The value must be zero or greater. This value isn’t used by any standard features, but is provided for use in customizations.
    */
@@ -32,5 +34,7 @@ global class ReturnOrderItemInputRepresentation {
    * The ID of the ReturnOrderLineItem.
    */
   global String returnOrderLineItemId;
+
+  global Object clone() {}
 
 }

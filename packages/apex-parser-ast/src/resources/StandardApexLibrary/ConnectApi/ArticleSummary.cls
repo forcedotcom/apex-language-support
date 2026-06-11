@@ -3,6 +3,8 @@
  */
 global class ArticleSummary extends ConnectApi.ActorWithId {
 
+  global ArticleSummary() {}
+
   /**
    * Type of the knowledge article.
    */
@@ -42,5 +44,7 @@ global class ArticleSummary extends ConnectApi.ActorWithId {
    * Number of times the knowledge article has been viewed.
    */
   global Integer viewCount;
+
+  global Object clone() {}
 
 }

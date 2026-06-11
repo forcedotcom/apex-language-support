@@ -3,6 +3,8 @@
  */
 global class OCIPublishLocationStructureStatusOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
+  global OCIPublishLocationStructureStatusOutputRepresentation() {}
+
   /**
    * The UTC time when the job finished. (for example: "2020-07-06T22:54:08.012Z")
    */
@@ -47,5 +49,7 @@ global class OCIPublishLocationStructureStatusOutputRepresentation extends Conne
    * The validation status of the job.
    */
   global String validationStatus;
+
+  global Object clone() {}
 
 }

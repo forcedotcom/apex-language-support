@@ -3,6 +3,10 @@
  */
 global class FindDuplicatesByIds {
 
-  public static List<Datacloud.FindDuplicatesResult> findDuplicatesByIds(List<Id> ids) {}
+  global FindDuplicatesByIds() {}
+
+  global static List<Datacloud.FindDuplicatesResult> findDuplicatesByIds(List<Id> ids) {}
+
+  global Object clone() {}
 
 }

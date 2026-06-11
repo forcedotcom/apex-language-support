@@ -3,6 +3,8 @@
  */
 global class OrderSummaryCollectionRepresentation {
 
+  global OrderSummaryCollectionRepresentation() {}
+
   /**
    * Total count of order summaries returned on the current page.
    */
@@ -47,5 +49,7 @@ global class OrderSummaryCollectionRepresentation {
    * Sort order for order summaries. Values are: CreatedDateAsc —Sorts by the oldest created date. CreatedDateDesc —Sorts by the most recent created date. OrderedDateAsc —Sorts by the oldest ordered date. OrderedDateDesc —Sorts by the most recent ordered date.
    */
   global ConnectApi.OrderSummarySortOrder sortOrder;
+
+  global Object clone() {}
 
 }

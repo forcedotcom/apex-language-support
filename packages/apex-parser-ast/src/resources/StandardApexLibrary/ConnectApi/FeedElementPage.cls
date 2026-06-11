@@ -3,6 +3,8 @@
  */
 global class FeedElementPage {
 
+  global FeedElementPage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -47,5 +49,7 @@ global class FeedElementPage {
    * Connect REST API feed resource containing the feed elements that have been updated since the feed was refreshed. If the feed doesn’t support this feature, the value is null .
    */
   global String updatesUrl;
+
+  global Object clone() {}
 
 }

@@ -3,28 +3,32 @@
  */
 global class StandardFilterInfoPicklist {
 
+  global StandardFilterInfoPicklist() {}
+
   /**
    * Returns the default value for the standard filter picklist.
    * @return String
    */
-  public String getDefaultValue() {}
+  global String getDefaultValue() {}
 
   /**
    * Returns a list of standard filter picklist values.
    * @return List<Reports.FilterValue>
    */
-  public List<Reports.FilterValue> getFilterValues() {}
+  global List<Reports.FilterValue> getFilterValues() {}
 
   /**
    * Returns the display name of the standard filter picklist.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the type of the standard filter picklist.
    * @return Reports.StandardFilterType
    */
-  public Reports.StandardFilterType getType() {}
+  global Reports.StandardFilterType getType() {}
+
+  global Object clone() {}
 
 }

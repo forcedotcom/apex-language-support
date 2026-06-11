@@ -3,10 +3,12 @@
  */
 global class QuerySqlMetadataItem {
 
+  global QuerySqlMetadataItem() {}
+
   /**
    * Description of array fields.
    */
-  global ConnectApi.QuerySqlMetadataItem innerElement;
+  global Object innerElement;
 
   /**
    * Name of the field.
@@ -32,5 +34,7 @@ global class QuerySqlMetadataItem {
    * Type of the SQL parameter. ArrayOfX BigInt Bool Char Date Double Foat Integer Numeric Oid SmallInt Time Timestamp TimestampTZ Unspecified Varchar
    */
   global TypeEnum type;
+
+  global Object clone() {}
 
 }

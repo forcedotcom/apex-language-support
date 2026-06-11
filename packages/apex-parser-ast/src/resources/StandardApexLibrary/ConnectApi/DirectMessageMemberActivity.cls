@@ -3,6 +3,8 @@
  */
 global class DirectMessageMemberActivity {
 
+  global DirectMessageMemberActivity() {}
+
   /**
    * Direct message member activity date.
    */
@@ -22,5 +24,7 @@ global class DirectMessageMemberActivity {
    * Members removed from the direct message as part of the activity.
    */
   global ConnectApi.DirectMessageMemberPage membersRemoved;
+
+  global Object clone() {}
 
 }

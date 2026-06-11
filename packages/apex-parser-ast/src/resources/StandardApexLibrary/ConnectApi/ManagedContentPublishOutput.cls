@@ -3,6 +3,8 @@
  */
 global class ManagedContentPublishOutput {
 
+  global ManagedContentPublishOutput() {}
+
   /**
    * ID of the managed content deployment.
    */
@@ -17,5 +19,7 @@ global class ManagedContentPublishOutput {
    * Publish date.
    */
   global Datetime publishDate;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class PlatformActionGroup {
 
+  global PlatformActionGroup() {}
+
   /**
    * Indicates the priority and relative locations of platform actions. Values are: Primary —The action link group is displayed in the body of the feed element. Overflow —The action link group is displayed in the overflow menu of the feed element.
    */
@@ -27,5 +29,7 @@ global class PlatformActionGroup {
    * The URL for this platform action group. If the ConnectApi.PlatformAction type is QuickAction and the subtype is Create , this value is null .
    */
   global String url;
+
+  global Object clone() {}
 
 }

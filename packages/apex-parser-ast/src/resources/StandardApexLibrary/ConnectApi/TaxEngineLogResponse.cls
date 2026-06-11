@@ -3,6 +3,8 @@
  */
 global class TaxEngineLogResponse {
 
+  global TaxEngineLogResponse() {}
+
   /**
    * The date that the gateway log was created.
    */
@@ -17,5 +19,7 @@ global class TaxEngineLogResponse {
    * Result code sent from the external tax engine. Review the tax engine provider's documentation for more information about the code.
    */
   global String resultCode;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedDirectoryItem {
 
+  global FeedDirectoryItem() {}
+
   /**
    * Connect REST API resource URL for the feed elements.
    */
@@ -32,5 +34,7 @@ global class FeedDirectoryItem {
    * Localized label of the feed
    */
   global String label;
+
+  global Object clone() {}
 
 }

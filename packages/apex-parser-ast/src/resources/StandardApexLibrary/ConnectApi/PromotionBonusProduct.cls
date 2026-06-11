@@ -3,6 +3,8 @@
  */
 global class PromotionBonusProduct {
 
+  global PromotionBonusProduct() {}
+
   /**
    * ID of the associated coupon, if applicable.
    */
@@ -22,5 +24,7 @@ global class PromotionBonusProduct {
    * List of qualifying cart items and their related quantity.
    */
   global List < ConnectApi.PromotionCartItemKey > qualifyingItems;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class MarkupBeginSegment extends ConnectApi.MessageSegment {
 
+  global MarkupBeginSegment() {}
+
   /**
    * Alternative text for the segment, if available.
    */
@@ -22,5 +24,7 @@ global class MarkupBeginSegment extends ConnectApi.MessageSegment {
    * URL to the segment, if available.
    */
   global String url;
+
+  global Object clone() {}
 
 }

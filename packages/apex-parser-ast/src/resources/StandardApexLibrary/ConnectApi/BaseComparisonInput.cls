@@ -3,6 +3,8 @@
  */
 global class BaseComparisonInput {
 
+  global BaseComparisonInput() {}
+
   /**
    * Logical comparison input list wrapper.
    */
@@ -12,5 +14,7 @@ global class BaseComparisonInput {
    * Operator of the comparison.
    */
   global String operator;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpSegmentDbtModel {
 
+  global CdpSegmentDbtModel() {}
+
   /**
    * Dbt model name.
    */
@@ -12,5 +14,7 @@ global class CdpSegmentDbtModel {
    * Dbt model SQL.
    */
   global String sql;
+
+  global Object clone() {}
 
 }

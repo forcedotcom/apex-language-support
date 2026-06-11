@@ -3,6 +3,8 @@
  */
 global class ProductBundleChildOutput {
 
+  global ProductBundleChildOutput() {}
+
   /**
    * Description of the child product.
    */
@@ -27,5 +29,7 @@ global class ProductBundleChildOutput {
    * Stock Keeping Unit (SKU) of the child product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

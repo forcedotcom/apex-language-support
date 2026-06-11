@@ -1,3 +1,4 @@
 global enum IdentityProviderAuthFlowEnum {
-  AuthorizationCode
+  AuthorizationCode,
+  ClientCredentials
 }

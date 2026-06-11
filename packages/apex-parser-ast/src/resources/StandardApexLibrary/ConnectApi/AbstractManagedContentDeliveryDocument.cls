@@ -3,6 +3,8 @@
  */
 global class AbstractManagedContentDeliveryDocument {
 
+  global AbstractManagedContentDeliveryDocument() {}
+
   /**
    * Globally unique identifier (GUID) for the managed content.
    */
@@ -47,5 +49,7 @@ global class AbstractManagedContentDeliveryDocument {
    * URL name of the managed content.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

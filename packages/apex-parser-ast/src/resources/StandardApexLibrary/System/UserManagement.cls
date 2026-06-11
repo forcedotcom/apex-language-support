@@ -3,18 +3,20 @@
  */
 global class UserManagement {
 
+  global UserManagement() {}
+
   /**
    * Makes a duplicate copy of the System.UserManagement object.
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
   /**
    * Deregisters an identity verification method. Use this method to let users delete an existing verification method.
    * @param userId User ID of the user deregistering the verification method.
    * @param method Verification method used to verify the identity of the user.
    */
-  public static void deregisterVerificationMethod(Id userId, Auth.VerificationMethod method) {}
+  global static void deregisterVerificationMethod(Id userId, Auth.VerificationMethod method) {}
 
   /**
    * Formats a mobile phone number for a user. Call this method to ensure that the phone number is formatted properly before updating a user’s mobile phone number.
@@ -30,14 +32,14 @@ global class UserManagement {
    * @param method Method used to verify the user’s identity, which can be EMAIL or SMS.
    * @return String
    */
-  public static String initPasswordlessLogin(Id userId, Auth.VerificationMethod method) {}
+  global static String initPasswordlessLogin(Id userId, Auth.VerificationMethod method) {}
 
   /**
    * Invokes a verification challenge for registering identity verification methods with a custom (Visualforce) page. Users can register either their email address or phone number.
    * @param method Method used to verify the user’s identity, which can be EMAIL or SMS.
    * @return String
    */
-  public static String initRegisterVerificationMethod(Auth.VerificationMethod method) {}
+  global static String initRegisterVerificationMethod(Auth.VerificationMethod method) {}
 
   /**
    * Invokes a verification challenge for self-registration when creating a custom (Visualforce) Verify page for Experience Cloud self-registration.
@@ -45,14 +47,14 @@ global class UserManagement {
    * @param user User object to insert after successful registration. To see which fields are required, see User in the Object Reference for the Salesforce Platform .
    * @return String
    */
-  public static String initSelfRegistration(Auth.VerificationMethod method, User user) {}
+  global static String initSelfRegistration(Auth.VerificationMethod method, User user) {}
 
   /**
    * Initiates a verification service for email, phone (SMS), and the Salesforce Authenticator verification methods.
    * @param method Method used to initiate a verification service for EMAIL , SMS , or SALESFORCE_AUTHENTICATOR verification methods.
    * @return String
    */
-  public static String initVerificationMethod(Auth.VerificationMethod method) {}
+  global static String initVerificationMethod(Auth.VerificationMethod method) {}
 
   /**
    * Initiates a verification service for email, phone (SMS), and the Salesforce Authenticator verification methods.
@@ -61,20 +63,20 @@ global class UserManagement {
    * @param extras 
    * @return String
    */
-  public static String initVerificationMethod(Auth.VerificationMethod method, String actionName, Map<String,String> extras) {}
+  global static String initVerificationMethod(Auth.VerificationMethod method, String actionName, Map<String,String> extras) {}
 
   /**
    * Scrambles users’ data on their request when they no longer want their personal data recognized in Salesforce. When you invoke the method for the user, the data becomes anonymous, and you can never recover it. Use this method to set the username to a specific value after it’s scrambled.
    * @param userId ID of the user whose data this method scrambles.
    * @param username The username after the user’s data is scrambled. Sets the value of the scrambled username to a specific string.
    */
-  public static void obfuscateUser(Id userId, String username) {}
+  global static void obfuscateUser(Id userId, String username) {}
 
   /**
    * Scrambles users’ data on their request when they no longer want their personal data recognized in Salesforce. When you invoke the method for the user, the data becomes anonymous, and you can never recover it. Use this method to set the username to a specific value after it’s scrambled.
    * @param userId ID of the user whose data this method scrambles.
    */
-  public static void obfuscateUser(Id userId) {}
+  global static void obfuscateUser(Id userId) {}
 
   /**
    * Registers an identity verification method. Verification methods can be a time-based one-time password (TOTP), email or text verification code, Salesforce Authenticator, or U2F-compatible security key. End users register verification methods for themselves.
@@ -82,7 +84,7 @@ global class UserManagement {
    * @param startUrl Path to the page that users see after they log in.
    * @return System.PageReference
    */
-  public static System.PageReference registerVerificationMethod(Auth.VerificationMethod method, String startUrl) {}
+  global static System.PageReference registerVerificationMethod(Auth.VerificationMethod method, String startUrl) {}
 
   /**
    * Send an email message to a user’s email address for verification. The message contains a verification link (URL) that the user clicks to verify the email address later on. You can send email verifications in bulk.
@@ -92,7 +94,7 @@ global class UserManagement {
    * @param startUrl The user is redirected to this page after verification, with a success or error message as the parameter. If null, the user is redirected to the login page.
    * @return Boolean
    */
-  public static Boolean sendAsyncEmailConfirmation(String userId, String emailTemplateId, String networkId, String startUrl) {}
+  global static Boolean sendAsyncEmailConfirmation(String userId, String emailTemplateId, String networkId, String startUrl) {}
 
   /**
    * Completes a verification challenge during a passwordless login that uses a custom Verify page (Visualforce only). If the user who is trying to log in enters the verification code successfully, the user is logged in.
@@ -103,7 +105,7 @@ global class UserManagement {
    * @param startUrl The page where the user is directed after successful login.
    * @return Auth.VerificationResult
    */
-  public static Auth.VerificationResult verifyPasswordlessLogin(Id userId, Auth.VerificationMethod method, String identifier, String code, String startUrl) {}
+  global static Auth.VerificationResult verifyPasswordlessLogin(Id userId, Auth.VerificationMethod method, String identifier, String code, String startUrl) {}
 
   /**
    * Completes registering a user’s email address or phone number as a verification method when customizing the identity verification process.
@@ -111,7 +113,7 @@ global class UserManagement {
    * @param method Method used to verify the identity of the user, which can be either EMAIL or SMS.
    * @return String
    */
-  public static String verifyRegisterVerificationMethod(String code, Auth.VerificationMethod method) {}
+  global static String verifyRegisterVerificationMethod(String code, Auth.VerificationMethod method) {}
 
   /**
    * Completes a verification challenge when creating a custom (Visualforce) Verify page for Experience Cloud site self-registration. If the person who is attempting to register enters the verification code successfully, the user is created and logged in.
@@ -121,7 +123,7 @@ global class UserManagement {
    * @param startUrl The page where the user is directed after successful self-registration. For the Self-Registration component , set the Start URL in the component properties instead.
    * @return Auth.VerificationResult
    */
-  public static Auth.VerificationResult verifySelfRegistration(Auth.VerificationMethod method, String identifier, String code, String startUrl) {}
+  global static Auth.VerificationResult verifySelfRegistration(Auth.VerificationMethod method, String identifier, String code, String startUrl) {}
 
   /**
    * Completes the verification service for email, phone (SMS), Salesforce Authenticator, password, or time-based one-time password (TOTP) verification methods.
@@ -130,6 +132,6 @@ global class UserManagement {
    * @param method Method used to verify the user’s identity, which can be EMAIL , PASSWORD , SALESFORCE_AUTHENTICATOR , SMS , or TOTP .
    * @return VerificationResult
    */
-  public static VerificationResult verifyVerificationMethod(String identifier, String code, Auth.VerificationMethod method) {}
+  global static VerificationResult verifyVerificationMethod(String identifier, String code, Auth.VerificationMethod method) {}
 
 }

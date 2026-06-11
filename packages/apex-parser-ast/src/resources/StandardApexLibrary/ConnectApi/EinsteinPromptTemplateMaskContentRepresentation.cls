@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateMaskContentRepresentation {
 
+  global EinsteinPromptTemplateMaskContentRepresentation() {}
+
   /**
    * Text of generated response or resolved prompt template with masked data.
    */
@@ -17,5 +19,7 @@ global class EinsteinPromptTemplateMaskContentRepresentation {
    * Role in the Salesforce role hierarchy of the user executing the prompt template.
    */
   global String role;
+
+  global Object clone() {}
 
 }

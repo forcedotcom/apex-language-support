@@ -3,6 +3,8 @@
  */
 global class UserProfile {
 
+  global UserProfile() {}
+
   /**
    * The context user’s capabilities specific to the subject user’s profile.
    */
@@ -27,5 +29,7 @@ global class UserProfile {
    * The details about the user attached to the profile.
    */
   global ConnectApi.UserDetail userDetail;
+
+  global Object clone() {}
 
 }

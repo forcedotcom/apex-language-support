@@ -1,5 +1,7 @@
 global class Usergroup {
 
+  global Usergroup() {}
+
   global String getAutoType() {}
 
   global Integer getChannelCount() {}
@@ -185,5 +187,7 @@ global class Usergroup {
   global Slack.UsergroupsUsersUpdateRequest.Builder users(List<String> users) {}
 
   global static Slack.UsergroupsUsersUpdateRequest.Builder builder() {}
+
+  global Object clone() {}
 
 }

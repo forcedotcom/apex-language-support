@@ -3,6 +3,8 @@
  */
 global class ChatterLikePage {
 
+  global ChatterLikePage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -47,5 +49,7 @@ global class ChatterLikePage {
    * Total number of likes across all pages.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

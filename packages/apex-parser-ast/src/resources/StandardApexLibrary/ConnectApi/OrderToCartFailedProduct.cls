@@ -3,6 +3,8 @@
  */
 global class OrderToCartFailedProduct {
 
+  global OrderToCartFailedProduct() {}
+
   /**
    * Error code.
    */
@@ -27,5 +29,7 @@ global class OrderToCartFailedProduct {
    * SKU of the product.
    */
   global String productSKU;
+
+  global Object clone() {}
 
 }

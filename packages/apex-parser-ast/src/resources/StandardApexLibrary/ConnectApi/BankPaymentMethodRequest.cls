@@ -3,6 +3,8 @@
  */
 global class BankPaymentMethodRequest {
 
+  global BankPaymentMethodRequest() {}
+
   /**
    * First name of the bank account holder.
    */
@@ -77,5 +79,7 @@ global class BankPaymentMethodRequest {
    * Three-letter code that identifies the type of electronic payment transaction being processed within the Automated Clearing House (ACH) network. Valid values are: CCD —Corporate Credit or Debit PPD —Prearranged Payment and Deposit TEL —Telephone-Initiated Entry WEB —Internet Initiated/Mobile
    */
   global ConnectApi.StandardEntryClassCode standardEntryClassCode;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class LinkAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
 
+  global LinkAttachmentInput() {}
+
   /**
    * URL to be used for the link
    */
@@ -12,5 +14,7 @@ global class LinkAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
    * Title of the link
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

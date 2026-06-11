@@ -3,6 +3,8 @@
  */
 global class ProductSearchProductOutputRepresentation {
 
+  global ProductSearchProductOutputRepresentation() {}
+
   /**
    * Description of the product.
    */
@@ -32,5 +34,7 @@ global class ProductSearchProductOutputRepresentation {
    * Variation attribute set of the product.
    */
   global List < ConnectApi.ProductVariationAttributeOutputRepresentation > variationAttributeSet;
+
+  global Object clone() {}
 
 }

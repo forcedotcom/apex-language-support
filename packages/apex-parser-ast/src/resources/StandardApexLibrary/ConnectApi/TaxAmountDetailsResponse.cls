@@ -3,6 +3,8 @@
  */
 global class TaxAmountDetailsResponse {
 
+  global TaxAmountDetailsResponse() {}
+
   /**
    * Amount of the line item exempt from tax application.
    */
@@ -22,5 +24,7 @@ global class TaxAmountDetailsResponse {
    * The line item's total amount with tax.
    */
   global Double totalAmountWithTax;
+
+  global Object clone() {}
 
 }

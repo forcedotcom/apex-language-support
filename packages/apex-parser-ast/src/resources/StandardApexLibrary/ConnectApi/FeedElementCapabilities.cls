@@ -3,6 +3,8 @@
  */
 global class FeedElementCapabilities {
 
+  global FeedElementCapabilities() {}
+
   /**
    * If a feed element has this capability, it includes information about an approval.
    */
@@ -187,5 +189,7 @@ global class FeedElementCapabilities {
    * If a feed post or comment has this capability, users can upvote or downvote it.
    */
   global ConnectApi.UpDownVoteCapability upDownVote;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpaceChannelRepresentation {
 
+  global ManagedContentSpaceChannelRepresentation() {}
+
   /**
    * Information about the managed content space channel.
    */
@@ -22,5 +24,7 @@ global class ManagedContentSpaceChannelRepresentation {
    * Status of the add or remove operation for a channel and managed content space. Added —Channel was added to the managed content space. Failed —Add or remove operation failed. Pending —Add or remove operation is pending. Removed —Channel was removed from the managed content space.
    */
   global ConnectApi.ManagedContentSpaceChannelStatus status;
+
+  global Object clone() {}
 
 }

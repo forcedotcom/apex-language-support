@@ -3,8 +3,16 @@
  */
 global class TableSelection {
 
+  global TableSelection() {}
+
+  global List<DataSource.ColumnSelection> columnsSelected;
+
   global DataSource.Filter filter;
 
+  global List<DataSource.Order> order;
+
   global String tableSelected;
+
+  global Object clone() {}
 
 }

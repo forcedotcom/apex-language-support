@@ -3,6 +3,8 @@
  */
 global class QueryPathInput {
 
+  global QueryPathInput() {}
+
   /**
    * Label of the field.
    */
@@ -22,5 +24,7 @@ global class QueryPathInput {
    * Name of the object.
    */
   global String objectName;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Scope {
 
+  global Scope() {}
+
   /**
    * Name of the scope for the target.
    */
@@ -12,5 +14,7 @@ global class Scope {
    * Value of the scope for the target.
    */
   global String value;
+
+  global Object clone() {}
 
 }

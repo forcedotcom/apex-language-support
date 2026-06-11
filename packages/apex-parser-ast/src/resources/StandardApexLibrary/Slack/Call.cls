@@ -1,5 +1,7 @@
 global class Call {
 
+  global Call() {}
+
   global List<String> getChannels() {}
 
   global Integer getDateEnd() {}
@@ -123,5 +125,7 @@ global class Call {
   global Slack.CallsUpdateRequest.Builder joinUrl(String joinUrl) {}
 
   global Slack.CallsUpdateRequest.Builder title(String title) {}
+
+  global Object clone() {}
 
 }

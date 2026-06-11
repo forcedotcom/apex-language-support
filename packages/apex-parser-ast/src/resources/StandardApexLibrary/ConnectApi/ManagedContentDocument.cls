@@ -3,6 +3,8 @@
  */
 global class ManagedContentDocument {
 
+  global ManagedContentDocument() {}
+
   /**
    * API name of the managed content.
    */
@@ -117,5 +119,7 @@ global class ManagedContentDocument {
    * Version number of the managed content. In version 66.0 and later, use contentVersion and variantVersion for version information.
    */
   global String versionNumber;
+
+  global Object clone() {}
 
 }

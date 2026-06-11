@@ -3,6 +3,8 @@
  */
 global class SubmitCancelOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global SubmitCancelOutputRepresentation() {}
+
   /**
    * Financial values resulting from the cancel.
    */
@@ -17,5 +19,7 @@ global class SubmitCancelOutputRepresentation extends ConnectApi.BaseOutputRepre
    * ID of the change order created by canceling order items with associated cancel fees. Use this change order to create an invoice.
    */
   global String feeChangeOrderId;
+
+  global Object clone() {}
 
 }

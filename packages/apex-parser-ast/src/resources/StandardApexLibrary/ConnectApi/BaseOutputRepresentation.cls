@@ -3,6 +3,8 @@
  */
 global class BaseOutputRepresentation {
 
+  global BaseOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -12,5 +14,7 @@ global class BaseOutputRepresentation {
    * Indicates whether the transaction was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

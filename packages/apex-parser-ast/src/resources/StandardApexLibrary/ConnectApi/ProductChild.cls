@@ -3,6 +3,8 @@
  */
 global class ProductChild {
 
+  global ProductChild() {}
+
   /**
    * Default quantity of child products to be ordered.
    */
@@ -17,5 +19,7 @@ global class ProductChild {
    * Product details of the child product.
    */
   global ConnectApi.ProductDetail productInfo;
+
+  global Object clone() {}
 
 }

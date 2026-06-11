@@ -5,16 +5,18 @@ global class ZipReader {
 
   global ZipReader(Blob data) {}
 
-  public blob extract(string name) {}
+  global blob extract(string name) {}
 
-  public blob extract(Compression.ZipEntry entry) {}
+  global blob extract(Compression.ZipEntry entry) {}
 
-  public List<compression.ZipEntry> getEntries() {}
+  global List<compression.ZipEntry> getEntries() {}
 
-  public Map<String,Compression.ZipEntry> getEntriesMap() {}
+  global Map<String,Compression.ZipEntry> getEntriesMap() {}
 
-  public compression.ZipEntry getEntry(string name) {}
+  global compression.ZipEntry getEntry(string name) {}
 
-  public List<String> getEntryNames() {}
+  global List<String> getEntryNames() {}
+
+  global Object clone() {}
 
 }

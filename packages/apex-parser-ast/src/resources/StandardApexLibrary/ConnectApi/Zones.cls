@@ -3,22 +3,26 @@
  */
 global class Zones {
 
-  public static ConnectApi.Zone getZone(String communityId, String zoneId) {}
+  global Zones() {}
 
-  public static ConnectApi.ZonePage getZones(String communityId) {}
+  global static ConnectApi.Zone getZone(String communityId, String zoneId) {}
 
-  public static ConnectApi.Zone getZones(String communityId, Integer pageParam, Integer pageSize) {}
+  global static ConnectApi.ZonePage getZones(String communityId) {}
 
-  public static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter) {}
+  global static ConnectApi.Zone getZones(String communityId, Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String pageParam, Integer pageSize) {}
+  global static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter) {}
 
-  public static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String language) {}
+  global static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String pageParam, Integer pageSize) {}
 
-  public static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, ConnectApi.ZoneSearchPage result) {}
+  global static ConnectApi.ZoneSearchPage searchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String language) {}
 
-  public static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String pageParam, Integer pageSize, ConnectApi.ZoneSearchPage result) {}
+  global static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, ConnectApi.ZoneSearchPage result) {}
 
-  public static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String language, ConnectApi.ZoneSearchPage result) {}
+  global static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String pageParam, Integer pageSize, ConnectApi.ZoneSearchPage result) {}
+
+  global static void setTestSearchInZone(String communityId, String zoneId, String q, ConnectApi.ZoneSearchResultType filter, String language, ConnectApi.ZoneSearchPage result) {}
+
+  global Object clone() {}
 
 }

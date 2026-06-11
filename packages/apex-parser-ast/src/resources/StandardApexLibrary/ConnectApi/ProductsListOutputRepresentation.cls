@@ -3,9 +3,13 @@
  */
 global class ProductsListOutputRepresentation {
 
+  global ProductsListOutputRepresentation() {}
+
   /**
    * The product’s identifier.
    */
   global List ConnectApi.ProductOutputRepresentation <> product;
+
+  global Object clone() {}
 
 }

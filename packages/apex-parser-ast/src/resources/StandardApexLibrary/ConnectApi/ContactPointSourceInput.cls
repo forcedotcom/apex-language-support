@@ -3,6 +3,8 @@
  */
 global class ContactPointSourceInput {
 
+  global ContactPointSourceInput() {}
+
   /**
    * Record ID of the data source.
    */
@@ -27,5 +29,7 @@ global class ContactPointSourceInput {
    * Name of the data source.
    */
   global String name;
+
+  global Object clone() {}
 
 }

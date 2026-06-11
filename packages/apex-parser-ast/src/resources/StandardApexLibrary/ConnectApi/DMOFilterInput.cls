@@ -3,6 +3,8 @@
  */
 global class DMOFilterInput {
 
+  global DMOFilterInput() {}
+
   /**
    * Entity filter.
    */
@@ -42,5 +44,7 @@ global class DMOFilterInput {
    * Path from the container to the entity.
    */
   global List < ConnectApi.QueryPathInputConfig > queryPathConfigFromContainerToEntity;
+
+  global Object clone() {}
 
 }

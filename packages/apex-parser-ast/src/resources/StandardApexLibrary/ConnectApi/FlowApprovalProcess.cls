@@ -3,6 +3,8 @@
  */
 global class FlowApprovalProcess {
 
+  global FlowApprovalProcess() {}
+
   /**
    * The name of the flow approval process.
    */
@@ -17,5 +19,7 @@ global class FlowApprovalProcess {
    * Specifies whether one or more approval submissions are in progress ( true ) or not ( false ).
    */
   global Boolean isApprovalInProgress;
+
+  global Object clone() {}
 
 }

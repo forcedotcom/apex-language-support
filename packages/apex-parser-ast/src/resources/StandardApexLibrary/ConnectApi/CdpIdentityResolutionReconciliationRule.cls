@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionReconciliationRule {
 
+  global CdpIdentityResolutionReconciliationRule() {}
+
   /**
    * API name of the Data Model Object the reconciliation rule applies to.
    */
@@ -27,5 +29,7 @@ global class CdpIdentityResolutionReconciliationRule {
    * If ruleType is SourceSequence , a list of data sources in priority order.
    */
   global List < ConnectApi.CdpIdentityResolutionReconciliationSource > sources;
+
+  global Object clone() {}
 
 }

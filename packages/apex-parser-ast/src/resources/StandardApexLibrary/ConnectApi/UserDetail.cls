@@ -3,6 +3,8 @@
  */
 global class UserDetail extends ConnectApi.User {
 
+  global UserDetail() {}
+
   /**
    * Text from user's profile.
    */
@@ -82,5 +84,7 @@ global class UserDetail extends ConnectApi.User {
    * Username of the user, such as Admin@mycompany.com .
    */
   global String username;
+
+  global Object clone() {}
 
 }

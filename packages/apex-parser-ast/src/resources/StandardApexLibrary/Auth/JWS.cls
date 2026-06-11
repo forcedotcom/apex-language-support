@@ -3,20 +3,20 @@
  */
 global class JWS {
 
-  public JWS(Auth.JWT jwt, String certDevName) {}
+  global JWS(Auth.JWT jwt, String certDevName) {}
 
-  public JWS(String payload, String certDevName) {}
+  global JWS(String payload, String certDevName) {}
 
   /**
    * Makes a duplicate copy of the JWS object.
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
   /**
    * Returns the compact serialization representation of the JWS as a concatenated string, with the encoded JWS header, encoded JWS payload, and encoded JWS signature strings separated by period ('.') characters.
    * @return String
    */
-  public String getCompactSerialization() {}
+  global String getCompactSerialization() {}
 
 }

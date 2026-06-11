@@ -3,6 +3,8 @@
  */
 global class ReturnItemsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global ReturnItemsOutputRepresentation() {}
+
   /**
    * ID of the change order created by processing the ReturnOrderLineItems representing returned items and delivery charges. Use this change order to create a credit memo.
    */
@@ -22,5 +24,7 @@ global class ReturnItemsOutputRepresentation extends ConnectApi.BaseOutputRepres
    * List of properties representing any remaining quantities from partial returns processed by this call. It includes order items, delivery charges, and return fees. Each element of the list includes the ID of a split ReturnOrderLineItem and the ID of the partially processed ReturnOrderLineItem whose remaining quantity it holds.
    */
   global List < ConnectApi.ReturnOrderItemSplitLineOutputRepresentation > returnLineItemSplits;
+
+  global Object clone() {}
 
 }

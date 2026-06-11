@@ -3,6 +3,8 @@
  */
 global class Community {
 
+  global Community() {}
+
   /**
    * Specifies if guest users can access public groups without logging in.
    */
@@ -122,5 +124,7 @@ global class Community {
    * Site-specific URL prefix. For example, in the site URL MyDomainName .my.site.com/customers , customers is the UrlPathPrefix .
    */
   global String urlPathPrefix;
+
+  global Object clone() {}
 
 }

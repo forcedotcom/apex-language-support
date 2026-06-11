@@ -3,9 +3,13 @@
  */
 global class GetFOCapacityValuesRequestInputRepresentation {
 
+  global GetFOCapacityValuesRequestInputRepresentation() {}
+
   /**
    * List of IDs of the locations to get fulfillment order capacity information for.
    */
   global List < String > locationIds;
+
+  global Object clone() {}
 
 }

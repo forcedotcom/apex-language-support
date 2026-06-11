@@ -3,6 +3,8 @@
  */
 global class AudienceTargetAssignment {
 
+  global AudienceTargetAssignment() {}
+
   /**
    * Formula scope of the target.
    */
@@ -47,5 +49,7 @@ global class AudienceTargetAssignment {
    * URL to the target.
    */
   global String url;
+
+  global Object clone() {}
 
 }

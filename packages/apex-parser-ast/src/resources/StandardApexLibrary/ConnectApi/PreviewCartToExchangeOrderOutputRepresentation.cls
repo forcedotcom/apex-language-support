@@ -3,6 +3,8 @@
  */
 global class PreviewCartToExchangeOrderOutputRepresentation {
 
+  global PreviewCartToExchangeOrderOutputRepresentation() {}
+
   /**
    * The balance state preview for the exchange web cart.
    */
@@ -37,5 +39,7 @@ global class PreviewCartToExchangeOrderOutputRepresentation {
    * Indicates whether the transaction was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

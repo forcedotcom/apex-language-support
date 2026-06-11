@@ -3,6 +3,8 @@
  */
 global class ReferencedRefundRequest extends ConnectApi.RefundRequest {
 
+  global ReferencedRefundRequest() {}
+
   /**
    * ID of the account linked to the referenced refund request.
    */
@@ -32,5 +34,7 @@ global class ReferencedRefundRequest extends ConnectApi.RefundRequest {
    * Payment group details associated with the refund request.
    */
   global ConnectApi.PaymentGroupRequest paymentGroup;
+
+  global Object clone() {}
 
 }

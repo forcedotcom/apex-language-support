@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { mkdir, rm } from 'node:fs/promises';
 import { scrapeAllDocumentation } from '../scraper/main-scraper';
 import { generateStubs } from '../generator/stub-generator';
+import { augmentFromBytecodeXml } from '../augmenter/xml-augmenter';
 
 /**
  * Default output: StandardApexLibrary in apex-parser-ast.
@@ -39,8 +40,16 @@ const program = Effect.gen(function* () {
   const namespaces = yield* scrapeAllDocumentation();
   yield* Console.log('');
 
+  yield* Console.log('Step 1b: Augmenting from bytecode XML (if present)...');
+  const xmlPath = resolve(process.cwd(), 'bytecode.xml');
+  const augmentedNamespaces = yield* augmentFromBytecodeXml(
+    namespaces,
+    xmlPath,
+  );
+  yield* Console.log('');
+
   yield* Console.log('Step 2: Generating stub files...');
-  yield* generateStubs(namespaces, outputDir);
+  yield* generateStubs(augmentedNamespaces, outputDir);
   yield* Console.log('');
 
   yield* Console.log('=== Generation Complete ===');

@@ -3,6 +3,8 @@
  */
 global class NavigationMenuPageReference {
 
+  global NavigationMenuPageReference() {}
+
   /**
    * Attributes for the navigation menu item page reference.
    */
@@ -17,5 +19,7 @@ global class NavigationMenuPageReference {
    * Type for the navigation menu item page reference.
    */
   global String type;
+
+  global Object clone() {}
 
 }

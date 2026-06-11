@@ -39,6 +39,19 @@ export class ApexConstructor extends Schema.Class<ApexConstructor>(
   visibility: Schema.optional(Schema.String),
 }) {}
 
+export class ApexInnerClass extends Schema.Class<ApexInnerClass>(
+  'ApexInnerClass',
+)({
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  superClass: Schema.optional(Schema.String),
+  methods: Schema.Array(ApexMethod),
+  properties: Schema.Array(ApexProperty),
+  constructors: Schema.optional(Schema.Array(ApexConstructor)),
+  isInterface: Schema.optional(Schema.Boolean),
+  innerExceptions: Schema.optional(Schema.Array(ApexInnerException)),
+}) {}
+
 export class ApexClass extends Schema.Class<ApexClass>('ApexClass')({
   name: Schema.String,
   namespace: Schema.String,
@@ -49,6 +62,9 @@ export class ApexClass extends Schema.Class<ApexClass>('ApexClass')({
   constructors: Schema.optional(Schema.Array(ApexConstructor)),
   isInterface: Schema.optional(Schema.Boolean),
   innerExceptions: Schema.optional(Schema.Array(ApexInnerException)),
+  innerClasses: Schema.optional(Schema.Array(ApexInnerClass)),
+  /** Transient: set during scraping when this class is an inner class of another. Cleared after merging. */
+  outerClass: Schema.optional(Schema.String),
 }) {}
 
 export class ApexEnumValue extends Schema.Class<ApexEnumValue>('ApexEnumValue')(

@@ -3,6 +3,8 @@
  */
 global class PostAuthRequest extends ConnectApi.BaseRequest {
 
+  global PostAuthRequest() {}
+
   /**
    * ID of the account of the customer for the authorized payment.
    */
@@ -42,5 +44,7 @@ global class PostAuthRequest extends ConnectApi.BaseRequest {
    * Payment method sent for the post authorization.
    */
   global ConnectApi.PostAuthApiPaymentMethodRequest paymentMethod;
+
+  global Object clone() {}
 
 }

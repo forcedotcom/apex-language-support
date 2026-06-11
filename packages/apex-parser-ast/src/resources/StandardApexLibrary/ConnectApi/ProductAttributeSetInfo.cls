@@ -3,6 +3,8 @@
  */
 global class ProductAttributeSetInfo {
 
+  global ProductAttributeSetInfo() {}
+
   /**
    * Map of the API name of the attribute field to the attribute metadata.
    */
@@ -32,5 +34,7 @@ global class ProductAttributeSetInfo {
    * Sequence of the attribute set for the product.
    */
   global Integer sequence;
+
+  global Object clone() {}
 
 }

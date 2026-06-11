@@ -3,26 +3,30 @@
  */
 global class DomainCreator {
 
-  public static String getContentHostname() {}
+  global DomainCreator() {}
 
-  public static String getExperienceCloudSitesBuilderHostname() {}
+  global static String getContentHostname() {}
 
-  public static String getExperienceCloudSitesHostname() {}
+  global static String getExperienceCloudSitesBuilderHostname() {}
 
-  public static String getExperienceCloudSitesLivePreviewHostname() {}
+  global static String getExperienceCloudSitesHostname() {}
 
-  public static String getExperienceCloudSitesPreviewHostname() {}
+  global static String getExperienceCloudSitesLivePreviewHostname() {}
 
-  public static String getLightningContainerComponentHostname(String packageName) {}
+  global static String getExperienceCloudSitesPreviewHostname() {}
 
-  public static String getLightningHostname() {}
+  global static String getLightningContainerComponentHostname(String packageName) {}
 
-  public static String getOrgMyDomainHostname() {}
+  global static String getLightningHostname() {}
 
-  public static String getSalesforceSitesHostname() {}
+  global static String getOrgMyDomainHostname() {}
 
-  public static String getSetupHostname() {}
+  global static String getSalesforceSitesHostname() {}
 
-  public static String getVisualforceHostname(String packageName) {}
+  global static String getSetupHostname() {}
+
+  global static String getVisualforceHostname(String packageName) {}
+
+  global Object clone() {}
 
 }

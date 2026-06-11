@@ -3,6 +3,8 @@
  */
 global class PromotionCart {
 
+  global PromotionCart() {}
+
   /**
    * Cart adjustment groups belonging to the cart.
    */
@@ -37,5 +39,7 @@ global class PromotionCart {
    * Total price of all cart items in the cart.
    */
   global String totalProductBaseAmount;
+
+  global Object clone() {}
 
 }

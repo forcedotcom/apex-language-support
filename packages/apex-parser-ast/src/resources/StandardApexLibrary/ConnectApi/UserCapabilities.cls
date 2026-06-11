@@ -3,6 +3,8 @@
  */
 global class UserCapabilities {
 
+  global UserCapabilities() {}
+
   /**
    * Specifies if the context user can use Chatter Messenger with the subject user ( true ) or not ( false )
    */
@@ -37,5 +39,7 @@ global class UserCapabilities {
    * Specifies if the subject user is a Chatter moderator or admin ( true ) or not ( false )
    */
   global Boolean isModerator;
+
+  global Object clone() {}
 
 }

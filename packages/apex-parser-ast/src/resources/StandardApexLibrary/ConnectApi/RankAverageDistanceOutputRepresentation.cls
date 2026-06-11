@@ -3,6 +3,8 @@
  */
 global class RankAverageDistanceOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global RankAverageDistanceOutputRepresentation() {}
+
   /**
    * The specified unit of distance (miles or kilometers).
    */
@@ -12,5 +14,7 @@ global class RankAverageDistanceOutputRepresentation extends ConnectApi.BaseOutp
    * The results of the shipping distance calculations.
    */
   global List < ConnectApi.AverageDistanceResultOutputRepresentation > results;
+
+  global Object clone() {}
 
 }

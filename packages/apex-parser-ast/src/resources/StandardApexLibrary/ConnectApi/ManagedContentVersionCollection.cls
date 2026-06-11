@@ -3,6 +3,8 @@
  */
 global class ManagedContentVersionCollection {
 
+  global ManagedContentVersionCollection() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -32,5 +34,7 @@ global class ManagedContentVersionCollection {
    * Total number of managed content types.
    */
   global Integer totalTypes;
+
+  global Object clone() {}
 
 }

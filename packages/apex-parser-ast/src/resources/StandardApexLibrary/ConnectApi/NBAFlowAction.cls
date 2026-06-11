@@ -3,6 +3,8 @@
  */
 global class NBAFlowAction extends ConnectApi.AbstractNBAAction {
 
+  global NBAFlowAction() {}
+
   /**
    * Label of the recommended flow.
    */
@@ -22,5 +24,7 @@ global class NBAFlowAction extends ConnectApi.AbstractNBAAction {
    * Name of the flow.
    */
   global String name;
+
+  global Object clone() {}
 
 }

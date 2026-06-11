@@ -3,6 +3,8 @@
  */
 global class TaxCustomerDetailsRequest {
 
+  global TaxCustomerDetailsRequest() {}
+
   /**
    * ID of the customer's account.
    */
@@ -22,5 +24,7 @@ global class TaxCustomerDetailsRequest {
    * Tax exemption reason.
    */
   global String exemptionReason;
+
+  global Object clone() {}
 
 }

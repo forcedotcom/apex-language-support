@@ -3,6 +3,10 @@
  */
 global class OrderSummaryCreation {
 
-  public static ConnectApi.OrderSummaryOutputRepresentation createOrderSummary(ConnectApi.OrderSummaryInputRepresentation orderSummaryInput) {}
+  global OrderSummaryCreation() {}
+
+  global static ConnectApi.OrderSummaryOutputRepresentation createOrderSummary(ConnectApi.OrderSummaryInputRepresentation orderSummaryInput) {}
+
+  global Object clone() {}
 
 }

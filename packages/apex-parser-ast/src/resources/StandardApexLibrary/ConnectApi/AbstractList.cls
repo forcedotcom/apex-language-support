@@ -3,4 +3,8 @@
  */
 global class AbstractList {
 
+  global AbstractList() {}
+
+  global Object clone() {}
+
 }

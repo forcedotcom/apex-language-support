@@ -3,6 +3,8 @@
  */
 global class RelatedQuestion extends ConnectApi.RelatedFeedPost {
 
+  global RelatedQuestion() {}
+
   /**
    * Indicates whether the question has a best answer.
    */
@@ -12,5 +14,7 @@ global class RelatedQuestion extends ConnectApi.RelatedFeedPost {
    * The number of individual views, likes, and comments on a question.
    */
   global ConnectApi.InteractionsCapability interactions;
+
+  global Object clone() {}
 
 }

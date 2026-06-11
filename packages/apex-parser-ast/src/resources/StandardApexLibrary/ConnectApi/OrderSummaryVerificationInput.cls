@@ -3,6 +3,8 @@
  */
 global class OrderSummaryVerificationInput {
 
+  global OrderSummaryVerificationInput() {}
+
   /**
    * Guest shopper or registered buyer’s email address.
    */
@@ -17,5 +19,7 @@ global class OrderSummaryVerificationInput {
    * Guest shopper or registered buyer’s phone number.
    */
   global String phoneNumber;
+
+  global Object clone() {}
 
 }

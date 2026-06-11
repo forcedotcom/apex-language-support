@@ -3,6 +3,8 @@
  */
 global class LocationCapacityOutputRepresentation {
 
+  global LocationCapacityOutputRepresentation() {}
+
   /**
    * Value of the location’s Assigned Fulfillment Order Count.
    */
@@ -27,5 +29,7 @@ global class LocationCapacityOutputRepresentation {
    * ID of the location.
    */
   global String locationId;
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class RecordSnapshotCapability extends ConnectApi.FeedElementCapability {
 
+  global RecordSnapshotCapability() {}
+
   /**
    * A record representation that includes metadata and data so you can display the record easily.
    */
   global ConnectApi.RecordView recordView;
+
+  global Object clone() {}
 
 }

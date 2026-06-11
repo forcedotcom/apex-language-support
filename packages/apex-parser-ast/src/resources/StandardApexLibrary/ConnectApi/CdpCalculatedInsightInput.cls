@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightInput {
 
+  global CdpCalculatedInsightInput() {}
+
   /**
    * API name of the calculated insight with suffix __cio.
    */
@@ -47,5 +49,7 @@ global class CdpCalculatedInsightInput {
    * API name of the packaged calculated insight.
    */
   global String packagedCalculatedInsightApiName;
+
+  global Object clone() {}
 
 }

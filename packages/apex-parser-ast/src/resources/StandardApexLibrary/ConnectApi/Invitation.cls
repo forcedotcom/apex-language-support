@@ -3,6 +3,8 @@
  */
 global class Invitation {
 
+  global Invitation() {}
+
   /**
    * Email address of the user.
    */
@@ -17,5 +19,7 @@ global class Invitation {
    * ID of the user.
    */
   global String userId;
+
+  global Object clone() {}
 
 }

@@ -3,16 +3,22 @@
  */
 global class QueryLocator {
 
+  global QueryLocator() {}
+
   /**
    * Returns the query used to instantiate the Database.QueryLocator object. This is useful when testing the start method.
    * @return String
    */
-  public String getQuery() {}
+  global String getQuery() {}
 
   /**
    * Returns a new instance of a query locator iterator.
    * @return Database.QueryLocatorIterator
    */
-  public Database.QueryLocatorIterator iterator() {}
+  global Database.QueryLocatorIterator iterator() {}
+
+  global List<SObject> querymore(Integer num) {}
+
+  global Object clone() {}
 
 }

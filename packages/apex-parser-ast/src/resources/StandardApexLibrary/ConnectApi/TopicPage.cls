@@ -3,6 +3,8 @@
  */
 global class TopicPage {
 
+  global TopicPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -17,5 +19,7 @@ global class TopicPage {
    * List of topics.
    */
   global List < ConnectApi.Topic > topics;
+
+  global Object clone() {}
 
 }

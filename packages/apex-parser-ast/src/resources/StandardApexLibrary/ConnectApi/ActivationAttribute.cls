@@ -3,6 +3,8 @@
  */
 global class ActivationAttribute {
 
+  global ActivationAttribute() {}
+
   /**
    * ID of the activation platform attribute.
    */
@@ -62,5 +64,7 @@ global class ActivationAttribute {
    * Type of activation attribute. Computed_Dimension Computed_Measure Model Model_Related Non_Aggregatable_Computed_Measure
    */
   global DataExportAttributeTypeEnum type;
+
+  global Object clone() {}
 
 }

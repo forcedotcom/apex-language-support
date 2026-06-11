@@ -3,9 +3,13 @@
  */
 global class AssociatedActionsCapabilityInput {
 
+  global AssociatedActionsCapabilityInput() {}
+
   /**
    * The action link group IDs to associate with the feed element. Associate one Primary and up to 10 total action link groups to a feed item. Action link groups are returned in the order specified in this property. An action link group ID is returned from a call to ConnectApi.ActionLinks. createActionLinkGroupDefinition(communityId, actionLinkGroup) .
    */
   global List < String > actionLinkGroupIds;
+
+  global Object clone() {}
 
 }

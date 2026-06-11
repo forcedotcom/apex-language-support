@@ -3,6 +3,8 @@
  */
 global class ActivationContactPointSourceConfig {
 
+  global ActivationContactPointSourceConfig() {}
+
   /**
    * ID of the data source.
    */
@@ -22,5 +24,7 @@ global class ActivationContactPointSourceConfig {
    * Priority of the data source.
    */
   global Integer dataSourcePriority;
+
+  global Object clone() {}
 
 }

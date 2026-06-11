@@ -3,6 +3,8 @@
  */
 global class ShiftsFromPatternError {
 
+  global ShiftsFromPatternError() {}
+
   /**
    * Error code.
    */
@@ -17,5 +19,7 @@ global class ShiftsFromPatternError {
    * Error message.
    */
   global String message;
+
+  global Object clone() {}
 
 }

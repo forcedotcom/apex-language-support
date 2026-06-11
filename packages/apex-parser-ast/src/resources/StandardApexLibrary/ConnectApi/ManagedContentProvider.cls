@@ -3,6 +3,8 @@
  */
 global class ManagedContentProvider {
 
+  global ManagedContentProvider() {}
+
   /**
    * Provider lightning component definition.
    */
@@ -37,5 +39,7 @@ global class ManagedContentProvider {
    * Type of managed content provider. Values are: DigitalAssetManager
    */
   global ConnectApi.ManagedContentProviderType type;
+
+  global Object clone() {}
 
 }

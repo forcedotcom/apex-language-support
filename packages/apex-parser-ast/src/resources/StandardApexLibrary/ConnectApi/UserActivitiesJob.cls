@@ -3,6 +3,8 @@
  */
 global class UserActivitiesJob {
 
+  global UserActivitiesJob() {}
+
   /**
    * Token that identifies the user activities job.
    */
@@ -17,5 +19,7 @@ global class UserActivitiesJob {
    * Message describing the status and expected outcome of the job. When the job completes, you receive an email with information about the Salesforce file that contains ConnectApi.UserActivityCollection .
    */
   global String message;
+
+  global Object clone() {}
 
 }

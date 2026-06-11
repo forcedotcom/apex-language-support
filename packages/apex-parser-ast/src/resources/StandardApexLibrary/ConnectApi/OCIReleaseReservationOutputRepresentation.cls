@@ -3,6 +3,8 @@
  */
 global class OCIReleaseReservationOutputRepresentation {
 
+  global OCIReleaseReservationOutputRepresentation() {}
+
   /**
    * Responses for the individual reservations in the release request.
    */
@@ -12,5 +14,7 @@ global class OCIReleaseReservationOutputRepresentation {
    * Indicates whether the request was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

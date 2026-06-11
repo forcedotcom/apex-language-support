@@ -3,6 +3,8 @@
  */
 global class ItemQuantityOutputRepresentation {
 
+  global ItemQuantityOutputRepresentation() {}
+
   /**
    * The identifier for the item with quantity
    */
@@ -17,5 +19,7 @@ global class ItemQuantityOutputRepresentation {
    * Quantity that was distributed to this item
    */
   global Double quantityDistributed;
+
+  global Object clone() {}
 
 }

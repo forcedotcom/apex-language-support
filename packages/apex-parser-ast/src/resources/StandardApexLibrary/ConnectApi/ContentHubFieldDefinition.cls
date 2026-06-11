@@ -3,6 +3,8 @@
  */
 global class ContentHubFieldDefinition {
 
+  global ContentHubFieldDefinition() {}
+
   /**
    * Label or caption of this field.
    */
@@ -27,5 +29,7 @@ global class ContentHubFieldDefinition {
    * Data type of the value of the field. Values are: BooleanType DateTimeType DecimalType HtmlType IdType IntegerType StringType UriType XmlType
    */
   global ConnectApi.ContentHubVariableType type;
+
+  global Object clone() {}
 
 }

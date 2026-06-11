@@ -3,6 +3,8 @@
  */
 global class CreateOrderPaymentSummaryInputRepresentation {
 
+  global CreateOrderPaymentSummaryInputRepresentation() {}
+
   /**
    * ID of the OrderSummary.
    */
@@ -22,5 +24,7 @@ global class CreateOrderPaymentSummaryInputRepresentation {
    * List of IDs of the payments.
    */
   global List < String > paymentIds;
+
+  global Object clone() {}
 
 }

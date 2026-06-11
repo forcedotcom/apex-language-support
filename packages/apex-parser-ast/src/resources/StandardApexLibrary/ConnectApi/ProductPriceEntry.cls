@@ -3,6 +3,8 @@
  */
 global class ProductPriceEntry {
 
+  global ProductPriceEntry() {}
+
   /**
    * Error code and error message.
    */
@@ -37,5 +39,7 @@ global class ProductPriceEntry {
    * Unit price for the product entry.
    */
   global String unitPrice;
+
+  global Object clone() {}
 
 }

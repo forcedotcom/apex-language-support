@@ -1,5 +1,7 @@
 global class Latest {
 
+  global Latest() {}
+
   global String getBotId() {}
 
   global String getBotLink() {}
@@ -79,5 +81,7 @@ global class Latest {
   global void setUsername(String username) {}
 
   global void setXFiles(List<String> xFiles) {}
+
+  global Object clone() {}
 
 }

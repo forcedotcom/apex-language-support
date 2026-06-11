@@ -3,6 +3,10 @@
  */
 global class IntegrationStatus {
 
+  global IntegrationStatus() {}
+
   global sfdc_checkout.IntegrationStatus.Status status;
+
+  global Object clone() {}
 
 }

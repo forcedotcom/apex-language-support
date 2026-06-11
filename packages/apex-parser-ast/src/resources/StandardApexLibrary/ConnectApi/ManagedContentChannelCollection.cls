@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannelCollection {
 
+  global ManagedContentChannelCollection() {}
+
   /**
    * List of managed content channels.
    */
@@ -27,5 +29,7 @@ global class ManagedContentChannelCollection {
    * Total number of managed content channels.
    */
   global Integer totalChannels;
+
+  global Object clone() {}
 
 }

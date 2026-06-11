@@ -3,6 +3,8 @@
  */
 global class BaseApiPaymentMethodRequest {
 
+  global BaseApiPaymentMethodRequest() {}
+
   /**
    * Payment method address.
    */
@@ -17,5 +19,7 @@ global class BaseApiPaymentMethodRequest {
    * Shows whether Salesforce saves the payment method for future use.
    */
   global Boolean saveForFuture;
+
+  global Object clone() {}
 
 }

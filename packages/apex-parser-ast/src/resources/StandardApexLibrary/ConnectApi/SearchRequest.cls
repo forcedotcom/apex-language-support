@@ -3,6 +3,8 @@
  */
 global class SearchRequest {
 
+  global SearchRequest() {}
+
   /**
    * Query term to search on. Query term must be two or more characters.
    */
@@ -52,5 +54,7 @@ global class SearchRequest {
    * Specifies whether search should apply spellcheck ( true ) or not ( false ). The default value is true .
    */
   global Boolean spellcheck;
+
+  global Object clone() {}
 
 }

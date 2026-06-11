@@ -3,6 +3,8 @@
  */
 global class DmoFilterLimitInput {
 
+  global DmoFilterLimitInput() {}
+
   /**
    * Name of the attribute.
    */
@@ -17,5 +19,7 @@ global class DmoFilterLimitInput {
    * The sort order for filtering. FilterSortOrderAsc FilterSortOrderDesc
    */
   global FilterSortOrderEnum order;
+
+  global Object clone() {}
 
 }

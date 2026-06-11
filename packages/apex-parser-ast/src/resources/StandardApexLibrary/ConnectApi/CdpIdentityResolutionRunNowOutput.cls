@@ -3,9 +3,13 @@
  */
 global class CdpIdentityResolutionRunNowOutput {
 
+  global CdpIdentityResolutionRunNowOutput() {}
+
   /**
    * Result of an identity resolution ruleset job run. Values are: ExceededMaximumNumberOfSuccessfulRunsAllowedIn24Hours IdentityResolutionJobIsAlreadyRunning NoPendingChangesJobRunSkipped SuccessfullySubmittedIdentityResolutionJobRunRequest
    */
   global ConnectApi.CdpIdentityResolutionRunNowResultCode resultCode;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class DeliveryEstimateOutputRepresentation {
 
+  global DeliveryEstimateOutputRepresentation() {}
+
   /**
    * Any error that was returned, including the error code and error message.
    */
@@ -22,5 +24,7 @@ global class DeliveryEstimateOutputRepresentation {
    * Shipping carrier method external reference.
    */
   global String shippingCarrierMethodExternalReference;
+
+  global Object clone() {}
 
 }

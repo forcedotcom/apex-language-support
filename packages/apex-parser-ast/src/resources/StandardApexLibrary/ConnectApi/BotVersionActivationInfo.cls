@@ -3,6 +3,8 @@
  */
 global class BotVersionActivationInfo {
 
+  global BotVersionActivationInfo() {}
+
   /**
    * Indicates whether the bot is active or not.
    */
@@ -17,5 +19,7 @@ global class BotVersionActivationInfo {
    * Indicates whether the activation was successful or not.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

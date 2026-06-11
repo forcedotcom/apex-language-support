@@ -3,6 +3,8 @@
  */
 global class AbstractGatewayResponse extends ConnectApi.AbstractGatewayCommonResponse {
 
+  global AbstractGatewayResponse() {}
+
   /**
    * Provides information about the gateway communication.
    */
@@ -12,5 +14,7 @@ global class AbstractGatewayResponse extends ConnectApi.AbstractGatewayCommonRes
    * Unique transaction ID created by the payment gateway.
    */
   global String gatewayReferenceNumber;
+
+  global Object clone() {}
 
 }

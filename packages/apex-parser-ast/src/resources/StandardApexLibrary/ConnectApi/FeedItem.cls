@@ -1,7 +1,9 @@
 /**
  * Feed item.
  */
-global class FeedItem extends ConnectApi.FeedElement Class {
+global class FeedItem {
+
+  global FeedItem() {}
 
   /**
    * The entity that created the feed item.
@@ -112,5 +114,7 @@ global class FeedItem extends ConnectApi.FeedElement Class {
    * Type of users who can see a feed item. AllUsers —Visibility is not limited to internal users. InternalUsers —Visibility is limited to internal users.
    */
   global ConnectApi.FeedItemVisibilityType visibility;
+
+  global Object clone() {}
 
 }

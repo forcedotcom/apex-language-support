@@ -3,6 +3,12 @@
  */
 global class DeleteContext {
 
+  global DeleteContext() {}
+
+  global List<String> externalIds;
+
   global String tableSelected;
+
+  global Object clone() {}
 
 }

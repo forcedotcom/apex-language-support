@@ -3,13 +3,15 @@
  */
 global class QuerySqlInput {
 
+  global QuerySqlInput() {}
+
   /**
    * Amount of time (in seconds) for the query engine to respond to the request. 0 will return the queryId, status, and metadata, but no data associated with the SQL. The maximum value is 15 .
    */
   global Integer adaptiveTimeout;
 
   /**
-   * Settings to allow the adjustment of query execution, such as date and time. For example, lc_time , date_style , and external_client_context .
+   * Settings to adjust the query execution behavior: date_style —Order of Year, Month, and Day for parsing date strings, for example MDY and DMY . lc_time —Locale for date literals using ISO language and country code, for example en_US and de_AT . query_timeout —Execution limit in milliseconds before the query is terminated, for example 1800000ms .
    */
   global Map < String , String > querySettings;
 
@@ -27,5 +29,7 @@ global class QuerySqlInput {
    * Value and type information about the SQL parameters.
    */
   global List < ConnectApi.QuerySqlParameterItem > sqlParameters;
+
+  global Object clone() {}
 
 }

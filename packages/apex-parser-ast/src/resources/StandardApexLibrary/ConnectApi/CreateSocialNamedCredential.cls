@@ -3,6 +3,8 @@
  */
 global class CreateSocialNamedCredential {
 
+  global CreateSocialNamedCredential() {}
+
   /**
    * Authentication URL.
    */
@@ -22,5 +24,7 @@ global class CreateSocialNamedCredential {
    * Status response specifiying whether the Webstore Meta Config entity was successfully created.
    */
   global ConnectApi.SocialStatusRepresentation status;
+
+  global Object clone() {}
 
 }

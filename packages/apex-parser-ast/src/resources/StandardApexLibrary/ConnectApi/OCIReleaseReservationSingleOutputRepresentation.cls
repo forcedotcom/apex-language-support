@@ -3,6 +3,8 @@
  */
 global class OCIReleaseReservationSingleOutputRepresentation {
 
+  global OCIReleaseReservationSingleOutputRepresentation() {}
+
   /**
    * The UUID that identifies the original release reservation request.
    */
@@ -32,5 +34,7 @@ global class OCIReleaseReservationSingleOutputRepresentation {
    * The SKU of the released product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

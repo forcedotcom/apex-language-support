@@ -3,6 +3,8 @@
  */
 global class PardotBusinessUnitContextOutput {
 
+  global PardotBusinessUnitContextOutput() {}
+
   /**
    * List of the Pardot business unit context items that the context user has access to.
    */
@@ -17,5 +19,7 @@ global class PardotBusinessUnitContextOutput {
    * Indicates the total number of Pardot business units that the context user has access to.
    */
   global Integer totalBusinessUnits;
+
+  global Object clone() {}
 
 }

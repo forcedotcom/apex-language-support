@@ -3,6 +3,8 @@
  */
 global class NBARecommendations {
 
+  global NBARecommendations() {}
+
   /**
    * Runtime debug information recorded during recommendation strategy execution.
    */
@@ -32,5 +34,7 @@ global class NBARecommendations {
    * Trace information for the recommendation strategy execution, if requested.
    */
   global ConnectApi.StrategyTrace trace;
+
+  global Object clone() {}
 
 }

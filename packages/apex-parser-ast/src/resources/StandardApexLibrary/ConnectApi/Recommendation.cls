@@ -3,6 +3,8 @@
  */
 global class Recommendation {
 
+  global Recommendation() {}
+
   /**
    * Text indicating user acceptance of the recommendation.
    */
@@ -47,5 +49,7 @@ global class Recommendation {
    * URL to the recommendation.
    */
   global String url;
+
+  global Object clone() {}
 
 }

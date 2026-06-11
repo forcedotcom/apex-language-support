@@ -3,6 +3,10 @@
  */
 global class ChangeEventHeader {
 
+  global ChangeEventHeader() {}
+
+  global List<String> changedfields;
+
   global String changeorigin;
 
   global String changetype;
@@ -13,10 +17,66 @@ global class ChangeEventHeader {
 
   global String commituser;
 
+  global List<String> difffields;
+
   global String entityname;
+
+  global List<String> nulledfields;
+
+  global List<String> recordids;
 
   global Integer sequencenumber;
 
   global String transactionkey;
+
+  global String getChangeOrigin() {}
+
+  global String getChangeType() {}
+
+  global List<String> getChangedFields() {}
+
+  global Long getCommitNumber() {}
+
+  global Long getCommitTimestamp() {}
+
+  global String getCommitUser() {}
+
+  global List<String> getDiffFields() {}
+
+  global String getEntityName() {}
+
+  global List<String> getNulledFields() {}
+
+  global List<String> getRecordIds() {}
+
+  global Integer getSequenceNumber() {}
+
+  global String getTransactionKey() {}
+
+  global void setChangeOrigin(String arg0) {}
+
+  global void setChangeType(String arg0) {}
+
+  global void setChangedFields(List<String> arg0) {}
+
+  global void setCommitNumber(Long arg0) {}
+
+  global void setCommitTimestamp(Long arg0) {}
+
+  global void setCommitUser(String arg0) {}
+
+  global void setDiffFields(List<String> arg0) {}
+
+  global void setEntityName(String arg0) {}
+
+  global void setNulledFields(List<String> arg0) {}
+
+  global void setRecordIds(List<String> arg0) {}
+
+  global void setSequenceNumber(Integer arg0) {}
+
+  global void setTransactionKey(String arg0) {}
+
+  global Object clone() {}
 
 }

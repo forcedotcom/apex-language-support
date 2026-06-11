@@ -3,6 +3,8 @@
  */
 global class ActivationCollection {
 
+  global ActivationCollection() {}
+
   /**
    * List of activations.
    */
@@ -22,5 +24,7 @@ global class ActivationCollection {
    * Sort order for the result set.
    */
   global String orderByExpression;
+
+  global Object clone() {}
 
 }

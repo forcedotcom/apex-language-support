@@ -3,6 +3,8 @@
  */
 global class TargetInput {
 
+  global TargetInput() {}
+
   /**
    * ID of the audience to assign to the target.
    */
@@ -32,5 +34,7 @@ global class TargetInput {
    * Value of the target. If targetType is ExperienceVariation , targetValue is the developer name of the experience variation. If targetType is CustomObjectName __c , targetValue is the ID of the custom object. To determine the developer name for targets of type ExperienceVariation , see Personalization Target Developer and Group Names in the Experience Cloud Developer Guide .
    */
   global String targetValue;
+
+  global Object clone() {}
 
 }

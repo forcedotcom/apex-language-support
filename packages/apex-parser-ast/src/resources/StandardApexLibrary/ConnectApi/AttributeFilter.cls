@@ -3,6 +3,8 @@
  */
 global class AttributeFilter {
 
+  global AttributeFilter() {}
+
   /**
    * ID of the attribute.
    */
@@ -32,5 +34,7 @@ global class AttributeFilter {
    * Values for the attribute.
    */
   global List < String > values;
+
+  global Object clone() {}
 
 }

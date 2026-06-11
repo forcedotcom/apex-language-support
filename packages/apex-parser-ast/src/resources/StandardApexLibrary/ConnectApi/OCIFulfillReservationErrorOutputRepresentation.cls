@@ -3,6 +3,8 @@
  */
 global class OCIFulfillReservationErrorOutputRepresentation {
 
+  global OCIFulfillReservationErrorOutputRepresentation() {}
+
   /**
    * Details of the fulfilled reservation, if successful.
    */
@@ -17,5 +19,7 @@ global class OCIFulfillReservationErrorOutputRepresentation {
    * Details of the error, if available.
    */
   global String message;
+
+  global Object clone() {}
 
 }

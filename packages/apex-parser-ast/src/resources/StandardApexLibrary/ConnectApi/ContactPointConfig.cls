@@ -3,6 +3,8 @@
  */
 global class ContactPointConfig {
 
+  global ContactPointConfig() {}
+
   /**
    * Contact point field configurations.
    */
@@ -42,5 +44,7 @@ global class ContactPointConfig {
    * List of query path configurations.
    */
   global List < ConnectApi.QueryPathConfigList > queryPathConfigList;
+
+  global Object clone() {}
 
 }

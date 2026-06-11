@@ -3,6 +3,8 @@
  */
 global class UserMission extends ConnectApi.AbstractUserMissionActivity {
 
+  global UserMission() {}
+
   /**
    * Name of the mission.
    */
@@ -12,5 +14,7 @@ global class UserMission extends ConnectApi.AbstractUserMissionActivity {
    * Threshold of the mission. When a user reaches this activity count, the mission is achieved.
    */
   global Integer missionThreshold;
+
+  global Object clone() {}
 
 }

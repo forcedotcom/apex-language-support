@@ -3,6 +3,8 @@
  */
 global class ObjectMetadata {
 
+  global ObjectMetadata() {}
+
   /**
    * Metadata on each data category for the object.
    */
@@ -32,5 +34,7 @@ global class ObjectMetadata {
    * Theme related to the object.
    */
   global ConnectApi.ThemeInfo themeInfo;
+
+  global Object clone() {}
 
 }

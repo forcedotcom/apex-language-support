@@ -3,6 +3,8 @@
  */
 global class CaseComment extends ConnectApi.FeedItemAttachment {
 
+  global CaseComment() {}
+
   /**
    * Type of user who made the comment. Customer —if a Chatter customer made the comment CustomerService —if a service representative made the comment
    */
@@ -32,5 +34,7 @@ global class CaseComment extends ConnectApi.FeedItemAttachment {
    * Comment’s text
    */
   global String text;
+
+  global Object clone() {}
 
 }

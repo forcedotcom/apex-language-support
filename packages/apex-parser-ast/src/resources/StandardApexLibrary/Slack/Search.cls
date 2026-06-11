@@ -1,5 +1,7 @@
 global class Search {
 
+  global Search() {}
+
   global String getBotId() {}
 
   global List<Slack.MatchedItem.Address> getCc() {}
@@ -509,5 +511,7 @@ global class Search {
   global void setMessages(Slack.SearchResult messages) {}
 
   global Slack.SearchMessagesRequest.Builder cursor(String cursor) {}
+
+  global Object clone() {}
 
 }

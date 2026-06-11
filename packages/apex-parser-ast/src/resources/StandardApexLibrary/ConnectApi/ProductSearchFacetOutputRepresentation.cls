@@ -3,6 +3,8 @@
  */
 global class ProductSearchFacetOutputRepresentation {
 
+  global ProductSearchFacetOutputRepresentation() {}
+
   /**
    * Attribute type of the facet value.
    */
@@ -37,5 +39,7 @@ global class ProductSearchFacetOutputRepresentation {
    * A list of facet values for the search.
    */
   global List < ConnectApi.ProductSearchFacetValueOutputRepresentation > values;
+
+  global Object clone() {}
 
 }

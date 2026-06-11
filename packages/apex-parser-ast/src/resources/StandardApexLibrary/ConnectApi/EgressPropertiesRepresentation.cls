@@ -3,6 +3,8 @@
  */
 global class EgressPropertiesRepresentation {
 
+  global EgressPropertiesRepresentation() {}
+
   /**
    * Path of the child folder.
    */
@@ -57,5 +59,7 @@ global class EgressPropertiesRepresentation {
    * Predetermined name of the output file. Either customFilename or predeterminedFilename must be present. Activation Segment SegmentActivation
    */
   global PreDeterminedFileNameEnum predeterminedFilename;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class NamedCredentialCalloutOptions {
 
+  global NamedCredentialCalloutOptions() {}
+
   /**
    * Specifies whether to allow merge fields in the HTTP body ( true ) or not ( false ).
    */
@@ -17,5 +19,7 @@ global class NamedCredentialCalloutOptions {
    * Specifies whether to generate an authorization header ( true ) or not ( false ).
    */
   global Boolean generateAuthorizationHeader;
+
+  global Object clone() {}
 
 }

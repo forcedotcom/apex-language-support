@@ -3,6 +3,8 @@
  */
 global class ExtendedFieldInput {
 
+  global ExtendedFieldInput() {}
+
   /**
    * The name of the field, including custom field.
    */
@@ -12,5 +14,7 @@ global class ExtendedFieldInput {
    * The value of the field.
    */
   global String value;
+
+  global Object clone() {}
 
 }

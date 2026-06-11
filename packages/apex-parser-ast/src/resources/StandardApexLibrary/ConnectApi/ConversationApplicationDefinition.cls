@@ -3,6 +3,10 @@
  */
 global class ConversationApplicationDefinition {
 
-  public static ConnectApi.ConversationApplicationDefinitionDetailRespresentation getConversationApplicationDefinition(String integrationName) {}
+  global ConversationApplicationDefinition() {}
+
+  global static ConnectApi.ConversationApplicationDefinitionDetailRespresentation getConversationApplicationDefinition(String integrationName) {}
+
+  global Object clone() {}
 
 }

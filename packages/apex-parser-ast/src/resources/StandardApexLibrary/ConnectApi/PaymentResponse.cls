@@ -3,6 +3,8 @@
  */
 global class PaymentResponse {
 
+  global PaymentResponse() {}
+
   /**
    * ID of the account related the payment record.
    */
@@ -42,5 +44,7 @@ global class PaymentResponse {
    * Status of the new payment record. Can be DRAFT, PROCESSED or CANCELLED.
    */
   global String status;
+
+  global Object clone() {}
 
 }

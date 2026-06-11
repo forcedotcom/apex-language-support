@@ -3,6 +3,8 @@
  */
 global class AbstractBaseSequenceInputRepresentation {
 
+  global AbstractBaseSequenceInputRepresentation() {}
+
   /**
    * The amount being refunded.
    */
@@ -12,5 +14,7 @@ global class AbstractBaseSequenceInputRepresentation {
    * The order payment summary’s ID.
    */
   global String orderPaymentSummaryId;
+
+  global Object clone() {}
 
 }

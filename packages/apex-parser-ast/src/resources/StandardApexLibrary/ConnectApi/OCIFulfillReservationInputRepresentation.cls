@@ -3,6 +3,8 @@
  */
 global class OCIFulfillReservationInputRepresentation {
 
+  global OCIFulfillReservationInputRepresentation() {}
+
   /**
    * A list of inventory reservations. The list can include up to 100 elements.
    */
@@ -12,5 +14,7 @@ global class OCIFulfillReservationInputRepresentation {
    * The ID of the inventory reservation.
    */
   global String reservationId;
+
+  global Object clone() {}
 
 }

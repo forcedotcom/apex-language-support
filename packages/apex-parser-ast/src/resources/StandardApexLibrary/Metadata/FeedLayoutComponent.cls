@@ -3,10 +3,18 @@
  */
 global class FeedLayoutComponent {
 
+  global FeedLayoutComponent() {}
+
+  global Metadata.FeedLayoutComponentType componentType;
+
+  global Integer height;
+
+  global String page_x;
+
   /**
    * Makes a duplicate copy of the Metadata.FeedLayoutComponent .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

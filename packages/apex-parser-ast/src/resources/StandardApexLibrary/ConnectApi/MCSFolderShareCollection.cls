@@ -3,6 +3,8 @@
  */
 global class MCSFolderShareCollection {
 
+  global MCSFolderShareCollection() {}
+
   /**
    * ID of the managed content space folder.
    */
@@ -12,5 +14,7 @@ global class MCSFolderShareCollection {
    * List of targets that a managed content space folder is shared with.
    */
   global List < ConnectApi.MCSFolderShare > shares;
+
+  global Object clone() {}
 
 }

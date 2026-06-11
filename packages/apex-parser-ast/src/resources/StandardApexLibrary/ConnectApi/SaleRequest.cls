@@ -3,6 +3,8 @@
  */
 global class SaleRequest extends ConnectApi.BaseRequest {
 
+  global SaleRequest() {}
+
   /**
    * Reference to account.
    */
@@ -47,5 +49,7 @@ global class SaleRequest extends ConnectApi.BaseRequest {
    * Payment method used within the sale request.
    */
   global ConnectApi.SaleApiPaymentMethodRequest paymentMethod;
+
+  global Object clone() {}
 
 }

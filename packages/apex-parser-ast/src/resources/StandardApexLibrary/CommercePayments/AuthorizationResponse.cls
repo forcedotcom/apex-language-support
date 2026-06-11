@@ -3,13 +3,15 @@
  */
 global class AuthorizationResponse {
 
+  global AuthorizationResponse() {}
+
   /**
    * Sets the amount of the authorization. Must be a non-zero value.
    * @param amount 
    */
   global void setAmount(Double amount) {}
 
-  public void setAsync(Boolean async) {}
+  global void setAsync(Boolean async) {}
 
   /**
    * Sets the expiration date of the authorization request.
@@ -76,5 +78,11 @@ global class AuthorizationResponse {
    * @param salesforceResultCodeInfo Description of the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

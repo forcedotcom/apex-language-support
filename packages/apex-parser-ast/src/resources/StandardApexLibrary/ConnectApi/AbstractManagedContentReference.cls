@@ -3,6 +3,8 @@
  */
 global class AbstractManagedContentReference {
 
+  global AbstractManagedContentReference() {}
+
   /**
    * Unique identifier for the managed content reference.
    */
@@ -17,5 +19,7 @@ global class AbstractManagedContentReference {
    * URL to the single content delivery resource.
    */
   global String resourceUrl;
+
+  global Object clone() {}
 
 }

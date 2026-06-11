@@ -3,6 +3,8 @@
  */
 global class PaymentAuthorizationResponse {
 
+  global PaymentAuthorizationResponse() {}
+
   /**
    * Salesforce account for the payment authorization.
    */
@@ -47,5 +49,7 @@ global class PaymentAuthorizationResponse {
    * Status of the payment authorization as returned by the gateway.
    */
   global String status;
+
+  global Object clone() {}
 
 }

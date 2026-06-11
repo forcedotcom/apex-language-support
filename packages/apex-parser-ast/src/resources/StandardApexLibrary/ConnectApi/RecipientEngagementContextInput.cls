@@ -3,6 +3,8 @@
  */
 global class RecipientEngagementContextInput {
 
+  global RecipientEngagementContextInput() {}
+
   /**
    * Map each recipient with the context based on which the survey invitation is emailed.
    */
@@ -12,5 +14,7 @@ global class RecipientEngagementContextInput {
    * Participant ID with whom the engagement context should be associated.
    */
   global String recipientId;
+
+  global Object clone() {}
 
 }

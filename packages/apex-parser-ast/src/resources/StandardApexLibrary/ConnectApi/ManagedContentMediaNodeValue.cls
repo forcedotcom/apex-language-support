@@ -3,6 +3,8 @@
  */
 global class ManagedContentMediaNodeValue extends ConnectApi.ManagedContentNodeValue {
 
+  global ManagedContentMediaNodeValue() {}
+
   /**
    * Alternative text for the managed content node.
    */
@@ -57,5 +59,7 @@ global class ManagedContentMediaNodeValue extends ConnectApi.ManagedContentNodeV
    * URL to the image.
    */
   global String url;
+
+  global Object clone() {}
 
 }

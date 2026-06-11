@@ -3,6 +3,8 @@
  */
 global class DataGraphObjectData {
 
+  global DataGraphObjectData() {}
+
   /**
    * Developer name of the source data graph for the data object.
    */
@@ -47,5 +49,7 @@ global class DataGraphObjectData {
    * Data type of the data object for the data graph. Adg AdgActivationAudience AdgExternal Bridge Calculated CalculatedRealTime CalculatedStreaming Curated Custom Derived MlPrediction ObjectTypeUnspecified Package SegmentMembership Standard System Transform
    */
   global DataGraphObjectTypeEnum type;
+
+  global Object clone() {}
 
 }

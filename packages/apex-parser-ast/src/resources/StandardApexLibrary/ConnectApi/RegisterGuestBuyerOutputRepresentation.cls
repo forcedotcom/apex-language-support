@@ -3,6 +3,8 @@
  */
 global class RegisterGuestBuyerOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global RegisterGuestBuyerOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -12,5 +14,7 @@ global class RegisterGuestBuyerOutputRepresentation extends ConnectApi.BaseOutpu
    * Indicates whether the transaction was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

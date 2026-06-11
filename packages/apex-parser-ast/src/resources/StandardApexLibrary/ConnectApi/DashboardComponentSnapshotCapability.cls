@@ -3,9 +3,13 @@
  */
 global class DashboardComponentSnapshotCapability extends ConnectApi.FeedElementCapability {
 
+  global DashboardComponentSnapshotCapability() {}
+
   /**
    * The dashboard component snapshot.
    */
   global ConnectApi.DashboardComponentSnapshot dashboardComponentSnapshot;
+
+  global Object clone() {}
 
 }

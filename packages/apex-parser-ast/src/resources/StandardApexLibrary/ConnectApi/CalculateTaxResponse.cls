@@ -3,6 +3,8 @@
  */
 global class CalculateTaxResponse extends ConnectApi.TaxTransactionResponse {
 
+  global CalculateTaxResponse() {}
+
   /**
    * Adapter error.
    */
@@ -27,5 +29,7 @@ global class CalculateTaxResponse extends ConnectApi.TaxTransactionResponse {
    * Type of tax calculation. Values are: Actual —Calculated tax represents the final taxed amount for the transaction. Estimated —Calculated tax represents only an estimated value before the transaction is finalized.
    */
   global ConnectApi.CalculateTaxType taxType;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class LineItemResponse {
 
+  global LineItemResponse() {}
+
   /**
    * The Ship From, Ship To, and Sold To addresses used during tax calculation.
    */
@@ -42,5 +44,7 @@ global class LineItemResponse {
    * Tax details for each line item in a tax line item output.
    */
   global List < ConnectApi.TaxDetailsResponse > taxes;
+
+  global Object clone() {}
 
 }

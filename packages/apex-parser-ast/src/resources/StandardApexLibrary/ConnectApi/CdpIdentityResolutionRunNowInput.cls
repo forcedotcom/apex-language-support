@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionRunNowInput {
 
+  global CdpIdentityResolutionRunNowInput() {}
+
   /**
    * Calling application.
    */
@@ -12,5 +14,7 @@ global class CdpIdentityResolutionRunNowInput {
    * Calling application information.
    */
   global String callingAppInfo;
+
+  global Object clone() {}
 
 }

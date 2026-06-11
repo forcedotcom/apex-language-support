@@ -3,6 +3,8 @@
  */
 global class DataGraphValuesDmoField {
 
+  global DataGraphValuesDmoField() {}
+
   /**
    * List of capabilities for the DMO field.
    */
@@ -17,5 +19,7 @@ global class DataGraphValuesDmoField {
    * Developer name of the DMO field.
    */
   global String developerName;
+
+  global Object clone() {}
 
 }
