@@ -31,12 +31,39 @@ function makeMockWorker(): EventEmitter & { postMessage: jest.Mock } {
   return emitter as any;
 }
 
+/**
+ * Wait until `predicate()` is true, polling the macrotask queue. The
+ * mediator dispatches each request on a forked Effect fiber, so the
+ * handler completes asynchronously; rather than sleeping a fixed
+ * (flakiness-prone) interval, we poll the observable side effect
+ * (e.g. worker.postMessage having been called) with a generous ceiling.
+ */
+async function waitFor(
+  predicate: () => boolean,
+  {
+    timeoutMs = 1000,
+    stepMs = 5,
+  }: { timeoutMs?: number; stepMs?: number } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error('waitFor timed out before predicate became true');
+    }
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+}
+
+// Deterministic correlation IDs — a monotonic counter rather than
+// Date.now(), so IDs are stable across runs and safe to assert on.
+let correlationSeq = 0;
+
 function makeRequest(
   overrides?: Partial<AssistanceRequestPayload>,
 ): AssistanceRequestPayload {
   return {
     _tag: 'WorkerAssistanceRequest',
-    correlationId: `test-${Date.now()}`,
+    correlationId: `test-${++correlationSeq}`,
     method: 'coordinator:EnsureWorkspaceLoaded',
     params: { workDoneToken: 'tok-1' },
     blocking: true,
@@ -76,7 +103,9 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
       }),
     );
 
-    await new Promise((r) => setTimeout(r, 50));
+    // The mediator forks the handler; wait on the observable completion
+    // signal (response posted back to the worker) rather than a fixed sleep.
+    await waitFor(() => worker.postMessage.mock.calls.length > 0);
 
     expect(sendNotification).toHaveBeenCalledWith('apex/requestWorkspaceLoad', {
       workDoneToken: 'progress-token-7',
@@ -106,9 +135,9 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
     mediator.attachToWorkers([worker as any]);
 
     worker.emit('message', makeRequest({ correlationId: 'c1' }));
-    await new Promise((r) => setTimeout(r, 30));
+    await waitFor(() => worker.postMessage.mock.calls.length >= 1);
     worker.emit('message', makeRequest({ correlationId: 'c2' }));
-    await new Promise((r) => setTimeout(r, 30));
+    await waitFor(() => worker.postMessage.mock.calls.length >= 2);
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
     expect(worker.postMessage).toHaveBeenCalledTimes(2);

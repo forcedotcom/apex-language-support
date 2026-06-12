@@ -15,6 +15,14 @@ import {
 import { Effect, Ref } from 'effect';
 
 /**
+ * The slice of {@link Connection} that the workspace-load notification path
+ * actually uses. Declared explicitly so callers holding only a partial
+ * connection (e.g. the coordinator assistance handler) can pass it without
+ * an unchecked widening cast.
+ */
+export type WorkspaceLoadConnection = Pick<Connection, 'sendNotification'>;
+
+/**
  * Module-level Refs for tracking workspace load state.
  * Initialized once at module load time.
  */
@@ -32,7 +40,7 @@ const hasFailedRef = Effect.runSync(Ref.make(false));
  * @returns Effect that sends notification and returns immediately
  */
 function sendRequestWorkspaceLoadNotification(
-  connection: Connection,
+  connection: WorkspaceLoadConnection,
   logger: LoggerInterface,
   workDoneToken?: ProgressToken,
 ): Effect.Effect<void, never, never> {
@@ -141,7 +149,7 @@ export function onWorkspaceLoadFailed(
  * @returns Effect that resolves immediately (fire-and-forget notification)
  */
 export function ensureWorkspaceLoaded(
-  connection: Connection,
+  connection: WorkspaceLoadConnection,
   logger: LoggerInterface,
   workDoneToken?: ProgressToken,
 ): Effect.Effect<void, never, never> {

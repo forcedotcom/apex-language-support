@@ -71,11 +71,7 @@ export const createPrimaryAssistanceHandler = (
       // the local load-state machine).
       const p = params as { workDoneToken?: string | number };
       await Effect.runPromise(
-        ensureWorkspaceLoaded(
-          connection as Connection,
-          logger,
-          p.workDoneToken,
-        ),
+        ensureWorkspaceLoaded(connection, logger, p.workDoneToken),
       );
       return undefined;
     }
