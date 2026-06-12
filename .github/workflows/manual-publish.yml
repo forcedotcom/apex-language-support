@@ -102,6 +102,7 @@ jobs:
       stable-version: ${{ steps.resolve.outputs.stable-version }}
       prerelease-flag: ${{ steps.resolve.outputs.prerelease-flag }}
       commit-sha: ${{ steps.resolve.outputs.commit-sha }}
+      ci-commit-sha: ${{ steps.ci-commit.outputs.ci-commit-sha }}
     steps:
       - name: Validate inputs — mutual exclusivity and bypass rules
         run: |
@@ -318,6 +319,47 @@ jobs:
           echo "stable-version=$STABLE_VERSION" >> $GITHUB_OUTPUT
           echo "prerelease-flag=false" >> $GITHUB_OUTPUT
 
+      # The resolved commit is usually a `chore: bump versions [skip ci]` commit,
+      # on which normal CI never ran (and bump commits can stack). Walk the
+      # first-parent chain to the nearest ancestor that has a successful
+      # `CI Complete` check, and validate the quality gate against THAT commit.
+      # The git tag / VSIX / GitHub Release stay on the bump commit untouched.
+      - name: Resolve nearest CI-tested ancestor
+        id: ci-commit
+        if: inputs.skip-quality-checks != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          REPO: ${{ github.repository }}
+          START_SHA: ${{ steps.resolve.outputs.commit-sha }}
+        run: |
+          MAX_DEPTH=20
+          SHA="$START_SHA"
+          CI_SHA=""
+
+          for i in $(seq 1 "$MAX_DEPTH"); do
+            CONCLUSION=$(gh api "repos/$REPO/commits/$SHA/check-runs" --paginate \
+              --jq '[.check_runs[] | select(.name == "CI Complete")] | .[0].conclusion // empty' 2>/dev/null || echo "")
+            if [ "$CONCLUSION" = "success" ]; then
+              CI_SHA="$SHA"
+              echo "Found CI-tested ancestor at depth $((i - 1)): $CI_SHA"
+              break
+            fi
+            echo "  $SHA: no successful 'CI Complete' (conclusion='${CONCLUSION:-none}') — walking to parent"
+            PARENT=$(git rev-parse "${SHA}^" 2>/dev/null || echo "")
+            if [ -z "$PARENT" ]; then
+              echo "Reached root of history without a CI-tested commit."
+              break
+            fi
+            SHA="$PARENT"
+          done
+
+          if [ -z "$CI_SHA" ]; then
+            echo "ERROR: No ancestor with a successful 'CI Complete' check found within $MAX_DEPTH commits of $START_SHA."
+            echo "Cannot verify CI status — failing to prevent untested promotion. Use skip-quality-checks=true to bypass."
+            exit 1
+          fi
+          echo "ci-commit-sha=$CI_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Upload VSIX for downstream jobs
         uses: actions/upload-artifact@v7
         with:
@@ -422,8 +464,12 @@ jobs:
       - name: Check CI status
         uses: ./.github/actions/check-ci-status
         with:
-          commit-sha: ${{ needs.prepare.outputs.commit-sha }}
+          # Validate the nearest CI-tested ancestor (resolved in `prepare`), not the
+          # [skip ci] bump commit the tag points at. required-checks scopes validation
+          # to the real CI signals so the gate never grades its own in-progress run.
+          commit-sha: ${{ needs.prepare.outputs.ci-commit-sha }}
           token: ${{ secrets.IDEE_GH_TOKEN }}
+          required-checks: 'CI Complete, Package / Package, Test Quality (ubuntu-latest, lts/*)'
 
   # ── gate ───────────────────────────────────────────────────────────────────
   # Pauses for human approval only after CI quality gate passes (or is bypassed).
