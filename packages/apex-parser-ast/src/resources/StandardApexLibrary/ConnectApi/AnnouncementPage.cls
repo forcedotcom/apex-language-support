@@ -3,6 +3,8 @@
  */
 global class AnnouncementPage {
 
+  global AnnouncementPage() {}
+
   /**
    * A collection of ConnectApi.Announcement objects.
    */
@@ -22,5 +24,7 @@ global class AnnouncementPage {
    * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

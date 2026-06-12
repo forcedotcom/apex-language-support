@@ -3,6 +3,8 @@
  */
 global class CartPromotionOutputRepresentation {
 
+  global CartPromotionOutputRepresentation() {}
+
   /**
    * Adjustment amount out of the promotion.
    */
@@ -37,5 +39,7 @@ global class CartPromotionOutputRepresentation {
    * Localized terms and conditions for the promotion.
    */
   global String termsAndConditions;
+
+  global Object clone() {}
 
 }

@@ -3,23 +3,31 @@
  */
 global class Provider extends DataSource.Provider {
 
+  global Provider() {}
+
   /**
    * Returns the types of authentication that can be used to access the external system.
    * @return List<DataSource.AuthenticationCapability>
    */
-  public List<DataSource.AuthenticationCapability> getAuthenticationCapabilities() {}
+  global List<DataSource.AuthenticationCapability> getAuthenticationCapabilities() {}
 
   /**
    * Returns the functional operations and endpoint settings that the external system supports.
    * @return List<DataSource.Capability>
    */
-  public List<DataSource.Capability> getCapabilities() {}
+  global List<DataSource.Capability> getCapabilities() {}
 
   /**
    * Returns a connection that points to an instance of the external data source.
    * @param connectionParams Credentials for authenticating to the external system.
    * @return DataSource.Connection
    */
-  public DataSource.Connection getConnection(DataSource.ConnectionParams connectionParams) {}
+  global DataSource.Connection getConnection(DataSource.ConnectionParams connectionParams) {}
+
+  global Object clone() {}
+
+  global void logWarning(String msg) {}
+
+  global void throwException(String msg) {}
 
 }

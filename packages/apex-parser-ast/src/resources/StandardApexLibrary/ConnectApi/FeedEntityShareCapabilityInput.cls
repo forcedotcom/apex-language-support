@@ -3,9 +3,13 @@
  */
 global class FeedEntityShareCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global FeedEntityShareCapabilityInput() {}
+
   /**
    * ID of the feed entity to share with the feed post or comment.
    */
   global String feedEntityId;
+
+  global Object clone() {}
 
 }

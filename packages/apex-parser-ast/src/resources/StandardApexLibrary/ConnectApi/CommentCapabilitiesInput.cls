@@ -3,6 +3,8 @@
  */
 global class CommentCapabilitiesInput {
 
+  global CommentCapabilitiesInput() {}
+
   /**
    * Content to attach to the comment.
    */
@@ -17,5 +19,7 @@ global class CommentCapabilitiesInput {
    * Existing knowledge article to attach to the comment.
    */
   global ConnectApi.RecordCapabilityInput record;
+
+  global Object clone() {}
 
 }

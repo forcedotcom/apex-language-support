@@ -3,9 +3,13 @@
  */
 global class MediaReferenceCapability extends ConnectApi.FeedElementCapability {
 
+  global MediaReferenceCapability() {}
+
   /**
    * Collection of media references.
    */
   global List < ConnectApi.MediaReference > media;
+
+  global Object clone() {}
 
 }

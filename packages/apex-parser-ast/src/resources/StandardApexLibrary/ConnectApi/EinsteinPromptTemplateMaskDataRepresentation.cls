@@ -3,6 +3,8 @@
  */
 global class EinsteinPromptTemplateMaskDataRepresentation {
 
+  global EinsteinPromptTemplateMaskDataRepresentation() {}
+
   /**
    * Original value of the masked data.
    */
@@ -17,5 +19,7 @@ global class EinsteinPromptTemplateMaskDataRepresentation {
    * Reserved for internal use.
    */
   global List < String > recognizers;
+
+  global Object clone() {}
 
 }

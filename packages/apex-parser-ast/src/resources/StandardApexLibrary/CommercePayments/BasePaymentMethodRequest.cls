@@ -3,6 +3,8 @@
  */
 global class BasePaymentMethodRequest {
 
+  global BasePaymentMethodRequest() {}
+
   /**
    * Maintains the integrity of lists of type BasePaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -21,5 +23,7 @@ global class BasePaymentMethodRequest {
    * @return String
    */
   global String toString() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedPoll extends ConnectApi.FeedItemAttachment {
 
+  global FeedPoll() {}
+
   /**
    * List of choices for poll.
    */
@@ -17,5 +19,7 @@ global class FeedPoll extends ConnectApi.FeedItemAttachment {
    * Total number of votes cast on the feed poll item.
    */
   global Integer totalVoteCount;
+
+  global Object clone() {}
 
 }

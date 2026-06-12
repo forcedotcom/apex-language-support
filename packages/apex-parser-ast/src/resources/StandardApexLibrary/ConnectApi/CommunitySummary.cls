@@ -3,6 +3,8 @@
  */
 global class CommunitySummary {
 
+  global CommunitySummary() {}
+
   /**
    * 18-character ID of the site.
    */
@@ -12,5 +14,7 @@ global class CommunitySummary {
    * Localized name of the site.
    */
   global String name;
+
+  global Object clone() {}
 
 }

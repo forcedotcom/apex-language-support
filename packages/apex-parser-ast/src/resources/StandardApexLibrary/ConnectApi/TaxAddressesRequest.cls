@@ -3,6 +3,8 @@
  */
 global class TaxAddressesRequest {
 
+  global TaxAddressesRequest() {}
+
   /**
    * Bill To address.
    */
@@ -22,5 +24,7 @@ global class TaxAddressesRequest {
    * Sold To address.
    */
   global ConnectApi.TaxAddressRequest soldTo;
+
+  global Object clone() {}
 
 }

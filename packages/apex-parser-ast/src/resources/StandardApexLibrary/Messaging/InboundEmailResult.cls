@@ -3,8 +3,12 @@
  */
 global class InboundEmailResult {
 
+  global InboundEmailResult() {}
+
   global String message;
 
   global Boolean success;
+
+  global Object clone() {}
 
 }

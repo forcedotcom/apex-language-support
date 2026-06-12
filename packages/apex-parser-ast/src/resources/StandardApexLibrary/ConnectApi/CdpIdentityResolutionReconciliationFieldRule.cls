@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionReconciliationFieldRule {
 
+  global CdpIdentityResolutionReconciliationFieldRule() {}
+
   /**
    * The field that this reconciliation rule applies to.
    */
@@ -22,5 +24,7 @@ global class CdpIdentityResolutionReconciliationFieldRule {
    * If ruleType is SourceSequence , a prioritized list of data sources.
    */
   global List < ConnectApi.CdpIdentityResolutionReconciliationSource > sources;
+
+  global Object clone() {}
 
 }

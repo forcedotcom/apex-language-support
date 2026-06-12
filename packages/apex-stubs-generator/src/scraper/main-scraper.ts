@@ -15,12 +15,14 @@ import {
   extractConstructorsFromHtml,
   extractClassDescriptionFromHtml,
   extractPropertiesFromHtml,
+  extractPropertiesFromSignaturesHtml,
   extractEnumValuesFromHtml,
   extractExceptionClassNamesFromHtml,
   extractMultipleEnumsFromHtml,
   extractChildPageIdsFromHtml,
   extractPropertyFromSubPageHtml,
   extractSuperClassFromHtml,
+  extractOuterClassFromHtml,
   isInternalUseOnly,
   extractConstructorsFromInlineNestedHtml,
   extractPropertiesFromInlineNestedHtml,
@@ -35,6 +37,7 @@ import {
   ApexConstructor,
   ApexEnum,
   ApexEnumValue,
+  ApexInnerClass,
   ApexInnerException,
   ApexMethod,
   ApexNamespace,
@@ -49,6 +52,44 @@ export class ScrapingError {
     readonly cause?: unknown,
   ) {}
 }
+
+/**
+ * Replace any property whose declared type resolves back to the containing class
+ * (e.g. "commercetax.TaxLineItemRequest" inside TaxLineItemRequest) with Object.
+ * This is a scraper mis-attribution: the docs page for a class sometimes links
+ * a field's type back to itself rather than the actual generic Map/Object type.
+ */
+const sanitizeSelfReferentialProperties = (
+  properties: ApexProperty[],
+  namespace: string,
+  className: string,
+): Effect.Effect<ApexProperty[]> =>
+  Effect.gen(function* () {
+    const selfFqn = `${namespace}.${className}`.toLowerCase();
+    const selfSimple = className.toLowerCase();
+    const sanitized: ApexProperty[] = [];
+    for (const p of properties) {
+      const typeLower = p.type.toLowerCase();
+      // Match bare class name or fully-qualified namespace.ClassName
+      if (typeLower === selfFqn || typeLower === selfSimple) {
+        yield* Console.log(
+          `    Warning: self-referential type "${p.type}" on ${className}.${p.name} — replacing with Object`,
+        );
+        sanitized.push(
+          new ApexProperty({
+            name: p.name,
+            type: 'Object',
+            isStatic: p.isStatic,
+            visibility: p.visibility,
+            description: p.description,
+          }),
+        );
+      } else {
+        sanitized.push(p);
+      }
+    }
+    return sanitized;
+  });
 
 const getDocumentStructure = (cacheFile: string) =>
   Effect.gen(function* () {
@@ -200,13 +241,43 @@ const scrapeClass = (ref: ClassReference) =>
       content.content,
     );
     const superClass = extractSuperClassFromHtml(content.content);
+    if (superClass) {
+      yield* Console.log(
+        `    Detected superclass: ${ref.name} extends ${superClass}`,
+      );
+    }
+    const outerClass = extractOuterClassFromHtml(
+      content.content,
+      ref.namespace,
+      ref.name,
+    );
+    if (outerClass) {
+      yield* Console.log(
+        `    Detected inner class: ${ref.namespace}.${outerClass}.${ref.name}`,
+      );
+    }
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(
       content.content,
       ref.name,
     );
-    const properties = yield* extractPropertiesFromHtml(
+    let properties = yield* extractPropertiesFromHtml(
       content.content,
+      ref.name,
+    );
+
+    // Stage 1b: fall back to signature-based property extraction when the table
+    // extractor finds nothing (e.g. Database.DMLOptions uses inline Signature blocks)
+    if (properties.length === 0) {
+      properties = yield* extractPropertiesFromSignaturesHtml(
+        content.content,
+        ref.name,
+      );
+    }
+
+    properties = yield* sanitizeSelfReferentialProperties(
+      properties,
+      ref.namespace,
       ref.name,
     );
 
@@ -232,6 +303,7 @@ const scrapeClass = (ref: ClassReference) =>
             namespace: ref.namespace,
             description: classDescription,
             superClass,
+            outerClass,
             methods: sub.methods,
             constructors: sub.constructors,
             properties: sub.properties,
@@ -256,6 +328,7 @@ const scrapeClass = (ref: ClassReference) =>
           namespace: ref.namespace,
           description: classDescription,
           superClass,
+          outerClass,
           methods: [],
           constructors: inlineCtors,
           properties: inlineProps,
@@ -270,6 +343,7 @@ const scrapeClass = (ref: ClassReference) =>
         namespace: ref.namespace,
         description: classDescription,
         superClass,
+        outerClass,
         methods,
         constructors,
         properties,
@@ -309,15 +383,31 @@ const scrapeInterface = (ref: ClassReference) =>
       content.content,
     );
     const superClass = extractSuperClassFromHtml(content.content);
+    const outerClass = extractOuterClassFromHtml(
+      content.content,
+      ref.namespace,
+      ref.name,
+    );
+    if (outerClass) {
+      yield* Console.log(
+        `    Detected inner interface: ${ref.namespace}.${outerClass}.${ref.name}`,
+      );
+    }
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(
       content.content,
       ref.name,
     );
-    const properties = yield* extractPropertiesFromHtml(
+    let properties = yield* extractPropertiesFromHtml(
       content.content,
       ref.name,
     );
+    if (properties.length === 0) {
+      properties = yield* extractPropertiesFromSignaturesHtml(
+        content.content,
+        ref.name,
+      );
+    }
 
     if (
       methods.length === 0 &&
@@ -341,6 +431,7 @@ const scrapeInterface = (ref: ClassReference) =>
             namespace: ref.namespace,
             description: classDescription,
             superClass,
+            outerClass,
             methods: sub.methods,
             constructors: sub.constructors,
             properties: sub.properties,
@@ -364,6 +455,7 @@ const scrapeInterface = (ref: ClassReference) =>
           namespace: ref.namespace,
           description: classDescription,
           superClass,
+          outerClass,
           methods: [],
           constructors: inlineCtors,
           properties: inlineProps,
@@ -378,6 +470,7 @@ const scrapeInterface = (ref: ClassReference) =>
         namespace: ref.namespace,
         description: classDescription,
         superClass,
+        outerClass,
         methods,
         constructors,
         properties,
@@ -558,6 +651,7 @@ const scrapeNamespace = (namespaceInfo: NamespaceInfo, limit?: number) =>
     const enums: ApexEnum[] = [];
     const pendingInnerExceptions: Array<{ name: string; parentClass: string }> =
       [];
+    const pendingInnerClasses: ApexClass[] = [];
 
     for (const result of results) {
       if (result.kind === 'enum') {
@@ -574,7 +668,13 @@ const scrapeNamespace = (namespaceInfo: NamespaceInfo, limit?: number) =>
           }
         }
       } else {
-        classes.push(...result.value);
+        for (const cls of result.value) {
+          if (cls.outerClass) {
+            pendingInnerClasses.push(cls);
+          } else {
+            classes.push(cls);
+          }
+        }
       }
     }
 
@@ -615,6 +715,49 @@ const scrapeNamespace = (namespaceInfo: NamespaceInfo, limit?: number) =>
             namespace: namespaceInfo.name,
             methods: [],
             properties: [],
+          }),
+        );
+      }
+    }
+
+    // Merge inner classes into their parent class stubs.
+    // The outer class name comes from the page heading — match case-insensitively because
+    // docs sometimes use different casing than the TOC (e.g. "DmlOptions" vs "DMLOptions").
+    for (const innerCls of pendingInnerClasses) {
+      const outerName = innerCls.outerClass!;
+      const parent = classes.find(
+        (c) => c.name.toLowerCase() === outerName.toLowerCase(),
+      );
+      if (parent) {
+        const existing = parent.innerClasses ?? [];
+        const idx = classes.indexOf(parent);
+        // Build an ApexInnerClass from the scraped ApexClass data
+        const inner = new ApexInnerClass({
+          name: innerCls.name,
+          description: innerCls.description,
+          superClass: innerCls.superClass,
+          methods: innerCls.methods,
+          properties: innerCls.properties,
+          constructors: innerCls.constructors,
+          isInterface: innerCls.isInterface,
+          innerExceptions: innerCls.innerExceptions,
+        });
+        classes[idx] = new ApexClass({
+          ...parent,
+          innerClasses: [...existing, inner],
+        });
+        yield* Console.log(
+          `    Nested class ${innerCls.name} inside ${outerName}`,
+        );
+      } else {
+        yield* Console.log(
+          `    Warning: outer class ${outerName} not found for inner class ${innerCls.name}, emitting top-level`,
+        );
+        // Emit as top-level without the outerClass marker
+        classes.push(
+          new ApexClass({
+            ...innerCls,
+            outerClass: undefined,
           }),
         );
       }

@@ -3,6 +3,8 @@
  */
 global class ActionLinkDefinition {
 
+  global ActionLinkDefinition() {}
+
   /**
    * The action link URL. For example, a Ui action link URL is a Web page. A Download action link URL is a link to the file to download. Ui and Download action link URLs are provided to clients. An Api or ApiAsync action link URL is a REST resource. Api and ApiAsync action link URLs aren’t provided to clients. Links to Salesforce can be relative. All other links must be absolute and start with https:// .
    */
@@ -77,5 +79,7 @@ global class ActionLinkDefinition {
    * The ID of the user who can execute the action. If not specified or null , any user can execute the action. If you specify a userId , you can’t specify an excludedUserId .
    */
   global String userId;
+
+  global Object clone() {}
 
 }

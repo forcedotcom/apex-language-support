@@ -3,6 +3,8 @@
  */
 global class CompositeCommerceVariationOutputRepresentation {
 
+  global CompositeCommerceVariationOutputRepresentation() {}
+
   /**
    * List of any errors that were returned, including the error code and error message.
    */
@@ -17,5 +19,7 @@ global class CompositeCommerceVariationOutputRepresentation {
    * Indicates whether the product variations were successfully created ( true ) or not ( false ).
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

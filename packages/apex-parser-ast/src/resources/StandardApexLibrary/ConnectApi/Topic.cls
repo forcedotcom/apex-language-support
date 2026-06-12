@@ -3,6 +3,8 @@
  */
 global class Topic {
 
+  global Topic() {}
+
   /**
    * ISO 8601 date string, for example, 2011-02-25T18:24:31.000Z.
    */
@@ -47,5 +49,7 @@ global class Topic {
    * URL to the topic detail page.
    */
   global String url;
+
+  global Object clone() {}
 
 }

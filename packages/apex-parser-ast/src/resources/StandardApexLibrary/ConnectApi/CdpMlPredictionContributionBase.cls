@@ -3,6 +3,8 @@
  */
 global class CdpMlPredictionContributionBase {
 
+  global CdpMlPredictionContributionBase() {}
+
   /**
    * List of field and values that have the same contribution value
    */
@@ -12,5 +14,7 @@ global class CdpMlPredictionContributionBase {
    * Contribution value
    */
   global Double value;
+
+  global Object clone() {}
 
 }

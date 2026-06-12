@@ -3,6 +3,8 @@
  */
 global class TaxTransactionRequest {
 
+  global TaxTransactionRequest() {}
+
   /**
    * Addresses, including the Bill To address, Ship From address, Ship to address, and Sold To address.
    */
@@ -52,5 +54,7 @@ global class TaxTransactionRequest {
    * The date that the tax transaction occurred.
    */
   global Datetime transactionDate;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedFavorite {
 
+  global FeedFavorite() {}
+
   /**
    * Information about the Experience Cloud site that contains the favorite.
    */
@@ -57,5 +59,7 @@ global class FeedFavorite {
    * Information about the user who saved this favorite.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

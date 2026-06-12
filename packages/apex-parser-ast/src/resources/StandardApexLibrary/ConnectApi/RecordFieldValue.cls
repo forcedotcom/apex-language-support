@@ -3,6 +3,8 @@
  */
 global class RecordFieldValue {
 
+  global RecordFieldValue() {}
+
   /**
    * Field display value.
    */
@@ -17,5 +19,7 @@ global class RecordFieldValue {
    * Field raw value.
    */
   global Object value;
+
+  global Object clone() {}
 
 }

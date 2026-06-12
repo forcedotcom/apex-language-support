@@ -3,6 +3,8 @@
  */
 global class BannerPhotoInput {
 
+  global BannerPhotoInput() {}
+
   /**
    * Height of the crop rectangle in pixels.
    */
@@ -32,5 +34,7 @@ global class BannerPhotoInput {
    * Version number of an existing file. If not provided, the latest version is used.
    */
   global Integer versionNumber;
+
+  global Object clone() {}
 
 }

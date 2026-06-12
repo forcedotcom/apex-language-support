@@ -3,6 +3,8 @@
  */
 global class ManagedContentDocumentClone {
 
+  global ManagedContentDocumentClone() {}
+
   /**
    * API name of the cloned content.
    */
@@ -57,5 +59,7 @@ global class ManagedContentDocumentClone {
    * List of cloned variants.
    */
   global List < ConnectApi.ManagedContentClonedVariants > variants;
+
+  global Object clone() {}
 
 }

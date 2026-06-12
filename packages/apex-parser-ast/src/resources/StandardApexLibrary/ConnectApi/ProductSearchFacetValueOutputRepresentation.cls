@@ -3,6 +3,8 @@
  */
 global class ProductSearchFacetValueOutputRepresentation {
 
+  global ProductSearchFacetValueOutputRepresentation() {}
+
   /**
    * Display name of the search facet.
    */
@@ -22,5 +24,7 @@ global class ProductSearchFacetValueOutputRepresentation {
    * Type of the search facet.
    */
   global String type;
+
+  global Object clone() {}
 
 }

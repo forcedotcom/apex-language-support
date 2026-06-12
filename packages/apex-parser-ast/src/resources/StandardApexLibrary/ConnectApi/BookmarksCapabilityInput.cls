@@ -3,9 +3,13 @@
  */
 global class BookmarksCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global BookmarksCapabilityInput() {}
+
   /**
    * Specifies if the feed element should be bookmarked for the user ( true ) or not ( false ).
    */
   global Boolean isBookmarkedByCurrentUser;
+
+  global Object clone() {}
 
 }

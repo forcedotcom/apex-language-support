@@ -3,6 +3,8 @@
  */
 global class CdpQueryMetadataItem {
 
+  global CdpQueryMetadataItem() {}
+
   /**
    * Attribute place order in the result.
    */
@@ -17,5 +19,7 @@ global class CdpQueryMetadataItem {
    * Metadata type code.
    */
   global Integer typeCode;
+
+  global Object clone() {}
 
 }

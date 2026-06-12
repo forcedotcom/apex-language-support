@@ -1,5 +1,7 @@
 global class File {
 
+  global File() {}
+
   global String getAppId() {}
 
   global String getAppName() {}
@@ -651,5 +653,63 @@ global class File {
   global Slack.FilesSharedPublicURLRequest build() {}
 
   global Slack.FilesSharedPublicURLRequest.Builder file(String file) {}
+
+  global Object clone() {}
+
+  global String getAltTxt() {}
+
+  global Integer getDurationMs() {}
+
+  global String getFileAccess() {}
+
+  global String getHls() {}
+
+  global String getHlsEmbed() {}
+
+  global Slack.File.MediaProgress getMediaProgress() {}
+
+  global String getMp4() {}
+
+  global String getSubtype() {}
+
+  global Integer getThumbVideoH() {}
+
+  global Integer getThumbVideoW() {}
+
+  global Slack.File.Transcription getTranscription() {}
+
+  global String getUserTeam() {}
+
+  global String getVtt() {}
+
+  global void setAltTxt(String altTxt) {}
+
+  global void setDurationMs(Integer durationMs) {}
+
+  global void setFileAccess(String fileAccess) {}
+
+  global void setHeaders(Slack.File.Headers headers) {}
+
+  global void setHls(String hls) {}
+
+  global void setHlsEmbed(String hlsEmbed) {}
+
+  global void setMediaProgress(Slack.File.MediaProgress mediaProgress) {}
+
+  global void setMp4(String mp4) {}
+
+  global void setSimplifiedHtml(String simplifiedHtml) {}
+
+  global void setSubtype(String subtype) {}
+
+  global void setThumbVideoH(Integer thumbVideoH) {}
+
+  global void setThumbVideoW(Integer thumbVideoW) {}
+
+  global void setTranscription(Slack.File.Transcription transcription) {}
+
+  global void setUserTeam(String userTeam) {}
+
+  global void setVtt(String vtt) {}
 
 }

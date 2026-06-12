@@ -3,6 +3,8 @@
  */
 global class OCIFulfillReservationOutputRepresentation {
 
+  global OCIFulfillReservationOutputRepresentation() {}
+
   /**
    * Responses for the individual reservations in the fulfillment request.
    */
@@ -12,5 +14,7 @@ global class OCIFulfillReservationOutputRepresentation {
    * Indicates whether the request was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

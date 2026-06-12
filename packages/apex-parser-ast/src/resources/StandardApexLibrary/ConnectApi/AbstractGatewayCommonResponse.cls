@@ -3,6 +3,8 @@
  */
 global class AbstractGatewayCommonResponse {
 
+  global AbstractGatewayCommonResponse() {}
+
   /**
    * Used to verify the address mapped to a payment method when the payments platform requests tokenization from the payment gateway.
    */
@@ -32,5 +34,7 @@ global class AbstractGatewayCommonResponse {
    * The Salesforce result code for the gateway result code.
    */
   global String salesforceResultCode;
+
+  global Object clone() {}
 
 }

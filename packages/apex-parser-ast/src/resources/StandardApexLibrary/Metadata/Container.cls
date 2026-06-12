@@ -3,10 +3,26 @@
  */
 global class Container {
 
+  global Container() {}
+
+  global Integer height;
+
+  global Boolean isContainerAutoSizeEnabled;
+
+  global String region;
+
+  global List<Metadata.SidebarComponent> sidebarComponents;
+
+  global String style;
+
+  global String unit;
+
+  global Integer width;
+
   /**
    * Makes a duplicate copy of the Metadata.Container .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

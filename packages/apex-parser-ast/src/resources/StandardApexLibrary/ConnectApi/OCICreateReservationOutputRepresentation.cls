@@ -3,6 +3,8 @@
  */
 global class OCICreateReservationOutputRepresentation {
 
+  global OCICreateReservationOutputRepresentation() {}
+
   /**
    * Details for each product in the reservation.
    */
@@ -27,5 +29,7 @@ global class OCICreateReservationOutputRepresentation {
    * Indicates whether the reservation was successfully created.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

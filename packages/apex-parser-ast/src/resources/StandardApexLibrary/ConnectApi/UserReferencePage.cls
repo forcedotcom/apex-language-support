@@ -3,6 +3,8 @@
  */
 global class UserReferencePage {
 
+  global UserReferencePage() {}
+
   /**
    * URL to the current page.
    */
@@ -27,5 +29,7 @@ global class UserReferencePage {
    * A collection of user references.
    */
   global List < ConnectApi.Reference > users;
+
+  global Object clone() {}
 
 }

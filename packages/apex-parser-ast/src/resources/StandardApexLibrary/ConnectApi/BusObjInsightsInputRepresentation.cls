@@ -3,6 +3,8 @@
  */
 global class BusObjInsightsInputRepresentation {
 
+  global BusObjInsightsInputRepresentation() {}
+
   /**
    * Target date for completion of the goal.
    */
@@ -12,5 +14,7 @@ global class BusObjInsightsInputRepresentation {
    * Target value for the goal.
    */
   global Double targetValue;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CalculateTaxRequest extends ConnectApi.TaxTransactionRequest {
 
+  global CalculateTaxRequest() {}
+
   /**
    * Commits the transaction for tax calculation.
    */
@@ -32,5 +34,7 @@ global class CalculateTaxRequest extends ConnectApi.TaxTransactionRequest {
    * Type of tax calculation. Values are: Actual —Calculated tax represents the final taxed amount for the transaction. Estimated —Calculated tax represents only an estimated value before the transaction is finalized.
    */
   global ConnectApi.CalculateTaxType taxType;
+
+  global Object clone() {}
 
 }

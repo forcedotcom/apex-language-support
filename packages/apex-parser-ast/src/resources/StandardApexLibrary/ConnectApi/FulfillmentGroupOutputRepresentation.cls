@@ -3,6 +3,8 @@
  */
 global class FulfillmentGroupOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global FulfillmentGroupOutputRepresentation() {}
+
   /**
    * (Creation failed) The input FulfilledFromLocationId.
    */
@@ -37,5 +39,7 @@ global class FulfillmentGroupOutputRepresentation extends ConnectApi.BaseOutputR
    * The referenceId from the FulfillmentGroup input representation. Use this value to troubleshoot a failure.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

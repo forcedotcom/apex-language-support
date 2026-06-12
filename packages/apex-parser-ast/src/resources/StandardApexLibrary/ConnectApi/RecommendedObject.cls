@@ -3,6 +3,8 @@
  */
 global class RecommendedObject extends ConnectApi.Actor {
 
+  global RecommendedObject() {}
+
   /**
    * ID of a recommendation definition for a custom recommendation or the enum value Today for static recommendations that don’t have an ID (version 35.0 and later).
    */
@@ -12,5 +14,7 @@ global class RecommendedObject extends ConnectApi.Actor {
    * Motif of the recommended object.
    */
   global ConnectApi.Motif motif;
+
+  global Object clone() {}
 
 }

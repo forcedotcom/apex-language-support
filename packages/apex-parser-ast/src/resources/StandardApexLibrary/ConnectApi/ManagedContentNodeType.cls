@@ -3,6 +3,8 @@
  */
 global class ManagedContentNodeType {
 
+  global ManagedContentNodeType() {}
+
   /**
    * Label of the managed content node type.
    */
@@ -17,5 +19,7 @@ global class ManagedContentNodeType {
    * Type of managed content node. Values are: Date DateTime Media MediaSource MultilineText NameField RichText Text Url
    */
   global ConnectApi.ManagedContentNodeTypeEnum nodeType;
+
+  global Object clone() {}
 
 }

@@ -3,28 +3,32 @@
  */
 global class QuickActionDefaults {
 
+  global QuickActionDefaults() {}
+
   /**
    * Returns the name of the standard Email Action on Case Feed (Case.Email).
    * @return String
    */
-  public String getActionName() {}
+  global String getActionName() {}
 
   /**
    * Returns the type of the standard Email Action on Case Feed (Email).
    * @return String
    */
-  public String getActionType() {}
+  global String getActionType() {}
 
   /**
    * The ID of the context related to the standard Email Action on Case Feed (Case ID).
    * @return Id
    */
-  public Id getContextId() {}
+  global Id getContextId() {}
 
   /**
    * The target object of the standard Email Action on Case Feed (EmailMessage).
    * @return SObject
    */
-  public SObject getTargetSObject() {}
+  global SObject getTargetSObject() {}
+
+  global Object clone() {}
 
 }

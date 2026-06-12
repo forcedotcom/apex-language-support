@@ -3,6 +3,8 @@
  */
 global class HideSocialPostIntent {
 
+  global HideSocialPostIntent() {}
+
   /**
    * Specifies whether the managed social account hid the social post ( true ) or not ( false ).
    */
@@ -12,5 +14,7 @@ global class HideSocialPostIntent {
    * Managed social account that hides the social post.
    */
   global ConnectApi.ManagedSocialAccount managedSocialAccount;
+
+  global Object clone() {}
 
 }

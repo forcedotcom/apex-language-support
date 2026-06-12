@@ -3,6 +3,8 @@
  */
 global class OCIUpdateReservationInputRepresentation {
 
+  global OCIUpdateReservationInputRepresentation() {}
+
   /**
    * Unique and idempotent action request ID. Use in response data to identify which requests succeeded or failed.
    */
@@ -37,5 +39,7 @@ global class OCIUpdateReservationInputRepresentation {
    * A list of product quantities and locations or location groups. The list can have up to 100 elements.
    */
   global List ConnectApi.OCIUpdateReservationSingleInputRepresentation [] updateRecords;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class SurveyInvitationEmailInput {
 
+  global SurveyInvitationEmailInput() {}
+
   /**
    * Specifies whether participants who don't have a Salesforce account can respond ( true ) or not ( false ).
    */
@@ -87,5 +89,7 @@ global class SurveyInvitationEmailInput {
    * IDs of the questions that are embedded in the email. You can send an email invitation for questions of these types: Net Promoter Score (NPS), rating, and score.
    */
   global List < String > surveyQuestionIds;
+
+  global Object clone() {}
 
 }

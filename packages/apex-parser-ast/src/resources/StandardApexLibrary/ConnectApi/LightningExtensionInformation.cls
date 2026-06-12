@@ -3,6 +3,8 @@
  */
 global class LightningExtensionInformation extends ConnectApi.AbstractExtensionInformation {
 
+  global LightningExtensionInformation() {}
+
   /**
    * Component to use in compose state.
    */
@@ -22,5 +24,7 @@ global class LightningExtensionInformation extends ConnectApi.AbstractExtensionI
    * Component to use in render or preview state.
    */
   global String renderComponent;
+
+  global Object clone() {}
 
 }

@@ -3,9 +3,13 @@
  */
 global class ExternalAuthIdentityProviderCredentials {
 
+  global ExternalAuthIdentityProviderCredentials() {}
+
   /**
    * List of external auth identity provider credentials.
    */
   global List < ConnectApi.ExternalAuthIdentityProviderCredential > credentials;
+
+  global Object clone() {}
 
 }

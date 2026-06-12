@@ -3,6 +3,8 @@
  */
 global class PaymentCreditOutputRepresentation {
 
+  global PaymentCreditOutputRepresentation() {}
+
   /**
    * The amount in the payment credit.
    */
@@ -17,5 +19,7 @@ global class PaymentCreditOutputRepresentation {
    * The created payment credit’s ID.
    */
   global String paymentCreditId;
+
+  global Object clone() {}
 
 }

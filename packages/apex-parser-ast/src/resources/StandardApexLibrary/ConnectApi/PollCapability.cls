@@ -3,6 +3,8 @@
  */
 global class PollCapability extends ConnectApi.FeedElementCapability {
 
+  global PollCapability() {}
+
   /**
    * Collection of poll choices that make up the poll.
    */
@@ -17,5 +19,7 @@ global class PollCapability extends ConnectApi.FeedElementCapability {
    * Total number of votes cast on the feed poll element.
    */
   global Integer totalVoteCount;
+
+  global Object clone() {}
 
 }

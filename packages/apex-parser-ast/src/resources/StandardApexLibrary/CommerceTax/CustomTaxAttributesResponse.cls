@@ -3,6 +3,10 @@
  */
 global class CustomTaxAttributesResponse {
 
+  global CustomTaxAttributesResponse() {}
+
   global void setData(Map<String, Object> data) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CompositeCommerceProductInputRepresentation {
 
+  global CompositeCommerceProductInputRepresentation() {}
+
   /**
    * Attribute set information for a variation parent product.
    */
@@ -22,5 +24,7 @@ global class CompositeCommerceProductInputRepresentation {
    * Media associated with the product.
    */
   global ConnectApi.ProductMedia productMedia;
+
+  global Object clone() {}
 
 }

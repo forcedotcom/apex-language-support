@@ -3,6 +3,8 @@
  */
 global class BaseComparison {
 
+  global BaseComparison() {}
+
   /**
    * List of logical comparison filters.
    */
@@ -12,5 +14,7 @@ global class BaseComparison {
    * operator
    */
   global String operator;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class TopicsCapabilityInput {
 
+  global TopicsCapabilityInput() {}
+
   /**
    * Name of the parent topic in the site to which the feed element belongs.
    */
@@ -12,5 +14,7 @@ global class TopicsCapabilityInput {
    * List of topics to assign to the feed element.
    */
   global List < String > topics;
+
+  global Object clone() {}
 
 }

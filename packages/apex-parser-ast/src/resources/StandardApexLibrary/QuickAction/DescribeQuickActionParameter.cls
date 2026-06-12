@@ -3,10 +3,20 @@
  */
 global class DescribeQuickActionParameter {
 
-  public String getParameterName() {}
+  global DescribeQuickActionParameter() {}
 
-  public String getParameterType() {}
+  global String parametername;
 
-  public String getParameterValue() {}
+  global String parametertype;
+
+  global String parametervalue;
+
+  global String getParameterName() {}
+
+  global String getParameterType() {}
+
+  global String getParameterValue() {}
+
+  global Object clone() {}
 
 }

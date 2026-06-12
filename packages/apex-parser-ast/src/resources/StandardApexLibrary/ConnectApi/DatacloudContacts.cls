@@ -3,6 +3,8 @@
  */
 global class DatacloudContacts {
 
+  global DatacloudContacts() {}
+
   /**
    * A detailed list of purchased contacts.
    */
@@ -27,5 +29,7 @@ global class DatacloudContacts {
    * Number of contacts that are associated with this order. Can be greater than the number of contacts that are shown on a single page.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

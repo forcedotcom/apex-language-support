@@ -3,6 +3,8 @@
  */
 global class ProductAttributeValueMetadataRepresentation {
 
+  global ProductAttributeValueMetadataRepresentation() {}
+
   /**
    * API Name of the product attribute picklist value. For example, blue__c .
    */
@@ -22,5 +24,23 @@ global class ProductAttributeValueMetadataRepresentation {
    * Specifies whether a variation product exists ( true ) or not ( false ).
    */
   global Boolean variantAvailable;
+
+  global Object clone() {}
+
+  global String getApiName() {}
+
+  global String getColorHexCode() {}
+
+  global String getLabel() {}
+
+  global Boolean getVariantAvailable() {}
+
+  global void setApiName(String value) {}
+
+  global void setColorHexCode(String value) {}
+
+  global void setLabel(String value) {}
+
+  global void setVariantAvailable(Boolean value) {}
 
 }

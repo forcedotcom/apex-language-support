@@ -3,6 +3,8 @@
  */
 global class MatchInfo {
 
+  global MatchInfo() {}
+
   /**
    * Specifies whether search promotion affected the result ( true ) or not ( false ).
    */
@@ -12,5 +14,7 @@ global class MatchInfo {
    * Specifies whether spell correction affected the result ( true ) or not ( false ).
    */
   global Boolean isSpellCorrected;
+
+  global Object clone() {}
 
 }

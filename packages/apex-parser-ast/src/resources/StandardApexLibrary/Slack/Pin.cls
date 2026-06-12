@@ -1,5 +1,7 @@
 global class Pin {
 
+  global Pin() {}
+
   global static Slack.PinsAddRequest.Builder builder() {}
 
   global Slack.PinsAddRequest build() {}
@@ -63,5 +65,7 @@ global class Pin {
   global Slack.PinsRemoveRequest.Builder fileComment(String fileComment) {}
 
   global Slack.PinsRemoveRequest.Builder timestamp(String timestamp) {}
+
+  global Object clone() {}
 
 }

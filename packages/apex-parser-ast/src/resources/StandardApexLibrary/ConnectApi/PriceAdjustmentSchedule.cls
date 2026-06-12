@@ -3,6 +3,8 @@
  */
 global class PriceAdjustmentSchedule {
 
+  global PriceAdjustmentSchedule() {}
+
   /**
    * ID of the price adjustment schedule.
    */
@@ -12,5 +14,7 @@ global class PriceAdjustmentSchedule {
    * List of price adjustment tiers.
    */
   global List < ConnectApi.PriceAdjustmentTier > priceAdjustmentTiers;
+
+  global Object clone() {}
 
 }

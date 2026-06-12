@@ -3,6 +3,8 @@
  */
 global class DistributeToOrdersInputRepresentation {
 
+  global DistributeToOrdersInputRepresentation() {}
+
   /**
    * ID of the external order.
    */
@@ -12,5 +14,7 @@ global class DistributeToOrdersInputRepresentation {
    * List of order item quantities.
    */
   global List < ConnectApi.ItemQuantityInputRepresentation > itemQuantities;
+
+  global Object clone() {}
 
 }

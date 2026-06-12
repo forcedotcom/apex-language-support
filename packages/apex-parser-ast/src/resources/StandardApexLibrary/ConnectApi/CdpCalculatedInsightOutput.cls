@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightOutput {
 
+  global CdpCalculatedInsightOutput() {}
+
   /**
    * API name of the calculated insight.
    */
@@ -92,5 +94,7 @@ global class CdpCalculatedInsightOutput {
    * Measures of the calculated insight.
    */
   global List < ConnectApi.CdpCalculatedInsightMeasure > measures;
+
+  global Object clone() {}
 
 }

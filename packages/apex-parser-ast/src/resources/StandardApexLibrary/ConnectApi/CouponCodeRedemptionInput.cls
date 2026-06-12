@@ -3,6 +3,8 @@
  */
 global class CouponCodeRedemptionInput {
 
+  global CouponCodeRedemptionInput() {}
+
   /**
    * ID of the buyer account or email address for a guest user.
    */
@@ -22,5 +24,7 @@ global class CouponCodeRedemptionInput {
    * ID of the transaction, which must be a valid cart ID.
    */
   global String transactionId;
+
+  global Object clone() {}
 
 }

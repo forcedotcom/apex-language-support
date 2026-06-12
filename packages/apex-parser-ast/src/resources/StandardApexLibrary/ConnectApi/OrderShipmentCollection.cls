@@ -3,6 +3,8 @@
  */
 global class OrderShipmentCollection {
 
+  global OrderShipmentCollection() {}
+
   /**
    * Total number of records returned in the collection.
    */
@@ -47,5 +49,7 @@ global class OrderShipmentCollection {
    * Sort order for order shipments. Values are: ExpectedDeliveryDateAsc —Sorts by the oldest expected delivery date. ExpectedDeliveryDateDesc —Sorts by the most recent expected delivery date. ShipmentNumberAsc —Sorts by shipment number in ascending order (0–9). ShipmentNumberDesc —Sorts by shipment number in descending order (9–0).
    */
   global ConnectApi.OrderShipmentSort sortOrder;
+
+  global Object clone() {}
 
 }

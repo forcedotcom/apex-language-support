@@ -3,6 +3,8 @@
  */
 global class FormSubmissionFieldInput {
 
+  global FormSubmissionFieldInput() {}
+
   /**
    * Name of the marketing integration form field.
    */
@@ -12,5 +14,7 @@ global class FormSubmissionFieldInput {
    * Value of the marketing integration form field.
    */
   global String value;
+
+  global Object clone() {}
 
 }

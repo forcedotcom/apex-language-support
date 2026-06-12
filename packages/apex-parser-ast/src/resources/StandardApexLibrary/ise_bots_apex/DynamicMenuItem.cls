@@ -3,6 +3,8 @@
  */
 global class DynamicMenuItem {
 
+  global DynamicMenuItem() {}
+
   global String EntityId;
 
   global String EntityIdValue;
@@ -22,5 +24,7 @@ global class DynamicMenuItem {
   global Date sortByDate;
 
   global Date sortByDateValue;
+
+  global Object clone() {}
 
 }

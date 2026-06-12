@@ -3,6 +3,8 @@
  */
 global class AttributeFilterInput {
 
+  global AttributeFilterInput() {}
+
   /**
    * ID of the attribute.
    */
@@ -32,5 +34,7 @@ global class AttributeFilterInput {
    * Filter values.
    */
   global List < String > value;
+
+  global Object clone() {}
 
 }

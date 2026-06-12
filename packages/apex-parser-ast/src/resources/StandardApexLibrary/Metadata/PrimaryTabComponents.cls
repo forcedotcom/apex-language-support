@@ -3,10 +3,16 @@
  */
 global class PrimaryTabComponents {
 
+  global PrimaryTabComponents() {}
+
+  global List<Metadata.ConsoleComponent> component;
+
+  global List<Metadata.Container> containers;
+
   /**
    * Makes a duplicate copy of the Metadata.PrimaryTabComponents .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

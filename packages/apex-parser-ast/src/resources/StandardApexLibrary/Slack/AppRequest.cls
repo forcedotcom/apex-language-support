@@ -1,5 +1,7 @@
 global class AppRequest {
 
+  global AppRequest() {}
+
   global String getImage32() {}
 
   global String getImage36() {}
@@ -135,5 +137,7 @@ global class AppRequest {
   global void setInternal(Boolean internal) {}
 
   global void setPrivacyPolicyUrl(String privacyPolicyUrl) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class DistanceCalculationOutputRepresentation {
 
+  global DistanceCalculationOutputRepresentation() {}
+
   /**
    * The average distance from the locations to the order recipient.
    */
@@ -17,5 +19,7 @@ global class DistanceCalculationOutputRepresentation {
    * This result’s rank among all results by average distance to the order recipient.
    */
   global Integer rank;
+
+  global Object clone() {}
 
 }

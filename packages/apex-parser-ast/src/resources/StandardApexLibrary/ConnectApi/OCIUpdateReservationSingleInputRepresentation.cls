@@ -3,6 +3,8 @@
  */
 global class OCIUpdateReservationSingleInputRepresentation {
 
+  global OCIUpdateReservationSingleInputRepresentation() {}
+
   /**
    * Identifier of the location group where the inventory is reserved.
    */
@@ -22,5 +24,7 @@ global class OCIUpdateReservationSingleInputRepresentation {
    * The SKU of the product to update.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

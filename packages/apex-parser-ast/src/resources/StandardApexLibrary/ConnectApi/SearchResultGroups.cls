@@ -3,6 +3,8 @@
  */
 global class SearchResultGroups {
 
+  global SearchResultGroups() {}
+
   /**
    * All related metadata associated with the objects found in the results.
    */
@@ -22,5 +24,7 @@ global class SearchResultGroups {
    * Record results for the keyword search grouped by object. In version 64.0 and later, use resultGroups for record results.
    */
   global List < ConnectApi.SearchObject > searchObjects;
+
+  global Object clone() {}
 
 }

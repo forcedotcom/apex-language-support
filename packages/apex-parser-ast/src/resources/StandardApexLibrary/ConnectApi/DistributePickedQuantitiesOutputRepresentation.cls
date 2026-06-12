@@ -3,6 +3,8 @@
  */
 global class DistributePickedQuantitiesOutputRepresentation {
 
+  global DistributePickedQuantitiesOutputRepresentation() {}
+
   /**
    * Orders that have all quantities distributed.
    */
@@ -22,5 +24,7 @@ global class DistributePickedQuantitiesOutputRepresentation {
    * Quantities remaining after the distribution.
    */
   global List < ConnectApi.ItemQuantityOutputRepresentation > quantitiesRemainingList;
+
+  global Object clone() {}
 
 }

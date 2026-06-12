@@ -3,6 +3,8 @@
  */
 global class CreateInvoiceFromChangeOrdersInputRepresentation {
 
+  global CreateInvoiceFromChangeOrdersInputRepresentation() {}
+
   /**
    * List of IDs of change orders to create Invoices for.
    */
@@ -12,5 +14,7 @@ global class CreateInvoiceFromChangeOrdersInputRepresentation {
    * ID of the associated Order Summary.
    */
   global String orderSummaryId;
+
+  global Object clone() {}
 
 }

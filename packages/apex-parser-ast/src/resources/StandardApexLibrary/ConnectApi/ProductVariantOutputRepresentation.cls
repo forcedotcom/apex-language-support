@@ -3,6 +3,8 @@
  */
 global class ProductVariantOutputRepresentation {
 
+  global ProductVariantOutputRepresentation() {}
+
   /**
    * List price.
    */
@@ -32,5 +34,7 @@ global class ProductVariantOutputRepresentation {
    * The variation attribute values that define the variation.
    */
   global Map < String , String > variationValues;
+
+  global Object clone() {}
 
 }

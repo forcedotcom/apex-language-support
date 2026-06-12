@@ -1,10 +1,10 @@
 name: Generate Apex Stubs
 
+# NOTE: Automated weekly scheduling is intentionally disabled. Generation must
+# be performed locally by a developer who has access to the bytecode XML file
+# (not tracked in git). See packages/apex-stubs-generator/README.md.
 on:
   workflow_dispatch:
-  schedule:
-    # Run weekly on Mondays at 06:00 UTC
-    - cron: '0 6 * * 1'
 
 permissions:
   contents: write

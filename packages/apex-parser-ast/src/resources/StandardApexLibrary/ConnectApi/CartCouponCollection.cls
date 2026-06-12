@@ -3,6 +3,8 @@
  */
 global class CartCouponCollection {
 
+  global CartCouponCollection() {}
+
   /**
    * Collection of coupons.
    */
@@ -22,5 +24,7 @@ global class CartCouponCollection {
    * ID of the user who owns the cart.
    */
   global String ownerId;
+
+  global Object clone() {}
 
 }

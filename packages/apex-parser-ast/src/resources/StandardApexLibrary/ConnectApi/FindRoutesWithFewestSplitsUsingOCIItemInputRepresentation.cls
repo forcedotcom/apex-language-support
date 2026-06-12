@@ -3,6 +3,8 @@
  */
 global class FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation {
 
+  global FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation() {}
+
   /**
    * The External Reference of the location group or location assigned to the order item. If you specify a location group, inventory is considered for all locations belonging to that group.
    */
@@ -17,5 +19,7 @@ global class FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation {
    * SKU of the product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class AbstractRepositoryFolder extends ConnectApi.AbstractRepositoryItem {
 
+  global AbstractRepositoryFolder() {}
+
   /**
    * URL of this folder in the external system.
    */
@@ -17,5 +19,7 @@ global class AbstractRepositoryFolder extends ConnectApi.AbstractRepositoryItem 
    * Absolute path of the folder in the external system.
    */
   global String path;
+
+  global Object clone() {}
 
 }

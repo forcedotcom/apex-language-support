@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialParameter {
 
+  global ExternalCredentialParameter() {}
+
   /**
    * Parameter ID.
    */
@@ -19,7 +21,7 @@ global class ExternalCredentialParameter {
   global String parameterName;
 
   /**
-   * Parameter type of the external credential. Values are: AdditionalRefreshStatusCode AuthParameter AuthProvider AuthProviderUrl AuthProviderUrlQueryParameter JwtBodyClaim JwtHeaderClaim ManagedByComponent ManagedByFeature SigningCertificate
+   * Parameter type of the external credential. Values are: AdditionalRefreshStatusCode AuthParameter AuthProvider AuthProviderUrl AuthProviderUrlQueryParameter JwtBodyClaim JwtHeaderClaim ManagedByComponent ManagedByFeature SfHttpRequestExtensionName SigningCertificate
    */
   global ConnectApi.ExternalCredentialParameterType parameterType;
 
@@ -27,5 +29,7 @@ global class ExternalCredentialParameter {
    * Parameter value. If the parameterType is JwtBodyClaim or JwtHeaderClaim , the parameter value can contain formulas. If the parameterType is AuthProvider or SigningCertificate , the parameter value is the fully qualified entity name of the corresponding entity.
    */
   global String parameterValue;
+
+  global Object clone() {}
 
 }

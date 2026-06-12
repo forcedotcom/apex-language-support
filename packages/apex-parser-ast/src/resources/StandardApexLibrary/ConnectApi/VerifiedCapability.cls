@@ -3,6 +3,8 @@
  */
 global class VerifiedCapability extends ConnectApi.FeedElementCapability {
 
+  global VerifiedCapability() {}
+
   /**
    * Specifies whether the context user has permission to mark comments as verified or unverified ( true ) or not ( false ).
    */
@@ -27,5 +29,7 @@ global class VerifiedCapability extends ConnectApi.FeedElementCapability {
    * Date when the comment was last marked as verified or unverified, otherwise null . Also null if the context user doesn’t have permission to mark comments as verified or unverified.
    */
   global Datetime lastVerifiedDate;
+
+  global Object clone() {}
 
 }

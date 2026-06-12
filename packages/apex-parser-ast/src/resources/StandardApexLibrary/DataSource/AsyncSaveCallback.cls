@@ -3,10 +3,14 @@
  */
 global class AsyncSaveCallback {
 
+  global AsyncSaveCallback() {}
+
   /**
    * Override this method to define actions that Salesforce executes after the remote Database.insertAsync or Database.updateAsync operation is completed. For example, based on the results of the remote operation, you can update custom object data or other data that's stored in the Salesforce org.
    * @param saveResult The result of the asynchronous insert or update operation.
    */
-  public void processSave(Database.SaveResult saveResult) {}
+  global void processSave(Database.SaveResult saveResult) {}
+
+  global Object clone() {}
 
 }

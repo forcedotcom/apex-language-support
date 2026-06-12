@@ -3,6 +3,8 @@
  */
 global class LeadInput {
 
+  global LeadInput() {}
+
   /**
    * The company of the lead.
    */
@@ -32,5 +34,7 @@ global class LeadInput {
    * The phone number of the lead.
    */
   global String phone;
+
+  global Object clone() {}
 
 }

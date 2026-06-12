@@ -3,6 +3,8 @@
  */
 global class AbstractMessageBody {
 
+  global AbstractMessageBody() {}
+
   /**
    * Indicates whether the body is rich text.
    */
@@ -17,5 +19,7 @@ global class AbstractMessageBody {
    * Display-ready text. Use this text if you don’t want to process the message segments.
    */
   global String text;
+
+  global Object clone() {}
 
 }

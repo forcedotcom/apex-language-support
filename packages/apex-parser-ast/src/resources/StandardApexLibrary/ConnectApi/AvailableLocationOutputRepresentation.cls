@@ -3,9 +3,13 @@
  */
 global class AvailableLocationOutputRepresentation {
 
+  global AvailableLocationOutputRepresentation() {}
+
   /**
    * A list of inventory locations.
    */
   global List < String > locations;
+
+  global Object clone() {}
 
 }

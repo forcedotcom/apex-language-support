@@ -3,6 +3,8 @@
  */
 global class QuestionAndAnswersCapability extends ConnectApi.FeedElementCapability {
 
+  global QuestionAndAnswersCapability() {}
+
   /**
    * Comment selected as the best answer for the question.
    */
@@ -32,5 +34,7 @@ global class QuestionAndAnswersCapability extends ConnectApi.FeedElementCapabili
    * Title for the question.
    */
   global String questionTitle;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class User {
 
+  global User() {}
+
   global String getColor() {}
 
   global Slack.User.EnterpriseUser getEnterpriseUser() {}
@@ -419,5 +421,9 @@ global class User {
   global Slack.UsersSetPresenceRequest build() {}
 
   global Slack.UsersSetPresenceRequest.Builder presence(String presence) {}
+
+  global Object clone() {}
+
+  global String getWhoCanShareContactCard() {}
 
 }

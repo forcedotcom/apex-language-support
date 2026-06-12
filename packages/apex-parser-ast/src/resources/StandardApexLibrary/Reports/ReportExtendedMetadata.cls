@@ -3,22 +3,26 @@
  */
 global class ReportExtendedMetadata {
 
+  global ReportExtendedMetadata() {}
+
   /**
    * Returns all report summaries such as Record Count , Sum , Average , Max , Min , and custom summary formulas. Contains values for each summary that is listed in the report metadata.
-   * @return MAP<String,Reports.AggregateColumn>
+   * @return Map<String,Reports.AggregateColumn>
    */
-  public MAP<String,Reports.AggregateColumn> getAggregateColumnInfo() {}
+  global Map<String,Reports.AggregateColumn> getAggregateColumnInfo() {}
 
   /**
    * Returns a map of two properties for each field that has detailed data identified by its unique API name. The detailed data fields are also listed in the report metadata.
-   * @return MAP<String,Reports.DetailColumn>
+   * @return Map<String,Reports.DetailColumn>
    */
-  public MAP<String,Reports.DetailColumn> getDetailColumnInfo() {}
+  global Map<String,Reports.DetailColumn> getDetailColumnInfo() {}
 
   /**
    * Returns a map of each row or column grouping to its metadata. Contains values for each grouping that is identified in the groupingsDown and groupingsAcross lists.
-   * @return MAP<String,Reports.GroupingColumn>
+   * @return Map<String,Reports.GroupingColumn>
    */
-  public MAP<String,Reports.GroupingColumn> getGroupingColumnInfo() {}
+  global Map<String,Reports.GroupingColumn> getGroupingColumnInfo() {}
+
+  global Object clone() {}
 
 }

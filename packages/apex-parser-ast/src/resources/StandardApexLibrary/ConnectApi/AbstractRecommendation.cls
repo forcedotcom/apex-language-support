@@ -3,6 +3,8 @@
  */
 global class AbstractRecommendation {
 
+  global AbstractRecommendation() {}
+
   /**
    * The Chatter, custom, or static recommendation explanation.
    */
@@ -22,5 +24,7 @@ global class AbstractRecommendation {
    * URL for the Chatter, custom, or static recommendation.
    */
   global String url;
+
+  global Object clone() {}
 
 }

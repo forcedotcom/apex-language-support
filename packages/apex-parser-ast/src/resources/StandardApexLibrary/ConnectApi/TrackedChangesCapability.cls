@@ -3,9 +3,13 @@
  */
 global class TrackedChangesCapability extends ConnectApi.FeedElementCapability {
 
+  global TrackedChangesCapability() {}
+
   /**
    * Collection of feed tracked changes.
    */
   global List < ConnectApi.TrackedChangeItem > changes;
+
+  global Object clone() {}
 
 }

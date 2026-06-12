@@ -3,40 +3,44 @@
  */
 global class QuickActionRequest {
 
+  global QuickActionRequest() {}
+
   /**
    * Returns this QuickAction’s context record ID.
    * @return Id
    */
-  public Id getContextId() {}
+  global Id getContextId() {}
 
   /**
    * Returns this QuickAction’s name.
    * @return String
    */
-  public String getQuickActionName() {}
+  global String getQuickActionName() {}
 
   /**
    * Returns the QuickAction’s associated record.
    * @return SObject
    */
-  public SObject getRecord() {}
+  global SObject getRecord() {}
 
   /**
    * Sets this QuickAction’s context ID. Returned by getContextId .
    * @param contextId 
    */
-  public void setContextId(Id contextId) {}
+  global void setContextId(Id contextId) {}
 
   /**
    * Sets this QuickAction’s name. Returned by getQuickActionName .
    * @param name 
    */
-  public void setQuickActionName(String name) {}
+  global void setQuickActionName(String name) {}
 
   /**
    * Sets a record for this QuickAction. Returned by getRecord .
    * @param record 
    */
-  public void setRecord(SObject record) {}
+  global void setRecord(SObject record) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class BannerPhoto {
 
+  global BannerPhoto() {}
+
   /**
    * URL to the banner photo in a large format. This URL is available only to authenticated users.
    */
@@ -17,5 +19,7 @@ global class BannerPhoto {
    * URL to the banner photo.
    */
   global String url;
+
+  global Object clone() {}
 
 }

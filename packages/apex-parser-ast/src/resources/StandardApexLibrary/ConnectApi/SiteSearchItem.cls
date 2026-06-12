@@ -3,6 +3,8 @@
  */
 global class SiteSearchItem {
 
+  global SiteSearchItem() {}
+
   /**
    * Content reference field, which is the route developer name for a site page or a content key for a content detail page.
    */
@@ -32,5 +34,7 @@ global class SiteSearchItem {
    * Title of the site search result item.
    */
   global String title;
+
+  global Object clone() {}
 
 }

@@ -3,12 +3,18 @@
  */
 global class Filter {
 
+  global Filter() {}
+
   global String columnName;
 
-  global List subfilters;
+  global Object columnValue;
+
+  global List<DataSource.Filter> subfilters;
 
   global String tableName;
 
   global DataSource.FilterType type;
+
+  global Object clone() {}
 
 }

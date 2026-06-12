@@ -3,6 +3,8 @@
  */
 global class BalanceStatePreviewOutputRepresentation {
 
+  global BalanceStatePreviewOutputRepresentation() {}
+
   /**
    * The grand total of the exchanges, including adjustments, fees, delivery cost, and taxes.
    */
@@ -52,5 +54,7 @@ global class BalanceStatePreviewOutputRepresentation {
    * The combined total of all taxes.
    */
   global Double totalTaxAmount;
+
+  global Object clone() {}
 
 }

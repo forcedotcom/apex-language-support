@@ -3,28 +3,32 @@
  */
 global class StandardDateFilterDuration {
 
+  global StandardDateFilterDuration() {}
+
   /**
    * Returns the end date of the date filter.
    * @return String
    */
-  public String getEndDate() {}
+  global String getEndDate() {}
 
   /**
    * Returns the display name of the date filter. Possible values are relative date filters—like Current FY and Current FQ —and custom date filters.
    * @return String
    */
-  public String getLabel() {}
+  global String getLabel() {}
 
   /**
    * Returns the start date of the date filter.
    * @return String
    */
-  public String getStartDate() {}
+  global String getStartDate() {}
 
   /**
    * Returns the API name of the date filter. Possible values are relative date filters—like THIS_FISCAL_YEAR and NEXT_FISCAL_QUARTER —and custom date filters.
    * @return String
    */
-  public String getValue() {}
+  global String getValue() {}
+
+  global Object clone() {}
 
 }

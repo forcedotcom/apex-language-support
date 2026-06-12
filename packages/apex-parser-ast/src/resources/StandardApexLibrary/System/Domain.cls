@@ -3,14 +3,18 @@
  */
 global class Domain {
 
-  public System.DomainType getDomainType() {}
+  global Domain() {}
 
-  public String getMyDomainName() {}
+  global System.DomainType getDomainType() {}
 
-  public String getPackageName() {}
+  global String getMyDomainName() {}
 
-  public String getSandboxName() {}
+  global String getPackageName() {}
 
-  public String getSitesSubdomainName() {}
+  global String getSandboxName() {}
+
+  global String getSitesSubdomainName() {}
+
+  global Object clone() {}
 
 }

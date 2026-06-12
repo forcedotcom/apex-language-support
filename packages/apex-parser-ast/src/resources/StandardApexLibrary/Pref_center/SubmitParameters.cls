@@ -3,6 +3,10 @@
  */
 global class SubmitParameters {
 
-  public String getRecordId() {}
+  global SubmitParameters() {}
+
+  global String getRecordId() {}
+
+  global Object clone() {}
 
 }

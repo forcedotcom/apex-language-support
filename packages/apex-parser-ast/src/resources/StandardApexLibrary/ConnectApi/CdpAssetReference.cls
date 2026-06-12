@@ -3,6 +3,8 @@
  */
 global class CdpAssetReference {
 
+  global CdpAssetReference() {}
+
   /**
    * ID of the asset.
    */
@@ -17,5 +19,7 @@ global class CdpAssetReference {
    * Namespace of the asset.
    */
   global String namespace;
+
+  global Object clone() {}
 
 }

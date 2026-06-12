@@ -3,4 +3,12 @@
  */
 global class BatchInput {
 
+  global BatchInput() {}
+
+  global Object clone() {}
+
+  global List<ConnectApi.BinaryInput> getBinaries() {}
+
+  global Object getInput() {}
+
 }

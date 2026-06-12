@@ -3,6 +3,8 @@
  */
 global class AbstractTransactionResponse {
 
+  global AbstractTransactionResponse() {}
+
   global void setAddresses(commercetax.AddressesResponse addresses) {}
 
   global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) {}
@@ -26,5 +28,7 @@ global class AbstractTransactionResponse {
   global void setTaxTransactionId(String taxTrxnId) {}
 
   global void setTransactionDate(Datetime transactionDate) {}
+
+  global Object clone() {}
 
 }

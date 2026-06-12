@@ -3,6 +3,8 @@
  */
 global class RecommendationDefinition {
 
+  global RecommendationDefinition() {}
+
   /**
    * The URL for acting on this custom recommendation.
    */
@@ -42,5 +44,7 @@ global class RecommendationDefinition {
    * URL to the Connect REST API resource for the custom recommendation definition.
    */
   global String url;
+
+  global Object clone() {}
 
 }

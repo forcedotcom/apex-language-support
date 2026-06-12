@@ -3,6 +3,8 @@
  */
 global class CouponCodeRedemptionResult {
 
+  global CouponCodeRedemptionResult() {}
+
   /**
    * Number of coupon code redemptions available.
    */
@@ -27,5 +29,7 @@ global class CouponCodeRedemptionResult {
    * Number of coupon code redemptions allowed.
    */
   global Integer redemptionLimit;
+
+  global Object clone() {}
 
 }

@@ -3,8 +3,12 @@
  */
 global class Records {
 
-  public static ConnectApi.Motif getMotif(String communityId, String idOrPrefix) {}
+  global Records() {}
 
-  public static ConnectApi.BatchResult[] getMotifBatch(String communityId, List<String> idOrPrefixList) {}
+  global static ConnectApi.Motif getMotif(String communityId, String idOrPrefix) {}
+
+  global static ConnectApi.BatchResult[] getMotifBatch(String communityId, List<String> idOrPrefixList) {}
+
+  global Object clone() {}
 
 }

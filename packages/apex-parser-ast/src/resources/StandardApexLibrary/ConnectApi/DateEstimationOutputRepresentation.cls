@@ -3,6 +3,8 @@
  */
 global class DateEstimationOutputRepresentation {
 
+  global DateEstimationOutputRepresentation() {}
+
   /**
    * Maximum estimated date for delivery.
    */
@@ -17,5 +19,7 @@ global class DateEstimationOutputRepresentation {
    * Estimation type.
    */
   global String type;
+
+  global Object clone() {}
 
 }

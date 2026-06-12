@@ -3,6 +3,8 @@
  */
 global class QuantityWithSkuInputRepresentation {
 
+  global QuantityWithSkuInputRepresentation() {}
+
   /**
    * Quantity of the product.
    */
@@ -12,5 +14,7 @@ global class QuantityWithSkuInputRepresentation {
    * SKU of the product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

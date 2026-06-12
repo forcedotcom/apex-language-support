@@ -3,6 +3,8 @@
  */
 global class StrategyTrace {
 
+  global StrategyTrace() {}
+
   /**
    * Messages and errors from the strategy execution.
    */
@@ -12,5 +14,7 @@ global class StrategyTrace {
    * Nodes of the strategy execution used for debugging.
    */
   global List < ConnectApi.StrategyTraceNode > nodes;
+
+  global Object clone() {}
 
 }

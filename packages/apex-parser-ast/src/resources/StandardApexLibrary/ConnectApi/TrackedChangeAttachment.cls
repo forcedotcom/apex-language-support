@@ -3,9 +3,13 @@
  */
 global class TrackedChangeAttachment {
 
+  global TrackedChangeAttachment() {}
+
   /**
    * A list of tracked changes.
    */
   global List < ConnectApi.TrackedChangeItem > changes;
+
+  global Object clone() {}
 
 }

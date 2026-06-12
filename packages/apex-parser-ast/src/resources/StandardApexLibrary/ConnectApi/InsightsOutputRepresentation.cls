@@ -3,6 +3,8 @@
  */
 global class InsightsOutputRepresentation {
 
+  global InsightsOutputRepresentation() {}
+
   /**
    * URL to the dashboard where the insight can be viewed.
    */
@@ -22,5 +24,7 @@ global class InsightsOutputRepresentation {
    * List of insight categories.
    */
   global List < ConnectApi.InsightsValuesOutputRepresentation > values;
+
+  global Object clone() {}
 
 }

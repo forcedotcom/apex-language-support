@@ -3,6 +3,8 @@
  */
 global class EmailAttachment {
 
+  global EmailAttachment() {}
+
   /**
    * Record summary of the attachment.
    */
@@ -17,5 +19,7 @@ global class EmailAttachment {
    * Name of the attachment.
    */
   global String fileName;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class SaleResponse {
 
+  global SaleResponse() {}
+
   /**
    * Error representation for the payment sale.
    */
@@ -32,5 +34,7 @@ global class SaleResponse {
    * Payment method used in the sale request.
    */
   global ConnectApi.PaymentMethodResponse paymentMethod;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class InlineImageSegmentInput extends ConnectApi.MessageSegmentInput {
 
+  global InlineImageSegmentInput() {}
+
   /**
    * Alt text for the inline image.
    */
@@ -12,5 +14,7 @@ global class InlineImageSegmentInput extends ConnectApi.MessageSegmentInput {
    * ID of the inline image file.
    */
   global String fileId;
+
+  global Object clone() {}
 
 }

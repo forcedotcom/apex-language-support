@@ -3,6 +3,8 @@
  */
 global class ReputationLevel {
 
+  global ReputationLevel() {}
+
   /**
    * URL to the reputation level image.
    */
@@ -17,5 +19,7 @@ global class ReputationLevel {
    * Reputation level number, which is the numerical rank of the level, with the lowest level at 1. Administrators define the reputation level point ranges.
    */
   global Integer levelNumber;
+
+  global Object clone() {}
 
 }

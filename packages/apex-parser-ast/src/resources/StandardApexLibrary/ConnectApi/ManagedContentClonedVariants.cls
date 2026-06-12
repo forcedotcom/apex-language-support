@@ -3,6 +3,8 @@
  */
 global class ManagedContentClonedVariants {
 
+  global ManagedContentClonedVariants() {}
+
   /**
    * Language of the translated clone variant.
    */
@@ -17,5 +19,7 @@ global class ManagedContentClonedVariants {
    * Resource URL of the clone variant.
    */
   global String resourceURL;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class RefinementInput {
 
+  global RefinementInput() {}
+
   /**
    * Search attribute type. Custom ProductAttribute Standard
    */
@@ -17,5 +19,19 @@ global class RefinementInput {
    * Search facet type. Value is: DistinctValue Range
    */
   global ConnectApi.CommerceSearchFacetType type;
+
+  global Object clone() {}
+
+  global ConnectApi.CommerceSearchAttributeType getAttributeType() {}
+
+  global String getNameOrId() {}
+
+  global ConnectApi.CommerceSearchFacetType getType() {}
+
+  global void setAttributeType(ConnectApi.CommerceSearchAttributeType value) {}
+
+  global void setNameOrId(String value) {}
+
+  global void setType(ConnectApi.CommerceSearchFacetType value) {}
 
 }

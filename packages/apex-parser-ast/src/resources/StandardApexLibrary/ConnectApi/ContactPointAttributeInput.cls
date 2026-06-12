@@ -3,6 +3,8 @@
  */
 global class ContactPointAttributeInput {
 
+  global ContactPointAttributeInput() {}
+
   /**
    * Label of the attribute.
    */
@@ -17,5 +19,7 @@ global class ContactPointAttributeInput {
    * Preferred name of the attribute.
    */
   global String preferredName;
+
+  global Object clone() {}
 
 }

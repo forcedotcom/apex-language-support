@@ -3,6 +3,8 @@
  */
 global class UserSettings {
 
+  global UserSettings() {}
+
   /**
    * User can approve workflows from Chatter posts.
    */
@@ -137,5 +139,7 @@ global class UserSettings {
    * Locale of user.
    */
   global String userLocale;
+
+  global Object clone() {}
 
 }

@@ -3,12 +3,14 @@
  */
 global class BuyerGroupResponse {
 
-  public BuyerGroupResponse(Set<String> buyerGroupIds) {}
+  global BuyerGroupResponse(Set<String> buyerGroupIds) {}
 
-  public Set<String> getBuyerGroupIds() {}
+  global Set<String> getBuyerGroupIds() {}
 
-  public void setBuyerGroupIds(Set<String> buyerGroupIds) {}
+  global void setBuyerGroupIds(Set<String> buyerGroupIds) {}
 
-  public void setError(String errorMessage, String localizedErrorMessage) {}
+  global void setError(String errorMessage, String localizedErrorMessage) {}
+
+  global Object clone() {}
 
 }

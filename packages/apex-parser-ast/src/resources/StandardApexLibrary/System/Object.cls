@@ -3,10 +3,14 @@
  */
 global class Object {
 
-  public Boolean equals(Object obj) {}
+  global Object() {}
 
-  public Integer hashCode() {}
+  global Boolean equals(Object obj) {}
 
-  public String toString() {}
+  global Integer hashCode() {}
+
+  global String toString() {}
+
+  global Object clone() {}
 
 }

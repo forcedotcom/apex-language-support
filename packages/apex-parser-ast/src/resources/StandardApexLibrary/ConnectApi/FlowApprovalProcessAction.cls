@@ -3,6 +3,8 @@
  */
 global class FlowApprovalProcessAction {
 
+  global FlowApprovalProcessAction() {}
+
   /**
    * The label of an available action.
    */
@@ -22,5 +24,7 @@ global class FlowApprovalProcessAction {
    * The URL of an available action.
    */
   global String url;
+
+  global Object clone() {}
 
 }

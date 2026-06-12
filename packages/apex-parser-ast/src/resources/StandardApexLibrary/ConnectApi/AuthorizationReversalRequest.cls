@@ -3,6 +3,8 @@
  */
 global class AuthorizationReversalRequest extends ConnectApi.BaseRequest {
 
+  global AuthorizationReversalRequest() {}
+
   /**
    * Account for the payment authorization reversal. Must match the payment authorization's account.
    */
@@ -22,5 +24,7 @@ global class AuthorizationReversalRequest extends ConnectApi.BaseRequest {
    * Date that the adjustment takes effect on the authorization.
    */
   global Datetime effectiveDate;
+
+  global Object clone() {}
 
 }

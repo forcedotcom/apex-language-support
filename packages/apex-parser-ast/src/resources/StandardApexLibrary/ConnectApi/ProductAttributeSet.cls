@@ -3,6 +3,8 @@
  */
 global class ProductAttributeSet {
 
+  global ProductAttributeSet() {}
+
   /**
    * Map of the attributes that are members of the attribute set.
    */
@@ -17,5 +19,7 @@ global class ProductAttributeSet {
    * ID of the product attribute record that represents the product attribute set.
    */
   global String id;
+
+  global Object clone() {}
 
 }

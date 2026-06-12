@@ -3,6 +3,8 @@
  */
 global class ManagedContentVariant {
 
+  global ManagedContentVariant() {}
+
   /**
    * API name of the managed content variant.
    */
@@ -102,5 +104,7 @@ global class ManagedContentVariant {
    * URL name of the managed content.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

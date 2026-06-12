@@ -3,6 +3,10 @@
  */
 global class RecordFilterCriteriaFamily {
 
-  public static ConnectApi.RecordsetFilterCriteriaCollection evaluateRecordsetFilterCriteria(ConnectApi.RecordsetFilterCriteriaInput recordsetFilterCriteriaInput) {}
+  global RecordFilterCriteriaFamily() {}
+
+  global static ConnectApi.RecordsetFilterCriteriaCollection evaluateRecordsetFilterCriteria(ConnectApi.RecordsetFilterCriteriaInput recordsetFilterCriteriaInput) {}
+
+  global Object clone() {}
 
 }

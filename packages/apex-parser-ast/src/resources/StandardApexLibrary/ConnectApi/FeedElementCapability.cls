@@ -3,4 +3,8 @@
  */
 global class FeedElementCapability {
 
+  global FeedElementCapability() {}
+
+  global Object clone() {}
+
 }

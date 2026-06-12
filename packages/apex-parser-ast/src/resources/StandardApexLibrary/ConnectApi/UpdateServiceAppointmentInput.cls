@@ -3,6 +3,8 @@
  */
 global class UpdateServiceAppointmentInput {
 
+  global UpdateServiceAppointmentInput() {}
+
   /**
    * The ID of the service appointment to be modified.
    */
@@ -27,5 +29,7 @@ global class UpdateServiceAppointmentInput {
    * Represents the service appointment details to book an appointment. When updating an appointment, pass only the fields that must be updated. Note When creating an appointment, use extendedFields to add values to any of the fields, including custom fields, in assignedResources as long as you have edit access to those fields.
    */
   global ConnectApi.ServiceAppointmentInput serviceAppointment;
+
+  global Object clone() {}
 
 }

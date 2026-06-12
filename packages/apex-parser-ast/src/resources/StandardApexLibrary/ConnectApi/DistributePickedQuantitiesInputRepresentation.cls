@@ -3,6 +3,8 @@
  */
 global class DistributePickedQuantitiesInputRepresentation {
 
+  global DistributePickedQuantitiesInputRepresentation() {}
+
   /**
    * List of orders that need quantities distributed.
    */
@@ -17,5 +19,7 @@ global class DistributePickedQuantitiesInputRepresentation {
    * Quantities for each item picked.
    */
   global List < ConnectApi.ItemQuantityInputRepresentation > quantitiesPickedList;
+
+  global Object clone() {}
 
 }

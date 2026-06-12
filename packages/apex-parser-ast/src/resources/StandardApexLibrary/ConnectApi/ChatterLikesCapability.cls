@@ -3,6 +3,8 @@
  */
 global class ChatterLikesCapability extends ConnectApi.FeedElementCapability {
 
+  global ChatterLikesCapability() {}
+
   /**
    * Indicates whether the feed element is liked by the context user ( true ) or not ( false ).
    */
@@ -22,5 +24,7 @@ global class ChatterLikesCapability extends ConnectApi.FeedElementCapability {
    * If the context user has liked the feed element, this property is a reference to the specific like, null otherwise.
    */
   global ConnectApi.Reference myLike;
+
+  global Object clone() {}
 
 }

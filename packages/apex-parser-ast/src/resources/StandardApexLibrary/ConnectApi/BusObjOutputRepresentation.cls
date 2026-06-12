@@ -3,6 +3,8 @@
  */
 global class BusObjOutputRepresentation {
 
+  global BusObjOutputRepresentation() {}
+
   /**
    * List of business objective associations.
    */
@@ -22,5 +24,7 @@ global class BusObjOutputRepresentation {
    * ID of the business objective.
    */
   global String id;
+
+  global Object clone() {}
 
 }

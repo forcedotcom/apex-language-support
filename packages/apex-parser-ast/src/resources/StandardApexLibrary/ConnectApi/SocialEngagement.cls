@@ -3,36 +3,40 @@
  */
 global class SocialEngagement {
 
-  public static ConnectApi.DeleteSocialPostIntent deleteSocialPost(String socialPostId, String socialAccountId) {}
+  global SocialEngagement() {}
 
-  public static ConnectApi.FollowSocialPersonaIntent followSocialPersona(String socialPersonaId, String socialAccountId) {}
+  global static ConnectApi.DeleteSocialPostIntent deleteSocialPost(String socialPostId, String socialAccountId) {}
 
-  public static ConnectApi.FollowSocialPersonaIntent followSocialPostPersona(String socialPostId, String socialAccountId) {}
+  global static ConnectApi.FollowSocialPersonaIntent followSocialPersona(String socialPersonaId, String socialAccountId) {}
 
-  public static ConnectApi.SocialPostIntents getIntents(String socialPostId) {}
+  global static ConnectApi.FollowSocialPersonaIntent followSocialPostPersona(String socialPostId, String socialAccountId) {}
 
-  public static ConnectApi.ManagedSocialAccount getManagedSocialAccount(String id) {}
+  global static ConnectApi.SocialPostIntents getIntents(String socialPostId) {}
 
-  public static ConnectApi.ManagedSocialAccounts getManagedSocialAccounts() {}
+  global static ConnectApi.ManagedSocialAccount getManagedSocialAccount(String id) {}
 
-  public static ConnectApi.ManagedSocialAccounts getManagedSocialAccounts(ConnectApi.SocialNetworkProvider socialNetwork) {}
+  global static ConnectApi.ManagedSocialAccounts getManagedSocialAccounts() {}
 
-  public static ConnectApi.SocialAccountRelationship getRelationship(String id, String socialPersonaId) {}
+  global static ConnectApi.ManagedSocialAccounts getManagedSocialAccounts(ConnectApi.SocialNetworkProvider socialNetwork) {}
 
-  public static ConnectApi.HideSocialPostIntent hideSocialPost(String socialPostId, String socialAccountId) {}
+  global static ConnectApi.SocialAccountRelationship getRelationship(String id, String socialPersonaId) {}
 
-  public static ConnectApi.LikeSocialPostIntent likeSocialPost(String socialPostId, String socialAccountId) {}
+  global static ConnectApi.HideSocialPostIntent hideSocialPost(String socialPostId, String socialAccountId) {}
 
-  public static ConnectApi.SocialPostMassApprovalOutput massApprove(ConnectApi.SocialPostMassApprovalInput massApproval) {}
+  global static ConnectApi.LikeSocialPostIntent likeSocialPost(String socialPostId, String socialAccountId) {}
 
-  public static void recallApproval(String socialPostId) {}
+  global static ConnectApi.SocialPostMassApprovalOutput massApprove(ConnectApi.SocialPostMassApprovalInput massApproval) {}
 
-  public static void unfollowSocialPersona(String socialPersonaId, String socialAccountId) {}
+  global static void recallApproval(String socialPostId) {}
 
-  public static void unfollowSocialPostPersona(String socialPostId, String socialAccountId) {}
+  global static void unfollowSocialPersona(String socialPersonaId, String socialAccountId) {}
 
-  public static void unhideSocialPost(String socialPostId, String socialAccountId) {}
+  global static void unfollowSocialPostPersona(String socialPostId, String socialAccountId) {}
 
-  public static void unlikeSocialPost(String socialPostId, String socialAccountId) {}
+  global static void unhideSocialPost(String socialPostId, String socialAccountId) {}
+
+  global static void unlikeSocialPost(String socialPostId, String socialAccountId) {}
+
+  global Object clone() {}
 
 }

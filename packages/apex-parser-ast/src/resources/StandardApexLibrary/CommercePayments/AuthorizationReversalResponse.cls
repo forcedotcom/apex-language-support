@@ -3,6 +3,8 @@
  */
 global class AuthorizationReversalResponse {
 
+  global AuthorizationReversalResponse() {}
+
   /**
    * Contains the amount of the authorization reversal. Must be a non-zero value.
    * @param amount 
@@ -56,5 +58,11 @@ global class AuthorizationReversalResponse {
    * @param salesforceResultCodeInfo Description of the Salesforce result code value.
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

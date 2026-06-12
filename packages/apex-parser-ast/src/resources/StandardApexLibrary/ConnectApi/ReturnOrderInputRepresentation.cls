@@ -3,6 +3,8 @@
  */
 global class ReturnOrderInputRepresentation {
 
+  global ReturnOrderInputRepresentation() {}
+
   /**
    * ID of the OrderSummary containing the items to be returned. The OrderSummary’s OrderLifeCycleType must be Managed.
    */
@@ -27,5 +29,7 @@ global class ReturnOrderInputRepresentation {
    * Status to assign the ReturnOrder. This value must match an entry in the ReturnOrder object’s Status picklist.
    */
   global String status;
+
+  global Object clone() {}
 
 }

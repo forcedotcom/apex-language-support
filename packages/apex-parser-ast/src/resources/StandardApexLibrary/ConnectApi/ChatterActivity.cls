@@ -3,6 +3,8 @@
  */
 global class ChatterActivity {
 
+  global ChatterActivity() {}
+
   /**
    * Total number of comments in the org or site made by the user.
    */
@@ -22,5 +24,7 @@ global class ChatterActivity {
    * Total number of posts in the org or site made by the user.
    */
   global Integer postCount;
+
+  global Object clone() {}
 
 }

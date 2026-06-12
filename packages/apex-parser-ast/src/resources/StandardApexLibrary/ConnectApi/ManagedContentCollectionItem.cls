@@ -3,6 +3,8 @@
  */
 global class ManagedContentCollectionItem {
 
+  global ManagedContentCollectionItem() {}
+
   /**
    * Map of properties of the collection item with their values.
    */
@@ -22,5 +24,7 @@ global class ManagedContentCollectionItem {
    * Name or title for collection item.
    */
   global String name;
+
+  global Object clone() {}
 
 }

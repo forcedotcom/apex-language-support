@@ -3,6 +3,8 @@
  */
 global class TypeAndFilter {
 
+  global TypeAndFilter() {}
+
   /**
    * Filter.
    */
@@ -12,5 +14,7 @@ global class TypeAndFilter {
    * Type.
    */
   global String type;
+
+  global Object clone() {}
 
 }

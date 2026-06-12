@@ -3,30 +3,34 @@
  */
 global class MessageDefinitionInputParameter {
 
+  global MessageDefinitionInputParameter() {}
+
   global Boolean booleanValue;
 
-  global List booleanValues;
+  global List<Boolean> booleanValues;
 
   global Datetime dateTimeValue;
 
-  global List dateTimeValues;
+  global List<Datetime> dateTimeValues;
 
   global Date dateValue;
 
-  global List dateValues;
+  global List<Date> dateValues;
 
   global String name;
 
   global Double numberValue;
 
-  global List numberValues;
+  global List<Double> numberValues;
 
   global String recordIdValue;
 
-  global List recordIdValues;
+  global List<String> recordIdValues;
 
   global String textValue;
 
-  global List textValues;
+  global List<String> textValues;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedItemInput extends ConnectApi.FeedElementInput {
 
+  global FeedItemInput() {}
+
   /**
    * Specifies the attachment for the feed item. The feed item type is inferred based on the provided attachment. Important As of API version 32.0, use the inherited capabilities property.
    */
@@ -32,5 +34,7 @@ global class FeedItemInput extends ConnectApi.FeedElementInput {
    * Type of users who can see a feed item. AllUsers —Visibility is not limited to internal users. InternalUsers —Visibility is limited to internal users. Default values: For external users, the default value is AllUsers . External users must use this value to see their posts. For internal users, the default value is InternalUsers . Internal users can accept this value or use the value AllUsers to allow external users to see their posts. If the parent of the feed item is a user, group, or direct message, the visibility of the feed item must be AllUsers .
    */
   global ConnectApi.FeedItemVisibilityType Enum visibility;
+
+  global Object clone() {}
 
 }

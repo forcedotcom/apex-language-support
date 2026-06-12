@@ -3,6 +3,8 @@
  */
 global class ExternalManagedAccountOutput {
 
+  global ExternalManagedAccountOutput() {}
+
   /**
    * ID of the account managed by another account.
    */
@@ -27,5 +29,7 @@ global class ExternalManagedAccountOutput {
    * Specifies whether the account is the context user’s account ( true ) or not ( false ).
    */
   global Boolean isMyAccount;
+
+  global Object clone() {}
 
 }

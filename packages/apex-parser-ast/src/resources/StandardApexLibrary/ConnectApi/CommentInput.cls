@@ -3,6 +3,8 @@
  */
 global class CommentInput {
 
+  global CommentInput() {}
+
   /**
    * Specifies an attachment for the comment. Valid values are: ContentAttachmentInput NewFileAttachmentInput LinkAttachmentInput is not permitted for comments. Important As of version 32.0, use the capabilities property.
    */
@@ -22,5 +24,7 @@ global class CommentInput {
    * ID of the parent comment for a threaded comment.
    */
   global String threadParentId;
+
+  global Object clone() {}
 
 }

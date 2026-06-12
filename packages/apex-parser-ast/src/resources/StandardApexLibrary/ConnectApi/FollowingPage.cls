@@ -3,6 +3,8 @@
  */
 global class FollowingPage {
 
+  global FollowingPage() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -27,5 +29,7 @@ global class FollowingPage {
    * Total number of records being followed across all pages.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

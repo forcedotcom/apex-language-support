@@ -3,6 +3,8 @@
  */
 global class PaymentInfoInputRepresentation {
 
+  global PaymentInfoInputRepresentation() {}
+
   /**
    * Last payment gateway log ID for the new order payment summary.
    */
@@ -27,5 +29,7 @@ global class PaymentInfoInputRepresentation {
    * Payment method ID for the new order payment summary.
    */
   global String paymentMethodId;
+
+  global Object clone() {}
 
 }

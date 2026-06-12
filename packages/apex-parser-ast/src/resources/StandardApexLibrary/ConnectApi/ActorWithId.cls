@@ -3,6 +3,8 @@
  */
 global class ActorWithId extends ConnectApi.Actor {
 
+  global ActorWithId() {}
+
   /**
    * Actor’s 18-character ID
    */
@@ -22,5 +24,7 @@ global class ActorWithId extends ConnectApi.Actor {
    * Connect REST API URL for the resource
    */
   global String url;
+
+  global Object clone() {}
 
 }

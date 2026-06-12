@@ -3,6 +3,8 @@
  */
 global class AudienceTarget {
 
+  global AudienceTarget() {}
+
   /**
    * Name of the audience assigned to the target.
    */
@@ -17,5 +19,7 @@ global class AudienceTarget {
    * URL to the audience assigned to the target.
    */
   global String url;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpQueryOutput {
 
+  global CdpQueryOutput() {}
+
   /**
    * Result data set.
    */
@@ -37,5 +39,7 @@ global class CdpQueryOutput {
    * Query start time.
    */
   global String startTime;
+
+  global Object clone() {}
 
 }

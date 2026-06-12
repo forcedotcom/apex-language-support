@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmGenerationGenAiSourceReferenceInfo {
 
+  global EinsteinLlmGenerationGenAiSourceReferenceInfo() {}
+
   /**
    * URL for the source from the data provider.
    */
@@ -17,5 +19,7 @@ global class EinsteinLlmGenerationGenAiSourceReferenceInfo {
    * ID of the source record.
    */
   global String sourceObjectRecordId;
+
+  global Object clone() {}
 
 }

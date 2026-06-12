@@ -3,6 +3,8 @@
  */
 global class OrderSummaryAdjustment {
 
+  global OrderSummaryAdjustment() {}
+
   /**
    * Amount associated with the adjustment.
    */
@@ -32,5 +34,7 @@ global class OrderSummaryAdjustment {
    * Type of adjustment (for example, Promotion, Other).
    */
   global String type;
+
+  global Object clone() {}
 
 }

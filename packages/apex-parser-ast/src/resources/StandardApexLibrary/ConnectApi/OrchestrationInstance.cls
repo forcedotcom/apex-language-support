@@ -3,6 +3,8 @@
  */
 global class OrchestrationInstance {
 
+  global OrchestrationInstance() {}
+
   /**
    * Developer name of the flow definition.
    */
@@ -37,5 +39,7 @@ global class OrchestrationInstance {
    * Status of the orchestration instance. Values are: Canceled Completed Discontinued Error InProgress NotStarted Suspended
    */
   global ConnectApi.OrchestrationStatus status;
+
+  global Object clone() {}
 
 }

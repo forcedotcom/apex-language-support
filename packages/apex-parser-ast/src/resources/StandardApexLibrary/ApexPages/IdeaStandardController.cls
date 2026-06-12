@@ -3,10 +3,30 @@
  */
 global class IdeaStandardController {
 
+  global IdeaStandardController() {}
+
   /**
    * Returns the list of read-only comments from the current page.
    * @return IdeaComment[]
    */
-  public IdeaComment[] getCommentList() {}
+  global IdeaComment[] getCommentList() {}
+
+  global void addFields(List<String> fieldNames) {}
+
+  global System.PageReference cancel() {}
+
+  global System.PageReference delete() {}
+
+  global System.PageReference edit() {}
+
+  global String getId() {}
+
+  global SObject getRecord() {}
+
+  global System.PageReference save() {}
+
+  global System.PageReference view() {}
+
+  global Object clone() {}
 
 }

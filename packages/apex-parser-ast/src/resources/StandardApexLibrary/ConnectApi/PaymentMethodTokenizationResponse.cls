@@ -3,6 +3,8 @@
  */
 global class PaymentMethodTokenizationResponse {
 
+  global PaymentMethodTokenizationResponse() {}
+
   /**
    * Error representation for the payment method tokenization process. Sent only if the tokenization process encounters an error in the gateway.
    */
@@ -22,5 +24,7 @@ global class PaymentMethodTokenizationResponse {
    * Object representation of the payment method object that was tokenized.
    */
   global ConnectApi.PaymentMethodResponse paymentMethod;
+
+  global Object clone() {}
 
 }

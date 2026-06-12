@@ -3,6 +3,8 @@
  */
 global class OCICreateReservationSingleOutputRepresentation {
 
+  global OCICreateReservationSingleOutputRepresentation() {}
+
   /**
    * The error code, if any.
    */
@@ -27,5 +29,7 @@ global class OCICreateReservationSingleOutputRepresentation {
    * The SKU of the reserved product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }
