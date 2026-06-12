@@ -85,6 +85,7 @@ import {
   setCrossFileEnrichmentDispatcher,
   setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
+import { createPrimaryAssistanceHandler } from './CoordinatorPrimaryAssistanceHandler';
 
 import {
   ResourceLoader,
@@ -2200,33 +2201,11 @@ export class LCSAdapter {
       }
 
       const mediator = new CoordinatorAssistanceMediator(
-        async (method, params) => {
-          if (method === 'apex/findMissingArtifact') {
-            return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
-              params as import('@salesforce/apex-lsp-shared').FindMissingArtifactParams,
-            );
-          }
-          if (method === 'resourceLoader:resolveClass') {
-            const p = params as { name: string };
-            if (!this.resourceLoaderProxy) return null;
-            return this.resourceLoaderProxy.resolveStandardClassFqn(p.name);
-          }
-          if (method === 'resourceLoader:getSymbolTable') {
-            const p = params as { classPath: string };
-            if (!this.resourceLoaderProxy) return null;
-            return this.resourceLoaderProxy.getSymbolTable(p.classPath);
-          }
-          if (method === 'resourceLoader:getFile') {
-            const p = params as { path: string };
-            if (!this.resourceLoaderProxy) return undefined;
-            return this.resourceLoaderProxy.getFile(p.path);
-          }
-          if (method === 'resourceLoader:getStandardNamespaces') {
-            if (!this.resourceLoaderProxy) return {};
-            return this.resourceLoaderProxy.getStandardNamespaces();
-          }
-          return this.connection.sendRequest(method, params);
-        },
+        createPrimaryAssistanceHandler({
+          connection: this.connection,
+          logger: this.logger,
+          getResourceLoaderProxy: () => this.resourceLoaderProxy,
+        }),
         this.logger,
         async (method, params) => dispatcher.queryDataOwner(method, params),
       );
