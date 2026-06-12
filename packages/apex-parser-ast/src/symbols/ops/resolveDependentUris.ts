@@ -17,18 +17,24 @@ import type { HierarchicalReference } from '../../types/hierarchicalReference';
 import { extractFilePathFromUri } from '../../types/UriBasedIdGenerator';
 
 /**
- * Normalize for self-reference comparison. Strips both the symbol-fragment
- * (post-`#`) and the `file://` protocol prefix so the comparison survives
- * the asymmetry between LSP-shaped URIs (`file:///A.cls`) supplied by the
- * Find References caller and graph-stored URIs that may carry the prefix
- * or not, depending on how the source file was registered.
+ * Normalize for self-reference comparison. The comparison must survive the
+ * asymmetry between LSP-shaped URIs (`file:///A.cls`) supplied by the Find
+ * References caller and graph-stored URIs that may carry the `file://`
+ * prefix or not, depending on how the source file was registered.
+ *
+ * Two strips are needed, in this order:
+ *   1. `extractFilePathFromUri` removes the `#symbol` fragment but, by
+ *      contract, *preserves* the URI scheme (it never strips `file://`).
+ *   2. We then strip the `file://` prefix ourselves so a path-shaped
+ *      (`/A.cls`) and a URI-shaped (`file:///A.cls`) form of the same file
+ *      compare equal.
  */
 const FILE_URI_PREFIX = 'file://';
 const normalizeForCompare = (uri: string): string => {
-  const stripped = extractFilePathFromUri(uri);
-  return stripped.startsWith(FILE_URI_PREFIX)
-    ? stripped.slice(FILE_URI_PREFIX.length)
-    : stripped;
+  const withoutFragment = extractFilePathFromUri(uri);
+  return withoutFragment.startsWith(FILE_URI_PREFIX)
+    ? withoutFragment.slice(FILE_URI_PREFIX.length)
+    : withoutFragment;
 };
 
 /**

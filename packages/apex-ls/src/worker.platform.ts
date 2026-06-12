@@ -1176,6 +1176,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  // NOTE: keep this handler in sync with worker.platform.web.ts —
+  // the two platforms intentionally carry identical data-owner bodies.
   ResolveDependentUris: (req) =>
     guardRole('ResolveDependentUris').pipe(
       Effect.flatMap(() =>
@@ -1190,6 +1192,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             );
             const wire: Record<string, unknown> = {};
             for (const [uri, entry] of Object.entries(result.entries)) {
+              // cloneForWire (JSON round-trip) drops the class identity and
+              // any non-enumerable/getter props on the symbol-table objects
+              // so the result is a plain tree that survives structured-clone
+              // across the worker postMessage boundary.
               wire[uri] = cloneForWire(entry);
             }
             return { entries: wire };

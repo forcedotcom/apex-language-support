@@ -818,6 +818,9 @@ function createDispatcher(
 
 /**
  * Create a dispatcher backed by @effect/platform Worker handles.
+ *
+ * @internal Exported for in-package use by `LCSAdapter` and for unit tests;
+ * not part of the stable public API and may change without notice.
  */
 export function makeWorkerDispatcher(
   topology: WorkerTopology,
