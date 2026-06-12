@@ -3,6 +3,8 @@
  */
 global class BusObjAssociationsInputRepresentation {
 
+  global BusObjAssociationsInputRepresentation() {}
+
   /**
    * Association ID for the business objective, or goal.
    */
@@ -12,5 +14,7 @@ global class BusObjAssociationsInputRepresentation {
    * Definition category of the business objective, or goal. Values are: Webstore
    */
   global ConnectApi.GoalDefinitionCategoryEnum type;
+
+  global Object clone() {}
 
 }

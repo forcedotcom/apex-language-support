@@ -3,6 +3,8 @@
  */
 global class GroupMembershipRequest {
 
+  global GroupMembershipRequest() {}
+
   /**
    * ISO 8601 date string, for example, 2011-02-25T18:24:31.000Z.
    */
@@ -42,5 +44,7 @@ global class GroupMembershipRequest {
    * Information about the user requesting membership in a group.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

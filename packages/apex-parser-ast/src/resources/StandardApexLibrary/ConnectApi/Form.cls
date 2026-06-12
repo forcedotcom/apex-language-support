@@ -3,6 +3,8 @@
  */
 global class Form {
 
+  global Form() {}
+
   /**
    * ID of the data extension associated with the marketing integration form.
    */
@@ -22,5 +24,7 @@ global class Form {
    * Name of the marketing integration form.
    */
   global String formName;
+
+  global Object clone() {}
 
 }

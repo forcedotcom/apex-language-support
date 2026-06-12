@@ -3,6 +3,8 @@
  */
 global class ExtensionInput {
 
+  global ExtensionInput() {}
+
   /**
    * Alternative representation of the extension.
    */
@@ -22,5 +24,7 @@ global class ExtensionInput {
    * Payload version that identifies the structure of the payload associated with the extension.
    */
   global String payloadVersion;
+
+  global Object clone() {}
 
 }

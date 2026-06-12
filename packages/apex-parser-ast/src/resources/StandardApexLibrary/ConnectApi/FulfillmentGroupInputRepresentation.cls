@@ -3,6 +3,8 @@
  */
 global class FulfillmentGroupInputRepresentation {
 
+  global FulfillmentGroupInputRepresentation() {}
+
   /**
    * ID of the fulfillment location.
    */
@@ -22,5 +24,7 @@ global class FulfillmentGroupInputRepresentation {
    * Reference to this input for use in troubleshooting failures. This value is only used by the APIs for creating fulfillment orders for multiple order delivery group summaries.
    */
   global String referenceId;
+
+  global Object clone() {}
 
 }

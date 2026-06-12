@@ -3,6 +3,8 @@
  */
 global class ManagedContentMediaSourceNodeValue {
 
+  global ManagedContentMediaSourceNodeValue() {}
+
   /**
    * File name of the media source.
    */
@@ -42,5 +44,7 @@ global class ManagedContentMediaSourceNodeValue {
    * URL to the media source for authenticated users.
    */
   global String url;
+
+  global Object clone() {}
 
 }

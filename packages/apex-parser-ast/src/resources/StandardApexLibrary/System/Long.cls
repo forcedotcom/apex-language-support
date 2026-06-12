@@ -3,23 +3,27 @@
  */
 global class Long {
 
+  global Long() {}
+
   /**
    * Returns the String format for this Long using the locale of the context user.
    * @return String
    */
-  public String format() {}
+  global String format() {}
 
   /**
    * Returns the Integer value for this Long.
    * @return Integer
    */
-  public Integer intValue() {}
+  global Integer intValue() {}
 
   /**
    * Returns a Long that contains the value of the specified String. As in Java, the string is interpreted as representing a signed decimal Long.
    * @param stringToLong 
    * @return Long
    */
-  public static Long valueOf(String stringToLong) {}
+  global static Long valueOf(String stringToLong) {}
+
+  global Object clone() {}
 
 }

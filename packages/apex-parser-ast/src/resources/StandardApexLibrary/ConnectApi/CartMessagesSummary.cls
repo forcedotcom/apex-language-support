@@ -3,6 +3,8 @@
  */
 global class CartMessagesSummary {
 
+  global CartMessagesSummary() {}
+
   /**
    * In ConnectApi.CartItemResult , the count of messages with the Error severity level.
    */
@@ -27,5 +29,7 @@ global class CartMessagesSummary {
    * In ConnectApi.CartItemResult , either null if the cart item has no errors or 1 if the cart item has errors. In ConnectApi.CartSummary , the total number of product line items that contain errors.
    */
   global Integer totalLineItemsWithErrors;
+
+  global Object clone() {}
 
 }

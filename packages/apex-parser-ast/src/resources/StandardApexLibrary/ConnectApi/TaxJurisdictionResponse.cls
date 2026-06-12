@@ -3,6 +3,8 @@
  */
 global class TaxJurisdictionResponse {
 
+  global TaxJurisdictionResponse() {}
+
   /**
    * Country of the tax jurisdiction address.
    */
@@ -32,5 +34,7 @@ global class TaxJurisdictionResponse {
    * State-assigned number of the tax jurisdiction address.
    */
   global String stateAssignedNo;
+
+  global Object clone() {}
 
 }

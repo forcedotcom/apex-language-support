@@ -3,11 +3,21 @@
  */
 global class RestResponse {
 
+  global RestResponse() {}
+
+  global Blob responseBody;
+
+  global Map<String, String> headers;
+
+  global Integer statuscode;
+
   /**
    * Adds a header to the response header map.
    * @param name 
    * @param value 
    */
-  public void addHeader(String name, String value) {}
+  global void addHeader(String name, String value) {}
+
+  global Object clone() {}
 
 }

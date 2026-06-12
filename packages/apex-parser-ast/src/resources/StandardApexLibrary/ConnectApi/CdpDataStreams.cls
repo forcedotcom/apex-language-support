@@ -3,6 +3,10 @@
  */
 global class CdpDataStreams {
 
-  public static ConnectApi.DataStreamActionResponse runDataStream(String recordIdOrDeveloperName, Boolean interactive) {}
+  global CdpDataStreams() {}
+
+  global static ConnectApi.DataStreamActionResponse runDataStream(String recordIdOrDeveloperName, Boolean interactive) {}
+
+  global Object clone() {}
 
 }

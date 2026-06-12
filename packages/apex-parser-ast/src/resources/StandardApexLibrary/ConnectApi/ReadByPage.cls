@@ -3,6 +3,8 @@
  */
 global class ReadByPage {
 
+  global ReadByPage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -42,5 +44,7 @@ global class ReadByPage {
    * Total number of users who read the feed element. Note This count appears in the UI under feed posts in private and unlisted Chatter groups as the “seen by” number, for example, “Seen by 48.”
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

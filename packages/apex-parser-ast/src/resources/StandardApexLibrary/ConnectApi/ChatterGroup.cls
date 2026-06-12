@@ -3,6 +3,8 @@
  */
 global class ChatterGroup extends ConnectApi.ActorWithId {
 
+  global ChatterGroup() {}
+
   /**
    * An extra label for the group, for example, “Archived,” “Private,” or “Private With Customers.” If there isn’t an extra label, the value is null .
    */
@@ -97,5 +99,7 @@ global class ChatterGroup extends ConnectApi.ActorWithId {
    * Group visibility type. Valid values are: PrivateAccess —Only members of the group can see posts to this group. PublicAccess —All users within the Experience Cloud site can see posts to this group. Unlisted —Reserved for future use.
    */
   global Connectapi.GroupVisibilityType visibility;
+
+  global Object clone() {}
 
 }

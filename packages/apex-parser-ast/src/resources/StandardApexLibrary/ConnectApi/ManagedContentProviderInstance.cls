@@ -3,6 +3,8 @@
  */
 global class ManagedContentProviderInstance {
 
+  global ManagedContentProviderInstance() {}
+
   /**
    * Provider instance key.
    */
@@ -27,5 +29,7 @@ global class ManagedContentProviderInstance {
    * ID of the provider instance.
    */
   global String providerInstanceId;
+
+  global Object clone() {}
 
 }

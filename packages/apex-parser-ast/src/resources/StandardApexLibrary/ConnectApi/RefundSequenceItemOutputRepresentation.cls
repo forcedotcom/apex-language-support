@@ -3,6 +3,8 @@
  */
 global class RefundSequenceItemOutputRepresentation {
 
+  global RefundSequenceItemOutputRepresentation() {}
+
   /**
    * The amount that was refunded.
    */
@@ -12,5 +14,7 @@ global class RefundSequenceItemOutputRepresentation {
    * The order payment summary’s ID.
    */
   global String orderPaymentSummaryId;
+
+  global Object clone() {}
 
 }

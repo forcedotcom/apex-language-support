@@ -3,6 +3,8 @@
  */
 global class ProductAttributeInfo {
 
+  global ProductAttributeInfo() {}
+
   /**
    * Active attribute picklist values that can be used to create variations. These values are determined by the order of the picklist values in Object Manager.
    */
@@ -52,5 +54,47 @@ global class ProductAttributeInfo {
    * View type for product attributes. Values are: ColorSwatch Dropdown Pill
    */
   global ConnectApi.ProductAttributeViewType viewType;
+
+  global Object clone() {}
+
+  global List<String> getAllowableValues() {}
+
+  global String getApiName() {}
+
+  global List<String> getAvailableValues() {}
+
+  global String getFieldEnumOrId() {}
+
+  global Boolean getGroupedBy() {}
+
+  global String getLabel() {}
+
+  global String getObjectName() {}
+
+  global List<ConnectApi.ProductAttributeValueMetadataRepresentation> getOptions() {}
+
+  global Integer getSequence() {}
+
+  global ConnectApi.ProductAttributeViewType getViewType() {}
+
+  global void setAllowableValues(List<String> value) {}
+
+  global void setApiName(String value) {}
+
+  global void setAvailableValues(List<String> value) {}
+
+  global void setFieldEnumOrId(String value) {}
+
+  global void setGroupedBy(Boolean value) {}
+
+  global void setLabel(String value) {}
+
+  global void setObjectName(String value) {}
+
+  global void setOptions(List<ConnectApi.ProductAttributeValueMetadataRepresentation> value) {}
+
+  global void setSequence(Integer value) {}
+
+  global void setViewType(ConnectApi.ProductAttributeViewType value) {}
 
 }

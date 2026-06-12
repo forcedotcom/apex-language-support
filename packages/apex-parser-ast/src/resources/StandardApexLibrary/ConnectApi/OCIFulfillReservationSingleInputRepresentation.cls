@@ -3,6 +3,8 @@
  */
 global class OCIFulfillReservationSingleInputRepresentation {
 
+  global OCIFulfillReservationSingleInputRepresentation() {}
+
   /**
    * A UUID that identifies the request. Use the action request IDs in response data to identify which requests succeeded or failed.
    */
@@ -32,5 +34,7 @@ global class OCIFulfillReservationSingleInputRepresentation {
    * The SKU of the product being fulfilled.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

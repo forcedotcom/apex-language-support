@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannelDomainRepresentation {
 
+  global ManagedContentChannelDomainRepresentation() {}
+
   /**
    * Specifies whether the domain is locked and can’t be changed ( true ) or not ( false ).
    */
@@ -17,5 +19,7 @@ global class ManagedContentChannelDomainRepresentation {
    * Value of the domain (name or ID) associated with the channel.
    */
   global String value;
+
+  global Object clone() {}
 
 }

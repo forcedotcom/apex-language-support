@@ -3,6 +3,8 @@
  */
 global class PromotionCartItemPriceAdjustment {
 
+  global PromotionCartItemPriceAdjustment() {}
+
   /**
    * Scope of the price adjustment amount. Values are: Total —The adjustment scope is the total price. Unit —The adjustment scope is the unit price. UnproratedTotal —The adjustment scope is the unprorated total price.
    */
@@ -62,5 +64,7 @@ global class PromotionCartItemPriceAdjustment {
    * Where in the sequence of adjustments this adjustment was applied.
    */
   global Integer priority;
+
+  global Object clone() {}
 
 }

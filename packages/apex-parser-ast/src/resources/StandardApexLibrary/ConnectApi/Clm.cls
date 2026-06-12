@@ -3,8 +3,12 @@
  */
 global class Clm {
 
-  public static ConnectApi.ContractOutputRepresentation createContract(ConnectApi.ContractInputRepresentation contractInputPayload) {}
+  global Clm() {}
 
-  public static ConnectApi.ContractOutputRepresentation updateContract(ConnectApi.ContractInputRepresentation contractInputPayload) {}
+  global static ConnectApi.ContractOutputRepresentation createContract(ConnectApi.ContractInputRepresentation contractInputPayload) {}
+
+  global static ConnectApi.ContractOutputRepresentation updateContract(ConnectApi.ContractInputRepresentation contractInputPayload) {}
+
+  global Object clone() {}
 
 }

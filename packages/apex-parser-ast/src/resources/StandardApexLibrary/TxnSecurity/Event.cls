@@ -3,9 +3,11 @@
  */
 global class Event {
 
+  global Event() {}
+
   global String action;
 
-  global Map data;
+  global Map<String,String> data;
 
   global String entityId;
 
@@ -18,5 +20,7 @@ global class Event {
   global Datetime timeStamp;
 
   global String userId;
+
+  global Object clone() {}
 
 }

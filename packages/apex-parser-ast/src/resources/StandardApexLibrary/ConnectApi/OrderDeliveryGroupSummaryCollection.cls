@@ -3,6 +3,8 @@
  */
 global class OrderDeliveryGroupSummaryCollection {
 
+  global OrderDeliveryGroupSummaryCollection() {}
+
   /**
    * Token identifying the current page of order delivery group summaries.
    */
@@ -37,5 +39,7 @@ global class OrderDeliveryGroupSummaryCollection {
    * URL to the previous page of order delivery group summaries.
    */
   global String previousPageUrl;
+
+  global Object clone() {}
 
 }

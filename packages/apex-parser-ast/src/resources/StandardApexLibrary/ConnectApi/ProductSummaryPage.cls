@@ -3,6 +3,8 @@
  */
 global class ProductSummaryPage {
 
+  global ProductSummaryPage() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -22,5 +24,23 @@ global class ProductSummaryPage {
    * Total number of products in the search results.
    */
   global Long total;
+
+  global Object clone() {}
+
+  global String getCurrencyIsoCode() {}
+
+  global Integer getPageSize() {}
+
+  global List<ConnectApi.ProductSummary> getProducts() {}
+
+  global Long getTotal() {}
+
+  global void setCurrencyIsoCode(String value) {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setProducts(List<ConnectApi.ProductSummary> value) {}
+
+  global void setTotal(Long value) {}
 
 }

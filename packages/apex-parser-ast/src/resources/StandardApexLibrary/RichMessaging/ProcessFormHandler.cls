@@ -3,4 +3,6 @@
  */
 global interface ProcessFormHandler {
 
+  Id processFormRequest(RichMessaging.ProcessFormResponse arg0);
+
 }

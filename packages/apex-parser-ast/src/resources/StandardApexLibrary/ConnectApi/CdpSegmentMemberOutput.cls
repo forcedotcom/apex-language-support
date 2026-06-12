@@ -3,6 +3,8 @@
  */
 global class CdpSegmentMemberOutput {
 
+  global CdpSegmentMemberOutput() {}
+
   /**
    * Result data set.
    */
@@ -52,5 +54,7 @@ global class CdpSegmentMemberOutput {
    * Total count of records.
    */
   global Integer totalCount;
+
+  global Object clone() {}
 
 }

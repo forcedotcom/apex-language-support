@@ -3,6 +3,8 @@
  */
 global class File extends ConnectApi.ActorWithId {
 
+  global File() {}
+
   /**
    * MD5 checksum for the file.
    */
@@ -172,5 +174,7 @@ global class File extends ConnectApi.ActorWithId {
    * File’s version number.
    */
   global String versionNumber;
+
+  global Object clone() {}
 
 }

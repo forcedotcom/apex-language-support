@@ -3,6 +3,8 @@
  */
 global class CanvasTemplateAttachment extends ConnectApi.FeedItemAttachment {
 
+  global CanvasTemplateAttachment() {}
+
   /**
    * Optional. Description of the canvas app. The maximum length of this field is 500 characters.
    */
@@ -42,5 +44,7 @@ global class CanvasTemplateAttachment extends ConnectApi.FeedItemAttachment {
    * Specifies the title of the link used to call the canvas app.
    */
   global String title;
+
+  global Object clone() {}
 
 }

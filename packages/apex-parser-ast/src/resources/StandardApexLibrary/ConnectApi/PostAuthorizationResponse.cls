@@ -3,6 +3,8 @@
  */
 global class PostAuthorizationResponse {
 
+  global PostAuthorizationResponse() {}
+
   /**
    * Information about errors that occurred in the payment gateway while evaluating the post authorization request.
    */
@@ -37,5 +39,7 @@ global class PostAuthorizationResponse {
    * Saved payment method status. Valid values are: AlreadyExists Created Updated
    */
   global ConnectApi.PostAuthSPMStatus savedPaymentMethodStatus;
+
+  global Object clone() {}
 
 }

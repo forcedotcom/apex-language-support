@@ -3,6 +3,8 @@
  */
 global class PollCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
+  global PollCapabilityInput() {}
+
   /**
    * The choices used to create a new poll. You must specify 2–10 poll choices for each poll.
    */
@@ -12,5 +14,7 @@ global class PollCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
    * ID of an existing choice on the feed poll. Used to vote on an existing poll.
    */
   global String myChoiceId;
+
+  global Object clone() {}
 
 }

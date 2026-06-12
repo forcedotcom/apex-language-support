@@ -3,6 +3,8 @@
  */
 global class EinsteinLLMGenerationItemOutput {
 
+  global EinsteinLLMGenerationItemOutput() {}
+
   /**
    * Specifies whether the generated response contains toxic language (true) or not (false) .
    */
@@ -24,8 +26,15 @@ global class EinsteinLLMGenerationItemOutput {
   global ConnectApi.EinsteinLlmGenerationSafetyScoreOutput safetyScoreRepresentation;
 
   /**
+   * Structured response representation of the generated response.
+   */
+  global String structuredResponse;
+
+  /**
    * Text of generated response.
    */
   global String text;
+
+  global Object clone() {}
 
 }

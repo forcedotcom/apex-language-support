@@ -3,10 +3,14 @@
  */
 global class TaxEngineContext {
 
+  global TaxEngineContext() {}
+
   global String getNamedUri() {}
 
   global commercetax.TaxEngineRequest getRequest() {}
 
   global commercetax.RequestType getRequestType() {}
+
+  global Object clone() {}
 
 }

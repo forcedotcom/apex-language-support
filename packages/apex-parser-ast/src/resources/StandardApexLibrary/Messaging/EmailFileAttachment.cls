@@ -3,6 +3,8 @@
  */
 global class EmailFileAttachment {
 
+  global EmailFileAttachment() {}
+
   global Blob body;
 
   global String contenttype;
@@ -12,5 +14,25 @@ global class EmailFileAttachment {
   global Id id;
 
   global Boolean inline;
+
+  global Blob getBody() {}
+
+  global String getContentType() {}
+
+  global String getFileName() {}
+
+  global Id getId() {}
+
+  global Boolean getInline() {}
+
+  global void setBody(Blob arg0) {}
+
+  global void setContentType(String arg0) {}
+
+  global void setFileName(String arg0) {}
+
+  global void setInline(Boolean arg0) {}
+
+  global Object clone() {}
 
 }

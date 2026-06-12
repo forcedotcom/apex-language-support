@@ -3,8 +3,12 @@
  */
 global class Result {
 
-  public Object getValue() {}
+  global Result() {}
 
-  public String getValueAsString() {}
+  global Object getValue() {}
+
+  global String getValueAsString() {}
+
+  global Object clone() {}
 
 }

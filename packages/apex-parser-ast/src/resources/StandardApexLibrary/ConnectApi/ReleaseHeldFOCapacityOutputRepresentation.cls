@@ -3,9 +3,13 @@
  */
 global class ReleaseHeldFOCapacityOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
+  global ReleaseHeldFOCapacityOutputRepresentation() {}
+
   /**
    * List of responses to the requests to confirm held fulfillment order capacity at one or more locations.
    */
   global List < ConnectApi.ReleaseHeldFOCapacityResponseOutputRepresentation > releaseHeldFOCapacityResponses;
+
+  global Object clone() {}
 
 }

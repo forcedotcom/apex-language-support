@@ -3,6 +3,8 @@
  */
 global class EnsureFundsAsyncInputRepresentation {
 
+  global EnsureFundsAsyncInputRepresentation() {}
+
   /**
    * ID of the Invoice.
    */
@@ -22,5 +24,7 @@ global class EnsureFundsAsyncInputRepresentation {
    * The payment sequence in which the funds are captured for the invoice.
    */
   global String sequences;
+
+  global Object clone() {}
 
 }

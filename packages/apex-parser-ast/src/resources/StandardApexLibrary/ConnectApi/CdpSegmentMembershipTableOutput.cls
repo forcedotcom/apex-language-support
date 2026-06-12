@@ -3,6 +3,8 @@
  */
 global class CdpSegmentMembershipTableOutput {
 
+  global CdpSegmentMembershipTableOutput() {}
+
   /**
    * Segment membership history table.
    */
@@ -17,5 +19,7 @@ global class CdpSegmentMembershipTableOutput {
    * Segment membership profile table.
    */
   global String profileTable;
+
+  global Object clone() {}
 
 }

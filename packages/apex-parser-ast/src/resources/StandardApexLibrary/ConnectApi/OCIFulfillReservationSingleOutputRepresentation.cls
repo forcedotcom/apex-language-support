@@ -3,6 +3,8 @@
  */
 global class OCIFulfillReservationSingleOutputRepresentation {
 
+  global OCIFulfillReservationSingleOutputRepresentation() {}
+
   /**
    * The UUID that identifies the original fulfill reservation request.
    */
@@ -27,5 +29,7 @@ global class OCIFulfillReservationSingleOutputRepresentation {
    * The SKU of the fulfilled product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

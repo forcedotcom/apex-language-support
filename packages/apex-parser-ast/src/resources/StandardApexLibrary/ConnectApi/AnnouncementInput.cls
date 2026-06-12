@@ -3,6 +3,8 @@
  */
 global class AnnouncementInput {
 
+  global AnnouncementInput() {}
+
   /**
    * Text of the announcement.
    */
@@ -32,5 +34,7 @@ global class AnnouncementInput {
    * Specifies whether the announcement is sent as an email to all group members regardless of their email setting for the group. If Chatter emails aren’t enabled for the organization, announcement emails aren’t sent. Default value is false .
    */
   global Boolean sendEmails;
+
+  global Object clone() {}
 
 }

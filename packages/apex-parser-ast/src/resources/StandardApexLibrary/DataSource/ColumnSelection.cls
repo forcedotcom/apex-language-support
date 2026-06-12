@@ -3,10 +3,14 @@
  */
 global class ColumnSelection {
 
+  global ColumnSelection() {}
+
   global DataSource.QueryAggregation aggregation;
 
   global String columnName;
 
   global String tableName;
+
+  global Object clone() {}
 
 }

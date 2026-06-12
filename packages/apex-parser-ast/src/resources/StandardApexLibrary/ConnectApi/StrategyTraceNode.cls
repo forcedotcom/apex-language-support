@@ -3,6 +3,8 @@
  */
 global class StrategyTraceNode {
 
+  global StrategyTraceNode() {}
+
   /**
    * Number of items put into the node.
    */
@@ -42,5 +44,7 @@ global class StrategyTraceNode {
    * Total time spent processing.
    */
   global Long totalTime;
+
+  global Object clone() {}
 
 }

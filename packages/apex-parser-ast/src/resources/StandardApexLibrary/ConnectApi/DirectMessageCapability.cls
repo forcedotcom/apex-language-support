@@ -3,6 +3,8 @@
  */
 global class DirectMessageCapability {
 
+  global DirectMessageCapability() {}
+
   /**
    * Member activities of the direct message, with the most recent activity first.
    */
@@ -22,5 +24,7 @@ global class DirectMessageCapability {
    * Subject of the direct message.
    */
   global String subject;
+
+  global Object clone() {}
 
 }

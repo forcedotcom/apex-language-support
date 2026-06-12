@@ -1,5 +1,7 @@
 global class Message {
 
+  global Message() {}
+
   global String getBotId() {}
 
   global String getBotLink() {}
@@ -309,5 +311,17 @@ global class Message {
   global void setMrkdwn(Boolean mrkdwn) {}
 
   global void setUnreadCount(Integer unreadCount) {}
+
+  global Object clone() {}
+
+  global String getAppId() {}
+
+  global Slack.Message.Metadata getMetadata() {}
+
+  global Boolean isLocked() {}
+
+  global void setAppId(String appId) {}
+
+  global void setMetadata(Slack.Message.Metadata metadata) {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class Zone {
 
+  global Zone() {}
+
   /**
    * The description of the zone.
    */
@@ -42,5 +44,7 @@ global class Zone {
    * If the zone is available in a site, this property contains the ID of the site. If the zone is available to all sites, this property contains the value All .
    */
   global String visibilityId;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class InsightValuesOutputRepresentation {
 
+  global InsightValuesOutputRepresentation() {}
+
   /**
    * Salesforce record ID of the record that the insight is based on.
    */
@@ -22,5 +24,7 @@ global class InsightValuesOutputRepresentation {
    * Value of the insight for the current timeframe based on the key performance indicator.
    */
   global Double value;
+
+  global Object clone() {}
 
 }

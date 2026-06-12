@@ -3,6 +3,8 @@
  */
 global class Activation {
 
+  global Activation() {}
+
   /**
    * ID of the activation definition.
    */
@@ -192,5 +194,7 @@ global class Activation {
    * Status of the activation. Active Processing Error Inactive
    */
   global ConnectApi.ActivationStatusEnum status;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class Conversation {
 
+  global Conversation() {}
+
   global List<String> getConnectedLimitedTeamIds() {}
 
   global List<String> getConnectedTeamIds() {}
@@ -439,5 +441,15 @@ global class Conversation {
   global Slack.ConversationsUnarchiveRequest build() {}
 
   global Slack.ConversationsUnarchiveRequest.Builder channel(String channel) {}
+
+  global Object clone() {}
+
+  global String getContextTeamId() {}
+
+  global Long getUpdated() {}
+
+  global void setContextTeamId(String contextTeamId) {}
+
+  global void setUpdated(Long updated) {}
 
 }

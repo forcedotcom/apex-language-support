@@ -3,6 +3,8 @@
  */
 global class ObjectQueryInfo {
 
+  global ObjectQueryInfo() {}
+
   /**
    * Fields to display from the response.
    */
@@ -42,5 +44,7 @@ global class ObjectQueryInfo {
    * Status on the object search such as error messages and warnings.
    */
   global ConnectApi.SearchStatus status;
+
+  global Object clone() {}
 
 }

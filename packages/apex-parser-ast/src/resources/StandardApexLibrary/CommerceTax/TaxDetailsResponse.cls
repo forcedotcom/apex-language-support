@@ -3,6 +3,8 @@
  */
 global class TaxDetailsResponse {
 
+  global TaxDetailsResponse() {}
+
   global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) {}
 
   global void setExemptAmount(Double exemptAmount) {}
@@ -28,5 +30,9 @@ global class TaxDetailsResponse {
   global void setTaxRuleDetails(commercetax.RuleDetailsResponse taxRuleDetails) {}
 
   global void setTaxableAmount(Double taxableAmount) {}
+
+  global Object clone() {}
+
+  global java:commerce.tax.impl.engine.integration.response.TaxDetailsEngineResponse getDelegate() {}
 
 }

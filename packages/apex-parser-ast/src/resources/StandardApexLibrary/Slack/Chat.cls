@@ -1,5 +1,7 @@
 global class Chat {
 
+  global Chat() {}
+
   global static Slack.ChatDeleteRequest.Builder builder() {}
 
   global String getChannel() {}
@@ -229,5 +231,7 @@ global class Chat {
   global Slack.ChatUpdateRequest.Builder viewReference(Slack.ViewReference viewReference) {}
 
   global string getText() {}
+
+  global Object clone() {}
 
 }

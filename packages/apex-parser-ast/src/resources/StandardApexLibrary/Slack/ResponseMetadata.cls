@@ -1,5 +1,7 @@
 global class ResponseMetadata {
 
+  global ResponseMetadata() {}
+
   global List<String> getMessages() {}
 
   global String getNextCursor() {}
@@ -15,5 +17,7 @@ global class ResponseMetadata {
   global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global void setWarnings(List<String> warnings) {}
+
+  global Object clone() {}
 
 }

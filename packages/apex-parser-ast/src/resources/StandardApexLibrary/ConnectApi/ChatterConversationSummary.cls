@@ -3,6 +3,8 @@
  */
 global class ChatterConversationSummary {
 
+  global ChatterConversationSummary() {}
+
   /**
    * ID for the conversation summary.
    */
@@ -27,5 +29,7 @@ global class ChatterConversationSummary {
    * Connect REST API URL to the conversation summary.
    */
   global String url;
+
+  global Object clone() {}
 
 }

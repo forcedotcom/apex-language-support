@@ -3,6 +3,8 @@
  */
 global class AbstractDirectoryEntrySummary {
 
+  global AbstractDirectoryEntrySummary() {}
+
   /**
    * Domain of the directory entry.
    */
@@ -22,5 +24,7 @@ global class AbstractDirectoryEntrySummary {
    * Type of directory entry. Values are: GroupEntry UserEntry
    */
   global ConnectApi.ContentHubDirectoryEntryType type;
+
+  global Object clone() {}
 
 }

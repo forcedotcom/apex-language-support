@@ -3,6 +3,8 @@
  */
 global class AlternativePaymentMethod extends ConnectApi.BasePaymentMethodRequest {
 
+  global AlternativePaymentMethod() {}
+
   /**
    * Salesforce Payments account to which this payment method is linked.
    */
@@ -32,5 +34,7 @@ global class AlternativePaymentMethod extends ConnectApi.BasePaymentMethodReques
    * Name that you assign to the payment method object.
    */
   global String name;
+
+  global Object clone() {}
 
 }

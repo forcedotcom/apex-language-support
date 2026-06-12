@@ -3,6 +3,8 @@
  */
 global class ReturnOrderLineItemInputRepresentation {
 
+  global ReturnOrderLineItemInputRepresentation() {}
+
   /**
    * Whether to refund any associated shipping charge.
    */
@@ -32,5 +34,7 @@ global class ReturnOrderLineItemInputRepresentation {
    * List of input data for return fees associated with the order item being returned. A ReturnOrderLineItem of Type Fee is created to represent each fee.
    */
   global List < ConnectApi.ReturnOrderLineItemFeeInputRepresentation > returnOrderLineItemFees;
+
+  global Object clone() {}
 
 }

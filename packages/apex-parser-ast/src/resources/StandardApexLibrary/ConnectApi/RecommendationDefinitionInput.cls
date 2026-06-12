@@ -3,6 +3,8 @@
  */
 global class RecommendationDefinitionInput {
 
+  global RecommendationDefinitionInput() {}
+
   /**
    * URL for acting on the custom recommendation, for example, the URL to join a group.
    */
@@ -27,5 +29,7 @@ global class RecommendationDefinitionInput {
    * Title of the custom recommendation definition.
    */
   global String title;
+
+  global Object clone() {}
 
 }

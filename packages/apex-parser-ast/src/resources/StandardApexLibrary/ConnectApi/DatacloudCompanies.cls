@@ -3,6 +3,8 @@
  */
 global class DatacloudCompanies {
 
+  global DatacloudCompanies() {}
+
   /**
    * A detailed list of companies that were part of a single order.
    */
@@ -27,5 +29,7 @@ global class DatacloudCompanies {
    * The number of companies in the order. You can calculate the number of pages to display by dividing this number by your page size. The default page size is 25.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

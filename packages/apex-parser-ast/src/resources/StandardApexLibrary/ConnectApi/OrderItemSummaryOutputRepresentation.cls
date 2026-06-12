@@ -3,6 +3,8 @@
  */
 global class OrderItemSummaryOutputRepresentation {
 
+  global OrderItemSummaryOutputRepresentation() {}
+
   /**
    * List of errors specific to the OrderItemSummary, if any.
    */
@@ -17,5 +19,7 @@ global class OrderItemSummaryOutputRepresentation {
    * Quantity of the OrderItemSummary.
    */
   global Double quantity;
+
+  global Object clone() {}
 
 }

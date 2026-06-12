@@ -3,6 +3,8 @@
  */
 global class CapacityResponseOutputRepresentation {
 
+  global CapacityResponseOutputRepresentation() {}
+
   /**
    * Unique string that identifies the original capacity request.
    */
@@ -17,5 +19,7 @@ global class CapacityResponseOutputRepresentation {
    * Indicates whether the request was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

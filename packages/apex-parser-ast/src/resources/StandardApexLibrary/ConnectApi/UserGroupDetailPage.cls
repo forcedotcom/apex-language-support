@@ -3,6 +3,8 @@
  */
 global class UserGroupDetailPage {
 
+  global UserGroupDetailPage() {}
+
   /**
    * URL to the current page.
    */
@@ -27,5 +29,7 @@ global class UserGroupDetailPage {
    * Total number of groups that the user is a member of.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

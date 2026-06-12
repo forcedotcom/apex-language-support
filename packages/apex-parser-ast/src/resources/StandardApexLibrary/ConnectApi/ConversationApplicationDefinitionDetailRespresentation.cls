@@ -3,6 +3,8 @@
  */
 global class ConversationApplicationDefinitionDetailRespresentation {
 
+  global ConversationApplicationDefinitionDetailRespresentation() {}
+
   /**
    * Basic information of the bot associated with this conversation application.
    */
@@ -32,5 +34,7 @@ global class ConversationApplicationDefinitionDetailRespresentation {
    * Base URL of the bot runtime API.
    */
   global String runtimeUrl;
+
+  global Object clone() {}
 
 }

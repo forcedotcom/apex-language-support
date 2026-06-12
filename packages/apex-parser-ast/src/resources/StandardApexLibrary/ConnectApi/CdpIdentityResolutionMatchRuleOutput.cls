@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionMatchRuleOutput {
 
+  global CdpIdentityResolutionMatchRuleOutput() {}
+
   /**
    * Object and field the match rule applies to and the match method applied.
    */
@@ -12,5 +14,7 @@ global class CdpIdentityResolutionMatchRuleOutput {
    * User friendly name for the identity resolution match rule.
    */
   global String label;
+
+  global Object clone() {}
 
 }

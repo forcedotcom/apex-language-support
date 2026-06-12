@@ -3,6 +3,8 @@
  */
 global class TimeZone {
 
+  global TimeZone() {}
+
   /**
    * Signed offset, in hours, from GMT.
    */
@@ -12,5 +14,7 @@ global class TimeZone {
    * Display name of this time zone.
    */
   global String name;
+
+  global Object clone() {}
 
 }

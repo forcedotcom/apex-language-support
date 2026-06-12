@@ -3,214 +3,218 @@
  */
 global class JSONGenerator {
 
+  global JSONGenerator() {}
+
   /**
    * Closes the JSON generator.
    */
-  public void close() {}
+  global void close() {}
 
   /**
    * Returns the generated JSON content.
    * @return String
    */
-  public String getAsString() {}
+  global String getAsString() {}
 
   /**
    * Returns true if the JSON generator is closed; otherwise, returns false .
    * @return Boolean
    */
-  public Boolean isClosed() {}
+  global Boolean isClosed() {}
 
   /**
    * Writes the specified Blob value as a base64-encoded string.
    * @param blobValue 
    */
-  public void writeBlob(Blob blobValue) {}
+  global void writeBlob(Blob blobValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and BLOB value.
    * @param fieldName 
    * @param blobValue 
    */
-  public void writeBlobField(String fieldName, Blob blobValue) {}
+  global void writeBlobField(String fieldName, Blob blobValue) {}
 
   /**
    * Writes the specified Boolean value.
    * @param blobValue 
    */
-  public void writeBoolean(Boolean blobValue) {}
+  global void writeBoolean(Boolean blobValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and Boolean value.
    * @param fieldName 
    * @param booleanValue 
    */
-  public void writeBooleanField(String fieldName, Boolean booleanValue) {}
+  global void writeBooleanField(String fieldName, Boolean booleanValue) {}
 
   /**
    * Writes the specified date value in the ISO-8601 format.
    * @param dateValue 
    */
-  public void writeDate(Date dateValue) {}
+  global void writeDate(Date dateValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and date value. The date value is written in the ISO-8601 format.
    * @param fieldName 
    * @param dateValue 
    */
-  public void writeDateField(String fieldName, Date dateValue) {}
+  global void writeDateField(String fieldName, Date dateValue) {}
 
   /**
    * Writes the specified date and time value in the ISO-8601 format.
    * @param datetimeValue 
    */
-  public void writeDateTime(Datetime datetimeValue) {}
+  global void writeDateTime(Datetime datetimeValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and date and time value. The date and time value is written in the ISO-8601 format.
    * @param fieldName 
    * @param datetimeValue 
    */
-  public void writeDateTimeField(String fieldName, Datetime datetimeValue) {}
+  global void writeDateTimeField(String fieldName, Datetime datetimeValue) {}
 
   /**
    * Writes the ending marker of a JSON array (']').
    */
-  public void writeEndArray() {}
+  global void writeEndArray() {}
 
   /**
    * Writes the ending marker of a JSON object ('}').
    */
-  public void writeEndObject() {}
+  global void writeEndObject() {}
 
   /**
    * Writes a field name.
    * @param fieldName 
    */
-  public void writeFieldName(String fieldName) {}
+  global void writeFieldName(String fieldName) {}
 
   /**
    * Writes the specified ID value.
    * @param identifier 
    */
-  public void writeId(ID identifier) {}
+  global void writeId(ID identifier) {}
 
   /**
    * Writes a field name and value pair using the specified field name and identifier value.
    * @param fieldName 
    * @param identifier 
    */
-  public void writeIdField(String fieldName, Id identifier) {}
+  global void writeIdField(String fieldName, Id identifier) {}
 
   /**
    * Writes the JSON null literal value.
    */
-  public void writeNull() {}
+  global void writeNull() {}
 
   /**
    * Writes a field name and value pair using the specified field name and the JSON null literal value.
    * @param fieldName 
    */
-  public void writeNullField(String fieldName) {}
+  global void writeNullField(String fieldName) {}
 
   /**
    * Writes the specified decimal value.
    * @param number 
    */
-  public void writeNumber(Decimal number) {}
+  global void writeNumber(Decimal number) {}
 
   /**
    * Writes the specified decimal value.
    * @param number 
    */
-  public void writeNumber(Double number) {}
+  global void writeNumber(Double number) {}
 
   /**
    * Writes the specified decimal value.
    * @param number 
    */
-  public void writeNumber(Integer number) {}
+  global void writeNumber(Integer number) {}
 
   /**
    * Writes the specified decimal value.
    * @param number 
    */
-  public void writeNumber(Long number) {}
+  global void writeNumber(Long number) {}
 
   /**
    * Writes a field name and value pair using the specified field name and decimal value.
    * @param fieldName 
    * @param number 
    */
-  public void writeNumberField(String fieldName, Decimal number) {}
+  global void writeNumberField(String fieldName, Decimal number) {}
 
   /**
    * Writes a field name and value pair using the specified field name and decimal value.
    * @param fieldName 
    * @param number 
    */
-  public void writeNumberField(String fieldName, Double number) {}
+  global void writeNumberField(String fieldName, Double number) {}
 
   /**
    * Writes a field name and value pair using the specified field name and decimal value.
    * @param fieldName 
    * @param number 
    */
-  public void writeNumberField(String fieldName, Integer number) {}
+  global void writeNumberField(String fieldName, Integer number) {}
 
   /**
    * Writes a field name and value pair using the specified field name and decimal value.
    * @param fieldName 
    * @param number 
    */
-  public void writeNumberField(String fieldName, Long number) {}
+  global void writeNumberField(String fieldName, Long number) {}
 
   /**
    * Writes the specified Apex object in JSON format.
    * @param anyObject 
    */
-  public void writeObject(Object anyObject) {}
+  global void writeObject(Object anyObject) {}
 
   /**
    * Writes a field name and value pair using the specified field name and Apex object.
    * @param fieldName 
    * @param value 
    */
-  public void writeObjectField(String fieldName, Object value) {}
+  global void writeObjectField(String fieldName, Object value) {}
 
   /**
    * Writes the starting marker of a JSON array ('[').
    */
-  public void writeStartArray() {}
+  global void writeStartArray() {}
 
   /**
    * Writes the starting marker of a JSON object ('{').
    */
-  public void writeStartObject() {}
+  global void writeStartObject() {}
 
   /**
    * Writes the specified string value.
    * @param stringValue 
    */
-  public void writeString(String stringValue) {}
+  global void writeString(String stringValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and string value.
    * @param fieldName 
    * @param stringValue 
    */
-  public void writeStringField(String fieldName, String stringValue) {}
+  global void writeStringField(String fieldName, String stringValue) {}
 
   /**
    * Writes the specified time value in the ISO-8601 format.
    * @param timeValue 
    */
-  public void writeTime(Time timeValue) {}
+  global void writeTime(Time timeValue) {}
 
   /**
    * Writes a field name and value pair using the specified field name and time value in the ISO-8601 format.
    * @param fieldName 
    * @param timeValue 
    */
-  public void writeTimeField(String fieldName, Time timeValue) {}
+  global void writeTimeField(String fieldName, Time timeValue) {}
+
+  global Object clone() {}
 
 }

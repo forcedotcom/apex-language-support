@@ -3,4 +3,14 @@
  */
 global class BinaryInput {
 
+  global BinaryInput() {}
+
+  global Object clone() {}
+
+  global Blob getBlobValue() {}
+
+  global String getContentType() {}
+
+  global String getFilename() {}
+
 }

@@ -5,6 +5,18 @@ global class AddressRequest {
 
   global AddressRequest(String street, String city, String state, String country, String postalCode) {}
 
+  global String city;
+
+  global String companyName;
+
+  global String country;
+
+  global String postalCode;
+
+  global String state;
+
+  global String street;
+
   /**
    * Maintains the integrity of lists of type AddressRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj External object whose key is to be validated.
@@ -23,5 +35,7 @@ global class AddressRequest {
    * @return String
    */
   global String toString() {}
+
+  global Object clone() {}
 
 }

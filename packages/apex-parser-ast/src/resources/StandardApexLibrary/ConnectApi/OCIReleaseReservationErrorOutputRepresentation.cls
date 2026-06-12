@@ -3,6 +3,8 @@
  */
 global class OCIReleaseReservationErrorOutputRepresentation {
 
+  global OCIReleaseReservationErrorOutputRepresentation() {}
+
   /**
    * Details of the released reservation, if successful.
    */
@@ -17,5 +19,7 @@ global class OCIReleaseReservationErrorOutputRepresentation {
    * Details of the error, if available.
    */
   global String message;
+
+  global Object clone() {}
 
 }

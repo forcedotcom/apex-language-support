@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmGenerationGenAiCitedReference {
 
+  global EinsteinLlmGenerationGenAiCitedReference() {}
+
   /**
    * URL for the source that is cited in a generated response.
    */
@@ -17,5 +19,7 @@ global class EinsteinLlmGenerationGenAiCitedReference {
    * ID of the source record that is cited in a generated response.
    */
   global String sourceObjectRecordId;
+
+  global Object clone() {}
 
 }

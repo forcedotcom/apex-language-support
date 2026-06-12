@@ -3,6 +3,8 @@
  */
 global class PromotionCartItemKey {
 
+  global PromotionCartItemKey() {}
+
   /**
    * ID of the cart item.
    */
@@ -12,5 +14,7 @@ global class PromotionCartItemKey {
    * Quantity ID of the cart item.
    */
   global String cartItemQuantityIdentifier;
+
+  global Object clone() {}
 
 }

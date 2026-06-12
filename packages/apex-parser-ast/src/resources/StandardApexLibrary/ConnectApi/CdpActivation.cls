@@ -3,16 +3,20 @@
  */
 global class CdpActivation {
 
-  public static ConnectApi.ActivationCollection getActivations() {}
+  global CdpActivation() {}
 
-  public static ConnectApi.ActivationCollection getActivationsPaginated(Integer batchSize, Integer offset, String orderBy, String filters) {}
+  global static ConnectApi.ActivationCollection getActivations() {}
 
-  public static ConnectApi.Activation createActivation(ConnectApi.ActivationDefinitionInput input) {}
+  global static ConnectApi.ActivationCollection getActivationsPaginated(Integer batchSize, Integer offset, String orderBy, String filters) {}
 
-  public static void deleteActivation(String activationId) {}
+  global static ConnectApi.Activation createActivation(ConnectApi.ActivationDefinitionInput input) {}
 
-  public static ConnectApi.Activation getActivation(String activationId) {}
+  global static void deleteActivation(String activationId) {}
 
-  public static ConnectApi.Activation updateActivation(String activationId, ConnectApi.ActivationDefinitionInput input) {}
+  global static ConnectApi.Activation getActivation(String activationId) {}
+
+  global static ConnectApi.Activation updateActivation(String activationId, ConnectApi.ActivationDefinitionInput input) {}
+
+  global Object clone() {}
 
 }

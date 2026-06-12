@@ -3,13 +3,15 @@
  */
 global class ReferencedRefundNotification {
 
+  global ReferencedRefundNotification() {}
+
   /**
    * Sets the transaction amount. Can be positive, negative, or zero.
    * @param amount The amount to be debited or captured.
    */
   global void setAmount(Double amount) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
   /**
    * Sets the date that communication for the refund notification occurred with the payment gateway.
@@ -64,5 +66,11 @@ global class ReferencedRefundNotification {
    * @param status Indicates whether the payments platform successfully received the notification from the payment gateway.
    */
   global void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

@@ -3,4 +3,8 @@
  */
 global class ApprovalPostTemplateField {
 
+  global ApprovalPostTemplateField() {}
+
+  global Object clone() {}
+
 }

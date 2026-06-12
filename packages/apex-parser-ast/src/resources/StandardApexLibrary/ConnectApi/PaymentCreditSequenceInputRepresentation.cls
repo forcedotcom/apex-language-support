@@ -3,6 +3,8 @@
  */
 global class PaymentCreditSequenceInputRepresentation {
 
+  global PaymentCreditSequenceInputRepresentation() {}
+
   /**
    * The amount of the payment credit.
    */
@@ -17,5 +19,7 @@ global class PaymentCreditSequenceInputRepresentation {
    * An ordered list of payment summaries that determines what payment methods the amount is credited to and in what order.
    */
   global String orderPaymentSummaryId;
+
+  global Object clone() {}
 
 }

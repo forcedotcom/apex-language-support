@@ -3,6 +3,8 @@
  */
 global class ManagedContentChannelUpdateRepresentation {
 
+  global ManagedContentChannelUpdateRepresentation() {}
+
   /**
    * Cache control max age value in seconds.
    */
@@ -42,5 +44,7 @@ global class ManagedContentChannelUpdateRepresentation {
    * ID of the target associated with the managed content channel.
    */
   global String targetId;
+
+  global Object clone() {}
 
 }

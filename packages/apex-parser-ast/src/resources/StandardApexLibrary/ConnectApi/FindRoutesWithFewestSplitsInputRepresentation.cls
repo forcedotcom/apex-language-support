@@ -3,6 +3,8 @@
  */
 global class FindRoutesWithFewestSplitsInputRepresentation {
 
+  global FindRoutesWithFewestSplitsInputRepresentation() {}
+
   /**
    * Each list element represents the available quantity of a product at an inventory location.
    */
@@ -17,5 +19,7 @@ global class FindRoutesWithFewestSplitsInputRepresentation {
    * Each list element represents a quantity of a product to be routed for fulfillment.
    */
   global List < ConnectApi.QuantityWithSkuInputRepresentation > orderedQuantities;
+
+  global Object clone() {}
 
 }

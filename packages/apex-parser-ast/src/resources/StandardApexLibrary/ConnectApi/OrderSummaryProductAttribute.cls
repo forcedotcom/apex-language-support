@@ -3,6 +3,8 @@
  */
 global class OrderSummaryProductAttribute {
 
+  global OrderSummaryProductAttribute() {}
+
   /**
    * Label or display name of the attribute.
    */
@@ -17,5 +19,7 @@ global class OrderSummaryProductAttribute {
    * Display value of the attribute.
    */
   global String value;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class OrderQuantitiesOutputRepresentation {
 
+  global OrderQuantitiesOutputRepresentation() {}
+
   /**
    * String representation of the grouping of SKUs.
    */
@@ -12,5 +14,7 @@ global class OrderQuantitiesOutputRepresentation {
    * List of items and quantities.
    */
   global List < >ConnectApi.ItemQuantityOutputRepresentation > itemQuantities;
+
+  global Object clone() {}
 
 }

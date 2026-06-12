@@ -3,6 +3,8 @@
  */
 global class LocationAvailabilityInputRepresentation {
 
+  global LocationAvailabilityInputRepresentation() {}
+
   /**
    * The external reference ID of the inventory location.
    */
@@ -17,5 +19,7 @@ global class LocationAvailabilityInputRepresentation {
    * The Stock Keeping Unit of the product.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

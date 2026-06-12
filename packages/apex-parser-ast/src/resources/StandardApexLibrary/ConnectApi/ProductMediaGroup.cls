@@ -3,6 +3,8 @@
  */
 global class ProductMediaGroup {
 
+  global ProductMediaGroup() {}
+
   /**
    * API name of the product media group.
    */
@@ -27,5 +29,7 @@ global class ProductMediaGroup {
    * Usage type of a product media item within a media group. Values are: Attachment —Product media group with product documents as attachments. Banner —Product category media group with banner images of the product. Listing —Product media group with listing images of the product. Standard —Product media group with standard images and videos of the product. Tile —Product category media group with tile images of the product.
    */
   global ConnectApi.ProductMediaUsageType usageType;
+
+  global Object clone() {}
 
 }

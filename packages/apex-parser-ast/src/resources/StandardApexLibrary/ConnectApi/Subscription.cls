@@ -3,6 +3,8 @@
  */
 global class Subscription {
 
+  global Subscription() {}
+
   /**
    * Information about the Experience Cloud site in which the subscription exists.
    */
@@ -27,5 +29,7 @@ global class Subscription {
    * Connect REST API URL to this specific subscription.
    */
   global String url;
+
+  global Object clone() {}
 
 }

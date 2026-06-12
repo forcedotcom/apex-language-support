@@ -3,6 +3,8 @@
  */
 global class ManagedContentDocumentCloneInput {
 
+  global ManagedContentDocumentCloneInput() {}
+
   /**
    * API name of the cloned content.
    */
@@ -22,5 +24,7 @@ global class ManagedContentDocumentCloneInput {
    * Title of the cloned content. If unspecified, “clone of” is appended to the source content’s title.
    */
   global String title;
+
+  global Object clone() {}
 
 }

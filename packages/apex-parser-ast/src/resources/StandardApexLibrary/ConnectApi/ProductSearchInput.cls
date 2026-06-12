@@ -3,6 +3,8 @@
  */
 global class ProductSearchInput {
 
+  global ProductSearchInput() {}
+
   /**
    * Category ID returns results for products in this category or its subcategories. If you omit categoryId from the request, all categories are searched. If you specify categoryId and searchTerm , only products in the specified category are searched.
    */
@@ -52,5 +54,47 @@ global class ProductSearchInput {
    * ID of the sort rule that specifies the order of products in the search results.
    */
   global String sortRuleId;
+
+  global Object clone() {}
+
+  global String getCategoryId() {}
+
+  global List<String> getFields() {}
+
+  global ConnectApi.ProductSearchGroupingInput getGrouping() {}
+
+  global Boolean getIncludePrices() {}
+
+  global Boolean getIncludeQuantityRule() {}
+
+  global Integer getPage() {}
+
+  global Integer getPageSize() {}
+
+  global List<ConnectApi.RefinementInput> getRefinements() {}
+
+  global String getSearchTerm() {}
+
+  global String getSortRuleId() {}
+
+  global void setCategoryId(String value) {}
+
+  global void setFields(List<String> value) {}
+
+  global void setGrouping(ConnectApi.ProductSearchGroupingInput value) {}
+
+  global void setIncludePrices(Boolean value) {}
+
+  global void setIncludeQuantityRule(Boolean value) {}
+
+  global void setPage(Integer value) {}
+
+  global void setPageSize(Integer value) {}
+
+  global void setRefinements(List<ConnectApi.RefinementInput> value) {}
+
+  global void setSearchTerm(String value) {}
+
+  global void setSortRuleId(String value) {}
 
 }

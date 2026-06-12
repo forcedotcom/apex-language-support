@@ -3,6 +3,8 @@
  */
 global class ChangeItemOutputRepresentation {
 
+  global ChangeItemOutputRepresentation() {}
+
   /**
    * Change to the GrandTotalAmount field.
    */
@@ -87,5 +89,7 @@ global class ChangeItemOutputRepresentation {
    * Change to the TotalTaxAmount field.
    */
   global Double totalTaxAmount;
+
+  global Object clone() {}
 
 }

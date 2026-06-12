@@ -3,6 +3,8 @@
  */
 global class ProductOverview {
 
+  global ProductOverview() {}
+
   /**
    * Media representation of the product's default image.
    */
@@ -37,5 +39,7 @@ global class ProductOverview {
    * Represents whether execution was successful and product overview information was retrieved without error.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

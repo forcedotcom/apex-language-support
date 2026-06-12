@@ -3,6 +3,8 @@
  */
 global class OrderDeliveryMethodLookupOutput {
 
+  global OrderDeliveryMethodLookupOutput() {}
+
   /**
    * Map of requested order delivery method fields.
    */
@@ -12,5 +14,7 @@ global class OrderDeliveryMethodLookupOutput {
    * ID of the order delivery method.
    */
   global String id;
+
+  global Object clone() {}
 
 }

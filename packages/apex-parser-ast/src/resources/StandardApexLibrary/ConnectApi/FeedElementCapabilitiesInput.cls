@@ -3,6 +3,8 @@
  */
 global class FeedElementCapabilitiesInput {
 
+  global FeedElementCapabilitiesInput() {}
+
   /**
    * Describes actions added to the feed element.
    */
@@ -67,5 +69,7 @@ global class FeedElementCapabilitiesInput {
    * Describes topics assigned to the feed element.
    */
   global ConnectApi.TopicsCapabilityInput topics;
+
+  global Object clone() {}
 
 }

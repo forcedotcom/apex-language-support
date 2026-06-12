@@ -3,6 +3,8 @@
  */
 global class TopicEndorsementCollection {
 
+  global TopicEndorsementCollection() {}
+
   /**
    * Connect REST API URL identifying the current page.
    */
@@ -22,5 +24,7 @@ global class TopicEndorsementCollection {
    * List of topic endorsements.
    */
   global List < ConnectApi.Topic > topicEndorsements;
+
+  global Object clone() {}
 
 }

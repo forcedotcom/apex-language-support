@@ -3,6 +3,8 @@
  */
 global class TaxAddressesResponse {
 
+  global TaxAddressesResponse() {}
+
   /**
    * The Ship From address used in tax calculation.
    */
@@ -17,5 +19,7 @@ global class TaxAddressesResponse {
    * The Sold To address used in tax calculation.
    */
   global ConnectApi.TaxAddressResponse soldTo;
+
+  global Object clone() {}
 
 }

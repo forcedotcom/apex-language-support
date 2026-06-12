@@ -3,6 +3,8 @@
  */
 global class PaymentMethodTokenizationRequest extends ConnectApi.BaseRequest {
 
+  global PaymentMethodTokenizationRequest() {}
+
   /**
    * Address of the payment method.
    */
@@ -27,5 +29,7 @@ global class PaymentMethodTokenizationRequest extends ConnectApi.BaseRequest {
    * Indicates whether the payment method tokenization is configured to be saved by merchant ( true ) or not ( false ). Default value is false .
    */
   global Boolean savedByMerchant;
+
+  global Object clone() {}
 
 }

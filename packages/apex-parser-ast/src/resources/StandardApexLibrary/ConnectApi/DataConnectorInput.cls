@@ -3,4 +3,8 @@
  */
 global class DataConnectorInput {
 
+  global DataConnectorInput() {}
+
+  global Object clone() {}
+
 }

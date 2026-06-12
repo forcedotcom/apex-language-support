@@ -3,6 +3,8 @@
  */
 global class DeliveryEstimationErrorOutputRepresentation {
 
+  global DeliveryEstimationErrorOutputRepresentation() {}
+
   /**
    * Error code.
    */
@@ -12,5 +14,7 @@ global class DeliveryEstimationErrorOutputRepresentation {
    * Error message, if any.
    */
   global String message;
+
+  global Object clone() {}
 
 }

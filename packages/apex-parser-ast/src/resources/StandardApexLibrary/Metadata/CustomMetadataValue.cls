@@ -3,10 +3,16 @@
  */
 global class CustomMetadataValue {
 
+  global CustomMetadataValue() {}
+
+  global String field;
+
+  global Object value;
+
   /**
    * Makes a duplicate copy of the Metadata.CustomMetadataValue .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

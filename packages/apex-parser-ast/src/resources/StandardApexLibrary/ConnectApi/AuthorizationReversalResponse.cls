@@ -3,6 +3,8 @@
  */
 global class AuthorizationReversalResponse {
 
+  global AuthorizationReversalResponse() {}
+
   /**
    * Error response representation for the authorization reversal.
    */
@@ -22,5 +24,7 @@ global class AuthorizationReversalResponse {
    * Gateway log collection representation for the authorization reversal.
    */
   global List < ConnectApi.GatewayLogResponse > paymentGatewayLogs;
+
+  global Object clone() {}
 
 }

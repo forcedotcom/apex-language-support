@@ -3,6 +3,8 @@
  */
 global class CandidateAnswersStatus {
 
+  global CandidateAnswersStatus() {}
+
   /**
    * Indicates whether candidate answers are available for a question.
    */
@@ -17,5 +19,7 @@ global class CandidateAnswersStatus {
    * Indicates whether any candidate answers are rated.
    */
   global Boolean hasCandidateAnswersRated;
+
+  global Object clone() {}
 
 }

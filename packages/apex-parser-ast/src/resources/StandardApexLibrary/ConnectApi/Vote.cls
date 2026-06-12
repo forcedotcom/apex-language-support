@@ -3,6 +3,8 @@
  */
 global class Vote {
 
+  global Vote() {}
+
   /**
    * Type of vote for a feed element or comment. Down Up
    */
@@ -17,5 +19,7 @@ global class Vote {
    * Reference to the feed element or comment that was voted on.
    */
   global ConnectApi.Reference votedItem;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class QueryInfo {
 
+  global QueryInfo() {}
+
   /**
    * Unique identifier assigned to a search query to enable tracking usage and analysis of user interactions with search results.
    */
@@ -17,5 +19,7 @@ global class QueryInfo {
    * Status on the object search such as error messages and warnings.
    */
   global ConnectApi.SearchStatus status;
+
+  global Object clone() {}
 
 }

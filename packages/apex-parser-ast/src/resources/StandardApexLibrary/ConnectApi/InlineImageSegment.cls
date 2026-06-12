@@ -3,6 +3,8 @@
  */
 global class InlineImageSegment extends ConnectApi.MessageSegment {
 
+  global InlineImageSegment() {}
+
   /**
    * Alt text for the inline image.
    */
@@ -27,5 +29,7 @@ global class InlineImageSegment extends ConnectApi.MessageSegment {
    * URL to the latest version of the inline image.
    */
   global String url;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightDataSource {
 
+  global CdpCalculatedInsightDataSource() {}
+
   /**
    * Data source API name.
    */
@@ -12,5 +14,7 @@ global class CdpCalculatedInsightDataSource {
    * Data source type.
    */
   global String type;
+
+  global Object clone() {}
 
 }

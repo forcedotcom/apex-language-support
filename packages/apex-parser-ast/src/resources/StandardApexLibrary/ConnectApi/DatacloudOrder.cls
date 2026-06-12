@@ -3,6 +3,8 @@
  */
 global class DatacloudOrder {
 
+  global DatacloudOrder() {}
+
   /**
    * URL to a list of contacts or companies that were purchased with this order.
    */
@@ -27,5 +29,7 @@ global class DatacloudOrder {
    * GET request URL for this order.
    */
   global String url;
+
+  global Object clone() {}
 
 }

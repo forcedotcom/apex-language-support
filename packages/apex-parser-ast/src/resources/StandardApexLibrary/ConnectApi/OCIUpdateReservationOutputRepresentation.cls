@@ -3,6 +3,8 @@
  */
 global class OCIUpdateReservationOutputRepresentation {
 
+  global OCIUpdateReservationOutputRepresentation() {}
+
   /**
    * Details for each product in the reservation.
    */
@@ -22,5 +24,7 @@ global class OCIUpdateReservationOutputRepresentation {
    * Indicates whether the reservation was successfully updated.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

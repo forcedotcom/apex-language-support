@@ -3,8 +3,12 @@
  */
 global class FormulaInstance {
 
-  public Object evaluate(Object contextObject) {}
+  global FormulaInstance() {}
 
-  public Set<String> getReferencedFields() {}
+  global Object evaluate(Object contextObject) {}
+
+  global Set<String> getReferencedFields() {}
+
+  global Object clone() {}
 
 }

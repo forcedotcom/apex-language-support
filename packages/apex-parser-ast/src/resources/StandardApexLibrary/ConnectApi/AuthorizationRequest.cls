@@ -3,6 +3,8 @@
  */
 global class AuthorizationRequest extends ConnectApi.BaseRequest {
 
+  global AuthorizationRequest() {}
+
   /**
    * Salesforce account that contains the payment transaction being authorized.
    */
@@ -42,5 +44,7 @@ global class AuthorizationRequest extends ConnectApi.BaseRequest {
    * Payment method used in the payment gateway for the authorization transaction.
    */
   global ConnectApi.AuthApiPaymentMethodRequest paymentMethod;
+
+  global Object clone() {}
 
 }

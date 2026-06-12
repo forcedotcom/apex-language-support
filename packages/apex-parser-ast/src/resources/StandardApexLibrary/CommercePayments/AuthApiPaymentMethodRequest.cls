@@ -5,4 +5,8 @@ global class AuthApiPaymentMethodRequest {
 
   global AuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) {}
 
+  global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
+
+  global Object clone() {}
+
 }

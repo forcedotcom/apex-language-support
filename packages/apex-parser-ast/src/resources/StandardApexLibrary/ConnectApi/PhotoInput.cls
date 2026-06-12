@@ -3,6 +3,8 @@
  */
 global class PhotoInput {
 
+  global PhotoInput() {}
+
   /**
    * The length, in pixels, of any edge of the crop square.
    */
@@ -27,5 +29,7 @@ global class PhotoInput {
    * Version number of the existing content. If not provided, the latest version is used.
    */
   global Integer versionNumber;
+
+  global Object clone() {}
 
 }

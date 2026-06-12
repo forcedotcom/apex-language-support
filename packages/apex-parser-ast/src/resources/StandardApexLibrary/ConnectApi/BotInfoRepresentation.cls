@@ -3,6 +3,8 @@
  */
 global class BotInfoRepresentation {
 
+  global BotInfoRepresentation() {}
+
   /**
    * ID of the bot.
    */
@@ -17,5 +19,7 @@ global class BotInfoRepresentation {
    * Last modified date of the bot definition.
    */
   global Datetime lastModifiedDate;
+
+  global Object clone() {}
 
 }

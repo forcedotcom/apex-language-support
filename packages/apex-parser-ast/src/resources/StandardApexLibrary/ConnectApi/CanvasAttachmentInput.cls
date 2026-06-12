@@ -3,6 +3,8 @@
  */
 global class CanvasAttachmentInput extends Connectapi.FeedItemAttachmentInput {
 
+  global CanvasAttachmentInput() {}
+
   /**
    * Optional. The description of the canvas app.
    */
@@ -37,5 +39,7 @@ global class CanvasAttachmentInput extends Connectapi.FeedItemAttachmentInput {
    * The title of the link used to call the canvas app.
    */
   global String title;
+
+  global Object clone() {}
 
 }

@@ -3,4 +3,8 @@
  */
 global class RepositoryFolderDetail extends ConnectApi.AbstractRepositoryFolder {
 
+  global RepositoryFolderDetail() {}
+
+  global Object clone() {}
+
 }

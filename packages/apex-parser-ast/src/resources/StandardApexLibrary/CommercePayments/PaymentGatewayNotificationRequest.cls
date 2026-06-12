@@ -3,6 +3,10 @@
  */
 global class PaymentGatewayNotificationRequest {
 
+  global PaymentGatewayNotificationRequest() {}
+
+  global Blob requestBody;
+
   /**
    * Gets HTTP headers from the notification request sent by the payment gateway.
    * @return Map<String,String>
@@ -14,5 +18,7 @@ global class PaymentGatewayNotificationRequest {
    * @return Blob
    */
   global Blob getRequestBody() {}
+
+  global Object clone() {}
 
 }

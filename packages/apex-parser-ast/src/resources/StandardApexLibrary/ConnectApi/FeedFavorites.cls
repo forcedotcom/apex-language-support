@@ -3,6 +3,8 @@
  */
 global class FeedFavorites {
 
+  global FeedFavorites() {}
+
   /**
    * Complete list of favorites.
    */
@@ -12,5 +14,7 @@ global class FeedFavorites {
    * Total number of favorites.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

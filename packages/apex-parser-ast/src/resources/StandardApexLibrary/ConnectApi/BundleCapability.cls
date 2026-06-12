@@ -3,6 +3,8 @@
  */
 global class BundleCapability extends ConnectApi.FeedElementCapability {
 
+  global BundleCapability() {}
+
   /**
    * Defines this feed element's bundle type. The bundle type determines what additional information appears in the bundle.
    */
@@ -17,5 +19,7 @@ global class BundleCapability extends ConnectApi.FeedElementCapability {
    * The total number of feed elements that this bundle aggregates.
    */
   global Integer totalElements;
+
+  global Object clone() {}
 
 }

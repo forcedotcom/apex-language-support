@@ -3,6 +3,8 @@
  */
 global class GroupMembershipRequests {
 
+  global GroupMembershipRequests() {}
+
   /**
    * Information about group membership requests.
    */
@@ -12,5 +14,7 @@ global class GroupMembershipRequests {
    * The total number of requests.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

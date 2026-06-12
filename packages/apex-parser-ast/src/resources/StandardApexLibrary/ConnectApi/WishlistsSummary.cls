@@ -3,6 +3,8 @@
  */
 global class WishlistsSummary {
 
+  global WishlistsSummary() {}
+
   /**
    * Oldest wishlist displayed for the context user.
    */
@@ -17,5 +19,7 @@ global class WishlistsSummary {
    * Total number of wishlists belonging to the context user.
    */
   global Integer wishlistCount;
+
+  global Object clone() {}
 
 }

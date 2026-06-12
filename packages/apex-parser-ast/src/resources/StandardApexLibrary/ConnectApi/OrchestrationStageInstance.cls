@@ -3,6 +3,8 @@
  */
 global class OrchestrationStageInstance {
 
+  global OrchestrationStageInstance() {}
+
   /**
    * The duration of the stage in seconds.
    */
@@ -32,5 +34,7 @@ global class OrchestrationStageInstance {
    * Orchestration stage instance steps.
    */
   global List < ConnectApi.OrchestrationStepInstance > stepInstances;
+
+  global Object clone() {}
 
 }

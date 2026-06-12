@@ -3,6 +3,8 @@
  */
 global class ActivationTargetCollection {
 
+  global ActivationTargetCollection() {}
+
   /**
    * List of activation targets.
    */
@@ -22,5 +24,7 @@ global class ActivationTargetCollection {
    * Expression that determines the order of the results.
    */
   global String orderByExpression;
+
+  global Object clone() {}
 
 }

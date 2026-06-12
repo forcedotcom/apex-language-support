@@ -3,13 +3,15 @@
  */
 global class BaseNotification {
 
+  global BaseNotification() {}
+
   /**
    * Sets the transaction amount. Must be a non-negative value.
    * @param amount The amount of the transaction.
    */
   global void setAmount(Double amount) {}
 
-  public void setGatewayAvsCode(String gatewayAvsCode) {}
+  global void setGatewayAvsCode(String gatewayAvsCode) {}
 
   /**
    * Sets the date that the notification occurred. Some gateways don’t send this value.
@@ -64,5 +66,11 @@ global class BaseNotification {
    * @param status Shows whether the payments platform successfully received the notification from the gateway.
    */
   global void setStatus(commercepayments.NotificationStatus status) {}
+
+  global Object clone() {}
+
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class TopicSuggestion {
 
+  global TopicSuggestion() {}
+
   /**
    * Topic that already exists or null for a new topic
    */
@@ -12,5 +14,7 @@ global class TopicSuggestion {
    * Topic name
    */
   global String name;
+
+  global Object clone() {}
 
 }

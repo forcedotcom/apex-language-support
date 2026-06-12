@@ -3,16 +3,20 @@
  */
 global class FieldDiff {
 
+  global FieldDiff() {}
+
   /**
    * Returns how the field values compare for the duplicate and its matching record.
    * @return String
    */
-  public String getDifference() {}
+  global String getDifference() {}
 
   /**
    * Returns the name of a field on a matching rule that detected duplicates.
    * @return String
    */
-  public String getName() {}
+  global String getName() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,10 @@
  */
 global class BuyerGroupEvaluationService {
 
-  public CommerceBuyGrp.BuyerGroupResponse getBuyerGroupIds(CommerceBuyGrp.BuyerGroupRequest request) {}
+  global BuyerGroupEvaluationService() {}
+
+  global CommerceBuyGrp.BuyerGroupResponse getBuyerGroupIds(CommerceBuyGrp.BuyerGroupRequest request) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class AbstractCheckoutAddressInput {
 
+  global AbstractCheckoutAddressInput() {}
+
   /**
    * City of the address.
    */
@@ -57,5 +59,7 @@ global class AbstractCheckoutAddressInput {
    * Street of the address.
    */
   global String street;
+
+  global Object clone() {}
 
 }

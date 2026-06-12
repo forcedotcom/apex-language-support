@@ -3,6 +3,8 @@
  */
 global class AttributeLimitingExpressionInput {
 
+  global AttributeLimitingExpressionInput() {}
+
   /**
    * Name of the attribute.
    */
@@ -27,5 +29,7 @@ global class AttributeLimitingExpressionInput {
    * Type of attribute.
    */
   global String type;
+
+  global Object clone() {}
 
 }

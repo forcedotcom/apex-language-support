@@ -3,6 +3,8 @@
  */
 global class ExternalAuthIdentityProviderParameterInput {
 
+  global ExternalAuthIdentityProviderParameterInput() {}
+
   /**
    * The name of the external auth identity provider parameter.
    */
@@ -22,5 +24,7 @@ global class ExternalAuthIdentityProviderParameterInput {
    * Specifies the order of parameters to apply when an external auth identity provider has more than one parameter. Priority is from lower to higher numbers, for example, 1 is the highest priority.
    */
   global Integer sequenceNumber;
+
+  global Object clone() {}
 
 }

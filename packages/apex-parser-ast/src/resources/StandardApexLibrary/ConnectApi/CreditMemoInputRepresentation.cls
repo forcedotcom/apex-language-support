@@ -3,6 +3,8 @@
  */
 global class CreditMemoInputRepresentation {
 
+  global CreditMemoInputRepresentation() {}
+
   /**
    * The amount of the credit memo balance that’s being issued as credit.
    */
@@ -12,5 +14,7 @@ global class CreditMemoInputRepresentation {
    * The ID of the credit memo.
    */
   global String id;
+
+  global Object clone() {}
 
 }

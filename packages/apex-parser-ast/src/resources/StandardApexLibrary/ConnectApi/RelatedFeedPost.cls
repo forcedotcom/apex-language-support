@@ -3,6 +3,8 @@
  */
 global class RelatedFeedPost extends ConnectApi.ActorWithId {
 
+  global RelatedFeedPost() {}
+
   /**
    * Score of the related feed post that indicates how closely related it is to the context feed post.
    */
@@ -12,5 +14,7 @@ global class RelatedFeedPost extends ConnectApi.ActorWithId {
    * Title of the related feed post.
    */
   global String title;
+
+  global Object clone() {}
 
 }

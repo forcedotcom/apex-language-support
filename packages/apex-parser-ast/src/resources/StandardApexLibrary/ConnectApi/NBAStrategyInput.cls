@@ -3,6 +3,8 @@
  */
 global class NBAStrategyInput {
 
+  global NBAStrategyInput() {}
+
   /**
    * ID of the context record. For example, if the next best action is on a case detail page, the ID of the case.
    */
@@ -22,5 +24,7 @@ global class NBAStrategyInput {
    * Specifies whether to return trace and debug information in the response ( true ) or not ( false ). If unspecified, the default is false .
    */
   global Boolean debugTrace;
+
+  global Object clone() {}
 
 }

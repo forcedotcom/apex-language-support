@@ -3,6 +3,8 @@
  */
 global class PhoneNumber {
 
+  global PhoneNumber() {}
+
   /**
    * A localized string indicating the phone type.
    */
@@ -22,5 +24,7 @@ global class PhoneNumber {
    * Note This property is not available after version 29.0. Use the phoneType property instead. Values are: Fax Mobile Work These values are not localized.
    */
   global String type;
+
+  global Object clone() {}
 
 }

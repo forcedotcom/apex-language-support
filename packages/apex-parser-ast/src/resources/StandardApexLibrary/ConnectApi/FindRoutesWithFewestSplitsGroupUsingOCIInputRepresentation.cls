@@ -3,6 +3,8 @@
  */
 global class FindRoutesWithFewestSplitsGroupUsingOCIInputRepresentation {
 
+  global FindRoutesWithFewestSplitsGroupUsingOCIInputRepresentation() {}
+
   /**
    * List of locations to exclude from the routing calculations.
    */
@@ -17,5 +19,7 @@ global class FindRoutesWithFewestSplitsGroupUsingOCIInputRepresentation {
    * Each list element represents a quantity of a product to be routed for fulfillment and the assigned location group or location.
    */
   global List < ConnectApi.FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation > orderedItems;
+
+  global Object clone() {}
 
 }

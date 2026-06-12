@@ -3,6 +3,8 @@
  */
 global class JurisdictionResponse {
 
+  global JurisdictionResponse() {}
+
   global void setCountry(String country) {}
 
   global void setId(String id) {}
@@ -14,5 +16,9 @@ global class JurisdictionResponse {
   global void setRegion(String region) {}
 
   global void setStateAssignedNumber(String stateAssignedNo) {}
+
+  global Object clone() {}
+
+  global java:commerce.tax.impl.engine.integration.response.JurisdictionEngineResponse getDelegate() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class FeedItemPage {
 
+  global FeedItemPage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -47,5 +49,7 @@ global class FeedItemPage {
    * A Connect REST API resource with a query string containing the value of the updatesToken property. The resource returns the feed items that have been updated since the last request. Use the URL as it is—do not modify it. Property is null if not available.
    */
   global String updatesUrl;
+
+  global Object clone() {}
 
 }

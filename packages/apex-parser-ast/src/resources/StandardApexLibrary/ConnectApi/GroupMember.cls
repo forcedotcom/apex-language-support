@@ -3,6 +3,8 @@
  */
 global class GroupMember {
 
+  global GroupMember() {}
+
   /**
    * User’s 18-character ID.
    */
@@ -27,5 +29,7 @@ global class GroupMember {
    * Information about the user who is subscribed to this group.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

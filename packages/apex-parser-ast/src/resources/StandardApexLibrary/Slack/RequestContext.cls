@@ -1,5 +1,7 @@
 global class RequestContext {
 
+  global RequestContext() {}
+
   global Slack.ActionPayload getActionPayload() {}
 
   global String getAppId() {}
@@ -41,5 +43,13 @@ global class RequestContext {
   global Slack.RequestContext.Builder userId(String userId) {}
 
   global Slack.RequestContext.Builder viewContext(Slack.ViewContext viewContext) {}
+
+  global Object clone() {}
+
+  global Slack.App getApp() {}
+
+  global Slack.UserType getUserType() {}
+
+  global Boolean isDefaultOrg() {}
 
 }

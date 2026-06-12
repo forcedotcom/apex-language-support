@@ -3,6 +3,8 @@
  */
 global class ActivationTargetSubjectConfigInput {
 
+  global ActivationTargetSubjectConfigInput() {}
+
   /**
    * Developer name of activation target subject configuration.
    */
@@ -12,5 +14,7 @@ global class ActivationTargetSubjectConfigInput {
    * Path of the activation target subject configuration.
    */
   global List < ConnectApi.QueryPathInputConfig > queryPathConfig;
+
+  global Object clone() {}
 
 }

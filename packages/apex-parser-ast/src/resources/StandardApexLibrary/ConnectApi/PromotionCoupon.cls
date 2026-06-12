@@ -3,6 +3,8 @@
  */
 global class PromotionCoupon {
 
+  global PromotionCoupon() {}
+
   /**
    * Coupon code.
    */
@@ -22,5 +24,7 @@ global class PromotionCoupon {
    * Indicates whether the coupon is valid ( true ) or invalid ( false ).
    */
   global Boolean isValidCoupon;
+
+  global Object clone() {}
 
 }

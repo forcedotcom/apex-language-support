@@ -3,6 +3,8 @@
  */
 global class AbstractRepositoryItem {
 
+  global AbstractRepositoryItem() {}
+
   /**
    * Name of the user who created the item.
    */
@@ -62,5 +64,7 @@ global class AbstractRepositoryItem {
    * The URL to the item.
    */
   global String url;
+
+  global Object clone() {}
 
 }

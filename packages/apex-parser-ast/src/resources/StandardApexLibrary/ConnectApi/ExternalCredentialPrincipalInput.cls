@@ -3,6 +3,8 @@
  */
 global class ExternalCredentialPrincipalInput {
 
+  global ExternalCredentialPrincipalInput() {}
+
   /**
    * ID of the principal external credential parameter.
    */
@@ -27,5 +29,7 @@ global class ExternalCredentialPrincipalInput {
    * Sequence number.
    */
   global Integer sequenceNumber;
+
+  global Object clone() {}
 
 }

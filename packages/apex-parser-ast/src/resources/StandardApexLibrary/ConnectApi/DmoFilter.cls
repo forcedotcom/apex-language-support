@@ -3,6 +3,8 @@
  */
 global class DmoFilter {
 
+  global DmoFilter() {}
+
   /**
    * Filter for the entity.
    */
@@ -42,5 +44,7 @@ global class DmoFilter {
    * Path from the container to the entity.
    */
   global List < ConnectApi.QueryPathConfigList > pathFromContainerToEntity;
+
+  global Object clone() {}
 
 }

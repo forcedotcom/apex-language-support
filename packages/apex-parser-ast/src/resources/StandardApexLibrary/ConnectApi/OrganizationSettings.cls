@@ -3,6 +3,8 @@
  */
 global class OrganizationSettings {
 
+  global OrganizationSettings() {}
+
   /**
    * Amount of time after which the system prompts users who have been inactive to log out or continue working.
    */
@@ -32,5 +34,7 @@ global class OrganizationSettings {
    * Information about the org permissions for the user.
    */
   global ConnectApi.UserSettings userSettings;
+
+  global Object clone() {}
 
 }

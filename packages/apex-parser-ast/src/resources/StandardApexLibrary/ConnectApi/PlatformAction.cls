@@ -3,6 +3,8 @@
  */
 global class PlatformAction {
 
+  global PlatformAction() {}
+
   /**
    * For action links of subtype Ui or Download , direct the user to download or visit the UI from this link. Salesforce issues a Javascript redirect for the link in this format: /action-link-redirect/ communityId / actionLinkId ?_bearer= bearerToken . For Api action links and for all platform actions, this value is null and Salesforce handles the call.
    */
@@ -72,5 +74,7 @@ global class PlatformAction {
    * The URL for this platform action. If the type is QuickAction and the subtype is Create , this value is null .
    */
   global String url;
+
+  global Object clone() {}
 
 }

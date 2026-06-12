@@ -3,6 +3,8 @@
  */
 global class SocialAccountRelationship {
 
+  global SocialAccountRelationship() {}
+
   /**
    * Specifies whether the social account is followed by the social persona.
    */
@@ -22,5 +24,7 @@ global class SocialAccountRelationship {
    * ID of the social persona.
    */
   global String socialPersonaId;
+
+  global Object clone() {}
 
 }

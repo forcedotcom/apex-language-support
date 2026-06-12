@@ -1,5 +1,7 @@
 global class Views {
 
+  global Views() {}
+
   global String getId() {}
 
   global String getHash() {}
@@ -55,5 +57,7 @@ global class Views {
   global Slack.ViewsUpdateRequest.Builder view(Slack.ModalView view) {}
 
   global Slack.ViewsUpdateRequest.Builder viewId(String viewId) {}
+
+  global Object clone() {}
 
 }
