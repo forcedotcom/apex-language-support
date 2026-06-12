@@ -53,9 +53,24 @@ runs:
           IFS=',' read -ra CHECKS <<< "$REQUIRED_CHECKS"
           for CHECK in "${CHECKS[@]}"; do
             CHECK=$(echo "$CHECK" | xargs)  # trim whitespace
-            CONCLUSION=$(echo "$CHECK_RUNS" | jq -r --arg name "$CHECK" \
-              'select(.name == $name) | .conclusion' | head -1)
-            if [ "$CONCLUSION" != "success" ]; then
+
+            # Grab the latest run for this name (check-runs are newest-first per name).
+            MATCH=$(echo "$CHECK_RUNS" | jq -c --arg name "$CHECK" \
+              'select(.name == $name)' | head -1)
+
+            if [ -z "$MATCH" ]; then
+              echo "FAIL: required check '$CHECK' is absent on this commit (never ran)"
+              FAILED=1
+              continue
+            fi
+
+            STATUS=$(echo "$MATCH" | jq -r '.status')
+            CONCLUSION=$(echo "$MATCH" | jq -r '.conclusion')
+
+            if [ "$STATUS" != "completed" ]; then
+              echo "FAIL: required check '$CHECK' is not completed (status=$STATUS)"
+              FAILED=1
+            elif [ "$CONCLUSION" != "success" ]; then
               echo "FAIL: required check '$CHECK' has conclusion '$CONCLUSION' (expected 'success')"
               FAILED=1
             else
