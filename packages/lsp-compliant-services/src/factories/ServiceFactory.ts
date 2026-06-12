@@ -83,11 +83,16 @@ export class ServiceFactory {
   /**
    * Get or create the workspace load coordinator (singleton per factory).
    * Defaults to {@link LocalWorkspaceLoadCoordinator} when a Connection is
-   * available; returns null otherwise. Worker bootstraps that need a remote
-   * coordinator should inject it via the dedicated dependency rather than
-   * relying on this default.
+   * available; returns undefined otherwise. Worker bootstraps that need a
+   * remote coordinator should inject it via the dedicated dependency rather
+   * than relying on this default.
+   *
+   * Returns `undefined` (not `null`) so the value flows straight into the
+   * `ReferencesProcessingService` constructor's optional parameter without a
+   * `?? undefined` bridge at the call site. The cache field stays `| null`
+   * to match the sibling lazy-init pattern (e.g. `layerEnrichmentService`).
    */
-  private getWorkspaceLoadCoordinator(): IWorkspaceLoadCoordinator | null {
+  private getWorkspaceLoadCoordinator(): IWorkspaceLoadCoordinator | undefined {
     if (this.workspaceLoadCoordinator) {
       return this.workspaceLoadCoordinator;
     }
@@ -103,7 +108,7 @@ export class ServiceFactory {
       );
       return this.workspaceLoadCoordinator;
     }
-    return null;
+    return undefined;
   }
 
   /**
@@ -150,7 +155,7 @@ export class ServiceFactory {
     const service = new ReferencesProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
-      this.getWorkspaceLoadCoordinator() ?? undefined,
+      this.getWorkspaceLoadCoordinator(),
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;

@@ -14,6 +14,13 @@ import {
   reset as resetWorkspaceLoadState,
 } from '../../src/services/WorkspaceLoadCoordinator';
 
+// The load-state Refs (isLoadedRef / isLoadingRef) are module-level
+// singletons shared by every coordinator instance — by design, since the
+// coordinator process owns one true workspace-load lifecycle. Neither
+// coordinator clears isLoadingRef once set (the worker keeps it latched
+// until a coordinator load-complete broadcast, a follow-up story), so each
+// test must reset() to start from a known unloaded state; otherwise the
+// "already loading" guard from a prior test would leak across cases.
 describe('LocalWorkspaceLoadCoordinator', () => {
   beforeEach(() => {
     resetWorkspaceLoadState();

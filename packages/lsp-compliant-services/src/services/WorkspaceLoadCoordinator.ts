@@ -303,15 +303,13 @@ export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator
             { workDoneToken: token },
             true,
           ),
-        catch: (err) => err,
+        catch: (err) => (err instanceof Error ? err : new Error(String(err))),
       }).pipe(
         Effect.catchAll((err) =>
           Effect.sync(() => {
             logger.warn(
               () =>
-                `[WORKSPACE-LOAD] Remote ensureLoaded failed: ${
-                  err instanceof Error ? err.message : String(err)
-                }`,
+                `[WORKSPACE-LOAD] Remote ensureLoaded failed: ${err.message}`,
             );
           }),
         ),

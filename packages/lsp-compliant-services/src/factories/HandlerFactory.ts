@@ -329,8 +329,16 @@ export class HandlerFactory {
       if (connection) {
         coordinator = new LocalWorkspaceLoadCoordinator(connection, logger);
       }
-    } catch {
-      // No connection registered yet — fall through to no-coordinator path.
+    } catch (error) {
+      // Most commonly the configuration manager has no connection registered
+      // yet, in which case we intentionally fall through to the
+      // no-coordinator (partial-results) path. Log at warn so an unexpected
+      // failure here doesn't silently degrade references coordination.
+      logger.warn(
+        () =>
+          'Could not resolve LSP connection for references workspace-load ' +
+          `coordinator; proceeding without one: ${error}`,
+      );
     }
     const referencesProcessor = new ReferencesProcessingService(
       logger,
