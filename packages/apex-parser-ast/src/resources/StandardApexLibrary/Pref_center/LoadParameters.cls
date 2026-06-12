@@ -3,6 +3,10 @@
  */
 global class LoadParameters {
 
-  public String getRecordId() {}
+  global LoadParameters() {}
+
+  global String getRecordId() {}
+
+  global Object clone() {}
 
 }

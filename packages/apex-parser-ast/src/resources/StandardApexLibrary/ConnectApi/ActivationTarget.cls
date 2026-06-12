@@ -3,6 +3,8 @@
  */
 global class ActivationTarget {
 
+  global ActivationTarget() {}
+
   /**
    * Details about the connector that is used for the activation target.
    */
@@ -77,5 +79,7 @@ global class ActivationTarget {
    * Status of the activation target. Active Processing Error Inactive
    */
   global ActivationTargetStatusEnum status;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ZoneSearchResult {
 
+  global ZoneSearchResult() {}
+
   /**
    * Indicates if the search result has a best answer.
    */
@@ -27,5 +29,7 @@ global class ZoneSearchResult {
    * Number of votes given to the search result.
    */
   global String voteCount;
+
+  global Object clone() {}
 
 }

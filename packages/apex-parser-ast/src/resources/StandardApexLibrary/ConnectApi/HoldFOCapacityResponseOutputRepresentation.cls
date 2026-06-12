@@ -3,9 +3,13 @@
  */
 global class HoldFOCapacityResponseOutputRepresentation {
 
+  global HoldFOCapacityResponseOutputRepresentation() {}
+
   /**
    * List of responses to the requests to hold fulfillment order capacity at individual locations.
    */
   global List < ConnectApi.CapacityResponseOutputRepresentation > capacityResponses;
+
+  global Object clone() {}
 
 }

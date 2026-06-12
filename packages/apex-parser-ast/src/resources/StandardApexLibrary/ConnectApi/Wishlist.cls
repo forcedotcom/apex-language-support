@@ -3,6 +3,8 @@
  */
 global class Wishlist {
 
+  global Wishlist() {}
+
   /**
    * Page of wishlist items.
    */
@@ -12,5 +14,7 @@ global class Wishlist {
    * Summary of the wishlist.
    */
   global ConnectApi.WishlistSummary summary;
+
+  global Object clone() {}
 
 }

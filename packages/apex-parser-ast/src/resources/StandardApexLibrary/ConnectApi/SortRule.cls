@@ -3,6 +3,8 @@
  */
 global class SortRule {
 
+  global SortRule() {}
+
   /**
    * Direction of the sort rule. Values are: Ascending —Sorts in ascending alphanumeric order (A–Z, 0–9). Default —When no direction is defined, sorts by relevance. Descending —Sorts in descending alphanumeric order (Z–A, 9–0).
    */
@@ -37,5 +39,7 @@ global class SortRule {
    * Type of sort rule. Values are: ProductAttributeBased —Sorts by product attribute fields. ProductBased —Sorts by product field data. Relevancy —Sorts by product and catalog term frequency. SortByPricebook —Sorts by product prices defined in the specified pricebook (version 55.0 and later).
    */
   global ConnectApi.CommerceSearchSortRuleType type;
+
+  global Object clone() {}
 
 }

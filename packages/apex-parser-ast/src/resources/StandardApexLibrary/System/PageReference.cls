@@ -3,38 +3,40 @@
  */
 global class PageReference {
 
-  public PageReference(String partialURL) {}
+  global PageReference(String partialURL) {}
 
-  public PageReference(SObject record) {}
+  global PageReference(SObject record) {}
 
-  public static System.PageReference forResource(String resourceName, String path) {}
+  global static System.PageReference forResource(String resourceName, String path) {}
 
-  public static System.PageReference forResource(String resourceName) {}
+  global static System.PageReference forResource(String resourceName) {}
 
-  public String getAnchor() {}
+  global String getAnchor() {}
 
-  public Blob getContent() {}
+  global Blob getContent() {}
 
-  public Blob getContentAsPDF() {}
+  global Blob getContentAsPDF() {}
 
-  public Map<String, System.Cookie> getCookies() {}
+  global Map<String, System.Cookie> getCookies() {}
 
-  public Map<String, String> getHeaders() {}
+  global Map<String, String> getHeaders() {}
 
-  public Map<String, String> getParameters() {}
+  global Map<String, String> getParameters() {}
 
-  public Boolean getRedirect() {}
+  global Boolean getRedirect() {}
 
-  public Integer getRedirectCode() {}
+  global Integer getRedirectCode() {}
 
-  public String getUrl() {}
+  global String getUrl() {}
 
-  public System.PageReference setAnchor(String anchor) {}
+  global System.PageReference setAnchor(String anchor) {}
 
-  public void setCookies(Cookie[] cookies) {}
+  global void setCookies(Cookie[] cookies) {}
 
-  public System.PageReference setRedirect(Boolean redirect) {}
+  global System.PageReference setRedirect(Boolean redirect) {}
 
-  public System.PageReference setRedirectCode(Integer redirectCode) {}
+  global System.PageReference setRedirectCode(Integer redirectCode) {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ContentHubFieldValueInput {
 
+  global ContentHubFieldValueInput() {}
+
   /**
    * Name of the item field. When updating the metadata of a repository file, only the name field can be updated.
    */
@@ -12,5 +14,7 @@ global class ContentHubFieldValueInput {
    * Value of the item field.
    */
   global String value;
+
+  global Object clone() {}
 
 }

@@ -918,7 +918,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         expect(content).toContain('void System.debug');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*public/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
   });

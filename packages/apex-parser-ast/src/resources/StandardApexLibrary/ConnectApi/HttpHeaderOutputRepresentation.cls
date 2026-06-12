@@ -3,6 +3,8 @@
  */
 global class HttpHeaderOutputRepresentation {
 
+  global HttpHeaderOutputRepresentation() {}
+
   /**
    * Name of the HTTP header.
    */
@@ -12,5 +14,7 @@ global class HttpHeaderOutputRepresentation {
    * Value of the HTTP header.
    */
   global String value;
+
+  global Object clone() {}
 
 }

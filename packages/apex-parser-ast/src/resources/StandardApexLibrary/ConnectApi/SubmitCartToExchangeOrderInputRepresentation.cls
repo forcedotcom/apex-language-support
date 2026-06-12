@@ -3,6 +3,8 @@
  */
 global class SubmitCartToExchangeOrderInputRepresentation {
 
+  global SubmitCartToExchangeOrderInputRepresentation() {}
+
   /**
    * ID of the cart used for adding items to the exchange order.
    */
@@ -37,5 +39,7 @@ global class SubmitCartToExchangeOrderInputRepresentation {
    * Ordered list of order payment summaries and reserved balance amounts to apply them to.
    */
   global List < ConnectApi.sharedOrderPaymentSummarySequenceInputRepresentation > sequences;
+
+  global Object clone() {}
 
 }

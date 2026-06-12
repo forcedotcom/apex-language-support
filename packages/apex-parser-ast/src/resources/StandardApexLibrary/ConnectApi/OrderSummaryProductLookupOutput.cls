@@ -3,6 +3,8 @@
  */
 global class OrderSummaryProductLookupOutput {
 
+  global OrderSummaryProductLookupOutput() {}
+
   /**
    * Specifies whether the context user can view the product (true) or not (false).
    */
@@ -37,5 +39,7 @@ global class OrderSummaryProductLookupOutput {
    * Variation attributes (color, size, and so on) associated with the product.
    */
   global Map < String , ConnectApi.OrderSummaryProductAttribute > variationAttributes;
+
+  global Object clone() {}
 
 }

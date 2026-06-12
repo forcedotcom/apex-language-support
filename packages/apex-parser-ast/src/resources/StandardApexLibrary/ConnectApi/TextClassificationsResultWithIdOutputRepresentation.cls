@@ -3,6 +3,8 @@
  */
 global class TextClassificationsResultWithIdOutputRepresentation {
 
+  global TextClassificationsResultWithIdOutputRepresentation() {}
+
   /**
    * Request ID for text classifications.
    */
@@ -17,5 +19,7 @@ global class TextClassificationsResultWithIdOutputRepresentation {
    * Request status for text classification.
    */
   global String status;
+
+  global Object clone() {}
 
 }

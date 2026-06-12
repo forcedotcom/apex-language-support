@@ -1,5 +1,7 @@
 global class Purpose {
 
+  global Purpose() {}
+
   global String getCreator() {}
 
   global Integer getLastSet() {}
@@ -11,5 +13,7 @@ global class Purpose {
   global void setLastSet(Integer lastSet) {}
 
   global void setValue(String value) {}
+
+  global Object clone() {}
 
 }

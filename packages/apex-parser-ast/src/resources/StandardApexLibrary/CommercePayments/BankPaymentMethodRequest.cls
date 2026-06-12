@@ -3,10 +3,44 @@
  */
 global class BankPaymentMethodRequest {
 
-  public Boolean equals(Object obj) {}
+  global BankPaymentMethodRequest() {}
 
-  public Integer hashCode() {}
+  global String accountHolderFirstName;
 
-  public String toString() {}
+  global String accountHolderLastName;
+
+  global String accountHolderName;
+
+  global commercepayments.AccountHolderType accountHolderType;
+
+  global String accountId;
+
+  global String accountNumber;
+
+  global commercepayments.AccountType accountType;
+
+  global Boolean autoPay;
+
+  global String bankCode;
+
+  global commercepayments.BankType bankType;
+
+  global String comments;
+
+  global String email;
+
+  global String mandate;
+
+  global String nickName;
+
+  global commercepayments.StandardEntryClassCode standardEntryClassCode;
+
+  global Boolean equals(Object obj) {}
+
+  global Integer hashCode() {}
+
+  global String toString() {}
+
+  global Object clone() {}
 
 }

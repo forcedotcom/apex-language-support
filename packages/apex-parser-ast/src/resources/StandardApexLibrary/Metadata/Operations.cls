@@ -3,11 +3,13 @@
  */
 global class Operations {
 
+  global Operations() {}
+
   /**
    * Makes a duplicate copy of the Metadata.Operations .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
   /**
    * Retrieves a list of custom metadata components.
@@ -15,6 +17,8 @@ global class Operations {
    * @param fullNames A list of component names to retrieve. For information on component name formats, see Metadata.fullName() .
    * @return List<Metadata.Metadata>
    */
-  public static List<Metadata.Metadata> retrieve(Metadata.MetadataType type, List<String> fullNames) {}
+  global static List<Metadata.Metadata> retrieve(Metadata.MetadataType type, List<String> fullNames) {}
+
+  global static Id enqueueDeployment(Metadata.DeployContainer container, Metadata.DeployCallback callback) {}
 
 }

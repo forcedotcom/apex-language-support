@@ -3,6 +3,10 @@
  */
 global class CdpConnection {
 
-  public static ConnectApi.ConnectionDbSchemaCollection getDatabaseSchemas(String connectionId, ConnectApi.ConnectionDbSchemaCollectionInputRepresentation getDatabaseSchemasInput) {}
+  global CdpConnection() {}
+
+  global static ConnectApi.ConnectionDbSchemaCollection getDatabaseSchemas(String connectionId, ConnectApi.ConnectionDbSchemaCollectionInputRepresentation getDatabaseSchemasInput) {}
+
+  global Object clone() {}
 
 }

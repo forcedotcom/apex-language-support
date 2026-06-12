@@ -3,8 +3,10 @@
  */
 global class ExternalAuthIdentityProviderInput {
 
+  global ExternalAuthIdentityProviderInput() {}
+
   /**
-   * Authentication flow to get tokens to call protected APIs. Values are: AuthorizationCode
+   * Authentication flow to get tokens to call protected APIs. Values are: AuthorizationCode ClientCredentials
    */
   global ConnectApi.IdentityProviderAuthFlow authenticationFlow;
 
@@ -57,5 +59,7 @@ global class ExternalAuthIdentityProviderInput {
    * User info URL to retrieve user profile information from the external system. Applicable only when the authenticationProtocol is OAuth .
    */
   global String userInfoUrl;
+
+  global Object clone() {}
 
 }

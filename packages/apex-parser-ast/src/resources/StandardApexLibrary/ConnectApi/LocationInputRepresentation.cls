@@ -3,6 +3,8 @@
  */
 global class LocationInputRepresentation {
 
+  global LocationInputRepresentation() {}
+
   /**
    * The country code of the location.
    */
@@ -17,5 +19,7 @@ global class LocationInputRepresentation {
    * The postal code of the location.
    */
   global String postalCode;
+
+  global Object clone() {}
 
 }

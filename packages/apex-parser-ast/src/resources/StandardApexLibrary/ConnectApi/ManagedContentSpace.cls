@@ -3,6 +3,8 @@
  */
 global class ManagedContentSpace {
 
+  global ManagedContentSpace() {}
+
   /**
    * API name of the managed content space.
    */
@@ -67,5 +69,7 @@ global class ManagedContentSpace {
    * Base type of the managed content space.
    */
   global ConnectApi.ManagedContentSpaceBaseType spaceType;
+
+  global Object clone() {}
 
 }

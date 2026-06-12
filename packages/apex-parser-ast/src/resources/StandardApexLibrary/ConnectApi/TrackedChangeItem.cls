@@ -3,6 +3,8 @@
  */
 global class TrackedChangeItem {
 
+  global TrackedChangeItem() {}
+
   /**
    * The name of the field that was updated.
    */
@@ -17,5 +19,7 @@ global class TrackedChangeItem {
    * The old value of the field or null if the field length is long.
    */
   global String oldValue;
+
+  global Object clone() {}
 
 }

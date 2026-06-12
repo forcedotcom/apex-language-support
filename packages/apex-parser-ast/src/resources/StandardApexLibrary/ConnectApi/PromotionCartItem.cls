@@ -3,6 +3,8 @@
  */
 global class PromotionCartItem {
 
+  global PromotionCartItem() {}
+
   /**
    * ID of the associated cart delivery group.
    */
@@ -82,5 +84,7 @@ global class PromotionCartItem {
    * Type of item in a cart. Values are: DeliveryCharge Product
    */
   global ConnectApi.CartItemType type;
+
+  global Object clone() {}
 
 }

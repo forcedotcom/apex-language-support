@@ -3,6 +3,8 @@
  */
 global class OAuthCredentialAuthUrl {
 
+  global OAuthCredentialAuthUrl() {}
+
   /**
    * Authentication URL for the user external credential. Authentication URLs have encoded and escaped special characters. Before using the URL, undo the encoded and escaped characters.
    */
@@ -22,5 +24,7 @@ global class OAuthCredentialAuthUrl {
    * Type of credential principal. Values are: AwsStsPrincipal NamedPrincipal PerUserPrincipal
    */
   global ConnectApi.CredentialPrincipalType principalType;
+
+  global Object clone() {}
 
 }

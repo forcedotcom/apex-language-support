@@ -3,10 +3,14 @@
  */
 global class PushNotification {
 
-  public void send(String application, Set<String> users) {}
+  global PushNotification() {}
 
-  public void setPayload(Map<String,Object> payload) {}
+  global void send(String application, Set<String> users) {}
 
-  public void setTtl(Integer ttl) {}
+  global void setPayload(Map<String,Object> payload) {}
+
+  global void setTtl(Integer ttl) {}
+
+  global Object clone() {}
 
 }

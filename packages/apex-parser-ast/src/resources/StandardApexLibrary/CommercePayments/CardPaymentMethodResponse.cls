@@ -3,40 +3,44 @@
  */
 global class CardPaymentMethodResponse {
 
-  public void setAccountId(Id accountId) {}
+  global CardPaymentMethodResponse() {}
 
-  public void setAutoPay(Boolean autoPay) {}
+  global void setAccountId(Id accountId) {}
 
-  public void setCardBin(String cardBin) {}
+  global void setAutoPay(Boolean autoPay) {}
 
-  public void setCardCategory(commercepayments.CardCategory cardCategory) {}
+  global void setCardBin(String cardBin) {}
 
-  public void setCardHolderFirstName(String cardHolderFirstName) {}
+  global void setCardCategory(commercepayments.CardCategory cardCategory) {}
 
-  public void setCardHolderLastName(String cardHolderLastName) {}
+  global void setCardHolderFirstName(String cardHolderFirstName) {}
 
-  public void setCardHolderName(String cardHolderName) {}
+  global void setCardHolderLastName(String cardHolderLastName) {}
 
-  public void setCardLastFour(String cardLastFour) {}
+  global void setCardHolderName(String cardHolderName) {}
 
-  public void setCardType(String cardType) {}
+  global void setCardLastFour(String cardLastFour) {}
 
-  public void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
+  global void setCardType(String cardType) {}
 
-  public void setComments(String comments) {}
+  global void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
 
-  public void setDisplayCardNumber(String displayCardNumber) {}
+  global void setComments(String comments) {}
 
-  public void setEmail(String email) {}
+  global void setDisplayCardNumber(String displayCardNumber) {}
 
-  public void setExpiryMonth(Integer expiryMonth) {}
+  global void setEmail(String email) {}
 
-  public void setExpiryYear(Integer expiryYear) {}
+  global void setExpiryMonth(Integer expiryMonth) {}
 
-  public void setNickName(String nickName) {}
+  global void setExpiryYear(Integer expiryYear) {}
 
-  public void setStartMonth(Integer startMonth) {}
+  global void setNickName(String nickName) {}
 
-  public void setStartYear(Integer startYear) {}
+  global void setStartMonth(Integer startMonth) {}
+
+  global void setStartYear(Integer startYear) {}
+
+  global Object clone() {}
 
 }

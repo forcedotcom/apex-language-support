@@ -3,6 +3,8 @@
  */
 global class PreviewCartToExchangeOrderInputRepresentation {
 
+  global PreviewCartToExchangeOrderInputRepresentation() {}
+
   /**
    * ID of the cart used for adding items to the exchange order.
    */
@@ -22,5 +24,7 @@ global class PreviewCartToExchangeOrderInputRepresentation {
    * The type of the reservation.
    */
   global String reservationType;
+
+  global Object clone() {}
 
 }

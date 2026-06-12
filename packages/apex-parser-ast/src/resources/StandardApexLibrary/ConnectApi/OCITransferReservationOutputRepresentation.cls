@@ -3,6 +3,8 @@
  */
 global class OCITransferReservationOutputRepresentation {
 
+  global OCITransferReservationOutputRepresentation() {}
+
   /**
    * Responses for the individual reservations in the transfer request.
    */
@@ -12,5 +14,7 @@ global class OCITransferReservationOutputRepresentation {
    * Indicates whether the request was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

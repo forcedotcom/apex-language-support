@@ -3,4 +3,8 @@
  */
 global class BlankRecordField extends ConnectApi.AbstractRecordField {
 
+  global BlankRecordField() {}
+
+  global Object clone() {}
+
 }

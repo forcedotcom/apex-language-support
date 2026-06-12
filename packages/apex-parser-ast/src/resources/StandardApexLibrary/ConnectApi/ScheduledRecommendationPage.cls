@@ -3,6 +3,8 @@
  */
 global class ScheduledRecommendationPage {
 
+  global ScheduledRecommendationPage() {}
+
   /**
    * A list of scheduled custom recommendations.
    */
@@ -12,5 +14,7 @@ global class ScheduledRecommendationPage {
    * URL to the Connect REST API resource for the scheduled custom recommendation collection.
    */
   global String url;
+
+  global Object clone() {}
 
 }

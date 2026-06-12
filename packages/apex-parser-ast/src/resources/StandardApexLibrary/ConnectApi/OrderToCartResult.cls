@@ -3,6 +3,8 @@
  */
 global class OrderToCartResult {
 
+  global OrderToCartResult() {}
+
   /**
    * ID of the cart.
    */
@@ -22,5 +24,7 @@ global class OrderToCartResult {
    * List of products not successfully added to the cart.
    */
   global List < ConnectApi.OrderToCartFailedProduct > unaddedProducts;
+
+  global Object clone() {}
 
 }

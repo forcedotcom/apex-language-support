@@ -3,6 +3,8 @@
  */
 global class CartPromotionCollection {
 
+  global CartPromotionCollection() {}
+
   /**
    * ID of the cart.
    */
@@ -22,5 +24,7 @@ global class CartPromotionCollection {
    * Collection of promotions.
    */
   global List < ConnectApi.CartPromotionList > promotions;
+
+  global Object clone() {}
 
 }

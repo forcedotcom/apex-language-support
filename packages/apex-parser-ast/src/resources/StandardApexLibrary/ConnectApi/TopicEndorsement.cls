@@ -3,6 +3,8 @@
  */
 global class TopicEndorsement {
 
+  global TopicEndorsement() {}
+
   /**
    * User being endorsed.
    */
@@ -27,5 +29,7 @@ global class TopicEndorsement {
    * URL to the resource for the endorsement record.
    */
   global String url;
+
+  global Object clone() {}
 
 }

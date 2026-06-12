@@ -3,4 +3,8 @@
  */
 global class GenericBundleCapability extends ConnectApi.BundleCapability {
 
+  global GenericBundleCapability() {}
+
+  global Object clone() {}
+
 }

@@ -3,6 +3,8 @@
  */
 global class ChatterActivitySummary extends ConnectApi.UserFeedEntityActivitySummary {
 
+  global ChatterActivitySummary() {}
+
   /**
    * Total number of comments in the org or site made by the user.
    */
@@ -22,5 +24,7 @@ global class ChatterActivitySummary extends ConnectApi.UserFeedEntityActivitySum
    * Total number of posts in the org or site made by the user.
    */
   global Integer postCount;
+
+  global Object clone() {}
 
 }

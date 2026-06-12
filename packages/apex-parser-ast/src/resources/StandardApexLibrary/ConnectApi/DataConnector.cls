@@ -3,9 +3,13 @@
  */
 global class DataConnector {
 
+  global DataConnector() {}
+
   /**
    * Output format for the activation target.
    */
   global String outputFormat;
+
+  global Object clone() {}
 
 }

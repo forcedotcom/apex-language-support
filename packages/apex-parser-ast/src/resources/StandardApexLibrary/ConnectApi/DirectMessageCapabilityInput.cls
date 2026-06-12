@@ -3,6 +3,8 @@
  */
 global class DirectMessageCapabilityInput {
 
+  global DirectMessageCapabilityInput() {}
+
   /**
    * List of user IDs for members to include in the direct message.
    */
@@ -17,5 +19,7 @@ global class DirectMessageCapabilityInput {
    * Subject of the direct message.
    */
   global String subject;
+
+  global Object clone() {}
 
 }

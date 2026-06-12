@@ -3,6 +3,8 @@
  */
 global class PricingResult {
 
+  global PricingResult() {}
+
   /**
    * Three-letter ISO 4217 currency code associated with the product.
    */
@@ -22,5 +24,7 @@ global class PricingResult {
    * Specifies whether the execution was successful ( true ) or not ( false ).
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

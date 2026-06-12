@@ -3,6 +3,8 @@
  */
 global class RecommendationAudience {
 
+  global RecommendationAudience() {}
+
   /**
    * The criteria for the custom recommendation audience type.
    */
@@ -42,5 +44,7 @@ global class RecommendationAudience {
    * URL to the custom recommendation audience.
    */
   global String url;
+
+  global Object clone() {}
 
 }

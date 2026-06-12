@@ -3,6 +3,8 @@
  */
 global class TaxImpositionResponse {
 
+  global TaxImpositionResponse() {}
+
   /**
    * Name of the tax imposition.
    */
@@ -12,5 +14,7 @@ global class TaxImpositionResponse {
    * Type of the tax imposition.
    */
   global String type;
+
+  global Object clone() {}
 
 }

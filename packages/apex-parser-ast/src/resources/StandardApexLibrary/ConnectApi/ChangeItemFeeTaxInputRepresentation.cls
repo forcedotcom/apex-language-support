@@ -3,6 +3,8 @@
  */
 global class ChangeItemFeeTaxInputRepresentation {
 
+  global ChangeItemFeeTaxInputRepresentation() {}
+
   /**
    * Tax amount of the change item fee.
    */
@@ -27,5 +29,7 @@ global class ChangeItemFeeTaxInputRepresentation {
    * Describes how the fee amount is calculated. Valid values are: Actual Estimated
    */
   global String type;
+
+  global Object clone() {}
 
 }

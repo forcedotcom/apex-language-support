@@ -3,6 +3,8 @@
  */
 global class VotePage {
 
+  global VotePage() {}
+
   /**
    * Token identifying the current page.
    */
@@ -42,5 +44,7 @@ global class VotePage {
    * Total number of upvotes or downvotes for the feed element or comment. The number of upvotes includes the number of likes and upvotes. For example, if a post receives five likes and three upvotes, the total number of upvotes is eight. If a user both liked and upvoted a post, we count that as two upvotes.
    */
   global Long total;
+
+  global Object clone() {}
 
 }

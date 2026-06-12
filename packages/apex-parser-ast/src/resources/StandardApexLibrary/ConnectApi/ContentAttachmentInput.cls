@@ -3,9 +3,13 @@
  */
 global class ContentAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
 
+  global ContentAttachmentInput() {}
+
   /**
    * ID of the existing content.
    */
   global String contentDocumentId;
+
+  global Object clone() {}
 
 }

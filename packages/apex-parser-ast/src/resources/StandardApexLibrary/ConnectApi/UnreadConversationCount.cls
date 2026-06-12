@@ -3,6 +3,8 @@
  */
 global class UnreadConversationCount {
 
+  global UnreadConversationCount() {}
+
   /**
    * Specifies if there are more than 50 unread messages ( true ) or not ( false ).
    */
@@ -12,5 +14,7 @@ global class UnreadConversationCount {
    * The total number of unread messages.
    */
   global Integer unreadCount;
+
+  global Object clone() {}
 
 }

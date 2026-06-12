@@ -3,6 +3,8 @@
  */
 global class OCIReleaseReservationSingleInputRepresentation {
 
+  global OCIReleaseReservationSingleInputRepresentation() {}
+
   /**
    * A UUID that identifies the request. Use the action request IDs in response data to identify which requests succeeded or failed.
    */
@@ -37,5 +39,7 @@ global class OCIReleaseReservationSingleInputRepresentation {
    * The SKU of the product to release.
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class UserClient {
 
+  global UserClient() {}
+
   global Slack.ApiTestResponse apiTest(Slack.ApiTestRequest req) {}
 
   global Slack.AppsEventAuthorizationsListResponse appsEventAuthorizationsList(Slack.AppsEventAuthorizationsListRequest req) {}
@@ -199,5 +201,17 @@ global class UserClient {
   global Slack.ViewsPushResponse viewsPush(Slack.ViewsPushRequest req) {}
 
   global Slack.ViewsUpdateResponse viewsUpdate(Slack.ViewsUpdateRequest req) {}
+
+  global Slack.BookmarksAddResponse bookmarksAdd(Slack.BookmarksAddRequest req) {}
+
+  global Slack.BookmarksEditResponse bookmarksEdit(Slack.BookmarksEditRequest req) {}
+
+  global Slack.BookmarksListResponse bookmarksList(Slack.BookmarksListRequest req) {}
+
+  global Slack.BookmarksRemoveResponse bookmarksRemove(Slack.BookmarksRemoveRequest req) {}
+
+  global Object clone() {}
+
+  global Slack.ConversationsLeaveResponse conversationsLeave(Slack.ConversationsLeaveRequest req) {}
 
 }

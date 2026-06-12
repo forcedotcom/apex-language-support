@@ -3,6 +3,8 @@
  */
 global class Alternative {
 
+  global Alternative() {}
+
   /**
    * Text representation of the extension.
    */
@@ -17,5 +19,7 @@ global class Alternative {
    * Title of the extension.
    */
   global String title;
+
+  global Object clone() {}
 
 }

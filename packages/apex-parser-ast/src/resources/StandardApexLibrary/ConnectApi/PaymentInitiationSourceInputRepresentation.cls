@@ -3,6 +3,8 @@
  */
 global class PaymentInitiationSourceInputRepresentation {
 
+  global PaymentInitiationSourceInputRepresentation() {}
+
   /**
    * Application that initiated this payment, such as Revenue Lifecycle Management (RLM).
    */
@@ -27,5 +29,7 @@ global class PaymentInitiationSourceInputRepresentation {
    * Map of standard reference fields and their corresponding IDs.
    */
   global Map < String , String > standardReferences;
+
+  global Object clone() {}
 
 }

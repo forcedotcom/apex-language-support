@@ -15,6 +15,8 @@ export interface ClassReference {
   pageId: string;
   namespace: string;
   pageType: PageType;
+  /** Set when this class is an inner class of another; value is the outer class name. */
+  outerClass?: string;
 }
 
 export interface NamespaceInfo {
@@ -22,6 +24,14 @@ export interface NamespaceInfo {
   pageId: string;
   classes: ClassReference[];
 }
+
+// Canonical casing for namespaces whose public docs use inconsistent capitalisation.
+// Keys are lowercase; values are the authoritative names used as output folder names.
+const NAMESPACE_NAME_OVERRIDES = new Map<string, string>([
+  ['sfdc_enablement', 'Sfdc_Enablement'],
+  ['sfdc_checkout', 'Sfdc_Checkout'],
+  ['sfdc_surveys', 'Sfdc_Surveys'],
+]);
 
 const classifyPageType = (href: string, text: string): PageType => {
   const lowerHref = href.toLowerCase();
@@ -202,7 +212,9 @@ export const parseTocStructure = (tocJson: any) =>
       if (!isNamespace) continue;
 
       // Strip all "Namespace" suffixes (e.g. "Wave Namespace Namespace" → "Wave")
-      const nsName = nsText.replace(/(\s+Namespace)+\s*$/i, '').trim();
+      let nsName = nsText.replace(/(\s+Namespace)+\s*$/i, '').trim();
+      // Pin namespace names whose docs are inconsistently cased.
+      nsName = NAMESPACE_NAME_OVERRIDES.get(nsName.toLowerCase()) ?? nsName;
       const classes: ClassReference[] = [];
 
       for (const classNode of nsNode.children || []) {

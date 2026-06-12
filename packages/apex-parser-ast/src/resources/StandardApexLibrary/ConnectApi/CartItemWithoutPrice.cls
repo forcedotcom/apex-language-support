@@ -3,4 +3,8 @@
  */
 global class CartItemWithoutPrice extends ConnectApi.AbstractCartItem {
 
+  global CartItemWithoutPrice() {}
+
+  global Object clone() {}
+
 }

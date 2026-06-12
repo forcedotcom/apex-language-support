@@ -3,12 +3,16 @@
  */
 global class CursorFetchResult {
 
-  public Integer getNextIndex() {}
+  global CursorFetchResult() {}
 
-  public Integer getNumDeletedRecords() {}
+  global Integer getNextIndex() {}
 
-  public List<SObject> getRecords() {}
+  global Integer getNumDeletedRecords() {}
 
-  public Boolean isDone() {}
+  global List<SObject> getRecords() {}
+
+  global Boolean isDone() {}
+
+  global Object clone() {}
 
 }

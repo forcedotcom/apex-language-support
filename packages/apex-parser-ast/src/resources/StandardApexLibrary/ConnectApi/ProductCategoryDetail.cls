@@ -3,6 +3,8 @@
  */
 global class ProductCategoryDetail {
 
+  global ProductCategoryDetail() {}
+
   /**
    * Banner image of the product category.
    */
@@ -32,5 +34,7 @@ global class ProductCategoryDetail {
    * SEO-friendly URL name of the product category.
    */
   global String urlName;
+
+  global Object clone() {}
 
 }

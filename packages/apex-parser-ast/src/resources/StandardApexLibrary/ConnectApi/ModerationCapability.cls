@@ -3,9 +3,13 @@
  */
 global class ModerationCapability extends ConnectApi.FeedElementCapability {
 
+  global ModerationCapability() {}
+
   /**
    * The moderation flags for this feed element. Moderators can view and take action on flagged items.
    */
   global ConnectApi.ModerationFlags moderationFlags;
+
+  global Object clone() {}
 
 }

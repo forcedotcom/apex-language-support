@@ -3,6 +3,8 @@
  */
 global class QuerySqlPageOutput {
 
+  global QuerySqlPageOutput() {}
+
   /**
    * Data associated with the SQL.
    */
@@ -17,5 +19,7 @@ global class QuerySqlPageOutput {
    * Number of rows returned by the query.
    */
   global Long returnedRows;
+
+  global Object clone() {}
 
 }

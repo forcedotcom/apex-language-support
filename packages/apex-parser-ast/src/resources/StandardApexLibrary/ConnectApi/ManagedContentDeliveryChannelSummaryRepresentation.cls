@@ -3,6 +3,8 @@
  */
 global class ManagedContentDeliveryChannelSummaryRepresentation {
 
+  global ManagedContentDeliveryChannelSummaryRepresentation() {}
+
   /**
    * Domain URL of the channel.
    */
@@ -32,5 +34,7 @@ global class ManagedContentDeliveryChannelSummaryRepresentation {
    * Type of managed content channel. Values are: CloudToCloud —Cloud-to-Cloud integrated channel. Community —Experience Cloud site channel. ConnectedApp —Channel served by a connected app. PublicUnauthenticated —Public channel. All published content is publicly available. UserPermission —Channel backed by a system permission. All published content is available only to users with the permission.
    */
   global ConnectApi.ManagedContentChannelType type;
+
+  global Object clone() {}
 
 }

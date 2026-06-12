@@ -3,6 +3,8 @@
  */
 global class ActionLinkGroupDefinitionInput {
 
+  global ActionLinkGroupDefinitionInput() {}
+
   /**
    * The action links that make up this group. Within an action link group, action links are displayed in the order listed in the actionLinks property of the ConnectApi.ActionLinkGroupDefinitionInput class. Within a feed item, action link groups are displayed in the order specified in the actionLinkGroupIds property of the ConnectApi.AssociatedActionsCapabilityInput class. You can create up to three action links in a Primary group and up to four in an Overflow group.
    */
@@ -32,5 +34,7 @@ global class ActionLinkGroupDefinitionInput {
    * The ID of the action link group template from which to instantiate this action link group.
    */
   global String templateId;
+
+  global Object clone() {}
 
 }

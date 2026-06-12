@@ -3,6 +3,8 @@
  */
 global class UserMissionActivityStatus {
 
+  global UserMissionActivityStatus() {}
+
   /**
    * Success or error message.
    */
@@ -12,5 +14,7 @@ global class UserMissionActivityStatus {
    * Status of mission activity for a user.
    */
   global String status;
+
+  global Object clone() {}
 
 }

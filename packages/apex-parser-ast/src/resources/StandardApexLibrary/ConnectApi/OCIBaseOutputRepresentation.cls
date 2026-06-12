@@ -3,6 +3,8 @@
  */
 global class OCIBaseOutputRepresentation {
 
+  global OCIBaseOutputRepresentation() {}
+
   /**
    * Any errors that were returned.
    */
@@ -12,5 +14,7 @@ global class OCIBaseOutputRepresentation {
    * Indicates whether the request was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

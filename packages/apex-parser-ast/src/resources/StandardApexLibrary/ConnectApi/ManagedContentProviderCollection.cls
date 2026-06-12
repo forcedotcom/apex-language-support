@@ -3,6 +3,8 @@
  */
 global class ManagedContentProviderCollection {
 
+  global ManagedContentProviderCollection() {}
+
   /**
    * ID of the managed content space, if provided. Otherwise, null .
    */
@@ -27,5 +29,7 @@ global class ManagedContentProviderCollection {
    * Total number of managed content providers.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

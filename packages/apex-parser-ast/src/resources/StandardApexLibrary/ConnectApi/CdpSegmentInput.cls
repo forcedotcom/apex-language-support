@@ -3,6 +3,8 @@
  */
 global class CdpSegmentInput {
 
+  global CdpSegmentInput() {}
+
   /**
    * Map of additional metadata.
    */
@@ -57,5 +59,7 @@ global class CdpSegmentInput {
    * Type of segment. Value is: Dbt —Data build tool After a segment is created, the segment type can’t be changed.
    */
   global ConnectApi.SegmentType segmentType;
+
+  global Object clone() {}
 
 }

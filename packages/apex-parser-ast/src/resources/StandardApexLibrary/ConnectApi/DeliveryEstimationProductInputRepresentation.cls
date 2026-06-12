@@ -3,6 +3,8 @@
  */
 global class DeliveryEstimationProductInputRepresentation {
 
+  global DeliveryEstimationProductInputRepresentation() {}
+
   /**
    * Product name.
    */
@@ -22,5 +24,7 @@ global class DeliveryEstimationProductInputRepresentation {
    * Product's stock keeping unit (SKU).
    */
   global String stockKeepingUnit;
+
+  global Object clone() {}
 
 }

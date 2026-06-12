@@ -3,4 +3,8 @@
  */
 global class RefundSequenceItemInputRepresentation extends ConnectApi.AbstractBaseSequenceInputRepresentation {
 
+  global RefundSequenceItemInputRepresentation() {}
+
+  global Object clone() {}
+
 }

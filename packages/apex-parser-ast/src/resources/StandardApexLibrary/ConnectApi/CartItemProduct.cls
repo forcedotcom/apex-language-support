@@ -3,6 +3,8 @@
  */
 global class CartItemProduct {
 
+  global CartItemProduct() {}
+
   /**
    * Map of product fields and values.
    */
@@ -47,5 +49,7 @@ global class CartItemProduct {
    * Variation attributes associated with the product.
    */
   global Map < String , ConnectApi.CartProductAttribute > variationAttributes;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class RecommendationDefinitionPage {
 
+  global RecommendationDefinitionPage() {}
+
   /**
    * A list of custom recommendation definitions.
    */
@@ -12,5 +14,7 @@ global class RecommendationDefinitionPage {
    * URL to the Connect REST API resource for the recommendation definition collection.
    */
   global String url;
+
+  global Object clone() {}
 
 }

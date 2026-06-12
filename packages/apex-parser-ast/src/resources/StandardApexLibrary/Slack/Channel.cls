@@ -1,5 +1,7 @@
 global class Channel {
 
+  global Channel() {}
+
   global Integer getCreated() {}
 
   global String getCreator() {}
@@ -147,5 +149,7 @@ global class Channel {
   global void setUnreadCountDisplay(Integer unreadCountDisplay) {}
 
   global void setUser(String user) {}
+
+  global Object clone() {}
 
 }

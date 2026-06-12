@@ -3,9 +3,13 @@
  */
 global class ContactPointsConfig {
 
+  global ContactPointsConfig() {}
+
   /**
    * Activation contact points.
    */
   global List < ConnectApi.ContactPointConfig > contactPoints;
+
+  global Object clone() {}
 
 }

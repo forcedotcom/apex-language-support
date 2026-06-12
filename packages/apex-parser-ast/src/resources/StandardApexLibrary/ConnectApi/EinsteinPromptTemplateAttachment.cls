@@ -3,6 +3,13 @@
  */
 global class EinsteinPromptTemplateAttachment {
 
+  global EinsteinPromptTemplateAttachment() {}
+
+  /**
+   * Information about file attachments that cannot be processed.
+   */
+  global ConnectApi.EinsteinPromptTemplateAttachmentExclusionInfo exclusionInfo;
+
   /**
    * Extension of the file attachment.
    */
@@ -19,8 +26,15 @@ global class EinsteinPromptTemplateAttachment {
   global String latestPublishedVersion;
 
   /**
+   * ParentName of the file attachment.
+   */
+  global String parentName;
+
+  /**
    * Title of the file attachment.
    */
   global String title;
+
+  global Object clone() {}
 
 }

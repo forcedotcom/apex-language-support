@@ -3,4 +3,8 @@
  */
 global class EnsureFundsAsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
 
+  global EnsureFundsAsyncOutputRepresentation() {}
+
+  global Object clone() {}
+
 }

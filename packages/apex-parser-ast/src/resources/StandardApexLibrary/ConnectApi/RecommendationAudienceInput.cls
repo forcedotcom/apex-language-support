@@ -3,6 +3,8 @@
  */
 global class RecommendationAudienceInput {
 
+  global RecommendationAudienceInput() {}
+
   /**
    * The criteria for the custom recommendation audience type.
    */
@@ -22,5 +24,7 @@ global class RecommendationAudienceInput {
    * The unique name of the custom recommendation audience.
    */
   global String name;
+
+  global Object clone() {}
 
 }

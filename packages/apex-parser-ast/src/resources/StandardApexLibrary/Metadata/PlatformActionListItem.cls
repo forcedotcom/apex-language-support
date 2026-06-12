@@ -3,10 +3,20 @@
  */
 global class PlatformActionListItem {
 
+  global PlatformActionListItem() {}
+
+  global String actionName;
+
+  global Metadata.PlatformActionTypeEnum actionType;
+
+  global Integer sortOrder;
+
+  global String subtype;
+
   /**
    * Makes a duplicate copy of the Metadata.PlatformActionListItem .
    * @return Object
    */
-  public Object clone() {}
+  global Object clone() {}
 
 }

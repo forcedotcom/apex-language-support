@@ -3,6 +3,8 @@
  */
 global class ProductChildCollection {
 
+  global ProductChildCollection() {}
+
   /**
    * Number of child products returned on this page.
    */
@@ -52,5 +54,7 @@ global class ProductChildCollection {
    * Total number of child products in the collection.
    */
   global Integer total;
+
+  global Object clone() {}
 
 }

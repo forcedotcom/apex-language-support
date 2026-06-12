@@ -3,6 +3,8 @@
  */
 global class EmailAddress {
 
+  global EmailAddress() {}
+
   /**
    * The display name for the email address.
    */
@@ -17,5 +19,7 @@ global class EmailAddress {
    * The summary of a related record, for example, a contact or user summary.
    */
   global ConnectApi.RecordSummary relatedRecord;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ActivationContactPointInput {
 
+  global ActivationContactPointInput() {}
+
   /**
    * Attributes for the contact point.
    */
@@ -37,5 +39,7 @@ global class ActivationContactPointInput {
    * Type of contact point. Email Maid Ott Phone Push Subscriber_Key_Email Subscriber_Key_Phone WhatsApp
    */
   global ContactPointTypeRepresentationEnum type;
+
+  global Object clone() {}
 
 }

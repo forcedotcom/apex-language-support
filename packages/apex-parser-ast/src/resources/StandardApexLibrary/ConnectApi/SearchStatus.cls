@@ -3,6 +3,8 @@
  */
 global class SearchStatus {
 
+  global SearchStatus() {}
+
   /**
    * Search status code.
    */
@@ -12,5 +14,7 @@ global class SearchStatus {
    * Search status message.
    */
   global String message;
+
+  global Object clone() {}
 
 }

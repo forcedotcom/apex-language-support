@@ -3,6 +3,8 @@
  */
 global class ManagedContentProviderInstanceInput {
 
+  global ManagedContentProviderInstanceInput() {}
+
   /**
    * Provider instance key.
    */
@@ -22,5 +24,7 @@ global class ManagedContentProviderInstanceInput {
    * ID of the provider lightning component.
    */
   global String providerLightningComponentId;
+
+  global Object clone() {}
 
 }

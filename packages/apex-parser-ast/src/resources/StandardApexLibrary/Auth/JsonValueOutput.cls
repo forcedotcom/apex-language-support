@@ -3,6 +3,20 @@
  */
 global class JsonValueOutput {
 
-  public JsonValueOutput(String stringValue, Boolean booleanValue, Integer integerValue, Double doubleValue, String jsonStringValue, String jsonArrayValue) {}
+  global JsonValueOutput(String stringValue, Boolean booleanValue, Integer integerValue, Double doubleValue, String jsonStringValue, String jsonArrayValue) {}
+
+  global Boolean booleanValue;
+
+  global Double doubleValue;
+
+  global Integer integerValue;
+
+  global String jsonArrayValue;
+
+  global String jsonStringValue;
+
+  global String stringValue;
+
+  global Object clone() {}
 
 }

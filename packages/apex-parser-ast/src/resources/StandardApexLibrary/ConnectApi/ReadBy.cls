@@ -3,6 +3,8 @@
  */
 global class ReadBy {
 
+  global ReadBy() {}
+
   /**
    * When the user last read the feed element in ISO 8601 format.
    */
@@ -12,5 +14,7 @@ global class ReadBy {
    * Information about the user who read the feed element.
    */
   global ConnectApi.UserSummary user;
+
+  global Object clone() {}
 
 }

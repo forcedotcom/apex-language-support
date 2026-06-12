@@ -10,4 +10,6 @@ global interface EmailTemplateSelector {
    */
   ID getDefaultTemplateId(ID caseId);
 
+  Id getDefaultEmailTemplateId(Id arg0);
+
 }

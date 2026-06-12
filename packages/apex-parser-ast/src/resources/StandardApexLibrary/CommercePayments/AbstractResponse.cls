@@ -3,6 +3,8 @@
  */
 global class AbstractResponse {
 
+  global AbstractResponse() {}
+
   /**
    * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
    * @param gatewayAvsCode Code sent by gateways that use an address verification system.
@@ -39,8 +41,10 @@ global class AbstractResponse {
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
 
-  public void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
 
-  public void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+
+  global Object clone() {}
 
 }

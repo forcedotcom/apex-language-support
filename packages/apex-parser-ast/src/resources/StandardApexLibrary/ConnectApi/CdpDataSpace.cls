@@ -3,8 +3,12 @@
  */
 global class CdpDataSpace {
 
-  public static ConnectApi.DataSpaceCollectionRepresentation getAllDataSpaces(Integer batchSize, Integer offset, String orderBy) {}
+  global CdpDataSpace() {}
 
-  public static ConnectApi.DataSpaceInfoRepresentation getDataSpace(String idOrName) {}
+  global static ConnectApi.DataSpaceCollectionRepresentation getAllDataSpaces(Integer batchSize, Integer offset, String orderBy) {}
+
+  global static ConnectApi.DataSpaceInfoRepresentation getDataSpace(String idOrName) {}
+
+  global Object clone() {}
 
 }

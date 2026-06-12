@@ -3,6 +3,8 @@
  */
 global class SubmitCartToExchangeOrderOutputRepresentation {
 
+  global SubmitCartToExchangeOrderOutputRepresentation() {}
+
   /**
    * The balance state preview for the exchange web cart.
    */
@@ -42,5 +44,7 @@ global class SubmitCartToExchangeOrderOutputRepresentation {
    * Indicates whether the transaction was successful.
    */
   global Boolean success;
+
+  global Object clone() {}
 
 }

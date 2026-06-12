@@ -3,6 +3,8 @@
  */
 global class ScopedSearchResults {
 
+  global ScopedSearchResults() {}
+
   /**
    * All search metadata associated with the object.
    */
@@ -27,5 +29,7 @@ global class ScopedSearchResults {
    * Record results for the keyword search. In version 64.0 and later, use results for record results.
    */
   global ConnectApi.SearchObject searchObject;
+
+  global Object clone() {}
 
 }

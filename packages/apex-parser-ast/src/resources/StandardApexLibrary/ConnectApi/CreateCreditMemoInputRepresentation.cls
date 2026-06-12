@@ -3,9 +3,13 @@
  */
 global class CreateCreditMemoInputRepresentation {
 
+  global CreateCreditMemoInputRepresentation() {}
+
   /**
    * List of IDs of the change orders.
    */
   global List < String > changeOrderIds;
+
+  global Object clone() {}
 
 }

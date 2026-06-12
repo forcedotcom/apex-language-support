@@ -3,6 +3,8 @@
  */
 global class OrderItemSummaryInputRepresentation {
 
+  global OrderItemSummaryInputRepresentation() {}
+
   /**
    * ID of the OrderItemSummary.
    */
@@ -12,5 +14,7 @@ global class OrderItemSummaryInputRepresentation {
    * Quantity to include. Can't contain a fraction or a decimal.
    */
   global Double quantity;
+
+  global Object clone() {}
 
 }

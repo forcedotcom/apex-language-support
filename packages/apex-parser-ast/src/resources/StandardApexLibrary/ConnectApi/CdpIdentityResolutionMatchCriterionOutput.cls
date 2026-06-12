@@ -3,6 +3,8 @@
  */
 global class CdpIdentityResolutionMatchCriterionOutput {
 
+  global CdpIdentityResolutionMatchCriterionOutput() {}
+
   /**
    * Specifies whether the criterion match is case sensitive ( true ) or not ( false ). Available only when matching is based on the party identifier .
    */
@@ -32,5 +34,7 @@ global class CdpIdentityResolutionMatchCriterionOutput {
    * Specifies whether blank fields can be used for matching ( true ) or not ( false ).
    */
   global Boolean shouldMatchOnBlank;
+
+  global Object clone() {}
 
 }

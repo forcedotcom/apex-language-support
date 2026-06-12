@@ -3,6 +3,8 @@
  */
 global class FormInput {
 
+  global FormInput() {}
+
   /**
    * Fields for the marketing integration form.
    */
@@ -17,5 +19,7 @@ global class FormInput {
    * The member identification code (MID) of the Marketing Cloud Engagement account associated with the form.
    */
   global String memberIdentificationCode;
+
+  global Object clone() {}
 
 }

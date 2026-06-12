@@ -3,6 +3,8 @@
  */
 global class CommerceActionResult {
 
+  global CommerceActionResult() {}
+
   /**
    * Specifies whether the action is a success ( true ) or not ( false ).
    */
@@ -12,5 +14,7 @@ global class CommerceActionResult {
    * Action result message.
    */
   global String message;
+
+  global Object clone() {}
 
 }

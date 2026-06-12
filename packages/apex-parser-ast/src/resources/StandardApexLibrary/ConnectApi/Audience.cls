@@ -3,6 +3,8 @@
  */
 global class Audience {
 
+  global Audience() {}
+
   /**
    * Criteria details for the audience.
    */
@@ -37,5 +39,7 @@ global class Audience {
    * URL to this audience.
    */
   global String url;
+
+  global Object clone() {}
 
 }

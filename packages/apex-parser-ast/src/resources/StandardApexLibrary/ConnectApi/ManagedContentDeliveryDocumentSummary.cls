@@ -3,4 +3,8 @@
  */
 global class ManagedContentDeliveryDocumentSummary extends ConnectApi.AbstractManagedContentDeliveryDocument {
 
+  global ManagedContentDeliveryDocumentSummary() {}
+
+  global Object clone() {}
+
 }

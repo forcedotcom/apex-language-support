@@ -3,6 +3,8 @@
  */
 global class ActivationTargetInput {
 
+  global ActivationTargetInput() {}
+
   /**
    * Details about the connector for the activation target.
    */
@@ -37,5 +39,7 @@ global class ActivationTargetInput {
    * Data connector type of the activation target. AmazonS3 AzureBlob DataCloud GoogleCloudStorage SalesforceMarketingCloud Sftp
    */
   global DataConnectorTypeEnum platformType;
+
+  global Object clone() {}
 
 }

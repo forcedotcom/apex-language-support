@@ -3,6 +3,8 @@
  */
 global class RecommendationReactionInput {
 
+  global RecommendationReactionInput() {}
+
   /**
    * Reserved for future use.
    */
@@ -62,5 +64,7 @@ global class RecommendationReactionInput {
    * ID of the recommendation that is being reacted to.
    */
   global String targetId;
+
+  global Object clone() {}
 
 }

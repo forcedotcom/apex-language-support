@@ -3,6 +3,8 @@
  */
 global class ApprovalCapability extends ConnectApi.FeedElementCapability {
 
+  global ApprovalCapability() {}
+
   /**
    * The work item ID. The work item ID is null if there isn’t a pending work item associated with the approval record.
    */
@@ -22,5 +24,7 @@ global class ApprovalCapability extends ConnectApi.FeedElementCapability {
    * The status of the approval.
    */
   global ConnectApi.WorkflowProcessStatus status;
+
+  global Object clone() {}
 
 }

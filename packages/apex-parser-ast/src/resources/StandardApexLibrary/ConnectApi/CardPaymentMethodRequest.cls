@@ -3,6 +3,8 @@
  */
 global class CardPaymentMethodRequest extends ConnectApi.BasePaymentMethodRequest {
 
+  global CardPaymentMethodRequest() {}
+
   /**
    * Salesforce Payments account to which this payment method is linked.
    */
@@ -82,5 +84,7 @@ global class CardPaymentMethodRequest extends ConnectApi.BasePaymentMethodReques
    * Year the card becomes active.
    */
   global Integer startYear;
+
+  global Object clone() {}
 
 }

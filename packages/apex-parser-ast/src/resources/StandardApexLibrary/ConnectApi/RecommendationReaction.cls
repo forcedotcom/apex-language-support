@@ -3,6 +3,8 @@
  */
 global class RecommendationReaction {
 
+  global RecommendationReaction() {}
+
   /**
    * Reserved for future use.
    */
@@ -72,5 +74,7 @@ global class RecommendationReaction {
    * URL to the recommendation reaction.
    */
   global String url;
+
+  global Object clone() {}
 
 }

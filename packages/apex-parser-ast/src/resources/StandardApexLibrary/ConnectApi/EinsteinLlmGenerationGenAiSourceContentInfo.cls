@@ -3,6 +3,8 @@
  */
 global class EinsteinLlmGenerationGenAiSourceContentInfo {
 
+  global EinsteinLlmGenerationGenAiSourceContentInfo() {}
+
   /**
    * Text from the source that is cited in the generated response.
    */
@@ -17,5 +19,7 @@ global class EinsteinLlmGenerationGenAiSourceContentInfo {
    * API name of the object that is cited in the generated response, such as Opportunity .
    */
   global String objectName;
+
+  global Object clone() {}
 
 }

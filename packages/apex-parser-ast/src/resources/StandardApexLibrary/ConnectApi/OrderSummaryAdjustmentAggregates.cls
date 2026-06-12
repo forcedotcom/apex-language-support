@@ -3,6 +3,8 @@
  */
 global class OrderSummaryAdjustmentAggregates {
 
+  global OrderSummaryAdjustmentAggregates() {}
+
   /**
    * Indicates if adjustment aggregate values are available ( true ) or not ( false ).
    */
@@ -42,5 +44,7 @@ global class OrderSummaryAdjustmentAggregates {
    * Total product promotion amount associated with an order summary.
    */
   global String totalProductPromotionTotalAmount;
+
+  global Object clone() {}
 
 }

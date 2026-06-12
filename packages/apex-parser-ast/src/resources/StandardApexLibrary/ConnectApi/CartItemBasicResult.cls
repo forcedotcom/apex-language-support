@@ -3,6 +3,8 @@
  */
 global class CartItemBasicResult {
 
+  global CartItemBasicResult() {}
+
   /**
    * Item in a cart.
    */
@@ -17,5 +19,7 @@ global class CartItemBasicResult {
    * Status of the request.
    */
   global String status;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class OrderItemSummaryProduct {
 
+  global OrderItemSummaryProduct() {}
+
   /**
    * Specifies whether the context user can view the product ( true ) or not ( false ).
    */
@@ -37,5 +39,7 @@ global class OrderItemSummaryProduct {
    * ID of the product.
    */
   global String productId;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class ReadByCapability extends ConnectApi.FeedElementCapability {
 
+  global ReadByCapability() {}
+
   /**
    * Specifies whether the feed element has been read ( true ) or not ( false ) by the context user.
    */
@@ -17,5 +19,7 @@ global class ReadByCapability extends ConnectApi.FeedElementCapability {
    * First page of information about who read the feed element and when.
    */
   global ConnectApi.ReadByPage page;
+
+  global Object clone() {}
 
 }

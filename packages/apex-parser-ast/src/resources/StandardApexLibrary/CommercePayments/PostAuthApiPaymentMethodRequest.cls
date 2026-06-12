@@ -9,4 +9,6 @@ global class PostAuthApiPaymentMethodRequest {
 
   global commercepayments.AlternativePaymentMethodRequest PaymentMethod;
 
+  global Object clone() {}
+
 }

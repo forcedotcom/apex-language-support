@@ -3,6 +3,12 @@
  */
 global class QueryContext {
 
+  global QueryContext() {}
+
+  global String queryMoreToken;
+
+  global DataSource.TableSelection tableSelection;
+
   /**
    * Creates an instance of the QueryContext class.
    * @param metadata List of table metadata that describes the external system’s tables to query.
@@ -11,6 +17,8 @@ global class QueryContext {
    * @param tableSelection Query details that represent the FROM , ORDER BY , SELECT , and WHERE clauses in a SOQL or SOSL query.
    * @return DataSource.QueryContext
    */
-  public static DataSource.QueryContext get(List<DataSource.Table> metadata, Integer offset, Integer maxResults, DataSource.TableSelection tableSelection) {}
+  global static DataSource.QueryContext get(List<DataSource.Table> metadata, Integer offset, Integer maxResults, DataSource.TableSelection tableSelection) {}
+
+  global Object clone() {}
 
 }

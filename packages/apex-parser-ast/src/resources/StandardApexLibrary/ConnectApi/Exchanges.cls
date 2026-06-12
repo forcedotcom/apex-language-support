@@ -3,6 +3,10 @@
  */
 global class Exchanges {
 
-  public static ConnectApi.PreviewCartToExchangeOrderOutputRepresentation previewCartToExchangeOrder(ConnectApi.PreviewCartToExchangeOrderInputRepresentation previewCartToExchangeOrderInput) {}
+  global Exchanges() {}
+
+  global static ConnectApi.PreviewCartToExchangeOrderOutputRepresentation previewCartToExchangeOrder(ConnectApi.PreviewCartToExchangeOrderInputRepresentation previewCartToExchangeOrderInput) {}
+
+  global Object clone() {}
 
 }

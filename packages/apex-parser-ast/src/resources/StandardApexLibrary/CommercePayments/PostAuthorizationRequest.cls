@@ -15,4 +15,6 @@ global class PostAuthorizationRequest extends BaseRequest {
 
   global PostAuthApiPaymentMethodRequest paymentMethod;
 
+  global Object clone() {}
+
 }

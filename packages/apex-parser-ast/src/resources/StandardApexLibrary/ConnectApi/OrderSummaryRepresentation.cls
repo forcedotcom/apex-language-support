@@ -3,6 +3,8 @@
  */
 global class OrderSummaryRepresentation {
 
+  global OrderSummaryRepresentation() {}
+
   /**
    * Adjustment aggregates associated with the order summary.
    */
@@ -47,5 +49,7 @@ global class OrderSummaryRepresentation {
    * Total amount of the order summary.
    */
   global String totalAmount;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class BusObjRecommendationInputRepresentation {
 
+  global BusObjRecommendationInputRepresentation() {}
+
   /**
    * Text indicating user acceptance of the recommended action.
    */
@@ -102,5 +104,7 @@ global class BusObjRecommendationInputRepresentation {
    * Optional state field for additional filtering of recommended action states.
    */
   global String tertiaryState;
+
+  global Object clone() {}
 
 }

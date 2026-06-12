@@ -3,6 +3,8 @@
  */
 global class BaseManagedSocialAccount {
 
+  global BaseManagedSocialAccount() {}
+
   /**
    * Default response account to use when replying to posts sent to this account.
    */
@@ -47,5 +49,7 @@ global class BaseManagedSocialAccount {
    * Unique user name or handle for this account on the social network.
    */
   global String username;
+
+  global Object clone() {}
 
 }

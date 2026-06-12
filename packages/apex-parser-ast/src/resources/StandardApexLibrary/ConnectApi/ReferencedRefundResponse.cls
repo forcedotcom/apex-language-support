@@ -3,6 +3,8 @@
  */
 global class ReferencedRefundResponse {
 
+  global ReferencedRefundResponse() {}
+
   /**
    * Error response representation for the refund.
    */
@@ -27,5 +29,7 @@ global class ReferencedRefundResponse {
    * Refund response representation.
    */
   global ConnectApi.RefundResponse refund;
+
+  global Object clone() {}
 
 }

@@ -1,5 +1,7 @@
 global class Apps {
 
+  global Apps() {}
+
   global static Slack.AppsEventAuthorizationsListRequest.Builder builder() {}
 
   global Slack.AppsEventAuthorizationsListRequest build() {}
@@ -45,5 +47,7 @@ global class Apps {
   global Slack.AppsUninstallRequest.Builder clientId(String clientId) {}
 
   global Slack.AppsUninstallRequest.Builder clientSecret(String clientSecret) {}
+
+  global Object clone() {}
 
 }

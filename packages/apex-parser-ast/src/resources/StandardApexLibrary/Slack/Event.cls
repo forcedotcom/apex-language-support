@@ -1,5 +1,7 @@
 global class Event {
 
+  global Event() {}
+
   global String getSubtype() {}
 
   global String getType() {}
@@ -505,5 +507,7 @@ global class Event {
   global void setScopes(List<String> scopes) {}
 
   global void setTriggerId(String triggerId) {}
+
+  global Object clone() {}
 
 }

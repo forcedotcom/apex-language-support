@@ -3,6 +3,8 @@
  */
 global class OCIReleaseReservationInputRepresentation {
 
+  global OCIReleaseReservationInputRepresentation() {}
+
   /**
    * List of inventory reservations to release. The list can include up to 100 elements.
    */
@@ -12,5 +14,7 @@ global class OCIReleaseReservationInputRepresentation {
    * The ID of the inventory reservation.
    */
   global String reservationId;
+
+  global Object clone() {}
 
 }

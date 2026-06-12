@@ -1,5 +1,7 @@
 global class BotsInfo {
 
+  global BotsInfo() {}
+
   global String getImage36() {}
 
   global String getImage48() {}
@@ -57,5 +59,7 @@ global class BotsInfo {
   global void setIcons(Slack.BotIcons icons) {}
 
   global void setUserId(String userId) {}
+
+  global Object clone() {}
 
 }

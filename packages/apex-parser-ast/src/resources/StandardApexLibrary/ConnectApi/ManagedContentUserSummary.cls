@@ -3,6 +3,8 @@
  */
 global class ManagedContentUserSummary {
 
+  global ManagedContentUserSummary() {}
+
   /**
    * ID of the user.
    */
@@ -17,5 +19,7 @@ global class ManagedContentUserSummary {
    * Resource URL of the user.
    */
   global String resourceUrl;
+
+  global Object clone() {}
 
 }

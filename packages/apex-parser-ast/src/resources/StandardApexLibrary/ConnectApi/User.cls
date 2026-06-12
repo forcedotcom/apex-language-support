@@ -3,6 +3,8 @@
  */
 global class User extends ConnectApi.ActionWithId {
 
+  global User() {}
+
   /**
    * If one exists, an extra label for the user, for example, “Customer,” “Partner,” or “Acme Corporation.”
    */
@@ -72,5 +74,7 @@ global class User extends ConnectApi.ActionWithId {
    * Type of user. ChatterGuest —User is an external user in a private group. ChatterOnly —User is a Chatter Free customer. Guest —User is unauthenticated. Internal —User is a standard org member. Portal —User is an external user in an Experience Cloud site. System —User is Chatter Expert or a system user. Undefined —User is a user type that is a custom object.
    */
   global ConnectApi.UserType Enum userType;
+
+  global Object clone() {}
 
 }

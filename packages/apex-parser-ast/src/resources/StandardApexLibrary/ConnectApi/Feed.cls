@@ -3,6 +3,8 @@
  */
 global class Feed {
 
+  global Feed() {}
+
   /**
    * Connect REST API URL to post feed elements to this subject.
    */
@@ -52,5 +54,7 @@ global class Feed {
    * Indicates whether the feed respects the mute feature. If true , the feed shows the ability to mute or unmute each element, depending on the value of isMutedByMe ; null if the mute feature is disabled for the organization.
    */
   global Boolean respectsMute;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class AbstractCartItem {
 
+  global AbstractCartItem() {}
+
   /**
    * Reserved for future use.
    */
@@ -97,5 +99,7 @@ global class AbstractCartItem {
    * Type of item in a cart. Values are: DeliveryCharge Product
    */
   global ConnectApi.CartItemType type;
+
+  global Object clone() {}
 
 }

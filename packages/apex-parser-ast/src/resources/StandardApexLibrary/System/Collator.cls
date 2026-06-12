@@ -3,8 +3,12 @@
  */
 global class Collator {
 
-  public Integer compare(String source, String target) {}
+  global Collator() {}
 
-  public static System.Collator getInstance() {}
+  global Integer compare(String source, String target) {}
+
+  global static System.Collator getInstance() {}
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class EstimateDeliveryDateOutputRepresentation {
 
+  global EstimateDeliveryDateOutputRepresentation() {}
+
   /**
    * List of delivery estimations.
    */
@@ -12,5 +14,7 @@ global class EstimateDeliveryDateOutputRepresentation {
    * Unique code, reference, or identifier for the estimated delivery used by external systems.
    */
   global String estimatedDeliveryReference;
+
+  global Object clone() {}
 
 }

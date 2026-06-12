@@ -3,4 +3,8 @@
  */
 global class FeedEntityReadSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
+  global FeedEntityReadSummary() {}
+
+  global Object clone() {}
+
 }

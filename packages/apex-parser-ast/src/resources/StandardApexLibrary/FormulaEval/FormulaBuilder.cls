@@ -3,20 +3,24 @@
  */
 global class FormulaBuilder {
 
-  public FormulaEval.FormulaInstance build() {}
+  global FormulaBuilder() {}
 
-  public formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
+  global FormulaEval.FormulaInstance build() {}
 
-  public FormulaEval.FormulaBuilder treatNumericNullAsZero(Boolean isNumericNullZero) {}
+  global formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
 
-  public FormulaEval.FormulaBuilder withFormula(String formulaText) {}
+  global FormulaEval.FormulaBuilder treatNumericNullAsZero(Boolean isNumericNullZero) {}
 
-  public FormulaEval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) {}
+  global FormulaEval.FormulaBuilder withFormula(String formulaText) {}
 
-  public FormulaEval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) {}
+  global FormulaEval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) {}
 
-  public formulaeval.FormulaBuilder withType(System.Type contextType) {}
+  global FormulaEval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) {}
 
-  public formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
+  global formulaeval.FormulaBuilder withType(System.Type contextType) {}
+
+  global formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
+
+  global Object clone() {}
 
 }

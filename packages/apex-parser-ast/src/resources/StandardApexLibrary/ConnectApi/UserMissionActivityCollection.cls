@@ -3,6 +3,8 @@
  */
 global class UserMissionActivityCollection {
 
+  global UserMissionActivityCollection() {}
+
   /**
    * Experience Cloud site in which the user performed activities.
    */
@@ -22,5 +24,7 @@ global class UserMissionActivityCollection {
    * Name of the user.
    */
   global String userName;
+
+  global Object clone() {}
 
 }

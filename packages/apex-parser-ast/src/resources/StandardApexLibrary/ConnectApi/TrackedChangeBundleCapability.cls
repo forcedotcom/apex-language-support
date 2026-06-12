@@ -3,9 +3,13 @@
  */
 global class TrackedChangeBundleCapability extends ConnectApi.BundleCapability {
 
+  global TrackedChangeBundleCapability() {}
+
   /**
    * Collection of feed tracked changes.
    */
   global List < ConnectApi.TrackedChangeItem > changes;
+
+  global Object clone() {}
 
 }

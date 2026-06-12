@@ -3,6 +3,8 @@
  */
 global class CdpCalculatedInsightDimension {
 
+  global CdpCalculatedInsightDimension() {}
+
   /**
    * API name of the dimension.
    */
@@ -42,5 +44,7 @@ global class CdpCalculatedInsightDimension {
    * Formula of the dimension.
    */
   global String formula;
+
+  global Object clone() {}
 
 }

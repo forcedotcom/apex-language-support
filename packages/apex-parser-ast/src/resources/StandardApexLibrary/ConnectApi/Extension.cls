@@ -3,6 +3,8 @@
  */
 global class Extension {
 
+  global Extension() {}
+
   /**
    * Alternative representation of the extension.
    */
@@ -27,5 +29,7 @@ global class Extension {
    * Payload version that identifies the structure of the payload associated with the extension.
    */
   global String payloadVersion;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class NBANativeRecommendation extends ConnectApi.AbstractNBATarget {
 
+  global NBANativeRecommendation() {}
+
   /**
    * ID of the recommendation.
    */
@@ -17,5 +19,7 @@ global class NBANativeRecommendation extends ConnectApi.AbstractNBATarget {
    * URL to the recommendation.
    */
   global String url;
+
+  global Object clone() {}
 
 }

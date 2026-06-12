@@ -3,6 +3,8 @@
  */
 global class CdpQueryDataGraphMetadata {
 
+  global CdpQueryDataGraphMetadata() {}
+
   /**
    * Name of the data space in which the data graph metadata resides.
    */
@@ -67,5 +69,7 @@ global class CdpQueryDataGraphMetadata {
    * Version of the data graph metadata.
    */
   global String version;
+
+  global Object clone() {}
 
 }

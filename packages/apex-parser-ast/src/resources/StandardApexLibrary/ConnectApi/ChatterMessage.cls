@@ -3,6 +3,8 @@
  */
 global class ChatterMessage {
 
+  global ChatterMessage() {}
+
   /**
    * Contents of the message.
    */
@@ -47,5 +49,7 @@ global class ChatterMessage {
    * Connect REST API URL identifying the current page of the conversation.
    */
   global String url;
+
+  global Object clone() {}
 
 }

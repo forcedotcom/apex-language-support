@@ -1,5 +1,7 @@
 global class Paging {
 
+  global Paging() {}
+
   global Integer getCount() {}
 
   global String getIid() {}
@@ -27,5 +29,7 @@ global class Paging {
   global void setSpill(Integer spill) {}
 
   global void setTotal(Integer total) {}
+
+  global Object clone() {}
 
 }

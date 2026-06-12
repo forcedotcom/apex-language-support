@@ -3,6 +3,8 @@
  */
 global class EstimateDeliveryDateInputRepresentation {
 
+  global EstimateDeliveryDateInputRepresentation() {}
+
   /**
    * Delivery address.
    */
@@ -22,5 +24,7 @@ global class EstimateDeliveryDateInputRepresentation {
    * Shipping carrier used to deliver the order.
    */
   global ConnectApi.ShippingCarrierInputRepresentation shippingCarrier;
+
+  global Object clone() {}
 
 }

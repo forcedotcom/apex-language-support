@@ -3,4 +3,8 @@
  */
 global class SessionPartition extends Cache.Partition {
 
+  global SessionPartition() {}
+
+  global Object clone() {}
+
 }

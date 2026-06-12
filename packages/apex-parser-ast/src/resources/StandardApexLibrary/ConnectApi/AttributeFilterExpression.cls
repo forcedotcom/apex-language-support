@@ -3,6 +3,8 @@
  */
 global class AttributeFilterExpression {
 
+  global AttributeFilterExpression() {}
+
   /**
    * Conjunction for the activation attribute filter expression. FilterConjunctionAnd FilterConjunctionOr
    */
@@ -12,5 +14,7 @@ global class AttributeFilterExpression {
    * List of attribute filters.
    */
   global List < ConnectApi.AttributeFilter > filters;
+
+  global Object clone() {}
 
 }

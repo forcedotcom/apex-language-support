@@ -3,6 +3,8 @@
  */
 global class ProductSearchImageOutputRepresentation {
 
+  global ProductSearchImageOutputRepresentation() {}
+
   /**
    * Alternate text for the product image.
    */
@@ -27,5 +29,7 @@ global class ProductSearchImageOutputRepresentation {
    * URL of the product image.
    */
   global String url;
+
+  global Object clone() {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class CaptureResponse extends AbstractResponse {
 
+  global CaptureResponse() {}
+
   /**
    * Sets the transaction amount.
    * @param amount The amount to be debited or captured.
@@ -62,5 +64,7 @@ global class CaptureResponse extends AbstractResponse {
    * @param salesforceResultCodeInfo 
    */
   global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+
+  global Object clone() {}
 
 }

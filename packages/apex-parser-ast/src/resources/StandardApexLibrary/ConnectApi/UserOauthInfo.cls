@@ -3,4 +3,8 @@
  */
 global class UserOauthInfo {
 
+  global UserOauthInfo() {}
+
+  global Object clone() {}
+
 }

@@ -3,28 +3,32 @@
  */
 global class ZipWriter {
 
-  public Compression.ZipEntry addEntry(string name, blob data) {}
+  global ZipWriter() {}
 
-  public Compression.ZipEntry addEntry(compression.ZipEntry prototype) {}
+  global Compression.ZipEntry addEntry(string name, blob data) {}
 
-  public Compression.ZipEntry addEntry(String name, String comment, Datetime modTime, Compression.Method method, Blob data) {}
+  global Compression.ZipEntry addEntry(compression.ZipEntry prototype) {}
 
-  public blob getArchive() {}
+  global Compression.ZipEntry addEntry(String name, String comment, Datetime modTime, Compression.Method method, Blob data) {}
 
-  public List<Compression.ZipEntry> getEntries() {}
+  global blob getArchive() {}
 
-  public compression.ZipEntry getEntry(string name) {}
+  global List<Compression.ZipEntry> getEntries() {}
 
-  public Set<String> getEntryNames() {}
+  global compression.ZipEntry getEntry(string name) {}
 
-  public Compression.Level getLevel() {}
+  global Set<String> getEntryNames() {}
 
-  public Compression.Method getMethod() {}
+  global Compression.Level getLevel() {}
 
-  public void removeEntry(string name) {}
+  global Compression.Method getMethod() {}
 
-  public Compression.ZipWriter setLevel(compression.Level value) {}
+  global void removeEntry(string name) {}
 
-  public Compression.ZipWriter setMethod(compression.Method value) {}
+  global Compression.ZipWriter setLevel(compression.Level value) {}
+
+  global Compression.ZipWriter setMethod(compression.Method value) {}
+
+  global Object clone() {}
 
 }
