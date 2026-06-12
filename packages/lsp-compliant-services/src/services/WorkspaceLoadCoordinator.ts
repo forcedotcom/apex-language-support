@@ -40,6 +40,18 @@ export interface IWorkspaceLoadCoordinator {
 }
 
 /**
+ * Worker → coordinator assistance bus call. Structurally matches the
+ * `requestCoordinatorAssistancePromise` exported by the worker platform;
+ * the worker bootstrap supplies that function when constructing a
+ * {@link RemoteWorkspaceLoadCoordinator}.
+ */
+export type AssistanceProxy = (
+  method: string,
+  params: unknown,
+  blocking: boolean,
+) => Promise<unknown>;
+
+/**
  * Module-level Refs for tracking workspace load state.
  * Initialized once at module load time.
  */
@@ -263,11 +275,7 @@ export class LocalWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator 
  */
 export class RemoteWorkspaceLoadCoordinator implements IWorkspaceLoadCoordinator {
   constructor(
-    private readonly assistanceProxy: (
-      method: string,
-      params: unknown,
-      blocking: boolean,
-    ) => Promise<unknown>,
+    private readonly assistanceProxy: AssistanceProxy,
     private readonly logger: LoggerInterface,
   ) {}
 
