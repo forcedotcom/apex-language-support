@@ -32,6 +32,10 @@ import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
 import { PrerequisiteEnrichmentService } from '../services/PrerequisiteEnrichmentService';
+import {
+  IWorkspaceLoadCoordinator,
+  LocalWorkspaceLoadCoordinator,
+} from '../services/WorkspaceLoadCoordinator';
 import { Connection } from 'vscode-languageserver';
 
 /**
@@ -43,6 +47,12 @@ export interface ServiceDependencies {
   storageManager: ApexStorageManager;
   settingsManager: ApexSettingsManager;
   connection?: Connection; // Optional connection for progress reporting
+  /**
+   * Optional injected workspace-load coordinator. When omitted, a local
+   * coordinator is built from `connection` when available. Worker bootstraps
+   * supply a Remote coordinator here that forwards over the assistance bus.
+   */
+  workspaceLoadCoordinator?: IWorkspaceLoadCoordinator;
 }
 
 /**
@@ -50,6 +60,7 @@ export interface ServiceDependencies {
  */
 export class ServiceFactory {
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private workspaceLoadCoordinator: IWorkspaceLoadCoordinator | null = null;
 
   constructor(private readonly dependencies: ServiceDependencies) {}
 
@@ -67,6 +78,37 @@ export class ServiceFactory {
       }
     }
     return this.layerEnrichmentService;
+  }
+
+  /**
+   * Get or create the workspace load coordinator (singleton per factory).
+   * Defaults to {@link LocalWorkspaceLoadCoordinator} when a Connection is
+   * available; returns undefined otherwise. Worker bootstraps that need a
+   * remote coordinator should inject it via the dedicated dependency rather
+   * than relying on this default.
+   *
+   * Returns `undefined` (not `null`) so the value flows straight into the
+   * `ReferencesProcessingService` constructor's optional parameter without a
+   * `?? undefined` bridge at the call site. The cache field stays `| null`
+   * to match the sibling lazy-init pattern (e.g. `layerEnrichmentService`).
+   */
+  private getWorkspaceLoadCoordinator(): IWorkspaceLoadCoordinator | undefined {
+    if (this.workspaceLoadCoordinator) {
+      return this.workspaceLoadCoordinator;
+    }
+    if (this.dependencies.workspaceLoadCoordinator) {
+      this.workspaceLoadCoordinator =
+        this.dependencies.workspaceLoadCoordinator;
+      return this.workspaceLoadCoordinator;
+    }
+    if (this.dependencies.connection) {
+      this.workspaceLoadCoordinator = new LocalWorkspaceLoadCoordinator(
+        this.dependencies.connection,
+        this.dependencies.logger,
+      );
+      return this.workspaceLoadCoordinator;
+    }
+    return undefined;
   }
 
   /**
@@ -113,6 +155,7 @@ export class ServiceFactory {
     const service = new ReferencesProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
+      this.getWorkspaceLoadCoordinator(),
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
