@@ -16,7 +16,11 @@ import {
   ApexSymbolProcessingManager,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import { LSPQueueManager, LSPRequestType } from '../../src/queue';
+import {
+  LSPQueueManager,
+  LSPRequestType,
+  RequestCancelledError,
+} from '../../src/queue';
 import { ServiceRegistry } from '../../src/registry';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService'; // eslint-disable-line max-len
 
@@ -328,6 +332,101 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       });
 
       expect(result).toEqual({ result: 'test' });
+    });
+
+    describe('cancellation', () => {
+      // Minimal CancellationToken stub. `fire()` flips the flag and notifies
+      // any registered listener, mimicking the real LSP token.
+      const makeToken = (alreadyCancelled = false) => {
+        let cancelled = alreadyCancelled;
+        const listeners = new Set<() => void>();
+        return {
+          token: {
+            get isCancellationRequested() {
+              return cancelled;
+            },
+            onCancellationRequested(listener: () => void) {
+              listeners.add(listener);
+              return { dispose: () => listeners.delete(listener) };
+            },
+          },
+          fire() {
+            cancelled = true;
+            for (const l of listeners) l();
+          },
+        };
+      };
+
+      it('skips a references request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue([]);
+        serviceRegistry.register({
+          requestType: 'references' as LSPRequestType,
+          priority: Priority.Normal,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitReferencesRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+
+        // Never reached the handler since it was cancelled pre-dispatch.
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('interrupts an in-flight references request when cancelled', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        // A handler that never resolves on its own — only cancellation ends it.
+        serviceRegistry.register({
+          requestType: 'references' as LSPRequestType,
+          priority: Priority.Normal,
+          timeout: 5000,
+          maxRetries: 0,
+          process: () => new Promise<never>(() => {}),
+        });
+
+        const { token, fire } = makeToken();
+        const pending = manager.submitReferencesRequest(
+          {
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          },
+          token,
+        );
+
+        // Let the request reach the in-flight await, then cancel it.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        fire();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+      });
+
+      it('completes normally when the token is never cancelled', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const { token } = makeToken();
+        const result = await manager.submitReferencesRequest(
+          {
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          },
+          token,
+        );
+        expect(result).toEqual({ result: 'test' });
+      });
     });
 
     it('should submit document symbol request', async () => {

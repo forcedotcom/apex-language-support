@@ -677,6 +677,62 @@ async function loadSymbolDataForEnrichment(
 }
 
 /**
+ * Load caller-side symbol tables needed by Find References into the local
+ * enrichment worker's symbol manager.
+ *
+ * Where {@link loadSymbolDataForEnrichment} pre-fetches *outbound* deps (the
+ * files this file references), Find References needs the *inbound* direction:
+ * the files whose declared symbols reference the target. Those caller tables
+ * must be present locally before `processReferences` runs so the reference
+ * search sees cross-file usages, not just same-file ones.
+ *
+ * Best-effort: a failed resolve leaves the graph partial and the caller
+ * proceeds with whatever tables are already loaded.
+ *
+ * @param svc Enrichment services (symbol manager + storage).
+ * @param uri Target file URI whose dependents we want to load.
+ * @param symbolName Optional narrowing to a single declared symbol's
+ *   dependents; when omitted, dependents of any symbol declared in `uri`.
+ * @returns Count of dependent files ingested (0 on failure or no dependents).
+ */
+async function loadDependentsForReferences(
+  svc: EnrichmentServices,
+  uri: string,
+  symbolName?: string,
+): Promise<number> {
+  try {
+    const response = (await requestCoordinatorAssistancePromise(
+      'dataOwner:ResolveDependentUris',
+      { uri, symbolName },
+      true,
+    )) as { entries: Record<string, unknown> };
+
+    if (!response?.entries) return 0;
+
+    const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+    let ingested = 0;
+    for (const [fileUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const raw = stData as {
+        symbols: any[];
+        references?: any[];
+        hierarchicalReferences?: any[];
+        metadata?: any;
+        fileUri?: string;
+      };
+      const st = SymbolTable.fromSerializedData(raw);
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+      ingested++;
+    }
+    return ingested;
+  } catch {
+    // Dependent pre-fetch is best-effort; reference search can still run on
+    // the tables already loaded (e.g. same-file references).
+    return 0;
+  }
+}
+
+/**
  * Determine if enrichment is needed based on current and required detail levels.
  * Uses the same ordering as LayerEnrichmentService on origin/main.
  */
@@ -830,12 +886,42 @@ const enrichmentHandlers = {
   ),
   DispatchReferences: enrichmentHandler<RefsReq>(
     'DispatchReferences',
-    (svc, req) =>
-      svc.referencesService.processReferences({
+    async (svc, req) => {
+      // Mirror the hover/definition enrichment shape:
+      //   load symbol data → load caller-side dependents → process → write back.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Find References needs the caller-side tables (files that reference the
+      // target's symbols), which loadSymbolDataForEnrichment does not fetch.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      // References resolve against protected members of dependent files, so a
+      // 'protected' detail level matches the existing service behavior (see
+      // LayerEnrichmentService enrichment of references in
+      // ReferencesProcessingService).
+      const requiredLevel = 'protected';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.referencesService.processReferences({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
         context: { includeDeclaration: req.context.includeDeclaration },
-      }),
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchImplementation: enrichmentHandler<PositionReq>(
     'DispatchImplementation',
