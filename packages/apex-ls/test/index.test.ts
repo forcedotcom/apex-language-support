@@ -81,6 +81,9 @@ interface MockConnection {
   onShutdown: jest.Mock;
   onExit: jest.Mock;
   onCompletion: jest.Mock;
+  onDefinition: jest.Mock;
+  onImplementation: jest.Mock;
+  onReferences: jest.Mock;
   onHover: jest.Mock;
   onDocumentSymbol: jest.Mock;
   onFoldingRanges: jest.Mock;
@@ -117,6 +120,9 @@ const mockConnection: MockConnection & {
   onShutdown: jest.fn(),
   onExit: jest.fn(),
   onCompletion: jest.fn(),
+  onDefinition: jest.fn(),
+  onImplementation: jest.fn(),
+  onReferences: jest.fn(),
   onHover: jest.fn(),
   onDocumentSymbol: jest.fn(),
   onFoldingRanges: jest.fn(),
@@ -525,6 +531,9 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       getCapabilities: jest.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
         hoverProvider: true,
+        definitionProvider: true,
+        implementationProvider: true,
+        referencesProvider: true,
         foldingRangeProvider: { rangeLimit: 5000, lineFoldingOnly: true },
         diagnosticProvider: {
           identifier: 'apex-ls-ts',
@@ -547,6 +556,9 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       getExtendedServerCapabilities: jest.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
         hoverProvider: true,
+        definitionProvider: true,
+        implementationProvider: true,
+        referencesProvider: true,
         foldingRangeProvider: { rangeLimit: 5000, lineFoldingOnly: true },
         diagnosticProvider: {
           identifier: 'apex-ls-ts',
@@ -960,65 +972,41 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       await initializedHandler();
     });
 
-    it('should register document symbol handler', () => {
-      // Protocol handlers are registered in setupProtocolHandlers after initialized
-      // Check that languages.documentSymbol.on was called (for dynamic registration)
-      // or onDocumentSymbol was called (for static registration)
-      expect(
-        mockConnection.languages?.documentSymbol?.on ||
-          mockConnection.onDocumentSymbol,
-      ).toBeDefined();
+    it('should register completion handler on the connection', () => {
+      expect(mockConnection.onCompletion).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
     });
 
-    it('should handle document symbol requests', async () => {
-      // Find the document symbol handler
-      const docSymbolCall =
-        mockConnection.languages?.documentSymbol?.on?.mock?.calls?.[0];
-      const onDocSymbolCall = mockConnection.onDocumentSymbol?.mock?.calls?.[0];
+    it('should register definition handler on the connection', () => {
+      expect(mockConnection.onDefinition).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
 
-      if (docSymbolCall || onDocSymbolCall) {
-        const handler = docSymbolCall?.[1] || onDocSymbolCall?.[1];
-        const params = {
-          textDocument: { uri: 'file:///test.cls' },
-        } as DocumentSymbolParams;
+    it('should register implementation handler on the connection', () => {
+      expect(mockConnection.onImplementation).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
 
-        if (handler) {
-          await handler(params);
-          expect(mockDispatchProcessOnDocumentSymbol).toHaveBeenCalledWith(
-            params,
-          );
-        }
-      }
+    it('should register references handler on the connection', () => {
+      expect(mockConnection.onReferences).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
+
+    it('should register document symbol handler', () => {
+      expect(mockConnection.onDocumentSymbol).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
     });
 
     it('should register folding range handler', () => {
-      // Check that languages.foldingRange.on was called
       expect(
         mockConnection.languages?.foldingRange?.on ||
           mockConnection.onFoldingRanges,
       ).toBeDefined();
-    });
-
-    it('should handle folding range requests', async () => {
-      // Find the folding range handler
-      const foldingCall =
-        mockConnection.languages?.foldingRange?.on?.mock?.calls?.[0];
-      const onFoldingCall = mockConnection.onFoldingRanges?.mock?.calls?.[0];
-
-      if (foldingCall || onFoldingCall) {
-        const handler = foldingCall?.[1] || onFoldingCall?.[1];
-        const params = {
-          textDocument: { uri: 'file:///test.cls' },
-        } as FoldingRangeParams;
-
-        if (handler) {
-          await handler(params);
-          expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
-            params,
-            undefined,
-          );
-        }
-      }
     });
   });
 

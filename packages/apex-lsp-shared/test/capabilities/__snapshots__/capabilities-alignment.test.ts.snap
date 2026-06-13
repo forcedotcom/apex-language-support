@@ -12,6 +12,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     "resolveProvider": false,
     "triggerCharacters": [
       ".",
+      "@",
     ],
   },
   "declarationProvider": undefined,
@@ -151,6 +152,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
       "resolveProvider": false,
       "triggerCharacters": [
         ".",
+        "@",
       ],
     },
     "diagnosticProvider": {
@@ -1618,6 +1620,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
         "resolveProvider": false,
         "triggerCharacters": [
           ".",
+          "@",
         ],
       },
       "declarationProvider": undefined,
@@ -2364,6 +2367,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "resolveProvider": false,
           "triggerCharacters": [
             ".",
+            "@",
           ],
         },
         "declarationProvider": undefined,
@@ -2522,6 +2526,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "resolveProvider": false,
         "triggerCharacters": [
           ".",
+          "@",
         ],
       },
       "declarationProvider": undefined,
@@ -2718,6 +2723,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "resolveProvider": false,
       "triggerCharacters": [
         ".",
+        "@",
       ],
     },
     "declarationProvider": undefined,
@@ -2877,6 +2883,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "resolveProvider": false,
     "triggerCharacters": [
       ".",
+      "@",
     ],
   },
   "declarationProvider": undefined,

@@ -92,6 +92,7 @@ export * from './services/DiagnosticProcessingService';
 export * from './services/HoverProcessingService';
 export * from './services/BackgroundProcessingInitializationService';
 export * from './services/CompletionProcessingService';
+export * from './services/strategies';
 export * from './services/ReferencesProcessingService';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
