@@ -1,9 +1,11 @@
 name: Promote Pre-release to Stable
 
 on:
-  schedule:
-    # Wednesdays at 6 AM UTC (1 hour before pre-release promotion)
-    - cron: '0 6 * * 3'
+  # Cron schedule intentionally disabled — promotion to stable is manual only.
+  # To re-enable scheduled promotion, restore the schedule trigger below:
+  #   schedule:
+  #     # Wednesdays at 6 AM UTC (1 hour before pre-release promotion)
+  #     - cron: '0 6 * * 3'
   workflow_dispatch:
     inputs:
       dry-run:
