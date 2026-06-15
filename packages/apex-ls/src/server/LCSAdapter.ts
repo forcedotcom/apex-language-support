@@ -1363,6 +1363,12 @@ export class LCSAdapter {
         allCapabilities.definitionProvider;
     }
 
+    // Always include implementationProvider in static capabilities for VS Code context menu
+    if (allCapabilities.implementationProvider) {
+      staticCapabilities.implementationProvider =
+        allCapabilities.implementationProvider;
+    }
+
     if (
       allCapabilities.codeLensProvider &&
       !params.capabilities.textDocument?.codeLens?.dynamicRegistration

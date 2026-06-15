@@ -11,7 +11,11 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  LSPConfigurationManager,
+  Priority,
+} from '@salesforce/apex-lsp-shared';
 
 import {
   ApexSymbolProcessingManager,
@@ -22,6 +26,9 @@ import {
   isMethodSymbol,
   MethodSymbol,
   SymbolKind,
+  createQueuedItem,
+  offer,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   transformLspToParserPosition,
@@ -29,6 +36,12 @@ import {
 } from '../utils/positionUtils';
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
+import {
+  ensureWorkspaceLoaded,
+  isWorkspaceLoaded,
+  isWorkspaceLoading,
+} from './WorkspaceLoadCoordinator';
+import { Effect } from 'effect';
 
 /**
  * Interface for implementation processing functionality
@@ -63,6 +76,36 @@ export class ImplementationProcessingService implements IImplementationProcessor
     );
   }
 
+  private getConnection() {
+    try {
+      const connection = LSPConfigurationManager.getInstance().getConnection();
+      if (!connection) {
+        this.logger.debug(() => 'LSP connection not available');
+      }
+      return connection;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async queueWorkspaceLoadIfNeeded(): Promise<void> {
+    if (isWorkspaceLoaded() || isWorkspaceLoading()) {
+      return;
+    }
+    const connection = this.getConnection();
+    if (!connection) {
+      return;
+    }
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+    const loadEffect = ensureWorkspaceLoaded(connection, this.logger);
+    const queuedItem = await Effect.runPromise(
+      createQueuedItem(loadEffect, 'workspace-load'),
+    );
+    await Effect.runPromise(offer(Priority.Low, queuedItem));
+    this.logger.debug(() => '[impl] workspace load task queued');
+  }
+
   /**
    * Process an implementation request
    * @param params The implementation parameters
@@ -76,6 +119,14 @@ export class ImplementationProcessingService implements IImplementationProcessor
     );
 
     try {
+      await this.queueWorkspaceLoadIfNeeded();
+    } catch (error) {
+      this.logger.debug(
+        () => `[impl] workspace load queue error (non-fatal): ${error}`,
+      );
+    }
+
+    try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
@@ -85,11 +136,85 @@ export class ImplementationProcessingService implements IImplementationProcessor
         parserPosition,
       );
 
-      // If no TypeReference exists, there's nothing of interest
+      this.logger.debug(
+        () =>
+          `[impl] uri=${params.textDocument.uri} ` +
+          `parserPos=${parserPosition.line}:${parserPosition.character} ` +
+          `refs=${JSON.stringify(references?.map((r: any) => r.name))}`,
+      );
+
+      // If no TypeReference exists, try scope-based resolution as a fallback for
+      // declaration sites: interface declarations, abstract/virtual methods, and
+      // interface method declarations (which have no TypeReferences at their position).
       if (!references || references.length === 0) {
+        const scopeSymbol = await this.symbolManager.getSymbolAtPosition(
+          params.textDocument.uri,
+          parserPosition,
+          'scope',
+        );
+        this.logger.debug(
+          () =>
+            `[impl] no refs — scope symbol: ${scopeSymbol ? `${scopeSymbol.name} (${scopeSymbol.kind})` : 'null'}`,
+        );
+        if (scopeSymbol) {
+          // Interface declaration — find all implementing classes
+          if (scopeSymbol.kind === SymbolKind.Interface) {
+            const locations =
+              await this.getImplementationLocations(scopeSymbol);
+            this.logger.debug(
+              () =>
+                `[impl] interface path: ${locations.length} locations for ${scopeSymbol.name}`,
+            );
+            return locations;
+          }
+          // Abstract/virtual method or interface method — resolve via file symbols then dispatch
+          if (
+            isMethodSymbol(scopeSymbol) &&
+            (scopeSymbol.modifiers?.isAbstract ||
+              scopeSymbol.modifiers?.isVirtual)
+          ) {
+            const locations =
+              await this.getImplementationLocations(scopeSymbol);
+            this.logger.debug(
+              () =>
+                `[impl] method path: ${locations.length} locations for ${scopeSymbol.name}`,
+            );
+            return locations;
+          }
+          // Block symbol for a method scope — resolve to the MethodSymbol from the file
+          if (
+            scopeSymbol.kind === SymbolKind.Block &&
+            (scopeSymbol as any).scopeType === 'method' &&
+            scopeSymbol.fileUri
+          ) {
+            const fileSymbols = await this.symbolManager.findSymbolsInFile(
+              scopeSymbol.fileUri,
+            );
+            this.logger.debug(
+              () =>
+                `[impl] block/method path for ${scopeSymbol.name}: ` +
+                `${fileSymbols.filter((s: any) => s.name === scopeSymbol.name).length} matching file symbols`,
+            );
+            const methodSymbol = fileSymbols.find(
+              (s) =>
+                isMethodSymbol(s) &&
+                s.name === scopeSymbol.name &&
+                (s.modifiers?.isAbstract || s.modifiers?.isVirtual),
+            ) as MethodSymbol | undefined;
+            if (methodSymbol) {
+              const locations =
+                await this.getImplementationLocations(methodSymbol);
+              this.logger.debug(
+                () =>
+                  `[impl] block/method resolved: ${locations.length} locations for ${methodSymbol.name}`,
+              );
+              return locations;
+            }
+          }
+        }
         this.logger.debug(() => {
           const parserPos = `${parserPosition.line}:${parserPosition.character}`;
-          return `No TypeReference at parser position ${parserPos} - nothing of interest`;
+          return `[impl] no match at parser position ${parserPos} — returning []`;
         });
         return [];
       }
@@ -161,9 +286,28 @@ export class ImplementationProcessingService implements IImplementationProcessor
     const locations: Location[] = [];
 
     try {
+      // Abstract method declarations are stored as Block symbols (scopeType='method') by the parser.
+      // Resolve them to the corresponding MethodSymbol which carries the correct modifiers.
+      let resolvedSymbol = symbol;
+      if (
+        symbol.kind === SymbolKind.Block &&
+        (symbol as any).scopeType === 'method' &&
+        symbol.fileUri
+      ) {
+        const fileSymbols = await this.symbolManager.findSymbolsInFile(
+          symbol.fileUri,
+        );
+        const methodSymbol = fileSymbols.find(
+          (s) => isMethodSymbol(s) && s.name === symbol.name,
+        );
+        if (methodSymbol) {
+          resolvedSymbol = methodSymbol;
+        }
+      }
+
       // Case 1: Interface - find all classes that implement it
-      if (symbol.kind === SymbolKind.Interface) {
-        const interfaceSymbol = symbol as TypeSymbol;
+      if (resolvedSymbol.kind === SymbolKind.Interface) {
+        const interfaceSymbol = resolvedSymbol as TypeSymbol;
         const implementingClasses =
           await this.findImplementingClasses(interfaceSymbol);
 
@@ -174,16 +318,65 @@ export class ImplementationProcessingService implements IImplementationProcessor
           }
         }
       }
-      // Case 2: Abstract method - find all methods that implement it
-      else if (isMethodSymbol(symbol) && symbol.modifiers?.isAbstract) {
-        const abstractMethod = symbol as MethodSymbol;
-        const implementingMethods =
-          await this.findImplementingMethods(abstractMethod);
+      // Case 2: Abstract or virtual method - find all methods that implement/override it
+      else if (
+        isMethodSymbol(resolvedSymbol) &&
+        (resolvedSymbol.modifiers?.isAbstract ||
+          resolvedSymbol.modifiers?.isVirtual)
+      ) {
+        const abstractMethod = resolvedSymbol as MethodSymbol;
 
-        for (const methodSymbol of implementingMethods) {
-          const location = await this.createLocationFromSymbol(methodSymbol);
-          if (location) {
-            locations.push(location);
+        // If the method belongs to an interface, find all implementing classes
+        // (classes that implement the interface and provide this method)
+        const containingType =
+          await this.symbolManager.getContainingType(abstractMethod);
+        this.logger.debug(
+          () =>
+            `[impl] containingType for ${abstractMethod.name}: ` +
+            `${containingType ? `${containingType.name} (${containingType.kind})` : 'null'}`,
+        );
+
+        if (containingType && containingType.kind === SymbolKind.Interface) {
+          const interfaceSymbol = containingType as TypeSymbol;
+          const implementingClasses =
+            await this.findImplementingClasses(interfaceSymbol);
+          this.logger.debug(
+            () =>
+              `[impl] interface method path: found ${implementingClasses.length} implementing classes`,
+          );
+          for (const classSymbol of implementingClasses) {
+            // Find the specific method in the implementing class
+            const methods = (
+              await this.symbolManager.findSymbolsInFile(
+                classSymbol.fileUri || '',
+              )
+            ).filter(
+              (s) =>
+                isMethodSymbol(s) &&
+                s.name === abstractMethod.name &&
+                !s.modifiers?.isAbstract,
+            );
+            for (const method of methods) {
+              if (
+                isMethodSymbol(method) &&
+                this.methodSignaturesMatch(abstractMethod, method)
+              ) {
+                const location = await this.createLocationFromSymbol(method);
+                if (location) {
+                  locations.push(location);
+                }
+              }
+            }
+          }
+        } else {
+          const implementingMethods =
+            await this.findImplementingMethods(abstractMethod);
+
+          for (const methodSymbol of implementingMethods) {
+            const location = await this.createLocationFromSymbol(methodSymbol);
+            if (location) {
+              locations.push(location);
+            }
           }
         }
       }
@@ -191,7 +384,8 @@ export class ImplementationProcessingService implements IImplementationProcessor
       else {
         this.logger.debug(
           () =>
-            `Symbol ${symbol.name} (${symbol.kind}) is not an interface or abstract method - no implementations`,
+            `Symbol ${resolvedSymbol.name} (${resolvedSymbol.kind}) is not an ` +
+            'interface or abstract method - no implementations',
         );
       }
     } catch (error) {
@@ -204,44 +398,50 @@ export class ImplementationProcessingService implements IImplementationProcessor
   }
 
   /**
-   * Find all classes that implement the given interface
+   * Find all classes that implement the given interface, including classes
+   * that implement sub-interfaces (interface extending interface).
    */
   private async findImplementingClasses(
     interfaceSymbol: TypeSymbol,
   ): Promise<ApexSymbol[]> {
     const implementingClasses: ApexSymbol[] = [];
+    const seen = new Set<string>();
 
     try {
-      // Find all references to this interface
-      const references =
-        await this.symbolManager.findReferencesTo(interfaceSymbol);
+      // Collect the full interface hierarchy (the queried interface + all sub-interfaces)
+      const allInterfaces =
+        await this.collectInterfaceHierarchy(interfaceSymbol);
+      const interfaceNames = new Set(
+        allInterfaces.map((i) => i.name.toLowerCase()),
+      );
 
-      // Filter to only classes that implement this interface
-      for (const ref of references) {
-        const sourceSymbol = ref.symbol;
-
-        // Check if it's a class that implements this interface
-        if (
-          sourceSymbol.kind === SymbolKind.Class &&
-          inTypeSymbolGroup(sourceSymbol)
-        ) {
-          const classSymbol = sourceSymbol as TypeSymbol;
-          const interfaceName = interfaceSymbol.name;
-
-          // Check if this class implements the interface
+      // Find all references and scan all symbols for each interface in the hierarchy
+      for (const iface of allInterfaces) {
+        const references = await this.symbolManager.findReferencesTo(iface);
+        for (const ref of references) {
+          const sourceSymbol = ref.symbol;
           if (
-            classSymbol.interfaces &&
-            classSymbol.interfaces.some(
-              (iface) => iface.toLowerCase() === interfaceName.toLowerCase(),
-            )
+            sourceSymbol.kind === SymbolKind.Class &&
+            inTypeSymbolGroup(sourceSymbol)
           ) {
-            implementingClasses.push(classSymbol);
+            const classSymbol = sourceSymbol as TypeSymbol;
+            if (
+              classSymbol.interfaces &&
+              classSymbol.interfaces.some((name) =>
+                interfaceNames.has(name.toLowerCase()),
+              )
+            ) {
+              const key = `${classSymbol.fileUri}::${classSymbol.name}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                implementingClasses.push(classSymbol);
+              }
+            }
           }
         }
       }
 
-      // Also search all classes to find ones that implement this interface
-      // This catches classes that might not have references yet
+      // Also scan all classes to catch ones not yet in the reference index
       const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
       const allClasses = allSymbols.filter(
         (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
@@ -250,19 +450,13 @@ export class ImplementationProcessingService implements IImplementationProcessor
       for (const classSymbol of allClasses) {
         if (
           classSymbol.interfaces &&
-          classSymbol.interfaces.some(
-            (iface) =>
-              iface.toLowerCase() === interfaceSymbol.name.toLowerCase(),
+          classSymbol.interfaces.some((name) =>
+            interfaceNames.has(name.toLowerCase()),
           )
         ) {
-          // Avoid duplicates
-          if (
-            !implementingClasses.some(
-              (c) =>
-                c.fileUri === classSymbol.fileUri &&
-                c.name === classSymbol.name,
-            )
-          ) {
+          const key = `${classSymbol.fileUri}::${classSymbol.name}`;
+          if (!seen.has(key)) {
+            seen.add(key);
             implementingClasses.push(classSymbol);
           }
         }
@@ -272,6 +466,47 @@ export class ImplementationProcessingService implements IImplementationProcessor
     }
 
     return implementingClasses;
+  }
+
+  /**
+   * Collect an interface and all interfaces that extend it (BFS over interface hierarchy).
+   */
+  private async collectInterfaceHierarchy(
+    rootInterface: TypeSymbol,
+  ): Promise<TypeSymbol[]> {
+    const result: TypeSymbol[] = [rootInterface];
+    const seen = new Set<string>([rootInterface.name.toLowerCase()]);
+    const queue: TypeSymbol[] = [rootInterface];
+
+    try {
+      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
+      const allInterfaces = allSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface && inTypeSymbolGroup(s),
+      ) as TypeSymbol[];
+
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const iface of allInterfaces) {
+          if (
+            iface.interfaces &&
+            iface.interfaces.some(
+              (name) => name.toLowerCase() === current.name.toLowerCase(),
+            )
+          ) {
+            const key = iface.name.toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              result.push(iface);
+              queue.push(iface);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.debug(() => `Error collecting interface hierarchy: ${error}`);
+    }
+
+    return result;
   }
 
   /**
@@ -325,40 +560,64 @@ export class ImplementationProcessingService implements IImplementationProcessor
   }
 
   /**
-   * Find all classes that extend the given class
+   * Find all classes that extend the given class, traversing the full inheritance hierarchy.
    */
   private async findExtendingClasses(
     baseClass: TypeSymbol,
   ): Promise<ApexSymbol[]> {
-    const extendingClasses: ApexSymbol[] = [];
+    const result: ApexSymbol[] = [];
+    const seen = new Set<string>();
+    const queue: TypeSymbol[] = [baseClass];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      try {
+        const direct = await this.findDirectSubclasses(current);
+        for (const sub of direct) {
+          const key = `${sub.fileUri}::${sub.name}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(sub);
+            queue.push(sub as TypeSymbol);
+          }
+        }
+      } catch (error) {
+        this.logger.debug(() => `Error finding extending classes: ${error}`);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Find classes that directly extend the given class (one level only).
+   */
+  private async findDirectSubclasses(
+    baseClass: TypeSymbol,
+  ): Promise<TypeSymbol[]> {
+    const directSubclasses: TypeSymbol[] = [];
 
     try {
-      // Find all references to this class
       const references = await this.symbolManager.findReferencesTo(baseClass);
 
-      // Filter to only classes that extend this class
       for (const ref of references) {
         const sourceSymbol = ref.symbol;
-
         if (
           sourceSymbol.kind === SymbolKind.Class &&
           inTypeSymbolGroup(sourceSymbol)
         ) {
           const classSymbol = sourceSymbol as TypeSymbol;
-          const baseClassName = baseClass.name;
-
-          // Check if this class extends the base class
           if (
             classSymbol.superClass &&
-            classSymbol.superClass.toLowerCase() === baseClassName.toLowerCase()
+            classSymbol.superClass.toLowerCase() ===
+              baseClass.name.toLowerCase()
           ) {
-            extendingClasses.push(classSymbol);
+            directSubclasses.push(classSymbol);
           }
         }
       }
 
-      // Also search all classes to find ones that extend this class
-      // This catches classes that might not have references yet
+      // Also scan all symbols to catch classes not yet in the reference index
       const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
       const allClasses = allSymbols.filter(
         (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
@@ -369,23 +628,22 @@ export class ImplementationProcessingService implements IImplementationProcessor
           classSymbol.superClass &&
           classSymbol.superClass.toLowerCase() === baseClass.name.toLowerCase()
         ) {
-          // Avoid duplicates
           if (
-            !extendingClasses.some(
+            !directSubclasses.some(
               (c) =>
                 c.fileUri === classSymbol.fileUri &&
                 c.name === classSymbol.name,
             )
           ) {
-            extendingClasses.push(classSymbol);
+            directSubclasses.push(classSymbol);
           }
         }
       }
     } catch (error) {
-      this.logger.debug(() => `Error finding extending classes: ${error}`);
+      this.logger.debug(() => `Error finding direct subclasses: ${error}`);
     }
 
-    return extendingClasses;
+    return directSubclasses;
   }
 
   /**

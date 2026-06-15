@@ -8,6 +8,7 @@
 
 import { ImplementationParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 import {
   TypeSymbol,
   MethodSymbol,
@@ -18,6 +19,48 @@ import {
 
 import { ImplementationProcessingService } from '../../src/services/ImplementationProcessingService';
 
+// Mock scheduler/queue utilities so queueWorkspaceLoadIfNeeded does not start a real scheduler
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  return {
+    ...actual,
+    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+    createQueuedItem: jest.fn((eff: any) =>
+      Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
+    ),
+    SchedulerInitializationService: {
+      ...actual.SchedulerInitializationService,
+      getInstance: jest.fn(() => ({
+        ensureInitialized: jest.fn(() => Promise.resolve()),
+        isInitialized: jest.fn(() => false),
+        resetInstance: jest.fn(),
+      })),
+      resetInstance: jest.fn(),
+    },
+  };
+});
+
+const mockEnsureWorkspaceLoaded = jest.fn();
+const mockIsWorkspaceLoaded = jest.fn();
+const mockIsWorkspaceLoading = jest.fn();
+jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
+  ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
+    mockEnsureWorkspaceLoaded(...args),
+  ),
+  isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
+  isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
+}));
+
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+  return {
+    ...actual,
+    LSPConfigurationManager: {
+      getInstance: jest.fn(),
+    },
+  };
+});
+
 describe('ImplementationProcessingService', () => {
   let service: ImplementationProcessingService;
   let logger: any;
@@ -26,6 +69,18 @@ describe('ImplementationProcessingService', () => {
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
+
+    // Default workspace state: not loaded, not loading; ensureWorkspaceLoaded returns an Effect
+    mockEnsureWorkspaceLoaded.mockReturnValue(Effect.void);
+    mockIsWorkspaceLoaded.mockReturnValue(false);
+    mockIsWorkspaceLoading.mockReturnValue(false);
+
+    // Default: no LSP connection available (workspace-load trigger is a no-op).
+    // Individual tests override getConnection to assert the trigger fires.
+    const { LSPConfigurationManager } = require('@salesforce/apex-lsp-shared');
+    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
+      getConnection: jest.fn().mockReturnValue(undefined),
+    });
 
     // Setup logger
     logger = getLogger();
@@ -438,6 +493,703 @@ describe('ImplementationProcessingService', () => {
       expect(result[0].uri).toBe('file:///test/ConcreteClass.cls');
     });
 
+    it('should return implementations for virtual method', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractBase.cls' },
+        position: { line: 3, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'doVirtualWork',
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const virtualMethod: MethodSymbol = {
+        id: 'virtual-method-id',
+        name: 'doVirtualWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doVirtualWork',
+          path: ['file:///test/AbstractBase.cls', 'doVirtualWork'],
+          unifiedId: 'virtual-method-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: true,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(virtualMethod);
+
+      const containingClass: TypeSymbol = {
+        id: 'abstract-class-id',
+        name: 'AbstractBase',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'AbstractBase',
+          path: ['file:///test/AbstractBase.cls', 'AbstractBase'],
+          unifiedId: 'abstract-class-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getContainingType.mockReturnValue(containingClass);
+
+      const concreteClass: TypeSymbol = {
+        id: 'concrete-class-id',
+        name: 'ConcreteChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        superClass: 'AbstractBase',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'ConcreteChild',
+          path: ['file:///test/ConcreteChild.cls', 'ConcreteChild'],
+          unifiedId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const overridingMethod: MethodSymbol = {
+        id: 'overriding-method-id',
+        name: 'doVirtualWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doVirtualWork',
+          path: ['file:///test/ConcreteChild.cls', 'doVirtualWork'],
+          unifiedId: 'overriding-method-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: true,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      mockSymbolManager.findReferencesTo.mockReturnValue([
+        {
+          symbol: concreteClass,
+          symbolId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          referenceType: 'extends',
+          location: concreteClass.location,
+        },
+      ]);
+      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+        concreteClass,
+      ]);
+      mockSymbolManager.findSymbolsInFile.mockReturnValue([overridingMethod]);
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].uri).toBe('file:///test/ConcreteChild.cls');
+    });
+
+    it('should find grandchild class implementations for abstract method', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractBase.cls' },
+        position: { line: 2, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'doWork',
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const abstractMethod: MethodSymbol = {
+        id: 'abstract-method-id',
+        name: 'doWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doWork',
+          path: ['file:///test/AbstractBase.cls', 'doWork'],
+          unifiedId: 'abstract-method-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(abstractMethod);
+
+      const abstractClass: TypeSymbol = {
+        id: 'abstract-class-id',
+        name: 'AbstractBase',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'AbstractBase',
+          path: ['file:///test/AbstractBase.cls', 'AbstractBase'],
+          unifiedId: 'abstract-class-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getContainingType.mockReturnValue(abstractClass);
+
+      const concreteClass: TypeSymbol = {
+        id: 'concrete-class-id',
+        name: 'ConcreteChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        superClass: 'AbstractBase',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'ConcreteChild',
+          path: ['file:///test/ConcreteChild.cls', 'ConcreteChild'],
+          unifiedId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const grandchildClass: TypeSymbol = {
+        id: 'grandchild-class-id',
+        name: 'GrandChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        fileUri: 'file:///test/GrandChild.cls',
+        superClass: 'ConcreteChild',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'GrandChild',
+          path: ['file:///test/GrandChild.cls', 'GrandChild'],
+          unifiedId: 'grandchild-class-id',
+          fileUri: 'file:///test/GrandChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const grandchildMethod: MethodSymbol = {
+        id: 'grandchild-method-id',
+        name: 'doWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+        fileUri: 'file:///test/GrandChild.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doWork',
+          path: ['file:///test/GrandChild.cls', 'doWork'],
+          unifiedId: 'grandchild-method-id',
+          fileUri: 'file:///test/GrandChild.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: true,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      // findReferencesTo: AbstractBase → ConcreteChild; ConcreteChild → GrandChild
+      mockSymbolManager.findReferencesTo
+        .mockResolvedValueOnce([
+          {
+            symbol: concreteClass,
+            symbolId: 'concrete-class-id',
+            fileUri: 'file:///test/ConcreteChild.cls',
+            referenceType: 'extends',
+            location: concreteClass.location,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            symbol: grandchildClass,
+            symbolId: 'grandchild-class-id',
+            fileUri: 'file:///test/GrandChild.cls',
+            referenceType: 'extends',
+            location: grandchildClass.location,
+          },
+        ])
+        .mockResolvedValue([]);
+
+      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+        concreteClass,
+        grandchildClass,
+      ]);
+
+      // GrandChild has the override; ConcreteChild does not
+      mockSymbolManager.findSymbolsInFile.mockImplementation((uri: string) => {
+        if (uri === 'file:///test/GrandChild.cls') return [grandchildMethod];
+        return [];
+      });
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      const uris = result.map((r) => r.uri);
+      expect(uris).toContain('file:///test/GrandChild.cls');
+    });
+
+    it('should find implementing classes for sub-interface hierarchy', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/IAnimal.cls' },
+        position: { line: 1, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'IAnimal',
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const parentInterface: TypeSymbol = {
+        id: 'parent-interface-id',
+        name: 'IAnimal',
+        kind: SymbolKind.Interface,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+        },
+        fileUri: 'file:///test/IAnimal.cls',
+        interfaces: [],
+        key: {
+          prefix: 'interface',
+          name: 'IAnimal',
+          path: ['file:///test/IAnimal.cls', 'IAnimal'],
+          unifiedId: 'parent-interface-id',
+          fileUri: 'file:///test/IAnimal.cls',
+          kind: SymbolKind.Interface,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(parentInterface);
+
+      const subInterface: TypeSymbol = {
+        id: 'sub-interface-id',
+        name: 'ISpecialAnimal',
+        kind: SymbolKind.Interface,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/ISpecialAnimal.cls',
+        interfaces: ['IAnimal'],
+        key: {
+          prefix: 'interface',
+          name: 'ISpecialAnimal',
+          path: ['file:///test/ISpecialAnimal.cls', 'ISpecialAnimal'],
+          unifiedId: 'sub-interface-id',
+          fileUri: 'file:///test/ISpecialAnimal.cls',
+          kind: SymbolKind.Interface,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const catClass: TypeSymbol = {
+        id: 'cat-class-id',
+        name: 'Cat',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 3,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 3,
+          },
+        },
+        fileUri: 'file:///test/Cat.cls',
+        interfaces: ['ISpecialAnimal'],
+        key: {
+          prefix: 'class',
+          name: 'Cat',
+          path: ['file:///test/Cat.cls', 'Cat'],
+          unifiedId: 'cat-class-id',
+          fileUri: 'file:///test/Cat.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      // findReferencesTo: IAnimal → nothing (Cat implements ISpecialAnimal, not IAnimal directly)
+      mockSymbolManager.findReferencesTo.mockResolvedValue([]);
+
+      // getAllSymbolsForCompletion returns both the sub-interface and Cat
+      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+        subInterface,
+        catClass,
+      ]);
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      const uris = result.map((r) => r.uri);
+      expect(uris).toContain('file:///test/Cat.cls');
+    });
+
     it('should return empty array for non-interface, non-abstract-method symbols', async () => {
       const params: ImplementationParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
@@ -516,6 +1268,72 @@ describe('ImplementationProcessingService', () => {
       const result = await service.processImplementation(params);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('workspace load triggering', () => {
+    const params: ImplementationParams = {
+      textDocument: { uri: 'file:///test/TestClass.cls' },
+      position: { line: 5, character: 10 },
+    };
+
+    it('triggers a workspace load when the workspace is not loaded', async () => {
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+      mockIsWorkspaceLoading.mockReturnValue(false);
+      const {
+        LSPConfigurationManager,
+      } = require('@salesforce/apex-lsp-shared');
+      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
+        getConnection: jest
+          .fn()
+          .mockReturnValue({ sendNotification: jest.fn() }),
+      });
+
+      await service.processImplementation(params);
+
+      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not trigger a workspace load when already loaded', async () => {
+      mockIsWorkspaceLoaded.mockReturnValue(true);
+      const {
+        LSPConfigurationManager,
+      } = require('@salesforce/apex-lsp-shared');
+      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
+        getConnection: jest
+          .fn()
+          .mockReturnValue({ sendNotification: jest.fn() }),
+      });
+
+      await service.processImplementation(params);
+
+      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
+    });
+
+    it('does not trigger a workspace load when a load is already in progress', async () => {
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+      mockIsWorkspaceLoading.mockReturnValue(true);
+      const {
+        LSPConfigurationManager,
+      } = require('@salesforce/apex-lsp-shared');
+      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
+        getConnection: jest
+          .fn()
+          .mockReturnValue({ sendNotification: jest.fn() }),
+      });
+
+      await service.processImplementation(params);
+
+      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when no LSP connection is available', async () => {
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+      mockIsWorkspaceLoading.mockReturnValue(false);
+      // beforeEach already mocks getConnection to return undefined
+
+      await expect(service.processImplementation(params)).resolves.toEqual([]);
+      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
     });
   });
 });
