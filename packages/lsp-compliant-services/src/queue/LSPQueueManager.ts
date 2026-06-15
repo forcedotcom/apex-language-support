@@ -91,6 +91,7 @@ export class LSPQueueManager {
     const serviceRegistry = this.serviceRegistry;
     const logger = this.logger;
     const taskId = this.generateTaskId();
+    const workerDispatcher = this.workerDispatcher;
 
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
@@ -98,9 +99,33 @@ export class LSPQueueManager {
         Error
       >();
 
-      // Wrap request execution in an Effect
+      // Wrap request execution in an Effect.
+      //
+      // When a worker dispatcher is active and this request type is
+      // worker-dispatchable, run it in the worker topology (which reads the
+      // single-writer dataOwner graph). Otherwise — or if dispatch fails —
+      // fall back to the local service handler on the coordinator.
       const requestEffect = Effect.tryPromise({
         try: async () => {
+          // Only auto-dispatch enrichment-pool read requests (stateless
+          // readers over the dataOwner graph). Document-lifecycle / dataOwner
+          // types keep their existing local + batch path to avoid changing
+          // single-file behavior for the active document.
+          if (
+            workerDispatcher &&
+            workerDispatcher.isAvailable?.() &&
+            workerDispatcher.dispatchesToPool?.(type)
+          ) {
+            try {
+              return (await workerDispatcher.dispatch(type, params)) as T;
+            } catch (dispatchError) {
+              logger.debug(
+                () =>
+                  `Worker dispatch failed for ${type}, ` +
+                  `falling back to local handler: ${dispatchError}`,
+              );
+            }
+          }
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
             throw new Error(`No handler registered for request type: ${type}`);

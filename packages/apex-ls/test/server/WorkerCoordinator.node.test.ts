@@ -371,7 +371,6 @@ describe('WorkerCoordinator', () => {
         'signatureHelp',
         'rename',
         'references',
-        'implementation',
         'documentSymbol',
         'codeLens',
         'foldingRange',
@@ -387,6 +386,7 @@ describe('WorkerCoordinator', () => {
         'hover',
         'diagnostics',
         'definition',
+        'implementation',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });

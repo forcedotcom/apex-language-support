@@ -37,5 +37,11 @@ export interface WorkerDispatchStrategy {
   dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
   isAvailable(): boolean;
   canDispatch(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is dispatched to the enrichment pool (a stateless
+   * reader over the dataOwner graph). The queue only auto-dispatches these; data
+   * owner / document-lifecycle types keep their existing local + batch path.
+   */
+  dispatchesToPool?(type: LSPRequestType): boolean;
   getTopologyStatus?(): WorkerTopologyStatus;
 }

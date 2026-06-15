@@ -569,7 +569,10 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   findMissingArtifact: 'coordinatorOnly',
   foldingRange: 'coordinatorOnly',
   hover: 'enrichmentPool',
-  implementation: 'coordinatorOnly',
+  // Implementation search must read the workspace-wide symbol graph (the
+  // dataOwner's authoritative store), so it runs in the enrichment pool like
+  // definition — not on the coordinator, whose local store only holds opened files.
+  implementation: 'enrichmentPool',
   prerequisiteEnrichment: 'coordinatorOnly',
   references: 'coordinatorOnly',
   rename: 'coordinatorOnly',
@@ -588,6 +591,12 @@ const DATA_OWNER_TYPES = new Set(
 const COORDINATOR_ONLY_TYPES = new Set(
   (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
     (t) => DISPATCH_ROUTING[t] === 'coordinatorOnly',
+  ),
+);
+
+const ENRICHMENT_POOL_TYPES = new Set(
+  (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
+    (t) => DISPATCH_ROUTING[t] === 'enrichmentPool',
   ),
 );
 
@@ -654,6 +663,8 @@ function createDispatcher(
       available = v;
     },
     canDispatch: (type: LSPRequestType) => !COORDINATOR_ONLY_TYPES.has(type),
+
+    dispatchesToPool: (type: LSPRequestType) => ENRICHMENT_POOL_TYPES.has(type),
 
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;

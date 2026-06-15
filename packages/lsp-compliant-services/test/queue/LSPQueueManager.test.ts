@@ -486,6 +486,112 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     });
   });
 
+  describe('Worker dispatch routing', () => {
+    let serviceRegistry: ServiceRegistry;
+    let localProcess: jest.Mock;
+
+    beforeEach(() => {
+      serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+      localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      serviceRegistry.register({
+        requestType: 'implementation' as LSPRequestType,
+        priority: Priority.High,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+    });
+
+    afterEach(() => {
+      LSPQueueManager.getInstance().setWorkerDispatcher(null);
+    });
+
+    it('dispatches pool-routed requests to the worker, not the local handler', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: (t: LSPRequestType) => t === 'implementation',
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'worker' });
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        'implementation',
+        expect.any(Object),
+      );
+      expect(localProcess).not.toHaveBeenCalled();
+    });
+
+    it('uses the local handler when the type is not pool-routed', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: () => false,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'local' });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the local handler when worker dispatch throws', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockRejectedValue(new Error('worker down'));
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: () => true,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ from: 'local' });
+      expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the local handler when the dispatcher is unavailable', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => false,
+        canDispatch: () => true,
+        dispatchesToPool: () => true,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'local' });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Statistics', () => {
     it('should get queue statistics', async () => {
       const manager = LSPQueueManager.getInstance();
