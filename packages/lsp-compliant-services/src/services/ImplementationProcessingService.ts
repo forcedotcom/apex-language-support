@@ -11,11 +11,7 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import {
-  LoggerInterface,
-  LSPConfigurationManager,
-  Priority,
-} from '@salesforce/apex-lsp-shared';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import {
   ApexSymbolProcessingManager,
@@ -26,9 +22,6 @@ import {
   isMethodSymbol,
   MethodSymbol,
   SymbolKind,
-  createQueuedItem,
-  offer,
-  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   transformLspToParserPosition,
@@ -36,12 +29,6 @@ import {
 } from '../utils/positionUtils';
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
-import {
-  ensureWorkspaceLoaded,
-  isWorkspaceLoaded,
-  isWorkspaceLoading,
-} from './WorkspaceLoadCoordinator';
-import { Effect } from 'effect';
 
 /**
  * Interface for implementation processing functionality
@@ -76,36 +63,6 @@ export class ImplementationProcessingService implements IImplementationProcessor
     );
   }
 
-  private getConnection() {
-    try {
-      const connection = LSPConfigurationManager.getInstance().getConnection();
-      if (!connection) {
-        this.logger.debug(() => 'LSP connection not available');
-      }
-      return connection;
-    } catch {
-      return undefined;
-    }
-  }
-
-  private async queueWorkspaceLoadIfNeeded(): Promise<void> {
-    if (isWorkspaceLoaded() || isWorkspaceLoading()) {
-      return;
-    }
-    const connection = this.getConnection();
-    if (!connection) {
-      return;
-    }
-    const schedulerService = SchedulerInitializationService.getInstance();
-    await schedulerService.ensureInitialized();
-    const loadEffect = ensureWorkspaceLoaded(connection, this.logger);
-    const queuedItem = await Effect.runPromise(
-      createQueuedItem(loadEffect, 'workspace-load'),
-    );
-    await Effect.runPromise(offer(Priority.Low, queuedItem));
-    this.logger.debug(() => '[impl] workspace load task queued');
-  }
-
   /**
    * Process an implementation request
    * @param params The implementation parameters
@@ -117,14 +74,6 @@ export class ImplementationProcessingService implements IImplementationProcessor
     this.logger.debug(
       () => `Processing implementation request for: ${params.textDocument.uri}`,
     );
-
-    try {
-      await this.queueWorkspaceLoadIfNeeded();
-    } catch (error) {
-      this.logger.debug(
-        () => `[impl] workspace load queue error (non-fatal): ${error}`,
-      );
-    }
 
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)

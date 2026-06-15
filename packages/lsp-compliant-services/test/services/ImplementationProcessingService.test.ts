@@ -8,7 +8,6 @@
 
 import { ImplementationParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { Effect } from 'effect';
 import {
   TypeSymbol,
   MethodSymbol,
@@ -19,48 +18,6 @@ import {
 
 import { ImplementationProcessingService } from '../../src/services/ImplementationProcessingService';
 
-// Mock scheduler/queue utilities so queueWorkspaceLoadIfNeeded does not start a real scheduler
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
-  return {
-    ...actual,
-    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
-    createQueuedItem: jest.fn((eff: any) =>
-      Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
-    ),
-    SchedulerInitializationService: {
-      ...actual.SchedulerInitializationService,
-      getInstance: jest.fn(() => ({
-        ensureInitialized: jest.fn(() => Promise.resolve()),
-        isInitialized: jest.fn(() => false),
-        resetInstance: jest.fn(),
-      })),
-      resetInstance: jest.fn(),
-    },
-  };
-});
-
-const mockEnsureWorkspaceLoaded = jest.fn();
-const mockIsWorkspaceLoaded = jest.fn();
-const mockIsWorkspaceLoading = jest.fn();
-jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
-  ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
-    mockEnsureWorkspaceLoaded(...args),
-  ),
-  isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
-  isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
-}));
-
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
-  return {
-    ...actual,
-    LSPConfigurationManager: {
-      getInstance: jest.fn(),
-    },
-  };
-});
-
 describe('ImplementationProcessingService', () => {
   let service: ImplementationProcessingService;
   let logger: any;
@@ -69,18 +26,6 @@ describe('ImplementationProcessingService', () => {
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
-
-    // Default workspace state: not loaded, not loading; ensureWorkspaceLoaded returns an Effect
-    mockEnsureWorkspaceLoaded.mockReturnValue(Effect.void);
-    mockIsWorkspaceLoaded.mockReturnValue(false);
-    mockIsWorkspaceLoading.mockReturnValue(false);
-
-    // Default: no LSP connection available (workspace-load trigger is a no-op).
-    // Individual tests override getConnection to assert the trigger fires.
-    const { LSPConfigurationManager } = require('@salesforce/apex-lsp-shared');
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
-      getConnection: jest.fn().mockReturnValue(undefined),
-    });
 
     // Setup logger
     logger = getLogger();
@@ -1268,72 +1213,6 @@ describe('ImplementationProcessingService', () => {
       const result = await service.processImplementation(params);
 
       expect(result).toEqual([]);
-    });
-  });
-
-  describe('workspace load triggering', () => {
-    const params: ImplementationParams = {
-      textDocument: { uri: 'file:///test/TestClass.cls' },
-      position: { line: 5, character: 10 },
-    };
-
-    it('triggers a workspace load when the workspace is not loaded', async () => {
-      mockIsWorkspaceLoaded.mockReturnValue(false);
-      mockIsWorkspaceLoading.mockReturnValue(false);
-      const {
-        LSPConfigurationManager,
-      } = require('@salesforce/apex-lsp-shared');
-      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
-        getConnection: jest
-          .fn()
-          .mockReturnValue({ sendNotification: jest.fn() }),
-      });
-
-      await service.processImplementation(params);
-
-      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not trigger a workspace load when already loaded', async () => {
-      mockIsWorkspaceLoaded.mockReturnValue(true);
-      const {
-        LSPConfigurationManager,
-      } = require('@salesforce/apex-lsp-shared');
-      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
-        getConnection: jest
-          .fn()
-          .mockReturnValue({ sendNotification: jest.fn() }),
-      });
-
-      await service.processImplementation(params);
-
-      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
-    });
-
-    it('does not trigger a workspace load when a load is already in progress', async () => {
-      mockIsWorkspaceLoaded.mockReturnValue(false);
-      mockIsWorkspaceLoading.mockReturnValue(true);
-      const {
-        LSPConfigurationManager,
-      } = require('@salesforce/apex-lsp-shared');
-      (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
-        getConnection: jest
-          .fn()
-          .mockReturnValue({ sendNotification: jest.fn() }),
-      });
-
-      await service.processImplementation(params);
-
-      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
-    });
-
-    it('does not throw when no LSP connection is available', async () => {
-      mockIsWorkspaceLoaded.mockReturnValue(false);
-      mockIsWorkspaceLoading.mockReturnValue(false);
-      // beforeEach already mocks getConnection to return undefined
-
-      await expect(service.processImplementation(params)).resolves.toEqual([]);
-      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
     });
   });
 });

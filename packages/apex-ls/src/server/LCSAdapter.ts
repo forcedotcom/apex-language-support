@@ -74,6 +74,9 @@ import {
   dispatchProcessOnGraphData,
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
+  ensureWorkspaceLoaded,
+  isWorkspaceLoaded,
+  isWorkspaceLoading,
   getDiagnosticRefreshService,
 } from '@salesforce/apex-lsp-compliant-services';
 
@@ -511,6 +514,35 @@ export class LCSAdapter {
   }
 
   /**
+   * Trigger a full workspace load if it is not already loaded or loading.
+   *
+   * Go-to-implementation must enumerate every implementor across the
+   * workspace, so it needs the whole symbol graph loaded into the dataOwner.
+   * Unlike references (which runs on the coordinator and queues this itself),
+   * the implementation search runs in the enrichment pool and cannot reach the
+   * LSP connection, so the trigger is hoisted here to the coordinator.
+   *
+   * Fire-and-forget: the load proceeds in the background. The first cold-start
+   * request may return partial/empty results; once the load completes a repeat
+   * request resolves against the full graph.
+   */
+  private async triggerWorkspaceLoadIfNeeded(): Promise<void> {
+    if (isWorkspaceLoaded() || isWorkspaceLoading()) {
+      return;
+    }
+    try {
+      await Effect.runPromise(
+        ensureWorkspaceLoaded(this.connection, this.logger),
+      );
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `Workspace load trigger failed (non-fatal): ${formattedError(error)}`,
+      );
+    }
+  }
+
+  /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
   private setupProtocolHandlers(): void {
@@ -585,8 +617,12 @@ export class LCSAdapter {
 
     if (capabilities.implementationProvider) {
       this.connection.onImplementation(
-        async (params: ImplementationParams): Promise<Location[] | null> =>
-          this.handleLspRequest(
+        async (params: ImplementationParams): Promise<Location[] | null> => {
+          // Implementation needs the full workspace graph to find every
+          // implementor; trigger a load here (coordinator) since the search
+          // itself runs in the enrichment pool with no LSP connection.
+          await this.triggerWorkspaceLoadIfNeeded();
+          return this.handleLspRequest(
             LSP_SPAN_NAMES.IMPLEMENTATION,
             'textDocument/implementation',
             params,
@@ -595,7 +631,8 @@ export class LCSAdapter {
             {
               'document.position': `${params.position.line}:${params.position.character}`,
             },
-          ),
+          );
+        },
       );
       this.logger.debug('✅ Implementation handler registered');
     } else {
