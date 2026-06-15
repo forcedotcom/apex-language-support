@@ -648,6 +648,11 @@ export class LSPQueueManager {
 
       return result.value;
     } catch (error) {
+      // A cancelled request is expected (e.g. a superseded cursor move); the
+      // LCSAdapter handles it as the null fallback. Don't log it as an error.
+      if (error instanceof RequestCancelledError) {
+        throw error;
+      }
       const totalTime = Date.now() - submitStartTime;
       this.logger.error(
         () =>

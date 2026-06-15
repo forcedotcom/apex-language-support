@@ -415,6 +415,36 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         await expect(pending).rejects.toThrow(RequestCancelledError);
       });
 
+      it('does not log a cancelled in-flight request as an error', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        // Never resolves on its own — only cancellation ends it.
+        serviceRegistry.register({
+          requestType: 'references' as LSPRequestType,
+          priority: Priority.Normal,
+          timeout: 5000,
+          maxRetries: 0,
+          process: () => new Promise<never>(() => {}),
+        });
+
+        const { token, fire } = makeToken();
+        const pending = manager.submitReferencesRequest(
+          {
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          },
+          token,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        fire();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+        // Cancellation is expected control flow, not a processing failure.
+        expect(mockLogger.error).not.toHaveBeenCalled();
+      });
+
       it('completes normally when the token is never cancelled', async () => {
         const manager = LSPQueueManager.getInstance();
         const { token } = makeToken();
