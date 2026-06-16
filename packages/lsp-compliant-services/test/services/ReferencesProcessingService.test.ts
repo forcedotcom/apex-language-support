@@ -442,6 +442,15 @@ describe('ReferencesProcessingService', () => {
         });
         expect(result).toBeNull();
       });
+
+      it('returns null when the location has no identifierRange', async () => {
+        const result = await (service as any).createLocationFromSymbol({
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+          location: { symbolRange: { startLine: 1, startColumn: 0 } },
+        });
+        expect(result).toBeNull();
+      });
     });
 
     describe('createLocationFromReference', () => {
@@ -481,6 +490,15 @@ describe('ReferencesProcessingService', () => {
         const result = (service as any).createLocationFromReference({
           name: 'NoLocation',
           fileUri: 'file:///test/TestClass.cls',
+        });
+        expect(result).toBeNull();
+      });
+
+      it('returns null when the location has no identifierRange', () => {
+        const result = (service as any).createLocationFromReference({
+          name: 'doSomething',
+          fileUri: 'file:///test/TestClass.cls',
+          location: { symbolRange: { startLine: 1, startColumn: 0 } },
         });
         expect(result).toBeNull();
       });

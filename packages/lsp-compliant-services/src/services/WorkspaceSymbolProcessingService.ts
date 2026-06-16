@@ -462,14 +462,22 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
       return null;
     }
 
+    // Read from identifierRange (SymbolLocation shape). The flat-range fields
+    // (startLine/startColumn/...) do not exist on SymbolLocation and yield
+    // NaN -> null after JSON serialization across the worker boundary.
+    const identifierRange = symbol.location.identifierRange;
+    if (!identifierRange) {
+      return null;
+    }
+
     const range: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: identifierRange.startLine,
+        character: identifierRange.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: identifierRange.endLine,
+        character: identifierRange.endColumn,
       }),
     };
 
@@ -480,7 +488,11 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
    * Get the file URI for a symbol
    */
   private async getSymbolFileUri(symbol: any): Promise<string | null> {
-    // Try to get from symbol's file path
+    // Prefer fileUri (the canonical field on ApexSymbol); fall back to
+    // filePath for wire-shape variants that use the legacy field name.
+    if (symbol.fileUri) {
+      return symbol.fileUri;
+    }
     if (symbol.filePath) {
       return `file://${symbol.filePath}`;
     }
