@@ -546,7 +546,7 @@ export const runRemoteStdlibWarmupPhase = (
  * DATA_OWNER_TYPES and COORDINATOR_ONLY_TYPES are derived automatically.
  *
  * - dataOwner:       routed to the data-owner worker
- * - enrichmentPool:  routed to an enrichment pool worker (TODO: enable when data sharing is ready)
+ * - enrichmentPool:  routed to an enrichment pool worker
  * - coordinatorOnly: runs on the coordinator thread (local handler)
  */
 type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
@@ -571,7 +571,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   hover: 'enrichmentPool',
   implementation: 'coordinatorOnly',
   prerequisiteEnrichment: 'coordinatorOnly',
-  references: 'coordinatorOnly',
+  references: 'enrichmentPool',
   rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',

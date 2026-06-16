@@ -63,6 +63,7 @@ import {
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
   QueryGraphData,
+  getLogger,
 } from '@salesforce/apex-lsp-shared';
 import {
   isAssistanceResponse,
@@ -288,6 +289,7 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
 // Lazy role-specific service containers (bootstrapped on first dispatch)
 // ---------------------------------------------------------------------------
 
+import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import type {
   DataOwnerServices,
   EnrichmentServices,
@@ -603,16 +605,11 @@ async function loadSymbolDataForEnrichment(
         const tables: Array<{ fileUri: string; st: any }> = [];
         for (const [fileUri, stData] of Object.entries(entries)) {
           if (stData) {
-            const raw = stData as {
-              symbols: any[];
-              references?: any[];
-              hierarchicalReferences?: any[];
-              metadata?: any;
-              fileUri?: string;
-            };
             tables.push({
               fileUri,
-              st: SymbolTable.fromSerializedData(raw),
+              st: SymbolTable.fromSerializedData(
+                stData as SerializedSymbolTableData,
+              ),
             });
           }
         }
@@ -693,15 +690,23 @@ async function loadSymbolDataForEnrichment(
  * @param uri Target file URI whose dependents we want to load.
  * @param symbolName Optional narrowing to a single declared symbol's
  *   dependents; when omitted, dependents of any symbol declared in `uri`.
+ * @param fetchDependents Coordinator-assistance fetcher; injectable so the
+ *   ingestion contract can be unit-tested without a live assistance bus.
+ *   Defaults to {@link requestCoordinatorAssistancePromise}.
  * @returns Count of dependent files ingested (0 on failure or no dependents).
  */
-async function loadDependentsForReferences(
+export async function loadDependentsForReferences(
   svc: EnrichmentServices,
   uri: string,
   symbolName?: string,
+  fetchDependents: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown> = requestCoordinatorAssistancePromise,
 ): Promise<number> {
   try {
-    const response = (await requestCoordinatorAssistancePromise(
+    const response = (await fetchDependents(
       'dataOwner:ResolveDependentUris',
       { uri, symbolName },
       true,
@@ -713,21 +718,25 @@ async function loadDependentsForReferences(
     let ingested = 0;
     for (const [fileUri, stData] of Object.entries(response.entries)) {
       if (!stData) continue;
-      const raw = stData as {
-        symbols: any[];
-        references?: any[];
-        hierarchicalReferences?: any[];
-        metadata?: any;
-        fileUri?: string;
-      };
-      const st = SymbolTable.fromSerializedData(raw);
+      const st = SymbolTable.fromSerializedData(
+        stData as SerializedSymbolTableData,
+      );
       await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
       ingested++;
     }
+    getLogger().debug(
+      () =>
+        `[REFERENCES] Loaded ${ingested} dependent table(s) for ${uri}` +
+        (symbolName ? ` (symbol: ${symbolName})` : ''),
+    );
     return ingested;
-  } catch {
+  } catch (err) {
     // Dependent pre-fetch is best-effort; reference search can still run on
-    // the tables already loaded (e.g. same-file references).
+    // the tables already loaded (e.g. same-file references). Log at debug so a
+    // "cross-file references missing" report has a breadcrumb to follow.
+    getLogger().debug(
+      () => `[REFERENCES] Dependent pre-fetch failed for ${uri}: ${err}`,
+    );
     return 0;
   }
 }
@@ -1336,13 +1345,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
-            const [{ GraphDataProcessingService }, { getLogger }] =
-              yield* Effect.promise(() =>
-                Promise.all([
-                  import('@salesforce/apex-lsp-compliant-services'),
-                  import('@salesforce/apex-lsp-shared'),
-                ]),
-              );
+            const { GraphDataProcessingService } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-compliant-services'),
+            );
             const service = new GraphDataProcessingService(
               getLogger(),
               svc.symbolManager,

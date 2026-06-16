@@ -114,6 +114,7 @@ export class LSPQueueManager {
     const serviceRegistry = this.serviceRegistry;
     const logger = this.logger;
     const taskId = this.generateTaskId();
+    const workerDispatcher = this.workerDispatcher;
 
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
@@ -124,6 +125,16 @@ export class LSPQueueManager {
       // Wrap request execution in an Effect
       const requestEffect = Effect.tryPromise({
         try: async () => {
+          // Prefer the worker dispatcher when one is wired and willing to take
+          // this request type; only fall through to the coordinator-local
+          // handler when no dispatcher is available or it declines the type.
+          if (
+            workerDispatcher?.isAvailable?.() &&
+            workerDispatcher.canDispatch?.(type)
+          ) {
+            logger.debug(() => `Dispatching ${type} request to worker`);
+            return workerDispatcher.dispatch(type, params);
+          }
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
             throw new Error(`No handler registered for request type: ${type}`);
