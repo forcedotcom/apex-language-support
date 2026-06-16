@@ -1930,6 +1930,9 @@ export class ApexSymbolRefManager {
    * Returns incoming references whose target is the given symbol's declaration.
    */
   private findReferencesViaGraph(symbol: ApexSymbol): ReferenceResult[] {
+    // Load-bearing guard: findReferencesTo's dispatch ensures fileUri is set for
+    // the *original* symbol, but findInstanceMethodReferences also calls this on
+    // related-type method symbols (methodOnType) whose fileUri is not pre-checked.
     if (!symbol.fileUri) {
       return [];
     }
@@ -2188,25 +2191,55 @@ export class ApexSymbolRefManager {
       }
     }
 
-    // Children / implementors: any type whose superClass or interfaces name a
-    // type we already consider related. The set of type declarations is stable
-    // within this call, so enumerate the graph ONCE and only re-scan membership
-    // on each fixpoint pass — avoids an O(passes x allWorkspaceSymbols) walk.
+    // Children / implementors: any type that (transitively) extends or implements
+    // a type we already consider related. Instead of a fixpoint loop that re-scans
+    // every workspace type on each pass (O(passes x N)), build a reverse-adjacency
+    // map ONCE — parentName -> child/implementor type names — then BFS down it
+    // from the supertypes already collected above. This is O(N + edges): one scan
+    // to build the map plus one linear traversal to drain it, yet yields the same
+    // `related` set the fixpoint loop produced.
+    //
+    // collectAllTypeSymbols() is the single full scan of workspace types here; it
+    // costs O(workspace types) per Find-References-on-instance-method request.
     const allTypes = this.collectAllTypeSymbols();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const type of allTypes) {
-        if (related.has(type.name)) continue;
-        const extendsRelated =
-          type.superClass !== undefined && related.has(type.superClass);
-        const implementsRelated = (type.interfaces ?? []).some((i) =>
-          related.has(i),
-        );
-        if (extendsRelated || implementsRelated) {
-          related.add(type.name);
-          changed = true;
+
+    // parentName (lowercased) -> set of child/implementor names (original case).
+    // Names are deduped case-insensitively (via the lowercased key and `visited`)
+    // but stored original-case because `related` is queried by exact name elsewhere.
+    const reverseAdjacency = new Map<string, Set<string>>();
+    for (const type of allTypes) {
+      const parentNames: string[] = [];
+      if (type.superClass) {
+        parentNames.push(type.superClass);
+      }
+      for (const iface of type.interfaces ?? []) {
+        parentNames.push(iface);
+      }
+      for (const parentName of parentNames) {
+        const key = parentName.toLowerCase();
+        let children = reverseAdjacency.get(key);
+        if (!children) {
+          children = new Set();
+          reverseAdjacency.set(key, children);
         }
+        children.add(type.name);
+      }
+    }
+
+    // BFS down the reverse-adjacency map, seeded with the names already related
+    // (the supertypes/interfaces from the up-walk). `visited` (lowercased) both
+    // dedupes and terminates on inheritance cycles.
+    const queue: string[] = Array.from(related);
+    while (queue.length > 0) {
+      const name = queue.shift()!;
+      const children = reverseAdjacency.get(name.toLowerCase());
+      if (!children) continue;
+      for (const childName of children) {
+        const childKey = childName.toLowerCase();
+        if (visited.has(childKey)) continue;
+        visited.add(childKey);
+        related.add(childName);
+        queue.push(childName);
       }
     }
 
@@ -2231,6 +2264,11 @@ export class ApexSymbolRefManager {
    * Method symbols are parented to their class *block* symbol rather than the
    * class declaration directly, so we match by resolving each candidate's
    * declaring type back to `type`.
+   *
+   * Known imprecision: matching is by name + kind===Method + same file +
+   * declaring-type id only. Overloaded methods that share a name on the same
+   * type (differing arity/parameters) are NOT disambiguated — this returns the
+   * first match. Overload-aware disambiguation is deferred to a later story.
    */
   private findMethodOnType(
     type: ApexSymbol,
@@ -3670,6 +3708,16 @@ export class ApexSymbolRefManager {
    */
   public drainAllDeferredReferences(): Effect.Effect<number, never, never> {
     return Effect.sync(() => this.drainAllDeferredReferencesSync());
+  }
+
+  /**
+   * Target names that currently have at least one deferred (unresolved) reference
+   * awaiting their declaring artifact. Exposed for observability and testing so
+   * callers can assert deferral/drain behavior without reaching into the private
+   * `deferredReferences` map.
+   */
+  public getDeferredTargetNames(): string[] {
+    return Array.from(this.deferredReferences.keys());
   }
 
   /**

@@ -9,7 +9,10 @@
 import { Effect } from 'effect';
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
+import {
+  ApexSymbolRefManager,
+  ReferenceType,
+} from '../../src/symbols/ApexSymbolRefManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
@@ -106,10 +109,7 @@ describe('Cross-file edge population (W-22692421)', () => {
       );
 
       const graph = refManager();
-      const deferredBefore = (
-        graph as unknown as { deferredReferences: Map<string, unknown[]> }
-      ).deferredReferences;
-      expect(deferredBefore.has('Callee')).toBe(true);
+      expect(graph.getDeferredTargetNames()).toContain('Callee');
 
       // Now add the target file.
       const calleeUri = 'file:///Callee.cls';
@@ -126,10 +126,7 @@ describe('Cross-file edge population (W-22692421)', () => {
       expect(resolved).toBeGreaterThan(0);
 
       // Callee's deferred bucket should be cleared.
-      const deferredAfter = (
-        graph as unknown as { deferredReferences: Map<string, unknown[]> }
-      ).deferredReferences;
-      expect(deferredAfter.has('Callee')).toBe(false);
+      expect(graph.getDeferredTargetNames()).not.toContain('Callee');
 
       // Incoming edge: references TO the Callee type should now include Caller.
       const calleeSymbols = await symbolManager.findSymbolByName('Callee');
@@ -326,10 +323,65 @@ describe('Cross-file edge population (W-22692421)', () => {
       expect(baseDoWork).toBeDefined();
       expect(baseDoWork!.modifiers.isStatic).toBe(false);
 
+      // Seed a genuine cross-file caller edge whose target is Base.doWork. This
+      // mirrors what a fully-resolved `b.doWork()` call (b typed Base) produces.
+      //
+      // NOTE: as of this story, the cross-file resolver in ApexSymbolManager does
+      // NOT yet resolve a *qualified, receiver-typed* method call (`b.doWork()`,
+      // b: Base) to the cross-file member Base.doWork — the qualifier `b` is a
+      // same-file local, so the reference is treated as same-file and attributed
+      // to the receiver variable rather than the member. That receiver-typed
+      // cross-file member resolution is upstream of findReferencesTo and out of
+      // scope here. We therefore seed the resolved edge directly so this test
+      // exercises the in-scope override-UNION logic against non-empty data
+      // (an empty result array would vacuously satisfy a dedup-only assertion).
+      const callerSymbols = graph.getSymbolsInFile(callerUri);
+      const invokeSym = callerSymbols.find(
+        (s: ApexSymbol) => s.name === 'invoke' && s.kind === SymbolKind.Method,
+      );
+      expect(invokeSym).toBeDefined();
+      graph.addReference(
+        invokeSym!,
+        baseDoWork!,
+        ReferenceType.METHOD_CALL,
+        {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 12,
+            endLine: 4,
+            endColumn: 22,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 14,
+            endLine: 4,
+            endColumn: 20,
+          },
+        },
+        { methodName: 'doWork' },
+      );
+
       // The override-aware path must consider related types without throwing
       // and must not duplicate results. It unions references to doWork across
-      // Base/Middle/Leaf (and any caller edges that were populated).
+      // Base/Middle/Leaf, so the seeded caller edge surfaces.
       const refs = graph.findReferencesTo(baseDoWork!);
+
+      // The union actually found the cross-file caller reference (not empty).
+      expect(refs.length).toBeGreaterThan(0);
+      expect(refs.some((r) => r.fileUri === callerUri)).toBe(true);
+
+      // The same caller edge must also surface when querying a DERIVED override
+      // (Leaf.doWork): the override-union walks the chain up to Base where the
+      // edge lives. An empty array could never satisfy this.
+      const leafDoWork = graph
+        .getSymbolsInFile(leafUri)
+        .find(
+          (s: ApexSymbol) =>
+            s.name === 'doWork' && s.kind === SymbolKind.Method,
+        );
+      expect(leafDoWork).toBeDefined();
+      const refsFromLeaf = graph.findReferencesTo(leafDoWork!);
+      expect(refsFromLeaf.some((r) => r.fileUri === callerUri)).toBe(true);
 
       // De-duplication invariant: no two results share the same
       // (fileUri, symbolId, line, column).
