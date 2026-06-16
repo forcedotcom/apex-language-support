@@ -54,7 +54,8 @@
 
       "@salesforce/esbuild-presets": ["packages/esbuild-presets/dist"],
       "@salesforce/esbuild-presets/*": ["packages/esbuild-presets/dist/*"]
-    }
+    },
+    "plugins": [{ "name": "@effect/language-service" }]
   },
   "exclude": ["node_modules", "out", "dist"],
   "references": [
