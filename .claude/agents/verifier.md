@@ -10,7 +10,7 @@ The stop hook (`verify-stop.sh`) already runs compile, lint, effect LS, test, an
 
 Run from the repo root:
 
-1. **knip** — `npx -y knip`
+1. **knip** — `node_modules/.bin/knip` (the local bin; never `npx -y`, which can fetch+execute from the registry). If the bin is missing, report it and that `npm install` is needed — do not skip silently or fall back to `npx`.
 
 **Wireit:** Wireit "all cached" / no-op output is success, not failure. Do not treat cache hits as problems.
 

@@ -102,8 +102,8 @@ packages/apex-lsp-testbed/test/fixtures/eda
 # Generated at runtime by test-web-ext.js (memfs mode)
 scripts/test-extensions/memfs-provider/workspace-files.json
 
-# Cursor/Claude session hook marker
+# Claude session hook marker
 .claude/.edit-marker
-.claude/settings.json
 .session-files/
 .vscode-test-web/
+.claude/worktrees/

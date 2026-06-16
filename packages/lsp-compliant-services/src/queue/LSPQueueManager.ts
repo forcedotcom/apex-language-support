@@ -21,6 +21,29 @@ import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
 
 /**
+ * Thrown when a queued LSP request is cancelled — either before it is
+ * dispatched or while its fiber is in flight. Callers (e.g. the LSP adapter)
+ * treat this as "return the empty/null fallback" rather than a real error.
+ */
+export class RequestCancelledError extends Error {
+  constructor(requestType: LSPRequestType) {
+    super(`LSP ${requestType} request cancelled`);
+    this.name = 'RequestCancelledError';
+  }
+}
+
+/**
+ * Minimal structural view of an LSP {@link CancellationToken}. Declared
+ * locally so the queue layer can honor cancellation without taking a hard
+ * dependency on `vscode-languageserver` request types; the real token from
+ * the LSP connection is structurally assignable to this.
+ */
+export interface CancellationLike {
+  readonly isCancellationRequested: boolean;
+  onCancellationRequested(listener: () => void): { dispose(): void };
+}
+
+/**
  * Dependencies interface for LSPQueueManager initialization
  */
 export interface LSPQueueManagerDependencies {
@@ -249,9 +272,13 @@ export class LSPQueueManager {
   /**
    * Submit a references request
    */
-  async submitReferencesRequest(params: any): Promise<any> {
+  async submitReferencesRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
     return this.submitRequest('references', params, {
       priority: Priority.Normal,
+      token,
     });
   }
 
@@ -472,10 +499,21 @@ export class LSPQueueManager {
       timeout?: number;
       callback?: (result: T) => void;
       errorCallback?: (error: Error) => void;
+      token?: CancellationLike;
     } = {},
   ): Promise<T> {
     if (this.isShutdown) {
       throw new Error('LSP Queue Manager is shutdown');
+    }
+
+    // Short-circuit work that was already superseded (e.g. a rapid cursor
+    // move cancels an in-flight request before it reaches the queue). This
+    // keeps dead requests from queueing behind active ones.
+    if (options.token?.isCancellationRequested) {
+      this.logger.debug(
+        () => `Skipping ${type} request: cancelled before dispatch`,
+      );
+      throw new RequestCancelledError(type);
     }
 
     const submitStartTime = Date.now();
@@ -552,8 +590,25 @@ export class LSPQueueManager {
         );
       }
 
+      // Interrupt the in-flight fiber if the request is cancelled mid-execution
+      // (e.g. the editor moves on before a slow reference search completes).
+      let cancelSub: { dispose(): void } | undefined;
+      if (options.token) {
+        if (options.token.isCancellationRequested) {
+          await Effect.runPromise(Fiber.interrupt(fiber));
+          throw new RequestCancelledError(type);
+        }
+        cancelSub = options.token.onCancellationRequested(() => {
+          Effect.runPromise(Fiber.interrupt(fiber)).catch(() => {
+            // Interrupt is best-effort; the await below settles regardless.
+          });
+        });
+      }
+
       const executionStartTime = Date.now();
-      const result = await Effect.runPromise(Fiber.await(fiber));
+      const result = await Effect.runPromise(Fiber.await(fiber)).finally(() => {
+        cancelSub?.dispose();
+      });
       const executionTime = Date.now() - executionStartTime;
       const totalTime = Date.now() - submitStartTime;
 
@@ -576,6 +631,11 @@ export class LSPQueueManager {
         );
       }
       if (result._tag === 'Failure') {
+        // A cancelled request interrupts its fiber, producing an Interrupt
+        // cause. Surface that as cancellation rather than a generic failure.
+        if (Cause.isInterruptedOnly(result.cause)) {
+          throw new RequestCancelledError(type);
+        }
         // Extract the error from the Effect failure cause
         // The cause should be a Fail cause containing our Error
         let error: Error;
@@ -613,6 +673,11 @@ export class LSPQueueManager {
 
       return result.value;
     } catch (error) {
+      // A cancelled request is expected (e.g. a superseded cursor move); the
+      // LCSAdapter handles it as the null fallback. Don't log it as an error.
+      if (error instanceof RequestCancelledError) {
+        throw error;
+      }
       const totalTime = Date.now() - submitStartTime;
       this.logger.error(
         () =>

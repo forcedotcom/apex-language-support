@@ -23,7 +23,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
 } from '@salesforce/apex-lsp-shared';
-import { Effect } from 'effect';
+import { Effect, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 type DispatcherResult = ReturnType<typeof makeWorkerDispatcher>;
@@ -71,52 +71,60 @@ describe('WorkerCoordinator', () => {
   });
 
   describe('pool topology (step 4)', () => {
-    it('spawns data-owner + enrichment pool, ping round-trips on both', async () => {
-      const logger = createSpyLogger();
+    describe('without resource loader', () => {
+      let topology: WorkerTopology;
+      let logger: ReturnType<typeof createSpyLogger>;
+      let scope: Scope.CloseableScope;
 
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
+      beforeAll(async () => {
+        logger = createSpyLogger();
+        scope = Effect.runSync(Scope.make());
+        const program = Effect.gen(function* () {
+          return yield* initializeTopology({
+            poolSize: 1,
+            enableResourceLoader: false,
+            logger,
+          });
+        }).pipe(
+          Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+        );
+        topology = await Effect.runPromise(
+          Effect.provideService(program, Scope.Scope, scope),
+        );
+      }, 120_000);
 
-        const ping = yield* topology.dataOwner.executeEffect(
-          new PingWorker({ echo: 'data-owner-ping' }),
+      afterAll(async () => {
+        await Effect.runPromise(Scope.close(scope, Effect.void));
+      }, 30_000);
+
+      it('spawns data-owner + enrichment pool, ping round-trips on both', async () => {
+        const ping = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new PingWorker({ echo: 'data-owner-ping' }),
+          ),
         );
         expect(ping.echo).toBe('data-owner-ping');
 
-        const poolPing = yield* topology.enrichmentPool.executeEffect(
-          new PingWorker({ echo: 'pool-ping' }),
+        const poolPing = await Effect.runPromise(
+          topology.enrichmentPool.executeEffect(
+            new PingWorker({ echo: 'pool-ping' }),
+          ),
         );
         expect(poolPing.echo).toBe('pool-ping');
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
 
-      await Effect.runPromise(program);
+        expect(logger.messages).toContainEqual(
+          expect.stringContaining('Data owner initialized'),
+        );
+        expect(logger.messages).toContainEqual(
+          expect.stringContaining('Enrichment pool initialized'),
+        );
+      });
 
-      expect(logger.messages).toContainEqual(
-        expect.stringContaining('Data owner initialized'),
-      );
-      expect(logger.messages).toContainEqual(
-        expect.stringContaining('Enrichment pool initialized'),
-      );
-    }, 120_000);
-
-    it('data-owner handles QuerySymbolSubset with mock data', async () => {
-      const logger = createSpyLogger();
-
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
-
-        const result = yield* topology.dataOwner.executeEffect(
-          new QuerySymbolSubset({ uris: ['file:///a.cls', 'file:///b.cls'] }),
+      it('data-owner handles QuerySymbolSubset with mock data', async () => {
+        const result = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new QuerySymbolSubset({ uris: ['file:///a.cls', 'file:///b.cls'] }),
+          ),
         );
 
         expect(result.entries['file:///a.cls']).toBeNull();
@@ -125,173 +133,151 @@ describe('WorkerCoordinator', () => {
         expect(result.detailLevels).toBeDefined();
         expect(result.versions['file:///a.cls']).toBe(-1);
         expect(result.detailLevels['file:///a.cls']).toBe('public-api');
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      });
 
-      await Effect.runPromise(program);
-    }, 120_000);
-
-    it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
-      const logger = createSpyLogger();
-
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
-
-        // Attempt to update with enriched symbols for non-existent document
-        const result = yield* topology.dataOwner.executeEffect(
-          new UpdateSymbolSubset({
-            uri: 'file:///test.cls',
-            documentVersion: 1,
-            enrichedSymbolTable: {
-              symbols: [],
-              references: [],
-              hierarchicalReferences: [],
-              metadata: {
+      it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
+        const result = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new UpdateSymbolSubset({
+              uri: 'file:///test.cls',
+              documentVersion: 1,
+              enrichedSymbolTable: {
+                symbols: [],
+                references: [],
+                hierarchicalReferences: [],
+                metadata: {
+                  fileUri: 'file:///test.cls',
+                  documentVersion: 1,
+                  parseCompleteness: 'complete' as const,
+                },
                 fileUri: 'file:///test.cls',
-                documentVersion: 1,
-                parseCompleteness: 'complete' as const,
               },
-              fileUri: 'file:///test.cls',
-            },
-            enrichedDetailLevel: 'protected' as const,
-            sourceWorkerId: 'test-worker-1',
-          }),
+              enrichedDetailLevel: 'protected' as const,
+              sourceWorkerId: 'test-worker-1',
+            }),
+          ),
         );
 
         // Should reject because document doesn't exist (not a version mismatch per se)
         expect(result.accepted).toBe(false);
         expect(result.versionMismatch).toBe(false);
         expect(result.merged).toBe(0);
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      });
 
-      await Effect.runPromise(program);
-    }, 120_000);
-
-    it('data-owner rejects UpdateSymbolSubset when detail level is not higher', async () => {
-      const logger = createSpyLogger();
-
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
-
-        // First update with 'protected' level
-        const result1 = yield* topology.dataOwner.executeEffect(
-          new UpdateSymbolSubset({
-            uri: 'file:///test.cls',
-            documentVersion: 1,
-            enrichedSymbolTable: {
-              symbols: [],
-              references: [],
-              hierarchicalReferences: [],
-              metadata: {
+      it('data-owner rejects UpdateSymbolSubset when detail level is not higher', async () => {
+        const result1 = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new UpdateSymbolSubset({
+              uri: 'file:///test.cls',
+              documentVersion: 1,
+              enrichedSymbolTable: {
+                symbols: [],
+                references: [],
+                hierarchicalReferences: [],
+                metadata: {
+                  fileUri: 'file:///test.cls',
+                  documentVersion: 1,
+                  parseCompleteness: 'complete' as const,
+                },
                 fileUri: 'file:///test.cls',
-                documentVersion: 1,
-                parseCompleteness: 'complete' as const,
               },
-              fileUri: 'file:///test.cls',
-            },
-            enrichedDetailLevel: 'public-api' as const,
-            sourceWorkerId: 'test-worker-1',
-          }),
+              enrichedDetailLevel: 'public-api' as const,
+              sourceWorkerId: 'test-worker-1',
+            }),
+          ),
         );
 
         // Note: In real scenario, we'd need document to exist first
         // This test verifies the detail level comparison logic
         expect(result1.accepted).toBe(false); // Will fail version check
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      });
 
-      await Effect.runPromise(program);
-    }, 120_000);
+      it('runRemoteStdlibWarmupPhase is a no-op when resource loader is disabled', async () => {
+        await expect(
+          Effect.runPromise(runRemoteStdlibWarmupPhase(topology, 1)),
+        ).resolves.toBeUndefined();
+      });
+    });
 
-    it('spawns optional resource-loader when enabled', async () => {
-      const logger = createSpyLogger();
+    describe('with resource loader', () => {
+      let topology: WorkerTopology;
+      let logger: ReturnType<typeof createSpyLogger>;
+      let scope: Scope.CloseableScope;
 
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: true,
-          logger,
-        });
+      beforeAll(async () => {
+        logger = createSpyLogger();
+        scope = Effect.runSync(Scope.make());
+        const program = Effect.gen(function* () {
+          return yield* initializeTopology({
+            poolSize: 1,
+            enableResourceLoader: true,
+            logger,
+          });
+        }).pipe(
+          Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+        );
+        topology = await Effect.runPromise(
+          Effect.provideService(program, Scope.Scope, scope),
+        );
+      }, 120_000);
 
+      afterAll(async () => {
+        await Effect.runPromise(Scope.close(scope, Effect.void));
+      }, 30_000);
+
+      it('spawns optional resource-loader when enabled', async () => {
         expect(topology.resourceLoader).not.toBeNull();
 
-        const ping = yield* topology.resourceLoader!.executeEffect(
-          new PingWorker({ echo: 'loader-ping' }),
+        const ping = await Effect.runPromise(
+          topology.resourceLoader!.executeEffect(
+            new PingWorker({ echo: 'loader-ping' }),
+          ),
         );
         expect(ping.echo).toBe('loader-ping');
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
 
-      await Effect.runPromise(program);
+        expect(logger.messages).toContainEqual(
+          expect.stringContaining('Resource loader initialized'),
+        );
+      });
 
-      expect(logger.messages).toContainEqual(
-        expect.stringContaining('Resource loader initialized'),
-      );
-    }, 120_000);
+      it('initializes resource-loader worker before data owner when enabled', () => {
+        const rlIdx = logger.messages.findIndex((m) =>
+          m.includes('Resource loader initialized'),
+        );
+        const doIdx = logger.messages.findIndex((m) =>
+          m.includes('Data owner initialized'),
+        );
+        expect(rlIdx).toBeGreaterThanOrEqual(0);
+        expect(doIdx).toBeGreaterThan(rlIdx);
+      });
+    });
+  });
 
-    it('initializes resource-loader worker before data owner when enabled', async () => {
+  describe('makeWorkerDispatcher (step 5 + step 6)', () => {
+    let topology: WorkerTopology;
+    let scope: Scope.CloseableScope;
+
+    beforeAll(async () => {
       const logger = createSpyLogger();
-
+      scope = Effect.runSync(Scope.make());
       const program = Effect.gen(function* () {
-        yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: true,
-          logger,
-        });
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
-
-      await Effect.runPromise(program);
-
-      const rlIdx = logger.messages.findIndex((m) =>
-        m.includes('Resource loader initialized'),
-      );
-      const doIdx = logger.messages.findIndex((m) =>
-        m.includes('Data owner initialized'),
-      );
-      expect(rlIdx).toBeGreaterThanOrEqual(0);
-      expect(doIdx).toBeGreaterThan(rlIdx);
-    }, 120_000);
-
-    it('runRemoteStdlibWarmupPhase is a no-op when resource loader is disabled', async () => {
-      const logger = createSpyLogger();
-
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
+        return yield* initializeTopology({
           poolSize: 1,
           enableResourceLoader: false,
           logger,
         });
-        yield* runRemoteStdlibWarmupPhase(topology, 1);
       }).pipe(
-        Effect.scoped,
         Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
       );
-
-      await expect(Effect.runPromise(program)).resolves.toBeUndefined();
+      topology = await Effect.runPromise(
+        Effect.provideService(program, Scope.Scope, scope),
+      );
     }, 120_000);
-  });
 
-  describe('makeWorkerDispatcher (step 5 + step 6)', () => {
+    afterAll(async () => {
+      await Effect.runPromise(Scope.close(scope, Effect.void));
+    }, 30_000);
+
     it('isAvailable returns true by default', () => {
       const logger = createSpyLogger();
       const mockTopology = {} as WorkerTopology;
@@ -309,54 +295,26 @@ describe('WorkerCoordinator', () => {
 
     it('dispatches QuerySymbolSubset through data-owner via live worker', async () => {
       const logger = createSpyLogger();
+      const dispatcher = makeWorkerDispatcher(topology, logger);
 
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
-
-        const dispatcher = makeWorkerDispatcher(topology, logger);
-
-        const ping = yield* topology.dataOwner.executeEffect(
+      const ping = await Effect.runPromise(
+        topology.dataOwner.executeEffect(
           new PingWorker({ echo: 'dispatcher-test' }),
-        );
-        expect(ping.echo).toBe('dispatcher-test');
-        expect(dispatcher.isAvailable()).toBe(true);
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+        ),
       );
-
-      await Effect.runPromise(program);
-    }, 120_000);
+      expect(ping.echo).toBe('dispatcher-test');
+      expect(dispatcher.isAvailable()).toBe(true);
+    });
 
     it('queryGraphData routes to data-owner and returns graph payload', async () => {
       const logger = createSpyLogger();
+      const dispatcher = makeWorkerDispatcher(topology, logger);
+      const result = await dispatcher.queryGraphData({ type: 'all' });
 
-      const program = Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: false,
-          logger,
-        });
-
-        const dispatcher = makeWorkerDispatcher(topology, logger);
-        const result = yield* Effect.promise(() =>
-          dispatcher.queryGraphData({ type: 'all' }),
-        );
-
-        // With no symbols ingested the graph should be structurally valid but empty
-        expect(result).toBeDefined();
-        expect(typeof result).toBe('object');
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
-
-      await Effect.runPromise(program);
-    }, 120_000);
+      // With no symbols ingested the graph should be structurally valid but empty
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+    });
 
     describe('canDispatch — prerequisite atomicity (step 6)', () => {
       let dispatcher: DispatcherResult;

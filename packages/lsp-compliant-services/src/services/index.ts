@@ -26,6 +26,7 @@ export * from './DiagnosticProcessingService';
 export * from './HoverProcessingService';
 export * from './BackgroundProcessingInitializationService';
 export * from './CompletionProcessingService';
+export * from './strategies';
 export * from './LayerEnrichmentService';
 export * from './DiagnosticRefreshService';
 

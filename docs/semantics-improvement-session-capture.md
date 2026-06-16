@@ -156,8 +156,8 @@ MethodSignatureEquivalenceValidator, InterfaceHierarchyValidator, ClassHierarchy
 |----------|------|
 | **Current status** (error-code coverage, validators) | `packages/apex-parser-ast/SEMANTIC_VALIDATION_STATUS.md` |
 | Cursor plans | `~/.cursor/plans/` |
-| Prioritize validations | `.cursor/plans/prioritize-missing-validations.md` |
-| Annotation validation | `.cursor/plans/annotation_validation_improvements.plan.md` |
+| Prioritize validations | `docs/historical-plans/prioritize-missing-validations.md` |
+| Annotation validation | `docs/historical-plans/annotation_validation_improvements.plan.md` |
 | Error codes | `packages/apex-parser-ast/src/generated/ErrorCodes.ts` |
 | Validators | `packages/apex-parser-ast/src/semantics/validation/validators/` |
 | Reference collector | `packages/apex-parser-ast/src/parser/listeners/ApexReferenceCollectorListener.ts` |
