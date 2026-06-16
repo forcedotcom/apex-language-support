@@ -94,7 +94,7 @@ jobs:
 
           # Find the nightly tag that corresponds to this pre-release version
           # It was the nightly that had version $PRERELEASE_VERSION
-          NIGHTLY_TAG=$(git tag --list "*-v${PRERELEASE_VERSION}-nightly*" \
+          NIGHTLY_TAG=$(git tag --list "v${PRERELEASE_VERSION}-nightly*" \
             --sort=-version:refname | head -1)
 
           if [ -z "$NIGHTLY_TAG" ]; then
