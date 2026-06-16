@@ -19,5 +19,5 @@ When code is edited (or code changes are in conversation context), delegate to t
 
 ## Scope
 
-- In scope: `.claude/skills/`, `.claude/agents/`, `.cursor/rules/`, `docs/`, `contributing/`, `packages/**/README.md`
+- In scope: `.claude/skills/`, `.claude/agents/`, `docs/`, `contributing/`, `packages/**/README.md`
 - Excluded: `**/*.plan.md`, `**/plan.md`
