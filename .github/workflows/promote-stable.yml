@@ -94,7 +94,7 @@ jobs:
 
           # Find the nightly tag that corresponds to this pre-release version
           # It was the nightly that had version $PRERELEASE_VERSION
-          NIGHTLY_TAG=$(git tag --list "*-v${PRERELEASE_VERSION}-nightly*" \
+          NIGHTLY_TAG=$(git tag --list "v${PRERELEASE_VERSION}-nightly*" \
             --sort=-version:refname | head -1)
 
           if [ -z "$NIGHTLY_TAG" ]; then
@@ -125,6 +125,13 @@ jobs:
         with:
           commit-sha: ${{ needs.find-prerelease-candidate.outputs.commit-sha }}
           token: ${{ secrets.IDEE_GH_TOKEN }}
+          # Validate only the publish-pipeline checks that gate the candidate's quality.
+          # Without this, the action validates every check-run on the commit — including
+          # this workflow's own `quality-gate` job, whose superseded historical runs can
+          # carry a stale `failure` conclusion and block all future promotions.
+          # `gate` is the Manual Publish aggregate gate; `tag-published` confirms the
+          # nightly/pre-release artifact was successfully published for this commit.
+          required-checks: 'gate,tag-published'
 
   repackage:
     needs: [find-prerelease-candidate, quality-gate]
