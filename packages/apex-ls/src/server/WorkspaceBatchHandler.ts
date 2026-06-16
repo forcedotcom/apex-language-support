@@ -271,6 +271,17 @@ export function setBatchIngestionDispatcher(
   );
 }
 
+/**
+ * How long {@link processStoredBatches} waits for the worker dispatcher to be
+ * wired before falling through to coordinator-local processing. Configurable
+ * so tests can shrink it; production keeps the 5s bootstrap-race window.
+ */
+let batchDispatcherWaitMs = 5000;
+
+export function setBatchDispatcherWaitMs(ms: number): void {
+  batchDispatcherWaitMs = ms;
+}
+
 export function getBatchIngestionDispatcher(): BatchIngestionDispatcher | null {
   return batchIngestionDispatcher;
 }
@@ -531,14 +542,56 @@ function processWorkspaceBatchBackground(
  * public-api compilation. When no dispatcher is set, falls back to local
  * processing via the priority scheduler.
  */
+/**
+ * Wait up to {@link timeoutMs} for the worker batch-ingestion dispatcher to be
+ * wired before processing batches. The worker topology sets the dispatcher
+ * asynchronously during bootstrap, and a workspace batch can land before that
+ * completes. Without this wait, an early batch races past `batchIngestionDispatcher`
+ * while it is still null and is processed coordinator-locally — defeating the
+ * offload. Polls every {@link pollMs}; returns the dispatcher once set, or null
+ * if the timeout elapses (caller then falls through to local processing).
+ */
+function waitForBatchIngestionDispatcher(
+  logger: ReturnType<typeof getLogger>,
+  timeoutMs = batchDispatcherWaitMs,
+  pollMs = 50,
+): Effect.Effect<BatchIngestionDispatcher | null, never, never> {
+  return Effect.gen(function* () {
+    if (batchIngestionDispatcher) {
+      return batchIngestionDispatcher;
+    }
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      yield* Effect.sleep(`${pollMs} millis`);
+      if (batchIngestionDispatcher) {
+        logger.debug(
+          () => '[BATCH-PROCESSING] Worker dispatcher became available',
+        );
+        return batchIngestionDispatcher;
+      }
+    }
+    // Timing out here means the batch falls back to coordinator-local
+    // processing — a safe path, but one that silently defeats the worker
+    // offload. Log at info (not debug) so a missed optimization is visible
+    // rather than buried with routine flow.
+    logger.info(
+      () =>
+        '[BATCH-PROCESSING] Worker dispatcher not available after ' +
+        `${timeoutMs}ms; falling through to coordinator-local processing`,
+    );
+    return null;
+  });
+}
+
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
-  const dispatcher = batchIngestionDispatcher;
 
   return Effect.gen(function* () {
+    const dispatcher = yield* waitForBatchIngestionDispatcher(logger);
+
     const totalFiles = batches.reduce(
       (sum, b) => sum + (b.fileMetadata?.length ?? 0),
       0,

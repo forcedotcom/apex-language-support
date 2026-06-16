@@ -482,14 +482,26 @@ export class LCSAdapter {
   ): Promise<T> {
     const start = performance.now();
     let success = true;
+    // A cancelled request never ran to completion (e.g. the editor superseded
+    // it on the next cursor move), so it's neither a success nor a failure.
+    // Recording it would either inflate the failure rate or, if counted as a
+    // success, pollute the duration percentiles with a truncated measurement —
+    // so we skip the metric entirely for cancellation.
+    let cancelled = false;
     try {
       return await runWithSpan(spanName, fn, attributes);
     } catch (e) {
-      success = false;
+      if (e instanceof RequestCancelledError) {
+        cancelled = true;
+      } else {
+        success = false;
+      }
       throw e;
     } finally {
-      const durationMs = performance.now() - start;
-      this.aggregator.record(spanName, durationMs, success);
+      if (!cancelled) {
+        const durationMs = performance.now() - start;
+        this.aggregator.record(spanName, durationMs, success);
+      }
     }
   }
 

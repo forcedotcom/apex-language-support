@@ -44,6 +44,30 @@ export interface CancellationLike {
 }
 
 /**
+ * Worker-side dispatcher that the queue consults before falling back to the
+ * coordinator-local handler. When wired (by the worker topology), a request is
+ * offloaded to a worker via {@link dispatch} as long as the dispatcher
+ * {@link isAvailable} and the type {@link dispatchesToPool}; otherwise the
+ * queue processes it locally. Declared here so the queue layer documents the
+ * protocol and catches shape drift at compile time rather than relying on
+ * runtime optional-chaining against an untyped field.
+ */
+export interface WorkerDispatcher {
+  /** Whether the dispatcher is wired and ready to accept work. */
+  isAvailable(): boolean;
+  /** Whether this dispatcher handles the given request type at all. */
+  canDispatch(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is auto-dispatched to the enrichment pool (a
+   * stateless reader over the dataOwner graph). The queue only auto-dispatches
+   * these; data-owner / document-lifecycle types keep their local + batch path.
+   */
+  dispatchesToPool?(type: LSPRequestType): boolean;
+  /** Offload the request to a worker, resolving with its result. */
+  dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
+}
+
+/**
  * Dependencies interface for LSPQueueManager initialization
  */
 export interface LSPQueueManagerDependencies {
@@ -140,6 +164,7 @@ export class LSPQueueManager {
             workerDispatcher.dispatchesToPool?.(type)
           ) {
             try {
+              logger.debug(() => `Dispatching ${type} request to worker`);
               return (await workerDispatcher.dispatch(type, params)) as T;
             } catch (dispatchError) {
               logger.debug(
@@ -228,9 +253,9 @@ export class LSPQueueManager {
     return LSPQueueManager.instance;
   }
 
-  private workerDispatcher: any = null;
+  private workerDispatcher: WorkerDispatcher | null = null;
 
-  setWorkerDispatcher(dispatcher: any): void {
+  setWorkerDispatcher(dispatcher: WorkerDispatcher | null): void {
     this.workerDispatcher = dispatcher;
     this.logger.debug(
       () =>
@@ -238,7 +263,7 @@ export class LSPQueueManager {
     );
   }
 
-  getWorkerDispatcher(): any {
+  getWorkerDispatcher(): WorkerDispatcher | null {
     return this.workerDispatcher;
   }
 
