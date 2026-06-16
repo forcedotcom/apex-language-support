@@ -3734,6 +3734,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       case ReferenceContext.VARIABLE_DECLARATION:
         // Declarations are for editor UX; do not create dependency edges
         return ReferenceType.TYPE_REFERENCE;
+      case ReferenceContext.INHERITANCE:
+        // class X extends Super → subclass → superclass edge
+        return ReferenceType.INHERITANCE;
+      case ReferenceContext.INTERFACE_IMPLEMENTATION:
+        // class X implements I / interface Y extends I → implementor → interface edge
+        return ReferenceType.INTERFACE_IMPLEMENTATION;
       default:
         return ReferenceType.TYPE_REFERENCE;
     }
