@@ -1,5 +1,11 @@
 # Cursor → Claude migration plan
 
+> **RETIRED (2026-06-16).** The migration is complete and `.cursor/` has been removed.
+> `.claude/` is the sole source of truth; hooks are registered in `.claude/settings.json`.
+> The sync hook (`sync-cursor-mirrors.sh`) and `cursor-mirror` skill are deleted, and the
+> historical `.cursor/plans/` were moved to `docs/historical-plans/`. This document is kept
+> only as a record of how the consolidation was done.
+
 Non-destructive migration of `.cursor/` content into `.claude/`. `.cursor/` stays intact so existing Cursor users are not broken; `.claude/` becomes the source of truth and a skill + hook keeps the `.cursor/` mirrors in sync.
 
 ## Guiding principles

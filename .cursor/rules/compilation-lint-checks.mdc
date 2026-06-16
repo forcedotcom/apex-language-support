@@ -1,6 +1,0 @@
----
-description: Deprecated — use verification skill
-alwaysApply: true
----
-
-Full verification includes compile and lint. In **debug mode**, lint is deferred — see `.claude/skills/verification/SKILL.md` (Debug mode) and `.cursor/rules/verification.mdc`.

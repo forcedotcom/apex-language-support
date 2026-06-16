@@ -8,7 +8,7 @@ Fix docs when code/config/scripts change. Run in background; fix directly; repor
 
 ## Scope
 
-- **In scope**: .claude/skills/, .claude/agents/, .cursor/rules/, docs/, contributing/, packages/\*\*/README.md
+- **In scope**: .claude/skills/, .claude/agents/, docs/, contributing/, packages/\*\*/README.md
 - **Excluded**: **/\*.plan.md, **/plan.md
 
 ## Responsibilities (priority order)
@@ -24,11 +24,11 @@ Fix docs when code/config/scripts change. Run in background; fix directly; repor
 ## Workflow
 
 1. `git diff HEAD` (or session context) to identify recent changes
-2. Cross-reference docs: docs/, .claude/skills/, .claude/agents/, .cursor/rules/, contributing/, packages/\*\*/README.md
+2. Cross-reference docs: docs/, .claude/skills/, .claude/agents/, contributing/, packages/\*\*/README.md
 3. Fix issues directly (edit files)
 4. Report what was fixed (for transparency)
 
 ## Style
 
-- **.claude/, .cursor/rules/, docs/, contributing/**: Apply concise skill (fragments, remove words). See .claude/skills/concise/SKILL.md.
+- **.claude/, docs/, contributing/**: Apply concise skill (fragments, remove words). See .claude/skills/concise/SKILL.md.
 - **packages/\*\*/README.md**: Customer-facing, marketplace. Use full sentences, original tone. Do NOT apply concise.
