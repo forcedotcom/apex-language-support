@@ -46,6 +46,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -89,6 +90,7 @@ const AllWorkerRequests = Schema.Union(
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
   CompileDocument,
@@ -1043,6 +1045,34 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  // NOTE: keep this handler in sync with worker.platform.ts —
+  // the two platforms intentionally carry identical data-owner bodies.
+  ResolveDependentUris: (req) =>
+    guardRole('ResolveDependentUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { resolveDependentUris } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const result = yield* Effect.promise(() =>
+              resolveDependentUris(svc.symbolManager, req.uri, req.symbolName),
+            );
+            const wire: Record<string, unknown> = {};
+            for (const [uri, entry] of Object.entries(result.entries)) {
+              // cloneForWire (JSON round-trip) drops the class identity and
+              // any non-enumerable/getter props on the symbol-table objects
+              // so the result is a plain tree that survives structured-clone
+              // across the worker postMessage boundary.
+              wire[uri] = cloneForWire(entry);
+            }
+            return { entries: wire };
           }),
         ),
       ),

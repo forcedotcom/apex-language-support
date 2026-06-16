@@ -24,6 +24,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
   ResolveDepUris,
+  ResolveDependentUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   QueryGraphData,
@@ -787,6 +788,15 @@ function createDispatcher(
             }),
           );
         }
+        case 'ResolveDependentUris': {
+          const prd = params as { uri: string; symbolName?: string };
+          return callbacks.sendToDataOwner(
+            new ResolveDependentUris({
+              uri: prd.uri,
+              symbolName: prd.symbolName,
+            }),
+          );
+        }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
       }
@@ -808,6 +818,9 @@ function createDispatcher(
 
 /**
  * Create a dispatcher backed by @effect/platform Worker handles.
+ *
+ * @internal Exported for in-package use by `LCSAdapter` and for unit tests;
+ * not part of the stable public API and may change without notice.
  */
 export function makeWorkerDispatcher(
   topology: WorkerTopology,
