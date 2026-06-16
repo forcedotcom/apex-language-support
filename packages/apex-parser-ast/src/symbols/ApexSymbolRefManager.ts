@@ -1552,6 +1552,44 @@ export class ApexSymbolRefManager {
   }
 
   /**
+   * Find symbols whose name starts with the given prefix (case-insensitive).
+   * Iterates the nameIndex and collects symbols up to the specified limit.
+   * @param prefix The prefix to match (case-insensitive)
+   * @param limit Maximum number of symbols to return (default: 100)
+   * @returns Array of symbols whose names start with the prefix
+   */
+  findSymbolsByPrefix(prefix: string, limit: number = 100): ApexSymbol[] {
+    if (!prefix || prefix.length === 0) {
+      return [];
+    }
+
+    const normalizedPrefix = prefix.toLowerCase();
+    const results: ApexSymbol[] = [];
+
+    for (const [name, symbolIds] of this.nameIndex.entries()) {
+      if (results.length >= limit) {
+        break;
+      }
+
+      // nameIndex keys are stored lowercase; compare against lowered name
+      const normalizedName = name.toLowerCase();
+      if (normalizedName.startsWith(normalizedPrefix)) {
+        for (const symbolId of symbolIds) {
+          if (results.length >= limit) {
+            break;
+          }
+          const symbol = this.getSymbol(symbolId);
+          if (symbol && !isBlockSymbol(symbol)) {
+            results.push(symbol);
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Backward compatibility method - alias for findSymbolByName
    */
   lookupSymbolByName(name: string): ApexSymbol[] {

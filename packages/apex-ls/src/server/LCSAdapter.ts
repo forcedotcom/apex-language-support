@@ -30,6 +30,10 @@ import {
   Registration,
   ServerCapabilities,
   ExecuteCommandParams,
+  CancellationToken,
+  CompletionParams,
+  CompletionItem,
+  CompletionList,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
@@ -70,6 +74,7 @@ import {
   BackgroundProcessingInitializationService,
   initializeLSPQueueManager,
   LSPQueueManager,
+  RequestCancelledError,
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
   onWorkspaceLoadComplete,
@@ -503,6 +508,12 @@ export class LCSAdapter {
         ...extraAttrs,
       });
     } catch (error) {
+      // A cancelled request is expected (e.g. the editor superseded it); return
+      // the fallback quietly instead of logging it as a processing error.
+      if (error instanceof RequestCancelledError) {
+        this.logger.debug(() => `${lspMethod} cancelled`);
+        return fallback;
+      }
       this.logger.error(
         () => `Error processing ${lspMethod}: ${formattedError(error)}`,
       );
@@ -606,12 +617,16 @@ export class LCSAdapter {
 
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
-        async (params: ReferenceParams): Promise<Location[] | null> =>
+        async (
+          params: ReferenceParams,
+          token: CancellationToken,
+        ): Promise<Location[] | null> =>
           this.handleLspRequest(
             LSP_SPAN_NAMES.REFERENCES,
             'textDocument/references',
             params,
-            (p) => LSPQueueManager.getInstance().submitReferencesRequest(p),
+            (p) =>
+              LSPQueueManager.getInstance().submitReferencesRequest(p, token),
             null,
             {
               'document.position': `${params.position.line}:${params.position.character}`,
@@ -622,6 +637,29 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.completionProvider) {
+      this.connection.onCompletion(
+        async (
+          params: CompletionParams,
+        ): Promise<CompletionList | CompletionItem[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.COMPLETION,
+            'textDocument/completion',
+            params,
+            (p) => LSPQueueManager.getInstance().submitCompletionRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Completion handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Completion handler not registered (capability disabled)',
       );
     }
 

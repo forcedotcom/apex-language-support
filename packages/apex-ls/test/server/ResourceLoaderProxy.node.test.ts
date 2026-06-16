@@ -31,69 +31,59 @@ function createSpyLogger(): LoggerInterface {
   } as unknown as LoggerInterface;
 }
 
-async function withTopology(
-  fn: (topology: WorkerTopology, logger: LoggerInterface) => Promise<void>,
-): Promise<void> {
-  const logger = createSpyLogger();
-
-  const program = Effect.gen(function* () {
-    return yield* initializeTopology({
-      poolSize: 1,
-      enableResourceLoader: true,
-      logger,
-    });
-  }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)));
-
-  const scope = Effect.runSync(Scope.make());
-  const topology = await Effect.runPromise(
-    Effect.provideService(program, Scope.Scope, scope),
-  );
-  try {
-    await fn(topology, logger);
-  } finally {
-    await Effect.runPromise(Scope.close(scope, Effect.void));
-  }
-}
-
 describe('ResourceLoaderProxy (Step 9)', () => {
-  it('getSymbolTable returns data for known stdlib class', async () => {
-    await withTopology(async (topology, logger) => {
-      expect(topology.resourceLoader).not.toBeNull();
-      const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
-      const result = await proxy.getSymbolTable('System/String.cls');
-      expect(result).not.toBeNull();
-    });
+  let topology: WorkerTopology;
+  let logger: LoggerInterface;
+  let scope: Scope.CloseableScope;
+
+  beforeAll(async () => {
+    logger = createSpyLogger();
+    scope = Effect.runSync(Scope.make());
+    const program = Effect.gen(function* () {
+      return yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+      });
+    }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)));
+
+    topology = await Effect.runPromise(
+      Effect.provideService(program, Scope.Scope, scope),
+    );
   }, 120_000);
+
+  afterAll(async () => {
+    await Effect.runPromise(Scope.close(scope, Effect.void));
+  }, 30_000);
+
+  it('getSymbolTable returns data for known stdlib class', async () => {
+    expect(topology.resourceLoader).not.toBeNull();
+    const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
+    const result = await proxy.getSymbolTable('System/String.cls');
+    expect(result).not.toBeNull();
+  });
 
   it('getSymbolTable returns null for unknown class', async () => {
-    await withTopology(async (topology, logger) => {
-      const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
-      const result = await proxy.getSymbolTable('Nonexistent/Foo.cls');
-      expect(result).toBeNull();
-    });
-  }, 120_000);
+    const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
+    const result = await proxy.getSymbolTable('Nonexistent/Foo.cls');
+    expect(result).toBeNull();
+  });
 
   it('resolveStandardClassFqn resolves known class', async () => {
-    await withTopology(async (topology, logger) => {
-      const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
-      const fqn = await proxy.resolveStandardClassFqn('String');
-      expect(fqn).toBe('System.String');
-    });
-  }, 120_000);
+    const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
+    const fqn = await proxy.resolveStandardClassFqn('String');
+    expect(fqn).toBe('System.String');
+  });
 
   it('resolveStandardClassFqn returns null for non-stdlib class', async () => {
-    await withTopology(async (topology, logger) => {
-      const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
-      const fqn = await proxy.resolveStandardClassFqn('MyCustomClass');
-      expect(fqn).toBeNull();
-    });
-  }, 120_000);
+    const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
+    const fqn = await proxy.resolveStandardClassFqn('MyCustomClass');
+    expect(fqn).toBeNull();
+  });
 
   it('getFile returns undefined for unknown path', async () => {
-    await withTopology(async (topology, logger) => {
-      const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
-      const content = await proxy.getFile('Nonexistent/Missing.cls');
-      expect(content).toBeUndefined();
-    });
-  }, 120_000);
+    const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
+    const content = await proxy.getFile('Nonexistent/Missing.cls');
+    expect(content).toBeUndefined();
+  });
 });

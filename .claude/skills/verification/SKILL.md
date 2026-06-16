@@ -9,9 +9,8 @@ Do each step in order; do not skip a step unless all previous are passing **exce
 
 1. `npm run compile` — [references/compile.md](references/compile.md) (TS4023: [ts4023-effect-errors](../ts4023-effect-errors/SKILL.md), TS1261: [ts1261-filename-casing](../ts1261-filename-casing/SKILL.md))
 2. `npm run lint` — fix new errors/warnings **(defer in debug mode — see [Debug mode](#debug-mode))**
-3. Effect code: `npx effect-language-service diagnostics --project tsconfig.json` (or `--file <path>`) — fix reported issues; `read_lints` does not surface Effect LS
-4. `npm run test` - See [references/unit-tests.md](references/unit-tests.md)
-5. `npm run bundle` to ensure bundles still build
+3. `npm run test` - See [references/unit-tests.md](references/unit-tests.md)
+4. `npm run bundle` to ensure bundles still build
 
 6. If working in packages that define `test:web` / `test:desktop` (e.g. `packages/apex-ls`): run from root `npm run test:web -w <package-name> -- --retries 0` / `npm run test:desktop -w <package-name> -- --retries 0` as needed. Skip if your changes are not in those packages.
 

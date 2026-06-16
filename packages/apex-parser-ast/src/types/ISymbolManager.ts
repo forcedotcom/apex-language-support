@@ -93,6 +93,15 @@ export interface ISymbolManager extends SymbolProvider {
 
   getAllSymbolsForCompletion(): Promise<ApexSymbol[]>;
 
+  /**
+   * Find symbols whose name starts with the given prefix (case-insensitive).
+   * Returns up to `limit` symbols for efficient completion.
+   * @param prefix The prefix to search for
+   * @param limit Maximum number of symbols to return (default: 100)
+   * @returns Symbols matching the prefix
+   */
+  findSymbolsByPrefix(prefix: string, limit?: number): Promise<ApexSymbol[]>;
+
   findReferencesTo(symbol: ApexSymbol): Promise<ReferenceResult[]>;
 
   findReferencesFrom(symbol: ApexSymbol): Promise<ReferenceResult[]>;
