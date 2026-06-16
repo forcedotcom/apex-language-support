@@ -18,8 +18,10 @@ import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
+  ApexSymbol,
   ApexSymbolProcessingManager,
   ISymbolManager,
+  ReferenceResult,
   ReferenceType,
   createQueuedItem,
   offer,
@@ -50,6 +52,26 @@ export interface IReferencesProcessor {
    */
   processReferences(params: ReferenceParams): Promise<Location[]>;
 }
+
+/**
+ * Wire-shape variant of an {@link ApexSymbol}. Objects that arrive deserialized
+ * across the worker boundary may carry the legacy `filePath` field (instead of
+ * the canonical `fileUri`). Declaring it explicitly keeps compile-time checking
+ * on the canonical fields while still allowing the legacy fallback read.
+ */
+type WireSymbol = ApexSymbol & { filePath?: string };
+
+/**
+ * Wire-shape variant of the values passed to the reference-location helpers.
+ * `findReferencesTo`/`findReferencesFrom` yield {@link ReferenceResult} (which
+ * carries `fileUri` and an embedded resolved `symbol`), while
+ * `findRelatedSymbols` yields {@link ApexSymbol}. Both expose the canonical
+ * `fileUri`/`location` fields the helpers read. The optional `filePath` is a
+ * legacy field that may appear on objects deserialized across the worker
+ * boundary; declaring it explicitly keeps the legacy fallback while preserving
+ * compile-time checking on the canonical fields.
+ */
+type WireReference = (ReferenceResult | ApexSymbol) & { filePath?: string };
 
 /**
  * Service for processing references requests using ApexSymbolManager
@@ -427,7 +449,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Create location from symbol
    */
   private async createLocationFromSymbol(
-    symbol: any,
+    symbol: WireSymbol,
   ): Promise<Location | null> {
     if (!symbol.location) {
       return null;
@@ -463,7 +485,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Create location from reference
    */
-  private createLocationFromReference(reference: any): Location | null {
+  private createLocationFromReference(
+    reference: WireReference,
+  ): Location | null {
     if (!reference.location) {
       return null;
     }
@@ -640,7 +664,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Get the file URI for a symbol
    */
-  private async getSymbolFileUri(symbol: any): Promise<string | null> {
+  private async getSymbolFileUri(symbol: WireSymbol): Promise<string | null> {
     // Prefer fileUri (the canonical field on ApexSymbol); fall back to
     // filePath for wire-shape variants that use the legacy field name.
     if (symbol.fileUri) {
@@ -666,7 +690,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Get the file URI for a reference
    */
-  private getReferenceFileUri(reference: any): string | null {
+  private getReferenceFileUri(reference: WireReference): string | null {
     // Prefer fileUri (canonical field); fall back to filePath for wire-shape
     // variants that use the legacy field name.
     if (reference.fileUri) {
@@ -677,12 +701,16 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     // Try to get from the resolved symbol, same fileUri-first ordering.
-    if (reference.symbol) {
-      if (reference.symbol.fileUri) {
-        return reference.symbol.fileUri;
+    // Only ReferenceResult carries an embedded `symbol`; ApexSymbol does not.
+    if ('symbol' in reference && reference.symbol) {
+      // Treat the embedded symbol as a wire variant so the legacy `filePath`
+      // fallback remains available alongside the canonical `fileUri`.
+      const symbol = reference.symbol as WireSymbol;
+      if (symbol.fileUri) {
+        return symbol.fileUri;
       }
-      if (reference.symbol.filePath) {
-        return `file://${reference.symbol.filePath}`;
+      if (symbol.filePath) {
+        return `file://${symbol.filePath}`;
       }
     }
 

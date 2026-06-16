@@ -15,6 +15,7 @@ import {
 } from 'vscode-languageserver-protocol';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
+  ApexSymbol,
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -48,6 +49,14 @@ export interface WorkspaceSymbolContext {
   relationshipTypes: any[]; // Changed from EnumValue to any as EnumValue is removed
   maxResults: number;
 }
+
+/**
+ * Wire-shape variant of an {@link ApexSymbol}. Objects that arrive deserialized
+ * across the worker boundary may carry the legacy `filePath` field (instead of
+ * the canonical `fileUri`). Declaring it explicitly keeps compile-time checking
+ * on the canonical fields while still allowing the legacy fallback read.
+ */
+type WireSymbol = ApexSymbol & { filePath?: string };
 
 /**
  * Service for processing workspace symbol requests using ApexSymbolManager
@@ -452,7 +461,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Create location from symbol
    */
-  private async createLocation(symbol: any): Promise<Location | null> {
+  private async createLocation(symbol: WireSymbol): Promise<Location | null> {
     if (!symbol.location) {
       return null;
     }
@@ -487,7 +496,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Get the file URI for a symbol
    */
-  private async getSymbolFileUri(symbol: any): Promise<string | null> {
+  private async getSymbolFileUri(symbol: WireSymbol): Promise<string | null> {
     // Prefer fileUri (the canonical field on ApexSymbol); fall back to
     // filePath for wire-shape variants that use the legacy field name.
     if (symbol.fileUri) {
