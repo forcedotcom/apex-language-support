@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop hook: run compile, lint, effect LS (uncommitted .ts only), test, bundle.
+# Stop hook: run compile, lint, test, bundle.
 # On first failure, block with reason for agent to fix. Wireit cache hits = success.
 # stderr → Hooks output channel
 set -e
