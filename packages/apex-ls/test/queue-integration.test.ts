@@ -19,6 +19,10 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       submitDocumentChangeRequest: jest.fn(),
       submitDocumentCloseRequest: jest.fn(),
       submitHoverRequest: jest.fn(),
+      submitCompletionRequest: jest.fn(),
+      submitDefinitionRequest: jest.fn(),
+      submitImplementationRequest: jest.fn(),
+      submitReferencesRequest: jest.fn(),
       getStats: jest.fn(),
       shutdown: jest.fn(),
     })),
@@ -255,6 +259,12 @@ describe('Queue Integration in apex-ls', () => {
       );
     });
   });
+
+  // Note: completion request flow is exercised via the wired LCSAdapter
+  // onCompletion handler in index.test.ts ('Protocol Handler Integration').
+  // Mock-only round-trip tests for completion were removed because they
+  // never crossed production code; they asserted the mock framework, not
+  // queue routing.
 
   describe('queue statistics', () => {
     it('should provide queue statistics for monitoring', () => {

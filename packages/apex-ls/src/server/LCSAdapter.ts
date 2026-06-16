@@ -30,6 +30,9 @@ import {
   Registration,
   ServerCapabilities,
   ExecuteCommandParams,
+  CompletionParams,
+  CompletionItem,
+  CompletionList,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
@@ -622,6 +625,29 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.completionProvider) {
+      this.connection.onCompletion(
+        async (
+          params: CompletionParams,
+        ): Promise<CompletionList | CompletionItem[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.COMPLETION,
+            'textDocument/completion',
+            params,
+            (p) => LSPQueueManager.getInstance().submitCompletionRequest(p),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Completion handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Completion handler not registered (capability disabled)',
       );
     }
 
