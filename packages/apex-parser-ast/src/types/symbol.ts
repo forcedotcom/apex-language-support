@@ -821,6 +821,22 @@ export interface SymbolTableMetadata {
 }
 
 /**
+ * Pure-data shape accepted by {@link SymbolTable.fromSerializedData}. Mirrors
+ * what a data-owner worker puts on the wire so a receiving worker can rehydrate
+ * a {@link SymbolTable} without re-deriving the cast at every call site.
+ *
+ * Fields other than `symbols` are optional because a serialized table may omit
+ * references/hierarchicalReferences/metadata when they are empty or unknown.
+ */
+export interface SerializedSymbolTableData {
+  symbols: ApexSymbol[];
+  references?: SymbolReference[];
+  hierarchicalReferences?: HierarchicalReference[];
+  metadata?: Partial<SymbolTableMetadata>;
+  fileUri?: string;
+}
+
+/**
  * Symbol table representing all symbols in a source file.
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
@@ -2129,13 +2145,7 @@ export class SymbolTable {
    * Reconstruct a SymbolTable from wire-serialized data (JSON round-trip).
    * Rebuilds internal HashMap index from the flat symbol array.
    */
-  static fromSerializedData(data: {
-    symbols: ApexSymbol[];
-    references?: SymbolReference[];
-    hierarchicalReferences?: HierarchicalReference[];
-    metadata?: Partial<SymbolTableMetadata>;
-    fileUri?: string;
-  }): SymbolTable {
+  static fromSerializedData(data: SerializedSymbolTableData): SymbolTable {
     const table = new SymbolTable();
     const uri = data.fileUri ?? data.metadata?.fileUri ?? 'unknown';
     table.setFileUri(uri);

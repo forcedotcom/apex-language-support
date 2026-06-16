@@ -44,6 +44,24 @@ export interface CancellationLike {
 }
 
 /**
+ * Worker-side dispatcher that the queue consults before falling back to the
+ * coordinator-local handler. When wired (by the worker topology), a request is
+ * offloaded to a worker via {@link dispatch} as long as the dispatcher
+ * {@link isAvailable} and {@link canDispatch} the request type; otherwise the
+ * queue processes it locally. Declared here so the queue layer documents the
+ * protocol and catches shape drift at compile time rather than relying on
+ * runtime optional-chaining against an untyped field.
+ */
+export interface WorkerDispatcher {
+  /** Whether the dispatcher is wired and ready to accept work. */
+  isAvailable(): boolean;
+  /** Whether this dispatcher handles the given request type. */
+  canDispatch(type: LSPRequestType): boolean;
+  /** Offload the request to a worker, resolving with its result. */
+  dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
+}
+
+/**
  * Dependencies interface for LSPQueueManager initialization
  */
 export interface LSPQueueManagerDependencies {
@@ -114,6 +132,7 @@ export class LSPQueueManager {
     const serviceRegistry = this.serviceRegistry;
     const logger = this.logger;
     const taskId = this.generateTaskId();
+    const workerDispatcher = this.workerDispatcher;
 
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
@@ -124,6 +143,16 @@ export class LSPQueueManager {
       // Wrap request execution in an Effect
       const requestEffect = Effect.tryPromise({
         try: async () => {
+          // Prefer the worker dispatcher when one is wired and willing to take
+          // this request type; only fall through to the coordinator-local
+          // handler when no dispatcher is available or it declines the type.
+          if (
+            workerDispatcher?.isAvailable() &&
+            workerDispatcher.canDispatch(type)
+          ) {
+            logger.debug(() => `Dispatching ${type} request to worker`);
+            return workerDispatcher.dispatch(type, params);
+          }
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
             throw new Error(`No handler registered for request type: ${type}`);
@@ -203,9 +232,9 @@ export class LSPQueueManager {
     return LSPQueueManager.instance;
   }
 
-  private workerDispatcher: any = null;
+  private workerDispatcher: WorkerDispatcher | null = null;
 
-  setWorkerDispatcher(dispatcher: any): void {
+  setWorkerDispatcher(dispatcher: WorkerDispatcher | null): void {
     this.workerDispatcher = dispatcher;
     this.logger.debug(
       () =>
@@ -213,7 +242,7 @@ export class LSPQueueManager {
     );
   }
 
-  getWorkerDispatcher(): any {
+  getWorkerDispatcher(): WorkerDispatcher | null {
     return this.workerDispatcher;
   }
 

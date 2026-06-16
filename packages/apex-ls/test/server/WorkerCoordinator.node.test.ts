@@ -18,6 +18,7 @@ import {
   runRemoteStdlibWarmupPhase,
 } from '../../src/server/WorkerCoordinator';
 import {
+  DispatchReferences,
   PingWorker,
   QueryGraphData,
   QuerySymbolSubset,
@@ -328,7 +329,6 @@ describe('WorkerCoordinator', () => {
         'completion',
         'signatureHelp',
         'rename',
-        'references',
         'implementation',
         'documentSymbol',
         'codeLens',
@@ -345,6 +345,7 @@ describe('WorkerCoordinator', () => {
         'hover',
         'diagnostics',
         'definition',
+        'references',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });
@@ -573,6 +574,66 @@ describe('WorkerCoordinator', () => {
 
       expect(transport.poolDispatchCalls.length).toBe(1);
       expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+    });
+
+    it('routes references through the enrichment pool with includeDeclaration threaded', async () => {
+      const transport = new MockWorkerTransport();
+      const logger = createSpyLogger();
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
+          enrichmentPool: {
+            _tag: 'PoolHandle',
+            role: 'enrichmentSearch',
+            size: 2,
+          },
+          resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+        },
+        logger,
+      );
+
+      await dispatcher.dispatch('references', {
+        textDocument: { uri: 'file:///Test.cls' },
+        position: { line: 3, character: 7 },
+        context: { includeDeclaration: true },
+      });
+
+      expect(transport.poolDispatchCalls.length).toBe(1);
+      expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+      const req = transport.poolDispatchCalls[0].request as DispatchReferences;
+      expect(req._tag).toBe('DispatchReferences');
+      expect(req.textDocument.uri).toBe('file:///Test.cls');
+      expect(req.position).toEqual({ line: 3, character: 7 });
+      expect(req.context.includeDeclaration).toBe(true);
+    });
+
+    it('defaults references includeDeclaration to false when context is absent', async () => {
+      const transport = new MockWorkerTransport();
+      const logger = createSpyLogger();
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
+          enrichmentPool: {
+            _tag: 'PoolHandle',
+            role: 'enrichmentSearch',
+            size: 2,
+          },
+          resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+        },
+        logger,
+      );
+
+      await dispatcher.dispatch('references', {
+        textDocument: { uri: 'file:///Test.cls' },
+        position: { line: 0, character: 0 },
+      });
+
+      const req = transport.poolDispatchCalls[0].request as DispatchReferences;
+      expect(req.context.includeDeclaration).toBe(false);
     });
 
     it('makeTransportDispatcher queryGraphData routes to data-owner via transport.send', async () => {

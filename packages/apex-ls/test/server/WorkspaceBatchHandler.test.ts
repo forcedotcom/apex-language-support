@@ -13,6 +13,7 @@ import {
   clearCleanupInterval,
   setBatchIngestionDispatcher,
   getBatchIngestionDispatcher,
+  setBatchDispatcherWaitMs,
   setCrossFileEnrichmentDispatcher,
   getCrossFileEnrichmentDispatcher,
 } from '../../src/server/WorkspaceBatchHandler';
@@ -272,8 +273,15 @@ describe('WorkspaceBatchHandler', () => {
       return Buffer.from(zipped).toString('base64');
     }
 
+    beforeEach(() => {
+      // Shrink the bootstrap-race wait so the no-dispatcher case falls through
+      // quickly instead of polling for the full 5s production window.
+      setBatchDispatcherWaitMs(100);
+    });
+
     afterEach(() => {
       setBatchIngestionDispatcher(null);
+      setBatchDispatcherWaitMs(5000);
     });
 
     it('setBatchIngestionDispatcher / getBatchIngestionDispatcher round-trip', () => {
@@ -391,6 +399,38 @@ describe('WorkspaceBatchHandler', () => {
       expect(dispatcher).toHaveBeenCalledTimes(1);
       const [, entries] = dispatcher.mock.calls[0];
       expect(entries).toHaveLength(3);
+    });
+
+    it('waits for a dispatcher wired after batches start processing', async () => {
+      const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
+        offer: jest.Mock;
+      };
+      offer.mockClear();
+
+      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
+
+      const compressedData = makeCompressedBatch([
+        { uri: 'file:///Race.cls', version: 1, content: 'class Race {}' },
+      ]);
+      await handleWorkspaceBatchRequest({
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData,
+        fileMetadata: [{ uri: 'file:///Race.cls', version: 1 }],
+      });
+
+      // Processing begins with no dispatcher set (bootstrap race) ...
+      await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+      // ... and the worker wires it up shortly after, within the wait window.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      setBatchIngestionDispatcher(dispatcher);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // The batch was dispatched to the worker, not processed locally.
+      expect(dispatcher).toHaveBeenCalledTimes(1);
+      expect(offer).not.toHaveBeenCalled();
     });
 
     it('handles dispatcher rejection gracefully', async () => {

@@ -24,6 +24,7 @@ import {
 } from '../../src/server/WorkerCoordinator';
 import {
   DispatchHover,
+  DispatchReferences,
   DispatchDocumentOpen,
   QuerySymbolSubset,
   UpdateSymbolSubset,
@@ -266,6 +267,58 @@ describe('WriteBackProtocol Integration Tests', () => {
         () =>
           `Same-level write-back correctly rejected: accepted=${updateResult.accepted}`,
       );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    await Effect.runPromise(program);
+  }, 120_000);
+
+  // Skipped for the same reason as the full write-back hover flow above: the
+  // references enrichment handler calls loadSymbolDataForEnrichment and
+  // loadDependentsForReferences, both of which issue requestCoordinatorAssistance
+  // calls (QuerySymbolSubset / ResolveDependentUris). The coordinator assistance
+  // bus is not wired in this isolated data-owner+pool topology, so those calls
+  // never settle and the dispatch hangs. Enable once the harness provides the
+  // assistance bus; the live dispatch routing itself is covered by the
+  // makeTransportDispatcher references tests in WorkerCoordinator.node.test.ts.
+  //
+  // Follow-up: W-22692429 (6.13) owns the live end-to-end coverage
+  // (ReferencesThroughWorkerTopology.node.test.ts) and the harness work needed
+  // to un-skip this and the hover full-flow test above.
+  it.skip('dispatches references through the enrichment pool on a live worker', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: false,
+        logger,
+      });
+
+      // Open the document on the data owner so the enrichment worker can load
+      // its symbol subset.
+      yield* topology.dataOwner.executeEffect(
+        new DispatchDocumentOpen({
+          uri: TEST_URI,
+          languageId: 'apex',
+          version: 1,
+          content: SAMPLE_APEX_CLASS,
+        }),
+      );
+
+      // Dispatch references through the enrichment pool — the path activated by
+      // the 6.06 routing flip — and honor includeDeclaration end-to-end.
+      const referencesResult = yield* topology.enrichmentPool.executeEffect(
+        new DispatchReferences({
+          textDocument: { uri: TEST_URI },
+          position: { line: 1, character: 18 }, // On "testMethod"
+          context: { includeDeclaration: true },
+        }),
+      );
+
+      // The handler completed end-to-end and returned a (possibly empty) result.
+      expect(referencesResult).toBeDefined();
+      expect(referencesResult.result).toBeDefined();
     }).pipe(
       Effect.scoped,
       Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),

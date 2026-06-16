@@ -459,6 +459,91 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       });
     });
 
+    describe('worker dispatcher consultation', () => {
+      // getInstance() returns a shared singleton, so an unreset dispatcher could
+      // leak into a later test. Each test below sets its own, but clearing here
+      // guards against cross-test bleed regardless of run order.
+      afterEach(() => {
+        LSPQueueManager.getInstance().setWorkerDispatcher(null);
+      });
+
+      it('dispatches to the worker when available and willing', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(dispatch).toHaveBeenCalledWith(
+          'references',
+          expect.objectContaining({ textDocument: { uri: 'test' } }),
+        );
+        expect(result).toEqual({ result: 'from-worker' });
+      });
+
+      it('falls through to the local handler when the dispatcher declines the type', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn();
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => false,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(result).toEqual({ result: 'test' });
+      });
+
+      it('falls through to the local handler when the dispatcher is unavailable', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn();
+        manager.setWorkerDispatcher({
+          isAvailable: () => false,
+          canDispatch: () => true,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(result).toEqual({ result: 'test' });
+      });
+
+      it('surfaces a worker dispatch failure as a rejection', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest
+          .fn()
+          .mockRejectedValue(new Error('Worker dispatch failed'));
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatch,
+        });
+
+        await expect(
+          manager.submitReferencesRequest({
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          }),
+        ).rejects.toThrow('Worker dispatch failed');
+      });
+    });
+
     it('should submit document symbol request', async () => {
       const manager = LSPQueueManager.getInstance();
       const result = await manager.submitDocumentSymbolRequest({
