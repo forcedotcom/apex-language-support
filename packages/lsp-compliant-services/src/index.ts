@@ -102,7 +102,16 @@ export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';
 export * from './services/QueueStateProcessingService';
-export * from './services/GraphDataProcessingService';
+// Explicit named re-export (not `export *`): consumers import these symbols
+// through dynamic `import('@salesforce/apex-lsp-compliant-services')` in the
+// worker, and an explicit binding resolves reliably under incremental
+// `tsc --build` where a star re-export can be dropped from the namespace type.
+export {
+  GraphDataProcessingService,
+  type GraphDataParams,
+  type GraphDataResponse,
+  type IGraphDataProcessor,
+} from './services/GraphDataProcessingService';
 export * from './services/DiagnosticGraphCorrelationService';
 export * from './services/DiagnosticAnalysisService';
 

@@ -460,6 +460,13 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     });
 
     describe('worker dispatcher consultation', () => {
+      // getInstance() returns a shared singleton, so an unreset dispatcher could
+      // leak into a later test. Each test below sets its own, but clearing here
+      // guards against cross-test bleed regardless of run order.
+      afterEach(() => {
+        LSPQueueManager.getInstance().setWorkerDispatcher(null);
+      });
+
       it('dispatches to the worker when available and willing', async () => {
         const manager = LSPQueueManager.getInstance();
         const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });

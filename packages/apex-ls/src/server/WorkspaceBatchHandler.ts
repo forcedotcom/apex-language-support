@@ -570,7 +570,11 @@ function waitForBatchIngestionDispatcher(
         return batchIngestionDispatcher;
       }
     }
-    logger.debug(
+    // Timing out here means the batch falls back to coordinator-local
+    // processing — a safe path, but one that silently defeats the worker
+    // offload. Log at info (not debug) so a missed optimization is visible
+    // rather than buried with routine flow.
+    logger.info(
       () =>
         '[BATCH-PROCESSING] Worker dispatcher not available after ' +
         `${timeoutMs}ms; falling through to coordinator-local processing`,
