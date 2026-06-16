@@ -2968,6 +2968,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Drain all deferred cross-file references synchronously into the graph.
+   *
+   * Intended to be called once after a batch of symbol tables has been ingested
+   * so that cross-file incoming edges are fully populated. Delegates to
+   * {@link ApexSymbolRefManager.drainAllDeferredReferencesSync} (no scheduler).
+   *
+   * @returns Effect yielding the number of deferred references resolved.
+   */
+  drainAllDeferredReferences(): Effect.Effect<number, never, never> {
+    return this.symbolRefManager.drainAllDeferredReferences();
+  }
+
+  /**
    * Resolve cross-file references for a file on-demand.
    * This method processes references from the SymbolTable and resolves cross-file references
    * when needed (e.g., for diagnostics, hover, goto definition).

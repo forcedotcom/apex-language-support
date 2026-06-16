@@ -48,6 +48,7 @@ import {
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  DrainDeferredReferences,
   QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -93,6 +94,7 @@ const AllWorkerRequests = Schema.Union(
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  DrainDeferredReferences,
   QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -1084,6 +1086,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               false,
             );
 
+            // Populate cross-file incoming edges for this file now that its
+            // symbols are merged. Resolves references from this file into the
+            // workspace graph (and defers any whose targets aren't ingested yet,
+            // to be drained post-batch via DrainDeferredReferences).
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
               detailLevel: req.enrichedDetailLevel,
@@ -1105,6 +1113,23 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
+          }),
+        ),
+      ),
+    ),
+
+  DrainDeferredReferences: () =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const resolved =
+              yield* svc.symbolManager.drainAllDeferredReferences();
+            yield* Effect.logDebug(
+              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
+            );
+            return { resolved };
           }),
         ),
       ),
@@ -1355,6 +1380,26 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.yieldNow();
             }
           }
+
+          // Post-batch: ask the data-owner to drain deferred cross-file
+          // references into graph edges now that every file in the batch has
+          // been written back and had its references resolved. Best-effort:
+          // a drain failure must not fail the batch compile.
+          yield* Effect.tryPromise({
+            try: () =>
+              requestCoordinatorAssistancePromise(
+                'dataOwner:DrainDeferredReferences',
+                {},
+                true,
+              ),
+            catch: (e) => e,
+          }).pipe(
+            Effect.catchAll((e) =>
+              Effect.logWarning(
+                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
+              ),
+            ),
+          );
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.logInfo(

@@ -47,7 +47,9 @@ import {
   SymbolVisibility,
   SymbolLocation,
   SymbolKind,
+  TypeSymbol,
   keyToString,
+  inTypeSymbolGroup,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -1870,9 +1872,22 @@ export class ApexSymbolRefManager {
   }
 
   /**
-   * OPTIMIZED: Find references to a symbol
-   * Note: This is a synchronous function. For large graphs, consider calling from
-   * an async context or using the async variant if available.
+   * Find references to a symbol, dispatching by symbol kind.
+   *
+   * Different symbol kinds resolve their references through different sources:
+   * - Locals (VARIABLE / PARAMETER): their references are confined to the
+   *   declaring file, so we walk that file's local references (CodeUnit/AST)
+   *   instead of the cross-file reference graph.
+   * - FIELD / PROPERTY / METHOD (and types/enums): use the cross-file reference
+   *   graph reverse index. Constructors and static methods are plain static
+   *   lookups against the graph.
+   * - Instance methods (non-static, non-constructor): override-aware — references
+   *   to a virtual/overridable method must also surface references to the same
+   *   method along the inheritance chain (superclass → interfaces → children →
+   *   implementors), so we union matches across all related types.
+   *
+   * Note: This is a synchronous function. For large graphs, consider calling
+   * from an async context.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
     if (!symbol.fileUri) {
@@ -1880,6 +1895,38 @@ export class ApexSymbolRefManager {
         () =>
           `findReferencesTo requires fileUri for symbol ${symbol.name}; returning empty`,
       );
+      return [];
+    }
+
+    // Locals never participate in the cross-file graph; walk the local file.
+    if (
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter
+    ) {
+      return this.findLocalReferences(symbol);
+    }
+
+    // Instance methods (non-static, non-constructor) require an override-aware
+    // walk so callers through base/derived/interface types are all found.
+    if (
+      symbol.kind === SymbolKind.Method &&
+      !symbol.modifiers?.isStatic &&
+      !(symbol as { isConstructor?: boolean }).isConstructor
+    ) {
+      return this.findInstanceMethodReferences(symbol);
+    }
+
+    // FIELD / PROPERTY / static & constructor METHOD / type / enum: the graph
+    // reverse index is a direct, kind-agnostic lookup keyed on the declaration.
+    return this.findReferencesViaGraph(symbol);
+  }
+
+  /**
+   * Reverse-index (cross-file graph) lookup for a single declaration.
+   * Returns incoming references whose target is the given symbol's declaration.
+   */
+  private findReferencesViaGraph(symbol: ApexSymbol): ReferenceResult[] {
+    if (!symbol.fileUri) {
       return [];
     }
     const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
@@ -1935,6 +1982,213 @@ export class ApexSymbolRefManager {
     }
 
     return results;
+  }
+
+  /**
+   * Locals path: resolve references to a variable/parameter by walking the
+   * declaring file's local references (not the cross-file graph). A local's
+   * uses are by construction same-file, so we match the file's SymbolReferences
+   * that resolve to — or, lacking resolution, name-match — the target local.
+   */
+  private findLocalReferences(symbol: ApexSymbol): ReferenceResult[] {
+    const fileUri = extractFilePathFromUri(symbol.fileUri);
+    const symbolTable = this.getSymbolTableForFile(fileUri);
+    if (!symbolTable) {
+      return [];
+    }
+
+    const targetId = this.getSymbolId(symbol, fileUri);
+    const results: ReferenceResult[] = [];
+
+    for (const ref of symbolTable.getAllReferences()) {
+      const matchesById =
+        ref.resolvedSymbolId !== undefined && ref.resolvedSymbolId === targetId;
+      // Fall back to name match only for unresolved references.
+      const matchesByName =
+        ref.resolvedSymbolId === undefined && ref.name === symbol.name;
+      if (!matchesById && !matchesByName) {
+        continue;
+      }
+
+      results.push({
+        symbolId: targetId,
+        symbol,
+        fileUri,
+        referenceType: ReferenceType.INSTANCE_ACCESS,
+        location: ref.location,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Instance-method path: override-aware traversal.
+   *
+   * For a non-static, non-constructor method we union the graph references of
+   * the method as declared on every type related by inheritance to the
+   * declaring type: the declaring type itself, its superclass chain, the
+   * interfaces it (transitively) implements/extends, and every child / implementor
+   * type. Type traversal is cycle-guarded with a visited-types set; result
+   * de-duplication is keyed on (sourceFileUri, sourceSymbolId, line, column).
+   */
+  private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
+    const methodName = symbol.name;
+
+    // Collect the set of type names to consider, walking the hierarchy.
+    const declaringType = this.findDeclaringTypeForMember(symbol);
+    const relatedTypeNames = this.collectRelatedTypeNames(declaringType);
+
+    const results: ReferenceResult[] = [];
+    const seen = new Set<string>();
+
+    const addUnique = (refs: ReferenceResult[]): void => {
+      for (const r of refs) {
+        const loc = r.location.identifierRange;
+        const dedupeKey = `${r.fileUri}#${r.symbolId}#${loc.startLine}:${loc.startColumn}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        results.push(r);
+      }
+    };
+
+    // Always include references to this exact declaration.
+    addUnique(this.findReferencesViaGraph(symbol));
+
+    // Then any same-named method declared on a related type.
+    for (const typeName of relatedTypeNames) {
+      const typeSymbols = this.findSymbolByName(typeName).filter((s) =>
+        inTypeSymbolGroup(s),
+      );
+      for (const typeSymbol of typeSymbols) {
+        const methodOnType = this.findMethodOnType(typeSymbol, methodName);
+        if (methodOnType && methodOnType.id !== symbol.id) {
+          addUnique(this.findReferencesViaGraph(methodOnType));
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Find the type (class/interface/enum) declaration that directly contains the
+   * given member symbol, by walking parentId up to the nearest type group.
+   */
+  private findDeclaringTypeForMember(
+    symbol: ApexSymbol,
+  ): TypeSymbol | undefined {
+    let current: ApexSymbol | null = symbol;
+    const guard = new Set<string>();
+    while (current && current.parentId && !guard.has(current.id)) {
+      guard.add(current.id);
+      const parent = this.getSymbolByIdAndFile(
+        current.parentId,
+        current.fileUri,
+      );
+      if (!parent) {
+        break;
+      }
+      if (inTypeSymbolGroup(parent)) {
+        return parent as TypeSymbol;
+      }
+      current = parent;
+    }
+    return undefined;
+  }
+
+  /**
+   * Collect the names of all types related to `declaringType` by inheritance:
+   * the type itself, its superclass chain, the interfaces it implements/extends
+   * (transitively), and any type that extends or implements it. Cycle-guarded.
+   */
+  private collectRelatedTypeNames(
+    declaringType: TypeSymbol | undefined,
+  ): Set<string> {
+    const related = new Set<string>();
+    if (!declaringType) {
+      return related;
+    }
+
+    const visited = new Set<string>();
+    const stack: string[] = [declaringType.name];
+
+    while (stack.length > 0) {
+      const name = stack.pop()!;
+      const key = name.toLowerCase();
+      if (visited.has(key)) continue;
+      visited.add(key);
+      related.add(name);
+
+      const typeSymbols = this.findSymbolByName(name).filter((s) =>
+        inTypeSymbolGroup(s),
+      ) as TypeSymbol[];
+
+      for (const type of typeSymbols) {
+        // Superclass chain.
+        if (type.superClass) {
+          stack.push(type.superClass);
+        }
+        // Implemented/extended interfaces.
+        for (const iface of type.interfaces ?? []) {
+          stack.push(iface);
+        }
+      }
+    }
+
+    // Children / implementors: any type whose superClass or interfaces name a
+    // type we already consider related. One graph-wide pass, cycle-guarded.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const type of this.collectAllTypeSymbols()) {
+        if (related.has(type.name)) continue;
+        const extendsRelated =
+          type.superClass !== undefined && related.has(type.superClass);
+        const implementsRelated = (type.interfaces ?? []).some((i) =>
+          related.has(i),
+        );
+        if (extendsRelated || implementsRelated) {
+          related.add(type.name);
+          changed = true;
+        }
+      }
+    }
+
+    return related;
+  }
+
+  /** Enumerate all type-group declarations currently in the graph. */
+  private collectAllTypeSymbols(): TypeSymbol[] {
+    const types: TypeSymbol[] = [];
+    for (const symbolId of this.symbolIdIndex.keys()) {
+      const symbol = this.getSymbol(symbolId);
+      if (symbol && inTypeSymbolGroup(symbol)) {
+        types.push(symbol as TypeSymbol);
+      }
+    }
+    return types;
+  }
+
+  /**
+   * Find a method member with the given name declared on `type`.
+   *
+   * Method symbols are parented to their class *block* symbol rather than the
+   * class declaration directly, so we match by resolving each candidate's
+   * declaring type back to `type`.
+   */
+  private findMethodOnType(
+    type: ApexSymbol,
+    methodName: string,
+  ): ApexSymbol | undefined {
+    const candidates = this.findSymbolByName(methodName);
+    return candidates.find((s) => {
+      if (s.kind !== SymbolKind.Method || s.fileUri !== type.fileUri) {
+        return false;
+      }
+      const declaringType = this.findDeclaringTypeForMember(s);
+      return declaringType?.id === type.id;
+    });
   }
 
   /**
@@ -3236,6 +3490,123 @@ export class ApexSymbolRefManager {
     // Sync class fields from Refs to ensure we have the latest state
     this.syncClassFieldsFromRefs();
     return this.deferredReferences.get(symbolName);
+  }
+
+  /**
+   * Drain ALL deferred references synchronously, in-place, with NO scheduler.
+   *
+   * Walks the deferred-reference map directly and, for every entry whose source
+   * and target symbols are now present in the graph, adds the incoming edge to
+   * the reference indexes (the same indexes `findReferencesTo` reads from).
+   * Entries that still cannot be resolved (target/source not yet ingested) are
+   * left in the map for a later drain.
+   *
+   * This is the synchronous counterpart to the Effect/scheduler-driven deferred
+   * processing used elsewhere; it is intended to be called once after a batch of
+   * symbol tables has been ingested (e.g. post-batch on the data-owner) so that
+   * cross-file incoming edges are fully populated without queueing work.
+   *
+   * @returns Number of deferred references that were resolved into graph edges.
+   */
+  public drainAllDeferredReferencesSync(): number {
+    // Ensure the in-memory map reflects the latest Ref state.
+    this.syncClassFieldsFromRefs();
+
+    let resolved = 0;
+
+    // Snapshot the keys up-front: we mutate the map while iterating.
+    const targetNames = Array.from(this.deferredReferences.keys());
+
+    for (const targetName of targetNames) {
+      const deferred = this.deferredReferences.get(targetName);
+      if (!deferred || deferred.length === 0) {
+        this.deferredReferences.delete(targetName);
+        continue;
+      }
+
+      // Resolve the target once per name. If the target declaration is not yet
+      // in the graph, leave every entry deferred for a later pass.
+      const targetCandidates = this.findSymbolByName(targetName);
+      if (targetCandidates.length === 0) {
+        continue;
+      }
+
+      const remaining: typeof deferred = [];
+
+      for (const ref of deferred) {
+        const sourceSymbol = ref.sourceSymbol;
+        if (!sourceSymbol.fileUri) {
+          // Source has no file anchor; cannot place the edge. Drop it.
+          continue;
+        }
+
+        // Locate the source declaration in its own file.
+        const sourceInGraph = this.findSymbolInFileByName(
+          sourceSymbol.fileUri,
+          sourceSymbol.name,
+        );
+        if (!sourceInGraph) {
+          // Source not ingested yet — keep deferred for a later drain.
+          remaining.push(ref);
+          continue;
+        }
+
+        // Prefer a target in the same file as the source when the name is
+        // ambiguous across files; otherwise take the first declaration.
+        const targetSymbol =
+          targetCandidates.find((t) => t.fileUri === sourceInGraph.fileUri) ??
+          targetCandidates[0];
+
+        const sourceId = this.getSymbolId(sourceInGraph, sourceInGraph.fileUri);
+        const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+        const added = this.createAndAddReference(
+          sourceInGraph.fileUri,
+          sourceId,
+          targetSymbol.fileUri,
+          targetId,
+          ref.referenceType,
+          ref.location,
+          ref.context,
+        );
+        if (added) {
+          this.memoryStats.totalEdges++;
+        }
+        // Both source and target are now in the graph, so the incoming edge is
+        // populated — newly added, or already present (createAndAddReference
+        // returns false only on an exact duplicate). Either way the deferral is
+        // satisfied, so count it resolved and drop it from the deferred map.
+        resolved++;
+      }
+
+      if (remaining.length === 0) {
+        this.deferredReferences.delete(targetName);
+      } else {
+        this.deferredReferences.set(targetName, remaining);
+      }
+    }
+
+    // Persist the mutated map back to the Ref so Effect-based readers agree.
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+
+    this.logger.debug(
+      () =>
+        `[DEFERRED] drainAllDeferredReferencesSync resolved ${resolved} edge(s); ` +
+        `${this.deferredReferences.size} target name(s) still deferred`,
+    );
+
+    return resolved;
+  }
+
+  /**
+   * Async wrapper around {@link drainAllDeferredReferencesSync} for Effect-genned
+   * call sites. The drain itself is fully synchronous (no scheduler); this only
+   * adapts it into an Effect so it can be `yield*`-ed alongside other effects.
+   */
+  public drainAllDeferredReferences(): Effect.Effect<number, never, never> {
+    return Effect.sync(() => this.drainAllDeferredReferencesSync());
   }
 
   /**

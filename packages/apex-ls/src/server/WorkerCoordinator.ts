@@ -27,6 +27,7 @@ import {
   ResolveDependentUris,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  DrainDeferredReferences,
   QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -796,6 +797,9 @@ function createDispatcher(
               symbolName: prd.symbolName,
             }),
           );
+        }
+        case 'DrainDeferredReferences': {
+          return callbacks.sendToDataOwner(new DrainDeferredReferences());
         }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);

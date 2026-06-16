@@ -84,6 +84,12 @@ export interface ISymbolManager extends SymbolProvider {
     fileUri: string,
   ): Effect.Effect<void, never, never>;
 
+  /**
+   * Drain all deferred cross-file references into graph edges synchronously
+   * (no scheduler). Returns the number of deferred references resolved.
+   */
+  drainAllDeferredReferences(): Effect.Effect<number, never, never>;
+
   resolveSymbol(
     name: string,
     context: SymbolResolutionContext,
