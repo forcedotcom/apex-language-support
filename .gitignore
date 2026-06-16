@@ -107,3 +107,4 @@ scripts/test-extensions/memfs-provider/workspace-files.json
 .claude/settings.json
 .session-files/
 .vscode-test-web/
+.claude/worktrees/
