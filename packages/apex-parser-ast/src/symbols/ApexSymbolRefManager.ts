@@ -48,6 +48,7 @@ import {
   SymbolLocation,
   SymbolKind,
   TypeSymbol,
+  Range,
   keyToString,
   inTypeSymbolGroup,
 } from '../types/symbol';
@@ -1989,6 +1990,11 @@ export class ApexSymbolRefManager {
    * declaring file's local references (not the cross-file graph). A local's
    * uses are by construction same-file, so we match the file's SymbolReferences
    * that resolve to — or, lacking resolution, name-match — the target local.
+   *
+   * The name-match fallback is scoped to the local's enclosing declaration
+   * range: two same-named locals in sibling scopes (e.g. `total` in two methods
+   * of one file) must not cross-contaminate. When a reference is resolved by id
+   * we trust it directly; only the unresolved fallback is range-bounded.
    */
   private findLocalReferences(symbol: ApexSymbol): ReferenceResult[] {
     const fileUri = extractFilePathFromUri(symbol.fileUri);
@@ -1998,14 +2004,22 @@ export class ApexSymbolRefManager {
     }
 
     const targetId = this.getSymbolId(symbol, fileUri);
+    // Scope for the unresolved name-match fallback: the enclosing declaration
+    // (method/block) that owns the local. References outside it cannot be uses
+    // of this local even if they share its name.
+    const scopeRange = this.getEnclosingScopeRange(symbol, fileUri);
     const results: ReferenceResult[] = [];
 
     for (const ref of symbolTable.getAllReferences()) {
       const matchesById =
         ref.resolvedSymbolId !== undefined && ref.resolvedSymbolId === targetId;
-      // Fall back to name match only for unresolved references.
+      // Fall back to name match only for unresolved references, and only when
+      // the reference lies within the local's enclosing scope.
       const matchesByName =
-        ref.resolvedSymbolId === undefined && ref.name === symbol.name;
+        ref.resolvedSymbolId === undefined &&
+        ref.name === symbol.name &&
+        (scopeRange === undefined ||
+          this.rangeContains(scopeRange, ref.location.identifierRange));
       if (!matchesById && !matchesByName) {
         continue;
       }
@@ -2020,6 +2034,41 @@ export class ApexSymbolRefManager {
     }
 
     return results;
+  }
+
+  /**
+   * Range of the nearest enclosing declaration (method/block/type) that owns
+   * `symbol`, used to scope the locals name-match fallback. Returns the parent
+   * declaration's symbolRange, or the symbol's own range if it has no usable
+   * parent. `undefined` means "could not determine a scope" (callers then skip
+   * range-bounding rather than drop matches).
+   */
+  private getEnclosingScopeRange(
+    symbol: ApexSymbol,
+    fileUri: string,
+  ): Range | undefined {
+    if (symbol.parentId) {
+      const parent = this.getSymbolByIdAndFile(symbol.parentId, fileUri);
+      if (parent?.location?.symbolRange) {
+        return parent.location.symbolRange;
+      }
+    }
+    return symbol.location?.symbolRange;
+  }
+
+  /**
+   * True when `inner` is positionally contained within `outer` (inclusive),
+   * comparing (line, column) pairs. Both ranges are 1-based line / 0-based col.
+   */
+  private rangeContains(outer: Range, inner: Range): boolean {
+    const startsAfter =
+      inner.startLine > outer.startLine ||
+      (inner.startLine === outer.startLine &&
+        inner.startColumn >= outer.startColumn);
+    const endsBefore =
+      inner.endLine < outer.endLine ||
+      (inner.endLine === outer.endLine && inner.endColumn <= outer.endColumn);
+    return startsAfter && endsBefore;
   }
 
   /**
@@ -2137,11 +2186,14 @@ export class ApexSymbolRefManager {
     }
 
     // Children / implementors: any type whose superClass or interfaces name a
-    // type we already consider related. One graph-wide pass, cycle-guarded.
+    // type we already consider related. The set of type declarations is stable
+    // within this call, so enumerate the graph ONCE and only re-scan membership
+    // on each fixpoint pass — avoids an O(passes x allWorkspaceSymbols) walk.
+    const allTypes = this.collectAllTypeSymbols();
     let changed = true;
     while (changed) {
       changed = false;
-      for (const type of this.collectAllTypeSymbols()) {
+      for (const type of allTypes) {
         if (related.has(type.name)) continue;
         const extendsRelated =
           type.superClass !== undefined && related.has(type.superClass);
@@ -3512,7 +3564,11 @@ export class ApexSymbolRefManager {
     // Ensure the in-memory map reflects the latest Ref state.
     this.syncClassFieldsFromRefs();
 
+    // `resolved` = deferrals satisfied (source + target now both in graph);
+    // `edgesAdded` = a subset that produced a brand-new edge (the rest were
+    // already-present exact duplicates). Tracked separately for observability.
     let resolved = 0;
+    let edgesAdded = 0;
 
     // Snapshot the keys up-front: we mutate the map while iterating.
     const targetNames = Array.from(this.deferredReferences.keys());
@@ -3571,6 +3627,7 @@ export class ApexSymbolRefManager {
         );
         if (added) {
           this.memoryStats.totalEdges++;
+          edgesAdded++;
         }
         // Both source and target are now in the graph, so the incoming edge is
         // populated — newly added, or already present (createAndAddReference
@@ -3593,7 +3650,8 @@ export class ApexSymbolRefManager {
 
     this.logger.debug(
       () =>
-        `[DEFERRED] drainAllDeferredReferencesSync resolved ${resolved} edge(s); ` +
+        `[DEFERRED] drainAllDeferredReferencesSync satisfied ${resolved} deferral(s) ` +
+        `(${edgesAdded} new edge(s), ${resolved - edgesAdded} already present); ` +
         `${this.deferredReferences.size} target name(s) still deferred`,
     );
 

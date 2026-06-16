@@ -18,6 +18,10 @@ import {
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { SymbolKind, type ApexSymbol } from '../../src/types/symbol';
+import {
+  EnhancedSymbolReference,
+  ReferenceContext,
+} from '../../src/types/symbolReference';
 
 /**
  * W-22692421 — cross-file edge population on the data-owner.
@@ -177,6 +181,93 @@ describe('Cross-file edge population (W-22692421)', () => {
         expect(r.fileUri).toBe(fileUri);
       }
     });
+
+    it('does not cross-contaminate same-named locals in sibling scopes', async () => {
+      // Two methods each declare a local `total`. The normal compile path
+      // resolves uses by id, but an UNRESOLVED reference named `total` sitting
+      // in second()'s body must not be attributed to first()'s `total` via the
+      // name-match fallback — it lies outside first()'s scope range.
+      const fileUri = 'file:///SiblingLocals.cls';
+      const src = `
+        public class SiblingLocals {
+          public Integer first() {
+            Integer total = 1;
+            total = total + 1;
+            return total;
+          }
+          public Integer second() {
+            Integer total = 100;
+            total = total + total + total;
+            return total;
+          }
+        }
+      `;
+      const symbolTable = await addFile(src, fileUri);
+
+      const graph = refManager();
+      const allInFile = graph.getSymbolsInFile(fileUri);
+      const firstMethod = allInFile.find(
+        (s: ApexSymbol) => s.name === 'first' && s.kind === SymbolKind.Method,
+      );
+      const secondMethod = allInFile.find(
+        (s: ApexSymbol) => s.name === 'second' && s.kind === SymbolKind.Method,
+      );
+      expect(firstMethod).toBeDefined();
+      expect(secondMethod).toBeDefined();
+
+      // The local `total` declared in first().
+      const firstRange = firstMethod!.location.symbolRange;
+      const firstTotal = allInFile.find(
+        (s: ApexSymbol) =>
+          s.name === 'total' &&
+          s.kind === SymbolKind.Variable &&
+          s.location.identifierRange.startLine >= firstRange.startLine &&
+          s.location.identifierRange.endLine <= firstRange.endLine,
+      );
+      expect(firstTotal).toBeDefined();
+
+      // Inject an UNRESOLVED reference named `total` positioned inside second()'s
+      // body. This is the exact shape the name-match fallback would wrongly
+      // claim if it were not scope-bounded.
+      const secondRange = secondMethod!.location.symbolRange;
+      const injectedLine = secondRange.startLine + 1;
+      const injectedLoc = {
+        symbolRange: {
+          startLine: injectedLine,
+          startColumn: 12,
+          endLine: injectedLine,
+          endColumn: 17,
+        },
+        identifierRange: {
+          startLine: injectedLine,
+          startColumn: 12,
+          endLine: injectedLine,
+          endColumn: 17,
+        },
+      };
+      symbolTable.addTypeReference(
+        new EnhancedSymbolReference(
+          'total',
+          injectedLoc,
+          ReferenceContext.VARIABLE_USAGE,
+          undefined, // resolvedSymbolId: UNRESOLVED — triggers name-match fallback
+        ),
+      );
+
+      // References to first()'s `total` must all stay within first()'s scope;
+      // the injected (second-scope) reference must NOT appear.
+      const refs = graph.findReferencesTo(firstTotal!);
+      expect(refs.length).toBeGreaterThan(0);
+      for (const r of refs) {
+        const line = r.location.identifierRange.startLine;
+        expect(line).toBeGreaterThanOrEqual(firstRange.startLine);
+        expect(line).toBeLessThanOrEqual(firstRange.endLine);
+      }
+      const leaked = refs.some(
+        (r) => r.location.identifierRange.startLine === injectedLine,
+      );
+      expect(leaked).toBe(false);
+    });
   });
 
   describe('override-aware traversal (3-level inheritance)', () => {
@@ -242,6 +333,56 @@ describe('Cross-file edge population (W-22692421)', () => {
 
       // De-duplication invariant: no two results share the same
       // (fileUri, symbolId, line, column).
+      const keys = refs.map((r) => {
+        const ir = r.location.identifierRange;
+        return `${r.fileUri}#${r.symbolId}#${ir.startLine}:${ir.startColumn}`;
+      });
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+
+    it('unions references to an interface method across its implementors', async () => {
+      // Interface Greeter with greet(); two classes implement it.
+      const ifaceUri = 'file:///Greeter.cls';
+      const ifaceSrc = `
+        public interface Greeter {
+          void greet();
+        }
+      `;
+      const implAUri = 'file:///GreeterA.cls';
+      const implASrc = `
+        public class GreeterA implements Greeter {
+          public void greet() {}
+        }
+      `;
+      const implBUri = 'file:///GreeterB.cls';
+      const implBSrc = `
+        public class GreeterB implements Greeter {
+          public void greet() {}
+        }
+      `;
+
+      await addFile(ifaceSrc, ifaceUri);
+      await addFile(implASrc, implAUri);
+      await addFile(implBSrc, implBUri);
+
+      for (const uri of [ifaceUri, implAUri, implBUri]) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+      }
+      const graph = refManager();
+      graph.drainAllDeferredReferencesSync();
+
+      // The interface method greet().
+      const ifaceSymbols = graph.getSymbolsInFile(ifaceUri);
+      const ifaceGreet = ifaceSymbols.find(
+        (s: ApexSymbol) => s.name === 'greet' && s.kind === SymbolKind.Method,
+      );
+      expect(ifaceGreet).toBeDefined();
+
+      // The implementor traversal must consider GreeterA/GreeterB without
+      // throwing and de-duplicate results.
+      const refs = graph.findReferencesTo(ifaceGreet!);
       const keys = refs.map((r) => {
         const ir = r.location.identifierRange;
         return `${r.fileUri}#${r.symbolId}#${ir.startLine}:${ir.startColumn}`;
