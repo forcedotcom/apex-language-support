@@ -405,10 +405,10 @@ export { dispatchProcessOnQueueState } from './utils/handlerUtil';
 export {
   bootstrapDataOwnerServices,
   bootstrapDataOwnerServicesEffect,
-  bootstrapEnrichmentServices,
-  bootstrapEnrichmentServicesEffect,
+  bootstrapRequestServices,
+  bootstrapRequestServicesEffect,
   type DataOwnerServices,
-  type EnrichmentServices,
+  type RequestServices,
 } from './workers/WorkerBackendBootstrap';
 
 /**

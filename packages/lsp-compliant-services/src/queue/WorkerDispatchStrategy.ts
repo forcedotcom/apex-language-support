@@ -12,7 +12,7 @@ import type { LSPRequestType } from './LSPRequestQueue';
 export interface WorkerTopologyStatus {
   readonly enabled: boolean;
   readonly dataOwner: { readonly active: boolean };
-  readonly enrichmentPool: {
+  readonly requestPool: {
     readonly size: number;
     readonly active: boolean;
   };

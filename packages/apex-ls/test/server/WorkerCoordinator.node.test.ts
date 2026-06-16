@@ -107,7 +107,7 @@ describe('WorkerCoordinator', () => {
         expect(ping.echo).toBe('data-owner-ping');
 
         const poolPing = await Effect.runPromise(
-          topology.enrichmentPool.executeEffect(
+          topology.requestPool.executeEffect(
             new PingWorker({ echo: 'pool-ping' }),
           ),
         );
@@ -470,7 +470,7 @@ describe('WorkerCoordinator', () => {
       );
 
       expect(topology.dataOwner._tag).toBe('WorkerHandle');
-      expect(topology.enrichmentPool._tag).toBe('PoolHandle');
+      expect(topology.requestPool._tag).toBe('PoolHandle');
       expect(topology.resourceLoader).not.toBeNull();
       expect(topology.compilation._tag).toBe('WorkerHandle');
       expect(transport.spawnCalls).toContain('dataOwner');
@@ -491,9 +491,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -523,9 +523,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -556,9 +556,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -573,7 +573,7 @@ describe('WorkerCoordinator', () => {
       });
 
       expect(transport.poolDispatchCalls.length).toBe(1);
-      expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+      expect(transport.poolDispatchCalls[0].role).toBe('lspRequest');
     });
 
     it('routes references through the enrichment pool with includeDeclaration threaded', async () => {
@@ -583,9 +583,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -601,7 +601,7 @@ describe('WorkerCoordinator', () => {
       });
 
       expect(transport.poolDispatchCalls.length).toBe(1);
-      expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+      expect(transport.poolDispatchCalls[0].role).toBe('lspRequest');
       const req = transport.poolDispatchCalls[0].request as DispatchReferences;
       expect(req._tag).toBe('DispatchReferences');
       expect(req.textDocument.uri).toBe('file:///Test.cls');
@@ -616,9 +616,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -647,9 +647,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -678,9 +678,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,

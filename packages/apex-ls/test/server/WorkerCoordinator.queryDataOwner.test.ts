@@ -37,7 +37,7 @@ function makeFakeTopology() {
         return Effect.succeed({ entries: {} });
       },
     } as any,
-    enrichmentPool: { executeEffect: () => Effect.succeed(null) } as any,
+    requestPool: { executeEffect: () => Effect.succeed(null) } as any,
     compilation: { executeEffect: () => Effect.succeed(null) } as any,
     resourceLoader: null,
   } as unknown as WorkerTopology;

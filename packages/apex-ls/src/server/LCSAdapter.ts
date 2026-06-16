@@ -137,7 +137,7 @@ export class LCSAdapter {
     getTopologyStatus?(): {
       enabled: boolean;
       dataOwner: { active: boolean };
-      enrichmentPool: { size: number; active: boolean };
+      requestPool: { size: number; active: boolean };
       resourceLoader: { active: boolean } | null;
       compilation: { active: boolean };
       dispatchedCount: number;

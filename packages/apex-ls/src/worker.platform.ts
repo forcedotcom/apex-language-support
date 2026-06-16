@@ -292,7 +292,7 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
 import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import type {
   DataOwnerServices,
-  EnrichmentServices,
+  RequestServices,
 } from '@salesforce/apex-lsp-compliant-services';
 import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
 
@@ -331,39 +331,38 @@ const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
     ),
   );
 
-const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
-  Effect.runSync(
-    Effect.cached(
-      Effect.gen(function* () {
-        const {
-          bootstrapEnrichmentServices,
-          EnhancedMissingArtifactResolutionService,
-        } = yield* Effect.promise(
-          () => import('@salesforce/apex-lsp-compliant-services'),
-        );
-        const resourceLoaderLayer = yield* Effect.promise(() =>
-          makeResourceLoaderRemoteLayer(),
-        );
-        const svc = yield* Effect.promise(() =>
-          bootstrapEnrichmentServices(resourceLoaderLayer),
-        );
+const ensureRequestServices: Effect.Effect<RequestServices> = Effect.runSync(
+  Effect.cached(
+    Effect.gen(function* () {
+      const {
+        bootstrapRequestServices,
+        EnhancedMissingArtifactResolutionService,
+      } = yield* Effect.promise(
+        () => import('@salesforce/apex-lsp-compliant-services'),
+      );
+      const resourceLoaderLayer = yield* Effect.promise(() =>
+        makeResourceLoaderRemoteLayer(),
+      );
+      const svc = yield* Effect.promise(() =>
+        bootstrapRequestServices(resourceLoaderLayer),
+      );
 
-        // Wire coordinator assistance so the enrichment worker can forward
-        // apex/findMissingArtifact to the coordinator (which holds the LSP
-        // client connection) rather than silently dropping the request.
-        EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
-          requestCoordinatorAssistancePromise(
-            'apex/findMissingArtifact',
-            params,
-            false,
-          ),
-        );
+      // Wire coordinator assistance so the enrichment worker can forward
+      // apex/findMissingArtifact to the coordinator (which holds the LSP
+      // client connection) rather than silently dropping the request.
+      EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
+        requestCoordinatorAssistancePromise(
+          'apex/findMissingArtifact',
+          params,
+          false,
+        ),
+      );
 
-        yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
-        return svc;
-      }),
-    ),
-  );
+      yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
+      return svc;
+    }),
+  ),
+);
 
 // ---------------------------------------------------------------------------
 // Compilation services (lazy bootstrap)
@@ -488,9 +487,9 @@ const handleWorkerInitRole = (
       return { ready: true };
     });
   }
-  if (req.role === 'enrichmentSearch') {
+  if (req.role === 'lspRequest') {
     return Effect.gen(function* () {
-      yield* ensureEnrichmentServices;
+      yield* ensureRequestServices;
       return { ready: true };
     });
   }
@@ -537,16 +536,16 @@ const dataOwnerDocHandler =
 // this pattern; each handler is a one-liner config.
 // ---------------------------------------------------------------------------
 
-const enrichmentHandler =
+const requestHandler =
   <R>(
     tag: string,
-    callService: (svc: EnrichmentServices, req: R) => Promise<unknown>,
+    callService: (svc: RequestServices, req: R) => Promise<unknown>,
   ) =>
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
         Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
+          const svc = yield* ensureRequestServices;
           const result = yield* Effect.promise(() => callService(svc, req));
           return { result: cloneForWire(result) };
         }),
@@ -570,7 +569,7 @@ type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
  * Returns version and detail level metadata for the loaded URI.
  */
 async function loadSymbolDataForEnrichment(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   content?: string,
 ): Promise<{ version: number; detailLevel: string }> {
@@ -696,7 +695,7 @@ async function loadSymbolDataForEnrichment(
  * @returns Count of dependent files ingested (0 on failure or no dependents).
  */
 export async function loadDependentsForReferences(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   symbolName?: string,
   fetchDependents: (
@@ -767,7 +766,7 @@ function shouldEnrich(
  * Returns true if the write-back was accepted, false otherwise.
  */
 async function writeBackEnrichedSymbols(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   documentVersion: number,
   enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
@@ -831,8 +830,8 @@ async function writeBackEnrichedSymbols(
   }
 }
 
-const enrichmentHandlers = {
-  DispatchHover: enrichmentHandler<PositionReq>(
+const requestHandlers = {
+  DispatchHover: requestHandler<PositionReq>(
     'DispatchHover',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -863,7 +862,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchDefinition: enrichmentHandler<PositionReq>(
+  DispatchDefinition: requestHandler<PositionReq>(
     'DispatchDefinition',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -893,7 +892,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchReferences: enrichmentHandler<RefsReq>(
+  DispatchReferences: requestHandler<RefsReq>(
     'DispatchReferences',
     async (svc, req) => {
       // Mirror the hover/definition enrichment shape:
@@ -932,7 +931,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchImplementation: enrichmentHandler<PositionReq>(
+  DispatchImplementation: requestHandler<PositionReq>(
     'DispatchImplementation',
     async (svc, req) => {
       // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
@@ -984,21 +983,19 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchDocumentSymbol: enrichmentHandler<DocOnlyReq>(
+  DispatchDocumentSymbol: requestHandler<DocOnlyReq>(
     'DispatchDocumentSymbol',
     (svc, req) =>
       svc.documentSymbolService.processDocumentSymbol({
         textDocument: { uri: req.textDocument.uri },
       }),
   ),
-  DispatchCodeLens: enrichmentHandler<DocOnlyReq>(
-    'DispatchCodeLens',
-    (svc, req) =>
-      svc.codeLensService.processCodeLens({
-        textDocument: { uri: req.textDocument.uri },
-      }),
+  DispatchCodeLens: requestHandler<DocOnlyReq>('DispatchCodeLens', (svc, req) =>
+    svc.codeLensService.processCodeLens({
+      textDocument: { uri: req.textDocument.uri },
+    }),
   ),
-  DispatchDiagnostic: enrichmentHandler<DocOnlyReq>(
+  DispatchDiagnostic: requestHandler<DocOnlyReq>(
     'DispatchDiagnostic',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -1027,7 +1024,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchCrossFileEnrichment: enrichmentHandler<DocOnlyReq>(
+  DispatchCrossFileEnrichment: requestHandler<DocOnlyReq>(
     'DispatchCrossFileEnrichment',
     async (svc, req) => {
       const { version } = await loadSymbolDataForEnrichment(
@@ -1089,8 +1086,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         Effect.gen(function* () {
           if (assignedRole === 'dataOwner') {
             yield* ensureDataOwnerServices;
-          } else if (assignedRole === 'enrichmentSearch') {
-            yield* ensureEnrichmentServices;
+          } else if (assignedRole === 'lspRequest') {
+            yield* ensureRequestServices;
           } else if (assignedRole === 'compilation') {
             yield* ensureCompilationServices;
           }
@@ -1551,9 +1548,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   //
   // All enrichment handlers follow the same pattern: guard role, bootstrap
   // services, call the service method, clone the result for postMessage.
-  // The `enrichmentHandler` factory eliminates the repetition.
+  // The `requestHandler` factory eliminates the repetition.
 
-  ...enrichmentHandlers,
+  ...requestHandlers,
 
   DispatchGenericLspRequest: (req) =>
     guardRole('DispatchGenericLspRequest').pipe(

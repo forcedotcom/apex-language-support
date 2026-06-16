@@ -44,7 +44,7 @@ describe('buildWorkerExecArgv', () => {
 
   it('handles both cpu and heap profiling together', () => {
     const result = buildWorkerExecArgv({
-      role: 'enrichmentSearch',
+      role: 'lspRequest',
       parentExecArgv: [
         '--cpu-prof',
         '--cpu-prof-dir=/tmp/p',
@@ -54,13 +54,13 @@ describe('buildWorkerExecArgv', () => {
     });
     expect(result.execArgv).toEqual([
       '--cpu-prof',
-      '--cpu-prof-dir=/tmp/p/enrichmentSearch',
+      '--cpu-prof-dir=/tmp/p/lspRequest',
       '--heap-prof',
-      '--heap-prof-dir=/tmp/p/enrichmentSearch',
+      '--heap-prof-dir=/tmp/p/lspRequest',
     ]);
     expect(result.profileDirs).toEqual([
-      '/tmp/p/enrichmentSearch',
-      '/tmp/p/enrichmentSearch',
+      '/tmp/p/lspRequest',
+      '/tmp/p/lspRequest',
     ]);
   });
 

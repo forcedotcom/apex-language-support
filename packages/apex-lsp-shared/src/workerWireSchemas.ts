@@ -29,7 +29,7 @@ import { Schema } from 'effect';
 
 export const WorkerRole = Schema.Literal(
   'dataOwner',
-  'enrichmentSearch',
+  'lspRequest',
   'resourceLoader',
   'compilation',
 );
@@ -769,8 +769,8 @@ export const DataOwnerTags = [
 ] as const;
 export type DataOwnerTag = (typeof DataOwnerTags)[number];
 
-/** Tags accepted by an enrichment/search pool worker */
-export const EnrichmentSearchTags = [
+/** Tags accepted by an LSP-request pool worker */
+export const LspRequestTags = [
   'WorkerInit',
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
@@ -784,7 +784,7 @@ export const EnrichmentSearchTags = [
   'DispatchCrossFileEnrichment',
   'DispatchGenericLspRequest',
 ] as const;
-export type EnrichmentSearchTag = (typeof EnrichmentSearchTags)[number];
+export type LspRequestTag = (typeof LspRequestTags)[number];
 
 /** Tags accepted by a resource-loader worker */
 export const ResourceLoaderTags = [
@@ -811,7 +811,7 @@ export type CompilationTag = (typeof CompilationTags)[number];
 export const AllWorkerTags = [
   ...new Set([
     ...DataOwnerTags,
-    ...EnrichmentSearchTags,
+    ...LspRequestTags,
     ...ResourceLoaderTags,
     ...CompilationTags,
   ]),
@@ -838,8 +838,8 @@ export type DataOwnerRequest =
   | DispatchDocumentSave
   | DispatchDocumentClose;
 
-/** Request types the coordinator may send to an enrichment/search pool worker */
-export type EnrichmentSearchRequest =
+/** Request types the coordinator may send to an LSP-request pool worker */
+export type LspRequestMessage =
   | WorkerInit
   | PingWorker
   | WorkerRemoteStdlibWarmup
@@ -900,8 +900,8 @@ export function isAllowedTag(role: WorkerRole, tag: string): boolean {
   switch (role) {
     case 'dataOwner':
       return (DataOwnerTags as readonly string[]).includes(tag);
-    case 'enrichmentSearch':
-      return (EnrichmentSearchTags as readonly string[]).includes(tag);
+    case 'lspRequest':
+      return (LspRequestTags as readonly string[]).includes(tag);
     case 'resourceLoader':
       return (ResourceLoaderTags as readonly string[]).includes(tag);
     case 'compilation':

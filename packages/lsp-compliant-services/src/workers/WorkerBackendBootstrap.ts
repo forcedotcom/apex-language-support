@@ -124,7 +124,7 @@ export function bootstrapDataOwnerServices(
 // Enrichment/search services
 // ---------------------------------------------------------------------------
 
-export interface EnrichmentServices {
+export interface RequestServices {
   readonly symbolManager: ISymbolManager;
   readonly storageManager: ApexStorageManager;
   readonly hoverService: HoverProcessingService;
@@ -141,8 +141,8 @@ export interface EnrichmentServices {
  * Bootstrap services for enrichment/search pool workers as an Effect.
  * Requires ResourceLoaderService to be provided by the caller.
  */
-export const bootstrapEnrichmentServicesEffect: Effect.Effect<
-  EnrichmentServices,
+export const bootstrapRequestServicesEffect: Effect.Effect<
+  RequestServices,
   never,
   ResourceLoaderService
 > = Effect.gen(function* () {
@@ -166,10 +166,10 @@ export const bootstrapEnrichmentServicesEffect: Effect.Effect<
  * Promise-based bootstrap for enrichment/search pool workers.
  * Caller must supply the appropriate ResourceLoaderService layer.
  */
-export function bootstrapEnrichmentServices(
+export function bootstrapRequestServices(
   resourceLoaderLayer: Layer.Layer<ResourceLoaderService>,
-): Promise<EnrichmentServices> {
+): Promise<RequestServices> {
   return Effect.runPromise(
-    Effect.provide(bootstrapEnrichmentServicesEffect, resourceLoaderLayer),
+    Effect.provide(bootstrapRequestServicesEffect, resourceLoaderLayer),
   );
 }

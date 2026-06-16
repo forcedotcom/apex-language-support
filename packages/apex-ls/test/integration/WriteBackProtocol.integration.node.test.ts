@@ -92,7 +92,7 @@ describe('WriteBackProtocol Integration Tests', () => {
       );
 
       // Step 4: Dispatch hover through enrichment pool (triggers enrichment)
-      const hoverResult = yield* topology.enrichmentPool.executeEffect(
+      const hoverResult = yield* topology.requestPool.executeEffect(
         new DispatchHover({
           textDocument: { uri: TEST_URI },
           position: { line: 1, character: 15 }, // On "testMethod"
@@ -309,7 +309,7 @@ describe('WriteBackProtocol Integration Tests', () => {
 
       // Dispatch references through the enrichment pool — the path activated by
       // the 6.06 routing flip — and honor includeDeclaration end-to-end.
-      const referencesResult = yield* topology.enrichmentPool.executeEffect(
+      const referencesResult = yield* topology.requestPool.executeEffect(
         new DispatchReferences({
           textDocument: { uri: TEST_URI },
           position: { line: 1, character: 18 }, // On "testMethod"
@@ -363,7 +363,7 @@ describe('WriteBackProtocol Integration Tests', () => {
       // Dispatch go-to-implementation through the enrichment pool — the path
       // exercised by W-23006798 (load inbound implementor tables → resolve →
       // process → write back).
-      const implementationResult = yield* topology.enrichmentPool.executeEffect(
+      const implementationResult = yield* topology.requestPool.executeEffect(
         new DispatchImplementation({
           textDocument: { uri: TEST_URI },
           position: { line: 1, character: 18 }, // On "testMethod"
@@ -401,21 +401,21 @@ describe('WriteBackProtocol Integration Tests', () => {
 
       // Dispatch multiple concurrent hovers
       const hoverPromises = [
-        topology.enrichmentPool.executeEffect(
+        topology.requestPool.executeEffect(
           new DispatchHover({
             textDocument: { uri: TEST_URI },
             position: { line: 1, character: 15 },
             content: SAMPLE_APEX_CLASS,
           }),
         ),
-        topology.enrichmentPool.executeEffect(
+        topology.requestPool.executeEffect(
           new DispatchHover({
             textDocument: { uri: TEST_URI },
             position: { line: 5, character: 20 },
             content: SAMPLE_APEX_CLASS,
           }),
         ),
-        topology.enrichmentPool.executeEffect(
+        topology.requestPool.executeEffect(
           new DispatchHover({
             textDocument: { uri: TEST_URI },
             position: { line: 2, character: 10 },

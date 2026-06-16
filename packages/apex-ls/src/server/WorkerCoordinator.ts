@@ -46,7 +46,7 @@ import {
   type LSPRequestType,
   type LoggerInterface,
   type DataOwnerRequest,
-  type EnrichmentSearchRequest,
+  type LspRequestMessage,
   type ResourceLoaderRequest,
   type CompilationRequest,
   type WorkerRole,
@@ -257,7 +257,7 @@ const DEFAULT_WORKER_SCRIPT =
 
 export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
-  readonly enrichmentPool: Worker.SerializedWorkerPool<EnrichmentSearchRequest>;
+  readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
@@ -278,7 +278,7 @@ export interface TopologyConfig {
 }
 
 const makeInitMessage = (
-  role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader' | 'compilation',
+  role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
 ) =>
@@ -388,13 +388,13 @@ export function initializeTopology(
     );
     logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
 
-    const enrichmentPool = yield* withRoleLayer(
-      Worker.makePoolSerialized<EnrichmentSearchRequest>({
+    const requestPool = yield* withRoleLayer(
+      Worker.makePoolSerialized<LspRequestMessage>({
         size: poolSize,
         initialMessage: () =>
-          makeInitMessage('enrichmentSearch', logLevel, serverMode),
+          makeInitMessage('lspRequest', logLevel, serverMode),
       }),
-      'enrichmentSearch',
+      'lspRequest',
     );
     logger.alwaysLog(
       () =>
@@ -403,7 +403,7 @@ export function initializeTopology(
 
     return {
       dataOwner,
-      enrichmentPool,
+      requestPool,
       resourceLoader,
       compilation,
     } as WorkerTopology;
@@ -429,7 +429,7 @@ export function runVerticalSlice(
 
     const initResult = yield* worker.executeEffect(
       new WorkerInit({
-        role: 'enrichmentSearch',
+        role: 'lspRequest',
         protocolVersion: WIRE_PROTOCOL_VERSION,
       }),
     );
@@ -462,7 +462,7 @@ export function runVerticalSlice(
 export interface TransportTopology {
   readonly transport: WorkerTopologyTransport;
   readonly dataOwner: WorkerHandle;
-  readonly enrichmentPool: PoolHandle;
+  readonly requestPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
   readonly compilation: WorkerHandle;
 }
@@ -495,10 +495,7 @@ export const initializeTransportTopology = (
       '[WorkerCoordinator] Compilation worker initialized (transport)',
     );
 
-    const enrichmentPool = yield* transport.makePool(
-      'enrichmentSearch',
-      poolSize,
-    );
+    const requestPool = yield* transport.makePool('lspRequest', poolSize);
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (transport, size=${poolSize})`,
@@ -507,7 +504,7 @@ export const initializeTransportTopology = (
     return {
       transport,
       dataOwner,
-      enrichmentPool,
+      requestPool,
       resourceLoader,
       compilation,
     };
@@ -531,7 +528,7 @@ export const runRemoteStdlibWarmupPhase = (
     const n = clampPoolSize(poolSize);
     yield* topology.dataOwner.executeEffect(req);
     for (let i = 0; i < n; i++) {
-      yield* topology.enrichmentPool.executeEffect(req);
+      yield* topology.requestPool.executeEffect(req);
     }
   });
 };
@@ -546,10 +543,10 @@ export const runRemoteStdlibWarmupPhase = (
  * DATA_OWNER_TYPES and COORDINATOR_ONLY_TYPES are derived automatically.
  *
  * - dataOwner:       routed to the data-owner worker
- * - enrichmentPool:  routed to an enrichment pool worker
+ * - requestPool:  routed to an enrichment pool worker
  * - coordinatorOnly: runs on the coordinator thread (local handler)
  */
-type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
+type DispatchTarget = 'dataOwner' | 'requestPool' | 'coordinatorOnly';
 
 const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   // document lifecycle
@@ -562,24 +559,24 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   codeAction: 'coordinatorOnly',
   codeLens: 'coordinatorOnly',
   completion: 'coordinatorOnly',
-  definition: 'enrichmentPool',
-  diagnostics: 'enrichmentPool',
+  definition: 'requestPool',
+  diagnostics: 'requestPool',
   documentSymbol: 'coordinatorOnly',
   executeCommand: 'coordinatorOnly',
   findMissingArtifact: 'coordinatorOnly',
   foldingRange: 'coordinatorOnly',
-  hover: 'enrichmentPool',
+  hover: 'requestPool',
   // Implementation search must read the workspace-wide symbol graph (the
   // dataOwner's authoritative store), so it runs in the enrichment pool like
   // definition — not on the coordinator, whose local store only holds opened files.
-  implementation: 'enrichmentPool',
+  implementation: 'requestPool',
   prerequisiteEnrichment: 'coordinatorOnly',
-  references: 'enrichmentPool',
+  references: 'requestPool',
   rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
   signatureHelp: 'coordinatorOnly',
   workspaceSymbol: 'coordinatorOnly',
-  crossFileEnrichment: 'enrichmentPool',
+  crossFileEnrichment: 'requestPool',
 };
 
 const DATA_OWNER_TYPES = new Set(
@@ -594,9 +591,9 @@ const COORDINATOR_ONLY_TYPES = new Set(
   ),
 );
 
-const ENRICHMENT_POOL_TYPES = new Set(
+const REQUEST_POOL_TYPES = new Set(
   (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
-    (t) => DISPATCH_ROUTING[t] === 'enrichmentPool',
+    (t) => DISPATCH_ROUTING[t] === 'requestPool',
   ),
 );
 
@@ -611,7 +608,7 @@ export interface BatchIngestEntry {
 /** Callbacks that parameterize the dispatcher for different transport backends. */
 interface DispatcherCallbacks {
   readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
-  readonly dispatchToPool: (msg: EnrichmentSearchRequest) => Promise<unknown>;
+  readonly dispatchToPool: (msg: LspRequestMessage) => Promise<unknown>;
   readonly sendToCompilation: (msg: CompilationRequest) => Promise<unknown>;
   readonly sendBatch: (
     msg: WorkspaceBatchIngest,
@@ -664,7 +661,7 @@ function createDispatcher(
     },
     canDispatch: (type: LSPRequestType) => !COORDINATOR_ONLY_TYPES.has(type),
 
-    dispatchesToPool: (type: LSPRequestType) => ENRICHMENT_POOL_TYPES.has(type),
+    dispatchesToPool: (type: LSPRequestType) => REQUEST_POOL_TYPES.has(type),
 
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
@@ -693,7 +690,7 @@ function createDispatcher(
         params,
         callbacks.getDocumentContent,
       );
-      logger.debug(() => `[WorkerDispatch] → enrichmentPool: ${type}`);
+      logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
       return (response as { result: unknown }).result;
     },
@@ -701,7 +698,7 @@ function createDispatcher(
     getTopologyStatus: (): WorkerTopologyStatus => ({
       enabled: true,
       dataOwner: { active: available },
-      enrichmentPool: { size: callbacks.poolSize, active: available },
+      requestPool: { size: callbacks.poolSize, active: available },
       resourceLoader: callbacks.hasResourceLoader
         ? { active: available }
         : null,
@@ -849,7 +846,7 @@ export function makeWorkerDispatcher(
         return Effect.runPromise(eff);
       },
       dispatchToPool: (msg) => {
-        const eff = topology.enrichmentPool.executeEffect(msg) as Effect.Effect<
+        const eff = topology.requestPool.executeEffect(msg) as Effect.Effect<
           unknown,
           unknown,
           never
@@ -888,7 +885,7 @@ export function makeTransportDispatcher(
         Effect.runPromise(topology.transport.send(topology.dataOwner, msg)),
       dispatchToPool: (msg) =>
         Effect.runPromise(
-          topology.transport.dispatch(topology.enrichmentPool, msg),
+          topology.transport.dispatch(topology.requestPool, msg),
         ),
       sendToCompilation: (msg) =>
         Effect.runPromise(topology.transport.send(topology.compilation, msg)),
@@ -896,7 +893,7 @@ export function makeTransportDispatcher(
         Effect.runPromise(
           topology.transport.send(topology.dataOwner, msg),
         ) as Promise<{ processedCount: number }>,
-      poolSize: topology.enrichmentPool.size,
+      poolSize: topology.requestPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
       getDocumentContent,
     },
@@ -1002,7 +999,7 @@ function buildEnrichmentMessage(
   type: LSPRequestType,
   params: unknown,
   getDocumentContent?: (uri: string) => string | undefined,
-): EnrichmentSearchRequest {
+): LspRequestMessage {
   const p = params as EnrichmentParams;
   switch (type) {
     case 'hover':
