@@ -52,7 +52,7 @@ import {
   keyToString,
   inTypeSymbolGroup,
 } from '../types/symbol';
-import { isBlockSymbol } from '../utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isApexKeyword } from '../utils/ApexKeywords';
@@ -1909,10 +1909,13 @@ export class ApexSymbolRefManager {
 
     // Instance methods (non-static, non-constructor) require an override-aware
     // walk so callers through base/derived/interface types are all found.
+    // isMethodSymbol narrows to MethodSymbol, exposing the typed isConstructor
+    // flag (kind===Method already excludes the Constructor kind, but a method
+    // may still carry isConstructor; guard on both).
     if (
-      symbol.kind === SymbolKind.Method &&
+      isMethodSymbol(symbol) &&
       !symbol.modifiers?.isStatic &&
-      !(symbol as { isConstructor?: boolean }).isConstructor
+      !symbol.isConstructor
     ) {
       return this.findInstanceMethodReferences(symbol);
     }
@@ -3607,11 +3610,13 @@ export class ApexSymbolRefManager {
           continue;
         }
 
-        // Prefer a target in the same file as the source when the name is
-        // ambiguous across files; otherwise take the first declaration.
-        const targetSymbol =
-          targetCandidates.find((t) => t.fileUri === sourceInGraph.fileUri) ??
-          targetCandidates[0];
+        // Disambiguate the target when the name resolves to multiple files.
+        const targetSymbol = this.pickDeferredTarget(
+          targetCandidates,
+          sourceInGraph,
+          ref.context?.namespace,
+          targetName,
+        );
 
         const sourceId = this.getSymbolId(sourceInGraph, sourceInGraph.fileUri);
         const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
@@ -3665,6 +3670,61 @@ export class ApexSymbolRefManager {
    */
   public drainAllDeferredReferences(): Effect.Effect<number, never, never> {
     return Effect.sync(() => this.drainAllDeferredReferencesSync());
+  }
+
+  /**
+   * Pick which target declaration a deferred reference resolves to when its
+   * name is declared in more than one file. Resolution tiers, most→least
+   * specific:
+   *   1. Same file as the source declaration (a local/same-file target wins).
+   *   2. Namespace match, when the reference carried a namespace hint.
+   *   3. Sole candidate.
+   * Falls back to the first candidate, logging the ambiguity so a wrong-target
+   * edge is at least observable.
+   */
+  private pickDeferredTarget(
+    candidates: ApexSymbol[],
+    sourceInGraph: ApexSymbol,
+    namespaceHint: string | undefined,
+    targetName: string,
+  ): ApexSymbol {
+    // 1. Prefer a target in the same file as the source.
+    const sameFile = candidates.find(
+      (t) => t.fileUri === sourceInGraph.fileUri,
+    );
+    if (sameFile) {
+      return sameFile;
+    }
+
+    // 2. Namespace-aware match when the reference carried a namespace hint.
+    if (namespaceHint) {
+      const wanted = namespaceHint.toLowerCase();
+      const byNamespace = candidates.filter((t) => {
+        const ns =
+          typeof t.namespace === 'string'
+            ? t.namespace
+            : (t.namespace?.toString?.() ?? '');
+        return ns.toLowerCase() === wanted;
+      });
+      if (byNamespace.length === 1) {
+        return byNamespace[0];
+      }
+    }
+
+    // 3. Unambiguous single candidate.
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    // Still ambiguous: take the first but surface it — attaching the edge to
+    // the wrong same-named declaration is a known imprecision worth tracing.
+    this.logger.debug(
+      () =>
+        `[DEFERRED] ambiguous target '${targetName}' (${candidates.length} ` +
+        'declarations, no same-file or namespace match); ' +
+        `attaching edge to ${candidates[0].fileUri}`,
+    );
+    return candidates[0];
   }
 
   /**

@@ -416,4 +416,74 @@ describe('Cross-file edge population (W-22692421)', () => {
       expect(Array.isArray(refs)).toBe(true);
     });
   });
+
+  describe('deferred target disambiguation (pickDeferredTarget)', () => {
+    // Minimal stand-in for a graph symbol; only the fields the picker reads.
+    const candidate = (fileUri: string, namespace?: string): ApexSymbol =>
+      ({
+        id: `id:${fileUri}`,
+        name: 'Widget',
+        kind: SymbolKind.Class,
+        fileUri,
+        namespace,
+      }) as unknown as ApexSymbol;
+
+    const pick = (
+      candidates: ApexSymbol[],
+      source: ApexSymbol,
+      namespaceHint?: string,
+    ): ApexSymbol =>
+      (
+        refManager() as unknown as {
+          pickDeferredTarget(
+            c: ApexSymbol[],
+            s: ApexSymbol,
+            ns: string | undefined,
+            name: string,
+          ): ApexSymbol;
+        }
+      ).pickDeferredTarget(candidates, source, namespaceHint, 'Widget');
+
+    it('prefers the candidate in the same file as the source', () => {
+      const source = candidate('file:///app/Caller.cls');
+      const result = pick(
+        [
+          candidate('file:///other/Widget.cls'),
+          candidate('file:///app/Caller.cls'),
+        ],
+        source,
+      );
+      expect(result.fileUri).toBe('file:///app/Caller.cls');
+    });
+
+    it('uses the namespace hint when there is no same-file match', () => {
+      const source = candidate('file:///app/Caller.cls');
+      const result = pick(
+        [
+          candidate('file:///ns1/Widget.cls', 'NsOne'),
+          candidate('file:///ns2/Widget.cls', 'NsTwo'),
+        ],
+        source,
+        'nstwo', // case-insensitive
+      );
+      expect(result.fileUri).toBe('file:///ns2/Widget.cls');
+    });
+
+    it('returns the sole candidate unambiguously', () => {
+      const source = candidate('file:///app/Caller.cls');
+      const only = candidate('file:///lib/Widget.cls');
+      expect(pick([only], source).fileUri).toBe('file:///lib/Widget.cls');
+    });
+
+    it('falls back to the first candidate when still ambiguous', () => {
+      const source = candidate('file:///app/Caller.cls');
+      const result = pick(
+        [candidate('file:///a/Widget.cls'), candidate('file:///b/Widget.cls')],
+        source,
+        // namespace hint matches neither candidate → no narrowing
+        'NsZero',
+      );
+      expect(result.fileUri).toBe('file:///a/Widget.cls');
+    });
+  });
 });
