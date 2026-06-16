@@ -389,6 +389,157 @@ describe('ReferencesProcessingService', () => {
     });
   });
 
+  describe('location/URI helpers', () => {
+    // Build a SymbolLocation-shaped object (symbolRange + identifierRange).
+    const makeLocation = (
+      startLine: number,
+      startColumn: number,
+      endLine: number,
+      endColumn: number,
+    ) => ({
+      symbolRange: { startLine, startColumn, endLine, endColumn },
+      identifierRange: { startLine, startColumn, endLine, endColumn },
+    });
+
+    describe('createLocationFromSymbol', () => {
+      it('reads identifierRange for a same-file symbol (no NaN -> null)', async () => {
+        const symbol = {
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+          location: makeLocation(3, 13, 3, 22),
+        };
+
+        const result = await (service as any).createLocationFromSymbol(symbol);
+
+        expect(result).not.toBeNull();
+        expect(result.uri).toBe('file:///test/TestClass.cls');
+        // Parser line is 1-based, LSP is 0-based; column unchanged.
+        expect(result.range).toEqual({
+          start: { line: 2, character: 13 },
+          end: { line: 2, character: 22 },
+        });
+      });
+
+      it('reads identifierRange for a cross-file symbol', async () => {
+        const symbol = {
+          name: 'OtherClass',
+          fileUri: 'file:///other/OtherClass.cls',
+          location: makeLocation(10, 4, 10, 14),
+        };
+
+        const result = await (service as any).createLocationFromSymbol(symbol);
+
+        expect(result).not.toBeNull();
+        expect(result.uri).toBe('file:///other/OtherClass.cls');
+        expect(result.range.start).toEqual({ line: 9, character: 4 });
+        expect(result.range.end).toEqual({ line: 9, character: 14 });
+      });
+
+      it('returns null when the symbol has no location', async () => {
+        const result = await (service as any).createLocationFromSymbol({
+          name: 'NoLocation',
+          fileUri: 'file:///test/NoLocation.cls',
+        });
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('createLocationFromReference', () => {
+      it('reads identifierRange for a same-file reference', () => {
+        const reference = {
+          name: 'doSomething',
+          fileUri: 'file:///test/TestClass.cls',
+          location: makeLocation(5, 8, 5, 19),
+        };
+
+        const result = (service as any).createLocationFromReference(reference);
+
+        expect(result).not.toBeNull();
+        expect(result.uri).toBe('file:///test/TestClass.cls');
+        expect(result.range).toEqual({
+          start: { line: 4, character: 8 },
+          end: { line: 4, character: 19 },
+        });
+      });
+
+      it('reads identifierRange for a cross-file reference (via resolved symbol)', () => {
+        const reference = {
+          name: 'doSomething',
+          symbol: { fileUri: 'file:///other/Caller.cls' },
+          location: makeLocation(7, 2, 7, 13),
+        };
+
+        const result = (service as any).createLocationFromReference(reference);
+
+        expect(result).not.toBeNull();
+        expect(result.uri).toBe('file:///other/Caller.cls');
+        expect(result.range.start).toEqual({ line: 6, character: 2 });
+        expect(result.range.end).toEqual({ line: 6, character: 13 });
+      });
+
+      it('returns null when the reference has no location', () => {
+        const result = (service as any).createLocationFromReference({
+          name: 'NoLocation',
+          fileUri: 'file:///test/TestClass.cls',
+        });
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getSymbolFileUri', () => {
+      it('prefers fileUri when present', async () => {
+        const uri = await (service as any).getSymbolFileUri({
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+        });
+        expect(uri).toBe('file:///test/TestClass.cls');
+      });
+
+      it('falls back to filePath for wire-shape variants', async () => {
+        const uri = await (service as any).getSymbolFileUri({
+          name: 'TestClass',
+          filePath: '/test/TestClass.cls',
+        });
+        expect(uri).toBe('file:///test/TestClass.cls');
+      });
+    });
+
+    describe('getReferenceFileUri', () => {
+      it('prefers fileUri on the reference', () => {
+        const uri = (service as any).getReferenceFileUri({
+          fileUri: 'file:///test/TestClass.cls',
+        });
+        expect(uri).toBe('file:///test/TestClass.cls');
+      });
+
+      it('falls back to filePath on the reference', () => {
+        const uri = (service as any).getReferenceFileUri({
+          filePath: '/test/TestClass.cls',
+        });
+        expect(uri).toBe('file:///test/TestClass.cls');
+      });
+
+      it('prefers fileUri on the resolved symbol', () => {
+        const uri = (service as any).getReferenceFileUri({
+          symbol: { fileUri: 'file:///other/Caller.cls' },
+        });
+        expect(uri).toBe('file:///other/Caller.cls');
+      });
+
+      it('falls back to filePath on the resolved symbol', () => {
+        const uri = (service as any).getReferenceFileUri({
+          symbol: { filePath: '/other/Caller.cls' },
+        });
+        expect(uri).toBe('file:///other/Caller.cls');
+      });
+
+      it('returns null when no file information is available', () => {
+        const uri = (service as any).getReferenceFileUri({ name: 'orphan' });
+        expect(uri).toBeNull();
+      });
+    });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
     // Reset scheduler service instance (scheduler is not initialized in tests)
