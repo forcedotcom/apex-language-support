@@ -854,11 +854,55 @@ const enrichmentHandlers = {
   ),
   DispatchImplementation: enrichmentHandler<PositionReq>(
     'DispatchImplementation',
-    (svc, req) =>
-      svc.implementationService.processImplementation({
+    async (svc, req) => {
+      // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
+      // EXTENDS direction:
+      //   load symbol data → load inbound implementor/subtype tables →
+      //   resolve cross-file edges → process → write back.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Go-to-implementation must see every implementor/subtype of the target
+      // type, which live in *other* files. loadDependentsForReferences pulls
+      // the inbound tables (files whose declared symbols reference symbols in
+      // this file) from the data-owner — after W-23006798 Phase 1 these include
+      // implementors (implements) and subclasses (extends), because those sites
+      // now emit reverse-reference edges to the target type.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      // Build the cross-file INTERFACE_IMPLEMENTATION / INHERITANCE edges for
+      // the target locally so findImplementingClasses' reference-index path
+      // sees them; its string-array fallback already covers the freshly loaded
+      // tables, but resolving keeps the two paths consistent.
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+
+      // Implementor discovery reads interfaces/superClass + method declarations,
+      // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.implementationService.processImplementation({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
-      }),
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
   DispatchDocumentSymbol: enrichmentHandler<DocOnlyReq>(
     'DispatchDocumentSymbol',
