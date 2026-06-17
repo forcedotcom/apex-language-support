@@ -903,6 +903,11 @@ export class ApexSymbolRefManager {
     }
   }
 
+  /**
+   * Remove incoming references whose TARGET is a symbol declared in `fileUri`
+   * (the source may live in any file). Used by full file removal (removeFile),
+   * NOT by clearReferenceStateForFile — re-adding a file must preserve these.
+   */
   private removeIncomingReferencesToSymbols(
     symbolIds: Set<string>,
     fileUri: string,
@@ -923,12 +928,27 @@ export class ApexSymbolRefManager {
     }
   }
 
+  /**
+   * Clear reference state for a file when it is re-added/re-parsed.
+   *
+   * Only OUTGOING edges (references whose SOURCE is in `fileUri`) are removed,
+   * since those will be re-created from the freshly parsed symbol table.
+   *
+   * INCOMING edges (references whose source is in ANOTHER file but whose
+   * target is a symbol declared in `fileUri`) are intentionally preserved.
+   * Deleting them would cause `findReferencesTo(symbolInThisFile)` to lose the
+   * references that other files have into this file every time this file is
+   * re-added (which happens on every enrichment write-back). The targets of
+   * those incoming edges are stable IDs that survive a re-parse, so the edges
+   * remain valid and must not be wiped here.
+   */
   clearReferenceStateForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
-    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
 
+    // Remove only outgoing edges (source === this file). removeReferenceKey
+    // cleans both the forward and reverse index entries for each removed edge,
+    // so incoming edges (target in this file, source elsewhere) are untouched.
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
   }
 
