@@ -195,10 +195,14 @@ jobs:
             echo "Warning: extension.vsixmanifest not found — skipping manifest patch"
           fi
 
-          # Rezip into a new VSIX
+          # Rezip into a new VSIX.
+          # -X strips platform-specific extra fields (Unix UID/GID 0x7875, extended
+          # timestamps 0x5455) that the `zip` CLI adds by default. OpenVSX rejects VSIXs
+          # whose zip entries carry these ("potentially harmful extra fields"), so they
+          # must be omitted for the ovsx publish to succeed.
           STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
           cd "$WORK_DIR"
-          zip -qr "../$STABLE_VSIX" .
+          zip -qrX "../$STABLE_VSIX" .
           cd -
 
           echo "Created stable VSIX: $STABLE_VSIX"

@@ -532,8 +532,11 @@ jobs:
               sed -i "s/Version=\"$PRERELEASE_VERSION\"/Version=\"$STABLE_VERSION\"/" "$VSIX_MANIFEST"
             fi
 
+            # -X strips platform-specific extra fields (Unix UID/GID 0x7875, extended
+            # timestamps 0x5455) the `zip` CLI adds by default; OpenVSX rejects VSIXs
+            # whose zip entries carry them ("potentially harmful extra fields").
             STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
-            cd "$WORK_DIR" && zip -qr "../$STABLE_VSIX" . && cd -
+            cd "$WORK_DIR" && zip -qrX "../$STABLE_VSIX" . && cd -
             echo "vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
           else
             echo "vsix-path=$VSIX_FILE" >> $GITHUB_OUTPUT
