@@ -242,3 +242,45 @@ export function findContainingSymbolFromSymbolTable(
   const topLevelSymbol = allSymbols.find(inTypeSymbolGroup);
   return topLevelSymbol || null;
 }
+
+/**
+ * Walk from a symbol up its parentId chain to the nearest non-block enclosing
+ * declaration (Method/Class/Interface/Enum/Trigger).
+ *
+ * A reference sitting inside a method body resolves to a synthetic block symbol
+ * (id/name shaped like `block_LL_CC`). Such a block cannot be matched back to a
+ * real declaration by the deferred-reference drain (which looks symbols up by
+ * name and skips block symbols), so a deferral whose source is a block is
+ * silently dropped. This walks past the block(s) to the real declaration that
+ * should own the deferred edge.
+ *
+ * Returns the symbol unchanged if it is already a non-block symbol, or `null` if
+ * no non-block ancestor can be found.
+ */
+export function findContainingNonBlockSymbol(
+  symbol: ApexSymbol,
+  symbolTable: SymbolTable,
+): ApexSymbol | null {
+  if (!isBlockSymbol(symbol)) {
+    return symbol;
+  }
+
+  const allSymbols = symbolTable.getAllSymbols();
+  let currentId: string | null | undefined = symbol.parentId;
+  const visited = new Set<string>();
+  visited.add(symbol.id);
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const ancestor = allSymbols.find((s) => s.id === currentId);
+    if (!ancestor) {
+      break;
+    }
+    if (!isBlockSymbol(ancestor)) {
+      return ancestor;
+    }
+    currentId = ancestor.parentId;
+  }
+
+  return null;
+}

@@ -110,6 +110,7 @@ import {
   isPositionOnFirstNode as posOnFirstNode,
   findChainMemberAtPosition as findChainMember,
   findContainingSymbolFromSymbolTable as containingSymFromST,
+  findContainingNonBlockSymbol as containingNonBlockSym,
 } from './ops/positionUtils';
 import {
   createFallbackResolutionContext as fallbackResCtx,
@@ -3480,6 +3481,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             sourceSymbol = symbolsInFile.find(inTypeSymbolGroup) || null;
           }
 
+          // If the source resolved to a synthetic block symbol (e.g. a
+          // reference inside a method body), walk up to the enclosing non-block
+          // declaration first. A block source (id shaped like `block_LL_CC`)
+          // cannot be matched back to a real declaration by the deferred-
+          // reference drain, so the cross-file edge would be silently dropped.
+          if (sourceSymbol) {
+            sourceSymbol =
+              self.findContainingNonBlockSymbol(sourceSymbol, symbolTable) ??
+              sourceSymbol;
+          }
+
           if (sourceSymbol) {
             const referenceType = self.mapReferenceContextToType(
               typeRef.context,
@@ -3691,6 +3703,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
   ): ApexSymbol | null {
     return containingSymFromST(typeRef, symbolTable);
+  }
+
+  /**
+   * Walk a (possibly block) source symbol up to its enclosing non-block
+   * declaration so a deferred cross-file reference is anchored to a real
+   * Method/Class/etc. rather than a synthetic block symbol the drain can't match.
+   */
+  private findContainingNonBlockSymbol(
+    symbol: ApexSymbol,
+    symbolTable: SymbolTable,
+  ): ApexSymbol | null {
+    return containingNonBlockSym(symbol, symbolTable);
   }
 
   /**
