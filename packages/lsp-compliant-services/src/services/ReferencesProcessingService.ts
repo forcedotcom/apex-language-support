@@ -21,8 +21,11 @@ import {
   ApexSymbol,
   ApexSymbolProcessingManager,
   ISymbolManager,
+  MethodSymbol,
   ReferenceResult,
   ReferenceType,
+  SymbolKind,
+  SymbolReference,
   createQueuedItem,
   offer,
   SchedulerInitializationService,
@@ -286,11 +289,16 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Extract symbol name from the first TypeReference
-    const symbolName = references[0].name;
+    // Determine the name under the cursor. For chained/qualified references
+    // (e.g. "GeocodingService.GeocodingAddress") the first reference's `name`
+    // holds the whole dotted string, which has no entry in findSymbolByName when
+    // the cursor is on an inner segment. Walk the chainNodes to pick the node
+    // whose identifierRange contains the cursor, falling back to the leaf
+    // identifier (last segment) of the dotted name.
+    const symbolName = this.pickNameUnderCursor(references[0], parserPosition);
 
-    // Early keyword check: if the TypeReference name is a keyword, return empty array
-    // This prevents find references from processing keywords
+    // Early keyword check: if the name under the cursor is a keyword, return
+    // an empty array. This prevents find references from processing keywords.
     if (isApexKeyword(symbolName)) {
       this.logger.debug(
         () =>
@@ -302,17 +310,47 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Create resolution context
     const context = await this.createResolutionContext(document, params);
 
-    // Use ApexSymbolManager for context-aware symbol resolution
-    const result = await this.symbolManager.resolveSymbol(symbolName, context);
+    // Resolution order:
+    //   1. getSymbolAtPosition (position-based; internally walks chainNodes)
+    //   2. context-aware resolveSymbol on the name under the cursor
+    //   3. for dotted names that still fail, retry with the LAST segment
+    let resolvedSymbol: ApexSymbol | null =
+      await this.symbolManager.getSymbolAtPosition(
+        params.textDocument.uri,
+        parserPosition,
+      );
 
-    if (!result.symbol) {
+    if (!resolvedSymbol) {
+      const nameResult = await this.symbolManager.resolveSymbol(
+        symbolName,
+        context,
+      );
+      resolvedSymbol = nameResult.symbol;
+    }
+
+    // Dotted-name fallback: retry with the last segment (leaf identifier).
+    if (!resolvedSymbol && symbolName.includes('.')) {
+      const lastSegment = symbolName.substring(symbolName.lastIndexOf('.') + 1);
+      const segmentResult = await this.symbolManager.resolveSymbol(
+        lastSegment,
+        context,
+      );
+      resolvedSymbol = segmentResult.symbol;
+    }
+
+    if (!resolvedSymbol) {
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
       return [];
     }
 
+    // When the cursor lands on an overloaded method name, disambiguate by
+    // signature so foo(Integer) and foo(String) are NOT collapsed. Mirrors
+    // Jorje keying methods by Signature.toString().
+    resolvedSymbol = await this.disambiguateOverload(resolvedSymbol);
+
     // Get reference locations
     const locations = await this.getReferenceLocations(
-      result.symbol,
+      resolvedSymbol,
       params.context?.includeDeclaration,
     );
 
@@ -321,6 +359,114 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     return locations;
+  }
+
+  /**
+   * Pick the identifier name under the cursor for a (possibly chained)
+   * reference. Walks `chainNodes` and returns the name of the node whose
+   * `identifierRange` contains the position. When no chain node matches (or the
+   * reference is not chained), falls back to the leaf identifier: the last
+   * segment of a dotted name, or the reference name itself.
+   */
+  private pickNameUnderCursor(
+    reference: SymbolReference,
+    position: { line: number; character: number },
+  ): string {
+    const chainNodes = reference.chainNodes;
+    if (chainNodes && chainNodes.length > 0) {
+      for (const node of chainNodes) {
+        if (this.isPositionWithinIdentifier(node, position)) {
+          return node.name;
+        }
+      }
+    }
+
+    // Fall back to the leaf identifier of a dotted name.
+    const name = reference.name;
+    if (name.includes('.')) {
+      return name.substring(name.lastIndexOf('.') + 1);
+    }
+    return name;
+  }
+
+  /**
+   * Whether the given position falls within a chain node's identifierRange.
+   */
+  private isPositionWithinIdentifier(
+    node: SymbolReference,
+    position: { line: number; character: number },
+  ): boolean {
+    const range = node.location?.identifierRange;
+    if (!range) {
+      return false;
+    }
+    if (position.line < range.startLine || position.line > range.endLine) {
+      return false;
+    }
+    if (
+      position.line === range.startLine &&
+      position.character < range.startColumn
+    ) {
+      return false;
+    }
+    if (
+      position.line === range.endLine &&
+      position.character > range.endColumn
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Disambiguate an overloaded method by signature. When the resolved symbol is
+   * a method and the file declares multiple same-named methods (overloads such
+   * as foo(Integer) vs foo(String)), preserve the SPECIFIC overload that
+   * position-based resolution landed on rather than collapsing it onto a
+   * name-only match. Methods are keyed by their parameter-type signature, which
+   * mirrors Jorje keying methods by Signature.toString(), so the two overloads
+   * yield distinct reference sets.
+   */
+  private async disambiguateOverload(symbol: ApexSymbol): Promise<ApexSymbol> {
+    if (symbol.kind !== SymbolKind.Method) {
+      return symbol;
+    }
+
+    // Gather all same-named method candidates in scope.
+    const candidates = (await this.symbolManager.findSymbolByName(
+      symbol.name,
+    )) as ApexSymbol[];
+    const methodCandidates = candidates.filter(
+      (candidate): candidate is MethodSymbol =>
+        candidate.kind === SymbolKind.Method && candidate.name === symbol.name,
+    );
+
+    // Zero or one overload -> nothing to disambiguate; keep the resolved symbol.
+    if (methodCandidates.length <= 1) {
+      return symbol;
+    }
+
+    // Multiple overloads exist. Key on the resolved symbol's parameter-type
+    // signature and pin to the candidate with the exact same signature, so we
+    // never widen foo(Integer) into foo(String). The resolved symbol came from
+    // position-based resolution and already identifies the correct overload; we
+    // simply ensure we keep that exact-signature instance.
+    const resolvedKey = this.methodSignatureKey(symbol as MethodSymbol);
+    const exact = methodCandidates.find(
+      (candidate) => this.methodSignatureKey(candidate) === resolvedKey,
+    );
+    return exact ?? symbol;
+  }
+
+  /**
+   * Build a stable signature key for a method from its parameter types,
+   * e.g. "foo(Integer)" vs "foo(String)". Mirrors Jorje's Signature.toString().
+   */
+  private methodSignatureKey(method: MethodSymbol): string {
+    const paramTypes = (method.parameters ?? []).map(
+      (param) => param.type?.name ?? 'Object',
+    );
+    return `${method.name}(${paramTypes.join(',')})`;
   }
 
   /**

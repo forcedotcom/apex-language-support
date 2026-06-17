@@ -558,6 +558,185 @@ describe('ReferencesProcessingService', () => {
     });
   });
 
+  describe('chainNodes + position-based resolution (W-22692425)', () => {
+    const chainedUri = 'file:///test/ChainedRefTestClass.cls';
+    let chainedDoc: TextDocument;
+
+    beforeEach(async () => {
+      // Compile and register the chained-reference fixture into the same
+      // symbol manager used by the service.
+      const compilerService = new CompilerService();
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const content = readFileSync(
+        join(fixturesDir, 'ChainedRefTestClass.cls'),
+        'utf8',
+      );
+      const symbolTable = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, chainedUri, listener);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, chainedUri),
+      );
+
+      chainedDoc = TextDocument.create(chainedUri, 'apex', 1, content);
+      mockStorage.getDocument.mockResolvedValue(chainedDoc);
+    });
+
+    // Helper: drive findReferences directly with an LSP position (0-based line).
+    const findRefs = (lspLine: number, lspChar: number) => {
+      const params: ReferenceParams = {
+        textDocument: { uri: chainedUri },
+        position: { line: lspLine, character: lspChar },
+        context: { includeDeclaration: true },
+      };
+      return (service as any).findReferences(params) as Promise<unknown[]>;
+    };
+
+    // Position (a): leaf type in a chained type ref -> "GeocodingAddress".
+    // Parser line 13 / col 30 == LSP line 12 / col 30.
+    it('resolves the leaf segment of a chained type reference', async () => {
+      const picked = (service as any).pickNameUnderCursor(
+        {
+          name: 'ChainedRefTestClass.GeocodingAddress',
+          chainNodes: [
+            {
+              name: 'ChainedRefTestClass',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 4,
+                  endLine: 13,
+                  endColumn: 23,
+                },
+              },
+            },
+            {
+              name: 'GeocodingAddress',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 24,
+                  endLine: 13,
+                  endColumn: 40,
+                },
+              },
+            },
+          ],
+        },
+        { line: 13, character: 30 },
+      );
+      expect(picked).toBe('GeocodingAddress');
+
+      const locations = await findRefs(12, 30);
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+    });
+
+    // Position (b): inner/qualifier segment -> "ChainedRefTestClass".
+    it('resolves the qualifier segment of a chained type reference', async () => {
+      const picked = (service as any).pickNameUnderCursor(
+        {
+          name: 'ChainedRefTestClass.GeocodingAddress',
+          chainNodes: [
+            {
+              name: 'ChainedRefTestClass',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 4,
+                  endLine: 13,
+                  endColumn: 23,
+                },
+              },
+            },
+            {
+              name: 'GeocodingAddress',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 24,
+                  endLine: 13,
+                  endColumn: 40,
+                },
+              },
+            },
+          ],
+        },
+        { line: 13, character: 10 },
+      );
+      expect(picked).toBe('ChainedRefTestClass');
+
+      const locations = await findRefs(12, 10);
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+    });
+
+    // Position (c): a plain unqualified name -> "process" (method call).
+    // Parser line 26 / col 6 == LSP line 25 / col 6.
+    it('resolves a plain unqualified name', async () => {
+      const locations = await findRefs(25, 6);
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+    });
+
+    // Falls back to the leaf identifier when no chain node spans the cursor
+    // (dotted name with no chainNodes match).
+    it('falls back to the last segment of a dotted name', () => {
+      const picked = (service as any).pickNameUnderCursor(
+        { name: 'Outer.Inner.Leaf' },
+        { line: 1, character: 0 },
+      );
+      expect(picked).toBe('Leaf');
+    });
+  });
+
+  describe('overloaded-method disambiguation by signature (W-22692425)', () => {
+    // Position (d): an overloaded method name. The two overloads must NOT be
+    // collapsed: process(Integer) and process(String) have distinct signature
+    // keys, and disambiguateOverload pins to the exact-signature instance.
+    const makeMethod = (paramType: string) =>
+      ({
+        id: `process#${paramType}`,
+        name: 'process',
+        kind: 'method',
+        parameters: [{ type: { name: paramType } }],
+      }) as any;
+
+    it('keys overloads by parameter-type signature (does not collapse)', () => {
+      const intOverload = makeMethod('Integer');
+      const strOverload = makeMethod('String');
+      const keyOf = (m: any) => (service as any).methodSignatureKey(m);
+      expect(keyOf(intOverload)).toBe('process(Integer)');
+      expect(keyOf(strOverload)).toBe('process(String)');
+      expect(keyOf(intOverload)).not.toBe(keyOf(strOverload));
+    });
+
+    it('preserves the resolved overload when multiple same-named methods exist', async () => {
+      const intOverload = makeMethod('Integer');
+      const strOverload = makeMethod('String');
+
+      // Two same-named candidates exist in scope.
+      jest
+        .spyOn(symbolManager, 'findSymbolByName')
+        .mockResolvedValue([intOverload, strOverload]);
+
+      // Resolving the String overload must return the String overload, not the
+      // first candidate (Integer).
+      const result = await (service as any).disambiguateOverload(strOverload);
+      expect(result).toBe(strOverload);
+      expect((result as any).parameters[0].type.name).toBe('String');
+    });
+
+    it('returns the symbol unchanged when only one overload exists', async () => {
+      const intOverload = makeMethod('Integer');
+      jest
+        .spyOn(symbolManager, 'findSymbolByName')
+        .mockResolvedValue([intOverload]);
+      const result = await (service as any).disambiguateOverload(intOverload);
+      expect(result).toBe(intOverload);
+    });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
     // Reset scheduler service instance (scheduler is not initialized in tests)
