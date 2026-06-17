@@ -165,6 +165,49 @@ const guardRole = (tag: string): Effect.Effect<void> => {
 };
 
 // ---------------------------------------------------------------------------
+// Compile-readiness barrier (data-owner) — see worker.platform.ts for the full
+// rationale. documentOpen fans out to data-owner + compilation concurrently;
+// reads for the file race the compile write-back. Register a pending Promise
+// on open, resolve it when the matching UpdateSymbolSubset lands (any outcome),
+// and have QuerySymbolSubset await it before reading. No polling, no timeout.
+// ---------------------------------------------------------------------------
+
+interface PendingCompile {
+  readonly version: number;
+  readonly promise: Promise<void>;
+  resolve: () => void;
+}
+
+const pendingCompiles = new Map<string, PendingCompile>();
+
+function registerPendingCompile(uri: string, version: number): void {
+  const existing = pendingCompiles.get(uri);
+  if (existing) {
+    existing.resolve();
+  }
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  pendingCompiles.set(uri, { version, promise, resolve });
+}
+
+function resolvePendingCompile(uri: string, version: number): void {
+  const existing = pendingCompiles.get(uri);
+  if (existing && existing.version === version) {
+    existing.resolve();
+    pendingCompiles.delete(uri);
+  }
+}
+
+async function awaitPendingCompile(uri: string): Promise<void> {
+  const pending = pendingCompiles.get(uri);
+  if (pending) {
+    await pending.promise;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Worker ID (no process.pid in browser)
 // ---------------------------------------------------------------------------
 
@@ -1144,6 +1187,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
   QuerySymbolSubset: (req) =>
     guardRole('QuerySymbolSubset').pipe(
+      // Await any in-flight compile for the requested files BEFORE entering the
+      // single-fiber data-owner read queue — awaiting inside the queued read
+      // would deadlock against the UpdateSymbolSubset write that resolves it.
+      Effect.flatMap(() =>
+        Effect.promise(() =>
+          Promise.all(req.uris.map((uri) => awaitPendingCompile(uri))),
+        ),
+      ),
       Effect.flatMap(() =>
         dataOwnerRead(
           Effect.gen(function* () {
@@ -1272,7 +1323,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
-          }),
+          }).pipe(
+            // Release the compile-readiness barrier on EVERY outcome so a
+            // reader awaiting this uri's write-back never hangs.
+            Effect.ensuring(
+              Effect.sync(() =>
+                resolvePendingCompile(req.uri, req.documentVersion),
+              ),
+            ),
+          ),
         ),
       ),
     ),
@@ -1410,6 +1469,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        // A CompileDocument for this uri+version is dispatched alongside this
+        // open; arm the readiness barrier so concurrent reads await it.
+        registerPendingCompile(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1425,6 +1487,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        // A change also triggers a recompile + write-back; re-arm the barrier.
+        registerPendingCompile(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1669,7 +1733,12 @@ export function requestCoordinatorAssistance(
   return Effect.gen(function* () {
     ensureAssistanceListener();
 
-    const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
+    // Include workerId: the counter + Date.now() are per-worker, so two
+    // different workers issuing their Nth assist in the same millisecond would
+    // otherwise collide on the same correlationId and the coordinator mediator
+    // would dedup them as one call (dropping one worker's request). workerId is
+    // globally unique, so this makes correlationIds unique across all workers.
+    const correlationId = `assist-${workerId}-${++assistanceIdCounter}-${Date.now()}`;
 
     return yield* Effect.async<unknown, AssistanceError>((resume) => {
       pendingAssistanceCallbacks.set(correlationId, {

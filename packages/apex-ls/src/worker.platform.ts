@@ -211,6 +211,74 @@ const guardRole = (tag: string): Effect.Effect<void> => {
 };
 
 // ---------------------------------------------------------------------------
+// Compile-readiness barrier (data-owner)
+//
+// `documentOpen` fans out to BOTH the data-owner (stores text) and the
+// compilation worker (compiles → writes symbols back via UpdateSymbolSubset),
+// concurrently. A read for that file (QuerySymbolSubset, issued by any
+// request-pool feature on open — documentSymbol, definition, hover, …) races
+// that write-back and would otherwise see an empty graph.
+//
+// To establish a happens-before without polling or timeouts: when the
+// data-owner handles DispatchDocumentOpen it registers a pending Promise keyed
+// by uri; the matching UpdateSymbolSubset write-back resolves it (on ANY
+// outcome — accepted or rejected — so a read never hangs). QuerySymbolSubset
+// awaits the pending Promise (if any) before reading. The barrier exists only
+// while a compile is genuinely in flight, so files with no compile coming are
+// never blocked.
+// ---------------------------------------------------------------------------
+
+interface PendingCompile {
+  readonly version: number;
+  readonly promise: Promise<void>;
+  resolve: () => void;
+}
+
+const pendingCompiles = new Map<string, PendingCompile>();
+
+/**
+ * Register (or replace) a pending-compile barrier for a freshly-opened/changed
+ * document. A newer version supersedes an older pending entry: the old one is
+ * resolved so any reader waiting on it proceeds rather than waiting for a
+ * write-back that will never come for the stale version.
+ */
+function registerPendingCompile(uri: string, version: number): void {
+  const existing = pendingCompiles.get(uri);
+  if (existing) {
+    existing.resolve();
+  }
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  pendingCompiles.set(uri, { version, promise, resolve });
+}
+
+/**
+ * Resolve the pending-compile barrier for a uri once its write-back lands
+ * (accepted or rejected). Only clears the entry if the version matches, so a
+ * stale write-back doesn't release a barrier registered for a newer version.
+ */
+function resolvePendingCompile(uri: string, version: number): void {
+  const existing = pendingCompiles.get(uri);
+  if (existing && existing.version === version) {
+    existing.resolve();
+    pendingCompiles.delete(uri);
+  }
+}
+
+/**
+ * Await the pending-compile barrier for a uri (no-op if none pending), so a
+ * read observes the freshly-compiled symbols instead of racing the write-back.
+ */
+async function awaitPendingCompile(uri: string): Promise<void> {
+  const pending = pendingCompiles.get(uri);
+  if (pending) {
+    await pending.promise;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Data-owner internal tiered queue (Step 5)
 //
 // Reads (QuerySymbolSubset, etc.) get priority over writes
@@ -1237,6 +1305,17 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
   QuerySymbolSubset: (req) =>
     guardRole('QuerySymbolSubset').pipe(
+      // Await any in-flight compile for the requested files BEFORE entering the
+      // data-owner read queue. Critical: the read queue is single-fiber and
+      // processes reads fully before writes, so awaiting the barrier *inside*
+      // the queued read would deadlock against the UpdateSymbolSubset write
+      // that resolves it. The barrier is a plain Promise independent of the
+      // queue, so awaiting it here lets the write-back run and land first.
+      Effect.flatMap(() =>
+        Effect.promise(() =>
+          Promise.all(req.uris.map((uri) => awaitPendingCompile(uri))),
+        ),
+      ),
       Effect.flatMap(() =>
         dataOwnerRead(
           Effect.gen(function* () {
@@ -1399,7 +1478,16 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
-          }),
+          }).pipe(
+            // Release the compile-readiness barrier on EVERY outcome (accepted,
+            // rejected, version-mismatch, or defect) so a reader awaiting this
+            // uri's write-back never hangs.
+            Effect.ensuring(
+              Effect.sync(() =>
+                resolvePendingCompile(req.uri, req.documentVersion),
+              ),
+            ),
+          ),
         ),
       ),
     ),
@@ -1549,6 +1637,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        // A CompileDocument for this uri+version is dispatched to the
+        // compilation worker alongside this open; arm the readiness barrier so
+        // concurrent reads await the resulting write-back.
+        registerPendingCompile(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1564,6 +1656,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           version: req.version,
         };
         void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        // A change also triggers a recompile + write-back; re-arm the barrier
+        // (supersedes any older pending entry for this uri).
+        registerPendingCompile(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1837,7 +1932,12 @@ export function requestCoordinatorAssistance(
       );
     }
 
-    const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
+    // Include workerId: the counter + Date.now() are per-worker, so two
+    // different workers issuing their Nth assist in the same millisecond would
+    // otherwise collide on the same correlationId and the coordinator mediator
+    // would dedup them as one call (dropping one worker's request). workerId is
+    // globally unique, so this makes correlationIds unique across all workers.
+    const correlationId = `assist-${workerId}-${++assistanceIdCounter}-${Date.now()}`;
 
     const result = yield* Effect.async<unknown, AssistanceError>((resume) => {
       pendingAssistanceCallbacks.set(correlationId, {
