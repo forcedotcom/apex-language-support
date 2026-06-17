@@ -325,15 +325,12 @@ describe('WorkerCoordinator', () => {
         dispatcher = makeWorkerDispatcher({} as WorkerTopology, logger);
       });
 
-      it.each([
-        'signatureHelp',
-        'rename',
-        'documentSymbol',
-        'codeLens',
-        'foldingRange',
-      ] as const)('blocks coordinator-only type: %s', (type) => {
-        expect(dispatcher.canDispatch(type)).toBe(false);
-      });
+      it.each(['signatureHelp', 'rename', 'foldingRange'] as const)(
+        'blocks coordinator-only type: %s',
+        (type) => {
+          expect(dispatcher.canDispatch(type)).toBe(false);
+        },
+      );
 
       it.each([
         'documentOpen',
@@ -346,6 +343,8 @@ describe('WorkerCoordinator', () => {
         'definition',
         'implementation',
         'references',
+        'documentSymbol',
+        'codeLens',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });

@@ -948,15 +948,23 @@ const requestHandlers = {
   ),
   DispatchDocumentSymbol: requestHandler<DocOnlyReq>(
     'DispatchDocumentSymbol',
-    (svc, req) =>
-      svc.documentSymbolService.processDocumentSymbol({
+    async (svc, req) => {
+      // Document symbols come from the file's own table — load its subset
+      // locally first (the coordinator no longer compiles opened files).
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      return svc.documentSymbolService.processDocumentSymbol({
         textDocument: { uri: req.textDocument.uri },
-      }),
+      });
+    },
   ),
-  DispatchCodeLens: requestHandler<DocOnlyReq>('DispatchCodeLens', (svc, req) =>
-    svc.codeLensService.processCodeLens({
-      textDocument: { uri: req.textDocument.uri },
-    }),
+  DispatchCodeLens: requestHandler<DocOnlyReq>(
+    'DispatchCodeLens',
+    async (svc, req) => {
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      return svc.codeLensService.processCodeLens({
+        textDocument: { uri: req.textDocument.uri },
+      });
+    },
   ),
   DispatchDiagnostic: requestHandler<DocOnlyReq>(
     'DispatchDiagnostic',

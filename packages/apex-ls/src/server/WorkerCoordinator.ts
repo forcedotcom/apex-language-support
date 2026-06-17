@@ -558,13 +558,15 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   documentLoad: 'coordinatorOnly',
   // LSP protocol operations
   codeAction: 'coordinatorOnly',
-  codeLens: 'coordinatorOnly',
+  // Document symbols / code lenses read the file's own table — run on the
+  // request pool (loads the file's subset) so the coordinator holds no symbols.
+  codeLens: 'requestPool',
   // Completion runs on the LSP-request pool (loads the active file's subset,
   // incl. live edits, from the data-owner) so the coordinator holds no symbols.
   completion: 'requestPool',
   definition: 'requestPool',
   diagnostics: 'requestPool',
-  documentSymbol: 'coordinatorOnly',
+  documentSymbol: 'requestPool',
   executeCommand: 'coordinatorOnly',
   findMissingArtifact: 'coordinatorOnly',
   foldingRange: 'coordinatorOnly',
