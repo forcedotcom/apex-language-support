@@ -696,7 +696,7 @@ function createDispatcher(
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
         return callbacks.sendToDataOwner(msg);
       }
-      const msg = buildEnrichmentMessage(
+      const msg = buildLspRequestMessage(
         type,
         params,
         callbacks.getDocumentContent,
@@ -1006,7 +1006,7 @@ function buildCompileMessage(
   return new CompileDocument({ uri, content, languageId, version, priority });
 }
 
-function buildEnrichmentMessage(
+function buildLspRequestMessage(
   type: LSPRequestType,
   params: unknown,
   getDocumentContent?: (uri: string) => string | undefined,
