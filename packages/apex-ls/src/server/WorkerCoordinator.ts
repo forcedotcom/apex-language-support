@@ -22,6 +22,8 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  QuerySymbolReadiness,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -674,20 +676,63 @@ function createDispatcher(
 
     dispatchesToDataOwner: (type: LSPRequestType) => DATA_OWNER_TYPES.has(type),
 
+    // True when the file is open in the editor — which means a compile is (or
+    // soon will be) in flight for it. The coordinator's own TextDocuments set
+    // is the authoritative "compile coming" signal, sidestepping the dataOwner
+    // version === -1 race. Backed by getDocumentContent (this.documents.get).
+    isFileOpen: (uri: string): boolean =>
+      callbacks.getDocumentContent?.(uri) !== undefined,
+
+    // Block until the dataOwner has merged the symbol graph for {uri, version},
+    // or report why it can't. Replaces the coordinator's tick-count spin over
+    // QuerySymbolReadiness with a deterministic await: a document open/change
+    // arms a per-URI latch on the dataOwner, and the compile's write-back
+    // resolves it. `reason` lets the gate distinguish a genuine timeout (keep
+    // waiting / fall back) from "no compile is pending" (fall back immediately).
+    async awaitSymbolDataReady(
+      uri: string,
+      version: number,
+      timeoutMs: number,
+    ): Promise<{
+      ready: boolean;
+      reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    }> {
+      const res = (await this.queryDataOwner('AwaitSymbolReadiness', {
+        uri,
+        version,
+        timeoutMs,
+      })) as
+        | {
+            ready?: boolean;
+            reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+          }
+        | undefined;
+      return { ready: res?.ready === true, reason: res?.reason };
+    },
+
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
 
       if (type === 'documentOpen' || type === 'documentChange') {
         const dataOwnerMsg = buildDataOwnerMessage(type, params);
         const compileMsg = buildCompileMessage(type, params);
-        logger.debug(() => `[WorkerDispatch] → dataOwner+compilation: ${type}`);
-        callbacks
-          .sendToDataOwner(dataOwnerMsg)
-          .catch((err) =>
-            logger.error(
-              () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
-            ),
+        logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
+        // Store the document on the data-owner BEFORE dispatching the compile.
+        // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
+        // which is rejected ("document not found") if the document hasn't been
+        // stored yet. Racing the two (fire-and-forget store + concurrent
+        // compile) drops the write-back on a cold open — the compile finishes
+        // before the store lands — so the data-owner graph stays empty and
+        // request-pool reads see "No Symbols". Sequencing guarantees the
+        // document is present when the write-back arrives. A failed store still
+        // lets the compile proceed (best-effort), matching the prior behavior.
+        try {
+          await callbacks.sendToDataOwner(dataOwnerMsg);
+        } catch (err) {
+          logger.error(
+            () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
           );
+        }
         return callbacks.sendToCompilation(compileMsg);
       }
 
@@ -774,6 +819,28 @@ function createDispatcher(
           return callbacks.sendToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
+            }),
+          );
+        }
+        case 'QuerySymbolReadiness': {
+          const prr = params as { uri?: string };
+          return callbacks.sendToDataOwner(
+            new QuerySymbolReadiness({
+              uri: prr.uri ?? '',
+            }),
+          );
+        }
+        case 'AwaitSymbolReadiness': {
+          const par = params as {
+            uri?: string;
+            version?: number;
+            timeoutMs?: number;
+          };
+          return callbacks.sendToDataOwner(
+            new AwaitSymbolReadiness({
+              uri: par.uri ?? '',
+              version: par.version ?? 0,
+              timeoutMs: par.timeoutMs ?? 0,
             }),
           );
         }

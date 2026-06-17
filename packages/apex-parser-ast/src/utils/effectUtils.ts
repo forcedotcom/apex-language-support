@@ -38,3 +38,18 @@ export const yieldToEventLoop = Effect.async<void>((resume) => {
     setTimeout(() => resume(Effect.void), 0);
   }
 });
+
+/**
+ * Promise-based sibling of {@link yieldToEventLoop} for use inside plain async
+ * code (where an Effect value can't be awaited directly). Rides the exact same
+ * macrotask — `setImmediate` in Node, `setTimeout(0)` in browsers — so callers
+ * interleave with the scheduler's tick rather than spinning a tighter loop.
+ */
+export const yieldToEventLoopAsync = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    if (typeof setImmediate !== 'undefined') {
+      setImmediate(resolve);
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });

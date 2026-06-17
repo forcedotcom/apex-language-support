@@ -44,6 +44,8 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  QuerySymbolReadiness,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -92,6 +94,8 @@ const AllWorkerRequests = Schema.Union(
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  QuerySymbolReadiness,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -163,49 +167,6 @@ const guardRole = (tag: string): Effect.Effect<void> => {
   }
   return Effect.void;
 };
-
-// ---------------------------------------------------------------------------
-// Compile-readiness barrier (data-owner) — see worker.platform.ts for the full
-// rationale. documentOpen fans out to data-owner + compilation concurrently;
-// reads for the file race the compile write-back. Register a pending Promise
-// on open, resolve it when the matching UpdateSymbolSubset lands (any outcome),
-// and have QuerySymbolSubset await it before reading. No polling, no timeout.
-// ---------------------------------------------------------------------------
-
-interface PendingCompile {
-  readonly version: number;
-  readonly promise: Promise<void>;
-  resolve: () => void;
-}
-
-const pendingCompiles = new Map<string, PendingCompile>();
-
-function registerPendingCompile(uri: string, version: number): void {
-  const existing = pendingCompiles.get(uri);
-  if (existing) {
-    existing.resolve();
-  }
-  let resolve!: () => void;
-  const promise = new Promise<void>((r) => {
-    resolve = r;
-  });
-  pendingCompiles.set(uri, { version, promise, resolve });
-}
-
-function resolvePendingCompile(uri: string, version: number): void {
-  const existing = pendingCompiles.get(uri);
-  if (existing && existing.version === version) {
-    existing.resolve();
-    pendingCompiles.delete(uri);
-  }
-}
-
-async function awaitPendingCompile(uri: string): Promise<void> {
-  const pending = pendingCompiles.get(uri);
-  if (pending) {
-    await pending.promise;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Worker ID (no process.pid in browser)
@@ -311,6 +272,72 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
     });
     return yield* Deferred.await(deferred);
   });
+
+// ---------------------------------------------------------------------------
+// Symbol-readiness latches (data-owner role) — browser counterpart of the
+// Node worker's latches. See worker.platform.ts for the full rationale.
+//
+// A documentOpen/Change arms a per-URI latch at the incoming version (inside
+// the serial WRITE handler, so it is ordered before the compile it triggers),
+// and UpdateSymbolSubset resolves it the instant the write-back for that
+// version merges. The AwaitSymbolReadiness handler peeks the latch through the
+// serial runner (non-blocking) and awaits the Deferred on its own fiber — never
+// inside the runner, which would self-deadlock against the resolving write.
+// ---------------------------------------------------------------------------
+
+interface ReadinessLatch {
+  /** Editor version this latch is satisfied at. */
+  version: number;
+  /** Resolves (void) when a write-back for `version` merges. */
+  deferred: Deferred.Deferred<void, never>;
+  /** Idempotency guard so success/clear settle at most once. */
+  settled: boolean;
+}
+
+const readinessLatches = new Map<string, ReadinessLatch>();
+
+/**
+ * Arm (or re-arm) the readiness latch for a URI at a given version. A newer
+ * version supersedes an unsettled older latch: the old Deferred is resolved so
+ * any awaiter for the stale version stops waiting and re-evaluates.
+ */
+function armReadiness(uri: string, version: number): void {
+  const existing = readinessLatches.get(uri);
+  if (existing && existing.version === version) {
+    return; // already armed for this exact version
+  }
+  if (existing && !existing.settled) {
+    existing.settled = true;
+    Effect.runSync(Deferred.succeed(existing.deferred, undefined));
+  }
+  readinessLatches.set(uri, {
+    version,
+    deferred: Effect.runSync(Deferred.make<void, never>()),
+    settled: false,
+  });
+}
+
+/**
+ * Resolve the readiness latch for a URI once a write-back for `version` merges.
+ * No-op if the latch was superseded by a newer version.
+ */
+function resolveReadiness(uri: string, version: number): void {
+  const latch = readinessLatches.get(uri);
+  if (latch && latch.version === version && !latch.settled) {
+    latch.settled = true;
+    Effect.runSync(Deferred.succeed(latch.deferred, undefined));
+  }
+}
+
+/** Drop a URI's latch on close, releasing any awaiter. */
+function clearReadiness(uri: string): void {
+  const latch = readinessLatches.get(uri);
+  if (latch && !latch.settled) {
+    latch.settled = true;
+    Effect.runSync(Deferred.succeed(latch.deferred, undefined));
+  }
+  readinessLatches.delete(uri);
+}
 
 // ---------------------------------------------------------------------------
 // Lazy role-specific service containers
@@ -1187,14 +1214,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
   QuerySymbolSubset: (req) =>
     guardRole('QuerySymbolSubset').pipe(
-      // Await any in-flight compile for the requested files BEFORE entering the
-      // single-fiber data-owner read queue — awaiting inside the queued read
-      // would deadlock against the UpdateSymbolSubset write that resolves it.
-      Effect.flatMap(() =>
-        Effect.promise(() =>
-          Promise.all(req.uris.map((uri) => awaitPendingCompile(uri))),
-        ),
-      ),
       Effect.flatMap(() =>
         dataOwnerRead(
           Effect.gen(function* () {
@@ -1247,6 +1266,94 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  // Presence-only readiness probe. Serializes nothing — the coordinator polls
+  // this while deferring a cold read, so it must stay cheap (no cloneForWire).
+  QuerySymbolReadiness: (req) =>
+    guardRole('QuerySymbolReadiness').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const st = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(req.uri),
+            );
+            return { ready: st != null };
+          }),
+        ),
+      ),
+    ),
+
+  // Deterministic readiness wait — browser counterpart of the Node handler.
+  // "Snapshot in runner, await outside": peek the latch through the serial
+  // runner (non-blocking), then await its Deferred on this handler's own fiber
+  // so the resolving write (UpdateSymbolSubset) is never blocked behind us.
+  AwaitSymbolReadiness: (req) =>
+    guardRole('AwaitSymbolReadiness').pipe(
+      Effect.flatMap(() => {
+        const matchLatest = req.version < 0;
+        const peekReadiness = dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const st = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(req.uri),
+            );
+            const latch = readinessLatches.get(req.uri);
+            if (
+              st != null &&
+              (!latch || matchLatest || latch.version <= req.version)
+            ) {
+              return { kind: 'ready' as const };
+            }
+            if (!latch) {
+              return { kind: 'no-latch' as const };
+            }
+            if (!matchLatest && latch.version > req.version) {
+              return { kind: 'stale-version' as const };
+            }
+            return { kind: 'await' as const, deferred: latch.deferred };
+          }),
+        );
+
+        return Effect.gen(function* () {
+          const snapshot = yield* peekReadiness;
+          if (snapshot.kind === 'ready') {
+            return { ready: true };
+          }
+          if (snapshot.kind === 'no-latch') {
+            return { ready: false, reason: 'no-compile-pending' as const };
+          }
+          if (snapshot.kind === 'stale-version') {
+            return { ready: false, reason: 'stale-version' as const };
+          }
+
+          const fired = yield* Deferred.await(snapshot.deferred).pipe(
+            Effect.as(true),
+            Effect.timeoutTo({
+              duration: `${req.timeoutMs} millis`,
+              onTimeout: () => false,
+              onSuccess: () => true,
+            }),
+          );
+          if (!fired) {
+            return { ready: false, reason: 'timeout' as const };
+          }
+
+          const after = yield* dataOwnerRead(
+            Effect.gen(function* () {
+              const svc = yield* ensureDataOwnerServices;
+              const st = yield* Effect.promise(() =>
+                svc.symbolManager.getSymbolTableForFile(req.uri),
+              );
+              return st != null;
+            }),
+          );
+          return after
+            ? { ready: true }
+            : { ready: false, reason: 'stale-version' as const };
+        });
+      }),
+    ),
+
   UpdateSymbolSubset: (req) =>
     guardRole('UpdateSymbolSubset').pipe(
       Effect.flatMap(() =>
@@ -1264,11 +1371,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (!currentDoc) {
               writeBackMetrics.rejectedDocumentMissing++;
+              // Terminal for this version — release any awaiter so the
+              // coordinator falls back instead of blocking the gate budget.
+              resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
 
             if (currentDoc.version !== req.documentVersion) {
               writeBackMetrics.rejectedVersionMismatch++;
+              resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: true };
             }
 
@@ -1285,6 +1396,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
+              // Symbols at this (or richer) level already present — ready.
+              resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
 
@@ -1312,6 +1425,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
 
+            // Symbols for this version are now in the graph — release any
+            // coordinator request awaiting readiness for this URI/version.
+            resolveReadiness(req.uri, req.documentVersion);
+
             yield* Effect.logDebug(
               `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
                 `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
@@ -1323,15 +1440,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
-          }).pipe(
-            // Release the compile-readiness barrier on EVERY outcome so a
-            // reader awaiting this uri's write-back never hangs.
-            Effect.ensuring(
-              Effect.sync(() =>
-                resolvePendingCompile(req.uri, req.documentVersion),
-              ),
-            ),
-          ),
+          }),
         ),
       ),
     ),
@@ -1468,10 +1577,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           languageId: req.languageId,
           version: req.version,
         };
-        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
-        // A CompileDocument for this uri+version is dispatched alongside this
-        // open; arm the readiness barrier so concurrent reads await it.
-        registerPendingCompile(req.uri, req.version);
+        // Await the store before arming: the write-back's version check and the
+        // readiness latch both require the document present at this version
+        // before the compile this open triggers can write back.
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1486,9 +1598,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           languageId: 'apex',
           version: req.version,
         };
-        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
-        // A change also triggers a recompile + write-back; re-arm the barrier.
-        registerPendingCompile(req.uri, req.version);
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1517,6 +1630,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         svc.documentCloseProcessingService.processDocumentClose({
           document: closeDoc as never,
         });
+        // Release any awaiter and drop the latch.
+        clearReadiness(req.uri);
         return { accepted: true };
       }),
   ),

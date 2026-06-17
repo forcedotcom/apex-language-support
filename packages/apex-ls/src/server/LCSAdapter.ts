@@ -1314,7 +1314,9 @@ export class LCSAdapter {
   /**
    * Handle client `initialize` request
    */
-  private handleInitialize(params: InitializeParams): InitializeResult {
+  private async handleInitialize(
+    params: InitializeParams,
+  ): Promise<InitializeResult> {
     this.logger.debug(
       () =>
         `Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
@@ -1495,6 +1497,31 @@ export class LCSAdapter {
 
     this.workspaceRootUri =
       params.workspaceFolders?.[0]?.uri ?? params.rootUri ?? '';
+
+    // Bring the worker topology up BEFORE returning capabilities. The client is
+    // blocked from sending requests until `initialize` resolves, so awaiting
+    // the topology here makes "topology ready" part of "server ready" — a
+    // request-pool read can never arrive before the dataOwner exists. The queue
+    // manager must be initialized first because the topology dispatcher is set
+    // on that singleton (and its deps — the local-fallback service handlers —
+    // are only honored on first construction). Both prerequisite inits are
+    // idempotent; the calls remaining in `initialized` become no-ops.
+    try {
+      BackgroundProcessingInitializationService.getInstance().initialize();
+      const symbolManager =
+        ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      initializeLSPQueueManager(symbolManager, this.connection);
+      await this.startWorkerTopologyIfEnabled();
+    } catch (error) {
+      // A topology failure already exits the process (unless disabled); any
+      // other prep error here is non-fatal — the coordinator-local path still
+      // serves requests. Log and continue so the client gets capabilities.
+      this.logger.error(
+        () =>
+          '❌ Failed to bring up worker topology during initialize: ' +
+          formattedError(error),
+      );
+    }
 
     return {
       capabilities: staticCapabilities,
@@ -1734,34 +1761,10 @@ export class LCSAdapter {
       );
     });
 
-    // Worker pool topology — opt-in via setting or env var
-    const isNodeJs =
-      typeof process !== 'undefined' && process.versions?.node != null;
-
-    if (isNodeJs) {
-      try {
-        require.resolve('node:worker_threads');
-        const workerSettings =
-          LSPConfigurationManager.getInstance().getSettings().apex;
-        const workersEnabled =
-          process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
-          workerSettings.experimental?.workers?.enabled === true;
-        if (workersEnabled) {
-          this.initializeWorkerTopology();
-        }
-      } catch {
-        // worker_threads not available — skip
-      }
-    } else {
-      // Browser: gate on setting same as Node
-      const workerSettings =
-        LSPConfigurationManager.getInstance().getSettings().apex;
-      const workersEnabled =
-        workerSettings.experimental?.workers?.enabled === true;
-      if (workersEnabled) {
-        this.initializeWorkerTopology();
-      }
-    }
+    // NOTE: the worker topology is no longer started here. It is brought up
+    // during `initialize` (before we return server capabilities) so that
+    // topology readiness is part of server readiness — the client is blocked
+    // from sending requests until workers are up. See handleInitialize.
   }
 
   /**
@@ -2159,7 +2162,50 @@ export class LCSAdapter {
     }
   }
 
-  private initializeWorkerTopology(): void {
+  /**
+   * Start the worker topology if it is enabled for this platform/settings, and
+   * return a promise that resolves once it is ready (or immediately if workers
+   * are disabled). Treating topology readiness as part of server readiness lets
+   * `initialize` block the client's first request until workers are up, which
+   * removes the startup race where a request-pool read could arrive before the
+   * dataOwner existed. (This is distinct from per-file cold-start: a freshly
+   * opened file whose compile hasn't written symbols back yet is still handled
+   * by the cold-read gate, long after the server is ready.)
+   */
+  private async startWorkerTopologyIfEnabled(): Promise<void> {
+    const isNodeJs =
+      typeof process !== 'undefined' && process.versions?.node != null;
+
+    if (isNodeJs) {
+      try {
+        require.resolve('node:worker_threads');
+      } catch {
+        // worker_threads not available — skip topology entirely.
+        return;
+      }
+    }
+
+    const workerSettings =
+      LSPConfigurationManager.getInstance().getSettings().apex;
+    const workersEnabled = isNodeJs
+      ? process?.env?.APEX_WORKER_EXPERIMENT !== undefined ||
+        workerSettings.experimental?.workers?.enabled === true
+      : workerSettings.experimental?.workers?.enabled === true;
+
+    if (!workersEnabled) {
+      return;
+    }
+
+    await this.initializeWorkerTopology();
+  }
+
+  /**
+   * Bring the worker topology up. Returns a promise that resolves once the
+   * topology is active (dispatcher set, workers spawned, stdlib warm) so the
+   * caller can treat topology readiness as part of server readiness and block
+   * the client's first request until it completes.
+   */
+  private initializeWorkerTopology(): Promise<void> {
     this.logger.info(
       () => '[WorkerCoordinator] Initializing worker topology...',
     );
@@ -2328,10 +2374,16 @@ export class LCSAdapter {
         '[WorkerCoordinator] Topology active — ' +
           'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
       );
+
+      // No pre-topology document replay is needed: the topology is brought up
+      // during `initialize`, before the client is allowed to send any didOpen,
+      // so `this.documents` is necessarily empty at this point. (Per-file cold
+      // start — a file opened later whose compile hasn't written back yet — is
+      // handled by the cold-read gate, not here.)
     });
 
     const runnable = pipeline as Effect.Effect<void>;
-    void Effect.runPromise(runnable).catch((error: unknown) => {
+    return Effect.runPromise(runnable).catch((error: unknown) => {
       this.logger.error(
         () =>
           `[WorkerCoordinator] Topology initialization failed: ${formattedError(error)}`,

@@ -548,6 +548,75 @@ describe('WorkerCoordinator', () => {
       const roles = transport.sendCalls.map((c: { role: string }) => c.role);
       expect(roles).toContain('dataOwner');
       expect(roles).toContain('compilation');
+      // The data-owner store MUST be sent before the compile. The compile
+      // writes its symbols back via dataOwner:UpdateSymbolSubset, which the
+      // data-owner rejects ("document not found") if the document isn't stored
+      // yet. Sequencing store→compile prevents the cold-open write-back drop
+      // that left the symbol graph empty ("No Symbols" on first open).
+      expect(roles).toEqual(['dataOwner', 'compilation']);
+    });
+
+    it('makeTransportDispatcher awaits the data-owner store before dispatching the compile', async () => {
+      // Stronger than ordering of recorded calls: prove the compile send does
+      // not happen until the data-owner store has RESOLVED, by holding the
+      // data-owner send pending and asserting the compile hasn't been sent.
+      const logger = createSpyLogger();
+      const order: string[] = [];
+      let releaseDataOwner!: () => void;
+      const dataOwnerGate = new Promise<void>((resolve) => {
+        releaseDataOwner = resolve;
+      });
+
+      class SequencingTransport extends MockWorkerTransport {
+        send<R>(
+          handle: WorkerHandle,
+          request: R,
+        ): Effect.Effect<unknown, TransportSendError> {
+          this.sendCalls.push({ role: handle.role, request });
+          if (handle.role === 'dataOwner') {
+            return Effect.promise(async () => {
+              await dataOwnerGate;
+              order.push('dataOwner');
+              return { accepted: true };
+            });
+          }
+          order.push('compilation');
+          return Effect.succeed({ accepted: true });
+        }
+      }
+
+      const transport = new SequencingTransport();
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
+          requestPool: { _tag: 'PoolHandle', role: 'lspRequest', size: 2 },
+          resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+        },
+        logger,
+      );
+
+      const dispatched = dispatcher.dispatch('documentOpen', {
+        document: {
+          uri: 'file:///Test.cls',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'public class Test {}',
+        },
+      });
+
+      // Let microtasks drain; the data-owner gate is still closed, so the
+      // compile must NOT have been sent yet.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(order).toEqual([]);
+
+      releaseDataOwner();
+      await dispatched;
+
+      // Store resolved first, then the compile was sent.
+      expect(order).toEqual(['dataOwner', 'compilation']);
     });
 
     it('makeTransportDispatcher routes enrichment types through transport.dispatch', async () => {

@@ -48,5 +48,29 @@ export interface WorkerDispatchStrategy {
    * owner accumulates symbols instead of the coordinator compiling locally.
    */
   dispatchesToDataOwner?(type: LSPRequestType): boolean;
+  /**
+   * Whether the given document is currently open in the editor. When open, a
+   * compile is (or soon will be) in flight, so a request-pool read for the file
+   * should defer until symbols are ready rather than racing an empty graph.
+   * Optional: when absent, the cold-read gate is skipped entirely.
+   */
+  isFileOpen?(uri: string): boolean;
+  /**
+   * Block until the data-owner has merged the symbol graph for {uri, version},
+   * or report why it can't. Replaces the old presence-poll: the data-owner arms
+   * a per-URI latch when it stores an open/change and resolves it when the
+   * compile's write-back merges, so the gate awaits a deterministic signal
+   * rather than spinning. `reason` lets the gate distinguish a genuine timeout
+   * (a slow compile) from "no compile is pending" (nothing to wait for — fall
+   * back at once). Optional: when absent, the gate is skipped entirely.
+   */
+  awaitSymbolDataReady?(
+    uri: string,
+    version: number,
+    timeoutMs: number,
+  ): Promise<{
+    ready: boolean;
+    reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+  }>;
   getTopologyStatus?(): WorkerTopologyStatus;
 }

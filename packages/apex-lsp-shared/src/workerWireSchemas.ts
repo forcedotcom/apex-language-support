@@ -130,6 +130,75 @@ export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
+// QuerySymbolReadiness — presence-only readiness probe for a single URI.
+// Unlike QuerySymbolSubset, this serializes nothing: it returns only whether
+// the data-owner currently holds a symbol table for the URI. Cheap enough to
+// poll while the coordinator defers a cold read.
+// ---------------------------------------------------------------------------
+
+export class QuerySymbolReadiness extends Schema.TaggedRequest<QuerySymbolReadiness>()(
+  'QuerySymbolReadiness',
+  {
+    success: Schema.Struct({
+      /** Whether a symbol table for the requested URI is present in the graph. */
+      ready: Schema.Boolean,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('QuerySymbolReadinessError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+    },
+  },
+) {}
+
+export type QuerySymbolReadinessSuccess = Schema.Schema.Type<
+  (typeof QuerySymbolReadiness)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// AwaitSymbolReadiness — deterministic (not poll-based) readiness wait.
+// Unlike QuerySymbolReadiness (a one-shot presence snapshot), this resolves the
+// instant a write-back for the URI merges into the data-owner graph, via a
+// per-URI latch the document-open/change handlers arm and UpdateSymbolSubset
+// resolves. The data-owner side never blocks its serial runner on the latch:
+// it returns the latch handle/immediate-ready synchronously, and the awaiting
+// happens off-runner. `reason` lets the coordinator distinguish a genuine
+// "no compile is pending" (replay gap) from a "timed out waiting" failure,
+// instead of the old null-means-everything snapshot.
+// ---------------------------------------------------------------------------
+
+export class AwaitSymbolReadiness extends Schema.TaggedRequest<AwaitSymbolReadiness>()(
+  'AwaitSymbolReadiness',
+  {
+    success: Schema.Struct({
+      /** Whether symbols for the URI are present (now, or after the wait). */
+      ready: Schema.Boolean,
+      /** Why not ready, when ready is false. Absent when ready. */
+      reason: Schema.optional(
+        Schema.Literal('no-compile-pending', 'timeout', 'stale-version'),
+      ),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('AwaitSymbolReadinessError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      /** Editor version the caller wants symbols for; matches the latch. */
+      version: Schema.Number,
+      /** Backstop wait in ms; the latch resolves earlier on the happy path. */
+      timeoutMs: Schema.Number,
+    },
+  },
+) {}
+
+export type AwaitSymbolReadinessSuccess = Schema.Schema.Type<
+  (typeof AwaitSymbolReadiness)['success']
+>;
+
+// ---------------------------------------------------------------------------
 // WorkerAssistanceRequest — worker asks coordinator for client RPC
 // (e.g. apex/findMissingArtifact)
 // ---------------------------------------------------------------------------
@@ -815,6 +884,8 @@ export const DataOwnerTags = [
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
   'QuerySymbolSubset',
+  'QuerySymbolReadiness',
+  'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'ResolveDependentUris',
@@ -889,6 +960,8 @@ export type DataOwnerRequest =
   | PingWorker
   | WorkerRemoteStdlibWarmup
   | QuerySymbolSubset
+  | QuerySymbolReadiness
+  | AwaitSymbolReadiness
   | UpdateSymbolSubset
   | ResolveDepUris
   | ResolveDependentUris
@@ -946,12 +1019,6 @@ export interface WorkerLogMessage {
   readonly _tag: 'WorkerLogMessage';
   readonly level: 'debug' | 'info' | 'warning' | 'error';
   readonly message: string;
-}
-
-/** Coordinator-to-worker notification to update the worker's log level. */
-export interface WorkerLogLevelChange {
-  readonly _tag: 'WorkerLogLevelChange';
-  readonly logLevel: 'debug' | 'info' | 'warning' | 'error';
 }
 
 export type WorkerLogLevel = WorkerLogMessage['level'];
