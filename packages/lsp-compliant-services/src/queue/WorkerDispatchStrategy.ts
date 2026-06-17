@@ -38,10 +38,15 @@ export interface WorkerDispatchStrategy {
   isAvailable(): boolean;
   canDispatch(type: LSPRequestType): boolean;
   /**
-   * Whether this request type is dispatched to the enrichment pool (a stateless
-   * reader over the dataOwner graph). The queue only auto-dispatches these; data
-   * owner / document-lifecycle types keep their existing local + batch path.
+   * Whether this request type is dispatched to the request pool (a stateless
+   * reader over the dataOwner graph).
    */
   dispatchesToPool?(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is dispatched to the data-owner worker. Document-
+   * lifecycle types (documentOpen/Change/Save/Close) route here so the data-
+   * owner accumulates symbols instead of the coordinator compiling locally.
+   */
+  dispatchesToDataOwner?(type: LSPRequestType): boolean;
   getTopologyStatus?(): WorkerTopologyStatus;
 }

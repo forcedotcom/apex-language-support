@@ -58,11 +58,17 @@ export interface WorkerDispatcher {
   /** Whether this dispatcher handles the given request type at all. */
   canDispatch(type: LSPRequestType): boolean;
   /**
-   * Whether this request type is auto-dispatched to the enrichment pool (a
-   * stateless reader over the dataOwner graph). The queue only auto-dispatches
-   * these; data-owner / document-lifecycle types keep their local + batch path.
+   * Whether this request type is auto-dispatched to the request pool (a
+   * stateless reader over the dataOwner graph).
    */
   dispatchesToPool?(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is auto-dispatched to the data-owner worker.
+   * Document-lifecycle types (documentOpen/Change/Save/Close) route here so the
+   * data-owner accumulates symbols incrementally, instead of the coordinator
+   * compiling locally.
+   */
+  dispatchesToDataOwner?(type: LSPRequestType): boolean;
   /** Offload the request to a worker, resolving with its result. */
   dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
 }
@@ -154,14 +160,19 @@ export class LSPQueueManager {
       // fall back to the local service handler on the coordinator.
       const requestEffect = Effect.tryPromise({
         try: async () => {
-          // Only auto-dispatch enrichment-pool read requests (stateless
-          // readers over the dataOwner graph). Document-lifecycle / dataOwner
-          // types keep their existing local + batch path to avoid changing
-          // single-file behavior for the active document.
+          // Auto-dispatch to the worker topology when this type routes there:
+          //   - request-pool reads (definition/hover/references/completion/...),
+          //     stateless readers over the dataOwner graph; and
+          //   - data-owner writes / document-lifecycle (documentOpen/Change/
+          //     Save/Close), so the single-writer graph accumulates symbols
+          //     instead of the coordinator compiling locally.
+          // On dispatch failure, fall through to the local handler so a flaky
+          // worker degrades gracefully rather than dropping the request.
           if (
             workerDispatcher &&
             workerDispatcher.isAvailable?.() &&
-            workerDispatcher.dispatchesToPool?.(type)
+            (workerDispatcher.dispatchesToPool?.(type) ||
+              workerDispatcher.dispatchesToDataOwner?.(type))
           ) {
             try {
               logger.debug(() => `Dispatching ${type} request to worker`);

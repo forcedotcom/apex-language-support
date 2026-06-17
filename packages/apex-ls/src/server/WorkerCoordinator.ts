@@ -666,6 +666,8 @@ function createDispatcher(
 
     dispatchesToPool: (type: LSPRequestType) => REQUEST_POOL_TYPES.has(type),
 
+    dispatchesToDataOwner: (type: LSPRequestType) => DATA_OWNER_TYPES.has(type),
+
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
 
