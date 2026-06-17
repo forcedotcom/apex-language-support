@@ -433,6 +433,7 @@ export {
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
   QueryGraphData,
+  DataOwnerQuerySymbolByName,
   DataOwnerTags,
   EnrichmentSearchTags,
   ResourceLoaderTags,

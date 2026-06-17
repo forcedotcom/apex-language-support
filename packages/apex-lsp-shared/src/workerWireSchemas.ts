@@ -748,6 +748,46 @@ export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// DataOwnerQuerySymbolByName — enrichment worker asks the data-owner (which
+// holds ALL workspace symbols) to resolve a symbol by name when its own LOCAL
+// name index misses. Returns the matching symbol(s) with their owning file
+// URI(s) plus the owning files' serialized symbol tables so the worker can
+// ingest them and finish resolving the reference. Modeled on ResolveDepUris.
+// ---------------------------------------------------------------------------
+
+export class DataOwnerQuerySymbolByName extends Schema.TaggedRequest<DataOwnerQuerySymbolByName>()(
+  'DataOwnerQuerySymbolByName',
+  {
+    success: Schema.Struct({
+      /** Name matches found on the data-owner (empty when nothing matched). */
+      matches: Schema.Array(
+        Schema.Struct({
+          name: Schema.String,
+          fileUri: Schema.String,
+          kind: Schema.optional(Schema.String),
+        }),
+      ),
+      /**
+       * Serialized symbol tables keyed by owning file URI, so the worker can
+       * ingest them locally (mirrors ResolveDepUris.entries).
+       */
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DataOwnerQuerySymbolByNameError'),
+      message: Schema.String,
+    }),
+    payload: {
+      name: Schema.String,
+      // Optional namespace/qualifier hint (e.g. the leading qualifier of a
+      // qualified TypeReference). Accepted now to avoid a wire-schema break
+      // later; the data-owner may use it to disambiguate name matches.
+      namespace: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Role-partitioned tag unions
 // ---------------------------------------------------------------------------
 
@@ -762,6 +802,7 @@ export const DataOwnerTags = [
   'ResolveDependentUris',
   'WorkspaceBatchIngest',
   'QueryGraphData',
+  'DataOwnerQuerySymbolByName',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
   'DispatchDocumentSave',
@@ -833,6 +874,7 @@ export type DataOwnerRequest =
   | ResolveDependentUris
   | WorkspaceBatchIngest
   | QueryGraphData
+  | DataOwnerQuerySymbolByName
   | DispatchDocumentOpen
   | DispatchDocumentChange
   | DispatchDocumentSave

@@ -11,6 +11,7 @@ import {
   ResolveDependentUris,
   ResolveDepUris,
   QuerySymbolSubset,
+  DataOwnerQuerySymbolByName,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
@@ -91,6 +92,38 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
 
     expect(sent[0]).toBeInstanceOf(ResolveDepUris);
     expect(sent[1]).toBeInstanceOf(QuerySymbolSubset);
+  });
+
+  it('forwards QuerySymbolByName with name + optional namespace as a typed schema instance', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      name: 'CrossWorkerTarget',
+      namespace: 'MyNs',
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).name).toBe(
+      'CrossWorkerTarget',
+    );
+    expect((sent[0] as DataOwnerQuerySymbolByName).namespace).toBe('MyNs');
+  });
+
+  it('forwards QuerySymbolByName with omitted namespace', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      name: 'CrossWorkerTarget',
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).namespace).toBeUndefined();
   });
 
   it('throws a descriptive error for unknown methods (regression guard)', async () => {

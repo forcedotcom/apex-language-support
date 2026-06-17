@@ -28,6 +28,7 @@ import {
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   QueryGraphData,
+  DataOwnerQuerySymbolByName,
   CompileDocument,
   WorkspaceBatchCompile,
   DispatchHover,
@@ -794,6 +795,15 @@ function createDispatcher(
             new ResolveDependentUris({
               uri: prd.uri,
               symbolName: prd.symbolName,
+            }),
+          );
+        }
+        case 'QuerySymbolByName': {
+          const pqn = params as { name: string; namespace?: string };
+          return callbacks.sendToDataOwner(
+            new DataOwnerQuerySymbolByName({
+              name: pqn.name,
+              namespace: pqn.namespace,
             }),
           );
         }

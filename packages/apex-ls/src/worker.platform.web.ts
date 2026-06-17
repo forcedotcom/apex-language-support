@@ -49,6 +49,7 @@ import {
   ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
+  DataOwnerQuerySymbolByName,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -94,6 +95,7 @@ const AllWorkerRequests = Schema.Union(
   ResolveDependentUris,
   WorkspaceBatchIngest,
   QueryGraphData,
+  DataOwnerQuerySymbolByName,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -610,6 +612,14 @@ async function loadSymbolDataForEnrichment(
           } catch {
             // Dep pre-fetch is best-effort.
           }
+
+          // Cross-worker fallback: ResolveDepUris resolves names that map to a
+          // file via the data-owner's class→file index, but a qualified
+          // TypeReference can still miss when the target file is not loaded in
+          // this enrichment worker's LOCAL name index. For each such name, ask
+          // the data-owner (which holds ALL workspace symbols) to resolve it by
+          // name and ingest the owning file's symbol table.
+          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
         }
       }
     }
@@ -618,6 +628,78 @@ async function loadSymbolDataForEnrichment(
   }
 
   return { version, detailLevel };
+}
+
+/**
+ * Cross-worker symbol resolution fallback.
+ *
+ * When the enrichment worker's LOCAL name index ({@link findSymbolByName})
+ * misses a referenced name, route a {@link DataOwnerQuerySymbolByName} query
+ * through the assistance proxy to the data-owner — which holds ALL workspace
+ * symbols — and ingest the owning file's symbol table so the reference can
+ * resolve locally.
+ *
+ * Best-effort and idempotent: names already known locally are skipped, and a
+ * failed query leaves the graph partial.
+ *
+ * keep this helper in sync with worker.platform.ts — the two platforms
+ * intentionally carry identical enrichment bodies.
+ *
+ * @param svc Enrichment services (symbol manager + storage).
+ * @param names Candidate names to resolve (e.g. unresolved class references).
+ * @param queryByName Coordinator-assistance fetcher; injectable so the
+ *   ingestion contract can be unit-tested without a live assistance bus.
+ *   Defaults to {@link requestCoordinatorAssistancePromise}.
+ * @returns Count of owning files ingested (0 on failure or no matches).
+ */
+export async function resolveMissingNamesViaDataOwner(
+  svc: EnrichmentServices,
+  names: readonly string[],
+  queryByName: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown> = requestCoordinatorAssistancePromise,
+): Promise<number> {
+  const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+  let ingested = 0;
+  for (const name of names) {
+    try {
+      // Skip names the local name index already resolves.
+      const local = await svc.symbolManager.findSymbolByName(name);
+      if (local.length > 0) continue;
+
+      const response = (await queryByName(
+        'dataOwner:QuerySymbolByName',
+        { name },
+        true,
+      )) as {
+        matches?: ReadonlyArray<{ name: string; fileUri: string }>;
+        entries?: Record<string, unknown>;
+      };
+
+      if (!response?.entries) continue;
+      for (const [fileUri, stData] of Object.entries(response.entries)) {
+        if (!stData) continue;
+        const st = SymbolTable.fromSerializedData(
+          stData as SerializedSymbolTableData,
+        );
+        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+        ingested++;
+      }
+      getLogger().debug(
+        () =>
+          `[ENRICHMENT] Cross-worker resolved '${name}' via data-owner: ` +
+          `${response.matches?.length ?? 0} match(es), ` +
+          `${Object.keys(response.entries ?? {}).length} file(s) ingested`,
+      );
+    } catch (err) {
+      getLogger().debug(
+        () => `[ENRICHMENT] Cross-worker resolve failed for '${name}': ${err}`,
+      );
+    }
+  }
+  return ingested;
 }
 
 /**
@@ -1150,6 +1232,60 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
   // NOTE: keep this handler in sync with worker.platform.ts —
   // the two platforms intentionally carry identical data-owner bodies.
+  DataOwnerQuerySymbolByName: (req) =>
+    guardRole('DataOwnerQuerySymbolByName').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            // The data-owner holds ALL workspace symbols, so its name index
+            // resolves names an enrichment worker's local subset may miss.
+            const symbols = yield* Effect.promise(() =>
+              sm.findSymbolByName(req.name),
+            );
+
+            const matches: Array<{
+              name: string;
+              fileUri: string;
+              kind?: string;
+            }> = [];
+            const uris = new Set<string>();
+            for (const symbol of symbols) {
+              if (!symbol?.fileUri) continue;
+              matches.push({
+                name: symbol.name,
+                fileUri: symbol.fileUri,
+                kind: typeof symbol.kind === 'string' ? symbol.kind : undefined,
+              });
+              uris.add(symbol.fileUri);
+            }
+
+            // Return the owning files' symbol tables so the worker can ingest
+            // them and finish resolving the reference (mirrors ResolveDepUris).
+            const entries: Record<string, unknown> = {};
+            for (const uri of uris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                entries[uri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: st.getFileUri(),
+                });
+              }
+            }
+
+            return { matches, entries };
+          }),
+        ),
+      ),
+    ),
+
   ResolveDependentUris: (req) =>
     guardRole('ResolveDependentUris').pipe(
       Effect.flatMap(() =>
