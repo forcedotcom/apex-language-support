@@ -321,9 +321,13 @@ export class LSPQueueManager {
   /**
    * Submit an implementation request
    */
-  async submitImplementationRequest(params: any): Promise<any> {
+  async submitImplementationRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
     return this.submitRequest('implementation', params, {
       priority: Priority.High,
+      token,
     });
   }
 

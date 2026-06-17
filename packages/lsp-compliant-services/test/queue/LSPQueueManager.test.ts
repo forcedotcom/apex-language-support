@@ -457,6 +457,64 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         );
         expect(result).toEqual({ result: 'test' });
       });
+
+      // W-23006798 Phase 4: implementation threads the cancellation token the
+      // same way references does (a superseded go-to-implementation drops at the
+      // queue instead of running a stale search).
+      it('skips an implementation request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue([]);
+        serviceRegistry.register({
+          requestType: 'implementation' as LSPRequestType,
+          priority: Priority.High,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitImplementationRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('interrupts an in-flight implementation request when cancelled', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        serviceRegistry.register({
+          requestType: 'implementation' as LSPRequestType,
+          priority: Priority.High,
+          timeout: 5000,
+          maxRetries: 0,
+          process: () => new Promise<never>(() => {}),
+        });
+
+        const { token, fire } = makeToken();
+        const pending = manager.submitImplementationRequest(
+          {
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          },
+          token,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        fire();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+      });
     });
 
     describe('worker dispatcher consultation', () => {

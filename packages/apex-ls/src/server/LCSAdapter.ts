@@ -540,10 +540,11 @@ export class LCSAdapter {
    * Trigger a full workspace load if it is not already loaded or loading.
    *
    * Go-to-implementation must enumerate every implementor across the
-   * workspace, so it needs the whole symbol graph loaded into the dataOwner.
-   * Unlike references (which runs on the coordinator and queues this itself),
-   * the implementation search runs in the enrichment pool and cannot reach the
-   * LSP connection, so the trigger is hoisted here to the coordinator.
+   * workspace, so the dataOwner graph must hold all workspace classes (incl.
+   * never-opened ones) before the search asks it for inbound implementor
+   * tables. The search itself runs on the request pool and cannot reach the LSP
+   * connection, so the trigger is hoisted here to the coordinator, which owns
+   * the connection.
    *
    * Fire-and-forget: the load proceeds in the background. The first cold-start
    * request may return partial/empty results; once the load completes a repeat
@@ -640,16 +641,25 @@ export class LCSAdapter {
 
     if (capabilities.implementationProvider) {
       this.connection.onImplementation(
-        async (params: ImplementationParams): Promise<Location[] | null> => {
+        async (
+          params: ImplementationParams,
+          token: CancellationToken,
+        ): Promise<Location[] | null> => {
           // Implementation needs the full workspace graph to find every
           // implementor; trigger a load here (coordinator) since the search
-          // itself runs in the enrichment pool with no LSP connection.
+          // runs on the request pool with no LSP connection. This guarantees
+          // the dataOwner graph is (being) populated with all workspace classes
+          // before the search asks the dataOwner for inbound implementor tables.
           await this.triggerWorkspaceLoadIfNeeded();
           return this.handleLspRequest(
             LSP_SPAN_NAMES.IMPLEMENTATION,
             'textDocument/implementation',
             params,
-            (p) => LSPQueueManager.getInstance().submitImplementationRequest(p),
+            (p) =>
+              LSPQueueManager.getInstance().submitImplementationRequest(
+                p,
+                token,
+              ),
             null,
             {
               'document.position': `${params.position.line}:${params.position.character}`,
