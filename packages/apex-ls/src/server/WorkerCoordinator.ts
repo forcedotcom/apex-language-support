@@ -33,6 +33,8 @@ import {
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -557,9 +559,9 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   documentClose: 'dataOwner',
   documentLoad: 'coordinatorOnly',
   // LSP protocol operations
-  codeAction: 'coordinatorOnly',
-  // Document symbols / code lenses read the file's own table — run on the
-  // request pool (loads the file's subset) so the coordinator holds no symbols.
+  // File-scoped symbol readers run on the request pool (each loads the file's
+  // subset) so the coordinator holds no symbols.
+  codeAction: 'requestPool',
   codeLens: 'requestPool',
   // Completion runs on the LSP-request pool (loads the active file's subset,
   // incl. live edits, from the data-owner) so the coordinator holds no symbols.
@@ -579,7 +581,9 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   references: 'requestPool',
   rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
-  signatureHelp: 'coordinatorOnly',
+  signatureHelp: 'requestPool',
+  // workspaceSymbol stays coordinator-only: it is workspace-wide, not
+  // file-scoped, so the load-one-file request-pool model does not fit.
   workspaceSymbol: 'coordinatorOnly',
   crossFileEnrichment: 'requestPool',
 };
@@ -1031,6 +1035,31 @@ function buildEnrichmentMessage(
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
       });
+    case 'signatureHelp': {
+      const s = p as PositionBasedParams & { context?: unknown };
+      return new DispatchSignatureHelp({
+        textDocument: { uri: s.textDocument.uri },
+        position: s.position,
+        content: getDocumentContent?.(s.textDocument.uri),
+        ...(s.context !== undefined ? { context: s.context } : {}),
+      });
+    }
+    case 'codeAction': {
+      const a = p as {
+        textDocument: { uri: string };
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        context?: unknown;
+      };
+      return new DispatchCodeAction({
+        textDocument: { uri: a.textDocument.uri },
+        range: a.range,
+        content: getDocumentContent?.(a.textDocument.uri),
+        ...(a.context !== undefined ? { context: a.context } : {}),
+      });
+    }
     case 'references': {
       const r = p as PositionBasedParams;
       return new DispatchReferences({

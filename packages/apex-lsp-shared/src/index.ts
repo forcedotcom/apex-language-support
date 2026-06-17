@@ -426,6 +426,8 @@ export {
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,

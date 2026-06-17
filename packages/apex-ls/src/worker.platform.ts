@@ -53,6 +53,8 @@ import {
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -102,6 +104,8 @@ const AllWorkerRequests = Schema.Union(
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -564,6 +568,16 @@ type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
 type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
 };
+type SignatureHelpReq = PositionReq & { context?: unknown };
+type CodeActionReq = {
+  textDocument: { uri: string };
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  content?: string;
+  context?: unknown;
+};
 
 /**
  * Load symbol data from the data-owner worker into the local enrichment
@@ -906,6 +920,67 @@ const requestHandlers = {
         );
       }
 
+      return result;
+    },
+  ),
+  DispatchSignatureHelp: requestHandler<SignatureHelpReq>(
+    'DispatchSignatureHelp',
+    async (svc, req) => {
+      // Signature help runs on the in-flight document text while typing args.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.signatureHelpService.processSignatureHelp(
+        params as Parameters<
+          typeof svc.signatureHelpService.processSignatureHelp
+        >[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchCodeAction: requestHandler<CodeActionReq>(
+    'DispatchCodeAction',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        range: req.range,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.codeActionService.processCodeAction(
+        params as Parameters<typeof svc.codeActionService.processCodeAction>[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
       return result;
     },
   ),

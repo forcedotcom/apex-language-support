@@ -558,6 +558,40 @@ export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>
   },
 ) {}
 
+export class DispatchSignatureHelp extends Schema.TaggedRequest<DispatchSignatureHelp>()(
+  'DispatchSignatureHelp',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text — signature help runs on in-flight
+      // edits while typing call arguments.
+      content: Schema.optional(Schema.String),
+      // SignatureHelpContext is opaque to the wire layer; the service narrows.
+      context: Schema.optional(Schema.Unknown),
+    },
+  },
+) {}
+
+export class DispatchCodeAction extends Schema.TaggedRequest<DispatchCodeAction>()(
+  'DispatchCodeAction',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      range: WireRange,
+      // Live (possibly unsaved) document text.
+      content: Schema.optional(Schema.String),
+      // CodeActionContext (diagnostics + only/triggerKind) is opaque to the
+      // wire layer; the service narrows.
+      context: Schema.optional(Schema.Unknown),
+    },
+  },
+) {}
+
 export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>()(
   'DispatchReferences',
   {
@@ -801,6 +835,8 @@ export const LspRequestTags = [
   'DispatchHover',
   'DispatchDefinition',
   'DispatchCompletion',
+  'DispatchSignatureHelp',
+  'DispatchCodeAction',
   'DispatchReferences',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
@@ -871,6 +907,8 @@ export type LspRequestMessage =
   | DispatchHover
   | DispatchDefinition
   | DispatchCompletion
+  | DispatchSignatureHelp
+  | DispatchCodeAction
   | DispatchReferences
   | DispatchImplementation
   | DispatchDocumentSymbol

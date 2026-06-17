@@ -325,7 +325,7 @@ describe('WorkerCoordinator', () => {
         dispatcher = makeWorkerDispatcher({} as WorkerTopology, logger);
       });
 
-      it.each(['signatureHelp', 'rename', 'foldingRange'] as const)(
+      it.each(['rename', 'foldingRange', 'workspaceSymbol'] as const)(
         'blocks coordinator-only type: %s',
         (type) => {
           expect(dispatcher.canDispatch(type)).toBe(false);
@@ -339,6 +339,8 @@ describe('WorkerCoordinator', () => {
         'documentClose',
         'hover',
         'completion',
+        'signatureHelp',
+        'codeAction',
         'diagnostics',
         'definition',
         'implementation',
