@@ -534,6 +534,30 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
   },
 ) {}
 
+export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>()(
+  'DispatchCompletion',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text — completion runs on in-flight
+      // edits, so the request worker compiles this rather than the dataOwner's
+      // last-stored version.
+      content: Schema.optional(Schema.String),
+      // CompletionContext: triggerKind (1=Invoked, 2=TriggerCharacter,
+      // 3=TriggerForIncompleteCompletions) + optional triggerCharacter.
+      context: Schema.optional(
+        Schema.Struct({
+          triggerKind: Schema.Number,
+          triggerCharacter: Schema.optional(Schema.String),
+        }),
+      ),
+    },
+  },
+) {}
+
 export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>()(
   'DispatchReferences',
   {
@@ -776,6 +800,7 @@ export const LspRequestTags = [
   'WorkerRemoteStdlibWarmup',
   'DispatchHover',
   'DispatchDefinition',
+  'DispatchCompletion',
   'DispatchReferences',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
@@ -845,6 +870,7 @@ export type LspRequestMessage =
   | WorkerRemoteStdlibWarmup
   | DispatchHover
   | DispatchDefinition
+  | DispatchCompletion
   | DispatchReferences
   | DispatchImplementation
   | DispatchDocumentSymbol

@@ -425,6 +425,7 @@ export {
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,

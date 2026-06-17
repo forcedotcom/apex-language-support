@@ -326,7 +326,6 @@ describe('WorkerCoordinator', () => {
       });
 
       it.each([
-        'completion',
         'signatureHelp',
         'rename',
         'documentSymbol',
@@ -342,6 +341,7 @@ describe('WorkerCoordinator', () => {
         'documentSave',
         'documentClose',
         'hover',
+        'completion',
         'diagnostics',
         'definition',
         'implementation',
@@ -503,7 +503,7 @@ describe('WorkerCoordinator', () => {
       );
 
       expect(dispatcher.canDispatch('hover')).toBe(true);
-      expect(dispatcher.canDispatch('completion')).toBe(false);
+      expect(dispatcher.canDispatch('completion')).toBe(true);
       expect(dispatcher.canDispatch('rename')).toBe(false);
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
     });

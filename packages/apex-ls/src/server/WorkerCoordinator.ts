@@ -32,6 +32,7 @@ import {
   WorkspaceBatchCompile,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -558,7 +559,9 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   // LSP protocol operations
   codeAction: 'coordinatorOnly',
   codeLens: 'coordinatorOnly',
-  completion: 'coordinatorOnly',
+  // Completion runs on the LSP-request pool (loads the active file's subset,
+  // incl. live edits, from the data-owner) so the coordinator holds no symbols.
+  completion: 'requestPool',
   definition: 'requestPool',
   diagnostics: 'requestPool',
   documentSymbol: 'coordinatorOnly',
@@ -1008,6 +1011,17 @@ function buildEnrichmentMessage(
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
       });
+    case 'completion': {
+      const c = p as PositionBasedParams & {
+        context?: { triggerKind: number; triggerCharacter?: string };
+      };
+      return new DispatchCompletion({
+        textDocument: { uri: c.textDocument.uri },
+        position: c.position,
+        content: getDocumentContent?.(c.textDocument.uri),
+        ...(c.context ? { context: c.context } : {}),
+      });
+    }
     case 'definition':
       return new DispatchDefinition({
         textDocument: { uri: p.textDocument.uri },

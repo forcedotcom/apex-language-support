@@ -61,6 +61,7 @@ import {
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -106,6 +107,7 @@ const AllWorkerRequests = Schema.Union(
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -517,6 +519,9 @@ type PositionReq = {
 };
 type DocOnlyReq = { textDocument: { uri: string } };
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
+type CompletionReq = PositionReq & {
+  context?: { triggerKind: number; triggerCharacter?: string };
+};
 
 async function loadSymbolDataForEnrichment(
   svc: RequestServices,
@@ -777,6 +782,44 @@ const requestHandlers = {
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
       });
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchCompletion: requestHandler<CompletionReq>(
+    'DispatchCompletion',
+    async (svc, req) => {
+      // Completion runs on the in-flight (possibly unsaved) document text, so
+      // load the local subset from that content rather than the data-owner's
+      // last-stored version.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      // Completion needs full member visibility for member-access suggestions.
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      // triggerKind crosses the wire as a plain number but IS a
+      // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
+      // types, so build the params untyped and let the service narrow.
+      const completionParams = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context ? { context: req.context } : {}),
+      };
+      const result = await svc.completionService.processCompletion(
+        completionParams as Parameters<
+          typeof svc.completionService.processCompletion
+        >[0],
+      );
       if (needsEnrichment) {
         await writeBackEnrichedSymbols(
           svc,
