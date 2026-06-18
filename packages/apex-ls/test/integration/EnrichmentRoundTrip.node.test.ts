@@ -72,6 +72,21 @@ public class EnglishGreeter implements Greeter {
 
 const URI = 'file:///test/Greeter.cls';
 
+// Cross-file interface + implementor in SEPARATE files, mirroring the live
+// go-to-implementation bug (MyInterface.cls + MyImplementation.cls). The
+// implementor's `implements` edge is cross-file, so the data-owner must resolve
+// it for findReferencesTo(interface) — and thus go-to-implementation — to work.
+const IFACE_URI = 'file:///test/IFace.cls';
+const IFACE_SRC = `public interface IFace {
+    String run();
+}`;
+const IMPL_URI = 'file:///test/FaceImpl.cls';
+const IMPL_SRC = `public with sharing class FaceImpl implements IFace {
+    public String run() {
+        return 'r';
+    }
+}`;
+
 /**
  * A minimal LSP connection stub for the primary handler's catch-all
  * (connection.sendRequest / sendNotification). The round-trips under test do
@@ -327,5 +342,103 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     expect(levelOrder[finalLevel]).toBeGreaterThanOrEqual(
       levelOrder['public-api'],
     );
+  }, 120_000);
+
+  /**
+   * CROSS-FILE GO-TO-IMPLEMENTATION (regression for the live empty-result bug).
+   *
+   * Reproduces the exact live sequence: cold-open an interface, then load the
+   * workspace (which batch-ingests + batch-compiles the implementor that lives
+   * in another file), then go-to-implementation on the interface method. The
+   * implementor's `implements` edge is CROSS-FILE; the data-owner never ran
+   * resolveCrossFileReferencesForFile on the batch-compiled implementor, so its
+   * edge stayed out of the reverse index and resolveDependentUris(interface)
+   * returned nothing — go-to-implementation came back empty even after the load.
+   * The fix resolves supertype edges eagerly in addSymbolTable, so the data
+   * owner's reverse index sees implementor → interface and the pool worker's
+   * loadDependentsForReferences pulls the implementor in.
+   *
+   * Asserts the result is NON-EMPTY and points at the implementor file — the
+   * content assertion that the other round-trip tests omit.
+   */
+  it('go-to-implementation finds a cross-file implementor after a workspace load', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: 'error',
+      });
+      // getDocumentContent serves whichever file is asked for (the coordinator's
+      // TextDocuments would do this live); documentSymbol/implementation thread
+      // it, and the interface is the open file.
+      const sources: Record<string, string> = { [IFACE_URI]: IFACE_SRC };
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => sources[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      // 1. Cold-open the interface: data-owner stores + compiles it (target type
+      //    enters the graph first — the live ordering).
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: IFACE_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => IFACE_SRC,
+          },
+          textDocument: { uri: IFACE_URI },
+          text: IFACE_SRC,
+        }),
+      );
+
+      // 2. Workspace load: batch-ingest then batch-compile the implementor (and
+      //    the interface), exactly as the live load path does. The implementor's
+      //    write-back lands at public-api; addSymbolTable must now resolve its
+      //    implements edge into the data-owner reverse index.
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createBatchCompileDispatcher();
+      const entries = [
+        { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
+        { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
+      ];
+      yield* Effect.promise(() => ingest('wf-impl-test', entries));
+      yield* Effect.promise(() => compile('wf-impl-test', entries));
+
+      // 3. Go-to-implementation on the interface method `run` (line 1).
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('implementation', {
+          textDocument: { uri: IFACE_URI },
+          position: { line: 1, character: 11 }, // on `run` in `String run();`
+        }),
+      );
+
+      return { result };
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const { result } = await Effect.runPromise(program);
+
+    // The result is an LSP Location | Location[] | LocationLink[]. Normalize to
+    // an array and pull out the target URIs.
+    const locations = (
+      Array.isArray(result) ? result : result ? [result] : []
+    ) as Array<{ uri?: string; targetUri?: string }>;
+    const targetUris = locations.map((l) => l.uri ?? l.targetUri ?? '');
+
+    console.log(
+      `[round-trip:goto-impl] count=${locations.length} targets=${JSON.stringify(targetUris)}`,
+    );
+
+    // The crux: go-to-implementation must locate the implementor in the OTHER
+    // file. Before the fix this array was empty.
+    expect(locations.length).toBeGreaterThan(0);
+    expect(targetUris.some((u) => u.includes('FaceImpl'))).toBe(true);
   }, 120_000);
 });

@@ -2097,6 +2097,36 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       for (const sourceFileUri of sourceFilesToReResolve) {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
+
+      // Eagerly resolve this file's own SUPERTYPE edges (extends / implements).
+      // processSameFileReferencesToGraphEffect (run above) deliberately SKIPS
+      // cross-file references — including implements/extends, whose target type
+      // lives in another file — leaving them unresolved and absent from the
+      // reverse index. Normal cross-file refs (method calls, type refs) are fine
+      // to resolve lazily on first request, but supertype edges underpin
+      // findReferencesTo(type) → go-to-implementation / find-implementors of an
+      // interface or superclass. In the worker topology the data-owner never
+      // calls resolveCrossFileReferencesForFile on a batch-compiled implementor,
+      // so without this its implements edge never enters the reverse index and
+      // go-to-implementation returns nothing even after a full workspace load.
+      // Resolving here is bounded and cheap (a type declares only a handful of
+      // supertypes) and is guarded so files with no unresolved supertype edge
+      // pay nothing; resolveCrossFileReferencesForFile is re-entrancy-guarded and
+      // addReference de-dupes, so this stays near-free on repeated write-backs.
+      // (Targets must already be in the graph — the common cold-open-interface-
+      // then-load-implementor ordering; reverse ordering remains lazy.)
+      const hasUnresolvedSupertypeEdge = finalSymbolTable
+        .getAllReferences()
+        .some(
+          (r) =>
+            !r.resolvedSymbolId &&
+            (r.context === ReferenceContext.INHERITANCE ||
+              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
+        );
+      if (hasUnresolvedSupertypeEdge) {
+        yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+      }
+
       self.lastProcessedTableStateByFile.set(
         normalizedUri,
         self.getSymbolTableStateSignature(finalSymbolTable),
