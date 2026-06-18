@@ -2012,6 +2012,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
       }
 
+      // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
+      // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
+      // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
+      // another file), so the affected target is not knowable from
+      // symbolNamesAdded alone. findReferencesTo/From cache by target name and
+      // were never invalidated here, so an interface queried while only its
+      // first implementor was loaded stayed pinned to that one implementor even
+      // after more were added (the live "only the first implementor resolves"
+      // bug). These results are a cheap indexed reverse-index lookup, so a
+      // wholesale invalidation of the family is correct and cheap to rebuild.
+      self.unifiedCache.invalidatePattern('^refs_(to|from)_');
+
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
       yield* self.processSameFileReferencesToGraphEffect(

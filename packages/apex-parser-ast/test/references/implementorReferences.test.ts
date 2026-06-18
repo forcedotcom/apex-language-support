@@ -261,4 +261,153 @@ describe('implementor reverse references (W-23006798 Phase 1)', () => {
       expect(ref!.context).toBe(ReferenceContext.INTERFACE_IMPLEMENTATION);
     });
   });
+
+  // Compile via the worker's EXACT config (VisibilitySymbolListener +
+  // collectReferences) so the implements edges flow through the same
+  // addSymbolTable / eager-supertype-resolution path the data-owner uses —
+  // the live path where the multi-implementor collapse occurs.
+  const addViaWorker = async (apexCode: string, fileUri: string) => {
+    const table = new SymbolTable();
+    const listener = new VisibilitySymbolListener('public-api', table);
+    const result = compilerService.compile(apexCode, fileUri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const st = result.result instanceof SymbolTable ? result.result : table;
+    await Effect.runPromise(symbolManager.addSymbolTable(st, fileUri));
+  };
+
+  // Regression for the live "only ONE of multiple implementors resolves" bug.
+  //
+  // ROOT CAUSE: ApexSymbolManager.findReferencesTo caches its result under
+  // `refs_to_<symbol.name>`, but addSymbolTable only invalidated symbol_name_*
+  // and file_symbols_* — never refs_to_*. So once go-to-implementation queried
+  // the interface while only the FIRST implementor was loaded, the cache pinned
+  // [first]; subsequently-added implementors entered the reverse index but the
+  // stale cache kept returning just the first. This mirrors the live order:
+  // the user runs go-to-implementation (caches the current implementor set),
+  // then creates a NEW implementing class, then runs it again — and only the
+  // first resolves.
+  //
+  // The earlier cold-cache test missed this because it queried findReferencesTo
+  // only once at the end. This test queries AFTER EACH add to populate the
+  // cache, exactly as the live incremental pipeline does.
+  it('returns all implementors when queried incrementally as each is added', async () => {
+    const IFACE = 'file:///test/IMulti.cls';
+    const IMPL_A = 'file:///test/MultiA.cls';
+    const IMPL_B = 'file:///test/MultiB.cls';
+    const IMPL_C = 'file:///test/MultiC.cls';
+
+    await addViaWorker('public interface IMulti { String run(); }', IFACE);
+
+    await addViaWorker(
+      'public class MultiA implements IMulti { public String run() { return null; } }',
+      IMPL_A,
+    );
+    // First query — populates the refs_to_IMulti cache with just [MultiA].
+    let refs = await symbolManager.findReferencesTo(await topLevelType(IFACE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(new Set([IMPL_A]));
+
+    await addViaWorker(
+      'public class MultiB implements IMulti { public String run() { return null; } }',
+      IMPL_B,
+    );
+    refs = await symbolManager.findReferencesTo(await topLevelType(IFACE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(
+      new Set([IMPL_A, IMPL_B]),
+    );
+
+    await addViaWorker(
+      'public class MultiC implements IMulti { public String run() { return null; } }',
+      IMPL_C,
+    );
+    refs = await symbolManager.findReferencesTo(await topLevelType(IFACE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(
+      new Set([IMPL_A, IMPL_B, IMPL_C]),
+    );
+    refs.forEach((r) =>
+      expect(r.referenceType).toBe(ReferenceType.INTERFACE_IMPLEMENTATION),
+    );
+  });
+
+  // The same fix must apply symmetrically to `extends` (subclass discovery):
+  // INHERITANCE edges go through the identical refs_to_<name> cache and the
+  // identical clearReferenceStateForFile path, so a superclass queried while
+  // only its first subclass was loaded would otherwise pin to that one
+  // subclass. Same incremental query pattern as the implementors test.
+  it('returns all subclasses when queried incrementally as each is added', async () => {
+    const BASE = 'file:///test/MultiBase.cls';
+    const SUB_A = 'file:///test/MultiSubA.cls';
+    const SUB_B = 'file:///test/MultiSubB.cls';
+    const SUB_C = 'file:///test/MultiSubC.cls';
+
+    await addViaWorker('public virtual class MultiBase {}', BASE);
+
+    await addViaWorker('public class MultiSubA extends MultiBase {}', SUB_A);
+    // First query — populates the refs_to_MultiBase cache with just [MultiSubA].
+    let refs = await symbolManager.findReferencesTo(await topLevelType(BASE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(new Set([SUB_A]));
+
+    await addViaWorker('public class MultiSubB extends MultiBase {}', SUB_B);
+    refs = await symbolManager.findReferencesTo(await topLevelType(BASE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(
+      new Set([SUB_A, SUB_B]),
+    );
+
+    await addViaWorker('public class MultiSubC extends MultiBase {}', SUB_C);
+    refs = await symbolManager.findReferencesTo(await topLevelType(BASE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(
+      new Set([SUB_A, SUB_B, SUB_C]),
+    );
+    refs.forEach((r) =>
+      expect(r.referenceType).toBe(ReferenceType.INHERITANCE),
+    );
+  });
+
+  // Regression for a latent 3->0 bug that the stale cache above HID: re-adding
+  // the INTERFACE's own file (cold open, or any enrichment write-back of the
+  // interface) ran clearReferenceStateForFile, whose
+  // removeIncomingReferencesToSymbols wiped EVERY inbound implementor edge to
+  // the interface's symbols — and the interface's own re-add never rebuilds
+  // those (they belong to the implementor files). A re-add must clear only the
+  // file's OWN (outbound) edges; inbound edges survive (they are dropped only on
+  // true file removal). This test queries with a COLD cache after the re-add so
+  // it sees the actual reverse-index state, not a cached value.
+  it('keeps all implementors after the interface file is re-added', async () => {
+    const IFACE = 'file:///test/IMulti.cls';
+    const IMPL_A = 'file:///test/MultiA.cls';
+    const IMPL_B = 'file:///test/MultiB.cls';
+    const IMPL_C = 'file:///test/MultiC.cls';
+
+    await addViaWorker('public interface IMulti { String run(); }', IFACE);
+    await addViaWorker(
+      'public class MultiA implements IMulti { public String run() { return null; } }',
+      IMPL_A,
+    );
+    await addViaWorker(
+      'public class MultiB implements IMulti { public String run() { return null; } }',
+      IMPL_B,
+    );
+    await addViaWorker(
+      'public class MultiC implements IMulti { public String run() { return null; } }',
+      IMPL_C,
+    );
+
+    // All three implementor edges are present at this point.
+    let refs = await symbolManager.findReferencesTo(await topLevelType(IFACE));
+    expect(new Set(refs.map((r) => r.fileUri))).toEqual(
+      new Set([IMPL_A, IMPL_B, IMPL_C]),
+    );
+
+    // Re-add the INTERFACE file (as a cold open or enrichment write-back does).
+    // This must NOT discard the implementors' inbound edges.
+    await addViaWorker('public interface IMulti { String run(); }', IFACE);
+
+    refs = await symbolManager.findReferencesTo(await topLevelType(IFACE));
+    const implFiles = new Set(refs.map((r) => r.fileUri));
+    expect(implFiles).toEqual(new Set([IMPL_A, IMPL_B, IMPL_C]));
+    refs.forEach((r) =>
+      expect(r.referenceType).toBe(ReferenceType.INTERFACE_IMPLEMENTATION),
+    );
+  });
 });

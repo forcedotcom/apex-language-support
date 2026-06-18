@@ -87,6 +87,18 @@ const IMPL_SRC = `public with sharing class FaceImpl implements IFace {
     }
 }`;
 
+// A SECOND cross-file implementor of IFace, added AFTER the first
+// go-to-implementation already ran. Mirrors the live sequence the user hit:
+// cold-open the interface, go-to-implementation (resolves the first
+// implementor and caches that set), then create a new implementing class and
+// go-to-implementation again — both must now resolve, not just the first.
+const IMPL2_URI = 'file:///test/FaceImpl2.cls';
+const IMPL2_SRC = `public with sharing class FaceImpl2 implements IFace {
+    public String run() {
+        return 'r2';
+    }
+}`;
+
 /**
  * A minimal LSP connection stub for the primary handler's catch-all
  * (connection.sendRequest / sendNotification). The round-trips under test do
@@ -440,5 +452,118 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     // file. Before the fix this array was empty.
     expect(locations.length).toBeGreaterThan(0);
     expect(targetUris.some((u) => u.includes('FaceImpl'))).toBe(true);
+  }, 120_000);
+
+  /**
+   * MULTIPLE CROSS-FILE IMPLEMENTORS, added incrementally (regression for the
+   * live "only the first implementor resolves" bug).
+   *
+   * The user's exact sequence: cold-open the interface, run
+   * go-to-implementation (resolves implementor #1 and CACHES that result under
+   * refs_to_<interface>), then create a NEW implementing class and run
+   * go-to-implementation again. Before the fix the stale relationship cache in
+   * ApexSymbolManager.findReferencesTo pinned the result to implementor #1, so
+   * the newly-added implementor #2 never appeared. addSymbolTable now
+   * invalidates the refs_to_ / refs_from_ cache family on every add, so the
+   * second go-to-implementation sees BOTH implementors.
+   *
+   * Asserts the SECOND query returns BOTH implementor files — the multiplicity
+   * the single-implementor test above cannot catch.
+   */
+  it('go-to-implementation returns ALL implementors when a second one is added after the first query', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: 'error',
+      });
+      const sources: Record<string, string> = { [IFACE_URI]: IFACE_SRC };
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => sources[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      // 1. Cold-open the interface.
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: IFACE_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => IFACE_SRC,
+          },
+          textDocument: { uri: IFACE_URI },
+          text: IFACE_SRC,
+        }),
+      );
+
+      // 2. Workspace load with ONLY the first implementor present.
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createBatchCompileDispatcher();
+      const firstWave = [
+        { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
+        { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
+      ];
+      yield* Effect.promise(() => ingest('wf-multi-test', firstWave));
+      yield* Effect.promise(() => compile('wf-multi-test', firstWave));
+
+      // 3. First go-to-implementation — populates the relationship cache with
+      //    just implementor #1.
+      const firstResult = yield* Effect.promise(() =>
+        dispatcher.dispatch('implementation', {
+          textDocument: { uri: IFACE_URI },
+          position: { line: 1, character: 11 },
+        }),
+      );
+
+      // 4. Create a NEW implementing class and compile it (as saving a new .cls
+      //    does live). Its implements edge must invalidate the stale cache.
+      const secondWave = [
+        { uri: IMPL2_URI, content: IMPL2_SRC, languageId: 'apex', version: 1 },
+      ];
+      yield* Effect.promise(() => ingest('wf-multi-test-2', secondWave));
+      yield* Effect.promise(() => compile('wf-multi-test-2', secondWave));
+
+      // 5. Second go-to-implementation — must now return BOTH implementors.
+      const secondResult = yield* Effect.promise(() =>
+        dispatcher.dispatch('implementation', {
+          textDocument: { uri: IFACE_URI },
+          position: { line: 1, character: 11 },
+        }),
+      );
+
+      return { firstResult, secondResult };
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const { firstResult, secondResult } = await Effect.runPromise(program);
+
+    const toUris = (result: unknown): string[] => {
+      const locations = (
+        Array.isArray(result) ? result : result ? [result] : []
+      ) as Array<{ uri?: string; targetUri?: string }>;
+      return locations.map((l) => l.uri ?? l.targetUri ?? '');
+    };
+
+    const firstUris = toUris(firstResult);
+    const secondUris = toUris(secondResult);
+    console.log(
+      `[round-trip:goto-impl-multi] first=${JSON.stringify(firstUris)} ` +
+        `second=${JSON.stringify(secondUris)}`,
+    );
+
+    // First query saw only implementor #1.
+    expect(firstUris.some((u) => u.includes('FaceImpl'))).toBe(true);
+
+    // The crux: after adding implementor #2, the second query returns BOTH.
+    // Before the fix the stale cache returned only FaceImpl (the first).
+    expect(secondUris.some((u) => u.includes('FaceImpl.cls'))).toBe(true);
+    expect(secondUris.some((u) => u.includes('FaceImpl2'))).toBe(true);
   }, 120_000);
 });
