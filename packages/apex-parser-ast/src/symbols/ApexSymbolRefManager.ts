@@ -2106,6 +2106,15 @@ export class ApexSymbolRefManager {
    * interfaces it (transitively) implements/extends, and every child / implementor
    * type. Type traversal is cycle-guarded with a visited-types set; result
    * de-duplication is keyed on (sourceFileUri, sourceSymbolId, line, column).
+   *
+   * W-23006798 (implementor-references) interaction: that work adds INHERITANCE /
+   * INTERFACE_IMPLEMENTATION reverse-index edges, but they target the *type*
+   * symbol (an implementor->interface / subclass->superclass edge), so they land
+   * in the type's reverse-index bucket. This union only ever reads *method*
+   * buckets — findReferencesViaGraph(symbol) and findReferencesViaGraph(
+   * methodOnType), both keyed on a method declaration. Inheritance edges
+   * therefore cannot surface here as method references; no type-based filtering
+   * of findReferencesViaGraph is required to keep them out.
    */
   private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
     const methodName = symbol.name;
@@ -2176,6 +2185,17 @@ export class ApexSymbolRefManager {
    * Collect the names of all types related to `declaringType` by inheritance:
    * the type itself, its superclass chain, the interfaces it implements/extends
    * (transitively), and any type that extends or implements it. Cycle-guarded.
+   *
+   * FOLLOW-UP (W-23006798, implementor-references): that work makes
+   * implements/extends first-class reverse-index edges (ReferenceType.INHERITANCE
+   * / INTERFACE_IMPLEMENTATION) maintained at ingest time. Once it lands on main,
+   * this query-time whole-graph scan of `superClass`/`interfaces` string arrays
+   * (collectAllTypeSymbols, O(workspace types) per request) becomes redundant: the
+   * inheritance graph it recomputes will already exist in the reverse index, and
+   * the two can diverge. Replace this discovery with a reverse-index lookup
+   * keyed on the declaring type (treating W-23006798's edges as the canonical
+   * inheritance source) and delete collectAllTypeSymbols here. Tracked so the
+   * scan does not outlive the maintained edges.
    */
   private collectRelatedTypeNames(
     declaringType: TypeSymbol | undefined,
