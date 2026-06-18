@@ -592,6 +592,7 @@ type PositionReq = {
   content?: string;
 };
 type DocOnlyReq = { textDocument: { uri: string } };
+type DocWithContentReq = { textDocument: { uri: string }; content?: string };
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
 type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
@@ -1091,12 +1092,16 @@ const requestHandlers = {
       return result;
     },
   ),
-  DispatchDocumentSymbol: requestHandler<DocOnlyReq>(
+  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
     'DispatchDocumentSymbol',
     async (svc, req) => {
-      // Document symbols come from the file's own table — load its subset
-      // locally first (the coordinator no longer compiles opened files).
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      // documentSymbol re-compiles the file from its TEXT (the provider parses
+      // with FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph, so the pool worker must hold the
+      // document text. Thread req.content into loadSymbolDataForEnrichment,
+      // which stores it before the provider runs — otherwise the provider's
+      // storage.getDocument() returns null and the outline is empty.
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
       return svc.documentSymbolService.processDocumentSymbol({
         textDocument: { uri: req.textDocument.uri },
       });

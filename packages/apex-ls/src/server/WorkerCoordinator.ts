@@ -1145,6 +1145,12 @@ function buildLspRequestMessage(
     case 'documentSymbol':
       return new DispatchDocumentSymbol({
         textDocument: { uri: p.textDocument.uri },
+        // documentSymbol re-compiles from the document text on the pool worker
+        // (it does not read the dataOwner symbol graph), so it must carry the
+        // live text — same as hover/completion. Omitting it left the pool
+        // worker with no document to compile and returned an empty outline on
+        // cold open.
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'codeLens':
       return new DispatchCodeLens({

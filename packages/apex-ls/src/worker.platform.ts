@@ -693,6 +693,7 @@ type PositionReq = {
   content?: string;
 };
 type DocOnlyReq = { textDocument: { uri: string } };
+type DocWithContentReq = { textDocument: { uri: string }; content?: string };
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
 type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
@@ -1234,12 +1235,18 @@ const requestHandlers = {
       return result;
     },
   ),
-  DispatchDocumentSymbol: requestHandler<DocOnlyReq>(
+  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
     'DispatchDocumentSymbol',
     async (svc, req) => {
-      // Document symbols come from the file's own table — load its subset
-      // locally first (the coordinator no longer compiles opened files).
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      // documentSymbol re-compiles the file from its TEXT
+      // (DefaultApexDocumentSymbolProvider parses with
+      // FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph. So the pool worker must have the
+      // document text in local storage: thread req.content into
+      // loadSymbolDataForEnrichment, which stores it before the provider runs.
+      // Without it the provider's storage.getDocument() returns null and the
+      // outline is empty (the cold-open regression).
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
       return svc.documentSymbolService.processDocumentSymbol({
         textDocument: { uri: req.textDocument.uri },
       });

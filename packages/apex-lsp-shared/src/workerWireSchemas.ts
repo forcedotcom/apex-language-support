@@ -693,7 +693,16 @@ export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumen
   {
     success: Schema.Struct({ result: Schema.Unknown }),
     failure: DispatchError,
-    payload: { textDocument: WireTextDocumentId },
+    payload: {
+      textDocument: WireTextDocumentId,
+      // Live (possibly unsaved) document text. documentSymbol re-compiles the
+      // file from text (DefaultApexDocumentSymbolProvider parses with
+      // FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph — so the request-pool worker needs
+      // the text. Without it the pool worker's storage has no document and the
+      // provider returns an empty outline (the cold-open regression).
+      content: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
