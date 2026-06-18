@@ -359,4 +359,64 @@ describe('WorkspaceSymbolProcessingService', () => {
       expect(endTime - startTime).toBeLessThan(1000); // Should complete within 1 second
     });
   });
+
+  describe('location/URI helpers', () => {
+    // Build a SymbolLocation-shaped object (symbolRange + identifierRange).
+    const makeLocation = (
+      startLine: number,
+      startColumn: number,
+      endLine: number,
+      endColumn: number,
+    ) => ({
+      symbolRange: { startLine, startColumn, endLine, endColumn },
+      identifierRange: { startLine, startColumn, endLine, endColumn },
+    });
+
+    describe('createLocation', () => {
+      it('reads identifierRange (no NaN -> null)', async () => {
+        const symbol = {
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+          location: makeLocation(3, 13, 3, 22),
+        };
+
+        const result = await (service as any).createLocation(symbol);
+
+        expect(result).not.toBeNull();
+        expect(result.uri).toBe('file:///test/TestClass.cls');
+        // Parser line is 1-based, LSP is 0-based; column unchanged.
+        expect(result.range).toEqual({
+          start: { line: 2, character: 13 },
+          end: { line: 2, character: 22 },
+        });
+      });
+
+      it('returns null when the symbol has no location', async () => {
+        const result = await (service as any).createLocation({
+          name: 'NoLocation',
+          fileUri: 'file:///test/NoLocation.cls',
+        });
+        expect(result).toBeNull();
+      });
+
+      it('returns null when the location has no identifierRange', async () => {
+        const result = await (service as any).createLocation({
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+          location: { symbolRange: { startLine: 1, startColumn: 0 } },
+        });
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getSymbolFileUri', () => {
+      it('prefers fileUri when present', async () => {
+        const uri = await (service as any).getSymbolFileUri({
+          name: 'TestClass',
+          fileUri: 'file:///test/TestClass.cls',
+        });
+        expect(uri).toBe('file:///test/TestClass.cls');
+      });
+    });
+  });
 });
