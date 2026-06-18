@@ -417,14 +417,6 @@ describe('WorkspaceSymbolProcessingService', () => {
         });
         expect(uri).toBe('file:///test/TestClass.cls');
       });
-
-      it('falls back to filePath for wire-shape variants', async () => {
-        const uri = await (service as any).getSymbolFileUri({
-          name: 'TestClass',
-          filePath: '/test/TestClass.cls',
-        });
-        expect(uri).toBe('file:///test/TestClass.cls');
-      });
     });
   });
 });

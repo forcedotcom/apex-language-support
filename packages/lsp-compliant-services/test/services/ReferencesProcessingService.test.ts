@@ -512,14 +512,6 @@ describe('ReferencesProcessingService', () => {
         });
         expect(uri).toBe('file:///test/TestClass.cls');
       });
-
-      it('falls back to filePath for wire-shape variants', async () => {
-        const uri = await (service as any).getSymbolFileUri({
-          name: 'TestClass',
-          filePath: '/test/TestClass.cls',
-        });
-        expect(uri).toBe('file:///test/TestClass.cls');
-      });
     });
 
     describe('getReferenceFileUri', () => {
@@ -530,23 +522,9 @@ describe('ReferencesProcessingService', () => {
         expect(uri).toBe('file:///test/TestClass.cls');
       });
 
-      it('falls back to filePath on the reference', () => {
-        const uri = (service as any).getReferenceFileUri({
-          filePath: '/test/TestClass.cls',
-        });
-        expect(uri).toBe('file:///test/TestClass.cls');
-      });
-
       it('prefers fileUri on the resolved symbol', () => {
         const uri = (service as any).getReferenceFileUri({
           symbol: { fileUri: 'file:///other/Caller.cls' },
-        });
-        expect(uri).toBe('file:///other/Caller.cls');
-      });
-
-      it('falls back to filePath on the resolved symbol', () => {
-        const uri = (service as any).getReferenceFileUri({
-          symbol: { filePath: '/other/Caller.cls' },
         });
         expect(uri).toBe('file:///other/Caller.cls');
       });

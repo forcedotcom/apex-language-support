@@ -51,14 +51,6 @@ export interface WorkspaceSymbolContext {
 }
 
 /**
- * Wire-shape variant of an {@link ApexSymbol}. Objects that arrive deserialized
- * across the worker boundary may carry the legacy `filePath` field (instead of
- * the canonical `fileUri`). Declaring it explicitly keeps compile-time checking
- * on the canonical fields while still allowing the legacy fallback read.
- */
-type WireSymbol = ApexSymbol & { filePath?: string };
-
-/**
  * Service for processing workspace symbol requests using ApexSymbolManager
  */
 export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcessor {
@@ -461,7 +453,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Create location from symbol
    */
-  private async createLocation(symbol: WireSymbol): Promise<Location | null> {
+  private async createLocation(symbol: ApexSymbol): Promise<Location | null> {
     if (!symbol.location) {
       return null;
     }
@@ -496,14 +488,10 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Get the file URI for a symbol
    */
-  private async getSymbolFileUri(symbol: WireSymbol): Promise<string | null> {
-    // Prefer fileUri (the canonical field on ApexSymbol); fall back to
-    // filePath for wire-shape variants that use the legacy field name.
+  private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
+    // fileUri is the canonical field on ApexSymbol.
     if (symbol.fileUri) {
       return symbol.fileUri;
-    }
-    if (symbol.filePath) {
-      return `file://${symbol.filePath}`;
     }
 
     // Try to find in symbol manager
