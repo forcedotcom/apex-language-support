@@ -137,8 +137,16 @@ jobs:
     needs: [find-prerelease-candidate, quality-gate]
     runs-on: ubuntu-latest
     outputs:
-      stable-vsix-path: ${{ steps.repack.outputs.stable-vsix-path }}
+      stable-vsix-path: ${{ steps.repack.outputs.vsix-path }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+
       - name: Download VSIX from nightly GitHub release
         env:
           GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
@@ -160,55 +168,17 @@ jobs:
 
       - name: Repackage VSIX with stable version
         id: repack
-        env:
-          PRERELEASE_VERSION: ${{ needs.find-prerelease-candidate.outputs.prerelease-version }}
-          STABLE_VERSION: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
-        run: |
-          echo "Repackaging VSIX: $PRERELEASE_VERSION → $STABLE_VERSION"
-
-          WORK_DIR="./vsix-repack"
-          mkdir -p "$WORK_DIR"
-
-          # Unzip the VSIX (it is a ZIP archive)
-          unzip -q "$VSIX_FILE" -d "$WORK_DIR"
-
-          # Patch extension/package.json
-          PKG_JSON="$WORK_DIR/extension/package.json"
-          if [ ! -f "$PKG_JSON" ]; then
-            echo "extension/package.json not found in VSIX"
-            exit 1
-          fi
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
-            pkg.version = '$STABLE_VERSION';
-            fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          echo "Patched extension/package.json version to $STABLE_VERSION"
-
-          # Patch extension.vsixmanifest
-          VSIX_MANIFEST="$WORK_DIR/extension.vsixmanifest"
-          if [ -f "$VSIX_MANIFEST" ]; then
-            sed -i "s/Version=\"$PRERELEASE_VERSION\"/Version=\"$STABLE_VERSION\"/" "$VSIX_MANIFEST"
-            echo "Patched extension.vsixmanifest version to $STABLE_VERSION"
-          else
-            echo "Warning: extension.vsixmanifest not found — skipping manifest patch"
-          fi
-
-          # Rezip into a new VSIX
-          STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
-          cd "$WORK_DIR"
-          zip -qr "../$STABLE_VSIX" .
-          cd -
-
-          echo "Created stable VSIX: $STABLE_VSIX"
-          echo "stable-vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/repackage-vsix-stable
+        with:
+          source-vsix-path: ${{ env.VSIX_FILE }}
+          prerelease-version: ${{ needs.find-prerelease-candidate.outputs.prerelease-version }}
+          stable-version: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
 
       - name: Upload stable VSIX as artifact
         uses: actions/upload-artifact@v7
         with:
           name: stable-vsix
-          path: ${{ steps.repack.outputs.stable-vsix-path }}
+          path: ${{ steps.repack.outputs.vsix-path }}
 
   publish:
     needs: [find-prerelease-candidate, repackage]
