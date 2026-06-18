@@ -370,6 +370,40 @@ function clearReadiness(uri: string): void {
   readinessLatches.delete(uri);
 }
 
+/**
+ * Whether the symbols currently in the graph for `uri` are CURRENT for what an
+ * AwaitSymbolReadiness caller is waiting on. Used by both the initial peek and
+ * the post-wake re-peek so they cannot drift.
+ *
+ * `hasSymbols` is whether a symbol table is present at all. `reqVersion < 0`
+ * means "match the LATEST armed version" (the coordinator gate, whose
+ * triggering request carries no version).
+ *
+ * A present table is current only if the MERGED version (DocumentStateCache's
+ * documentVersion, bumped solely on an accepted write-back) has reached the
+ * version we require:
+ *   - no latch armed ⇒ nothing is compiling, any present table is current;
+ *   - latch armed ⇒ require mergedVersion ≥ latch.version (matchLatest) or
+ *     ≥ max(reqVersion, latch.version) (explicit).
+ * Critically this does NOT trust latch.settled: a latch also settles on a
+ * REJECTED or SUPERSEDED write-back that merged nothing, leaving the prior
+ * version's symbols in the graph — reporting those as ready is a stale read.
+ */
+function symbolsAreCurrent(
+  uri: string,
+  reqVersion: number,
+  hasSymbols: boolean,
+): boolean {
+  if (!hasSymbols) return false;
+  const latch = readinessLatches.get(uri);
+  if (!latch) return true;
+  const mergedVersion =
+    getDocumentStateCache().getCurrentState(uri)?.documentVersion ?? -1;
+  const requiredVersion =
+    reqVersion < 0 ? latch.version : Math.max(reqVersion, latch.version);
+  return mergedVersion >= requiredVersion;
+}
+
 // ---------------------------------------------------------------------------
 // Lazy role-specific service containers (bootstrapped on first dispatch)
 // ---------------------------------------------------------------------------
@@ -505,15 +539,31 @@ async function writeBackCompiledSymbols(
 ): Promise<boolean> {
   const startTime = Date.now();
   try {
-    const enrichedSymbolTable = {
+    // Sanitize for the wire BEFORE posting. The assistance bus posts this
+    // payload via MessagePort.postMessage, which uses the structured-clone
+    // algorithm — and structured clone THROWS on function values
+    // ("() => null could not be cloned"). A compiled SymbolTable's
+    // getAllSymbols() can carry function-valued properties (lazy thunks), which
+    // appear for real type-referencing Apex but not for trivial self-contained
+    // classes. Without this, the postMessage throws synchronously, the
+    // write-back never reaches the coordinator/data-owner, the readiness latch
+    // is never resolved, and the cold-read gate burns its full budget before
+    // falling back to a local compile — the ~2s cold-start stall.
+    //
+    // cloneForWire (JSON round-trip) is the same sanitizer every other
+    // wire-crossing data-owner payload already uses; it drops functions and
+    // other non-cloneable values, leaving plain JSON the data-owner can merge.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences:
         symbolTable.getAllHierarchicalReferences?.() ?? [],
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    });
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
 
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
@@ -1416,12 +1466,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               svc.symbolManager.getSymbolTableForFile(req.uri),
             );
             const latch = readinessLatches.get(req.uri);
-            if (
-              st != null &&
-              (!latch || matchLatest || latch.version <= req.version)
-            ) {
-              // Symbols already present and not awaiting a newer version's
-              // write-back — ready now.
+            if (symbolsAreCurrent(req.uri, req.version, st != null)) {
               return { kind: 'ready' as const };
             }
             if (!latch) {
@@ -1463,16 +1508,22 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             return { ready: false, reason: 'timeout' as const };
           }
 
-          // The latch resolves both on a successful merge and on supersession
-          // by a newer version (armReadiness/clearReadiness). Re-peek to tell a
-          // real merge from a stale wake-up.
+          // The latch resolves on a successful merge, on supersession by a newer
+          // version, AND on a rejected write-back (armReadiness/clearReadiness/
+          // the reject branches). Re-peek with the SAME currency check as the
+          // initial peek (symbolsAreCurrent) to tell a real merge from a stale
+          // wake-up: a supersession or rejected-write-back wake-up leaves the
+          // prior version's table present while the merged version has NOT
+          // advanced — reporting ready off that stale table is the bug. When not
+          // current, return stale-version so the coordinator re-issues the gate
+          // against the newer version.
           const after = yield* dataOwnerRead(
             Effect.gen(function* () {
               const svc = yield* ensureDataOwnerServices;
               const st = yield* Effect.promise(() =>
                 svc.symbolManager.getSymbolTableForFile(req.uri),
               );
-              return st != null;
+              return symbolsAreCurrent(req.uri, req.version, st != null);
             }),
           );
           return after
@@ -1546,15 +1597,27 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 : 0;
             const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
 
-            if (enrichedOrder <= currentOrder) {
+            // The detail-level downgrade guard prevents a poorer enrichment from
+            // overwriting a richer one — but ONLY for the SAME document version.
+            // A write-back for a NEWER version carries fresh content and MUST
+            // merge even at an equal/lower detail level: the cached level
+            // describes the OLD version's symbols, which are now stale. Guarding
+            // on level alone dropped a new version's symbols whenever its compile
+            // happened to land at the same level (e.g. public-api after an edit),
+            // leaving the graph stuck on the prior version's symbols until some
+            // later write-back happened to raise the level. Only skip when the
+            // cache is at the same-or-newer version AND same-or-richer level.
+            const cachedVersion = currentState?.documentVersion ?? -1;
+            const sameOrOlderVersion = req.documentVersion <= cachedVersion;
+            if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
-                  `for ${req.uri}`,
+                  `at v${cachedVersion} >= v${req.documentVersion} for ${req.uri}`,
               );
               // Symbols at this (or a richer) level are already in the graph for
-              // this version — the awaiter's data IS ready. Release it.
+              // this (or a newer) version — the awaiter's data IS ready. Release.
               resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
