@@ -868,6 +868,9 @@ export async function resolveMissingNamesViaDataOwner(
       const local = await svc.symbolManager.findSymbolByName(name);
       if (local.length > 0) continue;
 
+      // NOTE: the schema/coordinator also accept an optional `namespace`, but we
+      // intentionally send `{ name }` only for now (forward-compat hint —
+      // qualifier disambiguation is not wired yet).
       const response = (await queryByName(
         'dataOwner:QuerySymbolByName',
         { name },
