@@ -2107,6 +2107,20 @@ export class ApexSymbolRefManager {
   private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
     const methodName = symbol.name;
 
+    // Resolve-on-read: collectRelatedTypeNames discovers the inheritance chain
+    // purely from resolved INHERITANCE / INTERFACE_IMPLEMENTATION graph edges, so
+    // any extends/implements edge still sitting deferred (its target was ingested
+    // after the source, the documented lazy reverse-ordering case) would be
+    // invisible and the related-type set under-populated. Draining first
+    // materializes every deferred edge whose endpoints are now both in the graph,
+    // so a find-references issued before the post-batch drain still sees the full
+    // hierarchy rather than fewer results. The drain is synchronous, idempotent,
+    // and near-free in steady state — once the post-batch drain has run the
+    // deferred map is empty and this is a no-op. Scoped to the instance-method
+    // path because it is the only findReferencesTo branch whose completeness
+    // depends on inheritance-edge discovery.
+    this.drainAllDeferredReferencesSync();
+
     // Collect the set of type names to consider, walking the hierarchy.
     const declaringType = this.findDeclaringTypeForMember(symbol);
     const relatedTypeNames = this.collectRelatedTypeNames(declaringType);

@@ -467,6 +467,199 @@ describe('Cross-file edge population (W-22692421)', () => {
       const refs = graph.findReferencesTo(aM!);
       expect(Array.isArray(refs)).toBe(true);
     });
+
+    it('pins edge direction: a sibling implementor is reached only via the correct up-then-down walk', async () => {
+      // Direction-pinning topology. A 3-level CHAIN cannot catch a supertype /
+      // subtype direction swap — queried from any node, an up-walk and a
+      // down-walk both reach the same chain members. A SIBLING topology can: two
+      // implementors of one interface are reachable from each other ONLY by
+      // walking UP to the shared interface (outgoing INTERFACE_IMPLEMENTATION
+      // edge) and then DOWN to the sibling (incoming edge). If
+      // findSupertypesViaEdges / findSubtypesViaEdges were swapped, the up-walk
+      // from PingB would read PingB's (empty) incoming edges, never reach the
+      // interface, and the sibling PingA would be absent from the related set.
+      const ifaceUri = 'file:///Pingable.cls';
+      const ifaceSrc = `
+        public interface Pingable {
+          void ping();
+        }
+      `;
+      const implAUri = 'file:///PingA.cls';
+      const implASrc = `
+        public class PingA implements Pingable {
+          public void ping() {}
+        }
+      `;
+      const implBUri = 'file:///PingB.cls';
+      const implBSrc = `
+        public class PingB implements Pingable {
+          public void ping() {}
+        }
+      `;
+
+      await addFile(ifaceSrc, ifaceUri);
+      await addFile(implASrc, implAUri);
+      await addFile(implBSrc, implBUri);
+
+      // Resolve + drain so the implementor→interface edges are real (not seeded).
+      for (const uri of [ifaceUri, implAUri, implBUri]) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+      }
+      const graph = refManager();
+      graph.drainAllDeferredReferencesSync();
+
+      // Seed a caller edge targeting PingA.ping ONLY. (Receiver-typed call
+      // resolution is upstream and out of scope here — see the override-union
+      // test — so the method-reference datum is seeded; the inheritance edges
+      // that drive discovery are real.)
+      const pingAPing = graph
+        .getSymbolsInFile(implAUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'ping' && s.kind === SymbolKind.Method,
+        );
+      expect(pingAPing).toBeDefined();
+      const callerUri = 'file:///PingCaller.cls';
+      const callerSrc = `
+        public class PingCaller {
+          public void run(PingA a) {
+            a.ping();
+          }
+        }
+      `;
+      await addFile(callerSrc, callerUri);
+      const callerRun = graph
+        .getSymbolsInFile(callerUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'run' && s.kind === SymbolKind.Method,
+        );
+      expect(callerRun).toBeDefined();
+      graph.addReference(
+        callerRun!,
+        pingAPing!,
+        ReferenceType.METHOD_CALL,
+        {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 12,
+            endLine: 4,
+            endColumn: 21,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 14,
+            endLine: 4,
+            endColumn: 18,
+          },
+        },
+        { methodName: 'ping' },
+      );
+
+      // Querying the SIBLING (PingB.ping) must surface the PingA caller: the
+      // override-union walks UP from PingB to Pingable, then DOWN to PingA. A
+      // direction swap leaves PingA undiscovered and this empty.
+      const pingBPing = graph
+        .getSymbolsInFile(implBUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'ping' && s.kind === SymbolKind.Method,
+        );
+      expect(pingBPing).toBeDefined();
+      const refsFromB = graph.findReferencesTo(pingBPing!);
+      expect(refsFromB.some((r) => r.fileUri === callerUri)).toBe(true);
+    });
+
+    it('resolve-on-read: an instance-method query drains a deferred supertype edge (reverse load order)', async () => {
+      // The regression this guards: collectRelatedTypeNames discovers the
+      // hierarchy purely from RESOLVED inheritance edges. When an implementor is
+      // loaded before the interface it implements (the documented lazy
+      // reverse-ordering case), its INTERFACE_IMPLEMENTATION edge sits DEFERRED —
+      // invisible to discovery — until a drain runs. findInstanceMethodReferences
+      // now drains on read, so a find-references issued before the post-batch
+      // drain still sees the full hierarchy.
+      const implUri = 'file:///LazyImpl.cls';
+      const implSrc = `
+        public class LazyImpl implements LazyIface {
+          public void act() {}
+        }
+      `;
+      // Load the implementor FIRST; its supertype target (LazyIface) is absent,
+      // so resolving its cross-file refs defers the implements edge.
+      await addFile(implSrc, implUri);
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(implUri),
+      );
+      const graph = refManager();
+      expect(graph.getDeferredTargetNames()).toContain('LazyIface');
+
+      // Now load the interface — but do NOT drain. (Adding the target file does
+      // not auto-resolve the deferral; see the deferral→drain test above.)
+      const ifaceUri = 'file:///LazyIface.cls';
+      const ifaceSrc = `
+        public interface LazyIface {
+          void act();
+        }
+      `;
+      await addFile(ifaceSrc, ifaceUri);
+
+      // Seed a caller edge on the INTERFACE method LazyIface.act.
+      const ifaceAct = graph
+        .getSymbolsInFile(ifaceUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'act' && s.kind === SymbolKind.Method,
+        );
+      expect(ifaceAct).toBeDefined();
+      const callerUri = 'file:///LazyCaller.cls';
+      const callerSrc = `
+        public class LazyCaller {
+          public void run(LazyIface i) {
+            i.act();
+          }
+        }
+      `;
+      await addFile(callerSrc, callerUri);
+      const callerRun = graph
+        .getSymbolsInFile(callerUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'run' && s.kind === SymbolKind.Method,
+        );
+      expect(callerRun).toBeDefined();
+      graph.addReference(
+        callerRun!,
+        ifaceAct!,
+        ReferenceType.METHOD_CALL,
+        {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 12,
+            endLine: 4,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 14,
+            endLine: 4,
+            endColumn: 17,
+          },
+        },
+        { methodName: 'act' },
+      );
+
+      // Query the IMPLEMENTOR method WITHOUT a manual drain. Discovery must reach
+      // LazyIface (up-walk) to find the caller of LazyIface.act — which is only
+      // possible if findReferencesTo drained the deferred implements edge on read.
+      const implAct = graph
+        .getSymbolsInFile(implUri)
+        .find(
+          (s: ApexSymbol) => s.name === 'act' && s.kind === SymbolKind.Method,
+        );
+      expect(implAct).toBeDefined();
+      const refs = graph.findReferencesTo(implAct!);
+      expect(refs.some((r) => r.fileUri === callerUri)).toBe(true);
+
+      // The drain-on-read also satisfied the deferral as a side effect.
+      expect(graph.getDeferredTargetNames()).not.toContain('LazyIface');
+    });
   });
 
   describe('deferred target disambiguation (pickDeferredTarget)', () => {
