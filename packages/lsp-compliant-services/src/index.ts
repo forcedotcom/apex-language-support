@@ -41,7 +41,6 @@ import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
 import { DocumentChangeBatcher } from './services/DocumentChangeBatcher';
-import { DocumentChangeProcessingService } from './services/DocumentChangeProcessingService';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -203,12 +202,24 @@ let changeBatcher: DocumentChangeBatcher | null = null;
 
 /**
  * Dispatch function for document change events (LSP notification - fire-and-forget)
- * Routes through DocumentChangeBatcher for per-URI debounce, then delegates
- * to the shared tier-1 pipeline (same as didOpen).
+ * Routes through DocumentChangeBatcher for per-URI debounce, then submits a
+ * documentChange notification to the queue manager. When the worker topology is
+ * active the queue dispatches the change to the data-owner -> compilation worker
+ * (recompiling the file's current content and writing its symbols back to the
+ * single-writer graph); when workers are disabled it falls back to the local
+ * document-processing handler. This keeps the data-owner graph current as a file
+ * is edited — without it, edits to an already-open file (e.g. adding
+ * `implements MyInterface` to a freshly-created class) only updated the
+ * coordinator's local symbol manager, so request-pool features that read the
+ * data-owner graph (go-to-implementation, references) never saw the new edges.
  *
  * The document is stored in ApexStorage immediately so that LSP requests
  * (documentSymbol, hover, etc.) that arrive before the debounce timer fires
  * can still find the latest document content.
+ *
+ * The LS negotiates full-text sync (TextDocumentSyncKind.Full), so each change
+ * event carries the entire updated document; event.document.getText() is the
+ * authoritative current content used to build the compile message.
  * @param event The document change event
  */
 export const dispatchProcessOnChangeDocument = (
@@ -227,12 +238,14 @@ export const dispatchProcessOnChangeDocument = (
 
   if (!changeBatcher) {
     const logger = getLogger();
-    const processor = new DocumentChangeProcessingService(logger);
     changeBatcher = new DocumentChangeBatcher(
       logger,
       (ev) =>
         new Promise<void>((resolve) => {
-          processor.processDocumentChange(ev);
+          // Per-URI debounce has collapsed rapid typing to the latest version;
+          // submit that version to the queue so the data-owner recompiles it
+          // (or the local handler does, when workers are disabled).
+          LSPQueueManager.getInstance().submitDocumentChangeNotification(ev);
           resolve();
         }),
     );
@@ -254,14 +267,26 @@ export const dispatchProcessOnCloseDocument = (
 
 /**
  * Dispatch function for document save events (LSP notification - fire-and-forget)
+ *
+ * Submits a documentSave notification to the queue manager. When the worker
+ * topology is active the queue dispatches the save to the data-owner ->
+ * compilation worker so the file's saved content is recompiled into the
+ * single-writer graph; when workers are disabled it falls back to the local
+ * save handler. A save is the authoritative final content, so (unlike change)
+ * it is submitted without debounce. The document is stored immediately so any
+ * read racing the dispatch sees the saved content.
  * @param event The document save event
  */
 export const dispatchProcessOnSaveDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
-  const handler = HandlerFactory.createDidSaveDocumentHandler();
-  // Error handling is done internally in handleDocumentSave
-  handler.handleDocumentSave(event);
+  try {
+    const storage = ApexStorageManager.getInstance().getStorage();
+    void storage.setDocument(event.document.uri, event.document);
+  } catch {
+    // Storage may not be initialised yet during early startup.
+  }
+  LSPQueueManager.getInstance().submitDocumentSaveNotification(event);
 };
 
 /**

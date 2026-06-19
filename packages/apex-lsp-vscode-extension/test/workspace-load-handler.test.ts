@@ -269,6 +269,7 @@ describe('Workspace Load Handler', () => {
         mockLanguageClient,
         undefined,
         customSelector,
+        undefined,
       );
     });
 
@@ -286,6 +287,32 @@ describe('Workspace Load Handler', () => {
         mockLanguageClient,
         token,
         expect.any(Array),
+        undefined,
+      );
+    });
+
+    it('should forward the workspace-load reason to the loader', async () => {
+      // The reason drives the client's action-tailored busy status message
+      // (e.g. "Searching workspace for implementations…"). It must reach
+      // loadWorkspaceForServer as the 4th arg.
+      await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            mockLanguageClient,
+            undefined,
+            undefined,
+            'implementation',
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(mockLoadWorkspaceForServer).toHaveBeenCalledWith(
+        mockLanguageClient,
+        undefined,
+        expect.any(Array),
+        'implementation',
       );
     });
   });
@@ -306,6 +333,7 @@ describe('Workspace Load Handler', () => {
         mockLanguageClient,
         'test-token',
         expect.any(Array),
+        undefined,
       );
     });
 
@@ -324,6 +352,7 @@ describe('Workspace Load Handler', () => {
         mockLanguageClient,
         undefined,
         expect.any(Array),
+        undefined,
       );
     });
 

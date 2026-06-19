@@ -713,7 +713,11 @@ function createDispatcher(
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
 
-      if (type === 'documentOpen' || type === 'documentChange') {
+      if (
+        type === 'documentOpen' ||
+        type === 'documentChange' ||
+        type === 'documentSave'
+      ) {
         const dataOwnerMsg = buildDataOwnerMessage(type, params);
         const compileMsg = buildCompileMessage(type, params);
         logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
