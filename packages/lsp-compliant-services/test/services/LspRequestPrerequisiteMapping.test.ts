@@ -22,6 +22,15 @@ describe('LspRequestPrerequisiteMapping hardening contracts', () => {
     expect(signatureHelp.requiresCrossFileResolution).toBe(true);
   });
 
+  it('keeps implementation as workspace-wide blocking', () => {
+    const implementation = getPrerequisitesForLspRequestType('implementation');
+
+    expect(implementation.executionMode).toBe('blocking');
+    expect(implementation.requiresWorkspaceLoad).toBe(true);
+    expect(implementation.requiresCrossFileResolution).toBe(true);
+    expect(implementation.skipDuringWorkspaceLoad).toBe(false);
+  });
+
   it('keeps references and rename workspace-wide blocking requirements', () => {
     const references = getPrerequisitesForLspRequestType('references');
     const rename = getPrerequisitesForLspRequestType('rename');

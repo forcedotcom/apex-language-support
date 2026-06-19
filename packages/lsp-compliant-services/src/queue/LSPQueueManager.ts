@@ -47,7 +47,7 @@ export interface CancellationLike {
  * Worker-side dispatcher that the queue consults before falling back to the
  * coordinator-local handler. When wired (by the worker topology), a request is
  * offloaded to a worker via {@link dispatch} as long as the dispatcher
- * {@link isAvailable} and {@link canDispatch} the request type; otherwise the
+ * {@link isAvailable} and the type {@link dispatchesToPool}; otherwise the
  * queue processes it locally. Declared here so the queue layer documents the
  * protocol and catches shape drift at compile time rather than relying on
  * runtime optional-chaining against an untyped field.
@@ -55,11 +55,83 @@ export interface CancellationLike {
 export interface WorkerDispatcher {
   /** Whether the dispatcher is wired and ready to accept work. */
   isAvailable(): boolean;
-  /** Whether this dispatcher handles the given request type. */
+  /** Whether this dispatcher handles the given request type at all. */
   canDispatch(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is auto-dispatched to the request pool (a
+   * stateless reader over the dataOwner graph).
+   */
+  dispatchesToPool?(type: LSPRequestType): boolean;
+  /**
+   * Whether this request type is auto-dispatched to the data-owner worker.
+   * Document-lifecycle types (documentOpen/Change/Save/Close) route here so the
+   * data-owner accumulates symbols incrementally, instead of the coordinator
+   * compiling locally.
+   */
+  dispatchesToDataOwner?(type: LSPRequestType): boolean;
+  /**
+   * Whether the given document is currently open in the editor. When open, a
+   * compile is (or soon will be) in flight, so a request-pool read for the file
+   * should defer until symbols are ready rather than racing an empty graph.
+   * Optional: when absent, the cold-read gate is skipped entirely.
+   */
+  isFileOpen?(uri: string): boolean;
+  /**
+   * Block until the data-owner has merged the symbol graph for {uri, version},
+   * or report why it can't. The data-owner arms a per-URI latch when it stores
+   * an open/change and resolves it when the compile's write-back merges, so the
+   * gate awaits a deterministic signal instead of polling. A negative `version`
+   * means "match the latest armed version". `reason` lets the gate tell a
+   * genuine timeout from "no compile is pending" (fall back at once). Optional:
+   * when absent, the gate is skipped.
+   */
+  awaitSymbolDataReady?(
+    uri: string,
+    version: number,
+    timeoutMs: number,
+  ): Promise<{
+    ready: boolean;
+    reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+  }>;
   /** Offload the request to a worker, resolving with its result. */
   dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
 }
+
+/**
+ * Fraction of the request's own timeout the cold-read gate may spend waiting on
+ * the data-owner's readiness latch. The gate MUST give up well before the
+ * request deadline so that, when the write-back never arrives (a lost/cold-
+ * start compile), there is still time left inside the request budget to run the
+ * local-handler fallback — which itself recompiles the file (~1s+). Spending the
+ * full request budget on the gate (as a fixed 10s fuse did) made the fallback
+ * dead-on-arrival: the request's own `Effect.timeout` fired first and the fiber
+ * was gone by the time the gate returned.
+ */
+const COLD_READ_GATE_FRACTION = 0.4;
+
+/**
+ * Floor/ceiling (ms) for the derived gate budget, so a very short or very long
+ * request timeout still yields a sane wait.
+ */
+const COLD_READ_GATE_MIN_MS = 500;
+const COLD_READ_GATE_MAX_MS = 3_000;
+
+/**
+ * Sentinel passed as the awaited version when the triggering request carries no
+ * version of its own (e.g. documentSymbol): "wait for whatever version is
+ * currently armed to finish compiling."
+ */
+const MATCH_LATEST_VERSION = -1;
+
+/**
+ * Extract the `textDocument.uri` a request targets, if it carries one. Used by
+ * the cold-read gate to decide whether a pool read is for an open file.
+ */
+const requestTargetUri = (params: unknown): string | undefined => {
+  const uri = (params as { textDocument?: { uri?: unknown } } | null)
+    ?.textDocument?.uri;
+  return typeof uri === 'string' ? uri : undefined;
+};
 
 /**
  * Dependencies interface for LSPQueueManager initialization
@@ -140,18 +212,95 @@ export class LSPQueueManager {
         Error
       >();
 
-      // Wrap request execution in an Effect
+      // Wrap request execution in an Effect.
+      //
+      // When a worker dispatcher is active and this request type is
+      // worker-dispatchable, run it in the worker topology (which reads the
+      // single-writer dataOwner graph). Otherwise — or if dispatch fails —
+      // fall back to the local service handler on the coordinator.
       const requestEffect = Effect.tryPromise({
         try: async () => {
-          // Prefer the worker dispatcher when one is wired and willing to take
-          // this request type; only fall through to the coordinator-local
-          // handler when no dispatcher is available or it declines the type.
+          // Auto-dispatch to the worker topology when this type routes there:
+          //   - request-pool reads (definition/hover/references/completion/...),
+          //     stateless readers over the dataOwner graph; and
+          //   - data-owner writes / document-lifecycle (documentOpen/Change/
+          //     Save/Close), so the single-writer graph accumulates symbols
+          //     instead of the coordinator compiling locally.
+          // On dispatch failure, fall through to the local handler so a flaky
+          // worker degrades gracefully rather than dropping the request.
           if (
-            workerDispatcher?.isAvailable() &&
-            workerDispatcher.canDispatch(type)
+            workerDispatcher &&
+            workerDispatcher.isAvailable?.() &&
+            (workerDispatcher.dispatchesToPool?.(type) ||
+              workerDispatcher.dispatchesToDataOwner?.(type))
           ) {
-            logger.debug(() => `Dispatching ${type} request to worker`);
-            return workerDispatcher.dispatch(type, params);
+            // Cold-read gate: a request-pool READ for a file that's open in the
+            // editor races the compile triggered by its didOpen — the dataOwner
+            // may not hold symbols yet ("No Symbols"). Await the dataOwner's
+            // readiness latch (resolved the instant the write-back merges) and
+            // only then dispatch. The await runs on the coordinator (free-
+            // threaded) and the latch is awaited off the dataOwner's serial
+            // runner, so it cannot deadlock that runner. Skipped entirely when
+            // the file isn't open (no compile coming) or when the dispatcher
+            // doesn't expose the readiness predicates.
+            //
+            // When the latch reports it can't become ready, do NOT dispatch a
+            // doomed empty read. Fall through to the coordinator-local handler,
+            // which compiled the open file and can answer from its own symbol
+            // manager:
+            //   - 'no-compile-pending': nothing is driving a compile for this
+            //     URI on the dataOwner (e.g. a documentOpen that completed
+            //     locally during topology startup was never replayed), so no
+            //     write-back is coming.
+            //   - 'timeout': the write-back never arrived within the fuse.
+            //   - 'stale-version': a newer edit superseded the version awaited.
+            // Dispatching best-effort to an empty graph would return "No
+            // Symbols"; the local fallback returns real results.
+            let symbolsReady = true;
+            const uri = requestTargetUri(params);
+            if (
+              uri &&
+              workerDispatcher.dispatchesToPool?.(type) &&
+              workerDispatcher.isFileOpen?.(uri) === true &&
+              workerDispatcher.awaitSymbolDataReady
+            ) {
+              // Bound the gate wait to a fraction of the request deadline so a
+              // not-ready verdict still leaves room for the local fallback to
+              // run inside the request's own timeout.
+              const gateBudgetMs = Math.max(
+                COLD_READ_GATE_MIN_MS,
+                Math.min(
+                  COLD_READ_GATE_MAX_MS,
+                  Math.floor(timeout * COLD_READ_GATE_FRACTION),
+                ),
+              );
+              const readiness = await workerDispatcher.awaitSymbolDataReady(
+                uri,
+                MATCH_LATEST_VERSION,
+                gateBudgetMs,
+              );
+              if (!readiness.ready) {
+                symbolsReady = false;
+                logger.debug(
+                  () =>
+                    `Cold-read gate not ready for ${type} on ${uri} ` +
+                    `(${readiness.reason ?? 'unknown'}) — ` +
+                    'falling back to local handler',
+                );
+              }
+            }
+            if (symbolsReady) {
+              try {
+                logger.debug(() => `Dispatching ${type} request to worker`);
+                return (await workerDispatcher.dispatch(type, params)) as T;
+              } catch (dispatchError) {
+                logger.debug(
+                  () =>
+                    `Worker dispatch failed for ${type}, ` +
+                    `falling back to local handler: ${dispatchError}`,
+                );
+              }
+            }
           }
           const handler = serviceRegistry.getHandler(type);
           if (!handler) {
@@ -289,9 +438,13 @@ export class LSPQueueManager {
   /**
    * Submit an implementation request
    */
-  async submitImplementationRequest(params: any): Promise<any> {
+  async submitImplementationRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
     return this.submitRequest('implementation', params, {
       priority: Priority.High,
+      token,
     });
   }
 

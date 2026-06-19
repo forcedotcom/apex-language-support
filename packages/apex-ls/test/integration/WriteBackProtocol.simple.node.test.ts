@@ -18,7 +18,6 @@ import {
 } from '../../src/server/WorkerCoordinator';
 import {
   DispatchDocumentOpen,
-  QuerySymbolSubset,
   UpdateSymbolSubset,
   getLogger,
 } from '@salesforce/apex-lsp-shared';
@@ -38,98 +37,16 @@ const TEST_URI = 'file:///test/TestClass.cls';
 describe('WriteBackProtocol Simple Tests', () => {
   const logger = getLogger();
 
-  it.skip('data owner accepts write-back when version matches and detail level increases', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: false,
-        logger,
-      });
-
-      // Step 1: Open document (version 1)
-      yield* topology.dataOwner.executeEffect(
-        new DispatchDocumentOpen({
-          uri: TEST_URI,
-          languageId: 'apex',
-          version: 1,
-          content: SAMPLE_APEX_CLASS,
-        }),
-      );
-
-      // Step 2: Query initial state
-      const initialQuery = yield* topology.dataOwner.executeEffect(
-        new QuerySymbolSubset({
-          uris: [TEST_URI],
-        }),
-      );
-
-      expect(initialQuery.versions[TEST_URI]).toBe(1);
-      const initialDetailLevel = initialQuery.detailLevels[TEST_URI];
-      logger.info(() => `Initial detail level: ${initialDetailLevel}`);
-
-      // Step 3: Manually create enriched symbols (simulate enrichment)
-      const enrichedSymbols = {
-        symbols: [
-          {
-            id: 'test-symbol-1',
-            name: 'testMethod',
-            kind: 'Method',
-            location: {
-              uri: TEST_URI,
-              range: {
-                start: { line: 1, character: 18 },
-                end: { line: 1, character: 28 },
-              },
-            },
-          },
-        ],
-        references: [],
-        hierarchicalReferences: [],
-        metadata: {
-          fileUri: TEST_URI,
-          documentVersion: 1,
-          parseCompleteness: 'complete' as const,
-        },
-        fileUri: TEST_URI,
-      };
-
-      // Step 4: Write back with higher detail level
-      const updateResult = yield* topology.dataOwner.executeEffect(
-        new UpdateSymbolSubset({
-          uri: TEST_URI,
-          documentVersion: 1,
-          enrichedSymbolTable: enrichedSymbols,
-          enrichedDetailLevel: 'full' as const,
-          sourceWorkerId: 'test-worker-simple',
-        }),
-      );
-
-      // Verify write-back accepted
-      logger.info(
-        () =>
-          `Write-back result: accepted=${updateResult.accepted}, merged=${updateResult.merged}`,
-      );
-      expect(updateResult.accepted).toBe(true);
-      expect(updateResult.versionMismatch).toBe(false);
-      expect(updateResult.merged).toBeGreaterThan(0);
-
-      // Step 5: Query again to verify detail level increased
-      const finalQuery = yield* topology.dataOwner.executeEffect(
-        new QuerySymbolSubset({
-          uris: [TEST_URI],
-        }),
-      );
-
-      const finalDetailLevel = finalQuery.detailLevels[TEST_URI];
-      logger.info(() => `Final detail level: ${finalDetailLevel}`);
-      expect(finalDetailLevel).toBe('full');
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
-
-    await Effect.runPromise(program);
-  }, 120_000);
+  // NOTE: the write-back ACCEPT path (version matches + detail level increases)
+  // and the concurrent-write-back "first wins" scenario are covered by the
+  // bus-wired live-worker tests: EnrichmentRoundTrip.node.test.ts (real
+  // enrichment merges) and WorkerConcurrencyInterop.node.test.ts (the
+  // detail-level race + concurrent-hovers tests). They cannot run here as
+  // isolated dataOwner.executeEffect calls: the accept path's addSymbolTable
+  // resolution forwards stdlib lookups over the assistance bus
+  // (makeResourceLoaderRemoteLayer), which hangs with no mediator/resource
+  // loader wired. The two tests below cover the REJECT branches, which return
+  // before any resolution and so need no bus.
 
   it('data owner rejects write-back when version mismatches', async () => {
     const program = Effect.gen(function* () {
@@ -260,77 +177,6 @@ describe('WriteBackProtocol Simple Tests', () => {
       expect(updateResult.accepted).toBe(false);
       expect(updateResult.versionMismatch).toBe(false);
       expect(updateResult.merged).toBe(0);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
-
-    await Effect.runPromise(program);
-  }, 120_000);
-
-  it.skip('multiple workers can write back concurrently (first wins)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: false,
-        logger,
-      });
-
-      // Open document
-      yield* topology.dataOwner.executeEffect(
-        new DispatchDocumentOpen({
-          uri: TEST_URI,
-          languageId: 'apex',
-          version: 1,
-          content: SAMPLE_APEX_CLASS,
-        }),
-      );
-
-      const enrichedSymbols = {
-        symbols: [{ id: '1', name: 'test', kind: 'Method', location: {} }],
-        references: [],
-        hierarchicalReferences: [],
-        metadata: {
-          fileUri: TEST_URI,
-          documentVersion: 1,
-          parseCompleteness: 'complete' as const,
-        },
-        fileUri: TEST_URI,
-      };
-
-      // Simulate two workers trying to write back concurrently
-      const [result1, result2] = yield* Effect.all(
-        [
-          topology.dataOwner.executeEffect(
-            new UpdateSymbolSubset({
-              uri: TEST_URI,
-              documentVersion: 1,
-              enrichedSymbolTable: enrichedSymbols,
-              enrichedDetailLevel: 'full' as const,
-              sourceWorkerId: 'worker-1',
-            }),
-          ),
-          topology.dataOwner.executeEffect(
-            new UpdateSymbolSubset({
-              uri: TEST_URI,
-              documentVersion: 1,
-              enrichedSymbolTable: enrichedSymbols,
-              enrichedDetailLevel: 'full' as const,
-              sourceWorkerId: 'worker-2',
-            }),
-          ),
-        ],
-        { concurrency: 'unbounded' },
-      );
-
-      logger.info(
-        () =>
-          `Concurrent write-back: worker-1 accepted=${result1.accepted}, worker-2 accepted=${result2.accepted}`,
-      );
-
-      // One should succeed, one should fail (already at full detail level)
-      const acceptedCount = [result1, result2].filter((r) => r.accepted).length;
-      expect(acceptedCount).toBe(1); // Exactly one accepted
     }).pipe(
       Effect.scoped,
       Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),

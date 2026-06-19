@@ -379,8 +379,6 @@ export class LSPConfigurationManager {
         if (changed) {
           hasChanges = true;
         }
-        // Also set worker log level to match main log level
-        this.settingsManager.setWorkerLogLevel(apexSettings.logLevel);
       }
 
       // Check and set version

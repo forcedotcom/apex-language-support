@@ -138,10 +138,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       },
     },
 
-    worker: {
-      logLevel: 'error',
-    },
-
     version: undefined,
     logLevel: 'error',
   },
@@ -438,10 +434,6 @@ export function mergeWithDefaults(
             },
           }
         : userSettings.apex?.experimental,
-      worker: {
-        ...baseApex.worker,
-        ...userSettings.apex?.worker,
-      },
       version: userSettings.apex?.version || baseApex.version,
       logLevel: userSettings.apex?.logLevel || baseApex.logLevel,
     },
@@ -566,10 +558,6 @@ export function mergeWithExisting(
               },
             } as ExperimentalSettings)
           : undefined,
-      worker: {
-        ...existingSettings.apex.worker,
-        ...partialSettings.apex?.worker,
-      },
       version: partialSettings.apex?.version ?? existingSettings.apex.version,
       logLevel:
         partialSettings.apex?.logLevel ?? existingSettings.apex.logLevel,

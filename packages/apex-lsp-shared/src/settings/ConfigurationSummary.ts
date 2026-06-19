@@ -46,10 +46,7 @@ export function generateStartupSummary(
     `  Platform: ${env.runtimePlatform} | Server Mode: ${serverMode}`,
   );
   const logLevel = settings.apex.logLevel || 'error';
-  const workerLogLevel = settings.apex.worker?.logLevel || 'error';
-  summary.push(
-    `  Log Level: ${logLevel} | Worker Log Level: ${workerLogLevel}`,
-  );
+  summary.push(`  Log Level: ${logLevel}`);
   if (env.profilingMode && env.profilingMode !== 'none') {
     summary.push(`  Profiling: ${env.profilingMode} (${env.profilingType})`);
   }
@@ -156,12 +153,6 @@ export function generateChangeSummary(
   if (previous.apex.logLevel !== current.apex.logLevel) {
     changes.push(
       `  Log Level: ${previous.apex.logLevel} → ${current.apex.logLevel}`,
-    );
-  }
-
-  if (previous.apex.worker?.logLevel !== current.apex.worker?.logLevel) {
-    changes.push(
-      `  Worker Log Level: ${previous.apex.worker?.logLevel} → ${current.apex.worker?.logLevel}`,
     );
   }
 

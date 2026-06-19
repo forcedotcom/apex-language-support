@@ -229,7 +229,7 @@ async function searchWithStrategy(
     try {
       const files = await findFilesAcrossWorkspaceFolders(
         pattern,
-        null,
+        '**/.sf/**',
         maxCandidates,
       );
       allFiles.push(...files);
@@ -250,7 +250,7 @@ async function searchWithStrategy(
       try {
         const files = await findFilesAcrossWorkspaceFolders(
           pattern,
-          null,
+          '**/.sf/**',
           maxCandidates - allFiles.length,
         );
         allFiles.push(...files);
