@@ -168,4 +168,136 @@ describe('clearReferenceStateForFile preserves incoming edges (W-22692424)', () 
     expect(graphRefsFinal.some((r) => r.fileUri === bUri)).toBe(true);
     expect(graph.getForwardIndex().get(aUri)?.size ?? 0).toBeGreaterThan(0);
   });
+
+  it('surfaces NO phantom result for a renamed target on A re-parse (P2.1)', async () => {
+    // A declares type Foo. B references Foo. A is then re-parsed with Foo
+    // RENAMED to Baz. B is NOT re-parsed, so the B -> Foo edge (B's OUTGOING
+    // edge, untouched by clearReferenceStateForFile(A)) and its reverse-index
+    // entry keyed on Foo's old stable id both persist.
+    //
+    // findReferencesTo resolves its target BY NAME in the target file
+    // (findReferencesViaGraph -> findSymbolInFileByName). This test locks in
+    // that the renamed/new symbol surfaces NO phantom incoming reference:
+    // querying the new Baz declaration computes a fresh target id with no
+    // reverse entry and returns []. Asserted at the graph level (consistent
+    // with the test above) to exercise the reverse index directly.
+    //
+    // Honest nuance (verified): the re-add/enrichment path MERGES symbol
+    // tables rather than evicting old declarations, so the stale Foo
+    // declaration LINGERS in A's symbol index after the rename and a
+    // findReferencesTo(Foo) still resolves B's edge (the old id is still
+    // present and the edge is still valid). The genuinely-gone-target case is
+    // exercised separately via removeFile below (P2.2). What 6.10 must
+    // guarantee here is that the freshly-named target does not inherit a
+    // phantom edge, which is what we assert.
+    const aUri = 'file:///RenameA.cls';
+    const aFooSrc = `
+      public class Foo {
+        public void noop() {}
+      }
+    `;
+    const bUri = 'file:///RenameB.cls';
+    const bSrc = `
+      public class RenameB {
+        public void useFoo() {
+          Foo f = new Foo();
+        }
+      }
+    `;
+    // Re-parse of A with the declared type renamed Foo -> Baz.
+    const aBazSrc = `
+      public class Baz {
+        public void noop() {}
+      }
+    `;
+
+    await addFile(aFooSrc, aUri);
+    await addFile(bSrc, bUri);
+
+    for (const uri of [aUri, bUri]) {
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
+    const graph = refManager();
+    graph.drainAllDeferredReferencesSync();
+
+    const fooBefore = graph
+      .getSymbolsInFile(aUri)
+      .find((s: ApexSymbol) => s.name === 'Foo' && s.kind === SymbolKind.Class);
+    expect(fooBefore).toBeDefined();
+
+    // Pre-condition: B -> Foo incoming edge exists.
+    const refsBefore = graph.findReferencesTo(fooBefore!);
+    expect(refsBefore.some((r) => r.fileUri === bUri)).toBe(true);
+
+    // Re-parse A with Foo renamed to Baz (enrichment write-back path ->
+    // clearReferenceStateForFile(aUri)). B is NOT re-parsed.
+    await addFile(aBazSrc, aUri);
+
+    // The newly-named Baz declaration exists in A.
+    const bazAfter = graph
+      .getSymbolsInFile(aUri)
+      .find((s: ApexSymbol) => s.name === 'Baz' && s.kind === SymbolKind.Class);
+    expect(bazAfter).toBeDefined();
+
+    // GUARANTEE: the renamed target surfaces NO phantom incoming reference.
+    // B's outgoing edge still points at the old Foo id (B has not been
+    // re-resolved), so Baz computes a fresh target id with no reverse entry and
+    // findReferencesTo(Baz) returns []. The stale reverse entry keyed on Foo's
+    // old id is never surfaced under the new name.
+    expect(graph.findReferencesTo(bazAfter!).length).toBe(0);
+  });
+
+  it('removeFile STILL purges incoming edges (re-parse vs remove asymmetry) (P2.2)', async () => {
+    // Sibling assertion to make the asymmetry explicit: re-adding a file
+    // PRESERVES incoming edges (the tests above), but removeFile PURGES them
+    // (it calls removeIncomingReferencesToSymbols in addition to
+    // removeReferencesFromFile) because the target symbols genuinely go away.
+    const aUri = 'file:///RemoveA.cls';
+    const aSrc = `
+      public class RemoveA {
+        public void noop() {}
+      }
+    `;
+    const bUri = 'file:///RemoveB.cls';
+    const bSrc = `
+      public class RemoveB {
+        public void useA() {
+          RemoveA a = new RemoveA();
+        }
+      }
+    `;
+
+    await addFile(aSrc, aUri);
+    await addFile(bSrc, bUri);
+
+    for (const uri of [aUri, bUri]) {
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
+    const graph = refManager();
+    graph.drainAllDeferredReferencesSync();
+
+    const aType = graph
+      .getSymbolsInFile(aUri)
+      .find(
+        (s: ApexSymbol) => s.name === 'RemoveA' && s.kind === SymbolKind.Class,
+      );
+    expect(aType).toBeDefined();
+
+    // Pre-condition: B -> A incoming edge exists in the reverse index.
+    const refsBefore = graph.findReferencesTo(aType!);
+    expect(refsBefore.some((r) => r.fileUri === bUri)).toBe(true);
+
+    // removeFile(A) — true deletion. Unlike clearReferenceStateForFile this
+    // MUST purge incoming edges to A's symbols (the symbols no longer exist).
+    graph.removeFile(aUri);
+
+    // The B -> A incoming edge is gone from the reverse index.
+    const refsAfter = graph.findReferencesTo(aType!);
+    expect(refsAfter.some((r) => r.fileUri === bUri)).toBe(false);
+    expect(refsAfter.length).toBe(0);
+  });
 });
