@@ -131,8 +131,7 @@ export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
 
 // ---------------------------------------------------------------------------
 // AwaitSymbolReadiness — deterministic (not poll-based) readiness wait.
-// This resolves the instant a write-back for the URI merges into the
-// data-owner graph, via a
+// Resolves the instant a write-back for the URI merges into the data-owner graph, via a
 // per-URI latch the document-open/change handlers arm and UpdateSymbolSubset
 // resolves. The data-owner side never blocks its serial runner on the latch:
 // it returns the latch handle/immediate-ready synchronously, and the awaiting

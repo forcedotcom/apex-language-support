@@ -295,8 +295,8 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
 // ---------------------------------------------------------------------------
 // Symbol-readiness latches (data-owner role)
 //
-// Replaces the coordinator's former tick-count spin over a presence probe with
-// a deterministic signal: a documentOpen/Change arms a per-URI latch at the
+// Gives the coordinator a deterministic readiness signal: a documentOpen/Change
+// arms a per-URI latch at the
 // incoming version (inside the serial WRITE handler, so it is ordered before
 // the compile it triggers), and UpdateSymbolSubset resolves it the instant the
 // write-back for that version merges.
@@ -1427,8 +1427,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  // Deterministic replacement for the coordinator's tick-count spin: block
-  // until the symbol graph for {uri, version} is populated, or report why not.
+  // Deterministic readiness wait: block until the symbol graph for
+  // {uri, version} is populated, or report why not.
   //
   // "Snapshot in runner, await outside": the serial data-owner fiber must never
   // block on a Deferred whose resolver (UpdateSymbolSubset) is queued behind it

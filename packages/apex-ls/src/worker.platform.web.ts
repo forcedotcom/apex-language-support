@@ -340,8 +340,7 @@ function clearReadiness(uri: string): void {
 /**
  * Whether the symbols currently in the graph for `uri` are CURRENT for what an
  * AwaitSymbolReadiness caller is waiting on. Used by both the initial peek and
- * the post-wake re-peek so they cannot drift. Browser counterpart of the Node
- * worker's `symbolsAreCurrent`; see worker.platform.ts for the full rationale.
+ * the post-wake re-peek so they cannot drift.
  *
  * `hasSymbols` is whether a symbol table is present at all. `reqVersion < 0`
  * means "match the LATEST armed version" (the coordinator gate, whose
@@ -1366,14 +1365,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             return { ready: false, reason: 'timeout' as const };
           }
 
-          // The latch resolves on a successful merge, on supersession by a
-          // newer version, AND on a rejected write-back. Re-peek with the SAME
-          // currency check as the initial peek (symbolsAreCurrent) to tell a
-          // real merge from a stale wake-up: a supersession or rejected
-          // write-back leaves the prior version's table present while the
-          // merged version has NOT advanced — reporting ready off that stale
-          // table is the bug. When not current, return stale-version so the
-          // coordinator re-issues the gate against the newer version.
+          // The latch resolves on a successful merge, on supersession by a newer
+          // version, AND on a rejected write-back. Re-peek with the SAME currency
+          // check as the initial peek (symbolsAreCurrent) to tell a real merge
+          // from a stale wake-up: a supersession or rejected-write-back wake-up
+          // leaves the prior version's table present while the merged version has
+          // NOT advanced — reporting ready off that stale table is the bug. When
+          // not current, return stale-version so the coordinator re-issues the
+          // gate against the newer version.
           const after = yield* dataOwnerRead(
             Effect.gen(function* () {
               const svc = yield* ensureDataOwnerServices;
@@ -1434,15 +1433,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             // overwriting a richer one — but ONLY for the SAME document version.
             // A write-back for a NEWER version carries fresh content and MUST
             // merge even at an equal/lower detail level: the cached level
-            // describes the OLD version's symbols, which are now stale. Only
-            // skip when the cache is at the same-or-newer version AND
-            // same-or-richer level.
+            // describes the OLD version's symbols, which are now stale. Only skip
+            // when the cache is at the same-or-newer version AND same-or-richer
+            // level.
             const cachedVersion = currentState?.documentVersion ?? -1;
             const sameOrOlderVersion = req.documentVersion <= cachedVersion;
             if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
               // Symbols at this (or richer) level already present for this (or a
-              // newer) version — the awaiter's data IS ready. Release.
+              // newer) version — ready.
               resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
