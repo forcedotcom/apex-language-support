@@ -22,7 +22,6 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
-  QuerySymbolReadiness,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
@@ -684,8 +683,8 @@ function createDispatcher(
       callbacks.getDocumentContent?.(uri) !== undefined,
 
     // Block until the dataOwner has merged the symbol graph for {uri, version},
-    // or report why it can't. Replaces the coordinator's tick-count spin over
-    // QuerySymbolReadiness with a deterministic await: a document open/change
+    // or report why it can't. Replaces the coordinator's former tick-count spin
+    // over a presence probe with a deterministic await: a document open/change
     // arms a per-URI latch on the dataOwner, and the compile's write-back
     // resolves it. `reason` lets the gate distinguish a genuine timeout (keep
     // waiting / fall back) from "no compile is pending" (fall back immediately).
@@ -823,14 +822,6 @@ function createDispatcher(
           return callbacks.sendToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
-            }),
-          );
-        }
-        case 'QuerySymbolReadiness': {
-          const prr = params as { uri?: string };
-          return callbacks.sendToDataOwner(
-            new QuerySymbolReadiness({
-              uri: prr.uri ?? '',
             }),
           );
         }
