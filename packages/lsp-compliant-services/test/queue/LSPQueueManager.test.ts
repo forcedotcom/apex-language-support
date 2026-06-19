@@ -118,6 +118,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       getSymbol: jest.fn(),
       findSymbolByName: jest.fn(),
       findSymbolByFQN: jest.fn(),
+      findSymbolsByPrefix: jest.fn(),
       find: jest.fn(),
       findScalarKeywordType: jest.fn(),
       findSObjectType: jest.fn(),
@@ -457,6 +458,64 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         );
         expect(result).toEqual({ result: 'test' });
       });
+
+      // W-23006798 Phase 4: implementation threads the cancellation token the
+      // same way references does (a superseded go-to-implementation drops at the
+      // queue instead of running a stale search).
+      it('skips an implementation request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue([]);
+        serviceRegistry.register({
+          requestType: 'implementation' as LSPRequestType,
+          priority: Priority.High,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitImplementationRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('interrupts an in-flight implementation request when cancelled', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        serviceRegistry.register({
+          requestType: 'implementation' as LSPRequestType,
+          priority: Priority.High,
+          timeout: 5000,
+          maxRetries: 0,
+          process: () => new Promise<never>(() => {}),
+        });
+
+        const { token, fire } = makeToken();
+        const pending = manager.submitImplementationRequest(
+          {
+            textDocument: { uri: 'test' },
+            position: { line: 0, character: 0 },
+          },
+          token,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        fire();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+      });
     });
 
     describe('worker dispatcher consultation', () => {
@@ -467,12 +526,13 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         LSPQueueManager.getInstance().setWorkerDispatcher(null);
       });
 
-      it('dispatches to the worker when available and willing', async () => {
+      it('dispatches to the worker when available and the type routes to the pool', async () => {
         const manager = LSPQueueManager.getInstance();
         const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
         manager.setWorkerDispatcher({
           isAvailable: () => true,
           canDispatch: () => true,
+          dispatchesToPool: () => true,
           dispatch,
         });
 
@@ -488,12 +548,13 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         expect(result).toEqual({ result: 'from-worker' });
       });
 
-      it('falls through to the local handler when the dispatcher declines the type', async () => {
+      it('falls through to the local handler when the type does not route to the pool', async () => {
         const manager = LSPQueueManager.getInstance();
         const dispatch = jest.fn();
         manager.setWorkerDispatcher({
           isAvailable: () => true,
-          canDispatch: () => false,
+          canDispatch: () => true,
+          dispatchesToPool: () => false,
           dispatch,
         });
 
@@ -512,6 +573,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         manager.setWorkerDispatcher({
           isAvailable: () => false,
           canDispatch: () => true,
+          dispatchesToPool: () => true,
           dispatch,
         });
 
@@ -524,7 +586,10 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         expect(result).toEqual({ result: 'test' });
       });
 
-      it('surfaces a worker dispatch failure as a rejection', async () => {
+      it('falls back to the local handler when worker dispatch fails', async () => {
+        // W-23006798: a failed pool dispatch is non-fatal — the request is
+        // retried on the coordinator-local handler rather than surfaced as a
+        // rejection, so a flaky worker degrades gracefully.
         const manager = LSPQueueManager.getInstance();
         const dispatch = jest
           .fn()
@@ -532,15 +597,199 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         manager.setWorkerDispatcher({
           isAvailable: () => true,
           canDispatch: () => true,
+          dispatchesToPool: () => true,
           dispatch,
         });
 
-        await expect(
-          manager.submitReferencesRequest({
-            textDocument: { uri: 'test' },
-            position: { line: 0, character: 0 },
-          }),
-        ).rejects.toThrow('Worker dispatch failed');
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ result: 'test' });
+      });
+    });
+
+    describe('cold-read gate', () => {
+      // W-23006798: a request-pool READ for an OPEN file races the compile that
+      // its didOpen triggered. The coordinator-side gate awaits the dataOwner's
+      // readiness latch (resolved the instant the write-back merges) before
+      // dispatching. The await runs on the coordinator (free-threaded) and the
+      // latch is awaited off the dataOwner's serial runner, so it can't deadlock
+      // that runner the way a worker-side barrier would.
+      afterEach(() => {
+        LSPQueueManager.getInstance().setWorkerDispatcher(null);
+      });
+
+      it('dispatches once symbols are reported ready', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'warm' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: true });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'warm-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        // Awaited once (single deterministic wait, no polling) → dispatched.
+        expect(awaitSymbolDataReady).toHaveBeenCalledTimes(1);
+        expect(awaitSymbolDataReady).toHaveBeenCalledWith(
+          'warm-file',
+          -1,
+          expect.any(Number),
+        );
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ result: 'warm' });
+      });
+
+      it('skips the gate when the file is not open (no compile coming)', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'unopened' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'no-compile-pending' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => false,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'unopened-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        // Not open ⇒ gate skipped entirely; never awaited, dispatched at once.
+        expect(awaitSymbolDataReady).not.toHaveBeenCalled();
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ result: 'unopened' });
+      });
+
+      it('falls back to the local handler on timeout instead of hanging (deadlock regression)', async () => {
+        // Regression guard for the removed worker-side barrier deadlock: even if
+        // a write-back never arrives, the read must NOT hang — the dataOwner's
+        // latch wait is bounded and returns { ready: false, reason: 'timeout' }.
+        // On a not-ready verdict we do NOT dispatch a doomed empty read; we fall
+        // back to the local handler, which has the open file's symbols. (This
+        // mirrors the dev-host case where a documentOpen handled locally during
+        // startup was never replayed to the dataOwner, so no write-back is ever
+        // coming.)
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'timeout' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'never-ready-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        // Awaited once, came back not-ready; the worker was NOT dispatched —
+        // the local handler answered instead (default mock result).
+        expect(awaitSymbolDataReady).toHaveBeenCalledTimes(1);
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(result).toEqual({ result: 'test' });
+      });
+
+      it('falls back to the local handler when no compile is pending', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'no-compile-pending' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'no-pending-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(awaitSymbolDataReady).toHaveBeenCalledTimes(1);
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(result).toEqual({ result: 'test' });
+      });
+
+      it('skips the gate for non-pool (data-owner-routed) request types', async () => {
+        // The gate keys on dispatchesToPool — a type that routes to the
+        // data-owner (a write) but not the pool must never await readiness, even
+        // for an open file. (References stands in for any such type here; the
+        // dispatch branch still fires via dispatchesToDataOwner.)
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest.fn().mockResolvedValue({ result: 'data-owner' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => false,
+          dispatchesToDataOwner: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'data-owner-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(awaitSymbolDataReady).not.toHaveBeenCalled();
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ result: 'data-owner' });
+      });
+
+      it('skips the gate when the dispatcher does not expose the readiness predicates', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest
+          .fn()
+          .mockResolvedValue({ result: 'no-predicates' });
+        // No isFileOpen / awaitSymbolDataReady — optional, so the gate is
+        // skipped.
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          dispatch,
+        });
+
+        const result = await manager.submitReferencesRequest({
+          textDocument: { uri: 'legacy-dispatcher-file' },
+          position: { line: 0, character: 0 },
+        });
+
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ result: 'no-predicates' });
       });
     });
 
@@ -691,12 +940,122 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       const manager = LSPQueueManager.getInstance();
       expect(manager.getWorkerDispatcher()).toBeNull();
 
-      const mockDispatcher = { dispatch: jest.fn(), isAvailable: () => true };
+      const mockDispatcher = {
+        dispatch: jest.fn(),
+        isAvailable: () => true,
+        canDispatch: () => true,
+      };
       manager.setWorkerDispatcher(mockDispatcher);
       expect(manager.getWorkerDispatcher()).toBe(mockDispatcher);
 
       manager.setWorkerDispatcher(null);
       expect(manager.getWorkerDispatcher()).toBeNull();
+    });
+  });
+
+  describe('Worker dispatch routing', () => {
+    let serviceRegistry: ServiceRegistry;
+    let localProcess: jest.Mock;
+
+    beforeEach(() => {
+      serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+      localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      serviceRegistry.register({
+        requestType: 'implementation' as LSPRequestType,
+        priority: Priority.High,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+    });
+
+    afterEach(() => {
+      LSPQueueManager.getInstance().setWorkerDispatcher(null);
+    });
+
+    it('dispatches pool-routed requests to the worker, not the local handler', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: (t: LSPRequestType) => t === 'implementation',
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'worker' });
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        'implementation',
+        expect.any(Object),
+      );
+      expect(localProcess).not.toHaveBeenCalled();
+    });
+
+    it('uses the local handler when the type is not pool-routed', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: () => false,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'local' });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the local handler when worker dispatch throws', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockRejectedValue(new Error('worker down'));
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: () => true,
+        dispatchesToPool: () => true,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ from: 'local' });
+      expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses the local handler when the dispatcher is unavailable', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      manager.setWorkerDispatcher({
+        isAvailable: () => false,
+        canDispatch: () => true,
+        dispatchesToPool: () => true,
+        dispatch,
+      });
+
+      const result = await manager.submitImplementationRequest({
+        textDocument: { uri: 'test' },
+        position: { line: 0, character: 0 },
+      });
+
+      expect(result).toEqual({ from: 'local' });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(localProcess).toHaveBeenCalledTimes(1);
     });
   });
 

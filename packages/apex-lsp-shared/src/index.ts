@@ -274,10 +274,43 @@ export type LoadWorkspaceResult =
   | { error: string };
 
 /**
+ * Why a workspace load was triggered. Lets the client show an action-tailored
+ * status message (e.g. "Searching workspace for implementations…") instead of
+ * the generic load text, so a feature that triggers a cold workspace load can
+ * tell the user what it is doing right now.
+ *
+ * 'startup' is the default (explicit workspace load / no specific feature).
+ * Feature reasons are added as features adopt the pattern (implementation is
+ * first; references will follow).
+ */
+export type WorkspaceLoadReason = 'startup' | 'implementation' | 'references';
+
+/**
+ * User-facing status-bar message for each workspace-load reason. The client
+ * shows this (with a busy spinner) at load start and reverts on
+ * apex/workspaceIngestionComplete. Centralized here so server (which sends the
+ * reason) and client (which renders it) stay in agreement, and so new features
+ * adopt the pattern by adding one entry.
+ */
+export const WORKSPACE_LOAD_REASON_MESSAGE: Record<
+  WorkspaceLoadReason,
+  string
+> = {
+  startup: 'Loading Apex workspace…',
+  implementation: 'Searching workspace for implementations…',
+  references: 'Searching workspace for references…',
+};
+
+/**
  * Parameters for server-to-client workspace load request notification
  */
 export interface RequestWorkspaceLoadParams {
   readonly workDoneToken?: ProgressToken;
+  /**
+   * Why the load was requested. The client maps this to an action-tailored
+   * busy status message. Omitted/unknown → treated as 'startup'.
+   */
+  readonly reason?: WorkspaceLoadReason;
 }
 
 /**
@@ -401,6 +434,7 @@ export {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -425,6 +459,9 @@ export {
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -434,7 +471,7 @@ export {
   DispatchGenericLspRequest,
   QueryGraphData,
   DataOwnerTags,
-  EnrichmentSearchTags,
+  LspRequestTags,
   ResourceLoaderTags,
   CompilationTags,
   AllWorkerTags,
@@ -448,20 +485,20 @@ export type {
   WorkerInitSuccess,
   PingWorkerSuccess,
   QuerySymbolSubsetSuccess,
+  AwaitSymbolReadinessSuccess,
   UpdateSymbolSubsetSuccess,
   WorkerAssistanceSuccess,
   WorkspaceBatchIngestSuccess,
   ResourceLoaderGetSymbolTableSuccess,
   DataOwnerTag,
-  EnrichmentSearchTag,
+  LspRequestTag,
   ResourceLoaderTag,
   CompilationTag,
   WorkerTag,
   DataOwnerRequest,
-  EnrichmentSearchRequest,
+  LspRequestMessage,
   ResourceLoaderRequest,
   CompilationRequest,
   WorkerLogMessage,
-  WorkerLogLevelChange,
   WorkerLogLevel,
 } from './workerWireSchemas';

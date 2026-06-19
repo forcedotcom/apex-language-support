@@ -22,6 +22,7 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -32,6 +33,9 @@ import {
   WorkspaceBatchCompile,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -46,7 +50,7 @@ import {
   type LSPRequestType,
   type LoggerInterface,
   type DataOwnerRequest,
-  type EnrichmentSearchRequest,
+  type LspRequestMessage,
   type ResourceLoaderRequest,
   type CompilationRequest,
   type WorkerRole,
@@ -257,7 +261,7 @@ const DEFAULT_WORKER_SCRIPT =
 
 export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
-  readonly enrichmentPool: Worker.SerializedWorkerPool<EnrichmentSearchRequest>;
+  readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
@@ -278,7 +282,7 @@ export interface TopologyConfig {
 }
 
 const makeInitMessage = (
-  role: 'dataOwner' | 'enrichmentSearch' | 'resourceLoader' | 'compilation',
+  role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
 ) =>
@@ -388,13 +392,13 @@ export function initializeTopology(
     );
     logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
 
-    const enrichmentPool = yield* withRoleLayer(
-      Worker.makePoolSerialized<EnrichmentSearchRequest>({
+    const requestPool = yield* withRoleLayer(
+      Worker.makePoolSerialized<LspRequestMessage>({
         size: poolSize,
         initialMessage: () =>
-          makeInitMessage('enrichmentSearch', logLevel, serverMode),
+          makeInitMessage('lspRequest', logLevel, serverMode),
       }),
-      'enrichmentSearch',
+      'lspRequest',
     );
     logger.alwaysLog(
       () =>
@@ -403,7 +407,7 @@ export function initializeTopology(
 
     return {
       dataOwner,
-      enrichmentPool,
+      requestPool,
       resourceLoader,
       compilation,
     } as WorkerTopology;
@@ -429,7 +433,7 @@ export function runVerticalSlice(
 
     const initResult = yield* worker.executeEffect(
       new WorkerInit({
-        role: 'enrichmentSearch',
+        role: 'lspRequest',
         protocolVersion: WIRE_PROTOCOL_VERSION,
       }),
     );
@@ -462,7 +466,7 @@ export function runVerticalSlice(
 export interface TransportTopology {
   readonly transport: WorkerTopologyTransport;
   readonly dataOwner: WorkerHandle;
-  readonly enrichmentPool: PoolHandle;
+  readonly requestPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
   readonly compilation: WorkerHandle;
 }
@@ -495,10 +499,7 @@ export const initializeTransportTopology = (
       '[WorkerCoordinator] Compilation worker initialized (transport)',
     );
 
-    const enrichmentPool = yield* transport.makePool(
-      'enrichmentSearch',
-      poolSize,
-    );
+    const requestPool = yield* transport.makePool('lspRequest', poolSize);
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (transport, size=${poolSize})`,
@@ -507,7 +508,7 @@ export const initializeTransportTopology = (
     return {
       transport,
       dataOwner,
-      enrichmentPool,
+      requestPool,
       resourceLoader,
       compilation,
     };
@@ -531,7 +532,7 @@ export const runRemoteStdlibWarmupPhase = (
     const n = clampPoolSize(poolSize);
     yield* topology.dataOwner.executeEffect(req);
     for (let i = 0; i < n; i++) {
-      yield* topology.enrichmentPool.executeEffect(req);
+      yield* topology.requestPool.executeEffect(req);
     }
   });
 };
@@ -546,10 +547,10 @@ export const runRemoteStdlibWarmupPhase = (
  * DATA_OWNER_TYPES and COORDINATOR_ONLY_TYPES are derived automatically.
  *
  * - dataOwner:       routed to the data-owner worker
- * - enrichmentPool:  routed to an enrichment pool worker
+ * - requestPool:  routed to an enrichment pool worker
  * - coordinatorOnly: runs on the coordinator thread (local handler)
  */
-type DispatchTarget = 'dataOwner' | 'enrichmentPool' | 'coordinatorOnly';
+type DispatchTarget = 'dataOwner' | 'requestPool' | 'coordinatorOnly';
 
 const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   // document lifecycle
@@ -559,24 +560,33 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   documentClose: 'dataOwner',
   documentLoad: 'coordinatorOnly',
   // LSP protocol operations
-  codeAction: 'coordinatorOnly',
-  codeLens: 'coordinatorOnly',
-  completion: 'coordinatorOnly',
-  definition: 'enrichmentPool',
-  diagnostics: 'enrichmentPool',
-  documentSymbol: 'coordinatorOnly',
+  // File-scoped symbol readers run on the request pool (each loads the file's
+  // subset) so the coordinator holds no symbols.
+  codeAction: 'requestPool',
+  codeLens: 'requestPool',
+  // Completion runs on the LSP-request pool (loads the active file's subset,
+  // incl. live edits, from the data-owner) so the coordinator holds no symbols.
+  completion: 'requestPool',
+  definition: 'requestPool',
+  diagnostics: 'requestPool',
+  documentSymbol: 'requestPool',
   executeCommand: 'coordinatorOnly',
   findMissingArtifact: 'coordinatorOnly',
   foldingRange: 'coordinatorOnly',
-  hover: 'enrichmentPool',
-  implementation: 'coordinatorOnly',
+  hover: 'requestPool',
+  // Implementation search must read the workspace-wide symbol graph (the
+  // dataOwner's authoritative store), so it runs in the enrichment pool like
+  // definition — not on the coordinator, whose local store only holds opened files.
+  implementation: 'requestPool',
   prerequisiteEnrichment: 'coordinatorOnly',
-  references: 'enrichmentPool',
+  references: 'requestPool',
   rename: 'coordinatorOnly',
   resolve: 'coordinatorOnly',
-  signatureHelp: 'coordinatorOnly',
+  signatureHelp: 'requestPool',
+  // workspaceSymbol stays coordinator-only: it is workspace-wide, not
+  // file-scoped, so the load-one-file request-pool model does not fit.
   workspaceSymbol: 'coordinatorOnly',
-  crossFileEnrichment: 'enrichmentPool',
+  crossFileEnrichment: 'requestPool',
 };
 
 const DATA_OWNER_TYPES = new Set(
@@ -591,6 +601,12 @@ const COORDINATOR_ONLY_TYPES = new Set(
   ),
 );
 
+const REQUEST_POOL_TYPES = new Set(
+  (Object.keys(DISPATCH_ROUTING) as LSPRequestType[]).filter(
+    (t) => DISPATCH_ROUTING[t] === 'requestPool',
+  ),
+);
+
 /** Batch ingestion entry shape. */
 export interface BatchIngestEntry {
   uri: string;
@@ -602,7 +618,7 @@ export interface BatchIngestEntry {
 /** Callbacks that parameterize the dispatcher for different transport backends. */
 interface DispatcherCallbacks {
   readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
-  readonly dispatchToPool: (msg: EnrichmentSearchRequest) => Promise<unknown>;
+  readonly dispatchToPool: (msg: LspRequestMessage) => Promise<unknown>;
   readonly sendToCompilation: (msg: CompilationRequest) => Promise<unknown>;
   readonly sendBatch: (
     msg: WorkspaceBatchIngest,
@@ -655,20 +671,71 @@ function createDispatcher(
     },
     canDispatch: (type: LSPRequestType) => !COORDINATOR_ONLY_TYPES.has(type),
 
+    dispatchesToPool: (type: LSPRequestType) => REQUEST_POOL_TYPES.has(type),
+
+    dispatchesToDataOwner: (type: LSPRequestType) => DATA_OWNER_TYPES.has(type),
+
+    // True when the file is open in the editor — which means a compile is (or
+    // soon will be) in flight for it. The coordinator's own TextDocuments set
+    // is the authoritative "compile coming" signal, sidestepping the dataOwner
+    // version === -1 race. Backed by getDocumentContent (this.documents.get).
+    isFileOpen: (uri: string): boolean =>
+      callbacks.getDocumentContent?.(uri) !== undefined,
+
+    // Block until the dataOwner has merged the symbol graph for {uri, version},
+    // or report why it can't. A deterministic await rather than a poll: a
+    // document open/change arms a per-URI latch on the dataOwner, and the
+    // compile's write-back resolves it. `reason` lets the gate distinguish a
+    // genuine timeout (keep waiting / fall back) from "no compile is pending"
+    // (fall back immediately).
+    async awaitSymbolDataReady(
+      uri: string,
+      version: number,
+      timeoutMs: number,
+    ): Promise<{
+      ready: boolean;
+      reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    }> {
+      const res = (await this.queryDataOwner('AwaitSymbolReadiness', {
+        uri,
+        version,
+        timeoutMs,
+      })) as
+        | {
+            ready?: boolean;
+            reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+          }
+        | undefined;
+      return { ready: res?.ready === true, reason: res?.reason };
+    },
+
     async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
       dispatchedCount++;
 
-      if (type === 'documentOpen' || type === 'documentChange') {
+      if (
+        type === 'documentOpen' ||
+        type === 'documentChange' ||
+        type === 'documentSave'
+      ) {
         const dataOwnerMsg = buildDataOwnerMessage(type, params);
         const compileMsg = buildCompileMessage(type, params);
-        logger.debug(() => `[WorkerDispatch] → dataOwner+compilation: ${type}`);
-        callbacks
-          .sendToDataOwner(dataOwnerMsg)
-          .catch((err) =>
-            logger.error(
-              () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
-            ),
+        logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
+        // Store the document on the data-owner BEFORE dispatching the compile.
+        // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
+        // which is rejected ("document not found") if the document hasn't been
+        // stored yet. Racing the two (fire-and-forget store + concurrent
+        // compile) drops the write-back on a cold open — the compile finishes
+        // before the store lands — so the data-owner graph stays empty and
+        // request-pool reads see "No Symbols". Sequencing guarantees the
+        // document is present when the write-back arrives. A failed store still
+        // lets the compile proceed (best-effort), matching the prior behavior.
+        try {
+          await callbacks.sendToDataOwner(dataOwnerMsg);
+        } catch (err) {
+          logger.error(
+            () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
           );
+        }
         return callbacks.sendToCompilation(compileMsg);
       }
 
@@ -677,12 +744,12 @@ function createDispatcher(
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
         return callbacks.sendToDataOwner(msg);
       }
-      const msg = buildEnrichmentMessage(
+      const msg = buildLspRequestMessage(
         type,
         params,
         callbacks.getDocumentContent,
       );
-      logger.debug(() => `[WorkerDispatch] → enrichmentPool: ${type}`);
+      logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
       return (response as { result: unknown }).result;
     },
@@ -690,7 +757,7 @@ function createDispatcher(
     getTopologyStatus: (): WorkerTopologyStatus => ({
       enabled: true,
       dataOwner: { active: available },
-      enrichmentPool: { size: callbacks.poolSize, active: available },
+      requestPool: { size: callbacks.poolSize, active: available },
       resourceLoader: callbacks.hasResourceLoader
         ? { active: available }
         : null,
@@ -755,6 +822,20 @@ function createDispatcher(
           return callbacks.sendToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
+            }),
+          );
+        }
+        case 'AwaitSymbolReadiness': {
+          const par = params as {
+            uri?: string;
+            version?: number;
+            timeoutMs?: number;
+          };
+          return callbacks.sendToDataOwner(
+            new AwaitSymbolReadiness({
+              uri: par.uri ?? '',
+              version: par.version ?? 0,
+              timeoutMs: par.timeoutMs ?? 0,
             }),
           );
         }
@@ -838,7 +919,7 @@ export function makeWorkerDispatcher(
         return Effect.runPromise(eff);
       },
       dispatchToPool: (msg) => {
-        const eff = topology.enrichmentPool.executeEffect(msg) as Effect.Effect<
+        const eff = topology.requestPool.executeEffect(msg) as Effect.Effect<
           unknown,
           unknown,
           never
@@ -877,7 +958,7 @@ export function makeTransportDispatcher(
         Effect.runPromise(topology.transport.send(topology.dataOwner, msg)),
       dispatchToPool: (msg) =>
         Effect.runPromise(
-          topology.transport.dispatch(topology.enrichmentPool, msg),
+          topology.transport.dispatch(topology.requestPool, msg),
         ),
       sendToCompilation: (msg) =>
         Effect.runPromise(topology.transport.send(topology.compilation, msg)),
@@ -885,7 +966,7 @@ export function makeTransportDispatcher(
         Effect.runPromise(
           topology.transport.send(topology.dataOwner, msg),
         ) as Promise<{ processedCount: number }>,
-      poolSize: topology.enrichmentPool.size,
+      poolSize: topology.requestPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
       getDocumentContent,
     },
@@ -987,11 +1068,11 @@ function buildCompileMessage(
   return new CompileDocument({ uri, content, languageId, version, priority });
 }
 
-function buildEnrichmentMessage(
+function buildLspRequestMessage(
   type: LSPRequestType,
   params: unknown,
   getDocumentContent?: (uri: string) => string | undefined,
-): EnrichmentSearchRequest {
+): LspRequestMessage {
   const p = params as EnrichmentParams;
   switch (type) {
     case 'hover':
@@ -1000,11 +1081,47 @@ function buildEnrichmentMessage(
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
       });
+    case 'completion': {
+      const c = p as PositionBasedParams & {
+        context?: { triggerKind: number; triggerCharacter?: string };
+      };
+      return new DispatchCompletion({
+        textDocument: { uri: c.textDocument.uri },
+        position: c.position,
+        content: getDocumentContent?.(c.textDocument.uri),
+        ...(c.context ? { context: c.context } : {}),
+      });
+    }
     case 'definition':
       return new DispatchDefinition({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
       });
+    case 'signatureHelp': {
+      const s = p as PositionBasedParams & { context?: unknown };
+      return new DispatchSignatureHelp({
+        textDocument: { uri: s.textDocument.uri },
+        position: s.position,
+        content: getDocumentContent?.(s.textDocument.uri),
+        ...(s.context !== undefined ? { context: s.context } : {}),
+      });
+    }
+    case 'codeAction': {
+      const a = p as {
+        textDocument: { uri: string };
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        context?: unknown;
+      };
+      return new DispatchCodeAction({
+        textDocument: { uri: a.textDocument.uri },
+        range: a.range,
+        content: getDocumentContent?.(a.textDocument.uri),
+        ...(a.context !== undefined ? { context: a.context } : {}),
+      });
+    }
     case 'references': {
       const r = p as PositionBasedParams;
       return new DispatchReferences({
@@ -1023,6 +1140,12 @@ function buildEnrichmentMessage(
     case 'documentSymbol':
       return new DispatchDocumentSymbol({
         textDocument: { uri: p.textDocument.uri },
+        // documentSymbol re-compiles from the document text on the pool worker
+        // (it does not read the dataOwner symbol graph), so it must carry the
+        // live text — same as hover/completion. Omitting it left the pool
+        // worker with no document to compile and returned an empty outline on
+        // cold open.
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'codeLens':
       return new DispatchCodeLens({
