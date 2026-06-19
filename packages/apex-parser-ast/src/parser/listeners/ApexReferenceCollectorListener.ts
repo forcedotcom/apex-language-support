@@ -690,6 +690,35 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           baseLocation,
           parentContext,
         );
+      } else if (this.isClassExtendsTypeRef(ctx)) {
+        // `class X extends Super` — the superclass typeRef sits directly under
+        // ClassDeclarationContext. Tag it INHERITANCE so the resolver emits a
+        // subclass → superclass edge and findReferencesTo(superclass) returns
+        // the subclass — the basis for go-to-implementation discovering
+        // subclasses in unopened files.
+        baseReference = SymbolReferenceFactory.createInheritanceReference(
+          fullTypeName,
+          baseLocation,
+          parentContext,
+        );
+      } else if (this.isSupertypeListMember(ctx)) {
+        // A class `implements` list entry or an interface `extends` list entry
+        // (both TypeRefs under a TypeListContext inside the class/interface
+        // header). Tag it INTERFACE_IMPLEMENTATION so the resolver emits an
+        // implementor → interface edge and findReferencesTo(interface) returns
+        // the implementor. Emitted here (not in enterTypeList) because this is
+        // where the type name + location are correctly extracted.
+        //
+        // Both supertype branches keep this listener aligned with
+        // ApexSymbolCollectorListener's Phase 1 tagging; without it the worker's
+        // reference pass mis-tagged implements/extends as PARAMETER_TYPE and
+        // go-to-implementation returned nothing.
+        baseReference =
+          SymbolReferenceFactory.createInterfaceImplementationReference(
+            fullTypeName,
+            baseLocation,
+            parentContext,
+          );
       } else if (isTypeDeclaration) {
         baseReference = SymbolReferenceFactory.createTypeDeclarationReference(
           fullTypeName,
@@ -2617,6 +2646,62 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   private extractQualifierFromExpression(expr: any): string {
     const identifiers = this.extractIdentifiersFromExpression(expr);
     return identifiers.length > 0 ? identifiers[0] : 'unknown';
+  }
+
+  /**
+   * True when `ctx` is the superclass typeRef of a `class X extends Super`
+   * declaration — a single typeRef directly under ClassDeclarationContext. The
+   * `implements` list and interface `extends` list are TypeListContext children
+   * (handled by enterTypeList), so they are intentionally excluded here.
+   * Mirrors ApexSymbolCollectorListener.isClassExtendsTypeRef; uses the
+   * constructor-name check that is this listener's convention for context type
+   * tests.
+   */
+  private isClassExtendsTypeRef(ctx: TypeRefContext): boolean {
+    const parent = ctx.parentCtx as
+      | (ParserRuleContext & { typeRef?: () => unknown })
+      | undefined;
+    if (!parent || parent.constructor.name !== 'ClassDeclarationContext') {
+      return false;
+    }
+    // A ClassDeclarationContext has at most one direct typeRef: its superclass.
+    return parent.typeRef?.() === ctx;
+  }
+
+  /**
+   * True when `ctx` is a member of a supertype list — a TypeRef inside a
+   * TypeListContext that belongs to a class `implements` list or an interface
+   * `extends` list (i.e. an ancestor is a Class/Interface declaration, reached
+   * before any TypeArguments/NewExpression). enterTypeRef tags these as
+   * INTERFACE_IMPLEMENTATION (rather than the PARAMETER_TYPE catch-all) so the
+   * resolver emits implementor → interface edges. Excludes generic type-argument
+   * lists (TypeArguments) and constructor-call type lists (NewExpression), which
+   * are not supertype relationships.
+   */
+  private isSupertypeListMember(ctx: TypeRefContext): boolean {
+    if (ctx.parentCtx?.constructor.name !== 'TypeListContext') {
+      return false;
+    }
+    for (
+      let ancestor: ParserRuleContext | undefined = ctx.parentCtx?.parentCtx;
+      ancestor;
+      ancestor = ancestor.parentCtx
+    ) {
+      const ancestorName = ancestor.constructor.name;
+      if (
+        ancestorName === 'TypeArgumentsContext' ||
+        ancestorName === 'NewExpressionContext'
+      ) {
+        return false;
+      }
+      if (
+        ancestorName === 'ClassDeclarationContext' ||
+        ancestorName === 'InterfaceDeclarationContext'
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private extractTypeNameFromTypeRef(typeRef: any): string {

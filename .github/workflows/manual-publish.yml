@@ -490,60 +490,56 @@ jobs:
     if: always() && needs.prepare.result == 'success' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     outputs:
-      vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
+      vsix-path: ${{ steps.resolve-vsix.outputs.vsix-path }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+
       - name: Download source VSIX
         uses: actions/download-artifact@v8
         with:
           name: source-vsix
           path: ./vsix-artifacts
 
-      - name: Repackage for stable (if needed)
-        id: prepare-vsix
-        env:
-          SLOT: ${{ inputs.slot }}
-          PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
-          STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
+      - name: Locate source VSIX
+        id: source-vsix
         run: |
           VSIX_FILE=$(find ./vsix-artifacts -type f -name 'apex-language-server-extension-*.vsix' ! -name '*-web-*' | head -1)
           if [ -z "$VSIX_FILE" ]; then
             echo "ERROR: No VSIX found in artifact"
             exit 1
           fi
+          echo "vsix-file=$VSIX_FILE" >> $GITHUB_OUTPUT
 
-          if [ "$SLOT" = "stable" ]; then
-            echo "Repackaging VSIX: $PRERELEASE_VERSION → $STABLE_VERSION"
+      - name: Repackage for stable
+        id: repack
+        if: inputs.slot == 'stable'
+        uses: ./.github/actions/repackage-vsix-stable
+        with:
+          source-vsix-path: ${{ steps.source-vsix.outputs.vsix-file }}
+          prerelease-version: ${{ needs.prepare.outputs.prerelease-version }}
+          stable-version: ${{ needs.prepare.outputs.stable-version }}
 
-            WORK_DIR="./vsix-repack"
-            mkdir -p "$WORK_DIR"
-            unzip -q "$VSIX_FILE" -d "$WORK_DIR"
-
-            PKG_JSON="$WORK_DIR/extension/package.json"
-            node -e "
-              const fs = require('fs');
-              const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
-              pkg.version = '$STABLE_VERSION';
-              delete pkg.preRelease;
-              fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
-            "
-
-            VSIX_MANIFEST="$WORK_DIR/extension.vsixmanifest"
-            if [ -f "$VSIX_MANIFEST" ]; then
-              sed -i "s/Version=\"$PRERELEASE_VERSION\"/Version=\"$STABLE_VERSION\"/" "$VSIX_MANIFEST"
-            fi
-
-            STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
-            cd "$WORK_DIR" && zip -qr "../$STABLE_VSIX" . && cd -
-            echo "vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
+      - name: Resolve publish-ready VSIX path
+        id: resolve-vsix
+        run: |
+          # For stable, use the repackaged VSIX; otherwise publish the source as-is.
+          if [ "${{ inputs.slot }}" = "stable" ]; then
+            echo "vsix-path=${{ steps.repack.outputs.vsix-path }}" >> $GITHUB_OUTPUT
           else
-            echo "vsix-path=$VSIX_FILE" >> $GITHUB_OUTPUT
+            echo "vsix-path=${{ steps.source-vsix.outputs.vsix-file }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload publish-ready VSIX
         uses: actions/upload-artifact@v7
         with:
           name: publish-vsix
-          path: ${{ steps.prepare-vsix.outputs.vsix-path }}
+          path: ${{ steps.resolve-vsix.outputs.vsix-path }}
 
   # ── publish ────────────────────────────────────────────────────────────────
   publish:

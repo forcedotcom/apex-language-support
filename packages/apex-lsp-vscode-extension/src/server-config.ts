@@ -104,7 +104,7 @@ const getProfilingFlags = (runtimePlatform: 'desktop' | 'web'): string[] => {
     // flags to <outputDir>/<role>).
     const workerRoles = [
       'dataOwner',
-      'enrichmentSearch',
+      'lspRequest',
       'resourceLoader',
       'compilation',
     ];

@@ -138,6 +138,17 @@ export function getPrerequisitesForLspRequestType(
         requiresWorkspaceLoad: true, // Workspace-wide operation
       };
 
+    case 'implementation':
+      return {
+        requiredDetailLevel: 'full',
+        requiresReferences: true,
+        requiresReferenceResolution: true,
+        requiresCrossFileResolution: true, // Must scan all workspace classes for implementors
+        executionMode: 'blocking',
+        skipDuringWorkspaceLoad: false,
+        requiresWorkspaceLoad: true, // Workspace-wide: must know all classes to find implementors
+      };
+
     case 'signatureHelp':
       return {
         requiredDetailLevel: 'full', // Need full method signatures

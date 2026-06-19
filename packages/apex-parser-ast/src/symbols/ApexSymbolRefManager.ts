@@ -945,9 +945,17 @@ export class ApexSymbolRefManager {
   clearReferenceStateForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
 
-    // Remove only outgoing edges (source === this file). removeReferenceKey
-    // cleans both the forward and reverse index entries for each removed edge,
-    // so incoming edges (target in this file, source elsewhere) are untouched.
+    // Remove ONLY this file's OWN (outbound) edges so they can be rebuilt from
+    // the re-added symbol table. removeReferenceKey cleans both the forward and
+    // reverse index entries for each removed edge, so inbound edges (target in
+    // this file, source elsewhere) are untouched. Do NOT clear inbound edges to
+    // this file's symbols: those edges belong to OTHER files (e.g. classes that
+    // implement an interface declared here) and this re-add does not reprocess
+    // them, so removing them would orphan every implementor/subclass. Re-adding
+    // an interface previously wiped all its implementor edges this way,
+    // collapsing go-to-implementation to nothing. Inbound edges are dropped only
+    // on a true file deletion (removeFile), where the target symbols genuinely
+    // go away.
     this.removeReferencesFromFile(normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
   }

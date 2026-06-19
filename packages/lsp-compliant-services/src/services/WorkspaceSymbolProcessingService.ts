@@ -15,6 +15,7 @@ import {
 } from 'vscode-languageserver-protocol';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
+  ApexSymbol,
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -452,7 +453,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Create location from symbol
    */
-  private async createLocation(symbol: any): Promise<Location | null> {
+  private async createLocation(symbol: ApexSymbol): Promise<Location | null> {
     if (!symbol.location) {
       return null;
     }
@@ -462,14 +463,22 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
       return null;
     }
 
+    // Read from identifierRange (SymbolLocation shape). The flat-range fields
+    // (startLine/startColumn/...) do not exist on SymbolLocation and yield
+    // NaN -> null after JSON serialization across the worker boundary.
+    const identifierRange = symbol.location.identifierRange;
+    if (!identifierRange) {
+      return null;
+    }
+
     const range: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: identifierRange.startLine,
+        character: identifierRange.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: identifierRange.endLine,
+        character: identifierRange.endColumn,
       }),
     };
 
@@ -479,10 +488,10 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
   /**
    * Get the file URI for a symbol
    */
-  private async getSymbolFileUri(symbol: any): Promise<string | null> {
-    // Try to get from symbol's file path
-    if (symbol.filePath) {
-      return `file://${symbol.filePath}`;
+  private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
+    // fileUri is the canonical field on ApexSymbol.
+    if (symbol.fileUri) {
+      return symbol.fileUri;
     }
 
     // Try to find in symbol manager

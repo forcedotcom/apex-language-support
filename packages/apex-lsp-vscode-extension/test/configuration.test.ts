@@ -85,7 +85,7 @@ describe('Configuration Module', () => {
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
           if (key === 'apex') {
-            return { logLevel: 'info', worker: { logLevel: 'info' } };
+            return { logLevel: 'info' };
           }
           return defaultValue;
         },
@@ -193,9 +193,6 @@ describe('Configuration Module', () => {
               poolSize: 2,
               resourceLoader: true,
             },
-          },
-          worker: {
-            logLevel: 'info',
           },
           version: undefined,
           logLevel: 'info',
@@ -390,9 +387,6 @@ describe('Configuration Module', () => {
             profilingType: 'cpu',
           },
           resources: {},
-          worker: {
-            logLevel: 'info',
-          },
           logLevel: 'info',
           custom: {},
           findMissingArtifact: {
