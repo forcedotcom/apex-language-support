@@ -284,7 +284,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // the cursor is on an inner segment. Walk the chainNodes to pick the node
     // whose identifierRange contains the cursor, falling back to the leaf
     // identifier (last segment) of the dotted name.
-    const symbolName = this.pickNameUnderCursor(references[0], parserPosition);
+    const { name: symbolName, isLeaf: leafPicked } = this.pickNameUnderCursor(
+      references[0],
+      parserPosition,
+    );
 
     // Early keyword check: if the name under the cursor is a keyword, return
     // an empty array. This prevents find references from processing keywords.
@@ -303,11 +306,31 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     //   1. getSymbolAtPosition (position-based; internally walks chainNodes)
     //   2. context-aware resolveSymbol on the name under the cursor
     //   3. for dotted names that still fail, retry with the LAST segment
+    //
+    // getSymbolAtPosition defaults to the 'scope' strategy, whose Step-4
+    // fallback (ApexSymbolManager.getSymbolAtPositionWithinScope) returns ANY
+    // small symbol whose symbolRange merely CONTAINS the position - i.e. the
+    // enclosing method/class when the cursor is on whitespace/punctuation
+    // inside a body. For find-references that would surface the wrong symbol's
+    // references. Guard against it: accept the step-1 result only when the
+    // returned symbol's identifierRange actually contains the cursor (an exact
+    // hit on the identifier), not merely its symbolRange/containing scope.
     let resolvedSymbol: ApexSymbol | null =
       await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
+
+    if (
+      resolvedSymbol &&
+      !this.symbolIdentifierContainsPosition(resolvedSymbol, parserPosition)
+    ) {
+      this.logger.debug(
+        () =>
+          'getSymbolAtPosition returned a containing-scope symbol (cursor not on its identifier); ignoring',
+      );
+      resolvedSymbol = null;
+    }
 
     if (!resolvedSymbol) {
       const nameResult = await this.symbolManager.resolveSymbol(
@@ -318,7 +341,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     // Dotted-name fallback: retry with the last segment (leaf identifier).
-    if (!resolvedSymbol && symbolName.includes('.')) {
+    //
+    // This is a name-only retry with no constraint that the matched symbol is
+    // actually a member of the qualifier, so it CAN mis-resolve to an unrelated
+    // top-level/visible symbol that happens to share the leaf name. To bound
+    // that risk we only fire it when pickNameUnderCursor actually landed on the
+    // leaf segment of the chain (see leafPicked); if the cursor was on the
+    // qualifier we must not silently jump to the leaf's references.
+    if (!resolvedSymbol && symbolName.includes('.') && leafPicked) {
       const lastSegment = symbolName.substring(symbolName.lastIndexOf('.') + 1);
       const segmentResult = await this.symbolManager.resolveSymbol(
         lastSegment,
@@ -335,6 +365,15 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // When the cursor lands on an overloaded method name, disambiguate by
     // signature so foo(Integer) and foo(String) are NOT collapsed. Mirrors
     // Jorje keying methods by Signature.toString().
+    //
+    // FORWARD-SCAFFOLDING: this currently has NO observable effect on the
+    // returned Locations. Downstream, ApexSymbolManager.findReferencesTo is
+    // name-keyed (caches by `refs_to_${symbol.name}` and re-resolves the target
+    // by name), so it collapses the chosen overload back onto a name-only
+    // reference set. Per-overload reference separation needs call-site arg types
+    // on SymbolReference plus a signature-keyed findReferencesTo - parser/
+    // symbol-manager work tracked as a 6.11 follow-up. Until then this only
+    // swaps in an equal-signature symbol instance; output is unchanged.
     resolvedSymbol = await this.disambiguateOverload(resolvedSymbol);
 
     // Get reference locations
@@ -356,26 +395,56 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * `identifierRange` contains the position. When no chain node matches (or the
    * reference is not chained), falls back to the leaf identifier: the last
    * segment of a dotted name, or the reference name itself.
+   *
+   * Leaf-bias behavior: the cursor can land on the `.` separator between two
+   * segments (or otherwise between chain nodes), in which case the chainNodes
+   * loop matches nothing and we deliberately fall back to the LEAF segment
+   * regardless of which side of the dot the cursor sits on. For `A.B` with the
+   * cursor exactly on the dot you therefore get `B`. This is a deterministic
+   * default, not a precise mapping of the dot to a specific segment.
+   *
+   * @returns the picked name plus whether it is the leaf/last segment. Callers
+   *   use `isLeaf` to decide whether the dotted-name last-segment retry is safe
+   *   (it must only fire when the cursor actually landed on the leaf).
    */
   private pickNameUnderCursor(
     reference: SymbolReference,
     position: { line: number; character: number },
-  ): string {
+  ): { name: string; isLeaf: boolean } {
     const chainNodes = reference.chainNodes;
     if (chainNodes && chainNodes.length > 0) {
-      for (const node of chainNodes) {
+      for (let i = 0; i < chainNodes.length; i++) {
+        const node = chainNodes[i];
         if (this.isPositionWithinIdentifier(node, position)) {
-          return node.name;
+          return { name: node.name, isLeaf: i === chainNodes.length - 1 };
         }
       }
     }
 
-    // Fall back to the leaf identifier of a dotted name.
+    // Fall back to the leaf identifier of a dotted name (leaf-bias: see JSDoc).
     const name = reference.name;
     if (name.includes('.')) {
-      return name.substring(name.lastIndexOf('.') + 1);
+      return {
+        name: name.substring(name.lastIndexOf('.') + 1),
+        isLeaf: true,
+      };
     }
-    return name;
+    // Single-segment reference: the whole name is itself the leaf.
+    return { name, isLeaf: true };
+  }
+
+  /**
+   * Whether the cursor sits on a resolved symbol's own identifier (its
+   * `identifierRange`), as opposed to merely inside its enclosing
+   * symbolRange/scope. Used to reject containing-scope results from
+   * getSymbolAtPosition's scope-strategy Step-4 fallback (see findReferences).
+   */
+  private symbolIdentifierContainsPosition(
+    symbol: ApexSymbol,
+    position: { line: number; character: number },
+  ): boolean {
+    const range = symbol.location?.identifierRange;
+    return this.rangeContainsPosition(range, position);
   }
 
   /**
@@ -386,6 +455,25 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     position: { line: number; character: number },
   ): boolean {
     const range = node.location?.identifierRange;
+    return this.rangeContainsPosition(range, position);
+  }
+
+  /**
+   * Inclusive position-in-range test for an identifier Range (parser-ast
+   * coordinates: 1-based line, 0-based column). Returns false for a missing
+   * range.
+   */
+  private rangeContainsPosition(
+    range:
+      | {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        }
+      | undefined,
+    position: { line: number; character: number },
+  ): boolean {
     if (!range) {
       return false;
     }
@@ -421,7 +509,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return symbol;
     }
 
-    // Gather all same-named method candidates in scope.
+    // Gather all same-named method candidates. NOTE: findSymbolByName is
+    // workspace-wide (backed by a global name index), NOT scoped to the current
+    // file/class - so candidates can include same-named methods declared in
+    // unrelated classes. We rely on the exact parameter-type signature match
+    // below to pin the right overload among them.
     const candidates = (await this.symbolManager.findSymbolByName(
       symbol.name,
     )) as ApexSymbol[];
