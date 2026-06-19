@@ -12,6 +12,7 @@ import type {
   LoadWorkspaceResult,
   ProgressToken,
   WorkspaceLoadCompleteParams,
+  WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
 import { loadWorkspaceForServer } from './workspace-loader';
@@ -87,6 +88,7 @@ const launchWorkspaceLoaderEffect = (
   languageClient: ClientInterface,
   workDoneToken: ProgressToken | undefined,
   documentSelector: any[],
+  reason?: WorkspaceLoadReason,
 ) =>
   Effect.gen(function* (_) {
     yield* _(setWorkspaceLoading(true));
@@ -99,6 +101,7 @@ const launchWorkspaceLoaderEffect = (
             languageClient,
             workDoneToken,
             documentSelector,
+            reason,
           ),
         ),
         Effect.tapError((e) =>
@@ -140,6 +143,7 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
           languageClient: ClientInterface,
           workDoneToken?: ProgressToken,
           documentSelector?: any[],
+          reason?: WorkspaceLoadReason,
         ) =>
           Effect.gen(function* (_) {
             const {
@@ -168,6 +172,7 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
                   languageClient,
                   workDoneToken,
                   selector,
+                  reason,
                 ),
               ),
             );
@@ -247,6 +252,7 @@ export const startWorkspaceLoad = (
   languageClient: ClientInterface,
   workDoneToken?: ProgressToken,
   documentSelector?: any[],
+  reason?: WorkspaceLoadReason,
 ) =>
   pipe(
     WorkspaceLoaderService,
@@ -255,6 +261,7 @@ export const startWorkspaceLoad = (
         languageClient,
         workDoneToken,
         documentSelector,
+        reason,
       ),
     ),
   );

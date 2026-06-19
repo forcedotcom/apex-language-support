@@ -58,9 +58,9 @@ import {
   LSP_SPAN_NAMES,
   CommandPerformanceAggregator,
   collectStartupSnapshot,
+  type WorkspaceLoadReason,
+  type LspSpanAttributes,
 } from '@salesforce/apex-lsp-shared';
-
-import type { LspSpanAttributes } from '@salesforce/apex-lsp-shared';
 
 import {
   dispatchProcessOnOpenDocument,
@@ -550,13 +550,15 @@ export class LCSAdapter {
    * request may return partial/empty results; once the load completes a repeat
    * request resolves against the full graph.
    */
-  private async triggerWorkspaceLoadIfNeeded(): Promise<void> {
+  private async triggerWorkspaceLoadIfNeeded(
+    reason?: WorkspaceLoadReason,
+  ): Promise<void> {
     if (isWorkspaceLoaded() || isWorkspaceLoading()) {
       return;
     }
     try {
       await Effect.runPromise(
-        ensureWorkspaceLoaded(this.connection, this.logger),
+        ensureWorkspaceLoaded(this.connection, this.logger, undefined, reason),
       );
     } catch (error) {
       this.logger.debug(
@@ -650,7 +652,14 @@ export class LCSAdapter {
           // runs on the request pool with no LSP connection. This guarantees
           // the dataOwner graph is (being) populated with all workspace classes
           // before the search asks the dataOwner for inbound implementor tables.
-          await this.triggerWorkspaceLoadIfNeeded();
+          // The load is fire-and-forget (the workspace can be large; we must not
+          // block the IDE), so the FIRST cold invocation returns before the
+          // graph is populated and the client renders "No implementations
+          // found". Passing the 'implementation' reason makes the client show an
+          // action-tailored busy status ("Searching workspace for
+          // implementations…") so the user understands work is in progress; a
+          // repeat invocation after the load completes returns the implementors.
+          await this.triggerWorkspaceLoadIfNeeded('implementation');
           return this.handleLspRequest(
             LSP_SPAN_NAMES.IMPLEMENTATION,
             'textDocument/implementation',
