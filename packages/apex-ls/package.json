@@ -162,7 +162,7 @@
     }
   },
   "dependencies": {
-    "@effect/platform": "^0.96.0",
+    "@effect/platform": "^0.96.2",
     "@effect/platform-browser": "^0.76.0",
     "@effect/platform-node": "^0.107.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
