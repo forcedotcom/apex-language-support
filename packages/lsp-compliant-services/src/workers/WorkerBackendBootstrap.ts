@@ -32,6 +32,9 @@ import {
 import type { DocumentProcessingService } from '../services/DocumentProcessingService';
 import type { DocumentCloseProcessingService } from '../services/DocumentCloseProcessingService';
 import type { HoverProcessingService } from '../services/HoverProcessingService';
+import type { CompletionProcessingService } from '../services/CompletionProcessingService';
+import type { SignatureHelpProcessingService } from '../services/SignatureHelpProcessingService';
+import type { CodeActionProcessingService } from '../services/CodeActionProcessingService';
 import type { DefinitionProcessingService } from '../services/DefinitionProcessingService';
 import type { ReferencesProcessingService } from '../services/ReferencesProcessingService';
 import type { ImplementationProcessingService } from '../services/ImplementationProcessingService';
@@ -124,10 +127,13 @@ export function bootstrapDataOwnerServices(
 // Enrichment/search services
 // ---------------------------------------------------------------------------
 
-export interface EnrichmentServices {
+export interface RequestServices {
   readonly symbolManager: ISymbolManager;
   readonly storageManager: ApexStorageManager;
   readonly hoverService: HoverProcessingService;
+  readonly completionService: CompletionProcessingService;
+  readonly signatureHelpService: SignatureHelpProcessingService;
+  readonly codeActionService: CodeActionProcessingService;
   readonly definitionService: DefinitionProcessingService;
   readonly referencesService: ReferencesProcessingService;
   readonly implementationService: ImplementationProcessingService;
@@ -141,8 +147,8 @@ export interface EnrichmentServices {
  * Bootstrap services for enrichment/search pool workers as an Effect.
  * Requires ResourceLoaderService to be provided by the caller.
  */
-export const bootstrapEnrichmentServicesEffect: Effect.Effect<
-  EnrichmentServices,
+export const bootstrapRequestServicesEffect: Effect.Effect<
+  RequestServices,
   never,
   ResourceLoaderService
 > = Effect.gen(function* () {
@@ -152,6 +158,9 @@ export const bootstrapEnrichmentServicesEffect: Effect.Effect<
     symbolManager,
     storageManager,
     hoverService: factory.createHoverService(),
+    completionService: factory.createCompletionService(),
+    signatureHelpService: factory.createSignatureHelpService(),
+    codeActionService: factory.createCodeActionService(),
     definitionService: factory.createDefinitionService(),
     referencesService: factory.createReferencesService(),
     implementationService: factory.createImplementationService(),
@@ -166,10 +175,10 @@ export const bootstrapEnrichmentServicesEffect: Effect.Effect<
  * Promise-based bootstrap for enrichment/search pool workers.
  * Caller must supply the appropriate ResourceLoaderService layer.
  */
-export function bootstrapEnrichmentServices(
+export function bootstrapRequestServices(
   resourceLoaderLayer: Layer.Layer<ResourceLoaderService>,
-): Promise<EnrichmentServices> {
+): Promise<RequestServices> {
   return Effect.runPromise(
-    Effect.provide(bootstrapEnrichmentServicesEffect, resourceLoaderLayer),
+    Effect.provide(bootstrapRequestServicesEffect, resourceLoaderLayer),
   );
 }

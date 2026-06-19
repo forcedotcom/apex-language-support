@@ -131,7 +131,6 @@ describe('NLS Validation', () => {
   describe('NLS Content Validation', () => {
     it('should have all required NLS keys for new settings', () => {
       const requiredNlsKeys = [
-        'configuration.apex-ls-ts.worker.logLevel.description',
         'configuration.apex-ls-ts.worker.enablePerformanceLogs.description',
         'configuration.apex-ls-ts.worker.logCategories.description',
         'configuration.apex-ls-ts.custom.description',

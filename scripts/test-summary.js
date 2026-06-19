@@ -28,6 +28,9 @@ let totalTests = 0;
 let totalSnapshots = 0;
 let totalSnapshotsPassed = 0;
 let totalTime = 0;
+// For wall-clock: earliest start and latest end across every package's run.
+let wallBegin = Infinity;
+let wallFinish = 0;
 const packageResults = [];
 
 packages.forEach((pkg) => {
@@ -49,10 +52,24 @@ packages.forEach((pkg) => {
       const tests = results.numTotalTests || 0;
       const snapshots = results.numTotalSnapshots || 0;
       const snapshotsPassed = results.snapshots?.passed || 0;
-      const time =
-        results.startTime && results.endTime
-          ? results.endTime - results.startTime
-          : 0;
+      // Jest's --json output writes a top-level `startTime` but no top-level
+      // `endTime`; the per-suite entries in `testResults[]` carry both. Derive
+      // the run's wall-clock as the span from the earliest start to the latest
+      // suite end. Fall back to a top-level `endTime` if a future Jest adds one.
+      const suites_ = results.testResults || [];
+      const suiteEnds = suites_.map((s) => s.endTime).filter(Boolean);
+      const suiteStarts = suites_.map((s) => s.startTime).filter(Boolean);
+      const begin = Math.min(
+        ...[results.startTime, ...suiteStarts].filter(Boolean),
+      );
+      const finish = results.endTime || (suiteEnds.length ? Math.max(...suiteEnds) : 0);
+      const time = begin && finish && finish > begin ? finish - begin : 0;
+      // Track the global window so we can also report wall-clock (packages run
+      // in parallel under wireit, so wall-clock < sum of per-package times).
+      if (time > 0) {
+        wallBegin = Math.min(wallBegin, begin);
+        wallFinish = Math.max(wallFinish, finish);
+      }
 
       totalSuites += suites;
       totalPassed += passed;
@@ -110,7 +127,24 @@ if (packageResults.length > 0) {
   if (totalSnapshots > 0) {
     output(`   Snapshots:   ${totalSnapshotsPassed}/${totalSnapshots} passed`);
   }
-  output(`   Time:        ${(totalTime / 1000).toFixed(1)}s`);
+  // Wall-clock = the global span across packages. It's only meaningful when
+  // every package's result file comes from the SAME run (overlapping windows).
+  // If packages were run separately, the span includes idle gaps between runs
+  // and exceeds the cumulative in-test time — in that case the figure is a lie,
+  // so report the gap instead of a bogus wall-clock.
+  const wallTime = wallFinish > wallBegin ? wallFinish - wallBegin : 0;
+  if (wallTime > 0 && wallTime <= totalTime) {
+    output(
+      `   Time:        ${(totalTime / 1000).toFixed(1)}s in tests, ` +
+        `${(wallTime / 1000).toFixed(1)}s wall-clock`,
+    );
+  } else {
+    output(`   Time:        ${(totalTime / 1000).toFixed(1)}s in tests`);
+    output(
+      '   Note:        results span multiple runs; wall-clock unavailable. ' +
+        'Run `npm test` once for all packages to get it.',
+    );
+  }
 } else {
   output('No test results found. Run tests first.');
 }

@@ -2013,6 +2013,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
       }
 
+      // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
+      // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
+      // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
+      // another file), so the affected target is not knowable from
+      // symbolNamesAdded alone. findReferencesTo/From cache by target name and
+      // were never invalidated here, so an interface queried while only its
+      // first implementor was loaded stayed pinned to that one implementor even
+      // after more were added (the live "only the first implementor resolves"
+      // bug). These results are a cheap indexed reverse-index lookup, so a
+      // wholesale invalidation of the family is correct and cheap to rebuild.
+      self.unifiedCache.invalidatePattern('^refs_(to|from)_');
+
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
       yield* self.processSameFileReferencesToGraphEffect(
@@ -2098,6 +2110,36 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       for (const sourceFileUri of sourceFilesToReResolve) {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
+
+      // Eagerly resolve this file's own SUPERTYPE edges (extends / implements).
+      // processSameFileReferencesToGraphEffect (run above) deliberately SKIPS
+      // cross-file references — including implements/extends, whose target type
+      // lives in another file — leaving them unresolved and absent from the
+      // reverse index. Normal cross-file refs (method calls, type refs) are fine
+      // to resolve lazily on first request, but supertype edges underpin
+      // findReferencesTo(type) → go-to-implementation / find-implementors of an
+      // interface or superclass. In the worker topology the data-owner never
+      // calls resolveCrossFileReferencesForFile on a batch-compiled implementor,
+      // so without this its implements edge never enters the reverse index and
+      // go-to-implementation returns nothing even after a full workspace load.
+      // Resolving here is bounded and cheap (a type declares only a handful of
+      // supertypes) and is guarded so files with no unresolved supertype edge
+      // pay nothing; resolveCrossFileReferencesForFile is re-entrancy-guarded and
+      // addReference de-dupes, so this stays near-free on repeated write-backs.
+      // (Targets must already be in the graph — the common cold-open-interface-
+      // then-load-implementor ordering; reverse ordering remains lazy.)
+      const hasUnresolvedSupertypeEdge = finalSymbolTable
+        .getAllReferences()
+        .some(
+          (r) =>
+            !r.resolvedSymbolId &&
+            (r.context === ReferenceContext.INHERITANCE ||
+              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
+        );
+      if (hasUnresolvedSupertypeEdge) {
+        yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+      }
+
       self.lastProcessedTableStateByFile.set(
         normalizedUri,
         self.getSymbolTableStateSignature(finalSymbolTable),
@@ -3771,6 +3813,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       case ReferenceContext.VARIABLE_DECLARATION:
         // Declarations are for editor UX; do not create dependency edges
         return ReferenceType.TYPE_REFERENCE;
+      case ReferenceContext.INHERITANCE:
+        // class X extends Super → subclass → superclass edge
+        return ReferenceType.INHERITANCE;
+      case ReferenceContext.INTERFACE_IMPLEMENTATION:
+        // class X implements I / interface Y extends I → implementor → interface edge
+        return ReferenceType.INTERFACE_IMPLEMENTATION;
       default:
         return ReferenceType.TYPE_REFERENCE;
     }

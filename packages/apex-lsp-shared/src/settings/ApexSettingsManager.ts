@@ -195,32 +195,6 @@ export class ApexSettingsManager {
   }
 
   /**
-   * Get the worker log level
-   * @returns The current worker log level
-   */
-  public getWorkerLogLevel(): string | undefined {
-    return this.currentSettings.apex.worker.logLevel;
-  }
-
-  /**
-   * Set the worker log level
-   * @param level - The worker log level to set
-   * @returns True if the value changed
-   */
-  public setWorkerLogLevel(level: string | undefined): boolean {
-    const currentLevel = this.getWorkerLogLevel();
-    if (currentLevel !== level) {
-      this.currentSettings.apex.worker.logLevel = level;
-      this.logger.debug(
-        `Worker log level changed from ${currentLevel} to ${level}`,
-      );
-      this.notifyListeners(this.currentSettings);
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * Get the version
    * @returns The current version
    */

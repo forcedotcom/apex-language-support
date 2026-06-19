@@ -16,6 +16,7 @@ import type {
 import {
   getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
+  WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
 import type {
   InitializeParams,
@@ -41,6 +42,7 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
   updateApexServerStatusStopped,
+  updateApexServerStatusLoading,
   clearIngestionTimeout,
 } from './status-bar';
 import {
@@ -856,6 +858,17 @@ async function createWebLanguageClient(
         'debug',
       );
 
+      // Show an action-tailored busy status the moment the load is requested,
+      // so a feature that triggered a cold load (e.g. go-to-implementation)
+      // tells the user what is happening right now. The generic per-phase load
+      // messages (Scanning…/Sending batches…) follow; this just sets the
+      // initial context. Reverts to ready on apex/workspaceIngestionComplete.
+      if (params.reason && WORKSPACE_LOAD_REASON_MESSAGE[params.reason]) {
+        updateApexServerStatusLoading(
+          WORKSPACE_LOAD_REASON_MESSAGE[params.reason],
+        );
+      }
+
       try {
         await Effect.runPromise(
           Effect.provide(
@@ -1292,6 +1305,17 @@ async function createDesktopLanguageClient(
         '📨 Received apex/requestWorkspaceLoad notification from server',
         'debug',
       );
+
+      // Show an action-tailored busy status the moment the load is requested,
+      // so a feature that triggered a cold load (e.g. go-to-implementation)
+      // tells the user what is happening right now. The generic per-phase load
+      // messages (Scanning…/Sending batches…) follow; this just sets the
+      // initial context. Reverts to ready on apex/workspaceIngestionComplete.
+      if (params.reason && WORKSPACE_LOAD_REASON_MESSAGE[params.reason]) {
+        updateApexServerStatusLoading(
+          WORKSPACE_LOAD_REASON_MESSAGE[params.reason],
+        );
+      }
 
       try {
         await Effect.runPromise(

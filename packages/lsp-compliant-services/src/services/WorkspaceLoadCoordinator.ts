@@ -11,6 +11,7 @@ import {
   LoggerInterface,
   RequestWorkspaceLoadParams,
   WorkspaceLoadCompleteParams,
+  WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import { Effect, Ref } from 'effect';
 
@@ -80,19 +81,22 @@ function sendRequestWorkspaceLoadNotification(
   connection: WorkspaceLoadConnection,
   logger: LoggerInterface,
   workDoneToken?: ProgressToken,
+  reason?: WorkspaceLoadReason,
 ): Effect.Effect<void, never, never> {
   return Effect.gen(function* () {
     const notificationStartTime = Date.now();
     const tokenStatus = workDoneToken ? 'present' : 'none';
     logger.debug(
       () =>
-        `[WORKSPACE-LOAD] Sending request notification (workDoneToken: ${tokenStatus}) at ${notificationStartTime}`,
+        `[WORKSPACE-LOAD] Sending request notification (workDoneToken: ${tokenStatus}, ` +
+        `reason: ${reason ?? 'startup'}) at ${notificationStartTime}`,
     );
 
     // sendNotification is synchronous and returns void
     try {
       connection.sendNotification('apex/requestWorkspaceLoad', {
         workDoneToken,
+        ...(reason ? { reason } : {}),
       } as RequestWorkspaceLoadParams);
     } catch (error) {
       logger.error(
@@ -183,12 +187,15 @@ export function onWorkspaceLoadFailed(
  * @param connection Connection for server-client communication
  * @param logger Logger for debug/error messages
  * @param workDoneToken Optional progress token from client
+ * @param reason Why the load was triggered; the client maps it to an
+ *   action-tailored busy status message (defaults to 'startup' when omitted)
  * @returns Effect that resolves immediately (fire-and-forget notification)
  */
 export function ensureWorkspaceLoaded(
   connection: WorkspaceLoadConnection,
   logger: LoggerInterface,
   workDoneToken?: ProgressToken,
+  reason?: WorkspaceLoadReason,
 ): Effect.Effect<void, never, never> {
   return Effect.gen(function* () {
     // Check local state first
@@ -215,6 +222,7 @@ export function ensureWorkspaceLoaded(
       connection,
       logger,
       workDoneToken,
+      reason,
     );
   });
 }

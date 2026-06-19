@@ -401,8 +401,5 @@ export interface ApexLanguageServerSettings {
      * Accepts: 'error', 'warning', 'info', 'log', 'debug'
      */
     logLevel?: string;
-    worker: {
-      logLevel?: string;
-    };
   };
 }

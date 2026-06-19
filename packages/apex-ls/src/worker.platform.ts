@@ -36,6 +36,7 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -53,6 +54,9 @@ import {
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -70,7 +74,6 @@ import {
   isAssistanceResponse,
   type WorkerRole,
   type WorkerLogMessage,
-  type WorkerLogLevelChange,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
 
@@ -84,6 +87,7 @@ const AllWorkerRequests = Schema.Union(
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
+  AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
@@ -102,6 +106,9 @@ const AllWorkerRequests = Schema.Union(
   DispatchDocumentClose,
   DispatchHover,
   DispatchDefinition,
+  DispatchCompletion,
+  DispatchSignatureHelp,
+  DispatchCodeAction,
   DispatchReferences,
   DispatchImplementation,
   DispatchDocumentSymbol,
@@ -288,13 +295,123 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   });
 
 // ---------------------------------------------------------------------------
+// Symbol-readiness latches (data-owner role)
+//
+// Gives the coordinator a deterministic readiness signal: a documentOpen/Change
+// arms a per-URI latch at the
+// incoming version (inside the serial WRITE handler, so it is ordered before
+// the compile it triggers), and UpdateSymbolSubset resolves it the instant the
+// write-back for that version merges.
+//
+// Concurrency constraint: the data-owner runs ONE serial fiber that awaits each
+// queued effect to completion before the next (see initDataOwnerQueues). The
+// latch's Deferred must therefore be *awaited off that fiber* — the
+// AwaitSymbolReadiness handler only reads the latch handle through the runner
+// (a fast, non-blocking peek) and awaits it on its own fiber. Resolving and
+// arming are the only latch operations that run inside the serial runner, and
+// neither blocks.
+// ---------------------------------------------------------------------------
+
+interface ReadinessLatch {
+  /** Editor version this latch is satisfied at. */
+  version: number;
+  /** Resolves (void) when a write-back for `version` merges. */
+  deferred: Deferred.Deferred<void, never>;
+  /** Idempotency guard so success/clear settle at most once. */
+  settled: boolean;
+}
+
+const readinessLatches = new Map<string, ReadinessLatch>();
+
+/**
+ * Arm (or re-arm) the readiness latch for a URI at a given version. Called from
+ * the document open/change WRITE handlers, before their compile is dispatched.
+ * A newer version supersedes an unsettled older latch: the old Deferred is
+ * resolved so any awaiter for the stale version stops waiting and re-evaluates
+ * against the current version (the coordinator will re-await if still cold).
+ */
+function armReadiness(uri: string, version: number): void {
+  const existing = readinessLatches.get(uri);
+  if (existing && existing.version === version) {
+    return; // already armed for this exact version
+  }
+  if (existing && !existing.settled) {
+    // Stale latch (older version still pending, or a re-open). Release awaiters.
+    existing.settled = true;
+    Effect.runSync(Deferred.succeed(existing.deferred, undefined));
+  }
+  readinessLatches.set(uri, {
+    version,
+    deferred: Effect.runSync(Deferred.make<void, never>()),
+    settled: false,
+  });
+}
+
+/**
+ * Resolve the readiness latch for a URI once a write-back for `version` merges.
+ * Called from UpdateSymbolSubset's accepted branch. No-op if the latch was
+ * superseded by a newer version (the merge was for a version nobody awaits).
+ */
+function resolveReadiness(uri: string, version: number): void {
+  const latch = readinessLatches.get(uri);
+  if (latch && latch.version === version && !latch.settled) {
+    latch.settled = true;
+    Effect.runSync(Deferred.succeed(latch.deferred, undefined));
+  }
+}
+
+/** Drop a URI's latch on close, releasing any awaiter. */
+function clearReadiness(uri: string): void {
+  const latch = readinessLatches.get(uri);
+  if (latch && !latch.settled) {
+    latch.settled = true;
+    Effect.runSync(Deferred.succeed(latch.deferred, undefined));
+  }
+  readinessLatches.delete(uri);
+}
+
+/**
+ * Whether the symbols currently in the graph for `uri` are CURRENT for what an
+ * AwaitSymbolReadiness caller is waiting on. Used by both the initial peek and
+ * the post-wake re-peek so they cannot drift.
+ *
+ * `hasSymbols` is whether a symbol table is present at all. `reqVersion < 0`
+ * means "match the LATEST armed version" (the coordinator gate, whose
+ * triggering request carries no version).
+ *
+ * A present table is current only if the MERGED version (DocumentStateCache's
+ * documentVersion, bumped solely on an accepted write-back) has reached the
+ * version we require:
+ *   - no latch armed ⇒ nothing is compiling, any present table is current;
+ *   - latch armed ⇒ require mergedVersion ≥ latch.version (matchLatest) or
+ *     ≥ max(reqVersion, latch.version) (explicit).
+ * Critically this does NOT trust latch.settled: a latch also settles on a
+ * REJECTED or SUPERSEDED write-back that merged nothing, leaving the prior
+ * version's symbols in the graph — reporting those as ready is a stale read.
+ */
+function symbolsAreCurrent(
+  uri: string,
+  reqVersion: number,
+  hasSymbols: boolean,
+): boolean {
+  if (!hasSymbols) return false;
+  const latch = readinessLatches.get(uri);
+  if (!latch) return true;
+  const mergedVersion =
+    getDocumentStateCache().getCurrentState(uri)?.documentVersion ?? -1;
+  const requiredVersion =
+    reqVersion < 0 ? latch.version : Math.max(reqVersion, latch.version);
+  return mergedVersion >= requiredVersion;
+}
+
+// ---------------------------------------------------------------------------
 // Lazy role-specific service containers (bootstrapped on first dispatch)
 // ---------------------------------------------------------------------------
 
 import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import type {
   DataOwnerServices,
-  EnrichmentServices,
+  RequestServices,
 } from '@salesforce/apex-lsp-compliant-services';
 import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
 
@@ -333,39 +450,38 @@ const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
     ),
   );
 
-const ensureEnrichmentServices: Effect.Effect<EnrichmentServices> =
-  Effect.runSync(
-    Effect.cached(
-      Effect.gen(function* () {
-        const {
-          bootstrapEnrichmentServices,
-          EnhancedMissingArtifactResolutionService,
-        } = yield* Effect.promise(
-          () => import('@salesforce/apex-lsp-compliant-services'),
-        );
-        const resourceLoaderLayer = yield* Effect.promise(() =>
-          makeResourceLoaderRemoteLayer(),
-        );
-        const svc = yield* Effect.promise(() =>
-          bootstrapEnrichmentServices(resourceLoaderLayer),
-        );
+const ensureRequestServices: Effect.Effect<RequestServices> = Effect.runSync(
+  Effect.cached(
+    Effect.gen(function* () {
+      const {
+        bootstrapRequestServices,
+        EnhancedMissingArtifactResolutionService,
+      } = yield* Effect.promise(
+        () => import('@salesforce/apex-lsp-compliant-services'),
+      );
+      const resourceLoaderLayer = yield* Effect.promise(() =>
+        makeResourceLoaderRemoteLayer(),
+      );
+      const svc = yield* Effect.promise(() =>
+        bootstrapRequestServices(resourceLoaderLayer),
+      );
 
-        // Wire coordinator assistance so the enrichment worker can forward
-        // apex/findMissingArtifact to the coordinator (which holds the LSP
-        // client connection) rather than silently dropping the request.
-        EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
-          requestCoordinatorAssistancePromise(
-            'apex/findMissingArtifact',
-            params,
-            false,
-          ),
-        );
+      // Wire coordinator assistance so the enrichment worker can forward
+      // apex/findMissingArtifact to the coordinator (which holds the LSP
+      // client connection) rather than silently dropping the request.
+      EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
+        requestCoordinatorAssistancePromise(
+          'apex/findMissingArtifact',
+          params,
+          false,
+        ),
+      );
 
-        yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
-        return svc;
-      }),
-    ),
-  );
+      yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
+      return svc;
+    }),
+  ),
+);
 
 // ---------------------------------------------------------------------------
 // Compilation services (lazy bootstrap)
@@ -423,15 +539,31 @@ async function writeBackCompiledSymbols(
 ): Promise<boolean> {
   const startTime = Date.now();
   try {
-    const enrichedSymbolTable = {
+    // Sanitize for the wire BEFORE posting. The assistance bus posts this
+    // payload via MessagePort.postMessage, which uses the structured-clone
+    // algorithm — and structured clone THROWS on function values
+    // ("() => null could not be cloned"). A compiled SymbolTable's
+    // getAllSymbols() can carry function-valued properties (lazy thunks), which
+    // appear for real type-referencing Apex but not for trivial self-contained
+    // classes. Without this, the postMessage throws synchronously, the
+    // write-back never reaches the coordinator/data-owner, the readiness latch
+    // is never resolved, and the cold-read gate burns its full budget before
+    // falling back to a local compile — the ~2s cold-start stall.
+    //
+    // cloneForWire (JSON round-trip) is the same sanitizer every other
+    // wire-crossing data-owner payload already uses; it drops functions and
+    // other non-cloneable values, leaving plain JSON the data-owner can merge.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences:
         symbolTable.getAllHierarchicalReferences?.() ?? [],
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    });
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
 
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
@@ -490,9 +622,9 @@ const handleWorkerInitRole = (
       return { ready: true };
     });
   }
-  if (req.role === 'enrichmentSearch') {
+  if (req.role === 'lspRequest') {
     return Effect.gen(function* () {
-      yield* ensureEnrichmentServices;
+      yield* ensureRequestServices;
       return { ready: true };
     });
   }
@@ -539,16 +671,16 @@ const dataOwnerDocHandler =
 // this pattern; each handler is a one-liner config.
 // ---------------------------------------------------------------------------
 
-const enrichmentHandler =
+const requestHandler =
   <R>(
     tag: string,
-    callService: (svc: EnrichmentServices, req: R) => Promise<unknown>,
+    callService: (svc: RequestServices, req: R) => Promise<unknown>,
   ) =>
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
         Effect.gen(function* () {
-          const svc = yield* ensureEnrichmentServices;
+          const svc = yield* ensureRequestServices;
           const result = yield* Effect.promise(() => callService(svc, req));
           return { result: cloneForWire(result) };
         }),
@@ -561,7 +693,21 @@ type PositionReq = {
   content?: string;
 };
 type DocOnlyReq = { textDocument: { uri: string } };
+type DocWithContentReq = { textDocument: { uri: string }; content?: string };
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
+type CompletionReq = PositionReq & {
+  context?: { triggerKind: number; triggerCharacter?: string };
+};
+type SignatureHelpReq = PositionReq & { context?: unknown };
+type CodeActionReq = {
+  textDocument: { uri: string };
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  content?: string;
+  context?: unknown;
+};
 
 /**
  * Load symbol data from the data-owner worker into the local enrichment
@@ -572,7 +718,7 @@ type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
  * Returns version and detail level metadata for the loaded URI.
  */
 async function loadSymbolDataForEnrichment(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   content?: string,
 ): Promise<{ version: number; detailLevel: string }> {
@@ -698,7 +844,7 @@ async function loadSymbolDataForEnrichment(
  * @returns Count of dependent files ingested (0 on failure or no dependents).
  */
 export async function loadDependentsForReferences(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   symbolName?: string,
   fetchDependents: (
@@ -769,7 +915,7 @@ function shouldEnrich(
  * Returns true if the write-back was accepted, false otherwise.
  */
 async function writeBackEnrichedSymbols(
-  svc: EnrichmentServices,
+  svc: RequestServices,
   uri: string,
   documentVersion: number,
   enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
@@ -833,8 +979,8 @@ async function writeBackEnrichedSymbols(
   }
 }
 
-const enrichmentHandlers = {
-  DispatchHover: enrichmentHandler<PositionReq>(
+const requestHandlers = {
+  DispatchHover: requestHandler<PositionReq>(
     'DispatchHover',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -865,7 +1011,110 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchDefinition: enrichmentHandler<PositionReq>(
+  DispatchCompletion: requestHandler<CompletionReq>(
+    'DispatchCompletion',
+    async (svc, req) => {
+      // Completion runs on the in-flight (possibly unsaved) document text, so
+      // load the local subset from that content rather than the data-owner's
+      // last-stored version.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Completion needs full member visibility for member-access suggestions.
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      // triggerKind crosses the wire as a plain number but IS a
+      // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
+      // types, so build the params untyped and let the service narrow.
+      const completionParams = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context ? { context: req.context } : {}),
+      };
+      const result = await svc.completionService.processCompletion(
+        completionParams as Parameters<
+          typeof svc.completionService.processCompletion
+        >[0],
+      );
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchSignatureHelp: requestHandler<SignatureHelpReq>(
+    'DispatchSignatureHelp',
+    async (svc, req) => {
+      // Signature help runs on the in-flight document text while typing args.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.signatureHelpService.processSignatureHelp(
+        params as Parameters<
+          typeof svc.signatureHelpService.processSignatureHelp
+        >[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchCodeAction: requestHandler<CodeActionReq>(
+    'DispatchCodeAction',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        range: req.range,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.codeActionService.processCodeAction(
+        params as Parameters<typeof svc.codeActionService.processCodeAction>[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchDefinition: requestHandler<PositionReq>(
     'DispatchDefinition',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -895,7 +1144,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchReferences: enrichmentHandler<RefsReq>(
+  DispatchReferences: requestHandler<RefsReq>(
     'DispatchReferences',
     async (svc, req) => {
       // Mirror the hover/definition enrichment shape:
@@ -934,29 +1183,85 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchImplementation: enrichmentHandler<PositionReq>(
+  DispatchImplementation: requestHandler<PositionReq>(
     'DispatchImplementation',
-    (svc, req) =>
-      svc.implementationService.processImplementation({
+    async (svc, req) => {
+      // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
+      // EXTENDS direction:
+      //   load symbol data → load inbound implementor/subtype tables →
+      //   resolve cross-file edges → process → write back.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Go-to-implementation must see every implementor/subtype of the target
+      // type, which live in *other* files. loadDependentsForReferences pulls
+      // the inbound tables (files whose declared symbols reference symbols in
+      // this file) from the data-owner — after W-23006798 Phase 1 these include
+      // implementors (implements) and subclasses (extends), because those sites
+      // now emit reverse-reference edges to the target type.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      // Build the cross-file INTERFACE_IMPLEMENTATION / INHERITANCE edges for
+      // the target locally so findImplementingClasses' reference-index path
+      // sees them; its string-array fallback already covers the freshly loaded
+      // tables, but resolving keeps the two paths consistent.
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+
+      // Implementor discovery reads interfaces/superClass + method declarations,
+      // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.implementationService.processImplementation({
         textDocument: { uri: req.textDocument.uri },
         position: req.position,
-      }),
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
   ),
-  DispatchDocumentSymbol: enrichmentHandler<DocOnlyReq>(
+  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
     'DispatchDocumentSymbol',
-    (svc, req) =>
-      svc.documentSymbolService.processDocumentSymbol({
+    async (svc, req) => {
+      // documentSymbol re-compiles the file from its TEXT
+      // (DefaultApexDocumentSymbolProvider parses with
+      // FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph. So the pool worker must have the
+      // document text in local storage: thread req.content into
+      // loadSymbolDataForEnrichment, which stores it before the provider runs.
+      // Without it the provider's storage.getDocument() returns null and the
+      // outline is empty (the cold-open regression).
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
+      return svc.documentSymbolService.processDocumentSymbol({
         textDocument: { uri: req.textDocument.uri },
-      }),
+      });
+    },
   ),
-  DispatchCodeLens: enrichmentHandler<DocOnlyReq>(
+  DispatchCodeLens: requestHandler<DocOnlyReq>(
     'DispatchCodeLens',
-    (svc, req) =>
-      svc.codeLensService.processCodeLens({
+    async (svc, req) => {
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      return svc.codeLensService.processCodeLens({
         textDocument: { uri: req.textDocument.uri },
-      }),
+      });
+    },
   ),
-  DispatchDiagnostic: enrichmentHandler<DocOnlyReq>(
+  DispatchDiagnostic: requestHandler<DocOnlyReq>(
     'DispatchDiagnostic',
     async (svc, req) => {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
@@ -985,7 +1290,7 @@ const enrichmentHandlers = {
       return result;
     },
   ),
-  DispatchCrossFileEnrichment: enrichmentHandler<DocOnlyReq>(
+  DispatchCrossFileEnrichment: requestHandler<DocOnlyReq>(
     'DispatchCrossFileEnrichment',
     async (svc, req) => {
       const { version } = await loadSymbolDataForEnrichment(
@@ -1047,8 +1352,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         Effect.gen(function* () {
           if (assignedRole === 'dataOwner') {
             yield* ensureDataOwnerServices;
-          } else if (assignedRole === 'enrichmentSearch') {
-            yield* ensureEnrichmentServices;
+          } else if (assignedRole === 'lspRequest') {
+            yield* ensureRequestServices;
           } else if (assignedRole === 'compilation') {
             yield* ensureCompilationServices;
           }
@@ -1124,6 +1429,100 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  // Deterministic readiness wait: block until the symbol graph for
+  // {uri, version} is populated, or report why not.
+  //
+  // "Snapshot in runner, await outside": the serial data-owner fiber must never
+  // block on a Deferred whose resolver (UpdateSymbolSubset) is queued behind it
+  // on that same fiber — that is a self-deadlock. So the only work done *inside*
+  // the runner (peekReadiness) is a fast, non-blocking read that returns either
+  // an immediate verdict or the latch's Deferred handle. The actual wait happens
+  // here, on the handler's own fiber.
+  AwaitSymbolReadiness: (req) =>
+    guardRole('AwaitSymbolReadiness').pipe(
+      Effect.flatMap(() => {
+        // Peek: resolve the current state through the serial runner without
+        // blocking it. Returns the latch's Deferred only when a compile for this
+        // (or a newer) version is actually pending.
+        // A negative req.version means "match whatever version is currently
+        // armed" — the coordinator gate uses it when the triggering request
+        // (e.g. documentSymbol) carries no version of its own and simply wants
+        // the latest open/change to finish compiling.
+        const matchLatest = req.version < 0;
+        const peekReadiness = dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const st = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(req.uri),
+            );
+            const latch = readinessLatches.get(req.uri);
+            if (symbolsAreCurrent(req.uri, req.version, st != null)) {
+              return { kind: 'ready' as const };
+            }
+            if (!latch) {
+              // Nothing armed: no open/change is driving a compile for this URI.
+              // The coordinator decides whether to fall back to a local handler.
+              return { kind: 'no-latch' as const };
+            }
+            if (!matchLatest && latch.version > req.version) {
+              // A newer edit superseded the version we were asked about.
+              return { kind: 'stale-version' as const };
+            }
+            return { kind: 'await' as const, deferred: latch.deferred };
+          }),
+        );
+
+        return Effect.gen(function* () {
+          const snapshot = yield* peekReadiness;
+          if (snapshot.kind === 'ready') {
+            return { ready: true };
+          }
+          if (snapshot.kind === 'no-latch') {
+            return { ready: false, reason: 'no-compile-pending' as const };
+          }
+          if (snapshot.kind === 'stale-version') {
+            return { ready: false, reason: 'stale-version' as const };
+          }
+
+          // Await the latch off the serial fiber, bounded by the caller's
+          // timeout. A `false` here means the timer won the race.
+          const fired = yield* Deferred.await(snapshot.deferred).pipe(
+            Effect.as(true),
+            Effect.timeoutTo({
+              duration: `${req.timeoutMs} millis`,
+              onTimeout: () => false,
+              onSuccess: () => true,
+            }),
+          );
+          if (!fired) {
+            return { ready: false, reason: 'timeout' as const };
+          }
+
+          // The latch resolves on a successful merge, on supersession by a newer
+          // version, AND on a rejected write-back (armReadiness/clearReadiness/
+          // the reject branches). Re-peek with the SAME currency check as the
+          // initial peek (symbolsAreCurrent) to tell a real merge from a stale
+          // wake-up: a supersession or rejected-write-back wake-up leaves the
+          // prior version's table present while the merged version has NOT
+          // advanced — reporting ready off that stale table is the bug. When not
+          // current, return stale-version so the coordinator re-issues the gate
+          // against the newer version.
+          const after = yield* dataOwnerRead(
+            Effect.gen(function* () {
+              const svc = yield* ensureDataOwnerServices;
+              const st = yield* Effect.promise(() =>
+                svc.symbolManager.getSymbolTableForFile(req.uri),
+              );
+              return symbolsAreCurrent(req.uri, req.version, st != null);
+            }),
+          );
+          return after
+            ? { ready: true }
+            : { ready: false, reason: 'stale-version' as const };
+        });
+      }),
+    ),
+
   UpdateSymbolSubset: (req) =>
     guardRole('UpdateSymbolSubset').pipe(
       Effect.flatMap(() =>
@@ -1145,6 +1544,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
+              // Terminal for this version: no document means no awaiter can ever
+              // be satisfied by it. Release so the coordinator stops waiting and
+              // falls back rather than blocking the full gate budget.
+              resolveReadiness(req.uri, req.documentVersion);
               return {
                 accepted: false,
                 merged: 0,
@@ -1159,6 +1562,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                   `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
                   `for ${req.uri} from ${req.sourceWorkerId}`,
               );
+              // The compile was for a stale version; the current version's
+              // write-back (if any) will resolve its own latch. Release any
+              // awaiter for this version so it re-evaluates.
+              resolveReadiness(req.uri, req.documentVersion);
               return {
                 accepted: false,
                 merged: 0,
@@ -1180,13 +1587,28 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 : 0;
             const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
 
-            if (enrichedOrder <= currentOrder) {
+            // The detail-level downgrade guard prevents a poorer enrichment from
+            // overwriting a richer one — but ONLY for the SAME document version.
+            // A write-back for a NEWER version carries fresh content and MUST
+            // merge even at an equal/lower detail level: the cached level
+            // describes the OLD version's symbols, which are now stale. Guarding
+            // on level alone dropped a new version's symbols whenever its compile
+            // happened to land at the same level (e.g. public-api after an edit),
+            // leaving the graph stuck on the prior version's symbols until some
+            // later write-back happened to raise the level. Only skip when the
+            // cache is at the same-or-newer version AND same-or-richer level.
+            const cachedVersion = currentState?.documentVersion ?? -1;
+            const sameOrOlderVersion = req.documentVersion <= cachedVersion;
+            if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
-                  `for ${req.uri}`,
+                  `at v${cachedVersion} >= v${req.documentVersion} for ${req.uri}`,
               );
+              // Symbols at this (or a richer) level are already in the graph for
+              // this (or a newer) version — the awaiter's data IS ready. Release.
+              resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
 
@@ -1222,6 +1644,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const mergedCount = enrichedSt.getAllSymbols().length;
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            // Symbols for this version are now in the graph — release any
+            // coordinator request awaiting readiness for this URI/version.
+            resolveReadiness(req.uri, req.documentVersion);
 
             // Log to both Effect logger and console for debugging
             const logMsg =
@@ -1402,7 +1828,18 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           languageId: req.languageId,
           version: req.version,
         };
-        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        // Await the store: the write-back's version check (UpdateSymbolSubset)
+        // and the readiness latch both require the document to be present at
+        // this version BEFORE the compile this open triggers runs. The prior
+        // `void` left that a race — a fast compile could write back before the
+        // store landed and be rejected as "document not found".
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        // Arm before returning: dispatch() sequences this store ahead of the
+        // compile, so the latch exists when a fast-following documentSymbol
+        // awaits it.
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1417,18 +1854,36 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
           languageId: 'apex',
           version: req.version,
         };
-        void svc.storageManager.getStorage().setDocument(req.uri, doc as never);
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        // Re-arm at the new version; supersedes the prior latch so an awaiter
+        // for the old version stops waiting and re-evaluates.
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),
 
   DispatchDocumentSave: dataOwnerDocHandler(
     'DispatchDocumentSave',
-    (_svc, req) =>
+    (svc, req) =>
       Effect.gen(function* () {
-        yield* Effect.logDebug(
-          `[DATA-OWNER] DispatchDocumentSave: uri=${req.uri}`,
+        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // readiness latch so the CompileDocument this save triggers can write
+        // its symbols back (UpdateSymbolSubset requires the document present at
+        // this version) and a request racing the save re-evaluates against the
+        // saved version. The compile message carries the real saved content; the
+        // placeholder text is replaced when the write-back merges.
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: req.version,
+        };
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
         );
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),
@@ -1446,6 +1901,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         svc.documentCloseProcessingService.processDocumentClose({
           document: closeDoc as never,
         });
+        // Release any awaiter and drop the latch so the Map doesn't grow
+        // unbounded across a long session of opens/closes.
+        clearReadiness(req.uri);
         return { accepted: true };
       }),
   ),
@@ -1552,9 +2010,9 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
   //
   // All enrichment handlers follow the same pattern: guard role, bootstrap
   // services, call the service method, clone the result for postMessage.
-  // The `enrichmentHandler` factory eliminates the repetition.
+  // The `requestHandler` factory eliminates the repetition.
 
-  ...enrichmentHandlers,
+  ...requestHandlers,
 
   DispatchGenericLspRequest: (req) =>
     guardRole('DispatchGenericLspRequest').pipe(
@@ -1711,7 +2169,12 @@ export function requestCoordinatorAssistance(
       );
     }
 
-    const correlationId = `assist-${++assistanceIdCounter}-${Date.now()}`;
+    // Include workerId: the counter + Date.now() are per-worker, so two
+    // different workers issuing their Nth assist in the same millisecond would
+    // otherwise collide on the same correlationId and the coordinator mediator
+    // would dedup them as one call (dropping one worker's request). workerId is
+    // globally unique, so this makes correlationIds unique across all workers.
+    const correlationId = `assist-${workerId}-${++assistanceIdCounter}-${Date.now()}`;
 
     const result = yield* Effect.async<unknown, AssistanceError>((resume) => {
       pendingAssistanceCallbacks.set(correlationId, {
@@ -1935,24 +2398,6 @@ const WorkerLoggerLayer = Layer.merge(
   Logger.replace(Logger.defaultLogger, workerLogger),
   Logger.minimumLogLevel(LogLevel.Debug),
 );
-
-// Disabled: coordinator-side WorkerLogLevelChange posting is disabled
-// (same parentPort protocol collision as WorkerLogMessage). The listener
-// is kept but not called until a dedicated MessageChannel is used.
-function _listenForLogLevelChanges(): void {
-  if (!parentPort) return;
-  parentPort.on('message', (data: unknown) => {
-    if (
-      typeof data === 'object' &&
-      data !== null &&
-      (data as Record<string, unknown>)._tag === 'WorkerLogLevelChange'
-    ) {
-      const { logLevel } = data as WorkerLogLevelChange;
-      setWorkerLogLevel(logLevel);
-    }
-  });
-}
-// listenForLogLevelChanges(); // disabled — see comment above
 
 // ---------------------------------------------------------------------------
 // Bootstrap — Node worker runner
