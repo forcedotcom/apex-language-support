@@ -36,7 +36,6 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
-  QuerySymbolReadiness,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
@@ -87,7 +86,6 @@ const AllWorkerRequests = Schema.Union(
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
-  QuerySymbolReadiness,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
@@ -297,8 +295,8 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
 // ---------------------------------------------------------------------------
 // Symbol-readiness latches (data-owner role)
 //
-// Replaces the coordinator's tick-count spin over QuerySymbolReadiness with a
-// deterministic signal: a documentOpen/Change arms a per-URI latch at the
+// Gives the coordinator a deterministic readiness signal: a documentOpen/Change
+// arms a per-URI latch at the
 // incoming version (inside the serial WRITE handler, so it is ordered before
 // the compile it triggers), and UpdateSymbolSubset resolves it the instant the
 // write-back for that version merges.
@@ -1429,25 +1427,8 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  // Presence-only readiness probe. Serializes nothing — the coordinator polls
-  // this while deferring a cold read, so it must stay cheap (no cloneForWire).
-  QuerySymbolReadiness: (req) =>
-    guardRole('QuerySymbolReadiness').pipe(
-      Effect.flatMap(() =>
-        dataOwnerRead(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            const st = yield* Effect.promise(() =>
-              svc.symbolManager.getSymbolTableForFile(req.uri),
-            );
-            return { ready: st != null };
-          }),
-        ),
-      ),
-    ),
-
-  // Deterministic replacement for the coordinator's tick-count spin: block
-  // until the symbol graph for {uri, version} is populated, or report why not.
+  // Deterministic readiness wait: block until the symbol graph for
+  // {uri, version} is populated, or report why not.
   //
   // "Snapshot in runner, await outside": the serial data-owner fiber must never
   // block on a Deferred whose resolver (UpdateSymbolSubset) is queued behind it

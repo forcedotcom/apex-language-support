@@ -130,37 +130,8 @@ export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
-// QuerySymbolReadiness — presence-only readiness probe for a single URI.
-// Unlike QuerySymbolSubset, this serializes nothing: it returns only whether
-// the data-owner currently holds a symbol table for the URI. Cheap enough to
-// poll while the coordinator defers a cold read.
-// ---------------------------------------------------------------------------
-
-export class QuerySymbolReadiness extends Schema.TaggedRequest<QuerySymbolReadiness>()(
-  'QuerySymbolReadiness',
-  {
-    success: Schema.Struct({
-      /** Whether a symbol table for the requested URI is present in the graph. */
-      ready: Schema.Boolean,
-    }),
-    failure: Schema.Struct({
-      _tag: Schema.Literal('QuerySymbolReadinessError'),
-      message: Schema.String,
-    }),
-    payload: {
-      uri: Schema.String,
-    },
-  },
-) {}
-
-export type QuerySymbolReadinessSuccess = Schema.Schema.Type<
-  (typeof QuerySymbolReadiness)['success']
->;
-
-// ---------------------------------------------------------------------------
 // AwaitSymbolReadiness — deterministic (not poll-based) readiness wait.
-// Unlike QuerySymbolReadiness (a one-shot presence snapshot), this resolves the
-// instant a write-back for the URI merges into the data-owner graph, via a
+// Resolves the instant a write-back for the URI merges into the data-owner graph, via a
 // per-URI latch the document-open/change handlers arm and UpdateSymbolSubset
 // resolves. The data-owner side never blocks its serial runner on the latch:
 // it returns the latch handle/immediate-ready synchronously, and the awaiting
@@ -893,7 +864,6 @@ export const DataOwnerTags = [
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
   'QuerySymbolSubset',
-  'QuerySymbolReadiness',
   'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
   'ResolveDepUris',
@@ -969,7 +939,6 @@ export type DataOwnerRequest =
   | PingWorker
   | WorkerRemoteStdlibWarmup
   | QuerySymbolSubset
-  | QuerySymbolReadiness
   | AwaitSymbolReadiness
   | UpdateSymbolSubset
   | ResolveDepUris

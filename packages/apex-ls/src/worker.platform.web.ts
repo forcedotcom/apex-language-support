@@ -44,7 +44,6 @@ import {
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
-  QuerySymbolReadiness,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
@@ -94,7 +93,6 @@ const AllWorkerRequests = Schema.Union(
   PingWorker,
   WorkerRemoteStdlibWarmup,
   QuerySymbolSubset,
-  QuerySymbolReadiness,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
@@ -337,6 +335,40 @@ function clearReadiness(uri: string): void {
     Effect.runSync(Deferred.succeed(latch.deferred, undefined));
   }
   readinessLatches.delete(uri);
+}
+
+/**
+ * Whether the symbols currently in the graph for `uri` are CURRENT for what an
+ * AwaitSymbolReadiness caller is waiting on. Used by both the initial peek and
+ * the post-wake re-peek so they cannot drift.
+ *
+ * `hasSymbols` is whether a symbol table is present at all. `reqVersion < 0`
+ * means "match the LATEST armed version" (the coordinator gate, whose
+ * triggering request carries no version).
+ *
+ * A present table is current only if the MERGED version (DocumentStateCache's
+ * documentVersion, bumped solely on an accepted write-back) has reached the
+ * version we require:
+ *   - no latch armed ⇒ nothing is compiling, any present table is current;
+ *   - latch armed ⇒ require mergedVersion ≥ latch.version (matchLatest) or
+ *     ≥ max(reqVersion, latch.version) (explicit).
+ * Critically this does NOT trust latch.settled: a latch also settles on a
+ * REJECTED or SUPERSEDED write-back that merged nothing, leaving the prior
+ * version's symbols in the graph — reporting those as ready is a stale read.
+ */
+function symbolsAreCurrent(
+  uri: string,
+  reqVersion: number,
+  hasSymbols: boolean,
+): boolean {
+  if (!hasSymbols) return false;
+  const latch = readinessLatches.get(uri);
+  if (!latch) return true;
+  const mergedVersion =
+    getDocumentStateCache().getCurrentState(uri)?.documentVersion ?? -1;
+  const requiredVersion =
+    reqVersion < 0 ? latch.version : Math.max(reqVersion, latch.version);
+  return mergedVersion >= requiredVersion;
 }
 
 // ---------------------------------------------------------------------------
@@ -1271,23 +1303,6 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  // Presence-only readiness probe. Serializes nothing — the coordinator polls
-  // this while deferring a cold read, so it must stay cheap (no cloneForWire).
-  QuerySymbolReadiness: (req) =>
-    guardRole('QuerySymbolReadiness').pipe(
-      Effect.flatMap(() =>
-        dataOwnerRead(
-          Effect.gen(function* () {
-            const svc = yield* ensureDataOwnerServices;
-            const st = yield* Effect.promise(() =>
-              svc.symbolManager.getSymbolTableForFile(req.uri),
-            );
-            return { ready: st != null };
-          }),
-        ),
-      ),
-    ),
-
   // Deterministic readiness wait — browser counterpart of the Node handler.
   // "Snapshot in runner, await outside": peek the latch through the serial
   // runner (non-blocking), then await its Deferred on this handler's own fiber
@@ -1303,10 +1318,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               svc.symbolManager.getSymbolTableForFile(req.uri),
             );
             const latch = readinessLatches.get(req.uri);
-            if (
-              st != null &&
-              (!latch || matchLatest || latch.version <= req.version)
-            ) {
+            if (symbolsAreCurrent(req.uri, req.version, st != null)) {
               return { kind: 'ready' as const };
             }
             if (!latch) {
@@ -1343,13 +1355,21 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             return { ready: false, reason: 'timeout' as const };
           }
 
+          // The latch resolves on a successful merge, on supersession by a newer
+          // version, AND on a rejected write-back. Re-peek with the SAME currency
+          // check as the initial peek (symbolsAreCurrent) to tell a real merge
+          // from a stale wake-up: a supersession or rejected-write-back wake-up
+          // leaves the prior version's table present while the merged version has
+          // NOT advanced — reporting ready off that stale table is the bug. When
+          // not current, return stale-version so the coordinator re-issues the
+          // gate against the newer version.
           const after = yield* dataOwnerRead(
             Effect.gen(function* () {
               const svc = yield* ensureDataOwnerServices;
               const st = yield* Effect.promise(() =>
                 svc.symbolManager.getSymbolTableForFile(req.uri),
               );
-              return st != null;
+              return symbolsAreCurrent(req.uri, req.version, st != null);
             }),
           );
           return after
@@ -1399,9 +1419,19 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 : 0;
             const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
 
-            if (enrichedOrder <= currentOrder) {
+            // The detail-level downgrade guard prevents a poorer enrichment from
+            // overwriting a richer one — but ONLY for the SAME document version.
+            // A write-back for a NEWER version carries fresh content and MUST
+            // merge even at an equal/lower detail level: the cached level
+            // describes the OLD version's symbols, which are now stale. Only skip
+            // when the cache is at the same-or-newer version AND same-or-richer
+            // level.
+            const cachedVersion = currentState?.documentVersion ?? -1;
+            const sameOrOlderVersion = req.documentVersion <= cachedVersion;
+            if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
-              // Symbols at this (or richer) level already present — ready.
+              // Symbols at this (or richer) level already present for this (or a
+              // newer) version — ready.
               resolveReadiness(req.uri, req.documentVersion);
               return { accepted: false, merged: 0, versionMismatch: false };
             }
