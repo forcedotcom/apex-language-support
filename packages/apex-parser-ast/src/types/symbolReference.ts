@@ -29,6 +29,8 @@ export enum ReferenceContext {
   RETURN_TYPE = 13, // For return type references in method declarations
   PROPERTY_REFERENCE = 14, // For property names in property declarations
   LITERAL = 15, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
+  INHERITANCE = 16, // For a class's `extends` superclass (subclass → superclass edge)
+  INTERFACE_IMPLEMENTATION = 17, // For `implements` / interface `extends` (implementor → interface edge)
 }
 
 /**
@@ -306,6 +308,94 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.TYPE_DECLARATION,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
+      parentContext,
+    );
+  }
+
+  /**
+   * Create a reference for a class's `extends` superclass.
+   *
+   * Modeled on {@link createTypeDeclarationReference} but tagged
+   * {@link ReferenceContext.INHERITANCE} so the resolver emits a
+   * subclass → superclass graph edge ({@link ReferenceType.INHERITANCE}) that
+   * `findReferencesTo(superclass)` can return — enabling go-to-implementation
+   * to discover subclasses declared in unopened files.
+   */
+  static createInheritanceReference(
+    typeName: string,
+    location: SymbolLocation,
+    parentContext?: string,
+    preciseLocations?: SymbolLocation[],
+  ): SymbolReference {
+    return this.createTypeRelationshipReference(
+      typeName,
+      location,
+      ReferenceContext.INHERITANCE,
+      parentContext,
+      preciseLocations,
+    );
+  }
+
+  /**
+   * Create a reference for an `implements` clause (class) or interface `extends`
+   * clause (interface extending interface).
+   *
+   * Modeled on {@link createTypeDeclarationReference} but tagged
+   * {@link ReferenceContext.INTERFACE_IMPLEMENTATION} so the resolver emits an
+   * implementor → interface graph edge
+   * ({@link ReferenceType.INTERFACE_IMPLEMENTATION}) that
+   * `findReferencesTo(interface)` can return.
+   */
+  static createInterfaceImplementationReference(
+    typeName: string,
+    location: SymbolLocation,
+    parentContext?: string,
+    preciseLocations?: SymbolLocation[],
+  ): SymbolReference {
+    return this.createTypeRelationshipReference(
+      typeName,
+      location,
+      ReferenceContext.INTERFACE_IMPLEMENTATION,
+      parentContext,
+      preciseLocations,
+    );
+  }
+
+  /**
+   * Shared builder for inheritance/implementation references. Mirrors the
+   * dotted-vs-simple handling of {@link createTypeDeclarationReference}, but
+   * stamps the final node with the supplied relationship `context` so the
+   * resolver maps it to the correct graph edge type.
+   */
+  private static createTypeRelationshipReference(
+    typeName: string,
+    location: SymbolLocation,
+    context:
+      | ReferenceContext.INHERITANCE
+      | ReferenceContext.INTERFACE_IMPLEMENTATION,
+    parentContext?: string,
+    preciseLocations?: SymbolLocation[],
+  ): SymbolReference {
+    // For dotted names (e.g. Namespace.Type) reuse the chain-aware builder,
+    // then override the final node's context to the relationship type so the
+    // resolved edge is INHERITANCE / INTERFACE_IMPLEMENTATION rather than a
+    // plain type reference.
+    if (typeName.includes('.')) {
+      const ref = this.createTypeDeclarationReference(
+        typeName,
+        location,
+        parentContext,
+        preciseLocations,
+      ) as EnhancedSymbolReference;
+      ref.context = context;
+      return ref;
+    }
+
+    return new EnhancedSymbolReference(
+      typeName,
+      location,
+      context,
       undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );

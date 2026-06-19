@@ -18,8 +18,10 @@ import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
+  ApexSymbol,
   ApexSymbolProcessingManager,
   ISymbolManager,
+  ReferenceResult,
   ReferenceType,
   createQueuedItem,
   offer,
@@ -50,6 +52,15 @@ export interface IReferencesProcessor {
    */
   processReferences(params: ReferenceParams): Promise<Location[]>;
 }
+
+/**
+ * The values passed to the reference-location helpers.
+ * `findReferencesTo`/`findReferencesFrom` yield {@link ReferenceResult} (which
+ * carries `fileUri` and an embedded resolved `symbol`), while
+ * `findRelatedSymbols` yields {@link ApexSymbol}. Both expose the canonical
+ * `fileUri`/`location` fields the helpers read.
+ */
+type WireReference = ReferenceResult | ApexSymbol;
 
 /**
  * Service for processing references requests using ApexSymbolManager
@@ -427,7 +438,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Create location from symbol
    */
   private async createLocationFromSymbol(
-    symbol: any,
+    symbol: ApexSymbol,
   ): Promise<Location | null> {
     if (!symbol.location) {
       return null;
@@ -438,14 +449,22 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
+    // Read from identifierRange (SymbolLocation shape). The flat-range fields
+    // (startLine/startColumn/...) do not exist on SymbolLocation and yield
+    // NaN -> null after JSON serialization across the worker boundary.
+    const identifierRange = symbol.location.identifierRange;
+    if (!identifierRange) {
+      return null;
+    }
+
     const range: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: identifierRange.startLine,
+        character: identifierRange.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: identifierRange.endLine,
+        character: identifierRange.endColumn,
       }),
     };
 
@@ -455,7 +474,9 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Create location from reference
    */
-  private createLocationFromReference(reference: any): Location | null {
+  private createLocationFromReference(
+    reference: WireReference,
+  ): Location | null {
     if (!reference.location) {
       return null;
     }
@@ -465,14 +486,22 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return null;
     }
 
+    // Read from identifierRange (SymbolLocation shape). The flat-range fields
+    // (startLine/startColumn/...) do not exist on SymbolLocation and yield
+    // NaN -> null after JSON serialization across the worker boundary.
+    const identifierRange = reference.location.identifierRange;
+    if (!identifierRange) {
+      return null;
+    }
+
     const range: Range = {
       start: transformParserToLspPosition({
-        line: reference.location.startLine,
-        character: reference.location.startColumn,
+        line: identifierRange.startLine,
+        character: identifierRange.startColumn,
       }),
       end: transformParserToLspPosition({
-        line: reference.location.endLine,
-        character: reference.location.endColumn,
+        line: identifierRange.endLine,
+        character: identifierRange.endColumn,
       }),
     };
 
@@ -624,10 +653,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Get the file URI for a symbol
    */
-  private async getSymbolFileUri(symbol: any): Promise<string | null> {
-    // Try to get from symbol's file path
-    if (symbol.filePath) {
-      return `file://${symbol.filePath}`;
+  private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
+    // fileUri is the canonical field on ApexSymbol.
+    if (symbol.fileUri) {
+      return symbol.fileUri;
     }
 
     // Try to find in symbol manager
@@ -646,15 +675,19 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   /**
    * Get the file URI for a reference
    */
-  private getReferenceFileUri(reference: any): string | null {
-    // Try to get from reference's file path
-    if (reference.filePath) {
-      return `file://${reference.filePath}`;
+  private getReferenceFileUri(reference: WireReference): string | null {
+    // fileUri is the canonical field.
+    if (reference.fileUri) {
+      return reference.fileUri;
     }
 
-    // Try to get from symbol's file path
-    if (reference.symbol && reference.symbol.filePath) {
-      return `file://${reference.symbol.filePath}`;
+    // Try to get from the resolved symbol.
+    // Only ReferenceResult carries an embedded `symbol`; ApexSymbol does not.
+    if ('symbol' in reference && reference.symbol) {
+      const symbol = reference.symbol;
+      if (symbol.fileUri) {
+        return symbol.fileUri;
+      }
     }
 
     return null;

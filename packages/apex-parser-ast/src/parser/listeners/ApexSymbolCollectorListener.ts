@@ -3300,6 +3300,19 @@ export class ApexSymbolCollectorListener
             parentContext,
             preciseLocations,
           );
+        } else if (this.isClassExtendsTypeRef(ctx)) {
+          // A class's `extends` superclass is a single typeRef directly under
+          // ClassDeclarationContext (the `implements` list and interface
+          // `extends` list go through enterTypeList instead). Tag it INHERITANCE
+          // so the resolver emits a subclass → superclass edge that
+          // findReferencesTo(superclass) returns — enabling go-to-implementation
+          // to find subclasses in unopened files.
+          baseReference = SymbolReferenceFactory.createInheritanceReference(
+            fullTypeName,
+            baseLocation,
+            parentContext,
+            preciseLocations,
+          );
         } else if (isTypeDeclaration) {
           baseReference = SymbolReferenceFactory.createTypeDeclarationReference(
             fullTypeName,
@@ -4251,7 +4264,13 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Process typeList for interface declarations (IMPLEMENTS/EXTENDS)
+   * Process a `typeList` that names supertypes: a class `implements` list or an
+   * interface `extends` list (interface extending interface). Both express an
+   * implementor → interface relationship, so each entry is emitted as an
+   * INTERFACE_IMPLEMENTATION reference. This produces an
+   * {@link ReferenceType.INTERFACE_IMPLEMENTATION} graph edge so
+   * `findReferencesTo(interface)` returns the implementor — the basis for
+   * go-to-implementation discovering implementors in unopened files.
    */
   private processTypeListForInterfaceDeclaration(ctx: TypeListContext): void {
     const typeRefs = ctx.typeRef_list();
@@ -4263,12 +4282,12 @@ export class ApexSymbolCollectorListener
 
       const { fullTypeName, baseLocation } = extracted;
 
-      // For interface declarations, use TYPE_DECLARATION
-      const typeRefObj = SymbolReferenceFactory.createTypeDeclarationReference(
-        fullTypeName,
-        baseLocation,
-        parentContext,
-      );
+      const typeRefObj =
+        SymbolReferenceFactory.createInterfaceImplementationReference(
+          fullTypeName,
+          baseLocation,
+          parentContext,
+        );
       this.symbolTable.addTypeReference(typeRefObj);
     }
   }
@@ -6085,6 +6104,24 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Whether this typeRef is a class's `extends` superclass — i.e. the single
+   * typeRef that is the direct `typeRef()` child of a ClassDeclarationContext
+   * (`class X extends Super`). The `implements` list and interface `extends`
+   * list are TypeListContext children and are handled by enterTypeList, so they
+   * are intentionally excluded here.
+   * @param ctx The TypeRefContext
+   * @returns true if this is the class-extends superclass typeRef
+   */
+  private isClassExtendsTypeRef(ctx: TypeRefContext): boolean {
+    const parent = ctx.parentCtx;
+    if (!parent || !isContextType(parent, ClassDeclarationContext)) {
+      return false;
+    }
+    // A ClassDeclarationContext has at most one direct typeRef: its superclass.
+    return (parent as ClassDeclarationContext).typeRef() === ctx;
+  }
+
+  /**
    * Determine if a type reference is in a type declaration context (variable/field declaration)
    * @param ctx The TypeRefContext
    * @returns true if this is a type declaration, false otherwise
@@ -7738,7 +7775,12 @@ export class ApexSymbolCollectorListener
       case ReferenceContext.TYPE_DECLARATION:
       case ReferenceContext.PARAMETER_TYPE:
       case ReferenceContext.RETURN_TYPE:
-        // Resolve type references - find class/interface in same file
+      case ReferenceContext.INHERITANCE:
+      case ReferenceContext.INTERFACE_IMPLEMENTATION:
+        // Resolve type references - find class/interface in same file.
+        // INHERITANCE / INTERFACE_IMPLEMENTATION name a supertype, so they
+        // resolve like any other type reference (the distinct context only
+        // changes the graph edge type, not how the name is resolved).
         return this.resolveTypeReference(ref, allSymbols);
 
       case ReferenceContext.VARIABLE_DECLARATION:

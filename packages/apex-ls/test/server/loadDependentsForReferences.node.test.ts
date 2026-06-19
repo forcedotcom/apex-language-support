@@ -26,7 +26,7 @@
 
 import { Effect } from 'effect';
 import { loadDependentsForReferences } from '../../src/worker.platform';
-import type { EnrichmentServices } from '@salesforce/apex-lsp-compliant-services';
+import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
 
 const TARGET_URI = 'file:///workspace/Target.cls';
@@ -48,13 +48,13 @@ const serializedTableFor = (fileUri: string) => ({
 
 describe('loadDependentsForReferences', () => {
   let addSymbolTable: jest.Mock;
-  let svc: EnrichmentServices;
+  let svc: RequestServices;
 
   beforeEach(() => {
     addSymbolTable = jest.fn(() => Effect.void);
     svc = {
       symbolManager: { addSymbolTable },
-    } as unknown as EnrichmentServices;
+    } as unknown as RequestServices;
   });
 
   it('ingests every dependent table and returns the count', async () => {

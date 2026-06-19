@@ -52,7 +52,7 @@ describe('workerWireSchemas', () => {
 
     it('should encode and decode optional serverMode', () => {
       const init = new WorkerInit({
-        role: 'enrichmentSearch',
+        role: 'lspRequest',
         protocolVersion: WIRE_PROTOCOL_VERSION,
         serverMode: 'development',
       });
@@ -375,23 +375,21 @@ describe('workerWireSchemas', () => {
   describe('isAllowedTag', () => {
     it('should allow WorkerInit for all roles', () => {
       expect(isAllowedTag('dataOwner', 'WorkerInit')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('lspRequest', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('compilation', 'WorkerInit')).toBe(true);
     });
 
     it('should allow PingWorker for all roles', () => {
       expect(isAllowedTag('dataOwner', 'PingWorker')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'PingWorker')).toBe(true);
+      expect(isAllowedTag('lspRequest', 'PingWorker')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'PingWorker')).toBe(true);
       expect(isAllowedTag('compilation', 'PingWorker')).toBe(true);
     });
 
     it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and compilation', () => {
       expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'WorkerRemoteStdlibWarmup')).toBe(
-        true,
-      );
+      expect(isAllowedTag('lspRequest', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
         false,
       );
@@ -402,16 +400,14 @@ describe('workerWireSchemas', () => {
 
     it('should restrict QuerySymbolSubset to dataOwner', () => {
       expect(isAllowedTag('dataOwner', 'QuerySymbolSubset')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'QuerySymbolSubset')).toBe(false);
+      expect(isAllowedTag('lspRequest', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
     });
 
     it('should restrict ResolveDependentUris to dataOwner', () => {
       expect(isAllowedTag('dataOwner', 'ResolveDependentUris')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'ResolveDependentUris')).toBe(
-        false,
-      );
+      expect(isAllowedTag('lspRequest', 'ResolveDependentUris')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'ResolveDependentUris')).toBe(
         false,
       );
@@ -420,9 +416,7 @@ describe('workerWireSchemas', () => {
 
     it('should restrict WorkspaceBatchIngest to dataOwner', () => {
       expect(isAllowedTag('dataOwner', 'WorkspaceBatchIngest')).toBe(true);
-      expect(isAllowedTag('enrichmentSearch', 'WorkspaceBatchIngest')).toBe(
-        false,
-      );
+      expect(isAllowedTag('lspRequest', 'WorkspaceBatchIngest')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'WorkspaceBatchIngest')).toBe(
         false,
       );
@@ -433,9 +427,9 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('dataOwner', 'ResourceLoaderGetSymbolTable')).toBe(
         false,
       );
-      expect(
-        isAllowedTag('enrichmentSearch', 'ResourceLoaderGetSymbolTable'),
-      ).toBe(false);
+      expect(isAllowedTag('lspRequest', 'ResourceLoaderGetSymbolTable')).toBe(
+        false,
+      );
       expect(
         isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTable'),
       ).toBe(true);
@@ -449,12 +443,12 @@ describe('workerWireSchemas', () => {
         'DispatchDocumentClose',
       ]) {
         expect(isAllowedTag('dataOwner', tag)).toBe(true);
-        expect(isAllowedTag('enrichmentSearch', tag)).toBe(false);
+        expect(isAllowedTag('lspRequest', tag)).toBe(false);
         expect(isAllowedTag('resourceLoader', tag)).toBe(false);
       }
     });
 
-    it('should route query dispatches to enrichmentSearch only', () => {
+    it('should route query dispatches to lspRequest only', () => {
       for (const tag of [
         'DispatchHover',
         'DispatchDefinition',
@@ -465,7 +459,7 @@ describe('workerWireSchemas', () => {
         'DispatchCrossFileEnrichment',
         'DispatchGenericLspRequest',
       ]) {
-        expect(isAllowedTag('enrichmentSearch', tag)).toBe(true);
+        expect(isAllowedTag('lspRequest', tag)).toBe(true);
         expect(isAllowedTag('dataOwner', tag)).toBe(false);
         expect(isAllowedTag('resourceLoader', tag)).toBe(false);
       }
@@ -475,14 +469,14 @@ describe('workerWireSchemas', () => {
       for (const tag of ['CompileDocument', 'WorkspaceBatchCompile']) {
         expect(isAllowedTag('compilation', tag)).toBe(true);
         expect(isAllowedTag('dataOwner', tag)).toBe(false);
-        expect(isAllowedTag('enrichmentSearch', tag)).toBe(false);
+        expect(isAllowedTag('lspRequest', tag)).toBe(false);
         expect(isAllowedTag('resourceLoader', tag)).toBe(false);
       }
     });
 
     it('should reject unknown tags', () => {
       expect(isAllowedTag('dataOwner', 'UnknownTag')).toBe(false);
-      expect(isAllowedTag('enrichmentSearch', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('lspRequest', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('compilation', 'UnknownTag')).toBe(false);
     });

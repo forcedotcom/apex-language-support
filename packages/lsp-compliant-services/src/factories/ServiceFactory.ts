@@ -22,6 +22,8 @@ import { RenameProcessingService } from '../services/RenameProcessingService';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
 import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
+import { DocumentChangeProcessingService } from '../services/DocumentChangeProcessingService';
+import { DocumentSaveProcessingService } from '../services/DocumentSaveProcessingService';
 import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessingService';
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
@@ -261,6 +263,32 @@ export class ServiceFactory {
     const service = new DocumentProcessingService(this.dependencies.logger);
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
+  }
+
+  /**
+   * Create document change processing service.
+   * Used as the coordinator-local fallback for documentChange when the worker
+   * topology is unavailable; shares the same layer-enrichment-configured
+   * DocumentProcessingService pipeline as documentOpen so an edited file is
+   * recompiled into the symbol manager.
+   */
+  createDocumentChangeProcessingService(): DocumentChangeProcessingService {
+    return new DocumentChangeProcessingService(
+      this.dependencies.logger,
+      this.createDocumentProcessingService(),
+    );
+  }
+
+  /**
+   * Create document save processing service.
+   * Coordinator-local fallback for documentSave (workers disabled); recompiles
+   * the saved content into the symbol manager via the shared pipeline.
+   */
+  createDocumentSaveProcessingService(): DocumentSaveProcessingService {
+    return new DocumentSaveProcessingService(
+      this.dependencies.logger,
+      this.createDocumentProcessingService(),
+    );
   }
 
   /**
