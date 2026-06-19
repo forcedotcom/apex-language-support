@@ -1,0 +1,78 @@
+name: Sync Claude skills from monorepo
+
+# Keeps ALS's allowlisted Claude skills/agents/commands in sync with the
+# salesforcedx-vscode monorepo. Driven by .claude/skills-sync.json and
+# scripts/sync-claude-skills.mjs. When an allowlisted item drifts upstream,
+# this opens (or updates) a single PR with the synced changes for human review.
+# ALS-owned/adapted items (see "ownedByAls" in the config) are never touched.
+
+on:
+  schedule:
+    # Mondays 06:00 UTC — weekly drift check.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Upstream ref to sync from (overrides skills-sync.json)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sync allowlisted skills
+        run: node scripts/sync-claude-skills.mjs
+        env:
+          # Allow workflow_dispatch to override the upstream ref via the script's
+          # config at runtime is not supported; the script reads skills-sync.json.
+          # The optional input is surfaced for visibility only.
+          SYNC_REF_OVERRIDE: ${{ inputs.ref }}
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- .claude; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No skill drift detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Drift detected in:"
+            git diff --name-only -- .claude
+          fi
+
+      - name: Open / update drift PR
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/sync-claude-skills
+          base: main
+          commit-message: 'chore: sync Claude skills from salesforcedx-vscode monorepo'
+          title: 'chore: sync Claude skills from monorepo'
+          body: |
+            Automated drift sync of allowlisted Claude skills/agents/commands from
+            `forcedotcom/salesforcedx-vscode` (see `.claude/skills-sync.json`).
+
+            The files below drifted upstream and were pulled in. **Review carefully** —
+            confirm no ALS-specific facts were clobbered before merging. Items adapted
+            for ALS live under `ownedByAls` in the config and are intentionally excluded.
+
+            To stop tracking an item, remove it from the `allowlist` in
+            `.claude/skills-sync.json`.
+          labels: |
+            dependencies
+          delete-branch: true
+          add-paths: |
+            .claude/**

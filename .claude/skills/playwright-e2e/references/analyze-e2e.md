@@ -9,6 +9,8 @@ Monitor running e2e playwright tests for current branch, download artifacts on f
 
 ## Workflow
 
+**Delegate to** `.claude/agents/playwright-e2e-monitor.md` subagent when available. If user provides a run URL (`.../actions/runs/12345`), include run-id `12345` in the subagent prompt. The steps below are the fallback / manual procedure.
+
 1. **Get Current Branch**
    - `git branch --show-current`
    - Detached HEAD/no branch → error, stop
@@ -43,6 +45,7 @@ Monitor running e2e playwright tests for current branch, download artifacts on f
 5. **Offer Analysis** (if artifacts downloaded)
    - Search HTML reports: `playwright-report/index.html` or `**/playwright-report/index.html`
    - Search test results: `test-results/` directory
+   - Search span traces: `**/spans/*.jsonl`
    - Reference: `.claude/skills/playwright-e2e/references/coding-playwright-tests.md`, `.claude/skills/playwright-e2e/references/iterating-playwright-tests.md`
    - Offer: open HTML report, show test results, open workflow (`gh run view <run-id> --web`)
 
@@ -97,3 +100,56 @@ Organized by branch and run ID.
 1. `gh run list` empty
 2. `git ls-remote --heads origin <branch>`
 3. Report branch may not be pushed or doesn't trigger workflows
+
+## Span files from CI artifacts
+
+- Location: `.e2e-artifacts/<branch>/<run>/**/spans/*.jsonl` (CI copies spans into `test-results/spans/`)
+- Format: JSONL (one span per line, parse with `JSON.parse`)
+- Fields: `name`, `traceId`, `spanId`, `parentSpanId`, `durationMs`, `status`, `startTime`, `attributes`
+
+Quick inspect:
+
+```bash
+ls -lt .e2e-artifacts/*/*/**/spans/*.jsonl
+```
+
+Read spans compact JSON:
+
+```bash
+python3 - <<'PY'
+import glob, json
+for path in glob.glob('.e2e-artifacts/*/*/**/spans/*.jsonl', recursive=True):
+    print(f'### {path}')
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            print(json.dumps(json.loads(line), separators=(',', ':')))
+PY
+```
+
+## Run ID
+
+- From `gh run list`: run ID = `databaseId` of selected run
+- From URL: `.../actions/runs/<run-id>` or `.../actions/runs/<run-id>/job/...`
+
+## Workflow Detection
+
+ALS has a single E2E workflow (`e2e-tests.yml`). Filter `workflowName` containing "E2E" or "Playwright".
+
+## Finding video
+
+The video names are hard. You can often trust the test failures to be the longest (largest file size) videos because waiting for test timeout.
+
+Video → screenshot to look at filenames in the test and see which test the video goes with.
+
+## Video → screenshots
+
+Extract frames from a failing test `.webm` to step through a moment:
+
+- **Prereq:** `brew install ffmpeg` if missing
+- **Cmd** (e.g. 1:29–1:36 → -ss 89 -to 96):
+
+```bash
+mkdir -p .e2e-artifacts/frames && ffmpeg -i .e2e-artifacts/<branch>/<run>/**/<video>.webm -ss 89 -to 96 -vf "fps=6" -q:v 2 .e2e-artifacts/frames/frame_%04d.png
+```
+
+- `fps=6` ≈ 6 frames/sec; output `frame_0001.png`+

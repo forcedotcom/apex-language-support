@@ -1,0 +1,62 @@
+{
+  "$comment": "Config for the claude-skills-sync GitHub Action (.github/workflows/claude-skills-sync.yml). Lists the upstream repo and the skills/agents/commands that ALS keeps in sync with the salesforcedx-vscode monorepo. The sync job fetches each allowlisted path from `upstream`, diffs it against the local copy, and opens a drift PR when they diverge. Items NOT listed here are owned by ALS and never auto-synced. Remove an item from `allowlist` to stop tracking it; add one to start.",
+  "upstream": {
+    "repo": "forcedotcom/salesforcedx-vscode",
+    "ref": "develop",
+    "claudeDir": ".claude"
+  },
+  "allowlist": {
+    "skills": [
+      "lsp-custom-requests",
+      "grill-me",
+      "merge-conflicts",
+      "concise",
+      "paths",
+      "ts1261-filename-casing",
+      "wireit"
+    ],
+    "agents": [
+      "plan-adversary.md",
+      "playwright-e2e-monitor.md"
+    ],
+    "commands": [
+      "debug-traces.md",
+      "analyze-e2e.md"
+    ]
+  },
+  "ownedByAls": {
+    "$comment": "These were ported once then adapted to ALS-specific facts (repo name, package names, Playwright-only e2e, main branch). They intentionally diverge from upstream and are NOT auto-synced. Listed for documentation only.",
+    "skills": [
+      "effect-best-practices",
+      "feature-branch",
+      "gus-cli",
+      "packageJson",
+      "playwright-e2e",
+      "pr-draft",
+      "services-extension-consumption",
+      "span-file-export",
+      "ts4023-effect-errors",
+      "typescript",
+      "verification",
+      "shipped-issues"
+    ],
+    "agents": [
+      "effect-advocate.md",
+      "trace-debugger.md",
+      "e2e-advocate.md",
+      "gha-rerun.md",
+      "apex-language-rules.md",
+      "doc-maintenance.md",
+      "verifier.md"
+    ],
+    "commands": [
+      "adopt-pr.md",
+      "gha-rerun.md",
+      "mergeConflicts.md",
+      "shipped-issues.md"
+    ],
+    "workflows": [
+      "auto-build-wi.js"
+    ]
+  }
+}
