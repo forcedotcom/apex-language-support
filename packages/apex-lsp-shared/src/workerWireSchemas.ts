@@ -29,7 +29,7 @@ import { Schema } from 'effect';
 
 export const WorkerRole = Schema.Literal(
   'dataOwner',
-  'enrichmentSearch',
+  'lspRequest',
   'resourceLoader',
   'compilation',
 );
@@ -127,6 +127,46 @@ export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()
 
 export type QuerySymbolSubsetSuccess = Schema.Schema.Type<
   (typeof QuerySymbolSubset)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// AwaitSymbolReadiness — deterministic (not poll-based) readiness wait.
+// Resolves the instant a write-back for the URI merges into the data-owner graph, via a
+// per-URI latch the document-open/change handlers arm and UpdateSymbolSubset
+// resolves. The data-owner side never blocks its serial runner on the latch:
+// it returns the latch handle/immediate-ready synchronously, and the awaiting
+// happens off-runner. `reason` lets the coordinator distinguish a genuine
+// "no compile is pending" (replay gap) from a "timed out waiting" failure,
+// instead of the old null-means-everything snapshot.
+// ---------------------------------------------------------------------------
+
+export class AwaitSymbolReadiness extends Schema.TaggedRequest<AwaitSymbolReadiness>()(
+  'AwaitSymbolReadiness',
+  {
+    success: Schema.Struct({
+      /** Whether symbols for the URI are present (now, or after the wait). */
+      ready: Schema.Boolean,
+      /** Why not ready, when ready is false. Absent when ready. */
+      reason: Schema.optional(
+        Schema.Literal('no-compile-pending', 'timeout', 'stale-version'),
+      ),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('AwaitSymbolReadinessError'),
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      /** Editor version the caller wants symbols for; matches the latch. */
+      version: Schema.Number,
+      /** Backstop wait in ms; the latch resolves earlier on the happy path. */
+      timeoutMs: Schema.Number,
+    },
+  },
+) {}
+
+export type AwaitSymbolReadinessSuccess = Schema.Schema.Type<
+  (typeof AwaitSymbolReadiness)['success']
 >;
 
 // ---------------------------------------------------------------------------
@@ -534,6 +574,64 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
   },
 ) {}
 
+export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>()(
+  'DispatchCompletion',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text — completion runs on in-flight
+      // edits, so the request worker compiles this rather than the dataOwner's
+      // last-stored version.
+      content: Schema.optional(Schema.String),
+      // CompletionContext: triggerKind (1=Invoked, 2=TriggerCharacter,
+      // 3=TriggerForIncompleteCompletions) + optional triggerCharacter.
+      context: Schema.optional(
+        Schema.Struct({
+          triggerKind: Schema.Number,
+          triggerCharacter: Schema.optional(Schema.String),
+        }),
+      ),
+    },
+  },
+) {}
+
+export class DispatchSignatureHelp extends Schema.TaggedRequest<DispatchSignatureHelp>()(
+  'DispatchSignatureHelp',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text — signature help runs on in-flight
+      // edits while typing call arguments.
+      content: Schema.optional(Schema.String),
+      // SignatureHelpContext is opaque to the wire layer; the service narrows.
+      context: Schema.optional(Schema.Unknown),
+    },
+  },
+) {}
+
+export class DispatchCodeAction extends Schema.TaggedRequest<DispatchCodeAction>()(
+  'DispatchCodeAction',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      range: WireRange,
+      // Live (possibly unsaved) document text.
+      content: Schema.optional(Schema.String),
+      // CodeActionContext (diagnostics + only/triggerKind) is opaque to the
+      // wire layer; the service narrows.
+      context: Schema.optional(Schema.Unknown),
+    },
+  },
+) {}
+
 export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>()(
   'DispatchReferences',
   {
@@ -566,7 +664,16 @@ export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumen
   {
     success: Schema.Struct({ result: Schema.Unknown }),
     failure: DispatchError,
-    payload: { textDocument: WireTextDocumentId },
+    payload: {
+      textDocument: WireTextDocumentId,
+      // Live (possibly unsaved) document text. documentSymbol re-compiles the
+      // file from text (DefaultApexDocumentSymbolProvider parses with
+      // FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph — so the request-pool worker needs
+      // the text. Without it the pool worker's storage has no document and the
+      // provider returns an empty outline (the cold-open regression).
+      content: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -797,6 +904,7 @@ export const DataOwnerTags = [
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
   'QuerySymbolSubset',
+  'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'ResolveDependentUris',
@@ -810,13 +918,16 @@ export const DataOwnerTags = [
 ] as const;
 export type DataOwnerTag = (typeof DataOwnerTags)[number];
 
-/** Tags accepted by an enrichment/search pool worker */
-export const EnrichmentSearchTags = [
+/** Tags accepted by an LSP-request pool worker */
+export const LspRequestTags = [
   'WorkerInit',
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
   'DispatchHover',
   'DispatchDefinition',
+  'DispatchCompletion',
+  'DispatchSignatureHelp',
+  'DispatchCodeAction',
   'DispatchReferences',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
@@ -825,7 +936,7 @@ export const EnrichmentSearchTags = [
   'DispatchCrossFileEnrichment',
   'DispatchGenericLspRequest',
 ] as const;
-export type EnrichmentSearchTag = (typeof EnrichmentSearchTags)[number];
+export type LspRequestTag = (typeof LspRequestTags)[number];
 
 /** Tags accepted by a resource-loader worker */
 export const ResourceLoaderTags = [
@@ -852,7 +963,7 @@ export type CompilationTag = (typeof CompilationTags)[number];
 export const AllWorkerTags = [
   ...new Set([
     ...DataOwnerTags,
-    ...EnrichmentSearchTags,
+    ...LspRequestTags,
     ...ResourceLoaderTags,
     ...CompilationTags,
   ]),
@@ -869,6 +980,7 @@ export type DataOwnerRequest =
   | PingWorker
   | WorkerRemoteStdlibWarmup
   | QuerySymbolSubset
+  | AwaitSymbolReadiness
   | UpdateSymbolSubset
   | ResolveDepUris
   | ResolveDependentUris
@@ -880,13 +992,16 @@ export type DataOwnerRequest =
   | DispatchDocumentSave
   | DispatchDocumentClose;
 
-/** Request types the coordinator may send to an enrichment/search pool worker */
-export type EnrichmentSearchRequest =
+/** Request types the coordinator may send to an LSP-request pool worker */
+export type LspRequestMessage =
   | WorkerInit
   | PingWorker
   | WorkerRemoteStdlibWarmup
   | DispatchHover
   | DispatchDefinition
+  | DispatchCompletion
+  | DispatchSignatureHelp
+  | DispatchCodeAction
   | DispatchReferences
   | DispatchImplementation
   | DispatchDocumentSymbol
@@ -926,12 +1041,6 @@ export interface WorkerLogMessage {
   readonly message: string;
 }
 
-/** Coordinator-to-worker notification to update the worker's log level. */
-export interface WorkerLogLevelChange {
-  readonly _tag: 'WorkerLogLevelChange';
-  readonly logLevel: 'debug' | 'info' | 'warning' | 'error';
-}
-
 export type WorkerLogLevel = WorkerLogMessage['level'];
 
 // ---------------------------------------------------------------------------
@@ -942,8 +1051,8 @@ export function isAllowedTag(role: WorkerRole, tag: string): boolean {
   switch (role) {
     case 'dataOwner':
       return (DataOwnerTags as readonly string[]).includes(tag);
-    case 'enrichmentSearch':
-      return (EnrichmentSearchTags as readonly string[]).includes(tag);
+    case 'lspRequest':
+      return (LspRequestTags as readonly string[]).includes(tag);
     case 'resourceLoader':
       return (ResourceLoaderTags as readonly string[]).includes(tag);
     case 'compilation':
