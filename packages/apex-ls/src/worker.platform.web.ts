@@ -1613,11 +1613,22 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
 
   DispatchDocumentSave: dataOwnerDocHandler(
     'DispatchDocumentSave',
-    (_svc, req) =>
+    (svc, req) =>
       Effect.gen(function* () {
-        yield* Effect.logDebug(
-          `[DATA-OWNER] DispatchDocumentSave: uri=${req.uri}`,
+        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // readiness latch so the CompileDocument this save triggers can write
+        // its symbols back and a racing request re-evaluates against the saved
+        // version. The compile message carries the real saved content.
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: req.version,
+        };
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
         );
+        armReadiness(req.uri, req.version);
         return { accepted: true };
       }),
   ),

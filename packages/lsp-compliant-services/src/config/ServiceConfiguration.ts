@@ -109,14 +109,16 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
-    serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
+    serviceFactory: (deps) =>
+      deps.serviceFactory.createDocumentSaveProcessingService(),
   },
   {
     requestType: 'documentChange',
     priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
-    serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
+    serviceFactory: (deps) =>
+      deps.serviceFactory.createDocumentChangeProcessingService(),
   },
   {
     requestType: 'implementation',

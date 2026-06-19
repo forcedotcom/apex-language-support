@@ -188,12 +188,12 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       // tests hung here because the bus was unwired).
       const response = (yield* topology.requestPool.executeEffect(
         makeRequest() as never,
-      )) as { result: unknown };
+      ) as Effect.Effect<unknown, never, never>) as { result: unknown };
       return response;
     }).pipe(
       Effect.scoped,
       Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    ) as Effect.Effect<{ result: unknown }, never, never>;
 
   it('completes a hover round-trip end-to-end', async () => {
     const response = await Effect.runPromise(
@@ -565,5 +565,169 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     // Before the fix the stale cache returned only FaceImpl (the first).
     expect(secondUris.some((u) => u.includes('FaceImpl.cls'))).toBe(true);
     expect(secondUris.some((u) => u.includes('FaceImpl2'))).toBe(true);
+  }, 120_000);
+
+  /**
+   * NEW IMPLEMENTOR CREATED + EDITED VIA THE LIVE NOTIFICATION PATH (regression
+   * for the live "second implementor never resolves" bug).
+   *
+   * The multi-implementor test above adds implementor #2 via batch
+   * ingest+compile, which writes straight to the data-owner — so it never
+   * exercised the live editor flow and passed even while the live bug persisted.
+   * Live, a newly-created class arrives as documentOpen (often an empty/partial
+   * class) followed by documentChange/documentSave as the user types
+   * `implements IFace` and the method body. Those change/save notifications must
+   * recompile the file into the DATA-OWNER graph — not just the coordinator's
+   * local symbol manager — or the request-pool go-to-implementation never sees
+   * the new implements edge.
+   *
+   * This test drives implementor #2 through documentOpen (no `implements`),
+   * then documentChange (full-text sync: the whole updated document), then
+   * documentSave, then runs go-to-implementation. It must return BOTH
+   * implementors. Before the fix, change/save ran only coordinator-local and the
+   * data-owner kept the edge-less open version, so only FaceImpl resolved.
+   */
+  it('go-to-implementation sees a new implementor added via documentOpen→change→save', async () => {
+    // Implementor #2 starts WITHOUT the implements clause (as a new empty class
+    // would), then gains it via a change + save.
+    const IMPL3_URI = 'file:///test/FaceImpl3.cls';
+    const IMPL3_OPEN_SRC = `public with sharing class FaceImpl3 {
+}`;
+    const IMPL3_FINAL_SRC = `public with sharing class FaceImpl3 implements IFace {
+    public String run() {
+        return 'r3';
+    }
+}`;
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: 'error',
+      });
+      // Serve whichever content each URI currently holds; updated as the
+      // implementor is edited so getDocumentContent (used by request-pool
+      // dispatches) returns the live text.
+      const sources: Record<string, string> = {
+        [IFACE_URI]: IFACE_SRC,
+        [IMPL3_URI]: IMPL3_OPEN_SRC,
+      };
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => sources[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      // 1. Cold-open the interface + load the workspace with implementor #1.
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: IFACE_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => IFACE_SRC,
+          },
+          textDocument: { uri: IFACE_URI },
+          text: IFACE_SRC,
+        }),
+      );
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createBatchCompileDispatcher();
+      const firstWave = [
+        { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
+        { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
+      ];
+      yield* Effect.promise(() => ingest('wf-live-test', firstWave));
+      yield* Effect.promise(() => compile('wf-live-test', firstWave));
+
+      // 2. First go-to-implementation — caches the current set ([FaceImpl]).
+      const firstResult = yield* Effect.promise(() =>
+        dispatcher.dispatch('implementation', {
+          textDocument: { uri: IFACE_URI },
+          position: { line: 1, character: 11 },
+        }),
+      );
+
+      // 3. Create FaceImpl3 as a new file via documentOpen — NO implements yet.
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: IMPL3_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => IMPL3_OPEN_SRC,
+          },
+          textDocument: { uri: IMPL3_URI },
+          text: IMPL3_OPEN_SRC,
+        }),
+      );
+
+      // 4. Type the implements clause + method (full-text sync: the change event
+      //    carries the entire updated document), then save.
+      sources[IMPL3_URI] = IMPL3_FINAL_SRC;
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri: IMPL3_URI,
+            languageId: 'apex',
+            version: 2,
+            getText: () => IMPL3_FINAL_SRC,
+          },
+          textDocument: { uri: IMPL3_URI },
+          contentChanges: [{ text: IMPL3_FINAL_SRC }],
+        }),
+      );
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentSave', {
+          document: {
+            uri: IMPL3_URI,
+            languageId: 'apex',
+            version: 2,
+            getText: () => IMPL3_FINAL_SRC,
+          },
+          textDocument: { uri: IMPL3_URI },
+        }),
+      );
+
+      // 5. Second go-to-implementation — must now include FaceImpl3.
+      const secondResult = yield* Effect.promise(() =>
+        dispatcher.dispatch('implementation', {
+          textDocument: { uri: IFACE_URI },
+          position: { line: 1, character: 11 },
+        }),
+      );
+
+      return { firstResult, secondResult };
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const { firstResult, secondResult } = await Effect.runPromise(program);
+
+    const toUris = (result: unknown): string[] => {
+      const locations = (
+        Array.isArray(result) ? result : result ? [result] : []
+      ) as Array<{ uri?: string; targetUri?: string }>;
+      return locations.map((l) => l.uri ?? l.targetUri ?? '');
+    };
+
+    const firstUris = toUris(firstResult);
+    const secondUris = toUris(secondResult);
+    console.log(
+      `[round-trip:goto-impl-live-edit] first=${JSON.stringify(firstUris)} ` +
+        `second=${JSON.stringify(secondUris)}`,
+    );
+
+    expect(firstUris.some((u) => u.includes('FaceImpl.cls'))).toBe(true);
+
+    // The crux: the edit+save of the new implementor reached the data-owner, so
+    // go-to-implementation discovers it. Before the fix change/save ran only on
+    // the coordinator and FaceImpl3 never appeared.
+    expect(secondUris.some((u) => u.includes('FaceImpl.cls'))).toBe(true);
+    expect(secondUris.some((u) => u.includes('FaceImpl3'))).toBe(true);
   }, 120_000);
 });
