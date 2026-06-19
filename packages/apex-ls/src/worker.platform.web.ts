@@ -500,15 +500,25 @@ async function writeBackCompiledSymbols(
 ): Promise<boolean> {
   const startTime = Date.now();
   try {
-    const enrichedSymbolTable = {
+    // Sanitize for the wire BEFORE posting. The assistance bus posts this
+    // payload via MessagePort.postMessage, which uses the structured-clone
+    // algorithm — and structured clone THROWS on function values. A compiled
+    // SymbolTable's getAllSymbols() can carry function-valued properties (lazy
+    // thunks) for real type-referencing Apex. Without this clone, postMessage
+    // throws synchronously, the write-back never reaches the data-owner, the
+    // readiness latch is never resolved, and the cold-read gate burns its full
+    // budget before falling back. See worker.platform.ts for the full rationale.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences:
         symbolTable.getAllHierarchicalReferences?.() ?? [],
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    });
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
 
     const response = (await requestCoordinatorAssistancePromise(
       'dataOwner:UpdateSymbolSubset',
