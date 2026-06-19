@@ -250,8 +250,17 @@ export function findContainingSymbolFromSymbolTable(
  * A reference sitting inside a method body resolves to a synthetic block symbol
  * (id/name shaped like `block_LL_CC`). Such a block cannot be matched back to a
  * real declaration by the deferred-reference drain (which looks symbols up by
- * name and skips block symbols), so a deferral whose source is a block is
- * silently dropped. This walks past the block(s) to the real declaration that
+ * name and skips block symbols).
+ *
+ * This is a defensive normalization layer ahead of the receiver's own block
+ * walk: `enqueueDeferredReference` already performs an equivalent block→
+ * declaration walk internally via `findContainingSymbolForBlock`. That internal
+ * walk resolves the source file's table through `fileToSymbolTable` and returns
+ * `null` if the table is not yet registered — so it is specifically when the
+ * source file's `SymbolTable` is not yet registered that anchoring here (using
+ * the in-hand `symbolTable`) keeps the deferral from being dropped. In the
+ * common case where the table is already registered, both walks agree and this
+ * one is redundant. It walks past the block(s) to the real declaration that
  * should own the deferred edge.
  *
  * Returns the symbol unchanged if it is already a non-block symbol, or `null` if

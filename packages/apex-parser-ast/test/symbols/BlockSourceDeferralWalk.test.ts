@@ -9,7 +9,10 @@
 import { Effect } from 'effect';
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
+import {
+  ApexSymbolRefManager,
+  ReferenceType,
+} from '../../src/symbols/ApexSymbolRefManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
@@ -17,22 +20,32 @@ import {
   shutdown as schedulerShutdown,
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
-import { SymbolKind, type ApexSymbol } from '../../src/types/symbol';
+import {
+  SymbolKind,
+  type ApexSymbol,
+  type SymbolLocation,
+} from '../../src/types/symbol';
 
 /**
  * W-22692422 — block-source walk to non-block before enqueueDeferredReference.
  *
  * A cross-file reference nested inside a block within a method body (e.g. inside
  * a `for` loop in a test method) has, as its innermost containing symbol, a
- * synthetic block symbol (id/name shaped like `block_LL_CC`). When that block is
- * enqueued as the deferral source, the post-batch drain cannot match the block
- * back to a real declaration via findSymbolInFileByName (which skips block
- * symbols), so the cross-file edge would be silently dropped.
+ * synthetic block symbol (id/name shaped like `block_LL_CC`).
  *
  * The fix walks from the block up to the enclosing non-block declaration
  * (method/class) at the deferral-enqueue site so the deferral is anchored to a
- * symbol the drain can resolve. This mirrors a dreamhouse-lwc-style test class
- * whose body references a controller that is added to the manager only later.
+ * symbol the drain can resolve. This is a defensive normalization layer: the
+ * receiver `enqueueDeferredReference` already performs an equivalent block→
+ * declaration walk internally via `findContainingSymbolForBlock`, so in the
+ * common flow (source file's SymbolTable already registered in
+ * `fileToSymbolTable`) the end-to-end edge is produced with or without this
+ * walk. The call-site walk is strictly load-bearing only when the source file's
+ * SymbolTable is not yet registered, where the receiver's internal walk would
+ * resolve no table and drop the deferral. This test exercises the registered
+ * case and asserts the call-site walk normalizes the enqueued source; it mirrors
+ * a dreamhouse-lwc-style test class whose body references a controller that is
+ * added to the manager only later.
  */
 describe('Block-source deferral walk (W-22692422)', () => {
   let symbolManager: ApexSymbolManager;
@@ -161,5 +174,71 @@ describe('Block-source deferral walk (W-22692422)', () => {
     const refsToCtrl = await symbolManager.findReferencesTo(ctrlType!);
     const fromTest = refsToCtrl.find((r) => r.fileUri === testUri);
     expect(fromTest).toBeDefined();
+  });
+
+  /**
+   * P1.1a — the scenario where the call-site walk is *genuinely* required.
+   *
+   * The receiver `enqueueDeferredReference` performs its own block→declaration
+   * walk via `findContainingSymbolForBlock`, but that walk resolves the source
+   * file's table through `fileToSymbolTable` and returns `null` (dropping the
+   * deferral) when the file is not yet registered. This test drives the receiver
+   * directly to show the gap deterministically: a block source for an
+   * unregistered file is dropped, whereas the non-block declaration that the
+   * call-site walk would have produced survives as a deferral. This is exactly
+   * the case where doing the walk at the call site (with the in-hand table) is
+   * load-bearing rather than redundant.
+   */
+  it('drops a block source for an unregistered file but keeps the pre-walked declaration', () => {
+    const graph = refManager();
+    const fileUri = 'file:///Unregistered.cls';
+    const location: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 10,
+      },
+    };
+
+    // Sanity: the source file's table is NOT registered.
+    expect(graph.getSymbolTableForFile(fileUri)).toBeUndefined();
+
+    // A block source whose file is unregistered: the receiver's internal
+    // findContainingSymbolForBlock resolves no table and drops the deferral.
+    const blockSource = {
+      id: 'block_2_4',
+      name: 'block_2_4',
+      kind: SymbolKind.Block,
+      parentId: 'method_1',
+      fileUri,
+    } as unknown as ApexSymbol;
+
+    graph.enqueueDeferredReference(
+      blockSource,
+      'BlockTarget',
+      ReferenceType.TYPE_REFERENCE,
+      location,
+    );
+    expect(graph.getDeferredTargetNames()).not.toContain('BlockTarget');
+
+    // The non-block declaration the call-site walk would produce instead is
+    // enqueued and retained — the deferral survives.
+    const methodSource = {
+      id: 'method_1',
+      name: 'someMethod',
+      kind: SymbolKind.Method,
+      parentId: 'class_0',
+      fileUri,
+    } as unknown as ApexSymbol;
+
+    graph.enqueueDeferredReference(
+      methodSource,
+      'DeclTarget',
+      ReferenceType.TYPE_REFERENCE,
+      location,
+    );
+    expect(graph.getDeferredTargetNames()).toContain('DeclTarget');
   });
 });

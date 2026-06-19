@@ -3525,9 +3525,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // If the source resolved to a synthetic block symbol (e.g. a
           // reference inside a method body), walk up to the enclosing non-block
-          // declaration first. A block source (id shaped like `block_LL_CC`)
-          // cannot be matched back to a real declaration by the deferred-
-          // reference drain, so the cross-file edge would be silently dropped.
+          // declaration first. This is a defensive normalization: the receiver
+          // `enqueueDeferredReference` already performs an equivalent block→
+          // declaration walk via `findContainingSymbolForBlock`. Doing it here
+          // with the in-hand `symbolTable` is load-bearing specifically when the
+          // source file's SymbolTable is not yet registered in
+          // `fileToSymbolTable` — the receiver's walk would then resolve no table
+          // and drop the deferral. In the common (registered) case both walks
+          // agree and this one is redundant.
           if (sourceSymbol) {
             sourceSymbol =
               self.findContainingNonBlockSymbol(sourceSymbol, symbolTable) ??
