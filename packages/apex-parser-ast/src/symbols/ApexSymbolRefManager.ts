@@ -2093,14 +2093,16 @@ export class ApexSymbolRefManager {
    * type. Type traversal is cycle-guarded with a visited-types set; result
    * de-duplication is keyed on (sourceFileUri, sourceSymbolId, line, column).
    *
-   * W-23006798 (implementor-references) interaction: that work adds INHERITANCE /
-   * INTERFACE_IMPLEMENTATION reverse-index edges, but they target the *type*
-   * symbol (an implementor->interface / subclass->superclass edge), so they land
-   * in the type's reverse-index bucket. This union only ever reads *method*
-   * buckets — findReferencesViaGraph(symbol) and findReferencesViaGraph(
-   * methodOnType), both keyed on a method declaration. Inheritance edges
-   * therefore cannot surface here as method references; no type-based filtering
-   * of findReferencesViaGraph is required to keep them out.
+   * Related-type discovery (collectRelatedTypeNames) walks W-23006798's
+   * INHERITANCE / INTERFACE_IMPLEMENTATION edges. Those edges target the *type*
+   * symbol (an implementor->interface / subclass->superclass edge), so they live
+   * in a type's reverse-index bucket — never a method's. This union only ever
+   * reads *method* buckets — findReferencesViaGraph(symbol) and
+   * findReferencesViaGraph(methodOnType), both keyed on a method declaration —
+   * so an inheritance edge can never surface here as a method reference, and no
+   * reference-type filtering of the *method* lookup is required to keep them out.
+   * (collectRelatedTypeNames does filter the *type* lookups it walks to those two
+   * inheritance reference types; see findSupertypesViaEdges / findSubtypesViaEdges.)
    */
   private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
     const methodName = symbol.name;
@@ -2172,16 +2174,14 @@ export class ApexSymbolRefManager {
    * the type itself, its superclass chain, the interfaces it implements/extends
    * (transitively), and any type that extends or implements it. Cycle-guarded.
    *
-   * FOLLOW-UP (W-23006798, implementor-references): that work makes
-   * implements/extends first-class reverse-index edges (ReferenceType.INHERITANCE
-   * / INTERFACE_IMPLEMENTATION) maintained at ingest time. Once it lands on main,
-   * this query-time whole-graph scan of `superClass`/`interfaces` string arrays
-   * (collectAllTypeSymbols, O(workspace types) per request) becomes redundant: the
-   * inheritance graph it recomputes will already exist in the reverse index, and
-   * the two can diverge. Replace this discovery with a reverse-index lookup
-   * keyed on the declaring type (treating W-23006798's edges as the canonical
-   * inheritance source) and delete collectAllTypeSymbols here. Tracked so the
-   * scan does not outlive the maintained edges.
+   * Inheritance discovery runs entirely off W-23006798's maintained reverse-index
+   * edges — the canonical inheritance source. `class X extends Super` and
+   * `class X implements I` emit subclass→superclass / implementor→interface
+   * edges (ReferenceType.INHERITANCE / INTERFACE_IMPLEMENTATION) at ingest time.
+   * Ancestors are the OUTGOING such edges of a type; descendants are the
+   * INCOMING such edges. There is therefore one source of truth for the graph
+   * (the edges) and no per-request whole-workspace scan: each step costs
+   * O(edges incident to that type), not O(workspace types).
    */
   private collectRelatedTypeNames(
     declaringType: TypeSymbol | undefined,
@@ -2191,97 +2191,88 @@ export class ApexSymbolRefManager {
       return related;
     }
 
+    // Lowercased type names: dedupes and guards inheritance cycles across both
+    // walks. mark() returns false when a type was already seen.
     const visited = new Set<string>();
-    const stack: string[] = [declaringType.name];
-
-    while (stack.length > 0) {
-      const name = stack.pop()!;
-      const key = name.toLowerCase();
-      if (visited.has(key)) continue;
+    const mark = (type: ApexSymbol): boolean => {
+      const key = type.name.toLowerCase();
+      if (visited.has(key)) {
+        return false;
+      }
       visited.add(key);
-      related.add(name);
+      related.add(type.name);
+      return true;
+    };
 
-      const typeSymbols = this.findSymbolByName(name).filter((s) =>
-        inTypeSymbolGroup(s),
-      ) as TypeSymbol[];
-
-      for (const type of typeSymbols) {
-        // Superclass chain.
-        if (type.superClass) {
-          stack.push(type.superClass);
-        }
-        // Implemented/extended interfaces.
-        for (const iface of type.interfaces ?? []) {
-          stack.push(iface);
-        }
+    // ANCESTORS — follow OUTGOING inheritance/implementation edges up from the
+    // declaring type. The set whose subtree we then sweep downward is exactly
+    // {declaringType} ∪ ancestors, so collect those symbols as down-walk seeds.
+    const downSeeds: ApexSymbol[] = [];
+    const upStack: ApexSymbol[] = [declaringType];
+    while (upStack.length > 0) {
+      const type = upStack.pop()!;
+      if (!mark(type)) continue;
+      downSeeds.push(type);
+      for (const supertype of this.findSupertypesViaEdges(type)) {
+        upStack.push(supertype);
       }
     }
 
-    // Children / implementors: any type that (transitively) extends or implements
-    // a type we already consider related. Instead of a fixpoint loop that re-scans
-    // every workspace type on each pass (O(passes x N)), build a reverse-adjacency
-    // map ONCE — parentName -> child/implementor type names — then BFS down it
-    // from the supertypes already collected above. This is O(N + edges): one scan
-    // to build the map plus one linear traversal to drain it, yet yields the same
-    // `related` set the fixpoint loop produced.
-    //
-    // collectAllTypeSymbols() is the single full scan of workspace types here; it
-    // costs O(workspace types) per Find-References-on-instance-method request.
-    const allTypes = this.collectAllTypeSymbols();
-
-    // parentName (lowercased) -> set of child/implementor names (original case).
-    // Names are deduped case-insensitively (via the lowercased key and `visited`)
-    // but stored original-case because `related` is queried by exact name elsewhere.
-    const reverseAdjacency = new Map<string, Set<string>>();
-    for (const type of allTypes) {
-      const parentNames: string[] = [];
-      if (type.superClass) {
-        parentNames.push(type.superClass);
-      }
-      for (const iface of type.interfaces ?? []) {
-        parentNames.push(iface);
-      }
-      for (const parentName of parentNames) {
-        const key = parentName.toLowerCase();
-        let children = reverseAdjacency.get(key);
-        if (!children) {
-          children = new Set();
-          reverseAdjacency.set(key, children);
+    // DESCENDANTS — follow INCOMING inheritance/implementation edges down from
+    // the declaring type and every ancestor. `visited` keeps this linear and
+    // terminates cycles; a subtype already collected on the up-walk is skipped.
+    const downStack: ApexSymbol[] = [...downSeeds];
+    while (downStack.length > 0) {
+      const type = downStack.pop()!;
+      for (const subtype of this.findSubtypesViaEdges(type)) {
+        if (mark(subtype)) {
+          downStack.push(subtype);
         }
-        children.add(type.name);
-      }
-    }
-
-    // BFS down the reverse-adjacency map, seeded with the names already related
-    // (the supertypes/interfaces from the up-walk). `visited` (lowercased) both
-    // dedupes and terminates on inheritance cycles.
-    const queue: string[] = Array.from(related);
-    while (queue.length > 0) {
-      const name = queue.shift()!;
-      const children = reverseAdjacency.get(name.toLowerCase());
-      if (!children) continue;
-      for (const childName of children) {
-        const childKey = childName.toLowerCase();
-        if (visited.has(childKey)) continue;
-        visited.add(childKey);
-        related.add(childName);
-        queue.push(childName);
       }
     }
 
     return related;
   }
 
-  /** Enumerate all type-group declarations currently in the graph. */
-  private collectAllTypeSymbols(): TypeSymbol[] {
-    const types: TypeSymbol[] = [];
-    for (const symbolId of this.symbolIdIndex.keys()) {
-      const symbol = this.getSymbol(symbolId);
-      if (symbol && inTypeSymbolGroup(symbol)) {
-        types.push(symbol as TypeSymbol);
+  /**
+   * Supertypes of `type`: the targets of its OUTGOING INHERITANCE /
+   * INTERFACE_IMPLEMENTATION edges (the superclass it extends, the interfaces it
+   * implements / extends). Reads W-23006798's maintained edges, not the
+   * `superClass`/`interfaces` string arrays, so the inheritance graph has a
+   * single source of truth.
+   */
+  private findSupertypesViaEdges(type: ApexSymbol): ApexSymbol[] {
+    const supertypes: ApexSymbol[] = [];
+    for (const ref of this.findReferencesFrom(type)) {
+      if (this.isInheritanceEdge(ref) && inTypeSymbolGroup(ref.symbol)) {
+        supertypes.push(ref.symbol);
       }
     }
-    return types;
+    return supertypes;
+  }
+
+  /**
+   * Subtypes of `type`: the sources of its INCOMING INHERITANCE /
+   * INTERFACE_IMPLEMENTATION edges (the subclasses that extend it, the classes
+   * that implement it). This is the implementor/subclass lookup W-23006798's
+   * edges exist to answer directly — O(edges into this type), no workspace scan.
+   */
+  private findSubtypesViaEdges(type: ApexSymbol): ApexSymbol[] {
+    const subtypes: ApexSymbol[] = [];
+    for (const ref of this.findReferencesViaGraph(type)) {
+      if (this.isInheritanceEdge(ref) && inTypeSymbolGroup(ref.symbol)) {
+        subtypes.push(ref.symbol);
+      }
+    }
+    return subtypes;
+  }
+
+  /** True for an extends/implements graph edge (subclass or implementor). */
+  private isInheritanceEdge(ref: ReferenceResult): boolean {
+    return (
+      ref.referenceType === ReferenceType.INHERITANCE ||
+      ref.referenceType === ReferenceType.INTERFACE_IMPLEMENTATION
+    );
   }
 
   /**
