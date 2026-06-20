@@ -221,7 +221,7 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "playwright": "^1.60.0",
-    "@types/node": "^20.19.40",
+    "@types/node": "^20.19.43",
     "@vscode/test-electron": "2.5.2",
     "typescript": "^5.8.2"
   },
