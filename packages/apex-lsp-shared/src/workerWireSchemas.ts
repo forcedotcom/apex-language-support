@@ -831,6 +831,27 @@ export class EnsureWorkspaceLoaded extends Schema.TaggedRequest<EnsureWorkspaceL
 ) {}
 
 // ---------------------------------------------------------------------------
+// DrainDeferredReferences — coordinator asks the data-owner to synchronously
+// drain its deferred cross-file references into graph edges. Sent once after a
+// batch compile/ingest completes so cross-file incoming edges are fully
+// populated for Find References. Carries no payload.
+// ---------------------------------------------------------------------------
+
+export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredReferences>()(
+  'DrainDeferredReferences',
+  {
+    success: Schema.Struct({
+      resolved: Schema.Number, // Count of deferred references turned into edges
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DrainDeferredReferencesError'),
+      message: Schema.String,
+    }),
+    payload: {},
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QueryGraphData — coordinator asks data-owner to compute graph data
 // using the data-owner's own symbol manager (which holds all workspace symbols
 // after compilation and enrichment write-backs).
@@ -869,6 +890,7 @@ export const DataOwnerTags = [
   'ResolveDepUris',
   'ResolveDependentUris',
   'WorkspaceBatchIngest',
+  'DrainDeferredReferences',
   'QueryGraphData',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
@@ -944,6 +966,7 @@ export type DataOwnerRequest =
   | ResolveDepUris
   | ResolveDependentUris
   | WorkspaceBatchIngest
+  | DrainDeferredReferences
   | QueryGraphData
   | DispatchDocumentOpen
   | DispatchDocumentChange

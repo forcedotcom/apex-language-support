@@ -347,115 +347,25 @@ export class ImplementationProcessingService implements IImplementationProcessor
   }
 
   /**
-   * Find all classes that implement the given interface, including classes
-   * that implement sub-interfaces (interface extending interface).
+   * Find all classes that implement the given interface, including classes that
+   * implement sub-interfaces (interface extending interface) and subclasses of
+   * implementors.
+   *
+   * Delegates to the canonical inheritance API (ISymbolManager.findSubtypes),
+   * which walks the maintained INHERITANCE / INTERFACE_IMPLEMENTATION graph edges.
+   * The transitive subtype set of an interface is exactly its implementor classes,
+   * its sub-interfaces, and their subclasses — so a single call replaces the
+   * former interface-hierarchy BFS + `interfaces[]` string matching + full
+   * `getAllSymbolsForCompletion()` workspace scan. find-references and
+   * go-to-implementation now share one inheritance source of truth.
    */
   private async findImplementingClasses(
     interfaceSymbol: TypeSymbol,
   ): Promise<ApexSymbol[]> {
-    const implementingClasses: ApexSymbol[] = [];
-    const seen = new Set<string>();
-
-    try {
-      // Collect the full interface hierarchy (the queried interface + all sub-interfaces)
-      const allInterfaces =
-        await this.collectInterfaceHierarchy(interfaceSymbol);
-      const interfaceNames = new Set(
-        allInterfaces.map((i) => i.name.toLowerCase()),
-      );
-
-      // Find all references and scan all symbols for each interface in the hierarchy
-      for (const iface of allInterfaces) {
-        const references = await this.symbolManager.findReferencesTo(iface);
-        for (const ref of references) {
-          const sourceSymbol = ref.symbol;
-          if (
-            sourceSymbol.kind === SymbolKind.Class &&
-            inTypeSymbolGroup(sourceSymbol)
-          ) {
-            const classSymbol = sourceSymbol as TypeSymbol;
-            if (
-              classSymbol.interfaces &&
-              classSymbol.interfaces.some((name) =>
-                interfaceNames.has(name.toLowerCase()),
-              )
-            ) {
-              const key = `${classSymbol.fileUri}::${classSymbol.name}`;
-              if (!seen.has(key)) {
-                seen.add(key);
-                implementingClasses.push(classSymbol);
-              }
-            }
-          }
-        }
-      }
-
-      // Also scan all classes to catch ones not yet in the reference index
-      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
-      const allClasses = allSymbols.filter(
-        (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
-      ) as TypeSymbol[];
-
-      for (const classSymbol of allClasses) {
-        if (
-          classSymbol.interfaces &&
-          classSymbol.interfaces.some((name) =>
-            interfaceNames.has(name.toLowerCase()),
-          )
-        ) {
-          const key = `${classSymbol.fileUri}::${classSymbol.name}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            implementingClasses.push(classSymbol);
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.debug(() => `Error finding implementing classes: ${error}`);
-    }
-
-    return implementingClasses;
-  }
-
-  /**
-   * Collect an interface and all interfaces that extend it (BFS over interface hierarchy).
-   */
-  private async collectInterfaceHierarchy(
-    rootInterface: TypeSymbol,
-  ): Promise<TypeSymbol[]> {
-    const result: TypeSymbol[] = [rootInterface];
-    const seen = new Set<string>([rootInterface.name.toLowerCase()]);
-    const queue: TypeSymbol[] = [rootInterface];
-
-    try {
-      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
-      const allInterfaces = allSymbols.filter(
-        (s) => s.kind === SymbolKind.Interface && inTypeSymbolGroup(s),
-      ) as TypeSymbol[];
-
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        for (const iface of allInterfaces) {
-          if (
-            iface.interfaces &&
-            iface.interfaces.some(
-              (name) => name.toLowerCase() === current.name.toLowerCase(),
-            )
-          ) {
-            const key = iface.name.toLowerCase();
-            if (!seen.has(key)) {
-              seen.add(key);
-              result.push(iface);
-              queue.push(iface);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.debug(() => `Error collecting interface hierarchy: ${error}`);
-    }
-
-    return result;
+    const subtypes = await this.symbolManager.findSubtypes(interfaceSymbol);
+    return subtypes.filter(
+      (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
+    );
   }
 
   /**
@@ -476,8 +386,11 @@ export class ImplementationProcessingService implements IImplementationProcessor
 
       const abstractClass = containingType as TypeSymbol;
 
-      // Find all classes that extend this abstract class
-      const extendingClasses = await this.findExtendingClasses(abstractClass);
+      // Find all classes that (transitively) extend this abstract class via the
+      // canonical inheritance API, then keep only the class subtypes.
+      const extendingClasses = (
+        await this.symbolManager.findSubtypes(abstractClass)
+      ).filter((s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s));
 
       // For each extending class, find methods with the same signature
       for (const extendingClass of extendingClasses) {
@@ -506,93 +419,6 @@ export class ImplementationProcessingService implements IImplementationProcessor
     }
 
     return implementingMethods;
-  }
-
-  /**
-   * Find all classes that extend the given class, traversing the full inheritance hierarchy.
-   */
-  private async findExtendingClasses(
-    baseClass: TypeSymbol,
-  ): Promise<ApexSymbol[]> {
-    const result: ApexSymbol[] = [];
-    const seen = new Set<string>();
-    const queue: TypeSymbol[] = [baseClass];
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      try {
-        const direct = await this.findDirectSubclasses(current);
-        for (const sub of direct) {
-          const key = `${sub.fileUri}::${sub.name}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            result.push(sub);
-            queue.push(sub as TypeSymbol);
-          }
-        }
-      } catch (error) {
-        this.logger.debug(() => `Error finding extending classes: ${error}`);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Find classes that directly extend the given class (one level only).
-   */
-  private async findDirectSubclasses(
-    baseClass: TypeSymbol,
-  ): Promise<TypeSymbol[]> {
-    const directSubclasses: TypeSymbol[] = [];
-
-    try {
-      const references = await this.symbolManager.findReferencesTo(baseClass);
-
-      for (const ref of references) {
-        const sourceSymbol = ref.symbol;
-        if (
-          sourceSymbol.kind === SymbolKind.Class &&
-          inTypeSymbolGroup(sourceSymbol)
-        ) {
-          const classSymbol = sourceSymbol as TypeSymbol;
-          if (
-            classSymbol.superClass &&
-            classSymbol.superClass.toLowerCase() ===
-              baseClass.name.toLowerCase()
-          ) {
-            directSubclasses.push(classSymbol);
-          }
-        }
-      }
-
-      // Also scan all symbols to catch classes not yet in the reference index
-      const allSymbols = await this.symbolManager.getAllSymbolsForCompletion();
-      const allClasses = allSymbols.filter(
-        (s) => s.kind === SymbolKind.Class && inTypeSymbolGroup(s),
-      ) as TypeSymbol[];
-
-      for (const classSymbol of allClasses) {
-        if (
-          classSymbol.superClass &&
-          classSymbol.superClass.toLowerCase() === baseClass.name.toLowerCase()
-        ) {
-          if (
-            !directSubclasses.some(
-              (c) =>
-                c.fileUri === classSymbol.fileUri &&
-                c.name === classSymbol.name,
-            )
-          ) {
-            directSubclasses.push(classSymbol);
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.debug(() => `Error finding direct subclasses: ${error}`);
-    }
-
-    return directSubclasses;
   }
 
   /**

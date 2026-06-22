@@ -783,6 +783,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Find all transitive subtypes of a type — every class/interface that directly
+   * or indirectly extends or implements it (subclasses, implementors,
+   * sub-interfaces, and their descendants). The canonical implementor/subclass
+   * query: backed by the maintained INHERITANCE / INTERFACE_IMPLEMENTATION graph
+   * edges (no `superClass`/`interfaces` string scan, no whole-workspace
+   * enumeration), so callers like go-to-implementation and find-references share
+   * one inheritance source of truth and provably agree.
+   */
+  async findSubtypes(type: ApexSymbol): Promise<ApexSymbol[]> {
+    return this.symbolRefManager.findSubtypes(type);
+  }
+
+  /**
+   * Find all transitive supertypes of a type — its superclass chain plus every
+   * interface it (or an ancestor) implements/extends. Same maintained-edge
+   * source of truth as {@link findSubtypes}.
+   */
+  async findSupertypes(type: ApexSymbol): Promise<ApexSymbol[]> {
+    return this.symbolRefManager.findSupertypes(type);
+  }
+
+  /**
    * Analyze dependencies for a symbol
    */
   async analyzeDependencies(symbol: ApexSymbol): Promise<DependencyAnalysis> {
@@ -3007,6 +3029,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.runPromise(
       this.processSymbolReferencesToGraphEffect(symbolTable, fileUri),
     );
+  }
+
+  /**
+   * Drain all deferred cross-file references synchronously into the graph.
+   *
+   * Intended to be called once after a batch of symbol tables has been ingested
+   * so that cross-file incoming edges are fully populated. Delegates to
+   * {@link ApexSymbolRefManager.drainAllDeferredReferencesSync} (no scheduler).
+   *
+   * @returns Effect yielding the number of deferred references resolved.
+   */
+  drainAllDeferredReferences(): Effect.Effect<number, never, never> {
+    return this.symbolRefManager.drainAllDeferredReferences();
   }
 
   /**
