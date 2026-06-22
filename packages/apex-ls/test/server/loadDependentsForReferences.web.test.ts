@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -7,25 +7,31 @@
  */
 
 /**
- * Unit coverage for the references-enrichment dependent-prefetch helper.
+ * Web-platform mirror of loadDependentsForReferences.node.test.ts.
  *
- * Find References offloaded to an enrichment worker needs the *caller-side*
- * symbol tables (files whose declared symbols reference the target) loaded
- * locally before `processReferences` runs, so the search sees cross-file
- * usages. `loadDependentsForReferences` fetches those tables from the
- * data-owner via coordinator assistance and ingests them into the local
- * symbol manager.
+ * worker.platform.ts (node) and worker.platform.web.ts (web) hand-duplicate the
+ * dependent-prefetch + resolve-on-ingest logic; the node test alone left the web
+ * copy uncovered, so a web-only regression in that byte-identical block would go
+ * unnoticed. This pins the web copy's contract: every returned entry rehydrated
+ * and added, each ingested dependent's cross-file references resolved (so its
+ * implements/extends edges land in the local reverse index), the count returned,
+ * and best-effort failures swallowed to 0.
  *
- * The live end-to-end path (real worker topology + coordinator assistance bus
- * + cross-file resolution pass) is covered by W-22692429 (6.13); see the
- * skipped test in WriteBackProtocol.integration.node.test.ts. These tests pin
- * the helper's ingestion contract — every returned entry rehydrated and added,
- * the count returned, and best-effort failures swallowed to 0 — by injecting
- * the assistance fetcher, so they need neither a worker nor the bus.
+ * worker.platform.web runs `self.addEventListener(...)` at module top level to
+ * await its ports, so a minimal `self` is shimmed before the import to let the
+ * module load under the node test environment.
  */
 
+// Shim the worker `self` the web module wires a message listener onto at import.
+// In the node test environment there is no worker global, so provide a minimal
+// stub with a no-op addEventListener; the listener body only runs on a real
+// WorkerPortsInit message, which this unit test never posts.
+(globalThis as { self?: unknown }).self = {
+  addEventListener: () => {},
+} as unknown;
+
 import { Effect } from 'effect';
-import { loadDependentsForReferences } from '../../src/worker.platform';
+import { loadDependentsForReferences } from '../../src/worker.platform.web';
 import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
 
@@ -46,7 +52,7 @@ const serializedTableFor = (fileUri: string) => ({
   fileUri,
 });
 
-describe('loadDependentsForReferences', () => {
+describe('loadDependentsForReferences (web)', () => {
   let addSymbolTable: jest.Mock;
   let resolveCrossFileReferencesForFile: jest.Mock;
   let svc: RequestServices;
@@ -62,7 +68,7 @@ describe('loadDependentsForReferences', () => {
     } as unknown as RequestServices;
   });
 
-  it('ingests every dependent table and returns the count', async () => {
+  it('ingests every dependent table and resolves each one on the web platform', async () => {
     const fetchDependents = jest.fn().mockResolvedValue({
       entries: {
         [CALLER_A_URI]: serializedTableFor(CALLER_A_URI),
@@ -90,7 +96,8 @@ describe('loadDependentsForReferences', () => {
     );
 
     // Each ingested dependent's cross-file refs were resolved so its outbound
-    // implements/extends edges land in the local reverse index.
+    // implements/extends edges land in the local reverse index — the web copy
+    // of the node behavior.
     expect(resolveCrossFileReferencesForFile).toHaveBeenCalledTimes(2);
     expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
       CALLER_A_URI,
@@ -98,33 +105,9 @@ describe('loadDependentsForReferences', () => {
     expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
       CALLER_B_URI,
     );
-
-    // It asked the data-owner for *this* file's dependents.
-    expect(fetchDependents).toHaveBeenCalledWith(
-      'dataOwner:ResolveDependentUris',
-      { uri: TARGET_URI, symbolName: undefined },
-      true,
-    );
   });
 
-  it('threads the optional symbolName narrowing through to the request', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({ entries: {} });
-
-    await loadDependentsForReferences(
-      svc,
-      TARGET_URI,
-      'doWork',
-      fetchDependents,
-    );
-
-    expect(fetchDependents).toHaveBeenCalledWith(
-      'dataOwner:ResolveDependentUris',
-      { uri: TARGET_URI, symbolName: 'doWork' },
-      true,
-    );
-  });
-
-  it('skips null entries and counts only ingested tables', async () => {
+  it('skips null entries and resolves only the ingested tables', async () => {
     const fetchDependents = jest.fn().mockResolvedValue({
       entries: {
         [CALLER_A_URI]: serializedTableFor(CALLER_A_URI),
@@ -154,34 +137,6 @@ describe('loadDependentsForReferences', () => {
     );
   });
 
-  it('returns 0 when the data-owner reports no dependents', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({ entries: {} });
-
-    const ingested = await loadDependentsForReferences(
-      svc,
-      TARGET_URI,
-      undefined,
-      fetchDependents,
-    );
-
-    expect(ingested).toBe(0);
-    expect(addSymbolTable).not.toHaveBeenCalled();
-  });
-
-  it('returns 0 when the response has no entries field', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({});
-
-    const ingested = await loadDependentsForReferences(
-      svc,
-      TARGET_URI,
-      undefined,
-      fetchDependents,
-    );
-
-    expect(ingested).toBe(0);
-    expect(addSymbolTable).not.toHaveBeenCalled();
-  });
-
   it('best-effort: swallows a failed assistance fetch and returns 0', async () => {
     const fetchDependents = jest
       .fn()
@@ -194,28 +149,9 @@ describe('loadDependentsForReferences', () => {
       fetchDependents,
     );
 
-    // A failed resolve must not throw — the reference search proceeds on
-    // whatever tables are already loaded (e.g. same-file references).
     expect(ingested).toBe(0);
     expect(addSymbolTable).not.toHaveBeenCalled();
-  });
-
-  it('best-effort: swallows a mid-ingestion failure and returns 0', async () => {
-    addSymbolTable.mockImplementationOnce(() =>
-      Effect.fail(new Error('symbol manager rejected the table')),
-    );
-    const fetchDependents = jest.fn().mockResolvedValue({
-      entries: { [CALLER_A_URI]: serializedTableFor(CALLER_A_URI) },
-    });
-
-    const ingested = await loadDependentsForReferences(
-      svc,
-      TARGET_URI,
-      undefined,
-      fetchDependents,
-    );
-
-    expect(ingested).toBe(0);
+    expect(resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
   });
 
   it('best-effort: swallows a resolve-on-ingest failure and returns 0', async () => {

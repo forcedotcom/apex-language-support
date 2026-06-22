@@ -11,6 +11,7 @@ import {
   ResolveDependentUris,
   ResolveDepUris,
   QuerySymbolSubset,
+  DrainDeferredReferences,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
@@ -91,6 +92,20 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
 
     expect(sent[0]).toBeInstanceOf(ResolveDepUris);
     expect(sent[1]).toBeInstanceOf(QuerySymbolSubset);
+  });
+
+  it('forwards DrainDeferredReferences to the data owner as a typed schema instance', async () => {
+    // The coordinator relays the post-batch drain request to the single-writer
+    // data owner; it must not transform anything (the request carries no payload)
+    // and must route to the data owner, not the request pool.
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('DrainDeferredReferences', {});
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DrainDeferredReferences);
   });
 
   it('throws a descriptive error for unknown methods (regression guard)', async () => {

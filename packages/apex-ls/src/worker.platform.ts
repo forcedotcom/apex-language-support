@@ -41,6 +41,7 @@ import {
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  DrainDeferredReferences,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -91,6 +92,7 @@ const AllWorkerRequests = Schema.Union(
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  DrainDeferredReferences,
   QueryGraphData,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -862,6 +864,7 @@ export async function loadDependentsForReferences(
 
     const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
     let ingested = 0;
+    const ingestedUris: string[] = [];
     for (const [fileUri, stData] of Object.entries(response.entries)) {
       if (!stData) continue;
       const st = SymbolTable.fromSerializedData(
@@ -869,7 +872,26 @@ export async function loadDependentsForReferences(
       );
       await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
       ingested++;
+      ingestedUris.push(fileUri);
     }
+
+    // Resolve each freshly-loaded dependent's own cross-file references so its
+    // OUTGOING edges — crucially the implements/extends supertype edges — land
+    // in this worker's reverse index. find-implementation / find-references on a
+    // supertype reads the reverse index of the TARGET (interface/superclass) for
+    // its INCOMING edges; that edge is authored on the DEPENDENT (implementor/
+    // subclass) side, so resolving the target file alone never materializes it.
+    // The dependents were just ingested above, so their resolution targets are
+    // present and this is bounded; resolveCrossFileReferencesForFile is
+    // re-entrancy-guarded and addReference de-dupes, keeping it near-free on
+    // repeat. (Replaces the former whole-workspace superClass/interfaces[] string
+    // scan in ImplementationProcessingService, which masked this gap.)
+    for (const fileUri of ingestedUris) {
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+      );
+    }
+
     getLogger().debug(
       () =>
         `[REFERENCES] Loaded ${ingested} dependent table(s) for ${uri}` +
@@ -1194,17 +1216,16 @@ const requestHandlers = {
       );
 
       // Go-to-implementation must see every implementor/subtype of the target
-      // type, which live in *other* files. loadDependentsForReferences pulls
-      // the inbound tables (files whose declared symbols reference symbols in
-      // this file) from the data-owner — after W-23006798 Phase 1 these include
-      // implementors (implements) and subclasses (extends), because those sites
-      // now emit reverse-reference edges to the target type.
+      // type, which live in *other* files. loadDependentsForReferences pulls the
+      // inbound tables (files whose declared symbols reference symbols in this
+      // file) from the data-owner AND resolves each one's cross-file references,
+      // so the implements/extends edges authored on those implementor/subclass
+      // files land in this worker's reverse index — which is what
+      // ImplementationProcessingService.findSubtypes reads.
       await loadDependentsForReferences(svc, req.textDocument.uri);
 
-      // Build the cross-file INTERFACE_IMPLEMENTATION / INHERITANCE edges for
-      // the target locally so findImplementingClasses' reference-index path
-      // sees them; its string-array fallback already covers the freshly loaded
-      // tables, but resolving keeps the two paths consistent.
+      // Also resolve the target file's own cross-file refs (e.g. an interface
+      // that extends another interface) so the full supertype graph is present.
       await Effect.runPromise(
         svc.symbolManager.resolveCrossFileReferencesForFile(
           req.textDocument.uri,
@@ -1626,6 +1647,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               false, // hasErrors
             );
 
+            // Populate cross-file incoming edges for this file now that its
+            // symbols are merged. Resolves references from this file into the
+            // workspace graph (and defers any whose targets aren't ingested yet,
+            // to be drained post-batch via DrainDeferredReferences).
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+
             // Update cache with new detail level
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
@@ -1654,6 +1681,23 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
+          }),
+        ),
+      ),
+    ),
+
+  DrainDeferredReferences: () =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const resolved =
+              yield* svc.symbolManager.drainAllDeferredReferences();
+            yield* Effect.logDebug(
+              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
+            );
+            return { resolved };
           }),
         ),
       ),
@@ -1950,6 +1994,26 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               yield* Effect.yieldNow();
             }
           }
+
+          // Post-batch: ask the data-owner to drain deferred cross-file
+          // references into graph edges now that every file in the batch has
+          // been written back and had its references resolved. Best-effort:
+          // a drain failure must not fail the batch compile.
+          yield* Effect.tryPromise({
+            try: () =>
+              requestCoordinatorAssistancePromise(
+                'dataOwner:DrainDeferredReferences',
+                {},
+                true,
+              ),
+            catch: (e) => e,
+          }).pipe(
+            Effect.catchAll((e) =>
+              Effect.logWarning(
+                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
+              ),
+            ),
+          );
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.logInfo(
