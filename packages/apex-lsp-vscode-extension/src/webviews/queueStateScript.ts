@@ -24,7 +24,7 @@ declare const initialData: any;
 interface WorkerTopologyStatus {
   enabled: boolean;
   dataOwner: { active: boolean };
-  enrichmentPool: { size: number; active: boolean };
+  requestPool: { size: number; active: boolean };
   resourceLoader: { active: boolean } | null;
   compilation: { active: boolean };
   dispatchedCount: number;
@@ -429,7 +429,7 @@ class QueueStateDashboard {
       .map((t) => this.escapeHtml(t))
       .join(', ');
 
-    const poolLabel = 'x' + topology.enrichmentPool.size + ' (queries)';
+    const poolLabel = 'x' + topology.requestPool.size + ' (queries)';
     const cards = [
       roleCard(
         'Data Owner',
@@ -437,7 +437,7 @@ class QueueStateDashboard {
         'x1 (storage + symbols)',
       ),
       roleCard('Compilation', topology.compilation.active, 'x1 (public-api)'),
-      roleCard('Enrichment Pool', topology.enrichmentPool.active, poolLabel),
+      roleCard('Enrichment Pool', topology.requestPool.active, poolLabel),
     ];
     if (topology.resourceLoader) {
       cards.push(

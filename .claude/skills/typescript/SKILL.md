@@ -15,6 +15,7 @@ description: TypeScript coding standards and conventions including file naming r
 - avoid `any`
 - no enums or namespaces (enums compile to weird JS; use string union types instead; exception: interfaces defined outside this repo that we can't change)
 - no runtime errors for developer mistakes (use types to ensure exhaustive switch/case; don't throw for null/undefined when input/consumer is within our control)
+- avoid fallbacks unless absolutely necessary — a fallback path is usually a bandaid on a bug that should be fixed upstream. Fix the root cause; don't paper over it with a default/alternate path that hides the real failure. If a fallback is genuinely required, comment why the upstream fix isn't possible.
 - .ts filenames: camelCase, no hyphens, no leading capitals
 - preserve comments when refactoring; remove if wrong/obsolete
 - exported functions: single-line jsdoc /\*_ foo _/ if name unclear; no params/return (TS provides types)

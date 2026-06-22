@@ -77,6 +77,17 @@ When modifying resolution code in `apex-parser-ast/src/symbols/ops/`:
 - Do not remove GlobalTypeRegistry usage — it provides cross-file resolution on the coordinator
 - Ensure enrichment worker fallback paths work correctly (they bypass the empty registry)
 
+## Separation of Concerns (Data Ownership Boundaries)
+
+Keep data-handling logic siloed within the component whose responsibility it is. Each layer of the topology has one job:
+
+- **Coordinator** — routing and message passing only. It dispatches requests to the right worker and relays responses. It does NOT transform, enrich, parse, or reshape symbol data; that belongs to the worker that owns the data.
+- **Data owner worker** — owns the symbol graph for workspace + faux SObject files. All mutation, merging, and write-back reconciliation of those symbols lives here.
+- **Request/enrichment workers** — process LSP requests against symbols they fetch from the data owner; transformation of request results lives here, not in the coordinator.
+- **Resource loader worker** — owns all stdlib access and any reshaping of stdlib artifacts.
+
+Rule of thumb: if you're adding data transformation logic to the coordinator, it's in the wrong place — push it down to the owning worker. A component should only manipulate data it owns.
+
 ## LSP Request Routing (DISPATCH_ROUTING)
 
 Defined in `apex-ls/src/server/WorkerCoordinator.ts`.

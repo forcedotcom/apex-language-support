@@ -107,7 +107,7 @@ describe('WorkerCoordinator', () => {
         expect(ping.echo).toBe('data-owner-ping');
 
         const poolPing = await Effect.runPromise(
-          topology.enrichmentPool.executeEffect(
+          topology.requestPool.executeEffect(
             new PingWorker({ echo: 'pool-ping' }),
           ),
         );
@@ -325,17 +325,12 @@ describe('WorkerCoordinator', () => {
         dispatcher = makeWorkerDispatcher({} as WorkerTopology, logger);
       });
 
-      it.each([
-        'completion',
-        'signatureHelp',
-        'rename',
-        'implementation',
-        'documentSymbol',
-        'codeLens',
-        'foldingRange',
-      ] as const)('blocks coordinator-only type: %s', (type) => {
-        expect(dispatcher.canDispatch(type)).toBe(false);
-      });
+      it.each(['rename', 'foldingRange', 'workspaceSymbol'] as const)(
+        'blocks coordinator-only type: %s',
+        (type) => {
+          expect(dispatcher.canDispatch(type)).toBe(false);
+        },
+      );
 
       it.each([
         'documentOpen',
@@ -343,9 +338,15 @@ describe('WorkerCoordinator', () => {
         'documentSave',
         'documentClose',
         'hover',
+        'completion',
+        'signatureHelp',
+        'codeAction',
         'diagnostics',
         'definition',
+        'implementation',
         'references',
+        'documentSymbol',
+        'codeLens',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
         expect(dispatcher.canDispatch(type)).toBe(true);
       });
@@ -470,7 +471,7 @@ describe('WorkerCoordinator', () => {
       );
 
       expect(topology.dataOwner._tag).toBe('WorkerHandle');
-      expect(topology.enrichmentPool._tag).toBe('PoolHandle');
+      expect(topology.requestPool._tag).toBe('PoolHandle');
       expect(topology.resourceLoader).not.toBeNull();
       expect(topology.compilation._tag).toBe('WorkerHandle');
       expect(transport.spawnCalls).toContain('dataOwner');
@@ -491,9 +492,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -503,7 +504,7 @@ describe('WorkerCoordinator', () => {
       );
 
       expect(dispatcher.canDispatch('hover')).toBe(true);
-      expect(dispatcher.canDispatch('completion')).toBe(false);
+      expect(dispatcher.canDispatch('completion')).toBe(true);
       expect(dispatcher.canDispatch('rename')).toBe(false);
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
     });
@@ -523,9 +524,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -547,6 +548,75 @@ describe('WorkerCoordinator', () => {
       const roles = transport.sendCalls.map((c: { role: string }) => c.role);
       expect(roles).toContain('dataOwner');
       expect(roles).toContain('compilation');
+      // The data-owner store MUST be sent before the compile. The compile
+      // writes its symbols back via dataOwner:UpdateSymbolSubset, which the
+      // data-owner rejects ("document not found") if the document isn't stored
+      // yet. Sequencing store→compile prevents the cold-open write-back drop
+      // that left the symbol graph empty ("No Symbols" on first open).
+      expect(roles).toEqual(['dataOwner', 'compilation']);
+    });
+
+    it('makeTransportDispatcher awaits the data-owner store before dispatching the compile', async () => {
+      // Stronger than ordering of recorded calls: prove the compile send does
+      // not happen until the data-owner store has RESOLVED, by holding the
+      // data-owner send pending and asserting the compile hasn't been sent.
+      const logger = createSpyLogger();
+      const order: string[] = [];
+      let releaseDataOwner!: () => void;
+      const dataOwnerGate = new Promise<void>((resolve) => {
+        releaseDataOwner = resolve;
+      });
+
+      class SequencingTransport extends MockWorkerTransport {
+        send<R>(
+          handle: WorkerHandle,
+          request: R,
+        ): Effect.Effect<unknown, TransportSendError> {
+          this.sendCalls.push({ role: handle.role, request });
+          if (handle.role === 'dataOwner') {
+            return Effect.promise(async () => {
+              await dataOwnerGate;
+              order.push('dataOwner');
+              return { accepted: true };
+            });
+          }
+          order.push('compilation');
+          return Effect.succeed({ accepted: true });
+        }
+      }
+
+      const transport = new SequencingTransport();
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
+          requestPool: { _tag: 'PoolHandle', role: 'lspRequest', size: 2 },
+          resourceLoader: null,
+          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+        },
+        logger,
+      );
+
+      const dispatched = dispatcher.dispatch('documentOpen', {
+        document: {
+          uri: 'file:///Test.cls',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'public class Test {}',
+        },
+      });
+
+      // Let microtasks drain; the data-owner gate is still closed, so the
+      // compile must NOT have been sent yet.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(order).toEqual([]);
+
+      releaseDataOwner();
+      await dispatched;
+
+      // Store resolved first, then the compile was sent.
+      expect(order).toEqual(['dataOwner', 'compilation']);
     });
 
     it('makeTransportDispatcher routes enrichment types through transport.dispatch', async () => {
@@ -556,9 +626,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -573,7 +643,7 @@ describe('WorkerCoordinator', () => {
       });
 
       expect(transport.poolDispatchCalls.length).toBe(1);
-      expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+      expect(transport.poolDispatchCalls[0].role).toBe('lspRequest');
     });
 
     it('routes references through the enrichment pool with includeDeclaration threaded', async () => {
@@ -583,9 +653,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -601,7 +671,7 @@ describe('WorkerCoordinator', () => {
       });
 
       expect(transport.poolDispatchCalls.length).toBe(1);
-      expect(transport.poolDispatchCalls[0].role).toBe('enrichmentSearch');
+      expect(transport.poolDispatchCalls[0].role).toBe('lspRequest');
       const req = transport.poolDispatchCalls[0].request as DispatchReferences;
       expect(req._tag).toBe('DispatchReferences');
       expect(req.textDocument.uri).toBe('file:///Test.cls');
@@ -616,9 +686,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -647,9 +717,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,
@@ -678,9 +748,9 @@ describe('WorkerCoordinator', () => {
         {
           transport,
           dataOwner,
-          enrichmentPool: {
+          requestPool: {
             _tag: 'PoolHandle',
-            role: 'enrichmentSearch',
+            role: 'lspRequest',
             size: 2,
           },
           resourceLoader: null,

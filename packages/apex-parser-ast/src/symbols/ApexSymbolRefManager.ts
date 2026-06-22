@@ -47,9 +47,12 @@ import {
   SymbolVisibility,
   SymbolLocation,
   SymbolKind,
+  TypeSymbol,
+  Range,
   keyToString,
+  inTypeSymbolGroup,
 } from '../types/symbol';
-import { isBlockSymbol } from '../utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isApexKeyword } from '../utils/ApexKeywords';
@@ -922,10 +925,16 @@ export class ApexSymbolRefManager {
 
   clearReferenceStateForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
-    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
 
+    // Clear ONLY this file's OWN (outbound) edges so they can be rebuilt from
+    // the re-added symbol table. Do NOT clear inbound edges to this file's
+    // symbols: those edges belong to OTHER files (e.g. classes that implement an
+    // interface declared here) and this re-add does not reprocess them, so
+    // removing them would orphan every implementor/subclass. Re-adding an
+    // interface previously wiped all its implementor edges this way, collapsing
+    // go-to-implementation to nothing. Inbound edges are dropped only on a true
+    // file deletion (removeFile), where the target symbols genuinely go away.
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
   }
 
@@ -1870,9 +1879,22 @@ export class ApexSymbolRefManager {
   }
 
   /**
-   * OPTIMIZED: Find references to a symbol
-   * Note: This is a synchronous function. For large graphs, consider calling from
-   * an async context or using the async variant if available.
+   * Find references to a symbol, dispatching by symbol kind.
+   *
+   * Different symbol kinds resolve their references through different sources:
+   * - Locals (VARIABLE / PARAMETER): their references are confined to the
+   *   declaring file, so we walk that file's local references (CodeUnit/AST)
+   *   instead of the cross-file reference graph.
+   * - FIELD / PROPERTY / METHOD (and types/enums): use the cross-file reference
+   *   graph reverse index. Constructors and static methods are plain static
+   *   lookups against the graph.
+   * - Instance methods (non-static, non-constructor): override-aware — references
+   *   to a virtual/overridable method must also surface references to the same
+   *   method along the inheritance chain (superclass → interfaces → children →
+   *   implementors), so we union matches across all related types.
+   *
+   * Note: This is a synchronous function. For large graphs, consider calling
+   * from an async context.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
     if (!symbol.fileUri) {
@@ -1880,6 +1902,44 @@ export class ApexSymbolRefManager {
         () =>
           `findReferencesTo requires fileUri for symbol ${symbol.name}; returning empty`,
       );
+      return [];
+    }
+
+    // Locals never participate in the cross-file graph; walk the local file.
+    if (
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter
+    ) {
+      return this.findLocalReferences(symbol);
+    }
+
+    // Instance methods (non-static, non-constructor) require an override-aware
+    // walk so callers through base/derived/interface types are all found.
+    // isMethodSymbol narrows to MethodSymbol, exposing the typed isConstructor
+    // flag (kind===Method already excludes the Constructor kind, but a method
+    // may still carry isConstructor; guard on both).
+    if (
+      isMethodSymbol(symbol) &&
+      !symbol.modifiers?.isStatic &&
+      !symbol.isConstructor
+    ) {
+      return this.findInstanceMethodReferences(symbol);
+    }
+
+    // FIELD / PROPERTY / static & constructor METHOD / type / enum: the graph
+    // reverse index is a direct, kind-agnostic lookup keyed on the declaration.
+    return this.findReferencesViaGraph(symbol);
+  }
+
+  /**
+   * Reverse-index (cross-file graph) lookup for a single declaration.
+   * Returns incoming references whose target is the given symbol's declaration.
+   */
+  private findReferencesViaGraph(symbol: ApexSymbol): ReferenceResult[] {
+    // Load-bearing guard: findReferencesTo's dispatch ensures fileUri is set for
+    // the *original* symbol, but findInstanceMethodReferences also calls this on
+    // related-type method symbols (methodOnType) whose fileUri is not pre-checked.
+    if (!symbol.fileUri) {
       return [];
     }
     const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
@@ -1935,6 +1995,371 @@ export class ApexSymbolRefManager {
     }
 
     return results;
+  }
+
+  /**
+   * Locals path: resolve references to a variable/parameter by walking the
+   * declaring file's local references (not the cross-file graph). A local's
+   * uses are by construction same-file, so we match the file's SymbolReferences
+   * that resolve to — or, lacking resolution, name-match — the target local.
+   *
+   * The name-match fallback is scoped to the local's enclosing declaration
+   * range: two same-named locals in sibling scopes (e.g. `total` in two methods
+   * of one file) must not cross-contaminate. When a reference is resolved by id
+   * we trust it directly; only the unresolved fallback is range-bounded.
+   */
+  private findLocalReferences(symbol: ApexSymbol): ReferenceResult[] {
+    const fileUri = extractFilePathFromUri(symbol.fileUri);
+    const symbolTable = this.getSymbolTableForFile(fileUri);
+    if (!symbolTable) {
+      return [];
+    }
+
+    const targetId = this.getSymbolId(symbol, fileUri);
+    // Scope for the unresolved name-match fallback: the enclosing declaration
+    // (method/block) that owns the local. References outside it cannot be uses
+    // of this local even if they share its name.
+    const scopeRange = this.getEnclosingScopeRange(symbol, fileUri);
+    const results: ReferenceResult[] = [];
+
+    for (const ref of symbolTable.getAllReferences()) {
+      const matchesById =
+        ref.resolvedSymbolId !== undefined && ref.resolvedSymbolId === targetId;
+      // Fall back to name match only for unresolved references, and only when
+      // the reference lies within the local's enclosing scope.
+      const matchesByName =
+        ref.resolvedSymbolId === undefined &&
+        ref.name === symbol.name &&
+        (scopeRange === undefined ||
+          this.rangeContains(scopeRange, ref.location.identifierRange));
+      if (!matchesById && !matchesByName) {
+        continue;
+      }
+
+      results.push({
+        symbolId: targetId,
+        symbol,
+        fileUri,
+        referenceType: ReferenceType.INSTANCE_ACCESS,
+        location: ref.location,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Range of the nearest enclosing declaration (method/block/type) that owns
+   * `symbol`, used to scope the locals name-match fallback. Returns the parent
+   * declaration's symbolRange, or the symbol's own range if it has no usable
+   * parent. `undefined` means "could not determine a scope" (callers then skip
+   * range-bounding rather than drop matches).
+   */
+  private getEnclosingScopeRange(
+    symbol: ApexSymbol,
+    fileUri: string,
+  ): Range | undefined {
+    if (symbol.parentId) {
+      const parent = this.getSymbolByIdAndFile(symbol.parentId, fileUri);
+      if (parent?.location?.symbolRange) {
+        return parent.location.symbolRange;
+      }
+    }
+    return symbol.location?.symbolRange;
+  }
+
+  /**
+   * True when `inner` is positionally contained within `outer` (inclusive),
+   * comparing (line, column) pairs. Both ranges are 1-based line / 0-based col.
+   */
+  private rangeContains(outer: Range, inner: Range): boolean {
+    const startsAfter =
+      inner.startLine > outer.startLine ||
+      (inner.startLine === outer.startLine &&
+        inner.startColumn >= outer.startColumn);
+    const endsBefore =
+      inner.endLine < outer.endLine ||
+      (inner.endLine === outer.endLine && inner.endColumn <= outer.endColumn);
+    return startsAfter && endsBefore;
+  }
+
+  /**
+   * Instance-method path: override-aware traversal.
+   *
+   * For a non-static, non-constructor method we union the graph references of
+   * the method as declared on every type related by inheritance to the
+   * declaring type: the declaring type itself, its superclass chain, the
+   * interfaces it (transitively) implements/extends, and every child / implementor
+   * type. Type traversal is cycle-guarded with a visited-types set; result
+   * de-duplication is keyed on (sourceFileUri, sourceSymbolId, line, column).
+   *
+   * Related-type discovery (collectRelatedTypeNames) walks W-23006798's
+   * INHERITANCE / INTERFACE_IMPLEMENTATION edges. Those edges target the *type*
+   * symbol (an implementor->interface / subclass->superclass edge), so they live
+   * in a type's reverse-index bucket — never a method's. This union only ever
+   * reads *method* buckets — findReferencesViaGraph(symbol) and
+   * findReferencesViaGraph(methodOnType), both keyed on a method declaration —
+   * so an inheritance edge can never surface here as a method reference, and no
+   * reference-type filtering of the *method* lookup is required to keep them out.
+   * (collectRelatedTypeNames does filter the *type* lookups it walks to those two
+   * inheritance reference types; see findSupertypesViaEdges / findSubtypesViaEdges.)
+   */
+  private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
+    const methodName = symbol.name;
+
+    // Collect the set of type names to consider, walking the hierarchy.
+    // collectRelatedTypeNames discovers the chain purely from resolved
+    // INHERITANCE / INTERFACE_IMPLEMENTATION edges via findSupertypes /
+    // findSubtypes, both of which drain deferred references on read — so a
+    // lazily-resolved extends/implements edge (target ingested after source) is
+    // still seen and the related-type set is not under-populated.
+    const declaringType = this.findDeclaringTypeForMember(symbol);
+    const relatedTypeNames = this.collectRelatedTypeNames(declaringType);
+
+    const results: ReferenceResult[] = [];
+    const seen = new Set<string>();
+
+    const addUnique = (refs: ReferenceResult[]): void => {
+      for (const r of refs) {
+        const loc = r.location.identifierRange;
+        const dedupeKey = `${r.fileUri}#${r.symbolId}#${loc.startLine}:${loc.startColumn}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        results.push(r);
+      }
+    };
+
+    // Always include references to this exact declaration.
+    addUnique(this.findReferencesViaGraph(symbol));
+
+    // Then any same-named method declared on a related type.
+    for (const typeName of relatedTypeNames) {
+      const typeSymbols = this.findSymbolByName(typeName).filter((s) =>
+        inTypeSymbolGroup(s),
+      );
+      for (const typeSymbol of typeSymbols) {
+        const methodOnType = this.findMethodOnType(typeSymbol, methodName);
+        if (methodOnType && methodOnType.id !== symbol.id) {
+          addUnique(this.findReferencesViaGraph(methodOnType));
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Find the type (class/interface/enum) declaration that directly contains the
+   * given member symbol, by walking parentId up to the nearest type group.
+   */
+  private findDeclaringTypeForMember(
+    symbol: ApexSymbol,
+  ): TypeSymbol | undefined {
+    let current: ApexSymbol | null = symbol;
+    const guard = new Set<string>();
+    while (current && current.parentId && !guard.has(current.id)) {
+      guard.add(current.id);
+      const parent = this.getSymbolByIdAndFile(
+        current.parentId,
+        current.fileUri,
+      );
+      if (!parent) {
+        break;
+      }
+      if (inTypeSymbolGroup(parent)) {
+        return parent as TypeSymbol;
+      }
+      current = parent;
+    }
+    return undefined;
+  }
+
+  /**
+   * Collect the names of all types related to `declaringType` by inheritance:
+   * the type itself, its superclass chain, the interfaces it implements/extends
+   * (transitively), and any type that extends or implements it. Cycle-guarded.
+   *
+   * Inheritance discovery runs entirely off W-23006798's maintained reverse-index
+   * edges — the canonical inheritance source. `class X extends Super` and
+   * `class X implements I` emit subclass→superclass / implementor→interface
+   * edges (ReferenceType.INHERITANCE / INTERFACE_IMPLEMENTATION) at ingest time.
+   * Ancestors are the OUTGOING such edges of a type; descendants are the
+   * INCOMING such edges. There is therefore one source of truth for the graph
+   * (the edges) and no per-request whole-workspace scan: each step costs
+   * O(edges incident to that type), not O(workspace types).
+   */
+  private collectRelatedTypeNames(
+    declaringType: TypeSymbol | undefined,
+  ): Set<string> {
+    const related = new Set<string>();
+    if (!declaringType) {
+      return related;
+    }
+
+    // The related set is {declaringType} ∪ its supertypes ∪ the subtypes of the
+    // declaring type and of every supertype. Walking down from each ancestor too
+    // (not just the declaring type) is what makes the union override-aware: a
+    // caller through a sibling override reachable via a shared supertype is
+    // surfaced. Both directions read the same maintained edges via the public
+    // findSupertypes / findSubtypes, so there is one inheritance source of truth.
+    related.add(declaringType.name);
+
+    const upward = this.findSupertypes(declaringType);
+    for (const supertype of upward) {
+      related.add(supertype.name);
+    }
+
+    // Subtype cones of the declaring type and every ancestor. findSubtypes is
+    // itself transitive and cycle-guarded; the outer `related` set de-dupes the
+    // overlap between cones by name.
+    for (const root of [declaringType, ...upward]) {
+      for (const subtype of this.findSubtypes(root)) {
+        related.add(subtype.name);
+      }
+    }
+
+    return related;
+  }
+
+  /**
+   * Supertypes of `type`: the targets of its OUTGOING INHERITANCE /
+   * INTERFACE_IMPLEMENTATION edges (the superclass it extends, the interfaces it
+   * implements / extends). Reads W-23006798's maintained edges, not the
+   * `superClass`/`interfaces` string arrays, so the inheritance graph has a
+   * single source of truth.
+   */
+  private findSupertypesViaEdges(type: ApexSymbol): ApexSymbol[] {
+    const supertypes: ApexSymbol[] = [];
+    for (const ref of this.findReferencesFrom(type)) {
+      if (this.isInheritanceEdge(ref) && inTypeSymbolGroup(ref.symbol)) {
+        supertypes.push(ref.symbol);
+      }
+    }
+    return supertypes;
+  }
+
+  /**
+   * Subtypes of `type`: the sources of its INCOMING INHERITANCE /
+   * INTERFACE_IMPLEMENTATION edges (the subclasses that extend it, the classes
+   * that implement it). This is the implementor/subclass lookup W-23006798's
+   * edges exist to answer directly — O(edges into this type), no workspace scan.
+   */
+  private findSubtypesViaEdges(type: ApexSymbol): ApexSymbol[] {
+    const subtypes: ApexSymbol[] = [];
+    for (const ref of this.findReferencesViaGraph(type)) {
+      if (this.isInheritanceEdge(ref) && inTypeSymbolGroup(ref.symbol)) {
+        subtypes.push(ref.symbol);
+      }
+    }
+    return subtypes;
+  }
+
+  /** True for an extends/implements graph edge (subclass or implementor). */
+  private isInheritanceEdge(ref: ReferenceResult): boolean {
+    return (
+      ref.referenceType === ReferenceType.INHERITANCE ||
+      ref.referenceType === ReferenceType.INTERFACE_IMPLEMENTATION
+    );
+  }
+
+  /**
+   * All transitive SUBTYPES of `type` — every class/interface that (directly or
+   * indirectly) extends or implements it: subclasses, classes that implement an
+   * interface, sub-interfaces, and the subclasses of those, to any depth. Walks
+   * the INCOMING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is
+   * not included. Cycle-guarded and de-duplicated by type name.
+   *
+   * This is the single canonical implementor/subclass query for the workspace —
+   * the one go-to-implementation and find-references both build on, so they
+   * provably agree. Reads only the maintained reverse-index edges (no
+   * `superClass`/`interfaces` string scan, no whole-workspace enumeration), and
+   * drains deferred references first so a lazily-resolved extends/implements edge
+   * (target ingested after source) is still seen. O(edges in the subtype cone).
+   *
+   * The drain operates on THIS manager's own graph — which, in the worker
+   * topology, is the request worker's transient subset graph (built per request
+   * from loadDependentsForReferences), NOT the data owner's. It resolves any
+   * edge whose endpoints are both present in this local graph; it does not, and
+   * need not, reach the data owner. Cost scales with this graph's deferred map
+   * (typically tiny — only the request's loaded dependents), not the workspace.
+   */
+  public findSubtypes(type: ApexSymbol): ApexSymbol[] {
+    this.drainAllDeferredReferencesSync();
+    return this.collectTransitiveTypes(type, (t) =>
+      this.findSubtypesViaEdges(t),
+    );
+  }
+
+  /**
+   * All transitive SUPERTYPES of `type` — its superclass chain plus every
+   * interface it (or an ancestor) implements/extends, to any depth. Walks the
+   * OUTGOING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is not
+   * included. Cycle-guarded and de-duplicated by type name. Same maintained-edge
+   * source of truth, and the same drain-on-read against THIS manager's local
+   * graph (see {@link findSubtypes} for the graph-locality note).
+   */
+  public findSupertypes(type: ApexSymbol): ApexSymbol[] {
+    this.drainAllDeferredReferencesSync();
+    return this.collectTransitiveTypes(type, (t) =>
+      this.findSupertypesViaEdges(t),
+    );
+  }
+
+  /**
+   * Breadth-first transitive closure of `step` starting from `start`, excluding
+   * `start` itself. `step` yields the next ring of related types (sub- or
+   * super-types) for a single node; this drains it to all depths. The
+   * lower-cased-name visited set both de-duplicates and terminates inheritance
+   * cycles. Shared spine of {@link findSubtypes} / {@link findSupertypes}.
+   */
+  private collectTransitiveTypes(
+    start: ApexSymbol,
+    step: (type: ApexSymbol) => ApexSymbol[],
+  ): ApexSymbol[] {
+    const results: ApexSymbol[] = [];
+    const visited = new Set<string>([start.name.toLowerCase()]);
+    const stack: ApexSymbol[] = [start];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      for (const next of step(current)) {
+        const key = next.name.toLowerCase();
+        if (visited.has(key)) {
+          continue;
+        }
+        visited.add(key);
+        results.push(next);
+        stack.push(next);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Find a method member with the given name declared on `type`.
+   *
+   * Method symbols are parented to their class *block* symbol rather than the
+   * class declaration directly, so we match by resolving each candidate's
+   * declaring type back to `type`.
+   *
+   * Known imprecision: matching is by name + kind===Method + same file +
+   * declaring-type id only. Overloaded methods that share a name on the same
+   * type (differing arity/parameters) are NOT disambiguated — this returns the
+   * first match. Overload-aware disambiguation is deferred to a later story.
+   */
+  private findMethodOnType(
+    type: ApexSymbol,
+    methodName: string,
+  ): ApexSymbol | undefined {
+    const candidates = this.findSymbolByName(methodName);
+    return candidates.find((s) => {
+      if (s.kind !== SymbolKind.Method || s.fileUri !== type.fileUri) {
+        return false;
+      }
+      const declaringType = this.findDeclaringTypeForMember(s);
+      return declaringType?.id === type.id;
+    });
   }
 
   /**
@@ -3236,6 +3661,196 @@ export class ApexSymbolRefManager {
     // Sync class fields from Refs to ensure we have the latest state
     this.syncClassFieldsFromRefs();
     return this.deferredReferences.get(symbolName);
+  }
+
+  /**
+   * Drain ALL deferred references synchronously, in-place, with NO scheduler.
+   *
+   * Walks the deferred-reference map directly and, for every entry whose source
+   * and target symbols are now present in the graph, adds the incoming edge to
+   * the reference indexes (the same indexes `findReferencesTo` reads from).
+   * Entries that still cannot be resolved (target/source not yet ingested) are
+   * left in the map for a later drain.
+   *
+   * This is the synchronous counterpart to the Effect/scheduler-driven deferred
+   * processing used elsewhere; it is intended to be called once after a batch of
+   * symbol tables has been ingested (e.g. post-batch on the data-owner) so that
+   * cross-file incoming edges are fully populated without queueing work.
+   *
+   * @returns Number of deferred references that were resolved into graph edges.
+   */
+  public drainAllDeferredReferencesSync(): number {
+    // Ensure the in-memory map reflects the latest Ref state.
+    this.syncClassFieldsFromRefs();
+
+    // `resolved` = deferrals satisfied (source + target now both in graph);
+    // `edgesAdded` = a subset that produced a brand-new edge (the rest were
+    // already-present exact duplicates). Tracked separately for observability.
+    let resolved = 0;
+    let edgesAdded = 0;
+
+    // Snapshot the keys up-front: we mutate the map while iterating.
+    const targetNames = Array.from(this.deferredReferences.keys());
+
+    for (const targetName of targetNames) {
+      const deferred = this.deferredReferences.get(targetName);
+      if (!deferred || deferred.length === 0) {
+        this.deferredReferences.delete(targetName);
+        continue;
+      }
+
+      // Resolve the target once per name. If the target declaration is not yet
+      // in the graph, leave every entry deferred for a later pass.
+      const targetCandidates = this.findSymbolByName(targetName);
+      if (targetCandidates.length === 0) {
+        continue;
+      }
+
+      const remaining: typeof deferred = [];
+
+      for (const ref of deferred) {
+        const sourceSymbol = ref.sourceSymbol;
+        if (!sourceSymbol.fileUri) {
+          // Source has no file anchor; cannot place the edge. Drop it.
+          continue;
+        }
+
+        // Locate the source declaration in its own file.
+        const sourceInGraph = this.findSymbolInFileByName(
+          sourceSymbol.fileUri,
+          sourceSymbol.name,
+        );
+        if (!sourceInGraph) {
+          // Source not ingested yet — keep deferred for a later drain.
+          remaining.push(ref);
+          continue;
+        }
+
+        // Disambiguate the target when the name resolves to multiple files.
+        const targetSymbol = this.pickDeferredTarget(
+          targetCandidates,
+          sourceInGraph,
+          ref.context?.namespace,
+          targetName,
+        );
+
+        const sourceId = this.getSymbolId(sourceInGraph, sourceInGraph.fileUri);
+        const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+        const added = this.createAndAddReference(
+          sourceInGraph.fileUri,
+          sourceId,
+          targetSymbol.fileUri,
+          targetId,
+          ref.referenceType,
+          ref.location,
+          ref.context,
+        );
+        if (added) {
+          this.memoryStats.totalEdges++;
+          edgesAdded++;
+        }
+        // Both source and target are now in the graph, so the incoming edge is
+        // populated — newly added, or already present (createAndAddReference
+        // returns false only on an exact duplicate). Either way the deferral is
+        // satisfied, so count it resolved and drop it from the deferred map.
+        resolved++;
+      }
+
+      if (remaining.length === 0) {
+        this.deferredReferences.delete(targetName);
+      } else {
+        this.deferredReferences.set(targetName, remaining);
+      }
+    }
+
+    // Persist the mutated map back to the Ref so Effect-based readers agree.
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+
+    this.logger.debug(
+      () =>
+        `[DEFERRED] drainAllDeferredReferencesSync satisfied ${resolved} deferral(s) ` +
+        `(${edgesAdded} new edge(s), ${resolved - edgesAdded} already present); ` +
+        `${this.deferredReferences.size} target name(s) still deferred`,
+    );
+
+    return resolved;
+  }
+
+  /**
+   * Async wrapper around {@link drainAllDeferredReferencesSync} for Effect-genned
+   * call sites. The drain itself is fully synchronous (no scheduler); this only
+   * adapts it into an Effect so it can be `yield*`-ed alongside other effects.
+   */
+  public drainAllDeferredReferences(): Effect.Effect<number, never, never> {
+    return Effect.sync(() => this.drainAllDeferredReferencesSync());
+  }
+
+  /**
+   * Target names that currently have at least one deferred (unresolved) reference
+   * awaiting their declaring artifact. Exposed for observability and testing so
+   * callers can assert deferral/drain behavior without reaching into the private
+   * `deferredReferences` map.
+   */
+  public getDeferredTargetNames(): string[] {
+    return Array.from(this.deferredReferences.keys());
+  }
+
+  /**
+   * Pick which target declaration a deferred reference resolves to when its
+   * name is declared in more than one file. Resolution tiers, most→least
+   * specific:
+   *   1. Same file as the source declaration (a local/same-file target wins).
+   *   2. Namespace match, when the reference carried a namespace hint.
+   *   3. Sole candidate.
+   * Falls back to the first candidate, logging the ambiguity so a wrong-target
+   * edge is at least observable.
+   */
+  private pickDeferredTarget(
+    candidates: ApexSymbol[],
+    sourceInGraph: ApexSymbol,
+    namespaceHint: string | undefined,
+    targetName: string,
+  ): ApexSymbol {
+    // 1. Prefer a target in the same file as the source.
+    const sameFile = candidates.find(
+      (t) => t.fileUri === sourceInGraph.fileUri,
+    );
+    if (sameFile) {
+      return sameFile;
+    }
+
+    // 2. Namespace-aware match when the reference carried a namespace hint.
+    if (namespaceHint) {
+      const wanted = namespaceHint.toLowerCase();
+      const byNamespace = candidates.filter((t) => {
+        const ns =
+          typeof t.namespace === 'string'
+            ? t.namespace
+            : (t.namespace?.toString?.() ?? '');
+        return ns.toLowerCase() === wanted;
+      });
+      if (byNamespace.length === 1) {
+        return byNamespace[0];
+      }
+    }
+
+    // 3. Unambiguous single candidate.
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    // Still ambiguous: take the first but surface it — attaching the edge to
+    // the wrong same-named declaration is a known imprecision worth tracing.
+    this.logger.debug(
+      () =>
+        `[DEFERRED] ambiguous target '${targetName}' (${candidates.length} ` +
+        'declarations, no same-file or namespace match); ' +
+        `attaching edge to ${candidates[0].fileUri}`,
+    );
+    return candidates[0];
   }
 
   /**

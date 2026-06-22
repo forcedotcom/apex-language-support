@@ -11,10 +11,12 @@ import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
 import { logToOutputChannel } from './logging';
 import {
   formattedError,
+  WORKSPACE_LOAD_REASON_MESSAGE,
   type ProgressToken,
   type WorkDoneProgress,
   type SendWorkspaceBatchParams,
   type WorkspaceFileBatch,
+  type WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import { getWorkspaceSettings } from './configuration';
 import {
@@ -92,6 +94,7 @@ export async function loadWorkspaceForServer(
   languageClient: any,
   workDoneToken: ProgressToken | undefined,
   documentSelector: any[],
+  reason?: WorkspaceLoadReason,
 ): Promise<void> {
   // Note: State management is now handled by WorkspaceState service
   // This function is kept for internal use by the service only
@@ -126,7 +129,14 @@ export async function loadWorkspaceForServer(
     });
   }
 
-  updateApexServerStatusLoading('Scanning for Apex files...');
+  // When a feature triggered this load (e.g. go-to-implementation), lead with
+  // its action-tailored message so the user sees what is happening right now;
+  // the later phase messages (Found N files / Sending batches…) follow.
+  updateApexServerStatusLoading(
+    reason && WORKSPACE_LOAD_REASON_MESSAGE[reason]
+      ? WORKSPACE_LOAD_REASON_MESSAGE[reason]
+      : 'Scanning for Apex files...',
+  );
 
   // Create the Effect fiber
   const loadEffect = Effect.gen(function* (_: any) {

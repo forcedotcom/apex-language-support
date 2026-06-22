@@ -17,7 +17,9 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Define handler types
-type InitializeHandler = (params: InitializeParams) => InitializeResult;
+type InitializeHandler = (
+  params: InitializeParams,
+) => InitializeResult | Promise<InitializeResult>;
 type VoidHandler = () => void;
 type OnDidOpenHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
 type OnDidChangeContentHandler = (
@@ -653,13 +655,14 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(mockDocuments.listen).toHaveBeenCalled();
   });
 
-  it('should return proper capabilities on initialize', () => {
+  it('should return proper capabilities on initialize', async () => {
     // Make sure the handler was set
     expect(mockHandlers.initialize).not.toBeNull();
 
-    // Call the initialize handler
+    // Call the initialize handler. It is async now (it awaits worker-topology
+    // readiness before returning capabilities), so resolve the promise.
     const initHandler = mockHandlers.initialize as InitializeHandler;
-    const result = initHandler({
+    const result = await initHandler({
       capabilities: {},
       processId: 1,
       rootUri: null,

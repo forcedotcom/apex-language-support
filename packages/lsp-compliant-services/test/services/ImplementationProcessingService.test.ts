@@ -34,8 +34,9 @@ describe('ImplementationProcessingService', () => {
     mockSymbolManager = {
       getReferencesAtPosition: jest.fn().mockReturnValue([]),
       getSymbolAtPosition: jest.fn().mockResolvedValue(null),
-      findReferencesTo: jest.fn().mockReturnValue([]),
-      getAllSymbolsForCompletion: jest.fn().mockReturnValue([]),
+      // findSubtypes is the canonical inheritance query the service now uses for
+      // both implementor (interface) and subclass (abstract/virtual) discovery.
+      findSubtypes: jest.fn().mockResolvedValue([]),
       getContainingType: jest.fn().mockReturnValue(null),
       findSymbolsInFile: jest.fn().mockReturnValue([]),
       findFilesForSymbol: jest.fn().mockReturnValue([]),
@@ -178,21 +179,8 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // Mock findReferencesTo to return reference from implementing class
-      mockSymbolManager.findReferencesTo.mockReturnValue([
-        {
-          symbol: implementingClass,
-          symbolId: 'class-id',
-          fileUri: 'file:///test/ImplementingClass.cls',
-          referenceType: 'implements',
-          location: implementingClass.location,
-        },
-      ]);
-
-      // Mock getAllSymbolsForCompletion to include implementing class
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
-        implementingClass,
-      ]);
+      // findSubtypes(interface) returns the transitive implementor set.
+      mockSymbolManager.findSubtypes.mockResolvedValue([implementingClass]);
 
       const result = await service.processImplementation(params);
 
@@ -413,21 +401,8 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // Mock findReferencesTo to return reference from extending class
-      mockSymbolManager.findReferencesTo.mockReturnValue([
-        {
-          symbol: extendingClass,
-          symbolId: 'extending-class-id',
-          fileUri: 'file:///test/ConcreteClass.cls',
-          referenceType: 'extends',
-          location: extendingClass.location,
-        },
-      ]);
-
-      // Mock getAllSymbolsForCompletion to include extending class
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
-        extendingClass,
-      ]);
+      // findSubtypes(abstractClass) returns the transitive subclass set.
+      mockSymbolManager.findSubtypes.mockResolvedValue([extendingClass]);
 
       // Mock findSymbolsInFile to return implementing method
       mockSymbolManager.findSymbolsInFile.mockReturnValue([implementingMethod]);
@@ -436,6 +411,672 @@ describe('ImplementationProcessingService', () => {
 
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].uri).toBe('file:///test/ConcreteClass.cls');
+    });
+
+    it('should return implementations for virtual method', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractBase.cls' },
+        position: { line: 3, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'doVirtualWork',
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const virtualMethod: MethodSymbol = {
+        id: 'virtual-method-id',
+        name: 'doVirtualWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doVirtualWork',
+          path: ['file:///test/AbstractBase.cls', 'doVirtualWork'],
+          unifiedId: 'virtual-method-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: true,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(virtualMethod);
+
+      const containingClass: TypeSymbol = {
+        id: 'abstract-class-id',
+        name: 'AbstractBase',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'AbstractBase',
+          path: ['file:///test/AbstractBase.cls', 'AbstractBase'],
+          unifiedId: 'abstract-class-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getContainingType.mockReturnValue(containingClass);
+
+      const concreteClass: TypeSymbol = {
+        id: 'concrete-class-id',
+        name: 'ConcreteChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        superClass: 'AbstractBase',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'ConcreteChild',
+          path: ['file:///test/ConcreteChild.cls', 'ConcreteChild'],
+          unifiedId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const overridingMethod: MethodSymbol = {
+        id: 'overriding-method-id',
+        name: 'doVirtualWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doVirtualWork',
+          path: ['file:///test/ConcreteChild.cls', 'doVirtualWork'],
+          unifiedId: 'overriding-method-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: true,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      mockSymbolManager.findSubtypes.mockResolvedValue([concreteClass]);
+      mockSymbolManager.findSymbolsInFile.mockReturnValue([overridingMethod]);
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].uri).toBe('file:///test/ConcreteChild.cls');
+    });
+
+    it('should find grandchild class implementations for abstract method', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractBase.cls' },
+        position: { line: 2, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'doWork',
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const abstractMethod: MethodSymbol = {
+        id: 'abstract-method-id',
+        name: 'doWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doWork',
+          path: ['file:///test/AbstractBase.cls', 'doWork'],
+          unifiedId: 'abstract-method-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(abstractMethod);
+
+      const abstractClass: TypeSymbol = {
+        id: 'abstract-class-id',
+        name: 'AbstractBase',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/AbstractBase.cls',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'AbstractBase',
+          path: ['file:///test/AbstractBase.cls', 'AbstractBase'],
+          unifiedId: 'abstract-class-id',
+          fileUri: 'file:///test/AbstractBase.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getContainingType.mockReturnValue(abstractClass);
+
+      const concreteClass: TypeSymbol = {
+        id: 'concrete-class-id',
+        name: 'ConcreteChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/ConcreteChild.cls',
+        superClass: 'AbstractBase',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'ConcreteChild',
+          path: ['file:///test/ConcreteChild.cls', 'ConcreteChild'],
+          unifiedId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const grandchildClass: TypeSymbol = {
+        id: 'grandchild-class-id',
+        name: 'GrandChild',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        fileUri: 'file:///test/GrandChild.cls',
+        superClass: 'ConcreteChild',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'GrandChild',
+          path: ['file:///test/GrandChild.cls', 'GrandChild'],
+          unifiedId: 'grandchild-class-id',
+          fileUri: 'file:///test/GrandChild.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const grandchildMethod: MethodSymbol = {
+        id: 'grandchild-method-id',
+        name: 'doWork',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 10,
+            endLine: 2,
+            endColumn: 16,
+          },
+        },
+        fileUri: 'file:///test/GrandChild.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'doWork',
+          path: ['file:///test/GrandChild.cls', 'doWork'],
+          unifiedId: 'grandchild-method-id',
+          fileUri: 'file:///test/GrandChild.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: true,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      // findSubtypes is transitive: AbstractBase → {ConcreteChild, GrandChild}.
+      // (The former two-step findReferencesTo walk is now one canonical call.)
+      mockSymbolManager.findSubtypes.mockResolvedValue([
+        concreteClass,
+        grandchildClass,
+      ]);
+
+      // GrandChild has the override; ConcreteChild does not
+      mockSymbolManager.findSymbolsInFile.mockImplementation((uri: string) => {
+        if (uri === 'file:///test/GrandChild.cls') return [grandchildMethod];
+        return [];
+      });
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      const uris = result.map((r) => r.uri);
+      expect(uris).toContain('file:///test/GrandChild.cls');
+    });
+
+    it('should find implementing classes for sub-interface hierarchy', async () => {
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/IAnimal.cls' },
+        position: { line: 1, character: 10 },
+      };
+
+      const mockTypeReference = {
+        name: 'IAnimal',
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+        },
+      };
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        mockTypeReference,
+      ]);
+
+      const parentInterface: TypeSymbol = {
+        id: 'parent-interface-id',
+        name: 'IAnimal',
+        kind: SymbolKind.Interface,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 17,
+          },
+        },
+        fileUri: 'file:///test/IAnimal.cls',
+        interfaces: [],
+        key: {
+          prefix: 'interface',
+          name: 'IAnimal',
+          path: ['file:///test/IAnimal.cls', 'IAnimal'],
+          unifiedId: 'parent-interface-id',
+          fileUri: 'file:///test/IAnimal.cls',
+          kind: SymbolKind.Interface,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(parentInterface);
+
+      const subInterface: TypeSymbol = {
+        id: 'sub-interface-id',
+        name: 'ISpecialAnimal',
+        kind: SymbolKind.Interface,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 24,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 24,
+          },
+        },
+        fileUri: 'file:///test/ISpecialAnimal.cls',
+        interfaces: ['IAnimal'],
+        key: {
+          prefix: 'interface',
+          name: 'ISpecialAnimal',
+          path: ['file:///test/ISpecialAnimal.cls', 'ISpecialAnimal'],
+          unifiedId: 'sub-interface-id',
+          fileUri: 'file:///test/ISpecialAnimal.cls',
+          kind: SymbolKind.Interface,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const catClass: TypeSymbol = {
+        id: 'cat-class-id',
+        name: 'Cat',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 3,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 3,
+          },
+        },
+        fileUri: 'file:///test/Cat.cls',
+        interfaces: ['ISpecialAnimal'],
+        key: {
+          prefix: 'class',
+          name: 'Cat',
+          path: ['file:///test/Cat.cls', 'Cat'],
+          unifiedId: 'cat-class-id',
+          fileUri: 'file:///test/Cat.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      // findSubtypes(IAnimal) returns the transitive cone: the sub-interface
+      // ISpecialAnimal and Cat (which implements it). The service filters to
+      // class subtypes, so Cat surfaces even though it implements IAnimal only
+      // indirectly via ISpecialAnimal.
+      mockSymbolManager.findSubtypes.mockResolvedValue([
+        subInterface,
+        catClass,
+      ]);
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      const uris = result.map((r) => r.uri);
+      expect(uris).toContain('file:///test/Cat.cls');
     });
 
     it('should return empty array for non-interface, non-abstract-method symbols', async () => {
