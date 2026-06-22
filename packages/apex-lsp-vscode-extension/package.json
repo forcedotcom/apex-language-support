@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.109",
+  "version": "0.5.112",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -895,7 +895,7 @@
   "dependencies": {
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
-    "effect": "^3.21.2",
+    "effect": "^3.21.4",
     "fflate": "^0.8.3",
     "vscode-languageclient": "^9.0.1",
     "web-worker": "^1.5.0"

@@ -117,6 +117,22 @@ export interface ISymbolManager extends SymbolProvider {
     relationshipType: EnumValue<typeof ReferenceType>,
   ): Promise<ApexSymbol[]>;
 
+  /**
+   * Find all transitive subtypes of a type — every class/interface that directly
+   * or indirectly extends or implements it (subclasses, implementors,
+   * sub-interfaces, and their descendants); the queried type is not included.
+   * Canonical implementor/subclass query, backed by the maintained inheritance
+   * graph edges so all callers share one inheritance source of truth.
+   */
+  findSubtypes(type: ApexSymbol): Promise<ApexSymbol[]>;
+
+  /**
+   * Find all transitive supertypes of a type — its superclass chain plus every
+   * interface it (or an ancestor) implements/extends; the queried type is not
+   * included.
+   */
+  findSupertypes(type: ApexSymbol): Promise<ApexSymbol[]>;
+
   analyzeDependencies(symbol: ApexSymbol): Promise<DependencyAnalysis>;
 
   detectCircularDependencies(): Promise<string[][]>;
