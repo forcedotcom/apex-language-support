@@ -34,8 +34,9 @@ describe('ImplementationProcessingService', () => {
     mockSymbolManager = {
       getReferencesAtPosition: jest.fn().mockReturnValue([]),
       getSymbolAtPosition: jest.fn().mockResolvedValue(null),
-      findReferencesTo: jest.fn().mockReturnValue([]),
-      getAllSymbolsForCompletion: jest.fn().mockReturnValue([]),
+      // findSubtypes is the canonical inheritance query the service now uses for
+      // both implementor (interface) and subclass (abstract/virtual) discovery.
+      findSubtypes: jest.fn().mockResolvedValue([]),
       getContainingType: jest.fn().mockReturnValue(null),
       findSymbolsInFile: jest.fn().mockReturnValue([]),
       findFilesForSymbol: jest.fn().mockReturnValue([]),
@@ -178,21 +179,8 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // Mock findReferencesTo to return reference from implementing class
-      mockSymbolManager.findReferencesTo.mockReturnValue([
-        {
-          symbol: implementingClass,
-          symbolId: 'class-id',
-          fileUri: 'file:///test/ImplementingClass.cls',
-          referenceType: 'implements',
-          location: implementingClass.location,
-        },
-      ]);
-
-      // Mock getAllSymbolsForCompletion to include implementing class
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
-        implementingClass,
-      ]);
+      // findSubtypes(interface) returns the transitive implementor set.
+      mockSymbolManager.findSubtypes.mockResolvedValue([implementingClass]);
 
       const result = await service.processImplementation(params);
 
@@ -413,21 +401,8 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // Mock findReferencesTo to return reference from extending class
-      mockSymbolManager.findReferencesTo.mockReturnValue([
-        {
-          symbol: extendingClass,
-          symbolId: 'extending-class-id',
-          fileUri: 'file:///test/ConcreteClass.cls',
-          referenceType: 'extends',
-          location: extendingClass.location,
-        },
-      ]);
-
-      // Mock getAllSymbolsForCompletion to include extending class
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
-        extendingClass,
-      ]);
+      // findSubtypes(abstractClass) returns the transitive subclass set.
+      mockSymbolManager.findSubtypes.mockResolvedValue([extendingClass]);
 
       // Mock findSymbolsInFile to return implementing method
       mockSymbolManager.findSymbolsInFile.mockReturnValue([implementingMethod]);
@@ -646,18 +621,7 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      mockSymbolManager.findReferencesTo.mockReturnValue([
-        {
-          symbol: concreteClass,
-          symbolId: 'concrete-class-id',
-          fileUri: 'file:///test/ConcreteChild.cls',
-          referenceType: 'extends',
-          location: concreteClass.location,
-        },
-      ]);
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
-        concreteClass,
-      ]);
+      mockSymbolManager.findSubtypes.mockResolvedValue([concreteClass]);
       mockSymbolManager.findSymbolsInFile.mockReturnValue([overridingMethod]);
 
       const result = await service.processImplementation(params);
@@ -919,29 +883,9 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // findReferencesTo: AbstractBase → ConcreteChild; ConcreteChild → GrandChild
-      mockSymbolManager.findReferencesTo
-        .mockResolvedValueOnce([
-          {
-            symbol: concreteClass,
-            symbolId: 'concrete-class-id',
-            fileUri: 'file:///test/ConcreteChild.cls',
-            referenceType: 'extends',
-            location: concreteClass.location,
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            symbol: grandchildClass,
-            symbolId: 'grandchild-class-id',
-            fileUri: 'file:///test/GrandChild.cls',
-            referenceType: 'extends',
-            location: grandchildClass.location,
-          },
-        ])
-        .mockResolvedValue([]);
-
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+      // findSubtypes is transitive: AbstractBase → {ConcreteChild, GrandChild}.
+      // (The former two-step findReferencesTo walk is now one canonical call.)
+      mockSymbolManager.findSubtypes.mockResolvedValue([
         concreteClass,
         grandchildClass,
       ]);
@@ -1119,11 +1063,11 @@ describe('ImplementationProcessingService', () => {
         },
       };
 
-      // findReferencesTo: IAnimal → nothing (Cat implements ISpecialAnimal, not IAnimal directly)
-      mockSymbolManager.findReferencesTo.mockResolvedValue([]);
-
-      // getAllSymbolsForCompletion returns both the sub-interface and Cat
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
+      // findSubtypes(IAnimal) returns the transitive cone: the sub-interface
+      // ISpecialAnimal and Cat (which implements it). The service filters to
+      // class subtypes, so Cat surfaces even though it implements IAnimal only
+      // indirectly via ISpecialAnimal.
+      mockSymbolManager.findSubtypes.mockResolvedValue([
         subInterface,
         catClass,
       ]);
