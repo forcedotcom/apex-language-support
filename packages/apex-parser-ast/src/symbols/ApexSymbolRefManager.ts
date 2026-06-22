@@ -2275,6 +2275,13 @@ export class ApexSymbolRefManager {
    * `superClass`/`interfaces` string scan, no whole-workspace enumeration), and
    * drains deferred references first so a lazily-resolved extends/implements edge
    * (target ingested after source) is still seen. O(edges in the subtype cone).
+   *
+   * The drain operates on THIS manager's own graph — which, in the worker
+   * topology, is the request worker's transient subset graph (built per request
+   * from loadDependentsForReferences), NOT the data owner's. It resolves any
+   * edge whose endpoints are both present in this local graph; it does not, and
+   * need not, reach the data owner. Cost scales with this graph's deferred map
+   * (typically tiny — only the request's loaded dependents), not the workspace.
    */
   public findSubtypes(type: ApexSymbol): ApexSymbol[] {
     this.drainAllDeferredReferencesSync();
@@ -2288,7 +2295,8 @@ export class ApexSymbolRefManager {
    * interface it (or an ancestor) implements/extends, to any depth. Walks the
    * OUTGOING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is not
    * included. Cycle-guarded and de-duplicated by type name. Same maintained-edge
-   * source of truth as {@link findSubtypes}.
+   * source of truth, and the same drain-on-read against THIS manager's local
+   * graph (see {@link findSubtypes} for the graph-locality note).
    */
   public findSupertypes(type: ApexSymbol): ApexSymbol[] {
     this.drainAllDeferredReferencesSync();
