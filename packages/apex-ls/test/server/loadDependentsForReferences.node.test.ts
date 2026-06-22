@@ -48,12 +48,17 @@ const serializedTableFor = (fileUri: string) => ({
 
 describe('loadDependentsForReferences', () => {
   let addSymbolTable: jest.Mock;
+  let resolveCrossFileReferencesForFile: jest.Mock;
   let svc: RequestServices;
 
   beforeEach(() => {
     addSymbolTable = jest.fn(() => Effect.void);
+    // After ingesting each dependent, the helper resolves that file's own
+    // cross-file references so its implements/extends edges enter the local
+    // reverse index (what find-implementation / find-references read).
+    resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
     svc = {
-      symbolManager: { addSymbolTable },
+      symbolManager: { addSymbolTable, resolveCrossFileReferencesForFile },
     } as unknown as RequestServices;
   });
 
@@ -81,6 +86,16 @@ describe('loadDependentsForReferences', () => {
     );
     expect(addSymbolTable).toHaveBeenCalledWith(
       expect.any(SymbolTable),
+      CALLER_B_URI,
+    );
+
+    // Each ingested dependent's cross-file refs were resolved so its outbound
+    // implements/extends edges land in the local reverse index.
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledTimes(2);
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
+      CALLER_A_URI,
+    );
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
       CALLER_B_URI,
     );
 
@@ -128,6 +143,13 @@ describe('loadDependentsForReferences', () => {
     expect(addSymbolTable).toHaveBeenCalledTimes(1);
     expect(addSymbolTable).toHaveBeenCalledWith(
       expect.any(SymbolTable),
+      CALLER_A_URI,
+    );
+
+    // Resolution is scoped to actually-ingested tables: the null entry is
+    // neither added nor resolved.
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledTimes(1);
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
       CALLER_A_URI,
     );
   });
