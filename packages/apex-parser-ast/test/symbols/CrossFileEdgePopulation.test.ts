@@ -662,6 +662,119 @@ describe('Cross-file edge population (W-22692421)', () => {
     });
   });
 
+  describe('public inheritance API (findSubtypes / findSupertypes)', () => {
+    // Diamond-ish fixture exercising multi-level + multi-parent discovery:
+    //   interface Shape
+    //   class Base implements Shape
+    //   class Mid extends Base
+    //   class Leaf extends Mid
+    const shapeUri = 'file:///Shape.cls';
+    const baseUri = 'file:///ShapeBase.cls';
+    const midUri = 'file:///ShapeMid.cls';
+    const leafUri = 'file:///ShapeLeaf.cls';
+
+    const seedHierarchy = async () => {
+      await addFile('public interface Shape { void draw(); }', shapeUri);
+      await addFile(
+        'public virtual class ShapeBase implements Shape { public virtual void draw() {} }',
+        baseUri,
+      );
+      await addFile(
+        'public virtual class ShapeMid extends ShapeBase { public override void draw() {} }',
+        midUri,
+      );
+      await addFile(
+        'public class ShapeLeaf extends ShapeMid { public override void draw() {} }',
+        leafUri,
+      );
+      for (const uri of [shapeUri, baseUri, midUri, leafUri]) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+      }
+      return refManager();
+    };
+
+    const typeIn = (
+      graph: ApexSymbolRefManager,
+      uri: string,
+      name: string,
+    ): ApexSymbol => {
+      const sym = graph
+        .getSymbolsInFile(uri)
+        .find(
+          (s: ApexSymbol) =>
+            s.name === name &&
+            (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+        );
+      expect(sym).toBeDefined();
+      return sym!;
+    };
+
+    it('findSubtypes returns all transitive implementors/subclasses, excluding the type itself', async () => {
+      const graph = await seedHierarchy();
+      const shape = typeIn(graph, shapeUri, 'Shape');
+
+      const names = graph.findSubtypes(shape).map((s) => s.name);
+      // Base implements Shape; Mid/Leaf reach Shape transitively through Base.
+      expect(names).toEqual(
+        expect.arrayContaining(['ShapeBase', 'ShapeMid', 'ShapeLeaf']),
+      );
+      // The queried type is never in its own subtype set.
+      expect(names).not.toContain('Shape');
+    });
+
+    it('findSubtypes of an intermediate class returns only its descendants', async () => {
+      const graph = await seedHierarchy();
+      const mid = typeIn(graph, midUri, 'ShapeMid');
+
+      const names = graph.findSubtypes(mid).map((s) => s.name);
+      expect(names).toEqual(expect.arrayContaining(['ShapeLeaf']));
+      // Ancestors must NOT appear in a subtype query — pins direction.
+      expect(names).not.toContain('ShapeBase');
+      expect(names).not.toContain('Shape');
+      expect(names).not.toContain('ShapeMid');
+    });
+
+    it('findSupertypes returns the full ancestor chain across extends and implements', async () => {
+      const graph = await seedHierarchy();
+      const leaf = typeIn(graph, leafUri, 'ShapeLeaf');
+
+      const names = graph.findSupertypes(leaf).map((s) => s.name);
+      // Leaf → Mid → Base (extends) → Shape (implements, inherited transitively).
+      expect(names).toEqual(
+        expect.arrayContaining(['ShapeMid', 'ShapeBase', 'Shape']),
+      );
+      // Descendants/self must NOT appear in a supertype query — pins direction.
+      expect(names).not.toContain('ShapeLeaf');
+    });
+
+    it('drains deferred edges on read (subtypes visible without a manual drain)', async () => {
+      // Load the implementor before the interface so the implements edge defers,
+      // and never call drainAllDeferredReferencesSync manually.
+      await addFile(
+        'public class Orphan implements LateIface { public void f() {} }',
+        'file:///Orphan.cls',
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile('file:///Orphan.cls'),
+      );
+      const graph = refManager();
+      expect(graph.getDeferredTargetNames()).toContain('LateIface');
+
+      await addFile(
+        'public interface LateIface { void f(); }',
+        'file:///LateIface.cls',
+      );
+      const iface = typeIn(graph, 'file:///LateIface.cls', 'LateIface');
+
+      // findSubtypes must drain the deferred implements edge on read.
+      const names = graph.findSubtypes(iface).map((s) => s.name);
+      expect(names).toContain('Orphan');
+      expect(graph.getDeferredTargetNames()).not.toContain('LateIface');
+    });
+  });
+
   describe('deferred target disambiguation (pickDeferredTarget)', () => {
     // Minimal stand-in for a graph symbol; only the fields the picker reads.
     const candidate = (fileUri: string, namespace?: string): ApexSymbol =>

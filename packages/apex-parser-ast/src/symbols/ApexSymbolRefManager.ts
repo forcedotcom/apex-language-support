@@ -2107,21 +2107,12 @@ export class ApexSymbolRefManager {
   private findInstanceMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
     const methodName = symbol.name;
 
-    // Resolve-on-read: collectRelatedTypeNames discovers the inheritance chain
-    // purely from resolved INHERITANCE / INTERFACE_IMPLEMENTATION graph edges, so
-    // any extends/implements edge still sitting deferred (its target was ingested
-    // after the source, the documented lazy reverse-ordering case) would be
-    // invisible and the related-type set under-populated. Draining first
-    // materializes every deferred edge whose endpoints are now both in the graph,
-    // so a find-references issued before the post-batch drain still sees the full
-    // hierarchy rather than fewer results. The drain is synchronous, idempotent,
-    // and near-free in steady state — once the post-batch drain has run the
-    // deferred map is empty and this is a no-op. Scoped to the instance-method
-    // path because it is the only findReferencesTo branch whose completeness
-    // depends on inheritance-edge discovery.
-    this.drainAllDeferredReferencesSync();
-
     // Collect the set of type names to consider, walking the hierarchy.
+    // collectRelatedTypeNames discovers the chain purely from resolved
+    // INHERITANCE / INTERFACE_IMPLEMENTATION edges via findSupertypes /
+    // findSubtypes, both of which drain deferred references on read — so a
+    // lazily-resolved extends/implements edge (target ingested after source) is
+    // still seen and the related-type set is not under-populated.
     const declaringType = this.findDeclaringTypeForMember(symbol);
     const relatedTypeNames = this.collectRelatedTypeNames(declaringType);
 
@@ -2205,43 +2196,25 @@ export class ApexSymbolRefManager {
       return related;
     }
 
-    // Lowercased type names: dedupes and guards inheritance cycles across both
-    // walks. mark() returns false when a type was already seen.
-    const visited = new Set<string>();
-    const mark = (type: ApexSymbol): boolean => {
-      const key = type.name.toLowerCase();
-      if (visited.has(key)) {
-        return false;
-      }
-      visited.add(key);
-      related.add(type.name);
-      return true;
-    };
+    // The related set is {declaringType} ∪ its supertypes ∪ the subtypes of the
+    // declaring type and of every supertype. Walking down from each ancestor too
+    // (not just the declaring type) is what makes the union override-aware: a
+    // caller through a sibling override reachable via a shared supertype is
+    // surfaced. Both directions read the same maintained edges via the public
+    // findSupertypes / findSubtypes, so there is one inheritance source of truth.
+    related.add(declaringType.name);
 
-    // ANCESTORS — follow OUTGOING inheritance/implementation edges up from the
-    // declaring type. The set whose subtree we then sweep downward is exactly
-    // {declaringType} ∪ ancestors, so collect those symbols as down-walk seeds.
-    const downSeeds: ApexSymbol[] = [];
-    const upStack: ApexSymbol[] = [declaringType];
-    while (upStack.length > 0) {
-      const type = upStack.pop()!;
-      if (!mark(type)) continue;
-      downSeeds.push(type);
-      for (const supertype of this.findSupertypesViaEdges(type)) {
-        upStack.push(supertype);
-      }
+    const upward = this.findSupertypes(declaringType);
+    for (const supertype of upward) {
+      related.add(supertype.name);
     }
 
-    // DESCENDANTS — follow INCOMING inheritance/implementation edges down from
-    // the declaring type and every ancestor. `visited` keeps this linear and
-    // terminates cycles; a subtype already collected on the up-walk is skipped.
-    const downStack: ApexSymbol[] = [...downSeeds];
-    while (downStack.length > 0) {
-      const type = downStack.pop()!;
-      for (const subtype of this.findSubtypesViaEdges(type)) {
-        if (mark(subtype)) {
-          downStack.push(subtype);
-        }
+    // Subtype cones of the declaring type and every ancestor. findSubtypes is
+    // itself transitive and cycle-guarded; the outer `related` set de-dupes the
+    // overlap between cones by name.
+    for (const root of [declaringType, ...upward]) {
+      for (const subtype of this.findSubtypes(root)) {
+        related.add(subtype.name);
       }
     }
 
@@ -2287,6 +2260,72 @@ export class ApexSymbolRefManager {
       ref.referenceType === ReferenceType.INHERITANCE ||
       ref.referenceType === ReferenceType.INTERFACE_IMPLEMENTATION
     );
+  }
+
+  /**
+   * All transitive SUBTYPES of `type` — every class/interface that (directly or
+   * indirectly) extends or implements it: subclasses, classes that implement an
+   * interface, sub-interfaces, and the subclasses of those, to any depth. Walks
+   * the INCOMING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is
+   * not included. Cycle-guarded and de-duplicated by type name.
+   *
+   * This is the single canonical implementor/subclass query for the workspace —
+   * the one go-to-implementation and find-references both build on, so they
+   * provably agree. Reads only the maintained reverse-index edges (no
+   * `superClass`/`interfaces` string scan, no whole-workspace enumeration), and
+   * drains deferred references first so a lazily-resolved extends/implements edge
+   * (target ingested after source) is still seen. O(edges in the subtype cone).
+   */
+  public findSubtypes(type: ApexSymbol): ApexSymbol[] {
+    this.drainAllDeferredReferencesSync();
+    return this.collectTransitiveTypes(type, (t) =>
+      this.findSubtypesViaEdges(t),
+    );
+  }
+
+  /**
+   * All transitive SUPERTYPES of `type` — its superclass chain plus every
+   * interface it (or an ancestor) implements/extends, to any depth. Walks the
+   * OUTGOING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is not
+   * included. Cycle-guarded and de-duplicated by type name. Same maintained-edge
+   * source of truth as {@link findSubtypes}.
+   */
+  public findSupertypes(type: ApexSymbol): ApexSymbol[] {
+    this.drainAllDeferredReferencesSync();
+    return this.collectTransitiveTypes(type, (t) =>
+      this.findSupertypesViaEdges(t),
+    );
+  }
+
+  /**
+   * Breadth-first transitive closure of `step` starting from `start`, excluding
+   * `start` itself. `step` yields the next ring of related types (sub- or
+   * super-types) for a single node; this drains it to all depths. The
+   * lower-cased-name visited set both de-duplicates and terminates inheritance
+   * cycles. Shared spine of {@link findSubtypes} / {@link findSupertypes}.
+   */
+  private collectTransitiveTypes(
+    start: ApexSymbol,
+    step: (type: ApexSymbol) => ApexSymbol[],
+  ): ApexSymbol[] {
+    const results: ApexSymbol[] = [];
+    const visited = new Set<string>([start.name.toLowerCase()]);
+    const stack: ApexSymbol[] = [start];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      for (const next of step(current)) {
+        const key = next.name.toLowerCase();
+        if (visited.has(key)) {
+          continue;
+        }
+        visited.add(key);
+        results.push(next);
+        stack.push(next);
+      }
+    }
+
+    return results;
   }
 
   /**
