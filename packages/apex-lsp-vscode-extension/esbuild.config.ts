@@ -28,7 +28,9 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     sourcemap: true,
-    external: ['vscode', 'vm', 'net', 'worker_threads', 'web-worker'],
+    external: ['vscode', 'vm', 'net', 'worker_threads'],
+    // Node bundle runs in a Node extension host (desktop VS Code + code-server).
+    define: { __APEX_LS_TARGET__: '"desktop"' },
     footer: undefined,
     keepNames: true,
     loader: {
@@ -102,7 +104,8 @@ const builds: BuildOptions[] = [
       NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
       NodeModulesPolyfillPlugin(),
     ],
-    define: { global: 'globalThis' },
+    // Browser bundle runs in a web-worker extension host (vscode.dev).
+    define: { global: 'globalThis', __APEX_LS_TARGET__: '"web"' },
     alias: NODE_POLYFILLS,
     keepNames: true,
     loader: {
