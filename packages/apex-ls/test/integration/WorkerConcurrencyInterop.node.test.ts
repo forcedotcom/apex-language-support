@@ -160,7 +160,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         dispatcher.dispatch('documentOpen', openParams(URI, classV1, 1)),
       );
       const readyV1 = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(URI, 1, SMALL_BUDGET_MS),
+        dispatcher.awaitSymbolDataReady!(URI, 1, SMALL_BUDGET_MS),
       );
 
       // 2. Change to v2 (beta) DETACHED: dispatch() awaits the store leg (arming
@@ -177,7 +177,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       // 3. Reader gates for the latest armed version (v2).
       const startedAt = yield* Effect.sync(() => Date.now());
       const readiness = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(
+        dispatcher.awaitSymbolDataReady!(
           URI,
           MATCH_LATEST_VERSION,
           SMALL_BUDGET_MS,
@@ -433,7 +433,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       //    the single v2 Deferred; the v2 write-back must wake them ALL.
       const awaiters = Array.from({ length: AWAITERS }, () =>
         Effect.promise(() =>
-          dispatcher.awaitSymbolDataReady(uri, MATCH_LATEST_VERSION, 5000),
+          dispatcher.awaitSymbolDataReady!(uri, MATCH_LATEST_VERSION, 5000),
         ),
       );
       const results = (yield* Effect.all(awaiters, {

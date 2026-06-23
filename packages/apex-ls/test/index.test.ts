@@ -116,6 +116,9 @@ const mockConnection: MockConnection & {
   sendRequest?: jest.Mock;
   onNotification?: jest.Mock;
   onDidChangeConfiguration?: jest.Mock;
+  telemetry?: {
+    logEvent?: jest.Mock;
+  };
 } = {
   onInitialize: jest.fn(),
   onInitialized: jest.fn(),
@@ -209,7 +212,7 @@ mockConnection.onRequest.mockImplementation(
     if (method === 'textDocument/diagnostic') {
       mockHandlers.onRequest = handler;
     } else if (method === '$/ping') {
-      mockHandlers.ping = handler;
+      mockHandlers.ping = handler as unknown as PingHandler;
     }
     return mockConnection;
   },
