@@ -6,6 +6,7 @@ description: Guidelines for package.json files in packages
 ## Name
 
 any package that's not an npm package should be named @salesforce/foo (whether it actually published to npm or not)
+the package that publishes the vscode extension is named apex-language-server-extension
 don't rename packages, but do tell the user when stuff doesn't match the rules
 
 ## types

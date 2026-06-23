@@ -18,8 +18,8 @@ Export ALL error types that appear in any Effect's error channel - including non
 ### 1. Find ALL TaggedError classes (not just exported ones)
 
 ```bash
-# Find ALL TaggedError classes, including non-exported ones
-rg "class \w+Error extends Data\.TaggedError" packages/<package-name>/src
+# Find Data.TaggedError and Schema.TaggedError (both can appear in Effect error channels)
+rg "class \w+Error extends (Data|Schema)\.TaggedError" packages/<package-name>/src
 ```
 
 **Critical**: Include classes WITHOUT `export` keyword. Example:
@@ -57,7 +57,9 @@ If a service method like `ensureNonEmptyComponentSet` can fail with `EmptyCompon
 
 ## Knip false positives
 
-Knip flags these as "unused" - ignore. TypeScript needs them for declaration emit, not runtime imports.
+Knip flags these as "unused exports" when the error class is defined and used within the same file but exported only for TS4023 reasons. Ignore these warnings - TypeScript needs the exports for declaration emit, not runtime imports.
+
+**Errors exported for cross-package consumption** (e.g. re-exported from a service package's `index.ts` and imported by another package) are NOT false positives - knip correctly sees them as used, so leave them as-is.
 
 ## Checklist
 
