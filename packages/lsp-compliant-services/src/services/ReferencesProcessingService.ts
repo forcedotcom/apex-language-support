@@ -23,7 +23,9 @@ import {
   ISymbolManager,
   ReferenceResult,
   ReferenceType,
+  SymbolReference,
   createQueuedItem,
+  isPositionWithinLocation,
   offer,
   SchedulerInitializationService,
   isApexKeyword,
@@ -275,11 +277,16 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Extract symbol name from the first TypeReference
-    const symbolName = references[0].name;
+    // Determine the name under the cursor. For chained/qualified references
+    // (e.g. "GeocodingService.GeocodingAddress") the first reference's `name`
+    // holds the whole dotted string, which has no entry in findSymbolByName when
+    // the cursor is on an inner segment. Walk the chainNodes to pick the node
+    // whose identifierRange contains the cursor, falling back to the leaf
+    // identifier (last segment) of the dotted name.
+    const symbolName = this.pickNameUnderCursor(references[0], parserPosition);
 
-    // Early keyword check: if the TypeReference name is a keyword, return empty array
-    // This prevents find references from processing keywords
+    // Early keyword check: if the name under the cursor is a keyword, return
+    // an empty array. This prevents find references from processing keywords.
     if (isApexKeyword(symbolName)) {
       this.logger.debug(
         () =>
@@ -291,17 +298,42 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Create resolution context
     const context = await this.createResolutionContext(document, params);
 
-    // Use ApexSymbolManager for context-aware symbol resolution
-    const result = await this.symbolManager.resolveSymbol(symbolName, context);
+    // Resolution order:
+    //   1. getSymbolAtPosition with the 'precise' strategy (position-based;
+    //      internally walks chainNodes)
+    //   2. context-aware resolveSymbol on the name under the cursor
+    //
+    // The 'precise' strategy requires the cursor to land on a symbol's own
+    // identifierRange and does NOT fall through to the 'scope' strategy's
+    // Step-4 containing-scope match (which returns the enclosing method/class
+    // when the cursor is on whitespace/punctuation inside a body). That keeps
+    // find-references from surfacing the wrong symbol's references. Hover and
+    // Definition request 'precise' for the same reason. The shared Step-4
+    // scope fallback is intentionally left untouched - Implementation relies
+    // on it.
+    let resolvedSymbol: ApexSymbol | null =
+      await this.symbolManager.getSymbolAtPosition(
+        params.textDocument.uri,
+        parserPosition,
+        'precise',
+      );
 
-    if (!result.symbol) {
+    if (!resolvedSymbol) {
+      const nameResult = await this.symbolManager.resolveSymbol(
+        symbolName,
+        context,
+      );
+      resolvedSymbol = nameResult.symbol;
+    }
+
+    if (!resolvedSymbol) {
       this.logger.debug(() => `No symbol found for: ${symbolName}`);
       return [];
     }
 
     // Get reference locations
     const locations = await this.getReferenceLocations(
-      result.symbol,
+      resolvedSymbol,
       params.context?.includeDeclaration,
     );
 
@@ -310,6 +342,57 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     return locations;
+  }
+
+  /**
+   * Pick the identifier name under the cursor for a (possibly chained)
+   * reference. Walks `chainNodes` and returns the name of the node whose
+   * `identifierRange` contains the position. When no chain node matches (or the
+   * reference is not chained), falls back to the leaf identifier: the last
+   * segment of a dotted name, or the reference name itself.
+   *
+   * Leaf-bias behavior: the cursor can land on the `.` separator between two
+   * segments (or otherwise between chain nodes), in which case the chainNodes
+   * loop matches nothing and we deliberately fall back to the LEAF segment
+   * regardless of which side of the dot the cursor sits on. For `A.B` with the
+   * cursor exactly on the dot you therefore get `B`. This is a deterministic
+   * default, not a precise mapping of the dot to a specific segment.
+   */
+  private pickNameUnderCursor(
+    reference: SymbolReference,
+    position: { line: number; character: number },
+  ): string {
+    const chainNodes = reference.chainNodes;
+    if (chainNodes && chainNodes.length > 0) {
+      for (const node of chainNodes) {
+        if (this.isPositionWithinIdentifier(node, position)) {
+          return node.name;
+        }
+      }
+    }
+
+    // Fall back to the leaf identifier of a dotted name (leaf-bias: see JSDoc).
+    const name = reference.name;
+    if (name.includes('.')) {
+      return name.substring(name.lastIndexOf('.') + 1);
+    }
+    // Single-segment reference: the whole name is itself the leaf.
+    return name;
+  }
+
+  /**
+   * Whether the given position falls within a chain node's identifierRange.
+   * Thin null-guarding wrapper over the shared parser-ast helper
+   * {@link isPositionWithinLocation} (which assumes a present identifierRange).
+   */
+  private isPositionWithinIdentifier(
+    node: SymbolReference,
+    position: { line: number; character: number },
+  ): boolean {
+    if (!node.location?.identifierRange) {
+      return false;
+    }
+    return isPositionWithinLocation(node.location, position);
   }
 
   /**

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ReferenceParams } from 'vscode-languageserver-protocol';
+import { Location, ReferenceParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -533,6 +533,238 @@ describe('ReferencesProcessingService', () => {
         const uri = (service as any).getReferenceFileUri({ name: 'orphan' });
         expect(uri).toBeNull();
       });
+    });
+  });
+
+  describe('chainNodes + position-based resolution (W-22692425)', () => {
+    const chainedUri = 'file:///test/ChainedRefTestClass.cls';
+    let chainedDoc: TextDocument;
+
+    beforeEach(async () => {
+      // Compile and register the chained-reference fixture into the same
+      // symbol manager used by the service.
+      const compilerService = new CompilerService();
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const content = readFileSync(
+        join(fixturesDir, 'ChainedRefTestClass.cls'),
+        'utf8',
+      );
+      const symbolTable = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(symbolTable);
+      compilerService.compile(content, chainedUri, listener);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, chainedUri),
+      );
+
+      chainedDoc = TextDocument.create(chainedUri, 'apex', 1, content);
+      mockStorage.getDocument.mockResolvedValue(chainedDoc);
+    });
+
+    // Helper: drive findReferences directly with an LSP position (0-based line).
+    const findRefs = (lspLine: number, lspChar: number) => {
+      const params: ReferenceParams = {
+        textDocument: { uri: chainedUri },
+        position: { line: lspLine, character: lspChar },
+        context: { includeDeclaration: true },
+      };
+      return (service as any).findReferences(params) as Promise<unknown[]>;
+    };
+
+    // Position (a): leaf type in a chained type ref -> "GeocodingAddress".
+    // Parser line 13 / col 30 == LSP line 12 / col 30.
+    it('resolves the leaf segment of a chained type reference', async () => {
+      const picked = (service as any).pickNameUnderCursor(
+        {
+          name: 'ChainedRefTestClass.GeocodingAddress',
+          chainNodes: [
+            {
+              name: 'ChainedRefTestClass',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 4,
+                  endLine: 13,
+                  endColumn: 23,
+                },
+              },
+            },
+            {
+              name: 'GeocodingAddress',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 24,
+                  endLine: 13,
+                  endColumn: 40,
+                },
+              },
+            },
+          ],
+        },
+        { line: 13, character: 30 },
+      );
+      expect(picked).toBe('GeocodingAddress');
+
+      const locations = (await findRefs(12, 30)) as Location[];
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+
+      // Strengthened: the leaf must resolve to the nested GeocodingAddress
+      // class declaration (line 8 in the fixture, 0-based LSP line 7), NOT to
+      // the enclosing ChainedRefTestClass declaration (line 7 / LSP line 6).
+      const targetLines = locations.map((loc) => loc.range.start.line).sort();
+      expect(targetLines).toContain(7);
+      expect(targetLines).not.toContain(6);
+    });
+
+    // Position (b): inner/qualifier segment -> "ChainedRefTestClass".
+    it('resolves the qualifier segment of a chained type reference', async () => {
+      const picked = (service as any).pickNameUnderCursor(
+        {
+          name: 'ChainedRefTestClass.GeocodingAddress',
+          chainNodes: [
+            {
+              name: 'ChainedRefTestClass',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 4,
+                  endLine: 13,
+                  endColumn: 23,
+                },
+              },
+            },
+            {
+              name: 'GeocodingAddress',
+              location: {
+                identifierRange: {
+                  startLine: 13,
+                  startColumn: 24,
+                  endLine: 13,
+                  endColumn: 40,
+                },
+              },
+            },
+          ],
+        },
+        { line: 13, character: 10 },
+      );
+      expect(picked).toBe('ChainedRefTestClass');
+
+      const locations = (await findRefs(12, 10)) as Location[];
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+
+      // Strengthened: the qualifier must resolve to the top-level
+      // ChainedRefTestClass declaration (line 7 / LSP line 6), NOT the nested
+      // GeocodingAddress class (line 8 / LSP line 7). This proves the qualifier
+      // position resolves to a DIFFERENT symbol than the leaf position above.
+      const targetLines = locations.map((loc) => loc.range.start.line).sort();
+      expect(targetLines).toContain(6);
+      expect(targetLines).not.toContain(7);
+    });
+
+    // Position (c): a plain unqualified name -> "process" (method call).
+    // Parser line 26 / col 6 == LSP line 25 / col 6.
+    it('resolves a plain unqualified name', async () => {
+      const locations = await findRefs(25, 6);
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+    });
+
+    // Falls back to the leaf identifier when no chain node spans the cursor
+    // (dotted name with no chainNodes match).
+    it('falls back to the last segment of a dotted name', () => {
+      const picked = (service as any).pickNameUnderCursor(
+        { name: 'Outer.Inner.Leaf' },
+        { line: 1, character: 0 },
+      );
+      expect(picked).toBe('Leaf');
+    });
+
+    // P2.5: cursor exactly on the `.` separator between two chain nodes.
+    // The dot column lies in the gap between the qualifier's identifierRange
+    // (ends col 5, "A") and the leaf's (starts col 7, "B"), so no chain node
+    // contains it. pickNameUnderCursor then applies its documented leaf-bias:
+    // it returns the LEAF segment ("B") regardless of which side of the dot the
+    // cursor sits on - so for "A.B" the user gets B even if they meant A.
+    it('applies leaf-bias when the cursor is on the dot separator', () => {
+      // "A.B": A occupies cols 4-5, the dot is col 6, B occupies cols 7-8.
+      const reference = {
+        name: 'A.B',
+        chainNodes: [
+          {
+            name: 'A',
+            location: {
+              identifierRange: {
+                startLine: 13,
+                startColumn: 4,
+                endLine: 13,
+                endColumn: 5,
+              },
+            },
+          },
+          {
+            name: 'B',
+            location: {
+              identifierRange: {
+                startLine: 13,
+                startColumn: 7,
+                endLine: 13,
+                endColumn: 8,
+              },
+            },
+          },
+        ],
+      };
+      // Cursor on the dot (col 6): neither node's range contains it.
+      const onDot = (service as any).pickNameUnderCursor(reference, {
+        line: 13,
+        character: 6,
+      });
+      expect(onDot).toBe('B');
+
+      // Sanity: a cursor inside the qualifier still picks the qualifier.
+      const onQualifier = (service as any).pickNameUnderCursor(reference, {
+        line: 13,
+        character: 4,
+      });
+      expect(onQualifier).toBe('A');
+    });
+
+    // P1.1: cursor on whitespace/non-identifier inside a method body must
+    // return [], NOT the enclosing method's references. The 'precise'
+    // resolution strategy (which findReferences requests) only matches when the
+    // cursor lands on a symbol's own identifierRange; it does NOT fall through
+    // to the 'scope' strategy's Step-4 containing-scope match. So a whitespace
+    // cursor yields no precise symbol, and with no name resolution either the
+    // result is []. Here we assert the service requests 'precise' and returns []
+    // when neither precise nor name resolution finds a symbol.
+    it('returns [] for a cursor on whitespace inside a method body (no containing-scope leak)', async () => {
+      const getSymbolAtPosition = jest
+        .spyOn(symbolManager, 'getSymbolAtPosition')
+        // 'precise' refuses the containing-scope match -> no symbol at the
+        // whitespace position.
+        .mockResolvedValue(null);
+      jest
+        .spyOn(symbolManager, 'getReferencesAtPosition')
+        // Non-empty so we pass the early gate in findReferences.
+        .mockResolvedValue([{ name: 'value' } as any]);
+      jest
+        .spyOn(symbolManager, 'resolveSymbol')
+        .mockResolvedValue({ symbol: null } as any);
+
+      // Parser line 18 / col 0 (leading whitespace) == LSP line 17 / col 0.
+      const locations = (await findRefs(17, 0)) as Location[];
+      expect(locations).toEqual([]);
+
+      // The guard is delegated to the strategy: the service must ask for
+      // 'precise', not the default 'scope' strategy.
+      expect(getSymbolAtPosition).toHaveBeenCalledWith(
+        chainedUri,
+        expect.objectContaining({ line: 18, character: 0 }),
+        'precise',
+      );
     });
   });
 

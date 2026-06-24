@@ -7,7 +7,7 @@
  */
 
 import { LSPQueueManager } from '@salesforce/apex-lsp-compliant-services';
-import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Mock the LSPQueueManager
@@ -56,10 +56,9 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [],
       };
 
-      const expectedDiagnostics = [];
+      const expectedDiagnostics: Diagnostic[] = [];
       mockQueueManager.submitDocumentOpenRequest.mockResolvedValue(
         expectedDiagnostics,
       );
@@ -89,7 +88,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Simulate the logic from apex-ls
@@ -113,7 +111,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Queue processing failed');
@@ -141,7 +138,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockQueueManager.submitDocumentSaveRequest.mockResolvedValue(undefined);
@@ -164,7 +160,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Save processing failed');
@@ -191,7 +186,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockQueueManager.submitDocumentCloseRequest.mockResolvedValue(undefined);
@@ -214,7 +208,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Close processing failed');
@@ -334,7 +327,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Queue operation failed');
@@ -362,7 +354,6 @@ describe('Queue Integration in apex-ls', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       }));
 
       mockQueueManager.submitDocumentOpenRequest.mockResolvedValue([]);
