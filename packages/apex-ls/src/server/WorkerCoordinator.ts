@@ -881,10 +881,15 @@ function createDispatcher(
           );
         }
         case 'QuerySymbolByName': {
-          const pqn = params as { name: string; namespace?: string };
+          const pqn = params as {
+            name?: string;
+            names?: readonly string[];
+            namespace?: string;
+          };
           return callbacks.sendToDataOwner(
             new DataOwnerQuerySymbolByName({
               name: pqn.name,
+              names: pqn.names,
               namespace: pqn.namespace,
             }),
           );

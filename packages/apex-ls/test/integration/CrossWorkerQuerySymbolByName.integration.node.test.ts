@@ -40,10 +40,13 @@ import {
   getLogger,
 } from '@salesforce/apex-lsp-shared';
 import {
+  ApexSymbolManager,
   CompilerService,
   VisibilitySymbolListener,
   SymbolTable,
+  ReferenceContext,
 } from '@salesforce/apex-lsp-parser-ast';
+import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
@@ -146,6 +149,118 @@ describe('Cross-worker DataOwnerQuerySymbolByName Integration Tests', () => {
     );
 
     await Effect.runPromise(program);
+  }, 120_000);
+
+  it('ingesting the returned table lets the requesting file resolve its cross-file reference end-to-end', async () => {
+    // Regression for the gap behind concern #1: the data-owner returning a
+    // table is necessary but NOT sufficient. addSymbolTable lands the owning
+    // file's SYMBOLS but defers cross-file edges, so the requesting file's
+    // TypeReference stays unresolved until resolveCrossFileReferencesForFile
+    // runs — which is exactly what loadSymbolDataForEnrichment now does after a
+    // cross-worker ingest. This asserts the END-TO-END resolution, not just the
+    // returned payload.
+    const REQUESTER_URI = 'file:///test/CrossWorkerRequester.cls';
+    const REQUESTER_CLASS = `public class CrossWorkerRequester {
+    public CrossWorkerTarget make() {
+        return new CrossWorkerTarget();
+    }
+}`;
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: false,
+        logger,
+      });
+
+      // Data-owner holds the target (the owning file an enrichment worker lacks).
+      yield* topology.dataOwner.executeEffect(
+        new DispatchDocumentOpen({
+          uri: TARGET_URI,
+          languageId: 'apex',
+          version: 1,
+          content: TARGET_CLASS,
+        }),
+      );
+      yield* topology.dataOwner.executeEffect(
+        new UpdateSymbolSubset({
+          uri: TARGET_URI,
+          documentVersion: 1,
+          enrichedSymbolTable: compileToWireSymbolTable(
+            TARGET_CLASS,
+            TARGET_URI,
+          ),
+          enrichedDetailLevel: 'full' as const,
+          sourceWorkerId: 'test-worker-crossworker-e2e',
+        }),
+      );
+
+      // Cross-worker query the enrichment worker issues for the unresolved name.
+      const queryResult = yield* topology.dataOwner.executeEffect(
+        new DataOwnerQuerySymbolByName({ names: ['CrossWorkerTarget'] }),
+      );
+      expect(queryResult.entries[TARGET_URI]).toBeDefined();
+
+      return queryResult;
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const queryResult = await Effect.runPromise(program);
+
+    // --- Enrichment-worker side: ingest the requester + the returned table,
+    // then resolve cross-file refs (the post-ingest step under test). ---
+    const sm = new ApexSymbolManager();
+
+    // The requesting file, locally present but referencing a type it doesn't own.
+    const requesterListener = new VisibilitySymbolListener(
+      'public-api',
+      new SymbolTable(),
+    );
+    const requesterResult = new CompilerService().compile(
+      REQUESTER_CLASS,
+      REQUESTER_URI,
+      requesterListener,
+      { collectReferences: true, resolveReferences: true },
+    );
+    const requesterTable =
+      requesterResult?.result instanceof SymbolTable
+        ? requesterResult.result
+        : new SymbolTable();
+    await Effect.runPromise(sm.addSymbolTable(requesterTable, REQUESTER_URI));
+
+    // Before ingest: CrossWorkerTarget is unknown locally.
+    expect(await sm.findSymbolByName('CrossWorkerTarget')).toHaveLength(0);
+
+    // Ingest the data-owner's returned table (what resolveMissingNamesViaDataOwner does).
+    const ownerTable = SymbolTable.fromSerializedData(
+      queryResult.entries[TARGET_URI] as SerializedSymbolTableData,
+    );
+    await Effect.runPromise(sm.addSymbolTable(ownerTable, TARGET_URI));
+
+    // After ingest the SYMBOL is present, but the requesting file's reference is
+    // still unresolved until cross-file resolution runs.
+    expect(
+      (await sm.findSymbolByName('CrossWorkerTarget')).length,
+    ).toBeGreaterThan(0);
+
+    // The post-ingest step loadSymbolDataForEnrichment performs.
+    await Effect.runPromise(
+      sm.resolveCrossFileReferencesForFile(REQUESTER_URI),
+    );
+
+    // End-to-end assertion: the requester's CrossWorkerTarget reference now
+    // resolves to a symbol ID (the edge is materialized, not just the symbol).
+    const refs = await sm.getAllReferencesInFile(REQUESTER_URI);
+    const targetRef = refs.find(
+      (r) =>
+        r.name === 'CrossWorkerTarget' &&
+        (r.context === ReferenceContext.CLASS_REFERENCE ||
+          r.context === ReferenceContext.CONSTRUCTOR_CALL),
+    );
+    expect(targetRef).toBeDefined();
+    expect(targetRef!.resolvedSymbolId).toBeTruthy();
   }, 120_000);
 
   it('data-owner returns no matches for an unknown name', async () => {

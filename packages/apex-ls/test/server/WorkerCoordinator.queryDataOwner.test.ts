@@ -113,6 +113,24 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     expect((sent[0] as DataOwnerQuerySymbolByName).namespace).toBe('MyNs');
   });
 
+  it('forwards QuerySymbolByName with a batched names[] payload', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      names: ['MissA', 'MissB'],
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).names).toEqual([
+      'MissA',
+      'MissB',
+    ]);
+    expect((sent[0] as DataOwnerQuerySymbolByName).name).toBeUndefined();
+  });
+
   it('forwards QuerySymbolByName with omitted namespace', async () => {
     const logger = createSpyLogger();
     const { topology, sent } = makeFakeTopology();

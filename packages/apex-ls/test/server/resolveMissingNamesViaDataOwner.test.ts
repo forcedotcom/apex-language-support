@@ -14,11 +14,13 @@
  * ingestion contract can be exercised without a live assistance bus. These
  * tests feed canned `{ matches, entries }` responses through that seam and a
  * fake `RequestServices` (only the symbol-manager surface the helper touches)
- * and assert the three load-bearing behaviors:
+ * and assert the load-bearing behaviors:
  *   (a) names the LOCAL name index already resolves are skipped (no query),
  *   (b) `entries` are ingested via SymbolTable.fromSerializedData and the
  *       `ingested` count is correct,
- *   (c) a rejected/throwing query degrades gracefully to a zero return.
+ *   (c) a rejected/throwing query degrades gracefully to a zero return,
+ *   (d) all unresolved names are sent in ONE batched query (not one-per-name),
+ *       with locally-resolved names filtered out of the batch.
  */
 
 import { Effect } from 'effect';
@@ -66,9 +68,9 @@ function makeFakeServices(localResolves: Set<string>) {
 describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
   it('skips names the local name index already resolves (no cross-worker query)', async () => {
     const { svc, ingested } = makeFakeServices(new Set(['LocallyKnown']));
-    const calls: string[] = [];
+    const calls: unknown[] = [];
     const queryByName = (_method: string, params: unknown) => {
-      calls.push((params as { name: string }).name);
+      calls.push(params);
       return Promise.resolve({ matches: [], entries: {} });
     };
 
@@ -81,6 +83,49 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     // Resolved locally → no query issued and nothing ingested.
     expect(calls).toHaveLength(0);
     expect(ingested).toHaveLength(0);
+    expect(count).toBe(0);
+  });
+
+  it('sends all unresolved names in ONE batched query, filtering locally-known names', async () => {
+    // 'Known' resolves locally; 'MissA'/'MissB' do not (and 'MissA' is
+    // duplicated to prove de-duplication).
+    const { svc } = makeFakeServices(new Set(['Known']));
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const queryByName = (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return Promise.resolve({ matches: [], entries: {} });
+    };
+
+    await resolveMissingNamesViaDataOwner(
+      svc,
+      ['Known', 'MissA', 'MissB', 'MissA'],
+      queryByName,
+    );
+
+    // Exactly one round-trip carrying the de-duped residual — not one-per-name.
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe('dataOwner:QuerySymbolByName');
+    expect((calls[0].params as { names: string[] }).names).toEqual([
+      'MissA',
+      'MissB',
+    ]);
+  });
+
+  it('issues no query when every name resolves locally', async () => {
+    const { svc } = makeFakeServices(new Set(['A', 'B']));
+    const calls: unknown[] = [];
+    const queryByName = (_method: string, params: unknown) => {
+      calls.push(params);
+      return Promise.resolve({ matches: [], entries: {} });
+    };
+
+    const count = await resolveMissingNamesViaDataOwner(
+      svc,
+      ['A', 'B'],
+      queryByName,
+    );
+
+    expect(calls).toHaveLength(0);
     expect(count).toBe(0);
   });
 

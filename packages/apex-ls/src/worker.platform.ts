@@ -817,10 +817,27 @@ async function loadSymbolDataForEnrichment(
           // Cross-worker fallback: ResolveDepUris resolves names that map to a
           // file via the data-owner's class→file index, but a qualified
           // TypeReference can still miss when the target file is not loaded in
-          // this enrichment worker's LOCAL name index. For each such name, ask
-          // the data-owner (which holds ALL workspace symbols) to resolve it by
-          // name and ingest the owning file's symbol table.
-          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
+          // this enrichment worker's LOCAL name index. Ask the data-owner
+          // (which holds ALL workspace symbols) to resolve the remaining names
+          // in one batched query and ingest the owning files' symbol tables.
+          const ingested = await resolveMissingNamesViaDataOwner(svc, [
+            ...classNames,
+          ]);
+
+          // Ingestion alone only lands the owning files' SYMBOLS in the local
+          // name index (addSymbolTable processes same-file refs only and defers
+          // cross-file edges). Hover/Completion/Definition resolve via an
+          // on-demand name lookup, so the symbol is enough for them — but the
+          // requesting file's TypeReference is still unresolved (no
+          // resolvedSymbolId, no reverse-index edge). Materialize those edges
+          // now so reverse-index consumers see them too. Gated on a real
+          // ingest, and resolveCrossFileReferencesForFile is re-entrancy-guarded
+          // + addReference de-dupes, so this is near-free when nothing landed.
+          if (ingested > 0) {
+            await Effect.runPromise(
+              svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+            );
+          }
         }
       }
     }
@@ -862,48 +879,65 @@ export async function resolveMissingNamesViaDataOwner(
     blocking: boolean,
   ) => Promise<unknown> = requestCoordinatorAssistancePromise,
 ): Promise<number> {
-  const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
-  let ingested = 0;
+  // Drop duplicates and names the LOCAL name index already resolves before any
+  // IPC. The local-skip also dedups against ResolveDepUris: any name it already
+  // resolved is now in the local index, so it falls out here and is not
+  // re-queried. The residual is exactly the set ResolveDepUris could not map.
+  const residual: string[] = [];
+  const seen = new Set<string>();
   for (const name of names) {
-    try {
-      // Skip names the local name index already resolves.
-      const local = await svc.symbolManager.findSymbolByName(name);
-      if (local.length > 0) continue;
-
-      // NOTE: the schema/coordinator also accept an optional `namespace`, but we
-      // intentionally send `{ name }` only for now (forward-compat hint —
-      // qualifier disambiguation is not wired yet).
-      const response = (await queryByName(
-        'dataOwner:QuerySymbolByName',
-        { name },
-        true,
-      )) as {
-        matches?: ReadonlyArray<{ name: string; fileUri: string }>;
-        entries?: Record<string, unknown>;
-      };
-
-      if (!response?.entries) continue;
-      for (const [fileUri, stData] of Object.entries(response.entries)) {
-        if (!stData) continue;
-        const st = SymbolTable.fromSerializedData(
-          stData as SerializedSymbolTableData,
-        );
-        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
-        ingested++;
-      }
-      getLogger().debug(
-        () =>
-          `[ENRICHMENT] Cross-worker resolved '${name}' via data-owner: ` +
-          `${response.matches?.length ?? 0} match(es), ` +
-          `${Object.keys(response.entries ?? {}).length} file(s) ingested`,
-      );
-    } catch (err) {
-      getLogger().debug(
-        () => `[ENRICHMENT] Cross-worker resolve failed for '${name}': ${err}`,
-      );
-    }
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const local = await svc.symbolManager.findSymbolByName(name);
+    if (local.length === 0) residual.push(name);
   }
-  return ingested;
+
+  if (residual.length === 0) return 0;
+
+  const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+  try {
+    // ONE blocking round-trip for the whole residual set. A file referencing N
+    // unowned/managed-package types previously fired N sequential blocking hops
+    // per keystroke; batching makes it a single hop. The success `entries` map
+    // is keyed by owning file URI, so it carries every matched name's table.
+    //
+    // NOTE: the schema/coordinator also accept an optional `namespace`, but we
+    // intentionally omit it for now (forward-compat hint — qualifier
+    // disambiguation is not wired yet).
+    const response = (await queryByName(
+      'dataOwner:QuerySymbolByName',
+      { names: residual },
+      true,
+    )) as {
+      matches?: ReadonlyArray<{ name: string; fileUri: string }>;
+      entries?: Record<string, unknown>;
+    };
+
+    if (!response?.entries) return 0;
+    let ingested = 0;
+    for (const [fileUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const st = SymbolTable.fromSerializedData(
+        stData as SerializedSymbolTableData,
+      );
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+      ingested++;
+    }
+    getLogger().debug(
+      () =>
+        `[ENRICHMENT] Cross-worker resolved ${residual.length} name(s) via ` +
+        `data-owner: ${response.matches?.length ?? 0} match(es), ` +
+        `${ingested} file(s) ingested`,
+    );
+    return ingested;
+  } catch (err) {
+    getLogger().debug(
+      () =>
+        '[ENRICHMENT] Cross-worker resolve failed for ' +
+        `${residual.length} name(s): ${err}`,
+    );
+    return 0;
+  }
 }
 
 /**
@@ -1836,11 +1870,20 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             const sm = svc.symbolManager;
 
-            // The data-owner holds ALL workspace symbols, so its name index
-            // resolves names an enrichment worker's local subset may miss.
-            const symbols = yield* Effect.promise(() =>
-              sm.findSymbolByName(req.name),
-            );
+            // Resolve a batch (`names`) or a single name. Batching lets an
+            // enrichment worker collapse N per-keystroke blocking round-trips
+            // into one. De-dupe so a name repeated across callers is queried
+            // once.
+            const queryNames = [
+              ...new Set(
+                (req.names && req.names.length > 0
+                  ? req.names
+                  : req.name
+                    ? [req.name]
+                    : []
+                ).filter((n): n is string => !!n),
+              ),
+            ];
 
             const matches: Array<{
               name: string;
@@ -1848,14 +1891,22 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               kind?: string;
             }> = [];
             const uris = new Set<string>();
-            for (const symbol of symbols) {
-              if (!symbol?.fileUri) continue;
-              matches.push({
-                name: symbol.name,
-                fileUri: symbol.fileUri,
-                kind: typeof symbol.kind === 'string' ? symbol.kind : undefined,
-              });
-              uris.add(symbol.fileUri);
+            for (const queryName of queryNames) {
+              // The data-owner holds ALL workspace symbols, so its name index
+              // resolves names an enrichment worker's local subset may miss.
+              const symbols = yield* Effect.promise(() =>
+                sm.findSymbolByName(queryName),
+              );
+              for (const symbol of symbols) {
+                if (!symbol?.fileUri) continue;
+                matches.push({
+                  name: symbol.name,
+                  fileUri: symbol.fileUri,
+                  kind:
+                    typeof symbol.kind === 'string' ? symbol.kind : undefined,
+                });
+                uris.add(symbol.fileUri);
+              }
             }
 
             // Return the owning files' symbol tables so the worker can ingest
