@@ -176,6 +176,10 @@ export {
   isStandardApexClass as isStandardApexClassOp,
   resolveStandardApexClass as resolveStandardApexClassOp,
 } from './symbols/ops/stdlibLoading';
+export {
+  isPositionWithinLocation,
+  isPositionInIdentifierRange,
+} from './symbols/ops/positionUtils';
 
 // Export resolution framework types
 export * from './symbols/resolution/types';
