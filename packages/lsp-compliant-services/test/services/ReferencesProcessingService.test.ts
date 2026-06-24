@@ -603,7 +603,7 @@ describe('ReferencesProcessingService', () => {
         },
         { line: 13, character: 30 },
       );
-      expect(picked).toEqual({ name: 'GeocodingAddress', isLeaf: true });
+      expect(picked).toBe('GeocodingAddress');
 
       const locations = (await findRefs(12, 30)) as Location[];
       expect(Array.isArray(locations)).toBe(true);
@@ -649,7 +649,7 @@ describe('ReferencesProcessingService', () => {
         },
         { line: 13, character: 10 },
       );
-      expect(picked).toEqual({ name: 'ChainedRefTestClass', isLeaf: false });
+      expect(picked).toBe('ChainedRefTestClass');
 
       const locations = (await findRefs(12, 10)) as Location[];
       expect(Array.isArray(locations)).toBe(true);
@@ -679,7 +679,7 @@ describe('ReferencesProcessingService', () => {
         { name: 'Outer.Inner.Leaf' },
         { line: 1, character: 0 },
       );
-      expect(picked).toEqual({ name: 'Leaf', isLeaf: true });
+      expect(picked).toBe('Leaf');
     });
 
     // P2.5: cursor exactly on the `.` separator between two chain nodes.
@@ -722,49 +722,34 @@ describe('ReferencesProcessingService', () => {
         line: 13,
         character: 6,
       });
-      expect(onDot).toEqual({ name: 'B', isLeaf: true });
+      expect(onDot).toBe('B');
 
       // Sanity: a cursor inside the qualifier still picks the qualifier.
       const onQualifier = (service as any).pickNameUnderCursor(reference, {
         line: 13,
         character: 4,
       });
-      expect(onQualifier).toEqual({ name: 'A', isLeaf: false });
+      expect(onQualifier).toBe('A');
     });
 
     // P1.1: cursor on whitespace/non-identifier inside a method body must
-    // return [], NOT the enclosing method's references. getSymbolAtPosition's
-    // scope strategy can fall through to a Step-4 containing-scope match (the
-    // enclosing method/class symbol whose symbolRange merely contains the
-    // cursor). findReferences guards against this by rejecting any step-1 result
-    // whose identifierRange does not actually contain the cursor. Here we
-    // simulate that scope-containment hit (the method symbol's identifier is on
-    // line 17, but the cursor is on whitespace at line 18) and a reference that
-    // does not resolve by name, and assert the guard yields [].
+    // return [], NOT the enclosing method's references. The 'precise'
+    // resolution strategy (which findReferences requests) only matches when the
+    // cursor lands on a symbol's own identifierRange; it does NOT fall through
+    // to the 'scope' strategy's Step-4 containing-scope match. So a whitespace
+    // cursor yields no precise symbol, and with no name resolution either the
+    // result is []. Here we assert the service requests 'precise' and returns []
+    // when neither precise nor name resolution finds a symbol.
     it('returns [] for a cursor on whitespace inside a method body (no containing-scope leak)', async () => {
-      const enclosingMethod = {
-        name: 'process',
-        kind: 'method',
-        fileUri: chainedUri,
-        // identifierRange is on the declaration line (parser line 17), which
-        // does NOT contain the whitespace cursor on line 18.
-        location: {
-          identifierRange: {
-            startLine: 17,
-            startColumn: 16,
-            endLine: 17,
-            endColumn: 23,
-          },
-        },
-      };
-
+      const getSymbolAtPosition = jest
+        .spyOn(symbolManager, 'getSymbolAtPosition')
+        // 'precise' refuses the containing-scope match -> no symbol at the
+        // whitespace position.
+        .mockResolvedValue(null);
       jest
         .spyOn(symbolManager, 'getReferencesAtPosition')
         // Non-empty so we pass the early gate in findReferences.
         .mockResolvedValue([{ name: 'value' } as any]);
-      jest
-        .spyOn(symbolManager, 'getSymbolAtPosition')
-        .mockResolvedValue(enclosingMethod as any);
       jest
         .spyOn(symbolManager, 'resolveSymbol')
         .mockResolvedValue({ symbol: null } as any);
@@ -772,53 +757,14 @@ describe('ReferencesProcessingService', () => {
       // Parser line 18 / col 0 (leading whitespace) == LSP line 17 / col 0.
       const locations = (await findRefs(17, 0)) as Location[];
       expect(locations).toEqual([]);
-    });
-  });
 
-  describe('overloaded-method disambiguation by signature (W-22692425)', () => {
-    // Position (d): an overloaded method name. The two overloads must NOT be
-    // collapsed: process(Integer) and process(String) have distinct signature
-    // keys, and disambiguateOverload pins to the exact-signature instance.
-    const makeMethod = (paramType: string) =>
-      ({
-        id: `process#${paramType}`,
-        name: 'process',
-        kind: 'method',
-        parameters: [{ type: { name: paramType } }],
-      }) as any;
-
-    it('keys overloads by parameter-type signature (does not collapse)', () => {
-      const intOverload = makeMethod('Integer');
-      const strOverload = makeMethod('String');
-      const keyOf = (m: any) => (service as any).methodSignatureKey(m);
-      expect(keyOf(intOverload)).toBe('process(Integer)');
-      expect(keyOf(strOverload)).toBe('process(String)');
-      expect(keyOf(intOverload)).not.toBe(keyOf(strOverload));
-    });
-
-    it('preserves the resolved overload when multiple same-named methods exist', async () => {
-      const intOverload = makeMethod('Integer');
-      const strOverload = makeMethod('String');
-
-      // Two same-named candidates exist in scope.
-      jest
-        .spyOn(symbolManager, 'findSymbolByName')
-        .mockResolvedValue([intOverload, strOverload]);
-
-      // Resolving the String overload must return the String overload, not the
-      // first candidate (Integer).
-      const result = await (service as any).disambiguateOverload(strOverload);
-      expect(result).toBe(strOverload);
-      expect((result as any).parameters[0].type.name).toBe('String');
-    });
-
-    it('returns the symbol unchanged when only one overload exists', async () => {
-      const intOverload = makeMethod('Integer');
-      jest
-        .spyOn(symbolManager, 'findSymbolByName')
-        .mockResolvedValue([intOverload]);
-      const result = await (service as any).disambiguateOverload(intOverload);
-      expect(result).toBe(intOverload);
+      // The guard is delegated to the strategy: the service must ask for
+      // 'precise', not the default 'scope' strategy.
+      expect(getSymbolAtPosition).toHaveBeenCalledWith(
+        chainedUri,
+        expect.objectContaining({ line: 18, character: 0 }),
+        'precise',
+      );
     });
   });
 
