@@ -8,7 +8,10 @@
 
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
-import { ClientCapabilities } from 'vscode-languageserver-protocol';
+import {
+  ClientCapabilities,
+  ServerCapabilities,
+} from 'vscode-languageserver-protocol';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -110,7 +113,12 @@ describe('LCSAdapter Capabilities Alignment', () => {
       mockConfigManager,
     );
 
-    // Create adapter instance with proper config
+    // Create adapter instance with proper config.
+    // The constructor is private (public creation is via LCSAdapter.create,
+    // which also runs initialize()); these tests only need a constructed
+    // instance, so bypass the privacy check the same way the other LCSAdapter
+    // unit tests do.
+    // @ts-expect-error - private constructor, intentional direct construction
     adapter = new LCSAdapter({
       connection: mockConnection,
       logger: {
@@ -118,6 +126,8 @@ describe('LCSAdapter Capabilities Alignment', () => {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
+        log: jest.fn(),
+        alwaysLog: jest.fn(),
       },
     });
   });
@@ -138,7 +148,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
           triggerCharacters: ['.'],
           resolveProvider: false,
         },
-      });
+      } as ServerCapabilities);
 
       // Mock client capabilities that support dynamic registration
       const clientCapabilities: ClientCapabilities = {
@@ -194,7 +204,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
           triggerCharacters: ['.'],
           resolveProvider: false,
         },
-      });
+      } as ServerCapabilities);
 
       // Mock production client capabilities (minimal dynamic registration)
       const productionClientCapabilities: ClientCapabilities = {
@@ -243,7 +253,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
           triggerCharacters: ['.'],
           resolveProvider: false,
         },
-      });
+      } as ServerCapabilities);
 
       // Mock development client capabilities (full dynamic registration)
       const developmentClientCapabilities: ClientCapabilities = {
@@ -310,7 +320,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
               triggerCharacters: ['.'],
               resolveProvider: false,
             },
-          },
+          } as ServerCapabilities,
           expectedDynamicRegistrations: 0, // All should be static in production
         },
         {
@@ -343,7 +353,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
               triggerCharacters: ['.'],
               resolveProvider: false,
             },
-          },
+          } as ServerCapabilities,
           expectedDynamicRegistrations: 5, // All should be dynamic in development
         },
       ];

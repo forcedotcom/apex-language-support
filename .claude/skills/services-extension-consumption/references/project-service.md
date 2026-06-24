@@ -46,6 +46,8 @@ const dirs = (yield* api.services.ProjectService.getSfProject()).getPackageDirec
 ## Notes
 
 - Cached globally (10 min TTL)
-- Cache key: workspace `fsPath`
+- Cache key: workspace `fsPath`; `vscode-test-web://` workspaces with `.vscode/vscode-extension-test-disk-root.txt` (E2E headless): file body = disk path for `@salesforce/core` `SfProject` cache
+- `SfProject.resolve` fails (e.g. virtual mount): `isSalesforceProject` may still true via root `sfdx-project.json` `vscode.workspace.fs` stat; `getSfProject` no that fallback—can fail while flag true
+- `isSalesforceProject` cache `tapError` sets `sf:project_opened` false on resolve/cache errors; `FailedToResolveSfProjectError` then `catchTag` fallback may set context again from manifest stat
 - Requires `WorkspaceService`
 - Use `getSfProject()` for project methods (getPackageDirectories, etc.)

@@ -24,7 +24,7 @@ import {
   QuerySymbolSubset,
   UpdateSymbolSubset,
 } from '@salesforce/apex-lsp-shared';
-import { Effect, Scope } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 type DispatcherResult = ReturnType<typeof makeWorkerDispatcher>;
@@ -95,7 +95,7 @@ describe('WorkerCoordinator', () => {
       }, 120_000);
 
       afterAll(async () => {
-        await Effect.runPromise(Scope.close(scope, Effect.void));
+        await Effect.runPromise(Scope.close(scope, Exit.void));
       }, 30_000);
 
       it('spawns data-owner + enrichment pool, ping round-trips on both', async () => {
@@ -223,7 +223,7 @@ describe('WorkerCoordinator', () => {
       }, 120_000);
 
       afterAll(async () => {
-        await Effect.runPromise(Scope.close(scope, Effect.void));
+        await Effect.runPromise(Scope.close(scope, Exit.void));
       }, 30_000);
 
       it('spawns optional resource-loader when enabled', async () => {
@@ -276,7 +276,7 @@ describe('WorkerCoordinator', () => {
     }, 120_000);
 
     afterAll(async () => {
-      await Effect.runPromise(Scope.close(scope, Effect.void));
+      await Effect.runPromise(Scope.close(scope, Exit.void));
     }, 30_000);
 
     it('isAvailable returns true by default', () => {

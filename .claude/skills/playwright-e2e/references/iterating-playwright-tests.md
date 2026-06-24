@@ -7,8 +7,33 @@ description: Iterating on Playwright tests
 ## sequence
 
 1. run `web` locally (use `--retries 0`, follow debugging tips)
-2. run `desktop` locally
-3. edit github workflows if needed
+2. run `desktop` locally (use `--retries 0`)
+
+**Passing args:** Use `--` to forward params to the underlying playwright command. Prefer file path over `--grep` (exact match, immune to title changes):
+
+```bash
+WIREIT_CACHE=none npm run test:e2e:web -- --retries 0 e2e-tests/tests/myTest.spec.ts
+WIREIT_CACHE=none npm run test:e2e:desktop -- --retries 0 e2e-tests/tests/myTest.spec.ts
+```
+
+`WIREIT_CACHE=none` is always required when running a subset — wireit's cache key is based on input file fingerprints, not CLI args, so it serves the cached full-suite result otherwise.
+
+**Port conflict (web):** If a previous web server is still on port 3000, playwright fails immediately with `http://localhost:3000 is already used`. Fix: `lsof -ti :3000 | xargs kill -9`
+
+**Running from inside VS Code (agent shells):** When the shell inherits the VS Code extension host environment, `test:e2e:desktop` fails immediately with `Electron: bad option: --no-sandbox` / `--disable-workspace-trust` because `ELECTRON_RUN_AS_NODE=1` and `VSCODE_*` vars are set. Strip them on the command:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE \
+    -u VSCODE_PID -u VSCODE_IPC_HOOK -u VSCODE_NLS_CONFIG \
+    -u VSCODE_HANDLES_UNCAUGHT_ERRORS -u VSCODE_CWD \
+    -u VSCODE_CRASH_REPORTER_PROCESS_TYPE -u VSCODE_ESM_ENTRYPOINT \
+    -u VSCODE_CLI -u VSCODE_CODE_CACHE_PATH -u VSCODE_L10N_BUNDLE_LOCATION \
+    WIREIT_CACHE=none npm run test:e2e:desktop -- --retries 0 <spec>
+```
+
+`unset` in a separate bash call won't help — each Bash tool invocation is a fresh shell.
+
+3. edit github workflows if needed (single `e2e-tests.yml` workflow)
 4. CI (windows, gha) - see `analyze-e2e.md` for monitoring and analyzing results
 
 After passing, clean up while keeping tests passing:
@@ -17,7 +42,7 @@ After passing, clean up while keeping tests passing:
 2. align with `coding-playwright-tests.md` rules
 3. consolidate locators, increase DRY/reuse
 4. ensure shared exports in `e2e-tests/shared/` are used
-5. verify compile/lint pass
+5. verify compile/lint pass (`@.claude/skills/verification/`)
 
 ## Debugging
 
@@ -37,3 +62,4 @@ https://github.com/redhat-developer/vscode-extension-tester - pageObject/Selecto
 
 - TS extension activation: `Error: Activating extension 'vscode.typescript-language-features'`
 - **All installed extensions temporarily disabled** (other extensions, not ours) - expected notification
+- VS Code 1.116+ / `@vscode/test-electron`: `cannot change enablement of github copilot chat extension` — workbench Copilot Chat toggle in test env; non-critical (`e2e-tests/shared/utils/helpers.ts` `NON_CRITICAL_ERROR_PATTERNS`)

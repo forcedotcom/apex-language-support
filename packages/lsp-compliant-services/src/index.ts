@@ -151,6 +151,10 @@ export type {
   WorkerHandle,
   PoolHandle,
 } from './workers/WorkerTransport';
+export {
+  TransportSpawnError,
+  TransportSendError,
+} from './workers/WorkerTransport';
 export type {
   WorkerDispatchStrategy,
   WorkerTopologyStatus,
