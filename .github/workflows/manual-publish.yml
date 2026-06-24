@@ -734,7 +734,19 @@ jobs:
           fi
 
           # Monotonic guard: never move main backwards or sideways.
-          IS_GT=$(node -e "const s=require('semver'); console.log(s.gt('$STABLE_VERSION', '$CURRENT_VERSION') ? 'yes' : 'no');")
+          # Self-contained semver compare (this job installs no node_modules, so
+          # `require('semver')` is unavailable). Read versions from env to avoid
+          # interpolating into the script body, and compare X.Y.Z numerically.
+          IS_GT=$(STABLE_VERSION="$STABLE_VERSION" CURRENT_VERSION="$CURRENT_VERSION" node -e '
+            const parse = v => String(v).split("-")[0].split(".").map(Number);
+            const a = parse(process.env.STABLE_VERSION);
+            const b = parse(process.env.CURRENT_VERSION);
+            let gt = false;
+            for (let i = 0; i < 3; i++) {
+              if (a[i] !== b[i]) { gt = a[i] > b[i]; break; }
+            }
+            console.log(gt ? "yes" : "no");
+          ')
           if [ "$IS_GT" != "yes" ]; then
             echo "Skipping commit-back: main ($CURRENT_VERSION) is already >= stable ($STABLE_VERSION)"
             exit 0
