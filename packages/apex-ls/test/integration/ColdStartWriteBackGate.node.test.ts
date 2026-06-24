@@ -173,7 +173,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
       const startedAt = yield* Effect.sync(() => Date.now());
       const readiness = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(
+        dispatcher.awaitSymbolDataReady!(
           TEST_URI,
           MATCH_LATEST_VERSION,
           GATE_BUDGET_MS,
@@ -261,7 +261,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
       const startedAt = yield* Effect.sync(() => Date.now());
       const readiness = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(
+        dispatcher.awaitSymbolDataReady!(
           TEST_URI,
           MATCH_LATEST_VERSION,
           GATE_BUDGET_MS,
@@ -356,7 +356,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
       const startedAt = yield* Effect.sync(() => Date.now());
       const readiness = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(
+        dispatcher.awaitSymbolDataReady!(
           STDLIB_URI,
           MATCH_LATEST_VERSION,
           GATE_BUDGET_MS,
@@ -440,7 +440,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
       const startedAt = yield* Effect.sync(() => Date.now());
       const readiness = yield* Effect.promise(() =>
-        dispatcher.awaitSymbolDataReady(
+        dispatcher.awaitSymbolDataReady!(
           TEST_URI,
           MATCH_LATEST_VERSION,
           GATE_BUDGET_MS,

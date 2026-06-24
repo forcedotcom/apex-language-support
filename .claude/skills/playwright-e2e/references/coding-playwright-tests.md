@@ -28,7 +28,7 @@ One test per file. Many steps allowed.
 
 **Use UI interactions:**
 
-- `Control+p` - Quick Open
+- Quick Open: `openFileByName` from `e2e-tests/shared/utils/fileHelpers.ts` — palette "Go to File…" (web + desktop). VS Code 1.116+ rows often render as `basename` + path segments + trailing `file results`; match logic lives in `fileHelpers.ts`. (`Control+p` opens Quick Open directly if you need raw access.)
 - `Control+Home`, `Control+s` - navigate and save
 - `page.keyboard.type()` - edit content
 - Monaco editor selectors - interact with editor

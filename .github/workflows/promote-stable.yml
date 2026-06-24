@@ -320,3 +320,76 @@ jobs:
               echo "Tracking tag pushed: $TRACKING_TAG"
             fi
           fi
+
+  # ── commit-stable-version ────────────────────────────────────────────────
+  # Advance main's package.json to the published stable version so the next
+  # nightly derives its version from the stable line. With the odd/even minor
+  # scheme, an even-minor stable (e.g. 0.6.0) makes the next nightly bump to the
+  # next odd minor (0.7.0). Without this, main stays on the old nightly line and
+  # the marketplace version diverges from the repo. Idempotent and monotonic:
+  # only bumps when stable-version is strictly greater than main's current
+  # version, so reruns and out-of-order promotions never move main backwards.
+  commit-stable-version:
+    needs: [find-prerelease-candidate, create-github-release, tag-stable]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+
+      - name: Commit stable version bump to main
+        env:
+          STABLE_VERSION: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
+          DRY_RUN: ${{ inputs.dry-run || 'false' }}
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          PKG_DIR="packages/apex-lsp-vscode-extension"
+          CURRENT_VERSION=$(node -p "require('./$PKG_DIR/package.json').version")
+          echo "main version: $CURRENT_VERSION -> stable version: $STABLE_VERSION"
+
+          # Monotonic guard: never move main backwards or sideways.
+          IS_GT=$(node -e "const s=require('semver'); console.log(s.gt('$STABLE_VERSION', '$CURRENT_VERSION') ? 'yes' : 'no');")
+          if [ "$IS_GT" != "yes" ]; then
+            echo "Skipping commit-back: main ($CURRENT_VERSION) is already >= stable ($STABLE_VERSION)"
+            exit 0
+          fi
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: Would set $PKG_DIR to $STABLE_VERSION and commit to main"
+            exit 0
+          fi
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+
+          ( cd "$PKG_DIR" && npm version "$STABLE_VERSION" --no-git-tag-version )
+
+          git add "$PKG_DIR/package.json"
+          if git diff --staged --quiet; then
+            echo "No version change to commit - skipping (idempotent rerun)"
+            exit 0
+          fi
+
+          git commit -m "chore: set stable version $STABLE_VERSION [skip ci]"
+
+          echo "Pushing stable version bump to main..."
+          if ! git push origin HEAD:main; then
+            echo "Push failed, attempting fetch+rebase and retry..."
+            git fetch origin main
+            git rebase origin/main
+            if ! git push origin HEAD:main; then
+              echo "Error: Push failed after rebase. Check branch protection rules."
+              exit 1
+            fi
+          fi
+          echo "main package.json set to $STABLE_VERSION"

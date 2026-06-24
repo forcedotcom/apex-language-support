@@ -12,7 +12,7 @@ import {
   makeNodeWorkerLayer,
 } from '../../src/server/WorkerCoordinator';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
-import { Effect, Scope } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 
@@ -53,7 +53,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
   }, 120_000);
 
   afterAll(async () => {
-    await Effect.runPromise(Scope.close(scope, Effect.void));
+    await Effect.runPromise(Scope.close(scope, Exit.void));
   }, 30_000);
 
   it('getSymbolTable returns data for known stdlib class', async () => {

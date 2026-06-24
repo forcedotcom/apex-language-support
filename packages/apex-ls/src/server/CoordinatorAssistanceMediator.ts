@@ -28,6 +28,11 @@ import {
   type WorkerLogMessage,
 } from '@salesforce/apex-lsp-shared';
 
+export type {
+  AssistanceRequestPayload,
+  AssistanceResponsePayload,
+} from '@salesforce/apex-lsp-shared';
+
 export type AssistanceHandler = (
   method: string,
   params: unknown,
