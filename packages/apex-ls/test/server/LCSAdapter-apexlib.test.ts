@@ -103,6 +103,11 @@ describe('LCSAdapter - ApexLib Support', () => {
       listen: jest.fn(),
     } as any;
 
+    // The constructor is private (public creation is via LCSAdapter.create,
+    // which also runs initialize()); this test only needs a constructed
+    // instance, so bypass the privacy check the same way the other LCSAdapter
+    // unit tests do.
+    // @ts-expect-error - private constructor, intentional direct construction
     adapter = new LCSAdapter({
       connection: mockConnection,
       logger: {
@@ -110,6 +115,8 @@ describe('LCSAdapter - ApexLib Support', () => {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
+        log: jest.fn(),
+        alwaysLog: jest.fn(),
       },
     });
   });
@@ -120,12 +127,19 @@ describe('LCSAdapter - ApexLib Support', () => {
     });
 
     it('should have connection methods available', () => {
+      // hover/completion/documentSymbol/definition are not part of the current
+      // connection.languages feature type, but the mock fabricates them; read
+      // through an untyped view to assert on the mock's own structure.
+      const languages = mockConnection.languages as unknown as Record<
+        string,
+        { on: jest.Mock }
+      >;
       expect(mockConnection.languages.diagnostics.on).toBeDefined();
-      expect(mockConnection.languages.hover.on).toBeDefined();
-      expect(mockConnection.languages.completion.on).toBeDefined();
-      expect(mockConnection.languages.documentSymbol.on).toBeDefined();
+      expect(languages.hover.on).toBeDefined();
+      expect(languages.completion.on).toBeDefined();
+      expect(languages.documentSymbol.on).toBeDefined();
       expect(mockConnection.languages.foldingRange.on).toBeDefined();
-      expect(mockConnection.languages.definition.on).toBeDefined();
+      expect(languages.definition.on).toBeDefined();
       expect(mockConnection.onRequest).toBeDefined();
     });
   });
