@@ -386,7 +386,14 @@ jobs:
 
           ( cd "$PKG_DIR" && npm version "$STABLE_VERSION" --no-git-tag-version )
 
-          git add "$PKG_DIR/package.json"
+          # Keep the root lockfile's workspace entry in sync with package.json.
+          # --package-lock-only rewrites package-lock.json from the manifests
+          # without installing node_modules, so the lockfile never drifts behind
+          # the committed version. This commit carries [skip ci], so nothing
+          # downstream re-derives the lockfile — it must be correct here.
+          npm install --package-lock-only --ignore-scripts
+
+          git add "$PKG_DIR/package.json" package-lock.json
           if git diff --staged --quiet; then
             echo "No version change to commit - skipping (idempotent rerun)"
             exit 0
