@@ -111,6 +111,44 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     ]);
   });
 
+  it('threads an optional namespace hint into the batched query (F12-2)', async () => {
+    // A qualified TypeReference (e.g. MyNs.Foo) supplies its leading qualifier
+    // as the namespace hint so the data-owner can disambiguate same-named
+    // matches across namespaces.
+    const { svc } = makeFakeServices(new Set());
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const queryByName = (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return Promise.resolve({ matches: [], entries: {} });
+    };
+
+    await resolveMissingNamesViaDataOwner(svc, ['Foo'], queryByName, 'MyNs');
+
+    expect(calls).toHaveLength(1);
+    const params = calls[0].params as { names: string[]; namespace?: string };
+    expect(params.names).toEqual(['Foo']);
+    expect(params.namespace).toBe('MyNs');
+  });
+
+  it('omits the namespace key entirely when no namespace is supplied (F12-2)', async () => {
+    // Unqualified queries must keep the exact prior payload shape — the
+    // namespace key must be absent, not present-and-undefined — so the wire
+    // payload is byte-identical to the pre-F12-2 batched query.
+    const { svc } = makeFakeServices(new Set());
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const queryByName = (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return Promise.resolve({ matches: [], entries: {} });
+    };
+
+    await resolveMissingNamesViaDataOwner(svc, ['Foo'], queryByName);
+
+    expect(calls).toHaveLength(1);
+    const params = calls[0].params as Record<string, unknown>;
+    expect(params.names).toEqual(['Foo']);
+    expect('namespace' in params).toBe(false);
+  });
+
   it('issues no query when every name resolves locally', async () => {
     const { svc } = makeFakeServices(new Set(['A', 'B']));
     const calls: unknown[] = [];
