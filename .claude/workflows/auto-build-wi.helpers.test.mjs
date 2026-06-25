@@ -18,7 +18,7 @@ function loadHelpers() {
   const ctx = {}
   const exportNames = [
     'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers', 'computeBuildConcurrency',
-    'detectFileOverlap', 'pickReconcileBase',
+    'detectFileOverlap', 'pickReconcileBase', 'selectNextWi',
   ]
   const exportTail = exportNames.map(n => `this.${n} = ${n};`).join('\n')
   vm.runInNewContext(block + '\n' + exportTail, ctx)
@@ -94,4 +94,45 @@ test('pickReconcileBase: equal file count tiebreaks to later head', () => {
   const h = loadHelpers()
   assert.equal(h.pickReconcileBase({ files: ['a'], headEpochRank: 5 }, { files: ['b'], headEpochRank: 9 }), 'b')
   assert.equal(h.pickReconcileBase({ files: ['a'], headEpochRank: 9 }, { files: ['b'], headEpochRank: 5 }), 'a')
+})
+
+test('selectNextWi: returns null at capacity', () => {
+  const h = loadHelpers()
+  const cands = [{ wiId: 'a', storyPoints: 1, createdDate: '2026-01-01' }]
+  assert.equal(h.selectNextWi(cands, new Set(), 5, 5), null)
+})
+
+test('selectNextWi: skips already-claimed ids', () => {
+  const h = loadHelpers()
+  const cands = [
+    { wiId: 'a', storyPoints: 1, createdDate: '2026-01-01' },
+    { wiId: 'b', storyPoints: 2, createdDate: '2026-01-02' },
+  ]
+  const got = h.selectNextWi(cands, new Set(['a']), 0, 5)
+  assert.equal(got.wiId, 'b')
+})
+
+test('selectNextWi: prefers smaller story points, null treated as 5', () => {
+  const h = loadHelpers()
+  const cands = [
+    { wiId: 'big', storyPoints: 8, createdDate: '2026-01-01' },
+    { wiId: 'small', storyPoints: 2, createdDate: '2026-01-02' },
+    { wiId: 'nullpts', storyPoints: null, createdDate: '2026-01-03' },
+  ]
+  assert.equal(h.selectNextWi(cands, new Set(), 0, 5).wiId, 'small')
+})
+
+test('selectNextWi: tiebreak by oldest createdDate', () => {
+  const h = loadHelpers()
+  const cands = [
+    { wiId: 'newer', storyPoints: 3, createdDate: '2026-02-02' },
+    { wiId: 'older', storyPoints: 3, createdDate: '2026-01-01' },
+  ]
+  assert.equal(h.selectNextWi(cands, new Set(), 0, 5).wiId, 'older')
+})
+
+test('selectNextWi: null when all claimed', () => {
+  const h = loadHelpers()
+  const cands = [{ wiId: 'a', storyPoints: 1, createdDate: '2026-01-01' }]
+  assert.equal(h.selectNextWi(cands, new Set(['a']), 0, 5), null)
 })

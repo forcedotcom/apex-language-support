@@ -545,6 +545,22 @@ const pickReconcileBase = (a, b) => {
   if (na !== nb) return na < nb ? 'a' : 'b'
   return a.headEpochRank >= b.headEpochRank ? 'a' : 'b'
 }
+
+// Pure pool-selection: pick the next WI for a free builder slot. Candidates are
+// ALREADY gated (sequencing + blockers applied upstream); this only chooses among
+// the unclaimed, honoring the active-cap. Smaller story-points first (null=5),
+// tiebreak oldest CreatedDate. Returns the WI object or null (nothing to pull).
+const selectNextWi = (candidates, claimedIds, currentInProgress, activeCap) => {
+  if (currentInProgress >= activeCap) return null
+  const pts = wi => (typeof wi.storyPoints === 'number' ? wi.storyPoints : 5)
+  const available = candidates.filter(c => !claimedIds.has(c.wiId))
+  if (!available.length) return null
+  return available.slice().sort((a, b) => {
+    const dp = pts(a) - pts(b)
+    if (dp !== 0) return dp
+    return String(a.createdDate).localeCompare(String(b.createdDate))
+  })[0]
+}
 // ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
