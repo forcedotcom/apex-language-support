@@ -1753,7 +1753,11 @@ const nextReadyWi = async (identity, inFlightWis, claimedIds, currentInProgress,
   if (currentInProgress >= activeCap) return null
   const gated = await gateCandidates(identity, inFlightWis)
   if (!gated.length) return null
-  return selectNextWi(gated, claimedIds, currentInProgress, activeCap)
+  // Atomic select-and-claim: NO await between selectNextWi reading claimedIds and
+  // recording the claim, so concurrent slots can never select the same WI.
+  const chosen = selectNextWi(gated, claimedIds, currentInProgress, activeCap)
+  if (chosen) claimedIds.add(chosen.wiId)
+  return chosen
 }
 
 const pickCandidate = async (identity, inFlightWis) => {
@@ -2106,7 +2110,6 @@ const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgre
         claimsRemaining += 1 // give the reservation back; nothing to pull
         return
       }
-      claimedIds.add(chosen.wiId)
       inProgress += 1
       const result = await runFullPipeline(chosen, identity, false)
       built.push(result)
@@ -2159,14 +2162,20 @@ try {
   if (toFinalize.length) await openForReview(toFinalize, identity)
   await peerApprove(identity)
 
-  const initialInProgress = inFlightWis.filter(w => w.status === 'In Progress').length
-
   // Restart any stranded no-PR in-flight WI first (single, like today), then drain.
-  if (toRestart.length) {
-    const chosen = toRestart[0].wi
-    log(`restarting stuck in-flight WI ${chosen.name} (no PR)`)
-    await runFullPipeline(chosen, identity, true)
+  const restartingWi = toRestart.length ? toRestart[0].wi : null
+
+  if (restartingWi) {
+    log(`restarting stuck in-flight WI ${restartingWi.name} (no PR)`)
+    await runFullPipeline(restartingWi, identity, true)
   }
+
+  // Count the restart toward the active-build cap: it is now an actively-built WI.
+  // Only add it when its GUS status didn't already count it as 'In Progress',
+  // so the common case (a crashed 'In Progress' build) is unchanged.
+  const initialInProgress =
+    inFlightWis.filter(w => w.status === 'In Progress').length +
+    (restartingWi && restartingWi.status !== 'In Progress' ? 1 : 0)
 
   const cores = await detectCores()
   const K = computeBuildConcurrency(cores, args && args.buildConcurrency)
