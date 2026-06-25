@@ -2181,7 +2181,11 @@ const PER_BUILD_TOKEN_RESERVE = 150000
 
 const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgress) => {
   phase('Drain loop')
-  const claimedIds = new Set(inFlightWis.map(w => w.wiId))
+  // claimedIds tracks WIs claimed THIS session only. Pre-existing in-flight WIs are
+  // filtered out by gateCandidates (which re-queries GUS status), so we don't need
+  // to pre-seed. This allows a WI to be re-claimed if it regressed from a finalized
+  // status (e.g., 'Fixed' → 'New' due to CI failure) between ticks.
+  const claimedIds = new Set()
   let inProgress = initialInProgress
   let claimsRemaining = Math.max(0, activeCap - initialInProgress)
   const built = []
@@ -2192,24 +2196,27 @@ const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgre
   const slot = async () => {
     while (claimsRemaining > 0 && budgetOk()) {
       // Reserve a claim slot BEFORE the async pull so concurrent slots can't
-      // oversubscribe the cap while a pull is in flight.
+      // oversubscribe the cap while a pull is in flight. Use try/finally to ensure
+      // the reservation is restored if anything fails.
       claimsRemaining -= 1
-      const chosen = await nextReadyWi(identity, inFlightWis, claimedIds, inProgress, activeCap)
-      if (!chosen) {
-        claimsRemaining += 1 // give the reservation back; nothing to pull
-        return
+      try {
+        const chosen = await nextReadyWi(identity, inFlightWis, claimedIds, inProgress, activeCap)
+        if (!chosen) return // give the reservation back; nothing to pull
+        inProgress += 1
+        const result = await runFullPipeline(chosen, identity, false)
+        built.push(result)
+        // WI stays counted toward inProgress for the rest of the session (it now has
+        // a PR / is In Progress). Do NOT decrement — the cap is about total in-flight.
+      } catch (e) {
+        claimsRemaining += 1 // restore on exception
+        throw e
       }
-      inProgress += 1
-      const result = await runFullPipeline(chosen, identity, false)
-      built.push(result)
-      // WI stays counted toward inProgress for the rest of the session (it now has
-      // a PR / is In Progress). Do NOT decrement — the cap is about total in-flight.
     }
   }
 
   const slots = Array.from({ length: K }, () => slot)
   await parallel(slots.map(s => s))
-  const builtBranches = built.filter(r => r.outcome === 'pr-opened' && r.branch).map(r => ({ wi: r.wi, branch: r.branch }))
+  const builtBranches = built.filter(r => r.outcome === 'pr-opened' && r.branch).map(r => ({ wi: r.wi, branch: r.branch, prUrl: r.prUrl }))
   log(`drain loop built ${built.length} WI(s): ${built.map(r => `${r.wi.name}=${r.outcome}`).join(', ') || 'none'}`)
   return { built, builtBranches }
 }
