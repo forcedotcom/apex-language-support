@@ -30,7 +30,8 @@ import type { Disposable } from '@salesforce/apex-lsp-shared';
  *   per-host handler replaces a default), so the registration is disposable.
  * - `onError` and `onClose` are added here; `ClientInterface` has neither.
  *   Connection-level errors surface via `onError`; transport close via
- *   `onClose`. The core wires lifecycle/observability to these.
+ *   `onClose`. The core will wire lifecycle/observability to these in a later
+ *   work item; it does not register either handler yet.
  * - No `initialize`/`isDisposed` on the port. Lifecycle (the LSP
  *   `initialize`/`initialized`/`shutdown`/`exit` handshake and disposed state)
  *   is owned by `ApexClientCore`, not the transport. The port is purely the
@@ -62,15 +63,20 @@ export interface RpcConnection {
 
   /**
    * Register a handler for an incoming (server→client) request. Returns a
-   * `Disposable` that unregisters the handler.
+   * `Disposable` that unregisters the handler. Params are `unknown`: a typed
+   * handler narrows them (the typed `apex/*` surface lands in 3.1).
    */
-  onRequest(method: string, handler: (params: any) => any): Disposable;
+  onRequest(method: string, handler: (params: unknown) => unknown): Disposable;
 
   /**
    * Register a handler for an incoming (server→client) notification. Returns a
-   * `Disposable` that unregisters the handler.
+   * `Disposable` that unregisters the handler. Params are `unknown`: a typed
+   * handler narrows them (the typed `apex/*` surface lands in 3.1).
    */
-  onNotification(method: string, handler: (params: any) => void): Disposable;
+  onNotification(
+    method: string,
+    handler: (params: unknown) => void,
+  ): Disposable;
 
   /**
    * Register a handler for connection-level errors. Returns a `Disposable` that

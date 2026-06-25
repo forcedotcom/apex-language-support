@@ -10,7 +10,8 @@ import { Effect } from 'effect';
 import type {
   ApexClientMiddleware,
   MiddlewareDirection,
-} from '../ApexClientMiddleware';
+} from '../apexClientMiddleware';
+import { EffectLspLoggerLive } from '../logging/effectLspLoggerLayer';
 
 /**
  * Default observability middleware.
@@ -42,28 +43,47 @@ export const logMiddlewareEvent = Effect.fn('ApexClientMiddleware.log')(
 );
 
 /**
+ * Fire-and-forget the structured log for one middleware event in a way that
+ * honors the host's configured LSP logger.
+ *
+ * The standalone middleware has no captured runtime to fork against (unlike the
+ * core, which uses `Runtime.runFork(runtime)` with its provided layer). Running
+ * the bare effect on the default runtime would route logs to Effect's default
+ * console logger instead of the LSP wire. We therefore provide
+ * {@link EffectLspLoggerLive} to the log effect before forking, so logs reach
+ * whatever logger the host configured via the shared logger factory regardless
+ * of the ambient runtime.
+ */
+const forkLog = (method: string, direction: MiddlewareDirection): void => {
+  Effect.runFork(
+    logMiddlewareEvent(method, direction).pipe(
+      Effect.provide(EffectLspLoggerLive),
+    ),
+  );
+};
+
+/**
  * The default logging middleware, conforming to the public
  * {@link ApexClientMiddleware} surface (Promise/plain types only). Each method
- * fires the structured log (fire-and-forget against the ambient runtime) and
- * delegates to `next`. When the core composes middleware it runs
- * {@link logMiddlewareEvent} inside its own provided-layer pipeline; this
- * standalone form keeps the middleware usable on its own.
+ * fires the structured log (fire-and-forget, with the LSP logger layer provided
+ * so it does not fall back to Effect's default console logger) and delegates to
+ * `next`.
  */
 export const loggingMiddleware: ApexClientMiddleware = {
   sendRequest: (method, params, next) => {
-    Effect.runFork(logMiddlewareEvent(method, 'outgoing'));
+    forkLog(method, 'outgoing');
     return next(params);
   },
   sendNotification: (method, params, next) => {
-    Effect.runFork(logMiddlewareEvent(method, 'outgoing'));
+    forkLog(method, 'outgoing');
     next(params);
   },
   onRequest: (method, params, next) => {
-    Effect.runFork(logMiddlewareEvent(method, 'incoming'));
+    forkLog(method, 'incoming');
     return next(params);
   },
   onNotification: (method, params, next) => {
-    Effect.runFork(logMiddlewareEvent(method, 'incoming'));
+    forkLog(method, 'incoming');
     next(params);
   },
 };

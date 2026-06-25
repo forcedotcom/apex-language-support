@@ -28,7 +28,7 @@
  */
 
 // The narrow transport port ApexClientCore is written against.
-export type { RpcConnection } from './RpcConnection';
+export type { RpcConnection } from './rpcConnection';
 
 // JSON-RPC-layer middleware: the public `next`-based interceptor type and the
 // default observability middleware. Effect-free public surface — the Effect
@@ -37,9 +37,12 @@ export type { RpcConnection } from './RpcConnection';
 export type {
   ApexClientMiddleware,
   MiddlewareDirection,
-} from './ApexClientMiddleware';
+} from './apexClientMiddleware';
 export { loggingMiddleware } from './middleware/loggingMiddleware';
 
 // The transport-agnostic client core (Concern 1 lifecycle) + its options.
-export { ApexClientCore } from './ApexClientCore';
-export type { ApexClientCoreOptions } from './ApexClientCore';
+export { ApexClientCore, ApexClientDisposedError } from './apexClientCore';
+export type {
+  ApexClientCoreOptions,
+  ApexClientInitializeParams,
+} from './apexClientCore';

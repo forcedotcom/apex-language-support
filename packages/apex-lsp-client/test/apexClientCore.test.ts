@@ -9,12 +9,14 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import {
   DEFAULT_APEX_SETTINGS,
+  enableConsoleLogging,
+  setLogLevel,
   type Disposable,
   type InitializeResult,
 } from '@salesforce/apex-lsp-shared';
-import { ApexClientCore } from '../src/ApexClientCore';
-import type { RpcConnection } from '../src/RpcConnection';
-import type { ApexClientMiddleware } from '../src/ApexClientMiddleware';
+import { ApexClientCore } from '../src/apexClientCore';
+import type { RpcConnection } from '../src/rpcConnection';
+import type { ApexClientMiddleware } from '../src/apexClientMiddleware';
 
 const FIND_MISSING_ARTIFACT_METHOD = 'apex/findMissingArtifact';
 
@@ -85,6 +87,8 @@ describe('ApexClientCore', () => {
 
   beforeEach(() => {
     connection = makeMockConnection();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   describe('defaults registered at construction', () => {

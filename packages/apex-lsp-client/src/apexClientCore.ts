@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Exit, Ref, Runtime, Scope } from 'effect';
+import { Effect, Exit, Option, Ref, Runtime, Scope } from 'effect';
 import {
   DEFAULT_APEX_SETTINGS,
   type ApexLanguageServerSettings,
@@ -14,13 +14,13 @@ import {
   type InitializeParams,
   type InitializeResult,
 } from '@salesforce/apex-lsp-shared';
-import type { RpcConnection } from './RpcConnection';
-import type { ApexClientMiddleware } from './ApexClientMiddleware';
+import type { RpcConnection } from './rpcConnection';
+import type { ApexClientMiddleware } from './apexClientMiddleware';
 import {
   logMiddlewareEvent,
   loggingMiddleware,
 } from './middleware/loggingMiddleware';
-import { EffectLspLoggerLive } from './logging/EffectLspLoggerLayer';
+import { EffectLspLoggerLive } from './logging/effectLspLoggerLayer';
 
 /**
  * The server→client request the core answers by default. Temporary literal —
@@ -32,6 +32,29 @@ import { EffectLspLoggerLive } from './logging/EffectLspLoggerLayer';
  * `FindMissingArtifactResult` type from `@salesforce/apex-lsp-shared`.
  */
 const FIND_MISSING_ARTIFACT_METHOD = 'apex/findMissingArtifact';
+
+/**
+ * Caller-supplied `initialize` params. `initializationOptions` is intentionally
+ * omitted: it is always populated from `settings` by the core (see
+ * {@link ApexClientCore.initialize}), so accepting it here would be a footgun —
+ * the value would be silently discarded.
+ */
+export type ApexClientInitializeParams = Omit<
+  Partial<InitializeParams>,
+  'initializationOptions'
+>;
+
+/**
+ * Error thrown when a lifecycle method is invoked after {@link
+ * ApexClientCore.dispose} has run. The transport has already been torn down, so
+ * the call fast-fails rather than sending on a dead connection.
+ */
+export class ApexClientDisposedError extends Error {
+  constructor(operation: string) {
+    super(`Cannot ${operation}: ApexClientCore has been disposed`);
+    this.name = 'ApexClientDisposedError';
+  }
+}
 
 /**
  * Options for constructing an {@link ApexClientCore}.
@@ -53,7 +76,7 @@ export interface ApexClientCoreOptions {
 interface CoreHandle {
   readonly initialize: (
     settings: ApexLanguageServerSettings,
-    params?: Partial<InitializeParams>,
+    params?: ApexClientInitializeParams,
   ) => Promise<InitializeResult>;
   readonly shutdown: () => Promise<void>;
   readonly use: (mw: ApexClientMiddleware) => Disposable;
@@ -108,7 +131,11 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     FIND_MISSING_ARTIFACT_METHOD,
     (params: unknown) => {
       Runtime.runFork(runtime)(
-        logMiddlewareEvent(FIND_MISSING_ARTIFACT_METHOD, 'incoming'),
+        logMiddlewareEvent(FIND_MISSING_ARTIFACT_METHOD, 'incoming').pipe(
+          // Fire-and-forget log: never let a logging failure surface or leave
+          // an unhandled cause on the forked fiber.
+          Effect.catchAllCause(() => Effect.void),
+        ),
       );
       // TODO(3.1): delegate to a registered onFindMissingArtifact handler when
       // the typed apex/* surface lands; fall back to { notFound: true }.
@@ -130,65 +157,107 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     }),
   );
 
-  // Idempotent initialize. The first call's args win; the cached compute-once
-  // primitive is created ONCE at construction and reads the stored args, so
-  // repeated calls return the same InitializeResult and never re-send
-  // initialize/initialized. Args live in a Ref (captured state), not a mutable
-  // closure flag.
-  const initArgsRef = yield* Ref.make<{
-    readonly settings: ApexLanguageServerSettings;
-    readonly params?: Partial<InitializeParams>;
-  }>({ settings: DEFAULT_APEX_SETTINGS });
-
-  const initializeEffect = Effect.gen(function* () {
-    const { settings, params } = yield* Ref.get(initArgsRef);
-    const initParams: InitializeParams = {
-      processId:
-        typeof process !== 'undefined' && process.pid ? process.pid : null,
-      rootUri: null,
-      capabilities: {},
-      ...params,
-      initializationOptions: settings,
-    };
-    // Strict LSP order: the `initialized` notification is sent ONLY after the
-    // `initialize` response resolves — never fire-and-forget/parallel.
-    const result = yield* Effect.promise(() =>
-      connection.sendRequest<InitializeResult>('initialize', initParams),
-    );
-    yield* Effect.promise(async () => {
-      await connection.sendNotification('initialized', {});
+  // Guard that fast-fails a lifecycle call once the core has been disposed (the
+  // transport is gone, so we must not run the handshake against a dead
+  // connection — see use-after-dispose).
+  const ensureNotDisposed = (operation: string) =>
+    Effect.gen(function* () {
+      const disposed = yield* Ref.get(disposedRef);
+      if (disposed) {
+        return yield* Effect.fail(new ApexClientDisposedError(operation));
+      }
     });
-    return result;
-  }).pipe(Effect.withSpan('ApexClientCore.initialize'));
-  const cachedInitialize = yield* Effect.cached(initializeEffect);
+
+  // Idempotent initialize. Memoizes the SUCCESS only — a transient failure does
+  // NOT poison the instance, so a later call re-attempts the handshake (unlike
+  // `Effect.cached`, which memoizes failures too). A mutex serializes
+  // first-time computation so concurrent first calls observe first-wins
+  // semantics: the winner's args are captured inside the critical section and
+  // later callers see the memoized result.
+  const initResultRef = yield* Ref.make<Option.Option<InitializeResult>>(
+    Option.none(),
+  );
+  const initMutex = yield* Effect.makeSemaphore(1);
+
+  const runInitialize = (
+    settings: ApexLanguageServerSettings,
+    params?: ApexClientInitializeParams,
+  ) =>
+    initMutex
+      .withPermits(1)(
+        Effect.gen(function* () {
+          // First writer inside the critical section wins; if a prior call
+          // already succeeded, return its result without re-sending.
+          const existing = yield* Ref.get(initResultRef);
+          if (Option.isSome(existing)) {
+            return existing.value;
+          }
+          const initParams: InitializeParams = {
+            processId:
+              typeof process !== 'undefined' && process.pid
+                ? process.pid
+                : null,
+            rootUri: null,
+            capabilities: {},
+            ...params,
+            initializationOptions: settings,
+          };
+          // Strict LSP order: the `initialized` notification is sent ONLY after
+          // the `initialize` response resolves — never fire-and-forget/parallel.
+          const result = yield* Effect.promise(() =>
+            connection.sendRequest<InitializeResult>('initialize', initParams),
+          );
+          yield* Effect.promise(async () => {
+            await connection.sendNotification('initialized', {});
+          });
+          // Record success only — failures above never reach here, so they are
+          // not memoized and a later call can retry.
+          yield* Ref.set(initResultRef, Option.some(result));
+          return result;
+        }),
+      )
+      .pipe(Effect.withSpan('ApexClientCore.initialize'));
 
   const initialize = (
     settings: ApexLanguageServerSettings,
-    params?: Partial<InitializeParams>,
+    params?: ApexClientInitializeParams,
   ): Promise<InitializeResult> =>
     Runtime.runPromise(runtime)(
-      Effect.gen(function* () {
-        // Record the first call's args; the cached effect reads them. Later
-        // calls return the memoized result, so re-recording is harmless but we
-        // keep first-wins semantics explicit.
-        yield* Ref.set(initArgsRef, { settings, params });
-        return yield* cachedInitialize;
-      }),
+      ensureNotDisposed('initialize').pipe(
+        Effect.zipRight(runInitialize(settings, params)),
+      ),
     );
 
   // Idempotent shutdown: shutdown request then exit notification, sequentially.
-  const shutdownEffect = Effect.gen(function* () {
-    yield* Effect.promise(() => connection.sendRequest<void>('shutdown'));
-    yield* Effect.promise(async () => {
-      await connection.sendNotification('exit');
-    });
-  }).pipe(Effect.withSpan('ApexClientCore.shutdown'));
-  const cachedShutdown = yield* Effect.cached(shutdownEffect);
+  // Memoizes success only (same rationale as initialize) and serializes via a
+  // mutex.
+  const shutdownDoneRef = yield* Ref.make(false);
+  const shutdownMutex = yield* Effect.makeSemaphore(1);
+
+  const runShutdown = shutdownMutex
+    .withPermits(1)(
+      Effect.gen(function* () {
+        if (yield* Ref.get(shutdownDoneRef)) {
+          return;
+        }
+        yield* Effect.promise(() => connection.sendRequest<void>('shutdown'));
+        yield* Effect.promise(async () => {
+          await connection.sendNotification('exit');
+        });
+        yield* Ref.set(shutdownDoneRef, true);
+      }),
+    )
+    .pipe(Effect.withSpan('ApexClientCore.shutdown'));
 
   const shutdown = (): Promise<void> =>
-    Runtime.runPromise(runtime)(cachedShutdown);
+    Runtime.runPromise(runtime)(
+      ensureNotDisposed('shutdown').pipe(Effect.zipRight(runShutdown)),
+    );
 
   const use = (mw: ApexClientMiddleware): Disposable => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      throw new ApexClientDisposedError('register middleware');
+    }
     Runtime.runSync(runtime)(Ref.update(middlewareRef, (ms) => [...ms, mw]));
     return {
       dispose: () => {
@@ -225,10 +294,11 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
  * (providing the logger Layer); no exported signature references an Effect type.
  *
  * Concern 1 (lifecycle): `initialize` sends LSP `initialize` then `initialized`
- * (strictly sequential; idempotent via `Effect.cached`), `shutdown` sends
- * `shutdown` then `exit` (idempotent), and `dispose` closes the construction
- * scope (finalizers run LIFO: handler/middleware cleanup first, transport
- * teardown last).
+ * (strictly sequential; idempotent on success, with the first concurrent
+ * caller's args winning), `shutdown` sends `shutdown` then `exit` (idempotent
+ * on success), and `dispose` closes the construction scope (finalizers run
+ * LIFO: handler/middleware cleanup first, transport teardown last). After
+ * `dispose`, lifecycle calls fast-fail with {@link ApexClientDisposedError}.
  *
  * Adapter delegation (4.1): when the embedded host lets `vscode-languageclient`
  * own the `initialize`/`shutdown` handshake, the adapter delegates lifecycle to
@@ -292,18 +362,25 @@ export class ApexClientCore {
   /**
    * Send LSP `initialize` (with `initializationOptions = settings`, default
    * {@link DEFAULT_APEX_SETTINGS}) and, only after its result resolves,
-   * `initialized`. Idempotent: repeated calls return the memoized result and do
-   * not re-send.
+   * `initialized`. The `initializationOptions` field is always sourced from
+   * `settings`, so it is not accepted on `params` (see {@link
+   * ApexClientInitializeParams}).
+   *
+   * Idempotent on success: repeated calls return the memoized result and do not
+   * re-send. A failed handshake is NOT memoized — a later call re-attempts.
+   * Concurrent first-time calls are serialized; the first caller's args win.
+   * Rejects with {@link ApexClientDisposedError} if called after `dispose()`.
    */
   initialize(
     settings: ApexLanguageServerSettings = DEFAULT_APEX_SETTINGS,
-    params?: Partial<InitializeParams>,
+    params?: ApexClientInitializeParams,
   ): Promise<InitializeResult> {
     return this.handle.initialize(settings, params);
   }
 
   /**
-   * Send LSP `shutdown` then `exit`, sequentially. Idempotent.
+   * Send LSP `shutdown` then `exit`, sequentially. Idempotent on success.
+   * Rejects with {@link ApexClientDisposedError} if called after `dispose()`.
    */
   shutdown(): Promise<void> {
     return this.handle.shutdown();
