@@ -246,7 +246,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
    * Check if a symbol matches the workspace symbol context
    */
   private matchesWorkspaceSymbolContext(
-    symbol: any,
+    symbol: ApexSymbol,
     context: WorkspaceSymbolContext,
   ): boolean {
     // Check name matching
@@ -289,7 +289,7 @@ export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcess
    * Create symbol information from Apex symbol
    */
   private async createSymbolInformation(
-    symbol: any,
+    symbol: ApexSymbol,
   ): Promise<SymbolInformation | null> {
     try {
       const location = await this.createLocation(symbol);
