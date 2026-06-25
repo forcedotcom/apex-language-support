@@ -301,3 +301,289 @@ describe('clearReferenceStateForFile preserves incoming edges (W-22692424)', () 
     expect(refsAfter.length).toBe(0);
   });
 });
+
+/**
+ * W-23133526 — re-parse evicts renamed/deleted declarations (N1 + F10-1).
+ *
+ * The companion fix to W-22692424: clearReferenceStateForFile preserves
+ * INCOMING edges across a re-add so that an enrichment write-back doesn't wipe
+ * other files' references into this file. But that preservation, combined with
+ * the add-only graph indexes, means a declaration that the re-parse RENAMED
+ * away (Foo -> Baz) or deleted otherwise lingers: its stale id stays in the
+ * graph and any incoming reverse-index edge keyed on it stays resolvable, so
+ * findReferencesTo(Foo) keeps surfacing a phantom reference until the
+ * referencing file is itself re-resolved.
+ *
+ * On an authoritative re-parse (newer documentVersion -> REPLACE), the re-add
+ * path now diffs the previous declarations against the fresh table and evicts
+ * the gone ones from the symbol indexes AND the incoming reverse-index edges
+ * that targeted them. Reclaiming those dead entries at the moment the
+ * declaration disappears also caps the unbounded reverse-index accumulation
+ * called out by F10-1 for the rename/delete case (no separate compaction pass).
+ */
+describe('re-parse evicts renamed/deleted declarations (W-23133526)', () => {
+  let symbolManager: ApexSymbolManager;
+  let compilerService: CompilerService;
+
+  beforeAll(async () => {
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch {
+      /* scheduler may already be down */
+    }
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch {
+      /* ignore */
+    }
+  });
+
+  beforeEach(() => {
+    symbolManager = new ApexSymbolManager();
+    compilerService = new CompilerService();
+  });
+
+  afterEach(async () => {
+    if (symbolManager) {
+      await symbolManager.clear();
+    }
+  });
+
+  const addFile = async (
+    source: string,
+    fileUri: string,
+    documentVersion?: number,
+  ) => {
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    const result = compilerService.compile(source, fileUri, listener);
+    expect(result.result).toBeDefined();
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(result.result!, fileUri, documentVersion),
+    );
+    return result.result!;
+  };
+
+  const refManager = (): ApexSymbolRefManager =>
+    (symbolManager as unknown as { symbolRefManager: ApexSymbolRefManager })
+      .symbolRefManager;
+
+  it('drops findReferencesTo(Foo) after Foo is renamed away and A is re-parsed', async () => {
+    // A declares Foo (v1). B references Foo. A is re-parsed (v2) with Foo
+    // RENAMED to Baz. B is NOT re-parsed, so its B -> Foo outgoing edge and the
+    // reverse-index entry keyed on Foo's old id both persist on the re-add path.
+    const aUri = 'file:///EvictRenameA.cls';
+    const aFooSrc = `
+      public class Foo {
+        public void noop() {}
+      }
+    `;
+    const bUri = 'file:///EvictRenameB.cls';
+    const bSrc = `
+      public class EvictRenameB {
+        public void useFoo() {
+          Foo f = new Foo();
+        }
+      }
+    `;
+    const aBazSrc = `
+      public class Baz {
+        public void noop() {}
+      }
+    `;
+
+    await addFile(aFooSrc, aUri, 1);
+    await addFile(bSrc, bUri, 1);
+
+    for (const uri of [aUri, bUri]) {
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
+    const graph = refManager();
+    graph.drainAllDeferredReferencesSync();
+
+    // Capture the old Foo declaration BEFORE the rename so we can query the
+    // reverse index by the exact symbol whose id the stale edge is keyed on.
+    const fooBefore = graph
+      .getSymbolsInFile(aUri)
+      .find((s: ApexSymbol) => s.name === 'Foo' && s.kind === SymbolKind.Class);
+    expect(fooBefore).toBeDefined();
+
+    // Pre-condition: B -> Foo incoming edge is live, and the reverse index holds
+    // exactly that one bucket (keyed on Foo's id).
+    const refsBefore = graph.findReferencesTo(fooBefore!);
+    expect(refsBefore.some((r) => r.fileUri === bUri)).toBe(true);
+    const reverseIndex = graph.getReverseIndex();
+    expect(reverseIndex.size).toBe(1);
+
+    // Authoritative re-parse of A (v2) with Foo renamed to Baz.
+    await addFile(aBazSrc, aUri, 2);
+
+    // The new Baz declaration exists; the old Foo is gone from A's table.
+    const symbolsAfter = graph.getSymbolsInFile(aUri);
+    expect(
+      symbolsAfter.some(
+        (s: ApexSymbol) => s.name === 'Baz' && s.kind === SymbolKind.Class,
+      ),
+    ).toBe(true);
+    expect(symbolsAfter.some((s: ApexSymbol) => s.name === 'Foo')).toBe(false);
+
+    // CORE N1 GUARANTEE: the stale Foo declaration AND its incoming reverse-index
+    // edge are evicted, so findReferencesTo(old Foo) returns nothing even though
+    // B has not been re-resolved. On the pre-fix behavior this still returned
+    // B's phantom reference.
+    const refsAfter = graph.findReferencesTo(fooBefore!);
+    expect(refsAfter.some((r) => r.fileUri === bUri)).toBe(false);
+    expect(refsAfter.length).toBe(0);
+
+    // The dead reverse-index bucket keyed on Foo's old id is reclaimed (not just
+    // unreachable by name). Without eviction this bucket lingers, which is the
+    // staleness/accumulation N1 + F10-1 call out.
+    expect(reverseIndex.size).toBe(0);
+
+    // And Baz surfaces no phantom edge either (B still points at the old id).
+    const bazAfter = symbolsAfter.find(
+      (s: ApexSymbol) => s.name === 'Baz' && s.kind === SymbolKind.Class,
+    );
+    expect(graph.findReferencesTo(bazAfter!).length).toBe(0);
+  });
+
+  it('reclaims the stale reverse-index bucket for a renamed declaration (F10-1)', async () => {
+    // Direct reverse-index assertion: the bucket keyed on the gone declaration's
+    // qualified id is removed, not merely unreachable by name. This is the
+    // F10-1 reclamation the eviction provides at rename time.
+    const aUri = 'file:///ReclaimA.cls';
+    const aFooSrc = `
+      public class ReclaimFoo {
+        public void noop() {}
+      }
+    `;
+    const bUri = 'file:///ReclaimB.cls';
+    const bSrc = `
+      public class ReclaimB {
+        public void useFoo() {
+          ReclaimFoo f = new ReclaimFoo();
+        }
+      }
+    `;
+    const aRenamedSrc = `
+      public class ReclaimBaz {
+        public void noop() {}
+      }
+    `;
+
+    await addFile(aFooSrc, aUri, 1);
+    await addFile(bSrc, bUri, 1);
+    for (const uri of [aUri, bUri]) {
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
+    const graph = refManager();
+    graph.drainAllDeferredReferencesSync();
+
+    const fooBefore = graph
+      .getSymbolsInFile(aUri)
+      .find(
+        (s: ApexSymbol) =>
+          s.name === 'ReclaimFoo' && s.kind === SymbolKind.Class,
+      );
+    expect(fooBefore).toBeDefined();
+    const reverseIndex = graph.getReverseIndex();
+
+    // The reverse index has at least one bucket holding B's edge before rename.
+    const bucketsBefore = reverseIndex.size;
+    expect(bucketsBefore).toBeGreaterThan(0);
+    expect(graph.findReferencesTo(fooBefore!).length).toBeGreaterThan(0);
+
+    // Re-parse with the declaration renamed away.
+    await addFile(aRenamedSrc, aUri, 2);
+
+    // The dead bucket is reclaimed (no growth, and the old target resolves to
+    // nothing) rather than accumulating across the rename.
+    expect(graph.findReferencesTo(fooBefore!).length).toBe(0);
+    expect(reverseIndex.size).toBeLessThan(bucketsBefore);
+  });
+
+  it('preserves unrelated declarations and live incoming edges on re-parse', async () => {
+    // A declares two types, Keep and Drop. B references Keep. A is re-parsed
+    // with Drop deleted but Keep unchanged. The eviction must remove only Drop
+    // and leave B -> Keep intact.
+    const aUri = 'file:///PartialA.cls';
+    const aV1 = `
+      public class PartialKeep {
+        public void noop() {}
+      }
+      class PartialDrop {
+        public void noop() {}
+      }
+    `;
+    const bUri = 'file:///PartialB.cls';
+    const bSrc = `
+      public class PartialB {
+        public void useKeep() {
+          PartialKeep k = new PartialKeep();
+        }
+      }
+    `;
+    const aV2 = `
+      public class PartialKeep {
+        public void noop() {}
+        public void added() {}
+      }
+    `;
+
+    await addFile(aV1, aUri, 1);
+    await addFile(bSrc, bUri, 1);
+    for (const uri of [aUri, bUri]) {
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
+    const graph = refManager();
+    graph.drainAllDeferredReferencesSync();
+
+    const keep = graph
+      .getSymbolsInFile(aUri)
+      .find(
+        (s: ApexSymbol) =>
+          s.name === 'PartialKeep' && s.kind === SymbolKind.Class,
+      );
+    expect(keep).toBeDefined();
+    expect(graph.findReferencesTo(keep!).some((r) => r.fileUri === bUri)).toBe(
+      true,
+    );
+
+    // Re-parse A (v2): Drop is deleted, Keep survives.
+    await addFile(aV2, aUri, 2);
+
+    const symbolsAfter = graph.getSymbolsInFile(aUri);
+    expect(symbolsAfter.some((s: ApexSymbol) => s.name === 'PartialDrop')).toBe(
+      false,
+    );
+    expect(symbolsAfter.some((s: ApexSymbol) => s.name === 'PartialKeep')).toBe(
+      true,
+    );
+
+    // The live incoming edge B -> Keep must be preserved (Keep was not renamed,
+    // so its id is unchanged and the edge is still valid). This guards against
+    // the eviction over-reaching.
+    const keepAfter = symbolsAfter.find(
+      (s: ApexSymbol) =>
+        s.name === 'PartialKeep' && s.kind === SymbolKind.Class,
+    );
+    expect(
+      graph.findReferencesTo(keepAfter!).some((r) => r.fileUri === bUri),
+    ).toBe(true);
+  });
+});

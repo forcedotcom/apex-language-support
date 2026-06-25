@@ -2016,6 +2016,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
 
+      // N1/F10-1 (W-23133526): on an authoritative re-parse (REPLACE), evict
+      // declarations the fresh parse no longer carries. registerSymbolTable
+      // swaps the file's SymbolTable but the graph indexes are add-only, so a
+      // renamed/deleted declaration (e.g. Foo -> Baz) would otherwise linger:
+      // its stale id and any incoming reverse-index edge keyed on it stay
+      // resolvable, leaving findReferencesTo(Foo) surfacing a phantom reference
+      // until the referencing file is itself re-resolved. The MERGE path is
+      // deliberately skipped — enrichment passes (same document version, higher
+      // detail) intentionally preserve old private/protected symbols that are
+      // absent from the partial fresh table.
+      if (registration.decision === 'accepted-replace') {
+        const liveSymbolIds = new Set<string>();
+        for (const symbol of symbols) {
+          const liveId = symbol.key?.unifiedId || symbol.id;
+          if (liveId) {
+            liveSymbolIds.add(liveId);
+          }
+        }
+        self.symbolRefManager.evictStaleFileDeclarations(
+          normalizedUri,
+          liveSymbolIds,
+        );
+      }
+
       // Invalidate cache for all symbol names that were added
       // This ensures that findSymbolByName() will see the newly added symbols
       for (const symbolName of symbolNamesAdded) {
