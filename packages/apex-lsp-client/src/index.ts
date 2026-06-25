@@ -39,3 +39,7 @@ export type {
   MiddlewareDirection,
 } from './ApexClientMiddleware';
 export { loggingMiddleware } from './middleware/loggingMiddleware';
+
+// The transport-agnostic client core (Concern 1 lifecycle) + its options.
+export { ApexClientCore } from './ApexClientCore';
+export type { ApexClientCoreOptions } from './ApexClientCore';
