@@ -1589,9 +1589,7 @@ const peerApprove = async identity => {
   )
 }
 
-const pickCandidate = async (identity, inFlightWis) => {
-  phase('Pick candidate')
-
+const gateCandidates = async (identity, inFlightWis) => {
   const candidatesRaw = await agent(candidatesQueryPrompt(identity), {
     schema: WI_RECORDS_SCHEMA,
     label: 'query-candidates',
@@ -1643,7 +1641,7 @@ const pickCandidate = async (identity, inFlightWis) => {
     )
   ).filter(Boolean)
 
-  if (!candidateList.length) return null
+  if (!candidateList.length) return []
 
   // Deterministic blocked-WI gate: drop any candidate that declares a hard
   // dependency ("blocked by W-XXX", "depends on W-XXX", "after W-XXX merges")
@@ -1681,7 +1679,7 @@ const pickCandidate = async (identity, inFlightWis) => {
     })
     if (!unblocked.length) {
       log('all candidates blocked by unmerged dependencies — nothing to claim')
-      return null
+      return []
     }
     candidateList.length = 0
     candidateList.push(...unblocked)
@@ -1739,12 +1737,27 @@ const pickCandidate = async (identity, inFlightWis) => {
       const open = candidateList.filter(c => !blockedIds.has(c.wiId))
       if (!open.length) {
         log('all candidates gated by earlier unfinished epic work — nothing to claim')
-        return null
+        return []
       }
       candidateList.length = 0
       candidateList.push(...open)
     }
   }
+
+  return candidateList
+}
+
+const nextReadyWi = async (identity, inFlightWis, claimedIds, currentInProgress, activeCap) => {
+  if (currentInProgress >= activeCap) return null
+  const gated = await gateCandidates(identity, inFlightWis)
+  if (!gated.length) return null
+  return selectNextWi(gated, claimedIds, currentInProgress, activeCap)
+}
+
+const pickCandidate = async (identity, inFlightWis) => {
+  phase('Pick candidate')
+  const candidateList = await gateCandidates(identity, inFlightWis)
+  if (!candidateList.length) return null
 
   if (candidateList.length === 1) {
     log(`single candidate: ${candidateList[0].name}`)
