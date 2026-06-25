@@ -13,6 +13,10 @@
     }
   },
   "sideEffects": false,
+  "files": [
+    "out",
+    "dist"
+  ],
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -34,6 +38,9 @@
     "compile": {
       "command": "tsc --build",
       "clean": "if-file-deleted",
+      "dependencies": [
+        "../apex-lsp-shared:compile"
+      ],
       "output": [
         "out/**"
       ],
@@ -123,8 +130,7 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.21.4",
-    "vscode-jsonrpc": "^8.2.1"
+    "effect": "^3.21.4"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
