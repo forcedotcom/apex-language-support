@@ -29,3 +29,13 @@
 
 // The narrow transport port ApexClientCore is written against.
 export type { RpcConnection } from './RpcConnection';
+
+// JSON-RPC-layer middleware: the public `next`-based interceptor type and the
+// default observability middleware. Effect-free public surface — the Effect
+// logger Layers (the wire binding) stay internal and are provided at the
+// boundary, never re-exported here.
+export type {
+  ApexClientMiddleware,
+  MiddlewareDirection,
+} from './ApexClientMiddleware';
+export { loggingMiddleware } from './middleware/loggingMiddleware';
