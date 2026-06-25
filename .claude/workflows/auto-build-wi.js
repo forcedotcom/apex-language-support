@@ -283,12 +283,6 @@ const PR_DRAFT_SCHEMA = {
   },
 }
 
-const PICKER_SCHEMA = {
-  type: 'object',
-  required: ['wiId', 'reason'],
-  properties: { wiId: { type: 'string' }, reason: { type: 'string' } },
-}
-
 const OK_SCHEMA = {
   type: 'object',
   required: ['ok'],
@@ -431,12 +425,6 @@ const DIFF_RAW_SCHEMA = {
     shortstat: { type: 'string' },
     files: { type: 'array', items: { type: 'string' } },
   },
-}
-
-const FILES_SCHEMA = {
-  type: 'object',
-  required: ['files'],
-  properties: { files: { type: 'array', items: { type: 'string' } } },
 }
 
 // =====================================================================
@@ -1023,27 +1011,6 @@ Return {records: <result.records, verbatim>}.
 HARD RULES:
 - Do NOT run any other queries. Zero records is valid — return {records: []}.
 - Do NOT add an open-only / Status filter, modify the WHERE clause, or transform fields.`
-
-const prFilesPrompt = url =>
-  `Run 'gh pr diff ${url} --name-only' and return {files: [<one path per line>]}.`
-
-const pickWiPrompt = (candidateList, inFlightFileList) =>
-  `Pick the next WI to work on from these candidates.
-
-Candidates (JSON):
-${JSON.stringify(candidateList, null, 2)}
-
-Files already touched by in-flight PRs (avoid overlap when possible):
-${inFlightFileList.join(', ') || 'none'}
-
-Candidates with unmet hard dependencies were already filtered out upstream — every WI here is unblocked.
-
-Selection rules (in order):
-1. If a candidate's likely files (inferred from Subject/Details) overlap heavily with in-flight files, defer it.
-2. Prefer smaller Story_Points (null treated as 5).
-3. Tie-break by oldest CreatedDate.
-
-Return ONLY {wiId, reason}.`
 
 const claimOrRestartPrompt = (chosen, identity, isRestart) => {
   const { wt, branch } = pathsFor(identity, chosen)
@@ -1846,44 +1813,6 @@ const nextReadyWi = async (identity, inFlightWis, claimedIds, currentInProgress,
   // recording the claim, so concurrent slots can never select the same WI.
   const chosen = selectNextWi(gated, claimedIds, currentInProgress, activeCap)
   if (chosen) claimedIds.add(chosen.wiId)
-  return chosen
-}
-
-const pickCandidate = async (identity, inFlightWis) => {
-  phase('Pick candidate')
-  const candidateList = await gateCandidates(identity, inFlightWis)
-  if (!candidateList.length) return null
-
-  if (candidateList.length === 1) {
-    log(`single candidate: ${candidateList[0].name}`)
-    return candidateList[0]
-  }
-
-  const inFlightUrls = inFlightWis.filter(w => w.prUrl).map(w => w.prUrl)
-  const inFlightFiles = inFlightUrls.length
-    ? await parallel(
-        inFlightUrls.map(url => () =>
-          agent(prFilesPrompt(url), {
-            schema: FILES_SCHEMA,
-            label: `pr-files-${url.split('/').pop()}`,
-            phase: 'Pick candidate',
-            model: 'haiku',
-          })
-        )
-      )
-    : []
-  const inFlightFileList = [
-    ...new Set((inFlightFiles || []).filter(Boolean).flatMap(d => d.files || [])),
-  ]
-
-  const pick = await agent(pickWiPrompt(candidateList, inFlightFileList), {
-    schema: PICKER_SCHEMA,
-    label: 'pick-wi',
-    phase: 'Pick candidate',
-    model: 'sonnet',
-  })
-  const chosen = candidateList.find(c => c.wiId === pick.wiId) || candidateList[0]
-  log(`picked ${chosen.name}: ${pick.reason}`)
   return chosen
 }
 
