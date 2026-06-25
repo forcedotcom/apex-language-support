@@ -71,6 +71,18 @@ export interface SymbolReference {
   literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
   /** Optional: chain nodes for chained expressions (e.g., obj.field1.field2) */
   chainNodes?: SymbolReference[];
+  /**
+   * Optional: call-site argument type strings for METHOD_CALL / CONSTRUCTOR_CALL
+   * references, positional and in source order (e.g. `['String', 'List<Integer>']`
+   * for `f('x', myIntList)`). Holds each argument's `originalTypeString` so a
+   * generic instantiation like `List<Integer>` is NOT collapsed to `List`
+   * (F11-1). This is the call-site signature key that lets a signature-aware
+   * `findReferencesTo` separate references to one overload from its same-named
+   * siblings (F11-2); name-only keying cannot. Undefined when the parser cannot
+   * statically determine an argument's type (the reference then falls back to
+   * name-only keying, preserving today's behavior for non-overloaded methods).
+   */
+  argumentTypes?: string[];
   /** Optional: ID of the resolved type (if type is known, undefined otherwise) */
   resolvedTypeId?: string;
   /** Optional: which tier resolved this reference */
@@ -127,6 +139,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       | 'syntax_only'
       | 'partially_validated'
       | 'fully_validated',
+    public argumentTypes?: string[],
   ) {}
 
   // Custom JSON serialization to avoid circular references
@@ -147,6 +160,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       isFullyResolved: this.isFullyResolved,
       validatedAccess: this.validatedAccess,
       accessValidationState: this.accessValidationState,
+      argumentTypes: this.argumentTypes,
     };
 
     // Add chained expression info without circular references
@@ -209,12 +223,18 @@ export class SymbolReferenceFactory {
 
   /**
    * Create a method call reference
+   *
+   * @param argumentTypes Optional positional call-site argument type strings
+   *   (each argument's `originalTypeString`, in source order). Carried on the
+   *   reference as its signature key for overload-aware reference separation
+   *   (F11-2/F11-1). Omit when arg types are not statically known.
    */
   static createMethodCallReference(
     methodName: string,
     location: SymbolLocation,
     parentContext?: string,
     isStatic?: boolean,
+    argumentTypes?: string[],
   ): SymbolReference {
     const reference = new EnhancedSymbolReference(
       methodName,
@@ -224,6 +244,15 @@ export class SymbolReferenceFactory {
       parentContext,
       undefined,
       isStatic,
+      undefined, // literalValue
+      undefined, // literalType
+      undefined, // chainNodes
+      undefined, // resolvedTypeId
+      undefined, // resolutionTier
+      undefined, // isFullyResolved
+      undefined, // validatedAccess
+      undefined, // accessValidationState
+      argumentTypes,
     );
 
     // Note: For simple qualified references, we don't need complex chain structures

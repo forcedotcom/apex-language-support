@@ -442,7 +442,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get reference locations for a symbol
    */
   private async getReferenceLocations(
-    symbol: any,
+    symbol: ApexSymbol,
     includeDeclaration: boolean = false,
   ): Promise<Location[]> {
     return await Effect.runPromise(
@@ -454,7 +454,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get reference locations for a symbol (Effect-based with yielding)
    */
   private getReferenceLocationsEffect(
-    symbol: any,
+    symbol: ApexSymbol,
     includeDeclaration: boolean = false,
   ): Effect.Effect<Location[], never, never> {
     const self = this;
@@ -595,7 +595,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get references by specific relationship types
    */
   private async getRelationshipTypeReferences(
-    symbol: any,
+    symbol: ApexSymbol,
   ): Promise<Location[]> {
     return await Effect.runPromise(
       this.getRelationshipTypeReferencesEffect(symbol),
@@ -606,7 +606,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    * Get references by specific relationship types (Effect-based with yielding)
    */
   private getRelationshipTypeReferencesEffect(
-    symbol: any,
+    symbol: ApexSymbol,
   ): Effect.Effect<Location[], never, never> {
     const self = this;
     return Effect.gen(function* () {

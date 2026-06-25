@@ -1079,6 +1079,282 @@ describe('ImplementationProcessingService', () => {
       expect(uris).toContain('file:///test/Cat.cls');
     });
 
+    it('should NOT honor the scope fallback when cursor is not on the declaration identifier (F11-4)', async () => {
+      // Cursor sits on whitespace/keyword INSIDE an abstract method body. LSP
+      // line 6 maps to parser line 7 (1-based), which is within the symbol's
+      // body symbolRange (parser lines 5-9) but NOT within its identifierRange
+      // (the method name on parser line 5). The 'scope' strategy returns the
+      // enclosing abstract MethodSymbol, so the identifierRange guard must
+      // reject it and return [] rather than surfacing implementations for the
+      // enclosing symbol.
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractClass.cls' },
+        position: { line: 6, character: 4 },
+      };
+
+      // No TypeReferences at a non-identifier position — drives the scope fallback.
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([]);
+
+      const abstractMethod: MethodSymbol = {
+        id: 'method-id',
+        name: 'abstractMethod',
+        kind: SymbolKind.Method,
+        location: {
+          // symbolRange spans the whole method body (parser lines 5-9); the
+          // scope strategy matches the body cursor against this range.
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 9,
+            endColumn: 3,
+          },
+          // identifierRange is only the method name on line 5 — the cursor on
+          // line 8 is NOT within it.
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
+        },
+        fileUri: 'file:///test/AbstractClass.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'abstractMethod',
+          path: ['file:///test/AbstractClass.cls', 'abstractMethod'],
+          unifiedId: 'method-id',
+          fileUri: 'file:///test/AbstractClass.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      // The scope strategy returns the enclosing abstract method.
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(abstractMethod);
+
+      const result = await service.processImplementation(params);
+
+      expect(result).toEqual([]);
+      // The guard short-circuits before any implementation discovery.
+      expect(mockSymbolManager.findSubtypes).not.toHaveBeenCalled();
+    });
+
+    it('should honor the scope fallback when cursor IS on the declaration identifier (F11-4)', async () => {
+      // Cursor is on the abstract method's name. LSP line 4 maps to parser
+      // line 5 — within the method's identifierRange (parser line 5) — so the
+      // guard allows the scope fallback and implementations are returned.
+      const params: ImplementationParams = {
+        textDocument: { uri: 'file:///test/AbstractClass.cls' },
+        position: { line: 4, character: 12 },
+      };
+
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([]);
+
+      const abstractMethod: MethodSymbol = {
+        id: 'method-id',
+        name: 'abstractMethod',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 9,
+            endColumn: 3,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
+        },
+        fileUri: 'file:///test/AbstractClass.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'abstractMethod',
+          path: ['file:///test/AbstractClass.cls', 'abstractMethod'],
+          unifiedId: 'method-id',
+          fileUri: 'file:///test/AbstractClass.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getSymbolAtPosition.mockResolvedValue(abstractMethod);
+
+      const concreteClass: TypeSymbol = {
+        id: 'concrete-class-id',
+        name: 'ConcreteClass',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 13,
+          },
+        },
+        fileUri: 'file:///test/ConcreteClass.cls',
+        superClass: 'AbstractClass',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'ConcreteClass',
+          path: ['file:///test/ConcreteClass.cls', 'ConcreteClass'],
+          unifiedId: 'concrete-class-id',
+          fileUri: 'file:///test/ConcreteClass.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      const overridingMethod: MethodSymbol = {
+        id: 'overriding-method-id',
+        name: 'abstractMethod',
+        kind: SymbolKind.Method,
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 25,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 25,
+          },
+        },
+        fileUri: 'file:///test/ConcreteClass.cls',
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        key: {
+          prefix: 'method',
+          name: 'abstractMethod',
+          path: ['file:///test/ConcreteClass.cls', 'abstractMethod'],
+          unifiedId: 'overriding-method-id',
+          fileUri: 'file:///test/ConcreteClass.cls',
+          kind: SymbolKind.Method,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: true,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+
+      // Containing type is a (non-interface) abstract class — drives the
+      // abstract-class subtype path in findImplementingMethods.
+      const abstractClass: TypeSymbol = {
+        id: 'abstract-class-id',
+        name: 'AbstractClass',
+        kind: SymbolKind.Class,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 14,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 14,
+          },
+        },
+        fileUri: 'file:///test/AbstractClass.cls',
+        interfaces: [],
+        key: {
+          prefix: 'class',
+          name: 'AbstractClass',
+          path: ['file:///test/AbstractClass.cls', 'AbstractClass'],
+          unifiedId: 'abstract-class-id',
+          fileUri: 'file:///test/AbstractClass.cls',
+          kind: SymbolKind.Class,
+        },
+        parentId: null,
+        _isLoaded: true,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: true,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      };
+      mockSymbolManager.getContainingType.mockReturnValue(abstractClass);
+      mockSymbolManager.findSubtypes.mockResolvedValue([concreteClass]);
+      mockSymbolManager.findSymbolsInFile.mockReturnValue([overridingMethod]);
+
+      const result = await service.processImplementation(params);
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].uri).toBe('file:///test/ConcreteClass.cls');
+    });
+
     it('should return empty array for non-interface, non-abstract-method symbols', async () => {
       const params: ImplementationParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },

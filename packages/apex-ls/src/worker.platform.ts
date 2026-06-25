@@ -868,6 +868,12 @@ async function loadSymbolDataForEnrichment(
  * @param queryByName Coordinator-assistance fetcher; injectable so the
  *   ingestion contract can be unit-tested without a live assistance bus.
  *   Defaults to {@link requestCoordinatorAssistancePromise}.
+ * @param namespace Optional namespace/qualifier hint (e.g. the leading
+ *   qualifier of a qualified TypeReference such as `MyNs` in `MyNs.Foo`).
+ *   Threaded through to the {@link DataOwnerQuerySymbolByName} query so the
+ *   data-owner can disambiguate same-named matches across namespaces. Omitted
+ *   from the wire payload when absent so unqualified queries are byte-identical
+ *   to before.
  * @returns Count of owning files ingested (0 on failure or no matches).
  */
 export async function resolveMissingNamesViaDataOwner(
@@ -878,6 +884,7 @@ export async function resolveMissingNamesViaDataOwner(
     params: unknown,
     blocking: boolean,
   ) => Promise<unknown> = requestCoordinatorAssistancePromise,
+  namespace?: string,
 ): Promise<number> {
   // Drop duplicates and names the LOCAL name index already resolves before any
   // IPC. The local-skip also dedups against ResolveDepUris: any name it already
@@ -901,12 +908,18 @@ export async function resolveMissingNamesViaDataOwner(
     // per keystroke; batching makes it a single hop. The success `entries` map
     // is keyed by owning file URI, so it carries every matched name's table.
     //
-    // NOTE: the schema/coordinator also accept an optional `namespace`, but we
-    // intentionally omit it for now (forward-compat hint — qualifier
-    // disambiguation is not wired yet).
+    // Thread the optional namespace/qualifier hint through to the data-owner
+    // for same-name disambiguation. Only add the key when a namespace is
+    // supplied so unqualified queries keep the exact prior payload shape.
+    const queryParams: { names: string[]; namespace?: string } = {
+      names: residual,
+    };
+    if (namespace) {
+      queryParams.namespace = namespace;
+    }
     const response = (await queryByName(
       'dataOwner:QuerySymbolByName',
-      { names: residual },
+      queryParams,
       true,
     )) as {
       matches?: ReadonlyArray<{ name: string; fileUri: string }>;
