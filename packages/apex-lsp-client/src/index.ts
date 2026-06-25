@@ -27,6 +27,5 @@
  * methods return `Promise`/plain values and run the Effect at the boundary.
  */
 
-// Placeholder export so the module is non-empty under `isolatedModules`.
-// Replaced by real re-exports (port, middleware, core) as later phases land.
-export {};
+// The narrow transport port ApexClientCore is written against.
+export type { RpcConnection } from './RpcConnection';
