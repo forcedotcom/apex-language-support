@@ -314,6 +314,33 @@ const RECONCILE_SCHEMA = {
   },
 }
 
+const BRANCH_FILES_SCHEMA = {
+  type: 'object',
+  required: ['files', 'headRank'],
+  properties: {
+    files: { type: 'array', items: { type: 'string' } },
+    headRank: { type: 'number' },
+  },
+}
+
+const MERGE_PROBE_SCHEMA = {
+  type: 'object',
+  required: ['conflicts'],
+  properties: {
+    conflicts: { type: 'boolean' },
+    conflictedFiles: { type: 'array', items: { type: 'string' } },
+  },
+}
+
+const RECONCILE_RESULT_SCHEMA = {
+  type: 'object',
+  required: ['status'],
+  properties: {
+    status: { enum: ['reconciled', 'failed'] },
+    detail: { type: ['string', 'null'] },
+  },
+}
+
 const LOCK_ACQUIRE_SCHEMA = {
   type: 'object',
   required: ['acquired'],
@@ -1313,6 +1340,68 @@ Steps:
 Return {prUrl, prNumber}.`
 }
 
+// headRank: integer ordering for the deterministic reconcile-base tiebreak, derived
+// from commit position (git rev-list count) — NOT a clock, so it is resume-safe.
+const branchFilesPrompt = (branch, identity) =>
+  `From ${identity.projectRoot}, for branch '${branch}':
+1. git fetch origin ${branch} (ignore failure if local).
+2. git diff --name-only origin/main...${branch}  -> the changed file paths.
+3. git rev-list --count origin/main..${branch}    -> integer commit count ahead of main.
+Return {files: [<one path per line>], headRank: <the integer count>}. Structured only.`
+
+const mergeProbePrompt = (branchA, branchB, identity) =>
+  `Dry-run merge two branches in a THROWAWAY scratch worktree to detect real conflicts. Run from ${identity.projectRoot}.
+
+Steps (always clean up, even on error):
+1. SCRATCH="${identity.projectRoot}/../$(basename ${identity.projectRoot})-wt/integ-probe"
+2. git worktree add "$SCRATCH" ${branchA}  (force-remove first if it exists)
+3. cd "$SCRATCH" && git merge --no-commit --no-ff ${branchB}
+4. Capture result:
+   - clean (exit 0)  -> conflicts=false, conflictedFiles=[]
+   - conflict        -> conflicts=true, conflictedFiles = 'git diff --name-only --diff-filter=U'
+5. ALWAYS: git merge --abort (ignore failure); cd ${identity.projectRoot}; git worktree remove "$SCRATCH" --force
+Return {conflicts: <bool>, conflictedFiles: [...]}. Structured only.`
+
+const reconcilePrompt = (baseWi, otherWi, conflictedFiles, identity) => {
+  const base = pathsFor(identity, baseWi)
+  const other = pathsFor(identity, otherWi)
+  return `Reconcile a real merge conflict between two auto-build branches using BOTH plans as intent. Resolve onto the BASE branch only.
+
+Base branch (resolve here): ${base.branch}  (worktree ${base.wt})
+Other branch:               ${other.branch}
+Conflicted files: ${conflictedFiles.join(', ')}
+Base plan:  .claude/plans/${baseWi.name}.md
+Other plan: .claude/plans/${otherWi.name}.md
+
+Steps:
+1. Reattach base worktree if missing: 'git worktree add ${base.wt} ${base.branch}'.
+2. cd ${base.wt} && git fetch origin ${other.branch} && git merge --no-commit --no-ff ${other.branch}.
+3. Read BOTH plans. Resolve each conflicted hunk by INTENT, not just text: if both sides
+   add independent entries (registry/array/exports), keep both; if both edit one function
+   for different stated goals, compose so both goals hold. Apply .claude/skills/merge-conflicts/SKILL.md.
+4. Stage resolutions, commit the merge (HEREDOC commit body with your Co-Authored-By trailer).
+5. Run the branch's verification — repo hooks surface compile/lint/dead-code/LSP on tool calls.
+   If verification FAILS or you cannot resolve confidently: 'git merge --abort', restore the
+   branch untouched, return {status: 'failed', detail: '<why>'}.
+6. If clean and verified: git push. Return {status: 'reconciled', detail: '<summary>'}.
+
+Do NOT touch the other branch. Structured result only.`
+}
+
+const reconcileCommentPrompt = (baseWi, otherWi, baseUrl, otherUrl, summary) =>
+  `Record an auto-reconcile on both PRs (best-effort; ignore failures).
+Post this comment on BOTH ${baseUrl} and ${otherUrl} via 'gh pr comment <url> --body "..."':
+"🔀 auto-build-wi reconciled a merge conflict between ${baseWi.name} and ${otherWi.name} on branch for ${baseWi.name}. ${summary}. Both PRs remain independent; review the reconciled hunks."
+Return {ok: true}.`
+
+const escalateConflictPrompt = (wiA, wiB, conflictedFiles, urlA, urlB, identity) =>
+  `Auto-reconcile FAILED between ${wiA.name} and ${wiB.name}. Escalate to the runner (best-effort).
+1. Dedupe: 'gh pr view ${urlA} --json comments' — if a comment already contains "auto-reconcile failed" for ${wiB.name}, skip the DM (return {ok: true, detail: "already-escalated"}).
+2. Else Slack-DM ${identity.slackId} via mcp__slack__slack_send_message:
+   "⚠️ auto-reconcile failed: ${wiA.name} ↔ ${wiB.name} conflict in ${conflictedFiles.join(', ')} — manual merge needed.\\n${urlA}\\n${urlB}"
+3. Post a one-line marker comment on ${urlA}: "auto-reconcile failed vs ${wiB.name} — escalated for manual merge".
+Return {ok: true}. Never error.`
+
 // =====================================================================
 // PHASE FUNCTIONS
 // =====================================================================
@@ -2125,7 +2214,85 @@ const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgre
   return { built, builtBranches }
 }
 
-const runIntegrationCheck = async () => {}
+// After draining: detect collisions across this session's branches + all open
+// in-flight PR branches, auto-reconcile via both plans, escalate failures.
+// Best-effort: wrapped so nothing here blocks lock release.
+const runIntegrationCheck = async (identity, builtBranches, inFlightWis) => {
+  phase('Integration check')
+  try {
+    // Branch set: session-built + open in-flight PR branches (those with a prUrl).
+    const inFlightBranchEntries = inFlightWis
+      .filter(w => w.prUrl)
+      .map(w => ({ wi: w, branch: pathsFor(identity, w).branch }))
+    const sessionEntries = builtBranches.map(b => ({ wi: b.wi, branch: b.branch }))
+    // De-dup by branch name.
+    const byBranch = new Map()
+    for (const e of [...sessionEntries, ...inFlightBranchEntries]) byBranch.set(e.branch, e)
+    const entries = [...byBranch.values()]
+    if (entries.length < 2) {
+      log(`integration check: ${entries.length} branch(es) — nothing to cross-check`)
+      return
+    }
+
+    // Fetch changed files + head rank per branch.
+    const meta = await parallel(
+      entries.map(e => () =>
+        agent(branchFilesPrompt(e.branch, identity), {
+          schema: BRANCH_FILES_SCHEMA, label: `branch-files-${e.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        }).then(r => ({ ...e, files: (r && r.files) || [], headRank: (r && r.headRank) || 0 }))
+      )
+    )
+    const valid = meta.filter(Boolean)
+
+    // Cheap overlap filter -> only file-overlapping pairs get a dry-run merge.
+    const pairs = []
+    for (let i = 0; i < valid.length; i++) {
+      for (let j = i + 1; j < valid.length; j++) {
+        if (detectFileOverlap(valid[i].files, valid[j].files)) pairs.push([valid[i], valid[j]])
+      }
+    }
+    log(`integration check: ${valid.length} branches, ${pairs.length} file-overlapping pair(s)`)
+    if (!pairs.length) return
+
+    // Probe each overlapping pair; reconcile confirmed conflicts.
+    for (const [a, b] of pairs) {
+      const probe = await agent(mergeProbePrompt(a.branch, b.branch, identity), {
+        schema: MERGE_PROBE_SCHEMA, label: `merge-probe-${a.wi.name}-${b.wi.name}`,
+        phase: 'Integration check', model: 'sonnet',
+      })
+      if (!probe || !probe.conflicts) continue
+
+      const baseSide = pickReconcileBase(
+        { files: a.files, headEpochRank: a.headRank },
+        { files: b.files, headEpochRank: b.headRank }
+      )
+      const baseEntry = baseSide === 'a' ? a : b
+      const otherEntry = baseSide === 'a' ? b : a
+      const result = await agent(
+        reconcilePrompt(baseEntry.wi, otherEntry.wi, probe.conflictedFiles || [], identity),
+        { schema: RECONCILE_RESULT_SCHEMA, label: `reconcile-${baseEntry.wi.name}`,
+          phase: 'Integration check', model: 'opus' }
+      )
+
+      const aUrl = a.wi.prUrl || (a.wi.details && extractPrUrl(a.wi.details)) || ''
+      const bUrl = b.wi.prUrl || (b.wi.details && extractPrUrl(b.wi.details)) || ''
+      if (result && result.status === 'reconciled') {
+        await agent(reconcileCommentPrompt(baseEntry.wi, otherEntry.wi, aUrl, bUrl, result.detail || 'resolved'), {
+          schema: OK_SCHEMA, label: `reconcile-comment-${baseEntry.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        })
+      } else {
+        await agent(escalateConflictPrompt(a.wi, b.wi, probe.conflictedFiles || [], aUrl, bUrl, identity), {
+          schema: OK_SCHEMA, label: `escalate-${a.wi.name}-${b.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        })
+      }
+    }
+  } catch (e) {
+    log(`integration check error (non-fatal): ${(e && e.message) || e}`)
+  }
+}
 
 // =====================================================================
 // ORCHESTRATION
