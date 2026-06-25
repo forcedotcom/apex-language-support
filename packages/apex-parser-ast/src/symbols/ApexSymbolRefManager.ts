@@ -3372,6 +3372,104 @@ export class ApexSymbolRefManager {
   }
 
   /**
+   * Evict declarations that no longer exist in a file after a re-parse.
+   *
+   * `removeFile` purges an entire file; this is the surgical analogue used on
+   * the re-add path: given the symbol ids that the fresh parse still declares
+   * for `fileUri`, it drops every other id that the file previously declared
+   * from the symbol indexes AND purges the INCOMING reverse-index edges that
+   * targeted those gone declarations.
+   *
+   * Why this is needed (W-23133526 / follow-up N1 + F10-1): on a content-change
+   * re-parse `registerSymbolTable` swaps the file's SymbolTable, but the graph
+   * indexes (`fileIndex`/`nameIndex`/`symbolIdIndex`/...) are only ever added
+   * to — a declaration that was renamed away (`Foo` -> `Baz`) or deleted is
+   * never removed. Its stale id lingers and any incoming reverse-index edge
+   * keyed on it (e.g. another file's edge into `Foo`) stays resolvable, so
+   * `findReferencesTo(Foo)` can still surface phantom references until the
+   * referencing file is itself re-resolved. Reclaiming those dead reverse-index
+   * entries here, at the moment the declaration disappears, also caps the
+   * unbounded accumulation called out by F10-1 (no separate compaction pass is
+   * required for the rename/delete case).
+   *
+   * Only call this from the REPLACE branch of a re-parse, where the fresh parse
+   * is authoritative. It must NOT run for enrichment/merge passes (same document
+   * version, higher detail level), because those intentionally preserve old
+   * private/protected declarations absent from the partial fresh table.
+   *
+   * @param fileUri The file being re-parsed
+   * @param liveSymbolIds Symbol ids the fresh canonical table still declares
+   */
+  evictStaleFileDeclarations(
+    fileUri: string,
+    liveSymbolIds: ReadonlySet<string>,
+  ): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const previousIds = this.fileIndex.get(normalizedUri);
+    if (!previousIds || previousIds.length === 0) {
+      return;
+    }
+
+    const staleIds = previousIds.filter((id) => !liveSymbolIds.has(id));
+    if (staleIds.length === 0) {
+      return;
+    }
+
+    // Purge incoming reverse-index edges whose TARGET is a gone declaration so
+    // findReferencesTo(<old name>) no longer resolves a stale id. Outgoing edges
+    // from this file were already cleared by clearReferenceStateForFile.
+    this.removeIncomingReferencesToSymbols(new Set(staleIds), normalizedUri);
+
+    for (const symbolId of staleIds) {
+      this.symbolFileMap.delete(symbolId);
+      this.symbolIdIndex.delete(symbolId);
+      this.symbolQualifiedIndex.delete(
+        this.makeQualifiedSymbolKey(normalizedUri, symbolId),
+      );
+
+      // Remove the gone id from every FQN bucket (keyed by FQN, not id).
+      for (const [fqn, ids] of this.fqnIndex.entries()) {
+        if (!ids) continue;
+        const filteredIds = ids.filter((id) => id !== symbolId);
+        if (filteredIds.length === 0) {
+          this.fqnIndex.delete(fqn);
+        } else if (filteredIds.length !== ids.length) {
+          this.fqnIndex.set(fqn, filteredIds);
+        }
+      }
+
+      // Remove the gone id from every name bucket (keyed by name, not id).
+      for (const [name, ids] of this.nameIndex.entries()) {
+        if (!ids) continue;
+        const filteredIds = ids.filter((id) => id !== symbolId);
+        if (filteredIds.length === 0) {
+          this.nameIndex.delete(name);
+        } else if (filteredIds.length !== ids.length) {
+          this.nameIndex.set(name, filteredIds);
+        }
+      }
+    }
+
+    // Keep only the live ids in the file index.
+    const remainingIds = previousIds.filter((id) => liveSymbolIds.has(id));
+    if (remainingIds.length === 0) {
+      this.fileIndex.delete(normalizedUri);
+    } else {
+      this.fileIndex.set(normalizedUri, remainingIds);
+    }
+
+    // Re-sync from authoritative source to prevent drift.
+    this.memoryStats.totalSymbols = this.symbolIdIndex.size;
+    this.memoryStats.totalEdges = this.refStore.size;
+
+    this.logger.debug(
+      () =>
+        `[evictStaleFileDeclarations] Evicted ${staleIds.length} stale ` +
+        `declaration(s) for ${normalizedUri} after re-parse`,
+    );
+  }
+
+  /**
    * Generate a unique symbol ID using URI-based format
    */
   private getSymbolId(symbol: ApexSymbol, fileUri: string): string {
