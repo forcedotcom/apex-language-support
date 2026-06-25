@@ -471,6 +471,7 @@ export {
   DispatchGenericLspRequest,
   DrainDeferredReferences,
   QueryGraphData,
+  DataOwnerQuerySymbolByName,
   DataOwnerTags,
   LspRequestTags,
   ResourceLoaderTags,

@@ -876,6 +876,60 @@ export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// DataOwnerQuerySymbolByName — enrichment worker asks the data-owner (which
+// holds ALL workspace symbols) to resolve one or more symbols by name when its
+// own LOCAL name index misses. Returns the matching symbol(s) with their owning
+// file URI(s) plus the owning files' serialized symbol tables so the worker can
+// ingest them and finish resolving the reference. Modeled on ResolveDepUris.
+//
+// Accepts either a single `name` or a batch via `names` (preferred): batching
+// collapses N sequential blocking round-trips — one per unresolved reference on
+// a hot path like completion — into a single IPC hop.
+// ---------------------------------------------------------------------------
+
+export class DataOwnerQuerySymbolByName extends Schema.TaggedRequest<DataOwnerQuerySymbolByName>()(
+  'DataOwnerQuerySymbolByName',
+  {
+    success: Schema.Struct({
+      /** Name matches found on the data-owner (empty when nothing matched). */
+      matches: Schema.Array(
+        Schema.Struct({
+          name: Schema.String,
+          fileUri: Schema.String,
+          kind: Schema.optional(Schema.String),
+        }),
+      ),
+      /**
+       * Serialized symbol tables keyed by owning file URI, so the worker can
+       * ingest them locally (mirrors ResolveDepUris.entries).
+       */
+      entries: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DataOwnerQuerySymbolByNameError'),
+      message: Schema.String,
+    }),
+    payload: {
+      // Single name to resolve. Optional because a batched caller sends `names`
+      // instead; the handler resolves `names ?? [name]`. Kept for the
+      // single-name call sites (and to avoid a wire-schema break).
+      name: Schema.optional(Schema.String),
+      // Batched names to resolve in one round-trip. An enrichment worker
+      // accumulates every unresolved reference name and sends them together so
+      // a file with N cross-file misses costs one IPC hop, not N sequential
+      // blocking hops on each keystroke. When present, takes precedence over
+      // `name`. The success `entries` map is keyed by owning file URI, so it
+      // naturally carries the tables for all matched names at once.
+      names: Schema.optional(Schema.Array(Schema.String)),
+      // Optional namespace/qualifier hint (e.g. the leading qualifier of a
+      // qualified TypeReference). Accepted now to avoid a wire-schema break
+      // later; the data-owner may use it to disambiguate name matches.
+      namespace: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Role-partitioned tag unions
 // ---------------------------------------------------------------------------
 
@@ -892,6 +946,7 @@ export const DataOwnerTags = [
   'WorkspaceBatchIngest',
   'DrainDeferredReferences',
   'QueryGraphData',
+  'DataOwnerQuerySymbolByName',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
   'DispatchDocumentSave',
@@ -968,6 +1023,7 @@ export type DataOwnerRequest =
   | WorkspaceBatchIngest
   | DrainDeferredReferences
   | QueryGraphData
+  | DataOwnerQuerySymbolByName
   | DispatchDocumentOpen
   | DispatchDocumentChange
   | DispatchDocumentSave
