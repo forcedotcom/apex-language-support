@@ -116,7 +116,8 @@
     "packages/apex-lsp-testbed/scripts/jest-setup-windows.js",
     "packages/apex-lsp-testbed/test/fixtures/eda/**",
     "packages/apex-parser-ast/src/generated/zipResourceLoader.ts",
-    "scripts/test-extensions/**"
+    "scripts/test-extensions/**",
+    ".claude/workflows/**"
   ],
   "ignoreExportsUsedInFile": false,
   "rules": {

@@ -1,4 +1,5 @@
 {
+  "enableWorkflows": true,
   "permissions": {
     "allow": [
       "Bash(git commit -m ' *)"
