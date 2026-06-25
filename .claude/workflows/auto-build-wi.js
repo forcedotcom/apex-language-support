@@ -48,6 +48,17 @@ const REVIEW_SKILL_DENYLIST = [
 const REVIEW_CHANNEL_ID = 'C054SJJAB24'
 const PR_URL_RE = /https?:\/\/github\.com\/forcedotcom\/apex-language-support\/pull\/\d+/g
 
+// Single-run guard: overlapping /loop ticks must NOT run concurrently. The Claude Code
+// scheduler's own .claude/scheduled_tasks.lock only enforces one scheduler per project — it
+// does NOT gate this tick's workflow against the previous tick's still-running workflow
+// (workflows run detached in the background; the firing turn ends in seconds). So this
+// workflow holds its OWN lock for the full run and drops it in a finally. Separate filename —
+// never touch the scheduler's lock.
+const LOCK_PATH = '.claude/auto-build-wi.lock'
+// Worst-case run (monitor → plan → build → review across several opus agents) fits well under
+// this. A run that crashed without releasing is stolen once its lock ages past the window.
+const LOCK_STALE_MINUTES = 90
+
 // =====================================================================
 // SCHEMAS
 // =====================================================================
@@ -78,6 +89,7 @@ const PR_STATE_SCHEMA = {
     failedJobs: { type: 'array', items: { type: 'string' } },
     failedLogsExcerpt: { type: ['string', 'null'] },
     maxRunAttempt: { type: ['number', 'null'] },
+    files: { type: 'array', items: { type: 'string' } },
   },
 }
 
@@ -281,6 +293,31 @@ const OK_SCHEMA = {
   properties: { ok: { type: 'boolean' }, detail: { type: ['string', 'null'] } },
 }
 
+// Result of the no-PR reconcile: did GitHub already have a PR for the deterministic
+// branch? If so we adopt it (and re-persist the URL) instead of rebuilding.
+const RECONCILE_SCHEMA = {
+  type: 'object',
+  required: ['found'],
+  properties: {
+    found: { type: 'boolean' },
+    prUrl: { type: ['string', 'null'] },
+    persisted: { type: ['boolean', 'null'] },
+    detail: { type: ['string', 'null'] },
+  },
+}
+
+const LOCK_ACQUIRE_SCHEMA = {
+  type: 'object',
+  required: ['acquired'],
+  properties: {
+    acquired: { type: 'boolean' },
+    // Opaque per-run token written into the lock. Release deletes the lock ONLY if the
+    // on-disk token still matches — so a stolen-then-reacquired lock isn't dropped by us.
+    token: { type: ['string', 'null'] },
+    detail: { type: ['string', 'null'] },
+  },
+}
+
 const WI_RECORDS_SCHEMA = {
   type: 'object',
   required: ['records'],
@@ -299,6 +336,7 @@ const WI_RECORDS_SCHEMA = {
           Story_Points__c: { type: ['number', 'null'] },
           CreatedDate: { type: ['string', 'null'] },
           Assignee__c: { type: ['string', 'null'] },
+          Epic__c: { type: ['string', 'null'] },
         },
       },
     },
@@ -317,6 +355,28 @@ const WI_STATUS_RECORDS_SCHEMA = {
         properties: {
           Name: { type: 'string' },
           Status__c: { type: ['string', 'null'] },
+        },
+      },
+    },
+  },
+}
+
+// Epic siblings for the numeric-sequencing gate: every WI in a candidate's epic, with its
+// Subject (carries the dotted sequence prefix) and Status (done = Closed/Completed).
+const EPIC_WI_RECORDS_SCHEMA = {
+  type: 'object',
+  required: ['records'],
+  properties: {
+    records: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['Name'],
+        properties: {
+          Name: { type: 'string' },
+          Subject__c: { type: ['string', 'null'] },
+          Status__c: { type: ['string', 'null'] },
+          Epic__c: { type: ['string', 'null'] },
         },
       },
     },
@@ -389,8 +449,25 @@ const hasPrUrl = details =>
 // A blocker is "satisfied" only once its work has actually merged — i.e. the WI
 // reached a terminal closed/completed status. 'Ready for Review' / 'Fixed' mean
 // the PR exists but hasn't merged, so a dependency in those states is NOT met.
+// GUS "Bug no-fix" terminal statuses — terminal like Closed/Completed, but the
+// label carries no "Closed" prefix. `Duplicate` is the canonical state for a
+// duplicate WI (the `Closed - Duplicate` status does not persist — a GUS trigger
+// reverts it to `Duplicate`), so the dependency gate must count it as done.
+const NO_FIX_TERMINAL = new Set([
+  'Duplicate', 'Inactive', 'Never', 'Not a bug', 'Not Reproducible', 'Rejected', 'Eng Internal',
+])
 const isBlockerSatisfied = status =>
-  status === 'Completed' || status.startsWith('Closed')
+  status === 'Completed' || status.startsWith('Closed') || NO_FIX_TERMINAL.has(status)
+
+// A PR whose ONLY changed file is its own plan (or otherwise empty) has no
+// implementation — the Build phase no-op'd but reported 'done'. Such a PR still
+// goes 'green' (only SAST/CLA run on a docs-only diff) so the finalize gate must
+// refuse it rather than open it for review. Files unknown (null/undefined) is NOT
+// treated as plan-only — only an explicit, non-empty, all-plan file list counts.
+const isPlanOnlyDiff = files =>
+  Array.isArray(files) &&
+  files.length > 0 &&
+  files.every(f => /^\.claude\/plans\//.test(f))
 
 const stripHtml = s => String(s || '').replace(/<[^>]+>/g, ' ')
 
@@ -409,6 +486,19 @@ const extractBlockers = (subject, details) => {
   return [...new Set(names)]
 }
 
+// Numeric-sequencing prefix: a leading dotted number in Subject__c orders work WITHIN an
+// epic. Top-level integers are sequential (a smaller unfinished group blocks a larger one);
+// same-first-segment siblings (1.1, 1.2, 1.3) run in PARALLEL. Only a well-formed dotted
+// number FOLLOWED BY A SPACE counts — "W-123 backport" / "2.40 release" / "1." / "1..2" are
+// NOT sequence numbers (treated as unnumbered → always claimable, never gating).
+const SEQUENCE_RE = /^(\d+(?:\.\d+)*)\s/
+const parseSequence = subject => {
+  const m = SEQUENCE_RE.exec(String(subject || ''))
+  return m ? m[1].split('.').map(Number) : null
+}
+// Gate on the TOP (first) segment only — that is the parallel-group id.
+const topSegment = seq => (seq ? seq[0] : null)
+
 const mapWiRecord = r => ({
   wiId: r.Id,
   name: r.Name,
@@ -417,6 +507,7 @@ const mapWiRecord = r => ({
   status: r.Status__c || '',
   storyPoints: typeof r.Story_Points__c === 'number' ? r.Story_Points__c : null,
   createdDate: r.CreatedDate || '',
+  epicId: r.Epic__c || '',
   prUrl: extractPrUrl(r.Details__c),
 })
 
@@ -471,6 +562,7 @@ const classifyMonitor = monitorOutcomes => ({
     r => r && (r.decision === 'no-pr-restart' || r.action === 'no-pr-restart')
   ),
   toCloseWi: monitorOutcomes.filter(r => r && r.decision === 'close-wi'),
+  toPlanOnly: monitorOutcomes.filter(r => r && r.decision === 'plan-only'),
   toRefresh: monitorOutcomes.filter(
     r =>
       r &&
@@ -484,6 +576,51 @@ const classifyMonitor = monitorOutcomes => ({
 // =====================================================================
 // PROMPTS
 // =====================================================================
+
+const acquireLockPrompt = `Acquire the auto-build-wi single-run lock so two overlapping /loop ticks don't build concurrently.
+
+Run from the project root. Lock file: ${LOCK_PATH}. Staleness window: ${LOCK_STALE_MINUTES} minutes.
+
+Do EXACTLY this in one bash invocation (atomic create via noclobber; steal only if stale):
+
+  LOCK=${LOCK_PATH}
+  TOKEN=\$(uuidgen)
+  NOW=\$(date +%s)
+  STALE=\$(( ${LOCK_STALE_MINUTES} * 60 ))
+  mkdir -p .claude
+  if ( set -o noclobber; printf '{"token":"%s","acquiredAt":%s}\\n' "\$TOKEN" "\$NOW" > "\$LOCK" ) 2>/dev/null; then
+    echo "ACQUIRED \$TOKEN"
+  else
+    AGE=\$(( NOW - \$(sed -n 's/.*"acquiredAt":\\([0-9]*\\).*/\\1/p' "\$LOCK" 2>/dev/null || echo 0) ))
+    if [ "\$AGE" -ge "\$STALE" ]; then
+      rm -f "\$LOCK"
+      if ( set -o noclobber; printf '{"token":"%s","acquiredAt":%s}\\n' "\$TOKEN" "\$NOW" > "\$LOCK" ) 2>/dev/null; then
+        echo "STOLEN \$TOKEN (prior lock aged \${AGE}s)"
+      else
+        echo "HELD"
+      fi
+    else
+      echo "HELD (\$AGE s old)"
+    fi
+  fi
+
+Interpret the output:
+- "ACQUIRED <token>" → {acquired: true, token: "<token>", detail: "acquired"}
+- "STOLEN <token> ..." → {acquired: true, token: "<token>", detail: "<the message>"}
+- "HELD ..." → {acquired: false, token: null, detail: "<the message>"}
+
+Do NOT touch .claude/scheduled_tasks.lock — that is Claude Code's scheduler lock, not this one. Structured result only.`
+
+const releaseLockPrompt = token =>
+  `Release the auto-build-wi lock — but ONLY if it is still ours.
+
+Run from the project root. Our token: ${token}. Lock file: ${LOCK_PATH}.
+
+  LOCK=${LOCK_PATH}
+  CUR=\$(sed -n 's/.*"token":"\\([^"]*\\)".*/\\1/p' "\$LOCK" 2>/dev/null)
+  if [ "\$CUR" = "${token}" ]; then rm -f "\$LOCK"; echo "RELEASED"; else echo "NOT-OURS (\$CUR)"; fi
+
+Return {ok: true, detail: "<RELEASED or NOT-OURS ...>"}. Never error. Do NOT touch .claude/scheduled_tasks.lock.`
 
 const identityPrompt = `Resolve runner identity per .claude/skills/gus-cli/SKILL.md → ## Runner identity.
 
@@ -528,7 +665,7 @@ Return {ok: true, detail: '<n reaped>: <comma-separated branch names>'} or {ok: 
 const inFlightQueryPrompt = identity =>
   `Run this SOQL and return the raw records array.
 
-sf data query --query "SELECT Id, Name, Subject__c, Details__c, Status__c, Story_Points__c, CreatedDate FROM ADM_Work__c WHERE Assignee__c = '${identity.userId}' AND Status__c IN ('In Progress', 'Ready for Review', 'Fixed') AND Subject__c LIKE '%[ai-auto]%'" -o gus --result-format json
+sf data query --query "SELECT Id, Name, Subject__c, Details__c, Status__c, Story_Points__c, CreatedDate, Epic__c FROM ADM_Work__c WHERE Assignee__c = '${identity.userId}' AND Status__c IN ('In Progress', 'Ready for Review', 'Fixed') AND Subject__c LIKE '%[ai-auto]%'" -o gus --result-format json
 
 Return {records: <result.records as-is>}. No filtering, no transformation.`
 
@@ -546,24 +683,61 @@ Run:
   - CheckRun rows expose .conclusion (SUCCESS/FAILURE/NEUTRAL/SKIPPED/CANCELLED/TIMED_OUT) and .status (COMPLETED/IN_PROGRESS/QUEUED/PENDING)
   - StatusContext rows expose .state (SUCCESS/FAILURE/PENDING/EXPECTED/ERROR) only — no .conclusion
   Treat each row's effective outcome as: row.conclusion ?? row.state. A null on both = treat as PENDING.
+- DEDUP BY CONTEXT: a single check (by .name/.context) can appear multiple times across re-runs. Keep only the latest occurrence of each context — order by .completedAt (CheckRun) or .startedAt, falling back to array order — and evaluate overall state from those latest rows only. A stale FAILURE from an earlier attempt must not mask a newer SUCCESS.
 - Determine overall state:
   - 'no-pr' if gh fails to find the PR
   - 'running' if ANY row is IN_PROGRESS / QUEUED / PENDING / EXPECTED (or has no resolved outcome)
   - 'green' if every row resolves to SUCCESS / NEUTRAL / SKIPPED
   - 'failed' otherwise (any FAILURE / CANCELLED / TIMED_OUT / ERROR, with NO running rows remaining)
 - If state is 'failed', collect failed job names. Run 'gh run view --log-failed <runId>' for the most recent failed/cancelled run linked to the PR head SHA, capture last ~100 lines as failedLogsExcerpt. Also gather the maximum 'run_attempt' across the workflow runs for the PR head SHA (gh api repos/forcedotcom/apex-language-support/actions/runs?head_sha=<sha> → max .run_attempt). Return that as maxRunAttempt.
+- ALWAYS run 'gh pr diff ${wi.prUrl} --name-only' and return the changed file paths as 'files' (string array), regardless of state. This lets the caller detect a plan-only PR (every path under .claude/plans/).
 
 Return ONLY the structured result.`
 
 const closeMergedPrompt = (r, identity) => {
   const { wt, branch } = pathsFor(identity, r.wi)
-  return `WI ${r.wi.name} has its PR (${r.wi.prUrl}) ${r.prState.state} on GitHub. Close out.
+  return `WI ${r.wi.name} has its PR (${r.wi.prUrl}) merged on GitHub. Close out.
 
 Steps (idempotent):
 1. If WI Status__c is not already a closed terminal value, update:
    sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Closed'"
 2. Remove worktree if present: 'git worktree remove ${wt} --force'.
 3. Delete local branch if present: from ${identity.projectRoot}, 'git branch -D ${branch}' (ignore failure if branch doesn't exist).
+4. Find the review-request Slack message and mark it merged: use mcp__slack__slack_search_public to search "PR ready for review ${r.wi.name}" in channel ${REVIEW_CHANNEL_ID}, take the matching message's ts.
+5. If found, add a :merge: reaction to that message (mcp__slack__slack_send_message reaction, or the reactions API) so reviewers see it landed. Best-effort — ignore failure.
+
+Return {ok: true, detail} summarizing changes.`
+}
+
+// No-PR reconcile: before treating a WI as "needs a fresh build", check whether GitHub
+// already has an open PR on the deterministic branch (e.g. the run died after pushing
+// but before persisting the URL to Details__c). If so, adopt it and re-persist the URL.
+const reconcilePrPrompt = (wi, identity) => {
+  const { branch } = pathsFor(identity, wi)
+  return `WI ${wi.name} is In Progress / Ready for Review but has no PR URL persisted in Details__c. Before rebuilding, check whether a PR already exists on its deterministic branch.
+
+Steps:
+1. Look for an open PR on the branch:
+   gh pr list --head ${branch} --state open --json number,url --limit 1 --repo forcedotcom/apex-language-support
+2. If NONE found, return {found: false, prUrl: null, persisted: false, detail: "no open PR on ${branch}"}.
+3. If one IS found, re-persist its URL into the WI's Details__c (append, do not clobber existing content): fetch current Details__c, then update with the existing HTML plus a PR link snippet pointing at the found URL. Use the same HTML shape draftPrPrompt uses.
+4. Return {found: true, prUrl: "<the url>", persisted: true, detail: "adopted existing PR"}.
+
+Return ONLY the structured result.`
+}
+
+// Plan-only PR cleanup: a PR whose entire diff lives under .claude/plans/ is the plan-commit
+// artifact, never the actual build. Close it, drop the remote branch, and bounce the WI back
+// to Waiting so the next tick rebuilds. SAFETY: abort if ANY non-plan file is in the diff.
+const planOnlyPrPrompt = (r, identity) => {
+  const { branch } = pathsFor(identity, r.wi)
+  return `WI ${r.wi.name}'s PR (${r.wi.prUrl}) appears to contain ONLY plan files (everything under .claude/plans/). That means the build never produced real changes. Clean it up.
+
+1. SAFETY CHECK FIRST: run 'gh pr diff ${r.wi.prUrl} --name-only'. If ANY path is NOT under .claude/plans/, ABORT — return {ok: false, detail: "non-plan files present, not a plan-only PR"} and change nothing.
+2. Close the PR: 'gh pr close ${r.wi.prUrl} --delete-branch' (this also deletes the remote branch ${branch}).
+3. Bounce the WI back so the next tick rebuilds:
+   sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Waiting'"
+4. DM the runner (Slack ID ${identity.slackId}) via mcp__slack__slack_send_message: "♻️ ${r.wi.name}: closed plan-only PR (no real diff), bounced to Waiting for rebuild. ${r.wi.prUrl}". Best-effort.
 
 Return {ok: true, detail} summarizing changes.`
 }
@@ -726,7 +900,7 @@ Return {ok: true, detail: "<approved | skip reason>"} or {ok: false, detail}.`
 const candidatesQueryPrompt = identity =>
   `Run EXACTLY ONE SOQL query — the one below — and return its records.
 
-sf data query --query "SELECT Id, Name, Subject__c, Details__c, Status__c, Assignee__c, Story_Points__c, CreatedDate FROM ADM_Work__c WHERE Assignee__c = '${identity.userId}' AND Status__c IN ('New','Ready','Triaged') AND Subject__c LIKE '%[ai-auto]%' ORDER BY CreatedDate ASC LIMIT 50" -o gus --result-format json
+sf data query --query "SELECT Id, Name, Subject__c, Details__c, Status__c, Assignee__c, Story_Points__c, CreatedDate, Epic__c FROM ADM_Work__c WHERE Assignee__c = '${identity.userId}' AND Status__c IN ('New','Ready','Triaged') AND Subject__c LIKE '%[ai-auto]%' ORDER BY CreatedDate ASC LIMIT 50" -o gus --result-format json
 
 Return {records: <result.records, verbatim>}.
 
@@ -747,6 +921,19 @@ Return {records: <result.records, verbatim>}.
 HARD RULES:
 - Do NOT run any other queries. Zero records is valid — return {records: []}.
 - Do NOT modify the WHERE clause or transform fields.`
+
+const epicSiblingsQueryPrompt = epicIds =>
+  `Run EXACTLY ONE SOQL query — the one below — and return its records.
+
+sf data query --query "SELECT Name, Subject__c, Status__c, Epic__c FROM ADM_Work__c WHERE Epic__c IN (${epicIds
+    .map(id => `'${id}'`)
+    .join(',')}) LIMIT 200" -o gus --result-format json
+
+Return {records: <result.records, verbatim>}.
+
+HARD RULES:
+- Do NOT run any other queries. Zero records is valid — return {records: []}.
+- Do NOT add an open-only / Status filter, modify the WHERE clause, or transform fields.`
 
 const prFilesPrompt = url =>
   `Run 'gh pr diff ${url} --name-only' and return {files: [<one path per line>]}.`
@@ -1115,23 +1302,44 @@ const monitorInFlight = async identity => {
   const monitorOutcomes = await pipeline(
     inFlightWis,
     async wi => {
+      let recoveredWi = wi
       if (!wi.prUrl) {
-        // WI is 'In Progress' but no PR opened yet — build crashed in a prior tick. Restart.
-        return { wi, action: 'no-pr-restart' }
+        // WI is 'In Progress'/'Ready for Review' with no persisted PR URL. Before treating it
+        // as a crashed build to restart, check GitHub: a prior tick may have pushed + opened the
+        // PR but died before writing the URL to Details__c. Adopt it if so.
+        const reconcile = await agent(reconcilePrPrompt(wi, identity), {
+          schema: RECONCILE_SCHEMA,
+          label: `reconcile-pr-${wi.name}`,
+          phase: 'Monitor in-flight',
+          model: 'sonnet',
+        })
+        if (reconcile && reconcile.found && reconcile.prUrl) {
+          recoveredWi = { ...wi, prUrl: reconcile.prUrl }
+        } else {
+          // Genuinely no PR — build crashed before pushing. Restart.
+          return { wi, action: 'no-pr-restart' }
+        }
       }
-      const prState = await agent(checkPrStatePrompt(wi), {
+      const prState = await agent(checkPrStatePrompt(recoveredWi), {
         schema: PR_STATE_SCHEMA,
-        label: `check-pr-${wi.name}`,
+        label: `check-pr-${recoveredWi.name}`,
         phase: 'Monitor in-flight',
         model: 'sonnet',
       })
-      return { wi, prState, action: 'evaluate' }
+      return { wi: recoveredWi, prState, action: 'evaluate' }
     },
     async result => {
       if (!result || result.action === 'no-pr-restart') return result
       const { prState } = result
-      if (prState.state === 'merged' || prState.state === 'closed') {
-        return { ...result, decision: 'close-wi' }
+      // Only a MERGED PR closes the WI. A bare CLOSED PR means a human closed it without
+      // merging — don't auto-close the WI; wait (a human will re-decide, or the WI is bounced
+      // elsewhere). This avoids racing a reviewer who closed-to-iterate.
+      if (prState.state === 'merged') return { ...result, decision: 'close-wi' }
+      if (prState.state === 'closed') return { ...result, decision: 'wait' }
+      // A green PR whose entire diff is plan files is the plan-commit artifact, not a real build.
+      // Route it to plan-only cleanup (close PR, drop branch, bounce WI to Waiting for rebuild).
+      if (prState.state === 'green' && isPlanOnlyDiff(prState.files)) {
+        return { ...result, decision: 'plan-only' }
       }
       // Only finalize a green PR whose WI is still 'In Progress'. WIs already advanced to
       // 'Ready for Review'/'Fixed' in a prior tick are done — re-finalizing them re-posts the
@@ -1165,6 +1373,41 @@ const closeMergedWis = async (toCloseWi, identity) => {
       })
     )
   )
+}
+
+const handlePlanOnlyPrs = async (toPlanOnly, identity) => {
+  phase('Close plan-only PRs')
+  await parallel(
+    toPlanOnly.map(r => () =>
+      agent(planOnlyPrPrompt(r, identity), {
+        schema: OK_SCHEMA,
+        label: `plan-only-${r.wi.name}`,
+        phase: 'Close plan-only PRs',
+        model: 'sonnet',
+      })
+    )
+  )
+}
+
+// Single-run lock: prevents two overlapping /loop ticks from claiming/building concurrently.
+const acquireLock = async () => {
+  phase('Acquire lock')
+  return await agent(acquireLockPrompt, {
+    schema: LOCK_ACQUIRE_SCHEMA,
+    label: 'acquire-lock',
+    phase: 'Acquire lock',
+    model: 'haiku',
+  })
+}
+
+const releaseLock = async token => {
+  // No phase() — release runs in the orchestration finally, after the visible work is done.
+  await agent(releaseLockPrompt(token), {
+    schema: OK_SCHEMA,
+    label: 'release-lock',
+    phase: 'Acquire lock',
+    model: 'haiku',
+  })
 }
 
 const triageAndFixCi = async (toTriage, identity) => {
@@ -1371,6 +1614,65 @@ const pickCandidate = async (identity, inFlightWis) => {
     }
     candidateList.length = 0
     candidateList.push(...unblocked)
+  }
+
+  // Numeric-sequencing gate (.claude/skills/work-item-sequencing/SKILL.md). Within one epic a
+  // leading dotted number in Subject__c orders work: top-level integers are sequential, but
+  // same-first-segment siblings (1.1, 1.2) run in PARALLEL. So gate on the TOP segment only —
+  // a candidate is blocked iff its epic still holds an UNFINISHED WI with a strictly-smaller
+  // leading integer (done = Closed/Completed, reusing isBlockerSatisfied). Unnumbered
+  // candidates are always ready; candidates without an epic can't be sequenced. One batched
+  // query per the distinct epics in play, fetched WITHOUT an open-only filter so Closed
+  // prerequisites are visible.
+  const seqCandidates = candidateList
+    .map(c => ({ c, seq: parseSequence(c.subject) }))
+    .filter(({ c, seq }) => seq && c.epicId)
+  const seqEpicIds = [...new Set(seqCandidates.map(({ c }) => c.epicId))]
+  if (seqEpicIds.length) {
+    const epicRaw = await agent(epicSiblingsQueryPrompt(seqEpicIds), {
+      schema: EPIC_WI_RECORDS_SCHEMA,
+      label: 'query-epic-siblings',
+      phase: 'Pick candidate',
+      model: 'haiku',
+    })
+    // Per epic: the smallest top-level integer among UNFINISHED numbered WIs. A candidate
+    // whose own top segment exceeds that minimum is gated behind unfinished earlier work.
+    // Unnumbered WIs neither gate nor are gated; done (Closed/Completed) WIs don't gate.
+    const minUnfinishedTopByEpic = (epicRaw.records || [])
+      .map(r => ({
+        epicId: r.Epic__c || '',
+        top: topSegment(parseSequence(r.Subject__c)),
+        status: r.Status__c || '',
+      }))
+      .filter(r => r.top !== null && !isBlockerSatisfied(r.status))
+      .reduce((m, r) => {
+        const prev = m.get(r.epicId)
+        return prev === undefined || r.top < prev ? m.set(r.epicId, r.top) : m
+      }, new Map())
+    const blockedIds = new Set(
+      seqCandidates
+        .filter(({ c, seq }) => {
+          const minOpen = minUnfinishedTopByEpic.get(c.epicId)
+          // Blocked only if an unfinished WI sorts in an EARLIER top-level group. Equal top
+          // segment = same group = parallel sibling (or the candidate itself) → not blocked.
+          return minOpen !== undefined && minOpen < topSegment(seq)
+        })
+        .map(({ c, seq }) => {
+          log(
+            `excluding ${c.name}: sequence-blocked — epic has unfinished WI in earlier group ${minUnfinishedTopByEpic.get(c.epicId)} (candidate is ${topSegment(seq)})`
+          )
+          return c.wiId
+        })
+    )
+    if (blockedIds.size) {
+      const open = candidateList.filter(c => !blockedIds.has(c.wiId))
+      if (!open.length) {
+        log('all candidates gated by earlier unfinished epic work — nothing to claim')
+        return null
+      }
+      candidateList.length = 0
+      candidateList.push(...open)
+    }
   }
 
   if (candidateList.length === 1) {
@@ -1666,73 +1968,101 @@ if (identity.error || !identity.userId) {
 }
 log(`runner: ${identity.username} (${identity.ownerPrefix}, ${identity.githubLogin})`)
 
-await ensureDaemons()
-await reapStrandedWorktrees(identity)
-
-const { inFlightWis, monitorOutcomes } = await monitorInFlight(identity)
-const { toFinalize, toTriage, toRestart, toCloseWi, toRefresh } = classifyMonitor(monitorOutcomes)
-
-if (toCloseWi.length) await closeMergedWis(toCloseWi, identity)
-if (toTriage.length) await triageAndFixCi(toTriage, identity)
-if (toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
-if (toFinalize.length) await openForReview(toFinalize, identity)
-await peerApprove(identity)
-
-// Cap = number of WIs currently 'In Progress' in GUS. GUS status is authoritative.
-// 'Ready for Review'/'Fixed' WIs are waiting on human review — not consuming builder slots.
-// No subtraction needed: GUS already reflects transitions from prior ticks.
-const stillInFlight = inFlightWis.filter(w => w.status === 'In Progress').length
-log(`cap: stillInFlight=${stillInFlight} (In Progress WIs) toFinalize=${toFinalize.length} toCloseWi=${toCloseWi.length} toRestart=${toRestart.length}`)
-
-let chosen
-let isRestart = false
-
-if (toRestart.length) {
-  chosen = toRestart[0].wi
-  isRestart = true
-  log(`restarting stuck in-flight WI ${chosen.name} (no PR)`)
-} else {
-  if (stillInFlight >= MAX_IN_FLIGHT) {
-    log(`at cap (${stillInFlight}/${MAX_IN_FLIGHT}); not claiming new WI`)
-    return { exited: 'at-cap', inFlight: stillInFlight, finalized: toFinalize.length }
-  }
-  chosen = await pickCandidate(identity, inFlightWis)
-  if (!chosen) {
-    log('no candidates — nothing to do')
-    return { exited: 'idle', inFlight: stillInFlight }
-  }
+// Single-run lock: if another /loop tick is mid-build, back off this tick rather than
+// racing it (double-claim, duplicate PRs). Identity resolution is read-only and cheap, so
+// it runs before the lock; everything that mutates state runs inside the lock.
+const lock = await acquireLock()
+if (!lock || !lock.acquired) {
+  log(`another auto-build-wi run holds the lock (${(lock && lock.detail) || 'unknown'}) — backing off`)
+  return { exited: 'locked', detail: lock && lock.detail }
 }
 
-const claimed = await claimOrRestart(chosen, identity, isRestart)
-if (!claimed.ok) {
-  log(`${isRestart ? 'restart' : 'claim'} failed: ${claimed.detail}`)
+try {
+  await ensureDaemons()
+  await reapStrandedWorktrees(identity)
+
+  const { inFlightWis, monitorOutcomes } = await monitorInFlight(identity)
+  const { toFinalize, toTriage, toRestart, toCloseWi, toPlanOnly, toRefresh } =
+    classifyMonitor(monitorOutcomes)
+
+  if (toCloseWi.length) await closeMergedWis(toCloseWi, identity)
+  if (toPlanOnly.length) await handlePlanOnlyPrs(toPlanOnly, identity)
+  if (toTriage.length) await triageAndFixCi(toTriage, identity)
+  if (toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
+  if (toFinalize.length) await openForReview(toFinalize, identity)
+  await peerApprove(identity)
+
+  // Cap = number of WIs currently 'In Progress' in GUS. GUS status is authoritative.
+  // 'Ready for Review'/'Fixed' WIs are waiting on human review — not consuming builder slots.
+  // No subtraction needed: GUS already reflects transitions from prior ticks.
+  const stillInFlight = inFlightWis.filter(w => w.status === 'In Progress').length
+  log(`cap: stillInFlight=${stillInFlight} (In Progress WIs) toFinalize=${toFinalize.length} toCloseWi=${toCloseWi.length} toRestart=${toRestart.length}`)
+
+  let chosen
+  let isRestart = false
+
+  if (toRestart.length) {
+    chosen = toRestart[0].wi
+    isRestart = true
+    log(`restarting stuck in-flight WI ${chosen.name} (no PR)`)
+  } else {
+    if (stillInFlight >= MAX_IN_FLIGHT) {
+      log(`at cap (${stillInFlight}/${MAX_IN_FLIGHT}); not claiming new WI`)
+      return { exited: 'at-cap', inFlight: stillInFlight, finalized: toFinalize.length }
+    }
+    chosen = await pickCandidate(identity, inFlightWis)
+    if (!chosen) {
+      log('no candidates — nothing to do')
+      return { exited: 'idle', inFlight: stillInFlight }
+    }
+  }
+
+  const claimed = await claimOrRestart(chosen, identity, isRestart)
+  if (!claimed || !claimed.ok) {
+    log(`${isRestart ? 'restart' : 'claim'} failed: ${(claimed && claimed.detail) || 'subagent returned no result'}`)
+    return {
+      exited: isRestart ? 'restart-failed' : 'claim-failed',
+      error: claimed && claimed.detail,
+    }
+  }
+
+  const { planResult, skillList } = await runPlan(chosen, identity)
+  if (!planResult) {
+    log(`plan stage returned no result for ${chosen.name} — exiting`)
+    return { exited: 'plan-failed', wi: chosen.name }
+  }
+  if (planResult.verdict === 'blocked') {
+    await bounceBlockedPlan(chosen, planResult, identity)
+    return { exited: 'plan-blocked', wi: chosen.name }
+  }
+  await reviewAndCommitPlan(chosen, identity)
+
+  const buildResult = await runBuild(chosen, identity)
+  if (!buildResult) {
+    log(`build stage returned no result for ${chosen.name} — exiting`)
+    return { exited: 'build-failed', wi: chosen.name }
+  }
+  if (buildResult.status === 'stuck') {
+    await bounceStuckBuild(chosen, buildResult, identity)
+    return { exited: 'build-stuck', wi: chosen.name, reason: buildResult.reason }
+  }
+
+  const fixerResult = await runReview(chosen, identity, skillList)
+
+  const prResult = await draftPr(chosen, identity, fixerResult)
+  if (!prResult || !prResult.prUrl) {
+    log(`draft-PR stage returned no PR URL for ${chosen.name} — exiting`)
+    return { exited: 'pr-failed', wi: chosen.name }
+  }
+
+  log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
   return {
-    exited: isRestart ? 'restart-failed' : 'claim-failed',
-    error: claimed.detail,
+    exited: 'claimed-and-pr-opened',
+    wi: chosen.name,
+    prUrl: prResult.prUrl,
+    finalized: toFinalize.length,
   }
-}
-
-const { planResult, skillList } = await runPlan(chosen, identity)
-if (planResult.verdict === 'blocked') {
-  await bounceBlockedPlan(chosen, planResult, identity)
-  return { exited: 'plan-blocked', wi: chosen.name }
-}
-await reviewAndCommitPlan(chosen, identity)
-
-const buildResult = await runBuild(chosen, identity)
-if (buildResult.status === 'stuck') {
-  await bounceStuckBuild(chosen, buildResult, identity)
-  return { exited: 'build-stuck', wi: chosen.name, reason: buildResult.reason }
-}
-
-const fixerResult = await runReview(chosen, identity, skillList)
-
-const prResult = await draftPr(chosen, identity, fixerResult)
-
-log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
-return {
-  exited: 'claimed-and-pr-opened',
-  wi: chosen.name,
-  prUrl: prResult.prUrl,
-  finalized: toFinalize.length,
+} finally {
+  await releaseLock(lock.token)
+  log('released single-run lock')
 }
