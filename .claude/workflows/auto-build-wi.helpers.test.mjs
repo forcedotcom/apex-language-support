@@ -18,6 +18,7 @@ function loadHelpers() {
   const ctx = {}
   const exportNames = [
     'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers', 'computeBuildConcurrency',
+    'detectFileOverlap', 'pickReconcileBase',
   ]
   const exportTail = exportNames.map(n => `this.${n} = ${n};`).join('\n')
   vm.runInNewContext(block + '\n' + exportTail, ctx)
@@ -74,4 +75,23 @@ test('computeBuildConcurrency: non-positive/absent override falls back to cores'
   assert.equal(h.computeBuildConcurrency(8, 0), 3)
   assert.equal(h.computeBuildConcurrency(8, undefined), 3)
   assert.equal(h.computeBuildConcurrency(8, -1), 3)
+})
+
+test('detectFileOverlap: disjoint vs shared', () => {
+  const h = loadHelpers()
+  assert.equal(h.detectFileOverlap(['a.ts', 'b.ts'], ['c.ts']), false)
+  assert.equal(h.detectFileOverlap(['a.ts', 'b.ts'], ['b.ts', 'd.ts']), true)
+  assert.equal(h.detectFileOverlap([], ['a.ts']), false)
+})
+
+test('pickReconcileBase: smaller diff wins', () => {
+  const h = loadHelpers()
+  assert.equal(h.pickReconcileBase({ files: ['a'], headEpochRank: 1 }, { files: ['a', 'b'], headEpochRank: 9 }), 'a')
+  assert.equal(h.pickReconcileBase({ files: ['a', 'b', 'c'], headEpochRank: 1 }, { files: ['a'], headEpochRank: 1 }), 'b')
+})
+
+test('pickReconcileBase: equal file count tiebreaks to later head', () => {
+  const h = loadHelpers()
+  assert.equal(h.pickReconcileBase({ files: ['a'], headEpochRank: 5 }, { files: ['b'], headEpochRank: 9 }), 'b')
+  assert.equal(h.pickReconcileBase({ files: ['a'], headEpochRank: 9 }, { files: ['b'], headEpochRank: 5 }), 'a')
 })

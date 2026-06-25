@@ -527,6 +527,24 @@ const computeBuildConcurrency = (cores, override) => {
   if (typeof override === 'number' && override > 0) return Math.floor(override)
   return Math.max(1, Math.min(4, Math.floor((cores - 2) / 2)))
 }
+
+// Cheap pre-merge collision filter: two branches can only conflict if their
+// changed-file sets intersect. Disjoint sets are dismissed without a dry-run merge.
+const detectFileOverlap = (filesA, filesB) => {
+  const setB = new Set(filesB)
+  return filesA.some(f => setB.has(f))
+}
+
+// Deterministic reconcile-base picker for a confirmed conflict between two
+// branches: resolve onto the SMALLER diff (fewer changed files); tiebreak to the
+// later head commit (larger caller-supplied headEpochRank). Returns 'a' or 'b'.
+// headEpochRank is supplied by the caller — the helper never reads a clock.
+const pickReconcileBase = (a, b) => {
+  const na = a.files.length
+  const nb = b.files.length
+  if (na !== nb) return na < nb ? 'a' : 'b'
+  return a.headEpochRank >= b.headEpochRank ? 'a' : 'b'
+}
 // ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
