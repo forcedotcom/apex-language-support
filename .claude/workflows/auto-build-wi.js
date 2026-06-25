@@ -21,6 +21,8 @@ export const meta = {
     { title: 'Verify findings' },
     { title: 'Fix review findings' },
     { title: 'Draft PR' },
+    { title: 'Drain loop' },
+    { title: 'Integration check' },
   ],
 }
 
@@ -2041,6 +2043,87 @@ const draftPr = async (chosen, identity, fixerResult) => {
   })
 }
 
+// One WI end-to-end, fully isolated: any failure is caught and reported as an
+// outcome so a single WI never aborts the pool. Reuses the existing phase fns.
+const runFullPipeline = async (chosen, identity, isRestart) => {
+  const { branch } = pathsFor(identity, chosen)
+  try {
+    const claimed = await claimOrRestart(chosen, identity, isRestart)
+    if (!claimed || !claimed.ok) {
+      return { wi: chosen, outcome: isRestart ? 'restart-failed' : 'claim-failed', detail: claimed && claimed.detail }
+    }
+
+    const { planResult, skillList } = await runPlan(chosen, identity)
+    if (!planResult) return { wi: chosen, outcome: 'plan-failed' }
+    if (planResult.verdict === 'blocked') {
+      await bounceBlockedPlan(chosen, planResult, identity)
+      return { wi: chosen, outcome: 'plan-blocked' }
+    }
+    await reviewAndCommitPlan(chosen, identity)
+
+    const buildResult = await runBuild(chosen, identity)
+    if (!buildResult) return { wi: chosen, outcome: 'build-failed' }
+    if (buildResult.status === 'stuck') {
+      await bounceStuckBuild(chosen, buildResult, identity)
+      return { wi: chosen, outcome: 'build-stuck', reason: buildResult.reason }
+    }
+
+    const fixerResult = await runReview(chosen, identity, skillList)
+    const prResult = await draftPr(chosen, identity, fixerResult)
+    if (!prResult || !prResult.prUrl) return { wi: chosen, outcome: 'pr-failed' }
+
+    log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
+    return { wi: chosen, outcome: 'pr-opened', prUrl: prResult.prUrl, branch }
+  } catch (e) {
+    log(`pipeline error for ${chosen.name}: ${(e && e.message) || e} — leaving for next tick`)
+    return { wi: chosen, outcome: 'errored', detail: (e && e.message) || String(e) }
+  }
+}
+
+// Bounded worker pool: K slots, each looping nextReadyWi -> runFullPipeline until
+// no ready WIs, claim-cap, or token-budget stops it. A finished slot immediately
+// pulls the next ready WI (no batch barrier). claimedIds + a live in-flight counter
+// are shared across slots so two slots never grab the same WI or exceed activeCap.
+const PER_BUILD_TOKEN_RESERVE = 150000
+
+const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgress) => {
+  phase('Drain loop')
+  const claimedIds = new Set(inFlightWis.map(w => w.wiId))
+  let inProgress = initialInProgress
+  let claimsRemaining = Math.max(0, activeCap - initialInProgress)
+  const built = []
+
+  const budgetOk = () =>
+    !budget.total || budget.remaining() > PER_BUILD_TOKEN_RESERVE
+
+  const slot = async () => {
+    while (claimsRemaining > 0 && budgetOk()) {
+      // Reserve a claim slot BEFORE the async pull so concurrent slots can't
+      // oversubscribe the cap while a pull is in flight.
+      claimsRemaining -= 1
+      const chosen = await nextReadyWi(identity, inFlightWis, claimedIds, inProgress, activeCap)
+      if (!chosen) {
+        claimsRemaining += 1 // give the reservation back; nothing to pull
+        return
+      }
+      claimedIds.add(chosen.wiId)
+      inProgress += 1
+      const result = await runFullPipeline(chosen, identity, false)
+      built.push(result)
+      // WI stays counted toward inProgress for the rest of the session (it now has
+      // a PR / is In Progress). Do NOT decrement — the cap is about total in-flight.
+    }
+  }
+
+  const slots = Array.from({ length: K }, () => slot)
+  await parallel(slots.map(s => s))
+  const builtBranches = built.filter(r => r.outcome === 'pr-opened' && r.branch).map(r => ({ wi: r.wi, branch: r.branch }))
+  log(`drain loop built ${built.length} WI(s): ${built.map(r => `${r.wi.name}=${r.outcome}`).join(', ') || 'none'}`)
+  return { built, builtBranches }
+}
+
+const runIntegrationCheck = async () => {}
+
 // =====================================================================
 // ORCHESTRATION
 // =====================================================================
@@ -2076,74 +2159,29 @@ try {
   if (toFinalize.length) await openForReview(toFinalize, identity)
   await peerApprove(identity)
 
-  // Cap = number of WIs currently 'In Progress' in GUS. GUS status is authoritative.
-  // 'Ready for Review'/'Fixed' WIs are waiting on human review — not consuming builder slots.
-  // No subtraction needed: GUS already reflects transitions from prior ticks.
-  const stillInFlight = inFlightWis.filter(w => w.status === 'In Progress').length
-  log(`cap: stillInFlight=${stillInFlight} (In Progress WIs) toFinalize=${toFinalize.length} toCloseWi=${toCloseWi.length} toRestart=${toRestart.length}`)
+  const initialInProgress = inFlightWis.filter(w => w.status === 'In Progress').length
 
-  let chosen
-  let isRestart = false
-
+  // Restart any stranded no-PR in-flight WI first (single, like today), then drain.
   if (toRestart.length) {
-    chosen = toRestart[0].wi
-    isRestart = true
+    const chosen = toRestart[0].wi
     log(`restarting stuck in-flight WI ${chosen.name} (no PR)`)
-  } else {
-    if (stillInFlight >= MAX_IN_FLIGHT) {
-      log(`at cap (${stillInFlight}/${MAX_IN_FLIGHT}); not claiming new WI`)
-      return { exited: 'at-cap', inFlight: stillInFlight, finalized: toFinalize.length }
-    }
-    chosen = await pickCandidate(identity, inFlightWis)
-    if (!chosen) {
-      log('no candidates — nothing to do')
-      return { exited: 'idle', inFlight: stillInFlight }
-    }
+    await runFullPipeline(chosen, identity, true)
   }
 
-  const claimed = await claimOrRestart(chosen, identity, isRestart)
-  if (!claimed || !claimed.ok) {
-    log(`${isRestart ? 'restart' : 'claim'} failed: ${(claimed && claimed.detail) || 'subagent returned no result'}`)
-    return {
-      exited: isRestart ? 'restart-failed' : 'claim-failed',
-      error: claimed && claimed.detail,
-    }
-  }
+  const cores = await detectCores()
+  const K = computeBuildConcurrency(cores, args && args.buildConcurrency)
+  log(`cores=${cores} buildConcurrency=${K} activeCap=${MAX_IN_FLIGHT} initialInProgress=${initialInProgress}`)
 
-  const { planResult, skillList } = await runPlan(chosen, identity)
-  if (!planResult) {
-    log(`plan stage returned no result for ${chosen.name} — exiting`)
-    return { exited: 'plan-failed', wi: chosen.name }
-  }
-  if (planResult.verdict === 'blocked') {
-    await bounceBlockedPlan(chosen, planResult, identity)
-    return { exited: 'plan-blocked', wi: chosen.name }
-  }
-  await reviewAndCommitPlan(chosen, identity)
+  const { built, builtBranches } = await runDrainLoop(
+    identity, inFlightWis, K, MAX_IN_FLIGHT, initialInProgress
+  )
 
-  const buildResult = await runBuild(chosen, identity)
-  if (!buildResult) {
-    log(`build stage returned no result for ${chosen.name} — exiting`)
-    return { exited: 'build-failed', wi: chosen.name }
-  }
-  if (buildResult.status === 'stuck') {
-    await bounceStuckBuild(chosen, buildResult, identity)
-    return { exited: 'build-stuck', wi: chosen.name, reason: buildResult.reason }
-  }
+  await runIntegrationCheck(identity, builtBranches, inFlightWis)
 
-  const fixerResult = await runReview(chosen, identity, skillList)
-
-  const prResult = await draftPr(chosen, identity, fixerResult)
-  if (!prResult || !prResult.prUrl) {
-    log(`draft-PR stage returned no PR URL for ${chosen.name} — exiting`)
-    return { exited: 'pr-failed', wi: chosen.name }
-  }
-
-  log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
   return {
-    exited: 'claimed-and-pr-opened',
-    wi: chosen.name,
-    prUrl: prResult.prUrl,
+    exited: 'drained',
+    builtCount: built.length,
+    built: built.map(r => ({ wi: r.wi.name, outcome: r.outcome, prUrl: r.prUrl || null })),
     finalized: toFinalize.length,
   }
 } finally {
