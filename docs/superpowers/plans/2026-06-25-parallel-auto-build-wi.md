@@ -78,8 +78,9 @@ function loadHelpers() {
 test('parseSequence: dotted prefix parses to segments', () => {
   const h = loadHelpers()
   assert.deepEqual(h.parseSequence('1.2 Add loader'), [1, 2])
-  assert.equal(h.parseSequence('W-123 backport'), null)
-  assert.equal(h.parseSequence('2.40 release'), null) // no space-after-number rule
+  assert.deepEqual(h.parseSequence('2.40 release'), [2, 40]) // dotted number + space matches
+  assert.equal(h.parseSequence('W-123 backport'), null)      // no leading digit
+  assert.equal(h.parseSequence('1.2-no-space'), null)        // SEQUENCE_RE requires a trailing space
 })
 
 test('topSegment: first segment is the parallel-group id', () => {
@@ -111,19 +112,21 @@ Expected: FAIL — `missing PURE-HELPERS-START sentinel` (the fence does not exi
 
 - [ ] **Step 3: Add the sentinel fence around the existing pure helpers**
 
-In `.claude/workflows/auto-build-wi.js`, locate the `// HELPERS` section header (currently line ~408). Immediately BEFORE the `const slugify = ...` declaration, insert a line:
+In `.claude/workflows/auto-build-wi.js`, the contiguous helper block from `const slugify = ...` (currently line 411) through `parseShortstatLines` (currently ends line 519) is entirely pure — none of those declarations reference a workflow-runtime global (`agent`, `log`, `parallel`, `phase`, `budget`, `args`). So the fence wraps the whole block as-is; no declarations need to move.
+
+Insert the START sentinel on its own line immediately BEFORE `const slugify = s =>` (line 411):
 
 ```js
 // ===PURE-HELPERS-START===
 ```
 
-Then, AFTER the last purely-synchronous helper that has no `agent()`/`await`/closure-over-prompts dependency — specifically after `parseShortstatLines` (currently ends ~line 519) and after the `SEQUENCE_RE`/`parseSequence`/`topSegment`, `BLOCKER_RE`/`extractBlockers`, `NO_FIX_TERMINAL`/`isBlockerSatisfied`, `isPlanOnlyDiff`, `stripHtml` declarations — insert:
+Insert the END sentinel on its own line immediately AFTER the closing `}` of `parseShortstatLines` (currently line 519, the line `}` that ends `return Number(ins) + Number(del)`):
 
 ```js
 // ===PURE-HELPERS-END===
 ```
 
-The fence MUST enclose `slugify`, `stripHtml`, `parseSequence`, `topSegment`, `isBlockerSatisfied`, `NO_FIX_TERMINAL`, `extractBlockers`, `BLOCKER_RE`, `SEQUENCE_RE`, `isPlanOnlyDiff`, `parseShortstatLines`. It MUST NOT enclose anything that references `agent`, `pathsFor`, `worktreePath`, or other workflow-runtime closures. Move declarations as needed so all fenced helpers are contiguous, preserving their existing source order where possible. Do not change any helper's body.
+The fence therefore encloses, in their existing source order: `slugify`, `projectBasename`, `worktreePath`, `branchName`, `pathsFor`, `extractPrUrl`, `hasPrUrl`, `NO_FIX_TERMINAL`, `isBlockerSatisfied`, `isPlanOnlyDiff`, `stripHtml`, `BLOCKER_RE`, `extractBlockers`, `SEQUENCE_RE`, `parseSequence`, `topSegment`, `mapWiRecord`, `parseShortstatLines`. All are pure (string/array/regex math only). Do NOT move any declaration and do NOT change any helper body — only insert the two sentinel lines. The next declaration after the fence (the severity-rank helper at line ~522) and everything that references runtime globals stays OUTSIDE the fence.
 
 - [ ] **Step 4: Verify the workflow still parses**
 
