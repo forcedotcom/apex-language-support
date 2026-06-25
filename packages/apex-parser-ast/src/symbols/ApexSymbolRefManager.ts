@@ -142,6 +142,8 @@ export interface ReferenceEdge {
     parameterIndex?: Uint16; // 2 bytes vs 8 bytes (75% reduction)
     isStatic?: boolean;
     namespace?: string;
+    /** Call-site arity, used as the overload discriminator (F11-2). */
+    argumentCount?: number;
   };
 }
 
@@ -159,6 +161,8 @@ export interface ReferenceResult {
     parameterIndex?: number;
     isStatic?: boolean;
     namespace?: string;
+    /** Call-site arity, used as the overload discriminator (F11-2). */
+    argumentCount?: number;
   };
 }
 
@@ -222,6 +226,8 @@ export interface RefStoreEntry {
     parameterIndex?: number;
     isStatic?: boolean;
     namespace?: string;
+    /** Call-site arity, used as the overload discriminator (F11-2). */
+    argumentCount?: number;
   };
 }
 
@@ -341,6 +347,7 @@ export class ApexSymbolRefManager {
         parameterIndex?: number;
         isStatic?: boolean;
         namespace?: string;
+        argumentCount?: number;
       };
     }>
   > = new CaseInsensitiveHashMap();
@@ -357,6 +364,7 @@ export class ApexSymbolRefManager {
         parameterIndex?: number;
         isStatic?: boolean;
         namespace?: string;
+        argumentCount?: number;
       };
     }>
   > = new CaseInsensitiveHashMap();
@@ -831,6 +839,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): boolean {
     const refEntry: RefStoreEntry = {
@@ -848,6 +857,7 @@ export class ApexSymbolRefManager {
               : undefined,
             isStatic: context.isStatic,
             namespace: context.namespace,
+            argumentCount: context.argumentCount,
           }
         : undefined,
     };
@@ -1804,6 +1814,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): void {
     // Enforce source artifact invariant and normalize URI for stable matching.
@@ -1945,12 +1956,72 @@ export class ApexSymbolRefManager {
       !symbol.modifiers?.isStatic &&
       !symbol.isConstructor
     ) {
-      return this.findInstanceMethodReferences(symbol);
+      return this.separateOverloadReferences(
+        symbol,
+        this.findInstanceMethodReferences(symbol),
+      );
     }
 
     // FIELD / PROPERTY / static & constructor METHOD / type / enum: the graph
     // reverse index is a direct, kind-agnostic lookup keyed on the declaration.
-    return this.findReferencesViaGraph(symbol);
+    return this.separateOverloadReferences(
+      symbol,
+      this.findReferencesViaGraph(symbol),
+    );
+  }
+
+  /**
+   * Narrow a method's reference results to the requested overload (F11-2).
+   *
+   * Name-keyed resolution collapses every overload of a method onto one target
+   * declaration, so `findReferencesViaGraph` returns the union of references to
+   * *all* same-named overloads. When the target is a method that actually has
+   * same-named overload siblings, this filters the union down to the call sites
+   * whose arity matches the requested overload's declared parameter count.
+   *
+   * Scope and limits:
+   * - No-op unless `symbol` is a method with >1 same-named sibling on its
+   *   declaring type. Non-methods and non-overloaded methods pass through
+   *   untouched, so the common case is byte-for-byte unchanged.
+   * - Arity is the discriminator (statically known at parse time). References
+   *   whose `context.argumentCount` is undefined (parsed before this field
+   *   existed, or non-call edges) are kept — we cannot prove they belong to a
+   *   different overload, so we never drop them.
+   * - Same-arity overloads (`f(String)` vs `f(Integer)`) cannot be separated by
+   *   arity alone and remain unified; call-site type capture is the documented
+   *   follow-up.
+   */
+  private separateOverloadReferences(
+    symbol: ApexSymbol,
+    results: ReferenceResult[],
+  ): ReferenceResult[] {
+    if (!isMethodSymbol(symbol)) {
+      return results;
+    }
+
+    // Count same-named method siblings on the same declaring type. Only when
+    // there is more than one is disambiguation meaningful.
+    const declaringType = this.findDeclaringTypeForMember(symbol);
+    if (!declaringType) {
+      return results;
+    }
+    const siblings = this.findSymbolByName(symbol.name).filter(
+      (s) =>
+        isMethodSymbol(s) &&
+        s.fileUri === symbol.fileUri &&
+        this.findDeclaringTypeForMember(s)?.id === declaringType.id,
+    );
+    if (siblings.length <= 1) {
+      return results;
+    }
+
+    const targetArity = symbol.parameters?.length ?? 0;
+    return results.filter((r) => {
+      const callArity = r.context?.argumentCount;
+      // Keep references we cannot attribute to a specific arity (undefined) and
+      // those whose call-site arity matches this overload's parameter count.
+      return callArity === undefined || callArity === targetArity;
+    });
   }
 
   /**
@@ -3514,6 +3585,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): void {
     if (!sourceSymbol.fileUri) {
@@ -3562,6 +3634,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): void {
     const virtualSymbolId = generateSymbolId(
@@ -3642,6 +3715,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): void {
     // Don't create reference entries for scope symbols (they're structural, not semantic)
@@ -3687,6 +3761,7 @@ export class ApexSymbolRefManager {
             parameterIndex: context.parameterIndex,
             isStatic: context.isStatic,
             namespace: context.namespace,
+            argumentCount: context.argumentCount,
           }
         : undefined,
     };
@@ -3714,6 +3789,7 @@ export class ApexSymbolRefManager {
       parameterIndex?: number;
       isStatic?: boolean;
       namespace?: string;
+      argumentCount?: number;
     },
   ): void {
     if (!sourceSymbol.fileUri) {
@@ -3775,6 +3851,7 @@ export class ApexSymbolRefManager {
           parameterIndex?: number;
           isStatic?: boolean;
           namespace?: string;
+          argumentCount?: number;
         };
       }>
     | undefined {

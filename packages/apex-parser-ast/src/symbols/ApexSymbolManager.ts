@@ -95,6 +95,7 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
+  isMethodSymbol as isMethodSymbolNarrowing,
 } from '../utils/symbolNarrowing';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
@@ -743,7 +744,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all references to a symbol
    */
   async findReferencesTo(symbol: ApexSymbol): Promise<ReferenceResult[]> {
-    const cacheKey = `refs_to_${symbol.name}`;
+    const cacheKey = this.buildReferencesToCacheKey(symbol);
     const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
@@ -752,6 +753,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const results = this.symbolRefManager.findReferencesTo(symbol);
     this.unifiedCache.set(cacheKey, results, 'relationship');
     return results;
+  }
+
+  /**
+   * Build the `findReferencesTo` cache key.
+   *
+   * Name alone is too coarse: it collapses (a) overloads of one method and
+   * (b) same-named members across different files into a single cache entry, so
+   * a query for one would serve another's cached results. The key therefore
+   * also carries the declaring file and — for methods — the declared arity, the
+   * same discriminator the reverse-index overload separation uses (F11-2), so
+   * an overloaded method's per-arity results don't alias each other.
+   */
+  private buildReferencesToCacheKey(symbol: ApexSymbol): string {
+    const filePart = symbol.fileUri ?? 'no-file';
+    const arityPart = isMethodSymbolNarrowing(symbol)
+      ? `:${symbol.parameters?.length ?? 0}`
+      : '';
+    return `refs_to_${symbol.name}@${filePart}${arityPart}`;
   }
 
   /**
@@ -2646,6 +2665,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
+            argumentCount: typeRef.argumentCount,
           },
         );
         if (stats) {
@@ -3546,6 +3566,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   {
                     methodName: typeRef.parentContext,
                     isStatic: isStatic,
+                    argumentCount: typeRef.argumentCount,
                   },
                 );
                 return; // Successfully resolved and added to graph
@@ -3581,6 +3602,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               {
                 methodName: typeRef.parentContext,
                 isStatic: isStatic,
+                argumentCount: typeRef.argumentCount,
               },
             );
           }
@@ -3699,6 +3721,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             {
               methodName: typeRef.parentContext,
               isStatic: isStatic,
+              argumentCount: typeRef.argumentCount,
             },
           );
           return;
@@ -3718,6 +3741,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
+            argumentCount: typeRef.argumentCount,
           },
         );
       } catch (error) {
