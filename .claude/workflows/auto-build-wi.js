@@ -2196,19 +2196,21 @@ const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgre
   const slot = async () => {
     while (claimsRemaining > 0 && budgetOk()) {
       // Reserve a claim slot BEFORE the async pull so concurrent slots can't
-      // oversubscribe the cap while a pull is in flight. Use try/finally to ensure
-      // the reservation is restored if anything fails.
+      // oversubscribe the cap while a pull is in flight.
       claimsRemaining -= 1
       try {
         const chosen = await nextReadyWi(identity, inFlightWis, claimedIds, inProgress, activeCap)
-        if (!chosen) return // give the reservation back; nothing to pull
+        if (!chosen) {
+          claimsRemaining += 1 // give the reservation back; nothing to pull
+          return
+        }
         inProgress += 1
         const result = await runFullPipeline(chosen, identity, false)
         built.push(result)
         // WI stays counted toward inProgress for the rest of the session (it now has
         // a PR / is In Progress). Do NOT decrement — the cap is about total in-flight.
       } catch (e) {
-        claimsRemaining += 1 // restore on exception
+        claimsRemaining += 1 // restore reservation if the pull/build threw
         throw e
       }
     }
@@ -2231,7 +2233,7 @@ const runIntegrationCheck = async (identity, builtBranches, inFlightWis) => {
     const inFlightBranchEntries = inFlightWis
       .filter(w => w.prUrl)
       .map(w => ({ wi: w, branch: pathsFor(identity, w).branch }))
-    const sessionEntries = builtBranches.map(b => ({ wi: b.wi, branch: b.branch }))
+    const sessionEntries = builtBranches.map(b => ({ wi: b.wi, branch: b.branch, prUrl: b.prUrl }))
     // De-dup by branch name.
     const byBranch = new Map()
     for (const e of [...sessionEntries, ...inFlightBranchEntries]) byBranch.set(e.branch, e)
@@ -2282,8 +2284,8 @@ const runIntegrationCheck = async (identity, builtBranches, inFlightWis) => {
           phase: 'Integration check', model: 'opus' }
       )
 
-      const aUrl = a.wi.prUrl || (a.wi.details && extractPrUrl(a.wi.details)) || ''
-      const bUrl = b.wi.prUrl || (b.wi.details && extractPrUrl(b.wi.details)) || ''
+      const aUrl = a.prUrl || a.wi.prUrl || (a.wi.details && extractPrUrl(a.wi.details)) || ''
+      const bUrl = b.prUrl || b.wi.prUrl || (b.wi.details && extractPrUrl(b.wi.details)) || ''
       if (result && result.status === 'reconciled') {
         await agent(reconcileCommentPrompt(baseEntry.wi, otherEntry.wi, aUrl, bUrl, result.detail || 'resolved'), {
           schema: OK_SCHEMA, label: `reconcile-comment-${baseEntry.wi.name}`,
