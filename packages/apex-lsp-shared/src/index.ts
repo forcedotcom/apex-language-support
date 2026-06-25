@@ -504,3 +504,26 @@ export type {
   WorkerLogMessage,
   WorkerLogLevel,
 } from './workerWireSchemas';
+
+// QueueState/GraphData protocol types — shared contract for apex/queueState
+// and apex/graphData custom LSP requests. Structurally model the canonical
+// apex-parser-ast runtime shapes without importing them (shared stays
+// parser-ast-free). Type-only.
+export type {
+  WorkerTopologyShape,
+  SchedulerMetricsShape,
+  RangeShape,
+  SymbolLocationShape,
+  SymbolModifiersShape,
+  GraphNodeAnnotationShape,
+  GraphNodeShape,
+  GraphEdgeShape,
+  GraphDataShape,
+  FileGraphDataShape,
+  TypeGraphDataShape,
+  DiagnosticGraphCorrelationShape,
+  QueueStateParams,
+  QueueStateResult,
+  GraphDataParams,
+  GraphDataResult,
+} from './queueStateGraphData';
