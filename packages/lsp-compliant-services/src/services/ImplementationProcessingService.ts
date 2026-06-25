@@ -22,6 +22,7 @@ import {
   isMethodSymbol,
   MethodSymbol,
   SymbolKind,
+  isPositionWithinLocation,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   transformLspToParserPosition,
@@ -105,6 +106,28 @@ export class ImplementationProcessingService implements IImplementationProcessor
           () =>
             `[impl] no refs — scope symbol: ${scopeSymbol ? `${scopeSymbol.name} (${scopeSymbol.kind})` : 'null'}`,
         );
+        // identifierRange guard (mirrors the 6.11 find-references guard that
+        // standardized on the 'precise' strategy). The 'scope' strategy's
+        // Step-4 fallback returns the *enclosing* method/class whenever the
+        // cursor is anywhere inside that symbol's scope body — including on
+        // whitespace, punctuation, or a keyword — because it matches on the
+        // symbol's full symbolRange, not its declaration identifier. Without
+        // this guard, go-to-implementation with the cursor on a non-identifier
+        // position inside an abstract/interface method body would return
+        // implementations for the enclosing symbol instead of nothing. Require
+        // the cursor to land on the symbol's own declaration identifier
+        // (identifierRange) before honoring the scope fallback.
+        if (
+          scopeSymbol &&
+          !this.isCursorOnDeclarationIdentifier(scopeSymbol, parserPosition)
+        ) {
+          this.logger.debug(
+            () =>
+              `[impl] scope symbol ${scopeSymbol.name} rejected — cursor not on its ` +
+              'declaration identifier (non-identifier position); returning []',
+          );
+          return [];
+        }
         if (scopeSymbol) {
           // Interface declaration — find all implementing classes
           if (scopeSymbol.kind === SymbolKind.Interface) {
@@ -222,6 +245,25 @@ export class ImplementationProcessingService implements IImplementationProcessor
       );
       return [];
     }
+  }
+
+  /**
+   * Whether the cursor lands on the symbol's own declaration identifier.
+   *
+   * The 'scope' position strategy returns the enclosing symbol for any cursor
+   * inside its scope body (matching on symbolRange), so this narrows that to
+   * the symbol's identifierRange — the precise declaration name — guarding the
+   * scope fallback against non-identifier cursors (whitespace/keyword/body).
+   * A symbol without an identifierRange is treated as not matching.
+   */
+  private isCursorOnDeclarationIdentifier(
+    symbol: ApexSymbol,
+    position: { line: number; character: number },
+  ): boolean {
+    if (!symbol.location?.identifierRange) {
+      return false;
+    }
+    return isPositionWithinLocation(symbol.location, position);
   }
 
   /**
