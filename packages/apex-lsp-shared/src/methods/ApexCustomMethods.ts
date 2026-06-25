@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -160,14 +160,21 @@ export type ApexMethodId = keyof typeof APEX_METHODS;
 /** String-literal union of every `apex/*` wire method string. */
 export type ApexMethod = (typeof APEX_METHODS)[ApexMethodId]['method'];
 
-/** All wire method strings, derived from the registry. */
-const APEX_METHOD_STRINGS: ReadonlySet<string> = new Set(
-  Object.values(APEX_METHODS).map((descriptor) => descriptor.method),
-);
+/**
+ * Wire method string → descriptor, derived from the registry. Backs both
+ * {@link isApexMethod} and {@link getApexMethodDescriptor} with O(1) lookups.
+ */
+const APEX_METHODS_BY_STRING: ReadonlyMap<string, ApexMethodDescriptor> =
+  new Map(
+    Object.values(APEX_METHODS).map((descriptor) => [
+      descriptor.method,
+      descriptor,
+    ]),
+  );
 
 /** Type guard: is `value` one of the canonical `apex/*` method strings? */
 export const isApexMethod = (value: string): value is ApexMethod =>
-  APEX_METHOD_STRINGS.has(value);
+  APEX_METHODS_BY_STRING.has(value);
 
 /**
  * Look up the descriptor for a wire method string. Returns `undefined` for
@@ -175,7 +182,4 @@ export const isApexMethod = (value: string): value is ApexMethod =>
  */
 export const getApexMethodDescriptor = (
   method: string,
-): ApexMethodDescriptor | undefined =>
-  Object.values(APEX_METHODS).find(
-    (descriptor) => descriptor.method === method,
-  );
+): ApexMethodDescriptor | undefined => APEX_METHODS_BY_STRING.get(method);
