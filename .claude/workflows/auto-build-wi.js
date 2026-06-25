@@ -518,6 +518,15 @@ const parseShortstatLines = shortstat => {
   const del = (shortstat.match(/(\d+)\s+deletion/) || [0, 0])[1]
   return Number(ins) + Number(del)
 }
+
+// Build-concurrency K from CPU cores. Each build itself fans out sub-agents and
+// runs wireit's internal parallelism, so one build is already multi-core-hungry:
+// halve, leave 2 cores headroom, clamp to [1,4] so a big machine doesn't thrash
+// disk with many concurrent npm installs. A positive override bypasses the math.
+const computeBuildConcurrency = (cores, override) => {
+  if (typeof override === 'number' && override > 0) return Math.floor(override)
+  return Math.max(1, Math.min(4, Math.floor((cores - 2) / 2)))
+}
 // ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'

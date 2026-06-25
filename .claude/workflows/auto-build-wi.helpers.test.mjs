@@ -17,7 +17,7 @@ function loadHelpers() {
   const block = SRC.split(START)[1].split(END)[0]
   const ctx = {}
   const exportNames = [
-    'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers',
+    'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers', 'computeBuildConcurrency',
   ]
   const exportTail = exportNames.map(n => `this.${n} = ${n};`).join('\n')
   vm.runInNewContext(block + '\n' + exportTail, ctx)
@@ -51,4 +51,27 @@ test('extractBlockers: pulls W-numbers from blocking keywords', () => {
   const h = loadHelpers()
   assert.deepEqual([...h.extractBlockers('blocked by W-111 and W-222', '')], ['W-111', 'W-222'])
   assert.deepEqual([...h.extractBlockers('independent work', '')], [])
+})
+
+test('computeBuildConcurrency: derives K from cores', () => {
+  const h = loadHelpers()
+  assert.equal(h.computeBuildConcurrency(1), 1)   // floor((1-2)/2)=-1 -> clamp 1
+  assert.equal(h.computeBuildConcurrency(2), 1)   // floor(0/2)=0 -> clamp 1
+  assert.equal(h.computeBuildConcurrency(4), 1)   // floor(2/2)=1
+  assert.equal(h.computeBuildConcurrency(8), 3)   // floor(6/2)=3
+  assert.equal(h.computeBuildConcurrency(16), 4)  // floor(14/2)=7 -> clamp 4
+  assert.equal(h.computeBuildConcurrency(32), 4)  // clamp 4
+})
+
+test('computeBuildConcurrency: positive override wins, ignores cores', () => {
+  const h = loadHelpers()
+  assert.equal(h.computeBuildConcurrency(32, 2), 2)
+  assert.equal(h.computeBuildConcurrency(2, 4), 4)
+})
+
+test('computeBuildConcurrency: non-positive/absent override falls back to cores', () => {
+  const h = loadHelpers()
+  assert.equal(h.computeBuildConcurrency(8, 0), 3)
+  assert.equal(h.computeBuildConcurrency(8, undefined), 3)
+  assert.equal(h.computeBuildConcurrency(8, -1), 3)
 })
