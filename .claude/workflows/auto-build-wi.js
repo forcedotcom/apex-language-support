@@ -408,6 +408,7 @@ const FILES_SCHEMA = {
 // HELPERS
 // =====================================================================
 
+// ===PURE-HELPERS-START===
 const slugify = s =>
   String(s)
     .toLowerCase()
@@ -517,6 +518,7 @@ const parseShortstatLines = shortstat => {
   const del = (shortstat.match(/(\d+)\s+deletion/) || [0, 0])[1]
   return Number(ins) + Number(del)
 }
+// ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
 // map to critical/high/medium upstream before reaching here.
