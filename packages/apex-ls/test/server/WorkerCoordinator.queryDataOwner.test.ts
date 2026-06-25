@@ -11,6 +11,7 @@ import {
   ResolveDependentUris,
   ResolveDepUris,
   QuerySymbolSubset,
+  DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
@@ -92,6 +93,56 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
 
     expect(sent[0]).toBeInstanceOf(ResolveDepUris);
     expect(sent[1]).toBeInstanceOf(QuerySymbolSubset);
+  });
+
+  it('forwards QuerySymbolByName with name + optional namespace as a typed schema instance', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      name: 'CrossWorkerTarget',
+      namespace: 'MyNs',
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).name).toBe(
+      'CrossWorkerTarget',
+    );
+    expect((sent[0] as DataOwnerQuerySymbolByName).namespace).toBe('MyNs');
+  });
+
+  it('forwards QuerySymbolByName with a batched names[] payload', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      names: ['MissA', 'MissB'],
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).names).toEqual([
+      'MissA',
+      'MissB',
+    ]);
+    expect((sent[0] as DataOwnerQuerySymbolByName).name).toBeUndefined();
+  });
+
+  it('forwards QuerySymbolByName with omitted namespace', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+
+    await dispatcher.queryDataOwner('QuerySymbolByName', {
+      name: 'CrossWorkerTarget',
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(DataOwnerQuerySymbolByName);
+    expect((sent[0] as DataOwnerQuerySymbolByName).namespace).toBeUndefined();
   });
 
   it('forwards DrainDeferredReferences to the data owner as a typed schema instance', async () => {
