@@ -293,6 +293,12 @@ const OK_SCHEMA = {
   properties: { ok: { type: 'boolean' }, detail: { type: ['string', 'null'] } },
 }
 
+const CORES_SCHEMA = {
+  type: 'object',
+  required: ['cores'],
+  properties: { cores: { type: 'number' } },
+}
+
 // Result of the no-PR reconcile: did GitHub already have a PR for the deterministic
 // branch? If so we adopt it (and re-persist the URL) instead of rebuilding.
 const RECONCILE_SCHEMA = {
@@ -687,6 +693,15 @@ Read .claude/skills/gha-rerun/SKILL.md (and .claude/commands/gha-rerun.md if pre
 - If launch fails: return {ok: false, detail: "<reason>"}.
 
 Do not configure or rerun anything else. The daemon owns rerun budget; this step just keeps it alive.`
+
+const detectCoresPrompt = `Report this machine's logical CPU core count.
+
+Run ONE command that works on this OS:
+- macOS: 'sysctl -n hw.ncpu'
+- Linux: 'nproc'
+Try 'sysctl -n hw.ncpu' first; if it errors, try 'nproc'.
+
+Return {cores: <the integer>}. If both fail, return {cores: 4}. Structured result only.`
 
 const reapWorktreesPrompt = identity =>
   `Reap worktrees + branches for WIs whose PRs are already merged/closed (e.g. user merged manually and the WI dropped out of the in-flight query).
@@ -1307,6 +1322,17 @@ const resolveIdentity = async () => {
     label: 'resolve-identity',
     model: 'haiku',
   })
+}
+
+const detectCores = async () => {
+  const res = await agent(detectCoresPrompt, {
+    schema: CORES_SCHEMA,
+    label: 'detect-cores',
+    phase: 'Resolve identity',
+    model: 'haiku',
+  })
+  const n = res && typeof res.cores === 'number' ? Math.floor(res.cores) : 4
+  return n >= 1 ? n : 4
 }
 
 const ensureDaemons = async () => {
