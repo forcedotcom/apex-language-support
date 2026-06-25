@@ -83,6 +83,8 @@ K = clamp(floor((cores − 2) / 2), 1, 4)
 - `−2` — leaves headroom for the OS + the orchestrator.
 - clamp ceiling **4** — guards against a high-core machine launching many concurrent `npm install`s and thrashing disk/IO.
 
+**Core-count source:** the workflow sandbox has no Node `os` module, so `cores` is obtained by a tiny detect-cores agent at session start (`sysctl -n hw.ncpu` on macOS, `nproc` on Linux). The pure formula above is fed that value; `args.buildConcurrency` overrides it entirely.
+
 K is the *tighter* bound in practice. The Workflow runtime caps concurrent `agent()` calls at `min(16, cores−2)`, but that is agent-level; the drain loop must throttle at **build** granularity so K builds × their sub-agents don't blow past the agent cap and queue unpredictably.
 
 **Pool mechanism — bounded workers over a live queue (continuous, not batched):**
@@ -153,7 +155,7 @@ Same-file/different-hunk edits resolve cleanly here and are dismissed. Only true
 
 **Session-level guards:**
 - **Lock held whole session, dropped in `finally`** (unchanged). A crash anywhere still releases the lock, or it ages out via the staleness window.
-- **Session time/token budget** — the drain loop checks a wall-clock budget (default ~45 min, overridable via `args`) and a token budget (`budget.remaining()` when a `+Nk` directive is set). Near exhaustion: stop *pulling new WIs*, let in-flight slots finish their current WI, run the integration check, exit cleanly. This bounds session length deterministically and keeps it under `LOCK_STALE_MINUTES` (90) — the budget is the real stop, staleness is the backstop.
+- **Session bounds (clock-free)** — the workflow runtime forbids `Date.now()` / `new Date()` (they break resume), so session length is bounded *without* a wall clock. Two deterministic stops: (1) a **claim cap** — the session pulls at most `activeCap − initialInProgress` new WIs total, so it never exceeds the WI ceiling; (2) a **token budget** — when a `+Nk` directive set `budget.total`, the loop stops pulling new WIs once `budget.remaining()` drops below a per-build reserve (default 150k output tokens, the rough cost of one build pipeline). Near either limit: stop pulling, let in-flight slots finish their current WI, run the integration check, exit. `LOCK_STALE_MINUTES` (90) remains the crash backstop. There is no wall-clock budget.
 - **Integration check is best-effort** — wrapped so a failure there logs + DMs but never blocks lock release or fails the session. Built PRs are already open and independent; a missed check just defers a conflict to GitHub merge time (today's baseline), not a regression.
 
 **Crash recovery (no new code).** A mid-drain crash leaves only standard artifacts. The next tick already handles all of them: reap merged-PR worktrees; reconcile `In Progress` WIs with a pushed-but-unrecorded branch (adopt the PR); restart `In Progress` WIs with no branch; re-run the integration check fresh. The drain loop deliberately produces the *same* artifacts the single-WI path always produced.
@@ -162,11 +164,14 @@ Same-file/different-hunk edits resolve cleanly here and are dismissed. Only true
 
 No agent-mocking harness exists; logic lives in agent prompts + control flow. Strategy = **pure-function unit coverage + staged live rollout.**
 
-**Pure functions to extract + unit-test:**
+**Pure functions to unit-test.** The README mandates the workflow stay **one file, no imports** — so helpers are **not** extracted to a module. They live inline in `auto-build-wi.js`, fenced by `// ===PURE-HELPERS-START===` / `// ===PURE-HELPERS-END===` sentinels; the test file reads the source, slices that block, and evaluates it in an isolated scope (Node's `vm.runInNewContext` on the trusted version-controlled slice). Functions covered:
 - `computeBuildConcurrency(cores, override)` — the clamp/floor math; table-test 1/2/4/8/16/32 cores + override.
-- `nextReadyWI(state)` selection — respects claimed-set, capacity, sequencing/blocker gates; returns null when dry.
+- `selectNextWi(candidates, claimedIds, currentInProgress, activeCap)` — pure selection: respects claimed-set, capacity, pre-applied gate results; returns the WI or null when dry.
 - `detectFileOverlap(filesA, filesB)` — set intersection, disjoint vs. overlapping.
-- Existing pure gate helpers (`parseSequence`, `topSegment`, `isBlockerSatisfied`, `extractBlockers`) — add cases for the "re-query each pull surfaces newly-unblocked siblings" path.
+- `pickReconcileBase(branchA, branchB)` — smaller changed-file count wins; tiebreak later head commit.
+- Existing pure gate helpers (`parseSequence`, `topSegment`, `isBlockerSatisfied`, `extractBlockers`) move inside the sentinel fence unchanged so they're testable too.
+
+Test runner: `node --test` (Node ≥ 22, already the repo toolchain). Test file: `.claude/workflows/auto-build-wi.helpers.test.mjs`.
 
 **Staged live rollout:**
 1. **Dry-run** (`args.dryRun: true`) — full session but stop before any GUS write / branch push; log what *would* be claimed at what concurrency. Verifies selection + capacity + gating against real GUS, zero side effects.
