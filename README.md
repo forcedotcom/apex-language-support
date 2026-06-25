@@ -398,6 +398,69 @@ The workflows require several tools and dependencies:
 - **GitHub CLI**: For creating releases
 - **VSCE/OVSX**: For publishing to marketplaces
 
+## Parallel Build Workflow (auto-build-wi)
+
+The `.claude/workflows/auto-build-wi.js` workflow implements a parallel, deterministic work-item builder for the Apex Language Support project. It automates the end-to-end process of claiming work items from GUS, building them in parallel, and reconciling merge conflicts across session branches.
+
+### Architecture
+
+The workflow employs a bounded K-worker pool that drains ready work items:
+
+1. **Candidate Gating**: Re-queries GUS each pull to surface newly-unblocked work. Gates are:
+   - Blocker dependencies (hard-blocked WIs detected in code)
+   - Sequencing constraints (numeric ordering within epics; siblings run in parallel)
+   - PR state validation (closed PRs are re-queued; open PRs are skipped)
+
+2. **Pool Selection**: Pure deterministic picker (`selectNextWi`) orders by story points (null→5) with oldest `createdDate` as tiebreak, ensuring stable, fair pulling across restarts.
+
+3. **Build Isolation**: Each work item's full pipeline (claim → plan → build → review → PR) runs in try/catch, preventing one WI's failure from aborting the pool.
+
+4. **Integration Check**: Post-drain collision detection across session-built and in-flight PR branches:
+   - Cheap overlap filter using changed-file sets
+   - Dry-run merge in throwaway worktree to detect real conflicts
+   - Plan-aware reconciliation (reads both plans by intent; resolves by composition, not just text)
+   - Escalation to runner on failure (Slack DM + PR marker comment)
+
+5. **Resume Safety**: All ordering uses git metadata (`rev-list` count for branch rank, `createdDate` for WI age), not clocks, enabling transparent session restarts.
+
+### Core Helpers
+
+The workflow includes pure, tested helpers extracted into a sentinel-fenced block:
+
+- `computeBuildConcurrency(cores, override)`: Derives K from machine core count with configurable override
+- `detectFileOverlap(filesA, filesB)`: Pre-merge collision filter
+- `pickReconcileBase(a, b)`: Deterministic reconcile-base picker (smaller diff wins; newer head breaks ties)
+- `selectNextWi(candidates, claimedIds, inProgress, cap)`: Pool-selection logic (story-point + age ordering)
+- `parseSequence`, `topSegment`, `isBlockerSatisfied`, `extractBlockers`: Sequencing and blocker gate helpers
+
+All helpers are tested via `.claude/workflows/auto-build-wi.helpers.test.mjs` using a node:test harness that extracts and evaluates the fenced block in isolation.
+
+### Configuration
+
+```javascript
+// Parallelism
+--buildConcurrency <K>              override the cores-derived K (default: auto-detect)
+--maxInFlight <N>                   max in-flight WIs (default: 5)
+
+// Token budget
+PER_BUILD_TOKEN_RESERVE = 150000    soft budget per WI build to prevent exhaustion
+
+// Sequencing
+[ai-auto] <dotted-number> <subject> dotted-number prefix in WI subject (e.g., "1.2 Add loader")
+                                    orders work within epics; siblings run in parallel
+```
+
+### Integration with GUS and GitHub
+
+The workflow integrates with:
+
+- **GUS (Salesforce Work Item Tracker)**: Queries candidates, monitors in-flight PRs, persists PR URLs
+- **GitHub**: Creates draft PRs, detects merged work, reconciles branch conflicts, escalates failures
+
+All agent calls use Claude with model selection per task (haiku for queries/metadata, sonnet for picking/probing, opus for reconciliation).
+
+For full implementation details and sequences, see `.claude/workflows/auto-build-wi.js` and `.claude/plans/auto-build-wi.md`.
+
 ## License
 
 Licensed under the BSD 3-Clause license.
