@@ -50,6 +50,17 @@ const REVIEW_SKILL_DENYLIST = [
 const REVIEW_CHANNEL_ID = 'C054SJJAB24'
 const PR_URL_RE = /https?:\/\/github\.com\/forcedotcom\/apex-language-support\/pull\/\d+/g
 
+// Slack MCP tools are namespaced differently per runner depending on how Slack was installed:
+// a PLUGIN install exposes mcp__plugin_slack_slack__<tool>, while a DIRECT mcpServers entry
+// exposes the bare mcp__slack__<tool>. A subagent handed one fixed name will fail on a runner
+// that has the other (and a weak model then fabricates "sent"/"prepared" instead of skipping).
+// These hints make the agent DISCOVER the tool by suffix via ToolSearch, accept either prefix,
+// and fail honestly. Interpolate into any prompt that touches Slack.
+const SLACK_SEND_HINT =
+  'the Slack send-message MCP tool — find it with ToolSearch (keyword "slack send message") and call whichever tool resolves whose name ends in "slack_send_message" (it may be mcp__plugin_slack_slack__slack_send_message OR the bare mcp__slack__slack_send_message, depending on how this runner installed Slack). If NO such tool resolves, skip the Slack step and report it truthfully in `detail` ("slack-skipped: no Slack MCP send tool") — never claim a message was sent or "prepared" when it was not, and never scan env vars or config files for Slack tokens'
+const SLACK_SEARCH_HINT =
+  'the Slack search MCP tool — find it with ToolSearch (keyword "slack search public") and call whichever resolves whose name ends in "slack_search_public" (mcp__plugin_slack_slack__slack_search_public OR bare mcp__slack__slack_search_public). If none resolves, skip this best-effort step'
+
 // Single-run guard: overlapping /loop ticks must NOT run concurrently. The Claude Code
 // scheduler's own .claude/scheduled_tasks.lock only enforces one scheduler per project — it
 // does NOT gate this tick's workflow against the previous tick's still-running workflow
@@ -780,8 +791,8 @@ Steps (idempotent):
    sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Closed'"
 2. Remove worktree if present: 'git worktree remove ${wt} --force'.
 3. Delete local branch if present: from ${identity.projectRoot}, 'git branch -D ${branch}' (ignore failure if branch doesn't exist).
-4. Find the review-request Slack message and mark it merged: use mcp__slack__slack_search_public to search "PR ready for review ${r.wi.name}" in channel ${REVIEW_CHANNEL_ID}, take the matching message's ts.
-5. If found, add a :merge: reaction to that message (mcp__slack__slack_send_message reaction, or the reactions API) so reviewers see it landed. Best-effort — ignore failure.
+4. Find the review-request Slack message and mark it merged: use ${SLACK_SEARCH_HINT}, searching "PR ready for review ${r.wi.name}" in channel ${REVIEW_CHANNEL_ID}, take the matching message's ts.
+5. If found, add a :merge: reaction to that message (via the resolved Slack MCP tool's reaction capability, or the reactions API) so reviewers see it landed. Best-effort — ignore failure.
 
 Return {ok: true, detail} summarizing changes.`
 }
@@ -814,7 +825,7 @@ const planOnlyPrPrompt = (r, identity) => {
 2. Close the PR: 'gh pr close ${r.wi.prUrl} --delete-branch' (this also deletes the remote branch ${branch}).
 3. Bounce the WI back so the next tick rebuilds:
    sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Waiting'"
-4. DM the runner (Slack ID ${identity.slackId}) via mcp__slack__slack_send_message: "♻️ ${r.wi.name}: closed plan-only PR (no real diff), bounced to Waiting for rebuild. ${r.wi.prUrl}". Best-effort.
+4. DM the runner (Slack ID ${identity.slackId}, used as channel_id) via ${SLACK_SEND_HINT}. Message: "♻️ ${r.wi.name}: closed plan-only PR (no real diff), bounced to Waiting for rebuild. ${r.wi.prUrl}". Best-effort.
 
 Return {ok: true, detail} summarizing changes.`
 }
@@ -844,8 +855,8 @@ Return ONLY the structured result.`
 const dmCiFailurePrompt = (r, identity) =>
   `DM the runner about a CI failure that needs human attention.
 
-Slack ID: ${identity.slackId}
-Use mcp__slack__slack_send_message to send a DM with content:
+Slack ID: ${identity.slackId} (used as channel_id for the DM)
+Use ${SLACK_SEND_HINT}. Message content:
 "⚠️ ${r.wi.name} CI failed after rerun budget exhausted (route=${r.triage.route}): ${r.triage.summary}\nPR: ${r.wi.prUrl}"
 
 Return {ok: true} on success.`
@@ -891,7 +902,7 @@ Steps (idempotent; skip work if already current):
 2. cd worktree && git fetch origin main
 3. If 'git rev-list --count HEAD..origin/main' is 0, return {ok: true, detail: "already current"}.
 4. git merge origin/main --no-edit
-5. Conflicts → apply .claude/skills/merge-conflicts/SKILL.md best-effort. Unresolvable → 'git merge --abort' and DM ${identity.slackId} via mcp__slack__slack_send_message: "⚠️ ${r.wi.name} merge conflict with main — manual intervention needed\\nWorktree: <path>\\nPR: ${r.wi.prUrl}". Return {ok: false, detail: "merge-conflict-unresolved"}.
+5. Conflicts → apply .claude/skills/merge-conflicts/SKILL.md best-effort. Unresolvable → 'git merge --abort' and DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message: "⚠️ ${r.wi.name} merge conflict with main — manual intervention needed\\nWorktree: <path>\\nPR: ${r.wi.prUrl}". Return {ok: false, detail: "merge-conflict-unresolved"}.
 6. If package-lock.json changed, run 'npm install'.
 7. git push
 
@@ -918,9 +929,9 @@ Steps (idempotent):
    - gh pr view ${r.wi.prUrl} --json reviewRequests --jq '.reviewRequests[].login'
    - For each existing reviewer that isn't ${identity.githubLogin}: 'gh pr edit ${r.wi.prUrl} --remove-reviewer <login>'
    - 'gh pr edit ${r.wi.prUrl} --add-reviewer ${identity.githubLogin}' (if not already)
-4. Slack post in #ide-exp-code-review (channel ${REVIEW_CHANNEL_ID}) tagging the runner:
+4. Slack post in #ide-exp-code-review (channel_id ${REVIEW_CHANNEL_ID}) tagging the runner:
    "<@${identity.slackId}> PR ready for review: <${r.wi.prUrl}|PR> (${r.wi.name})"
-   Use mcp__slack__slack_send_message.
+   Use ${SLACK_SEND_HINT}.
 5. Remove the worktree: 'git worktree remove ${wt} --force' (if present).
 
 Return {ok: true, detail} where detail summarizes what changed.`
@@ -1085,7 +1096,7 @@ const bouncePlanPrompt = (chosen, planResult, identity) => {
 Steps:
 1. Update WI:
    sf data update record -s ADM_Work__c -i ${chosen.wiId} -o gus -v "Status__c='Waiting'"
-2. DM ${identity.slackId} via mcp__slack__slack_send_message:
+2. DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
    "🚧 ${chosen.name} bounced to Waiting (plan blocked): ${chosen.subject}\\nQuestions:\\n${(planResult.blocked && planResult.blocked.questions || []).map(q => `• ${q}`).join('\\n')}\\nRun /grill-me to refine."
 3. Remove worktree: 'git worktree remove ${wt} --force'.
 Return {ok: true}.`
@@ -1183,7 +1194,7 @@ const bounceBuildPrompt = (chosen, buildResult, identity) => {
 
 Steps:
 1. Update WI: sf data update record -s ADM_Work__c -i ${chosen.wiId} -o gus -v "Status__c='Waiting'"
-2. DM ${identity.slackId} via mcp__slack__slack_send_message:
+2. DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
    "⚠️ ${chosen.name} build stuck: ${(buildResult.reason || '').replace(/"/g, "'")}\\nWorktree: ${wt}\\nBranch: ${branch}"
 Return {ok: true}.`
 }
@@ -1364,7 +1375,7 @@ Return {ok: true}.`
 const escalateConflictPrompt = (wiA, wiB, conflictedFiles, urlA, urlB, identity) =>
   `Auto-reconcile FAILED between ${wiA.name} and ${wiB.name}. Escalate to the runner (best-effort).
 1. Dedupe: 'gh pr view ${urlA} --json comments' — if a comment already contains "auto-reconcile failed" for ${wiB.name}, skip the DM (return {ok: true, detail: "already-escalated"}).
-2. Else Slack-DM ${identity.slackId} via mcp__slack__slack_send_message:
+2. Else Slack-DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
    "⚠️ auto-reconcile failed: ${wiA.name} ↔ ${wiB.name} conflict in ${conflictedFiles.join(', ')} — manual merge needed.\\n${urlA}\\n${urlB}"
 3. Post a one-line marker comment on ${urlA}: "auto-reconcile failed vs ${wiB.name} — escalated for manual merge".
 Return {ok: true}. Never error.`
