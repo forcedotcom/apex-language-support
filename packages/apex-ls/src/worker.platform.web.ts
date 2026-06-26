@@ -762,14 +762,20 @@ async function loadSymbolDataForEnrichment(
           // on-demand name lookup, so the symbol is enough for them — but the
           // requesting file's TypeReference is still unresolved (no
           // resolvedSymbolId, no reverse-index edge). Materialize those edges
-          // now so reverse-index consumers see them too. Gated on a real
-          // ingest, and resolveCrossFileReferencesForFile is re-entrancy-guarded
-          // + addReference de-dupes, so this is near-free when nothing landed.
-          if (ingested > 0) {
-            await Effect.runPromise(
-              svc.symbolManager.resolveCrossFileReferencesForFile(uri),
-            );
-          }
+          // now so reverse-index + position-precise consumers see them too.
+          //
+          // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
+          // earlier ResolveDepUris pass may have already loaded every dep, which
+          // makes that count 0 even though the cursor file's references are
+          // still unbound. find-references' 'precise' position→symbol lookup
+          // needs those bindings (unlike hover/definition's on-demand by-name
+          // resolution), so resolve whenever ANY class dep was requested.
+          // resolveCrossFileReferencesForFile is re-entrancy-guarded and
+          // addReference de-dupes, so this is near-free when nothing changed.
+          void ingested;
+          await Effect.runPromise(
+            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+          );
         }
       }
     }
@@ -973,6 +979,121 @@ export async function loadDependentsForReferences(
       () => `[REFERENCES] Dependent pre-fetch failed for ${uri}: ${err}`,
     );
     return 0;
+  }
+}
+
+/**
+ * Recompile the cursor file at FULL detail into the worker's local symbol
+ * manager, then resolve its cross-file references. See the Node platform's
+ * {@link recompileCursorFileAtFullDetail} for the full rationale: the
+ * data-owner serves public-api (method bodies stripped), so a cursor on an
+ * in-body usage resolves to nothing and Find References returns []. Recompiling
+ * from the live document text (as documentSymbol does) restores the in-body
+ * references for position→symbol resolution.
+ *
+ * Best-effort: a missing/uncompilable document leaves the public-api graph in
+ * place and Find References proceeds with whatever it has.
+ */
+export async function recompileCursorFileAtFullDetail(
+  svc: RequestServices,
+  uri: string,
+  content?: string,
+): Promise<boolean> {
+  if (!content) return false;
+  try {
+    const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const table = new SymbolTable();
+    const listener = new FullSymbolCollectorListener(table);
+    const result = new CompilerService().compile(content, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const st = result?.result instanceof SymbolTable ? result.result : table;
+    await Effect.runPromise(svc.symbolManager.addSymbolTable(st, uri));
+    await Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    return true;
+  } catch (err) {
+    getLogger().debug(
+      () => `[REFERENCES] Full-detail recompile failed for ${uri}: ${err}`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Load the symbol tables of every TYPE the cursor file references, regardless of
+ * resolvedSymbolId. See the Node platform's {@link loadReferencedTypesForFile}
+ * for the full rationale: Find References needs the referenced type's table
+ * PRESENT to enumerate its own references, but the resolved-only prefetch skips
+ * already-resolved type references.
+ */
+export async function loadReferencedTypesForFile(
+  svc: RequestServices,
+  uri: string,
+): Promise<number> {
+  try {
+    const { ReferenceContext } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const st = await svc.symbolManager.getSymbolTableForFile(uri);
+    if (!st) return 0;
+    const refs = (
+      st as unknown as {
+        getAllReferences: () => Array<{ name: string; context: number }>;
+      }
+    ).getAllReferences();
+    const typeNames = new Set<string>();
+    for (const ref of refs) {
+      if (
+        ref.context === ReferenceContext.CLASS_REFERENCE ||
+        ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        ref.context === ReferenceContext.TYPE_DECLARATION
+      ) {
+        typeNames.add(
+          ref.name.includes('.') ? ref.name.split('.')[0] : ref.name,
+        );
+      }
+    }
+    if (typeNames.size === 0) return 0;
+    const ingested = await resolveMissingNamesViaDataOwner(svc, [...typeNames]);
+    await Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    return ingested;
+  } catch (err) {
+    getLogger().debug(
+      () => `[REFERENCES] Referenced-type load failed for ${uri}: ${err}`,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Resolve the symbol under the cursor and return the file URI it is DECLARED
+ * in (or null to fall back to the cursor file). See the Node platform's
+ * {@link declaringFileForCursorSymbol} for the full rationale.
+ */
+async function declaringFileForCursorSymbol(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<string | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = await svc.symbolManager.getSymbolAtPosition(
+      uri,
+      parserPosition,
+      'precise',
+    );
+    const fileUri = (symbol as { fileUri?: string } | null)?.fileUri;
+    return fileUri && fileUri !== uri ? fileUri : null;
+  } catch {
+    return null;
   }
 }
 
@@ -1202,14 +1323,50 @@ const requestHandlers = {
     async (svc, req) => {
       // Mirror the hover/definition enrichment shape:
       //   load symbol data → load caller-side dependents → process → write back.
+      // Thread req.content so the pool worker's storage holds the document:
+      // ReferencesProcessingService maps the cursor position to a symbol via
+      // storage.getDocument(), and returns [] when it's absent. The stateless
+      // pool worker has no document otherwise (same as documentSymbol).
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
+        req.content,
       );
 
-      // Find References needs the caller-side tables (files that reference the
-      // target's symbols), which loadSymbolDataForEnrichment does not fetch.
-      await loadDependentsForReferences(svc, req.textDocument.uri);
+      // Recompile the cursor file at FULL detail so its in-body references
+      // exist for position→symbol resolution. The data-owner serves public-api
+      // (bodies stripped), so without this a cursor on an in-body usage
+      // resolves to nothing and Find References returns [].
+      await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Load the tables of every TYPE the cursor file references — even ones the
+      // data-owner already resolved. Find References needs the target type's
+      // table present to enumerate its references (see the Node platform).
+      await loadReferencedTypesForFile(svc, req.textDocument.uri);
+
+      // Load the caller-side tables (files that reference the TARGET symbol).
+      // The target may be declared in a DIFFERENT file than the cursor; resolve
+      // the cursor to its symbol, then load dependents of that symbol's
+      // DECLARING file (see the Node platform for the full rationale). Falls
+      // back to the cursor file when the symbol can't be determined.
+      const targetUri = await declaringFileForCursorSymbol(
+        svc,
+        req.textDocument.uri,
+        req.position,
+      );
+      await loadDependentsForReferences(svc, targetUri ?? req.textDocument.uri);
+
+      // Re-assert the cursor file at full detail in case loadDependents
+      // re-ingested it at public-api. Idempotent + bounded.
+      await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
 
       // References resolve against protected members of dependent files, so a
       // 'protected' detail level matches the existing service behavior (see
@@ -1688,12 +1845,19 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 sm.getSymbolTableForFile(uri),
               );
               if (st) {
-                entries[uri] = cloneForWire({
+                // Key by the table's CANONICAL fileUri, not the schemeless
+                // lookup `uri` (findFilesForSymbol strips `file://`). Keying by
+                // `uri` makes the requesting worker ingest under a URI that
+                // never matches its references' targets, so cross-file edges
+                // fail to bind and find-references returns []. See the Node
+                // platform handler for the full rationale.
+                const canonicalUri = st.getFileUri();
+                entries[canonicalUri] = cloneForWire({
                   symbols: st.getAllSymbols(),
                   references: st.getAllReferences(),
                   hierarchicalReferences: st.getAllHierarchicalReferences(),
                   metadata: st.getMetadata(),
-                  fileUri: st.getFileUri(),
+                  fileUri: canonicalUri,
                 });
               }
             }
