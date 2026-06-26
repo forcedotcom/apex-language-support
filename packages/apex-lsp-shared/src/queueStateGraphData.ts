@@ -26,6 +26,7 @@
 
 import type { Diagnostic } from 'vscode-languageserver';
 import { Priority } from './types/priority';
+import type { EnumPrimitive } from './enumUtils';
 
 /**
  * Worker topology status, present when language-server workers are enabled.
@@ -167,8 +168,11 @@ export interface GraphNodeShape {
  * Graph edge — structurally mirrors apex-parser-ast `GraphEdge`
  * (`types/graph.ts`). `type` carries an apex-parser-ast `ReferenceType` value;
  * since that const object lives in parser-ast it is modelled here as
- * `string | number` (an `EnumValue<typeof ReferenceType>` is a numeric literal
- * union, assignable to `number`).
+ * `EnumPrimitive | undefined`. The runtime `GraphEdge.type` is
+ * `EnumValue<typeof ReferenceType>`, which widens to
+ * `EnumPrimitive | undefined` (string | number | boolean | symbol | undefined)
+ * — NOT `string | number`, so the broader `EnumPrimitive | undefined` is the
+ * type the shared shape must use to genuinely model the runtime type.
  */
 export interface GraphEdgeShape {
   /** Unique identifier for the edge */
@@ -178,7 +182,7 @@ export interface GraphEdgeShape {
   /** Target node ID */
   target: string;
   /** Reference type (apex-parser-ast ReferenceType value) */
-  type: string | number;
+  type: EnumPrimitive | undefined;
   /** Source file URI */
   sourceFileUri: string;
   /** Target file URI */

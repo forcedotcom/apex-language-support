@@ -55,89 +55,74 @@ import type {
 import type { DiagnosticGraphCorrelation } from '../../src/types/diagnosticGraph';
 
 /**
- * Resolves to `From` only when `From` is assignable to `To`; otherwise resolves
- * to `never`, which makes the corresponding `const` declaration fail to
- * type-check.
+ * Compile-time assignability check. `IsAssignable<To, From>` resolves to the
+ * literal `true` only when `From` is assignable to `To`, else `false`. The
+ * tuple wrappers (`[From] extends [To]`) make the check non-distributive so
+ * unions are compared as a whole. `Expect<T extends true>` then constrains its
+ * argument to `true`: feeding it a `false` violates the constraint and `tsc`
+ * errors on that exact line.
+ *
+ * This is the sound replacement for the earlier `null as unknown as never`
+ * cast, which always type-checked (so the gate caught nothing). Each
+ * `_AssertX` alias below is the actual gate — a divergence makes its line a
+ * concrete `tsc` error at typecheck time.
  */
-type Assignable<To, From> = From extends To ? From : never;
+type IsAssignable<To, From> = [From] extends [To] ? true : false;
+type Expect<T extends true> = T;
 
 // --- apex/queueState ---------------------------------------------------------
 
 // Local params/result must be assignable to the shared contract.
-type AssertQueueStateParams = Assignable<
-  SharedQueueStateParams,
-  LocalQueueStateParams
+type _AssertQueueStateParams = Expect<
+  IsAssignable<SharedQueueStateParams, LocalQueueStateParams>
 >;
-type AssertQueueStateResult = Assignable<
-  SharedQueueStateResult,
-  LocalQueueStateResponse
+type _AssertQueueStateResult = Expect<
+  IsAssignable<SharedQueueStateResult, LocalQueueStateResponse>
 >;
 // Params are structurally identical, so the reverse direction also holds
 // (non-breaking in both directions).
-type AssertQueueStateParamsReverse = Assignable<
-  LocalQueueStateParams,
-  SharedQueueStateParams
+type _AssertQueueStateParamsReverse = Expect<
+  IsAssignable<LocalQueueStateParams, SharedQueueStateParams>
 >;
 
 // The parser-ast runtime metrics shape backs the shared SchedulerMetricsShape.
-type AssertSchedulerMetrics = Assignable<
-  SchedulerMetricsShape,
-  SchedulerMetrics
+type _AssertSchedulerMetrics = Expect<
+  IsAssignable<SchedulerMetricsShape, SchedulerMetrics>
 >;
 
 // --- apex/graphData ----------------------------------------------------------
 
-type AssertGraphDataParams = Assignable<
-  SharedGraphDataParams,
-  LocalGraphDataParams
+type _AssertGraphDataParams = Expect<
+  IsAssignable<SharedGraphDataParams, LocalGraphDataParams>
 >;
-type AssertGraphDataParamsReverse = Assignable<
-  LocalGraphDataParams,
-  SharedGraphDataParams
+type _AssertGraphDataParamsReverse = Expect<
+  IsAssignable<LocalGraphDataParams, SharedGraphDataParams>
 >;
-type AssertGraphDataResult = Assignable<
-  SharedGraphDataResult,
-  LocalGraphDataResponse
+type _AssertGraphDataResult = Expect<
+  IsAssignable<SharedGraphDataResult, LocalGraphDataResponse>
 >;
 
 // The parser-ast runtime graph shapes back the shared *Shape types.
-type AssertGraphData = Assignable<GraphDataShape, GraphData>;
-type AssertFileGraphData = Assignable<FileGraphDataShape, FileGraphData>;
-type AssertTypeGraphData = Assignable<TypeGraphDataShape, TypeGraphData>;
-type AssertGraphNode = Assignable<GraphNodeShape, GraphNode>;
-type AssertGraphEdge = Assignable<GraphEdgeShape, GraphEdge>;
+type _AssertGraphData = Expect<IsAssignable<GraphDataShape, GraphData>>;
+type _AssertFileGraphData = Expect<
+  IsAssignable<FileGraphDataShape, FileGraphData>
+>;
+type _AssertTypeGraphData = Expect<
+  IsAssignable<TypeGraphDataShape, TypeGraphData>
+>;
+type _AssertGraphNode = Expect<IsAssignable<GraphNodeShape, GraphNode>>;
+type _AssertGraphEdge = Expect<IsAssignable<GraphEdgeShape, GraphEdge>>;
 
 // The local diagnostic-graph correlation backs the shared *Shape type.
-type AssertDiagnosticGraphCorrelation = Assignable<
-  DiagnosticGraphCorrelationShape,
-  DiagnosticGraphCorrelation
+type _AssertDiagnosticGraphCorrelation = Expect<
+  IsAssignable<DiagnosticGraphCorrelationShape, DiagnosticGraphCorrelation>
 >;
-
-/**
- * Materialises each assertion: `1 satisfies 1` only type-checks while the
- * corresponding `AssertX` alias is NOT `never` (the alias equals its `From`
- * type when assignable). Listed so an accidental divergence surfaces as a
- * concrete failing line.
- */
-const assertions = [
-  null as unknown as AssertQueueStateParams,
-  null as unknown as AssertQueueStateParamsReverse,
-  null as unknown as AssertQueueStateResult,
-  null as unknown as AssertSchedulerMetrics,
-  null as unknown as AssertGraphDataParams,
-  null as unknown as AssertGraphDataParamsReverse,
-  null as unknown as AssertGraphDataResult,
-  null as unknown as AssertGraphData,
-  null as unknown as AssertFileGraphData,
-  null as unknown as AssertTypeGraphData,
-  null as unknown as AssertGraphNode,
-  null as unknown as AssertGraphEdge,
-  null as unknown as AssertDiagnosticGraphCorrelation,
-];
 
 describe('shared QueueState/GraphData protocol types', () => {
   it('keeps local queue/graph shapes assignable to the shared contract', () => {
-    // Verification is compile-time (above). This asserts the file ran.
-    expect(assertions).toHaveLength(13);
+    // The real verification is the compile-time `_AssertX` aliases above; if
+    // any local shape diverges from the shared contract, `tsc` fails on its
+    // line at typecheck time. This runtime assertion just gives jest a body.
+    expect(true).toBe(true);
   });
 });
