@@ -2304,19 +2304,34 @@ if (!lock || !lock.acquired) {
 }
 
 try {
-  await ensureDaemons()
-  await reapStrandedWorktrees(identity)
+  if (modeAllows(MODE, 'maintain')) {
+    await ensureDaemons()
+    await reapStrandedWorktrees(identity)
+  }
 
-  const { inFlightWis, monitorOutcomes } = await monitorInFlight(identity)
+  // Monitor only when the mode allows it. When skipped (approve mode), the
+  // outputs default to empties so classifyMonitor and every `if (toX.length)`
+  // guard below stay correct without special-casing.
+  let inFlightWis = []
+  let monitorOutcomes = []
+  if (modeAllows(MODE, 'monitor')) {
+    ;({ inFlightWis, monitorOutcomes } = await monitorInFlight(identity))
+  }
   const { toFinalize, toTriage, toRestart, toCloseWi, toPlanOnly, toRefresh } =
     classifyMonitor(monitorOutcomes)
 
-  if (toCloseWi.length) await closeMergedWis(toCloseWi, identity)
-  if (toPlanOnly.length) await handlePlanOnlyPrs(toPlanOnly, identity)
-  if (toTriage.length) await triageAndFixCi(toTriage, identity)
-  if (toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
-  if (toFinalize.length) await openForReview(toFinalize, identity)
+  if (modeAllows(MODE, 'maintain') && toCloseWi.length) await closeMergedWis(toCloseWi, identity)
+  if (modeAllows(MODE, 'maintain') && toPlanOnly.length) await handlePlanOnlyPrs(toPlanOnly, identity)
+  if (modeAllows(MODE, 'build') && toTriage.length) await triageAndFixCi(toTriage, identity)
+  if (modeAllows(MODE, 'build') && toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
+  if (modeAllows(MODE, 'maintain') && toFinalize.length) await openForReview(toFinalize, identity)
   await peerApprove(identity)
+
+  // The produce side — restart, drain, integration check — is full-only.
+  // approve/steward return after peer-approve with nothing built.
+  if (!modeAllows(MODE, 'build')) {
+    return { exited: 'drained', mode: MODE, builtCount: 0, built: [], finalized: toFinalize.length }
+  }
 
   // Restart any stranded no-PR in-flight WI first (single, like today), then drain.
   const restartingWi = toRestart.length ? toRestart[0].wi : null
@@ -2345,6 +2360,7 @@ try {
 
   return {
     exited: 'drained',
+    mode: MODE,
     builtCount: built.length,
     built: built.map(r => ({ wi: r.wi.name, outcome: r.outcome, prUrl: r.prUrl || null })),
     finalized: toFinalize.length,
