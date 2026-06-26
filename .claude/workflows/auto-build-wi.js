@@ -623,6 +623,24 @@ const modeAllows = (mode, key) => {
   const caps = MODE_CAPS[mode]
   return caps ? caps[key] === true : false
 }
+
+const classifyMonitor = monitorOutcomes => ({
+  toFinalize: monitorOutcomes.filter(r => r && r.decision === 'finalize'),
+  toTriage: monitorOutcomes.filter(r => r && r.decision === 'triage'),
+  toRestart: monitorOutcomes.filter(
+    r => r && (r.decision === 'no-pr-restart' || r.action === 'no-pr-restart')
+  ),
+  toCloseWi: monitorOutcomes.filter(r => r && r.decision === 'close-wi'),
+  toPlanOnly: monitorOutcomes.filter(r => r && r.decision === 'plan-only'),
+  toRefresh: monitorOutcomes.filter(
+    r =>
+      r &&
+      r.wi.prUrl &&
+      r.prState &&
+      r.prState.mergeable === 'CONFLICTING' &&
+      r.decision !== 'close-wi'
+  ),
+})
 // ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
@@ -661,24 +679,6 @@ const normalizeFindings = (skillFindings, skillsToCheck, thermo, effectDiffRevie
   }))
   return [...skill, ...thermoF, ...effectF]
 }
-
-const classifyMonitor = monitorOutcomes => ({
-  toFinalize: monitorOutcomes.filter(r => r && r.decision === 'finalize'),
-  toTriage: monitorOutcomes.filter(r => r && r.decision === 'triage'),
-  toRestart: monitorOutcomes.filter(
-    r => r && (r.decision === 'no-pr-restart' || r.action === 'no-pr-restart')
-  ),
-  toCloseWi: monitorOutcomes.filter(r => r && r.decision === 'close-wi'),
-  toPlanOnly: monitorOutcomes.filter(r => r && r.decision === 'plan-only'),
-  toRefresh: monitorOutcomes.filter(
-    r =>
-      r &&
-      r.wi.prUrl &&
-      r.prState &&
-      r.prState.mergeable === 'CONFLICTING' &&
-      r.decision !== 'close-wi'
-  ),
-})
 
 // =====================================================================
 // PROMPTS

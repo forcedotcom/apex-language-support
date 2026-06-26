@@ -19,7 +19,7 @@ function loadHelpers() {
   const exportNames = [
     'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers', 'computeBuildConcurrency',
     'detectFileOverlap', 'pickReconcileBase', 'selectNextWi',
-    'resolveMode', 'MODE_CAPS', 'modeAllows',
+    'resolveMode', 'MODE_CAPS', 'modeAllows', 'classifyMonitor',
   ]
   const exportTail = exportNames.map(n => `this.${n} = ${n};`).join('\n')
   vm.runInNewContext(block + '\n' + exportTail, ctx)
@@ -186,4 +186,34 @@ test('modeAllows: unknown mode or key is false (never throws)', () => {
   const h = loadHelpers()
   assert.equal(h.modeAllows('bogus', 'build'), false)
   assert.equal(h.modeAllows('full', 'bogus'), false)
+})
+
+test('classifyMonitor: empty outcomes yield all-empty partitions (approve/steward safety)', () => {
+  const h = loadHelpers()
+  const c = h.classifyMonitor([])
+  assert.deepEqual(c.toFinalize, [])
+  assert.deepEqual(c.toTriage, [])
+  assert.deepEqual(c.toRestart, [])
+  assert.deepEqual(c.toCloseWi, [])
+  assert.deepEqual(c.toPlanOnly, [])
+  assert.deepEqual(c.toRefresh, [])
+})
+
+test('classifyMonitor: partitions by decision and CONFLICTING mergeable', () => {
+  const h = loadHelpers()
+  const outcomes = [
+    { decision: 'finalize', wi: { prUrl: 'u1' } },
+    { decision: 'close-wi', wi: { prUrl: 'u2' } },
+    { decision: 'plan-only', wi: { prUrl: 'u3' } },
+    { decision: 'triage', wi: { prUrl: 'u4' } },
+    { decision: 'no-pr-restart', wi: { prUrl: null } },
+    { decision: 'wait', wi: { prUrl: 'u5' }, prState: { mergeable: 'CONFLICTING' } },
+  ]
+  const c = h.classifyMonitor(outcomes)
+  assert.equal(c.toFinalize.length, 1)
+  assert.equal(c.toCloseWi.length, 1)
+  assert.equal(c.toPlanOnly.length, 1)
+  assert.equal(c.toTriage.length, 1)
+  assert.equal(c.toRestart.length, 1)
+  assert.equal(c.toRefresh.length, 1)
 })
