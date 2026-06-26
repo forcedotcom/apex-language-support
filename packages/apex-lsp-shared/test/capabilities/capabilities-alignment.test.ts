@@ -304,6 +304,73 @@ describe('Capabilities Alignment Tests', () => {
     });
   });
 
+  describe('Experimental Capability Name Alignment', () => {
+    // Regression guard: the client must advertise the same experimental
+    // capability *names* the server reads. A prior bug had the client
+    // advertise `findMissingArtifactHandler` while the server expected
+    // `findMissingArtifactProvider`, so the capability was silently never
+    // honored. Snapshot tests alone don't catch this (they auto-update), so
+    // assert the key alignment programmatically.
+    const modes = [
+      {
+        mode: 'production' as const,
+        client: PRODUCTION_CLIENT_CAPABILITIES,
+        server: PRODUCTION_CAPABILITIES,
+      },
+      {
+        mode: 'development' as const,
+        client: DEVELOPMENT_CLIENT_CAPABILITIES,
+        server: DEVELOPMENT_CAPABILITIES,
+      },
+    ];
+
+    modes.forEach(({ mode, client, server }) => {
+      it(`client experimental keys are a subset of server experimental keys (${mode})`, () => {
+        const clientKeys = Object.keys(client.experimental ?? {});
+        const serverKeys = Object.keys(server.experimental ?? {});
+
+        // Every experimental capability the client advertises must be a name
+        // the server knows about, otherwise the advertisement is dead weight.
+        clientKeys.forEach((key) => {
+          expect(serverKeys).toContain(key);
+        });
+      });
+
+      it(`client and server agree on the findMissingArtifactProvider name (${mode})`, () => {
+        // The exact key that regressed. Assert both sides expose it.
+        expect(client.experimental).toHaveProperty(
+          'findMissingArtifactProvider',
+        );
+        expect(server.experimental).toHaveProperty(
+          'findMissingArtifactProvider',
+        );
+
+        // ...and that the client never reintroduces the old, mismatched name.
+        expect(client.experimental).not.toHaveProperty(
+          'findMissingArtifactHandler',
+        );
+        expect(server.experimental).not.toHaveProperty(
+          'findMissingArtifactHandler',
+        );
+      });
+
+      it(`findMissingArtifactProvider shape matches between client and server (${mode})`, () => {
+        const clientCap = (client.experimental as Record<string, unknown>)
+          ?.findMissingArtifactProvider as Record<string, unknown> | undefined;
+        const serverCap = (server.experimental as Record<string, unknown>)
+          ?.findMissingArtifactProvider as Record<string, unknown> | undefined;
+
+        expect(clientCap).toBeDefined();
+        expect(serverCap).toBeDefined();
+
+        // Both sides must agree on the core negotiated fields so the server
+        // can act on what the client advertises.
+        expect(clientCap?.enabled).toBe(serverCap?.enabled);
+        expect(clientCap?.supportedModes).toEqual(serverCap?.supportedModes);
+      });
+    });
+  });
+
   describe('Configuration Consistency', () => {
     it('should maintain consistent configuration structure', () => {
       const configComparison = {

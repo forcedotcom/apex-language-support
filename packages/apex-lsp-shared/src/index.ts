@@ -56,6 +56,9 @@ export {
 // Export client capabilities
 export * from './client/ApexClientCapabilities';
 
+// Export canonical apex/* method registry
+export * from './methods/ApexCustomMethods';
+
 // Export priority types
 export * from './types/priority';
 

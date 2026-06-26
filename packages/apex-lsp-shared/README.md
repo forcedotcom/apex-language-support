@@ -341,6 +341,45 @@ console.log(summary);
 
 The package defines custom LSP protocol extensions:
 
+#### Canonical `apex/*` Method Registry
+
+`APEX_METHODS` is the single source of truth for every custom `apex/*` method
+exchanged between the Apex language server and its client. Downstream code should
+consume the registry instead of scattering method-name string literals across
+packages. This guards against drift, makes the direction (`clientToServer` vs
+`serverToClient`) and kind (`request` vs `notification`) of each method explicit,
+and records which experimental capability (if any) gates a method along with
+whether it is dev-mode-only.
+
+Each entry is an `ApexMethodDescriptor` with these fields:
+
+- `method` — the wire method string, e.g. `apex/findMissingArtifact`.
+- `direction` — `'clientToServer'` or `'serverToClient'`.
+- `kind` — `'request'` (expects a response) or `'notification'`.
+- `devModeOnly` — `true` when the method is only available in dev mode.
+- `capabilityKey` — optional experimental-capability key that gates the method.
+
+```typescript
+import {
+  APEX_METHODS,
+  getApexMethodDescriptor,
+  isApexMethod,
+  type ApexMethodDescriptor,
+} from '@salesforce/apex-lsp-shared';
+
+// Reference a method by its stable registry id (no string literals).
+const descriptor: ApexMethodDescriptor = APEX_METHODS.findMissingArtifact;
+const methodString = descriptor.method; // 'apex/findMissingArtifact'
+
+// Type guard: is an arbitrary string a canonical apex/* method?
+if (isApexMethod(incomingMethod)) {
+  // narrowed to the ApexMethod string-literal union
+}
+
+// Reverse lookup: descriptor for a wire method string (undefined if unknown).
+const found = getApexMethodDescriptor('apex/profiling/start');
+```
+
 #### Missing Artifact Resolution
 
 ```typescript
