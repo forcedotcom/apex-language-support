@@ -76,7 +76,8 @@
     "test": {
       "command": "jest --json --outputFile=.wireit/test-results.json",
       "dependencies": [
-        "compile"
+        "compile",
+        "typecheck"
       ],
       "output": [
         ".wireit/test-results.json"

@@ -252,7 +252,10 @@ describe('ApexLanguageServerSettings Validation', () => {
               logLevel: 'info',
             },
           },
-        } as Partial<ApexLanguageServerSettings>,
+          // Fixture intentionally omits the newer apex sub-settings
+          // (loadWorkspace/queueProcessing/scheduler); mergeWithDefaults fills
+          // them. Widen through unknown so the partial fixture type-checks.
+        } as unknown as Partial<ApexLanguageServerSettings>,
         'desktop',
       );
 
@@ -343,7 +346,10 @@ describe('ApexLanguageServerSettings Validation', () => {
             logLevel: 'info',
           },
         },
-      } as Partial<ApexLanguageServerSettings>;
+        // Fixture intentionally omits the newer apex sub-settings
+        // (loadWorkspace/queueProcessing/scheduler); the manager fills them.
+        // Widen through unknown so the partial fixture type-checks.
+      } as unknown as Partial<ApexLanguageServerSettings>;
 
       const manager = ApexSettingsManager.getInstance(
         initialSettings,
