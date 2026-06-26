@@ -62,7 +62,7 @@ const BASE_CLIENT_CAPABILITIES: ClientCapabilities = {
     markdown: { parser: 'marked', version: '1.1.0' },
   },
   experimental: {
-    findMissingArtifactHandler: {
+    findMissingArtifactProvider: {
       enabled: true,
       supportedModes: ['blocking', 'background'],
     },
@@ -97,7 +97,7 @@ export const PRODUCTION_CLIENT_CAPABILITIES: ClientCapabilities = {
     // Completion - disabled in production, don't advertise
   },
   experimental: {
-    findMissingArtifactHandler: {
+    findMissingArtifactProvider: {
       enabled: true,
       supportedModes: ['blocking', 'background'],
     },
@@ -162,7 +162,7 @@ export const DEVELOPMENT_CLIENT_CAPABILITIES: ClientCapabilities = {
     },
   },
   experimental: {
-    findMissingArtifactHandler: {
+    findMissingArtifactProvider: {
       enabled: true,
       supportedModes: ['blocking', 'background'],
     },
