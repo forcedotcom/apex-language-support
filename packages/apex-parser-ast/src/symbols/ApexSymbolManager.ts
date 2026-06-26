@@ -766,7 +766,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * an overloaded method's per-arity results don't alias each other.
    */
   private buildReferencesToCacheKey(symbol: ApexSymbol): string {
-    const filePart = symbol.fileUri ?? 'no-file';
+    const filePart = symbol.fileUri
+      ? extractFilePathFromUri(symbol.fileUri)
+      : 'no-file';
     const arityPart = isMethodSymbolNarrowing(symbol)
       ? `:${symbol.parameters?.length ?? 0}`
       : '';
