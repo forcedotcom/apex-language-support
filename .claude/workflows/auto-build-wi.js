@@ -2275,6 +2275,18 @@ const runIntegrationCheck = async (identity, builtBranches, inFlightWis) => {
 // ORCHESTRATION
 // =====================================================================
 
+// Resolve the capability mode FIRST — before identity, before the lock. An
+// invalid value aborts the tick cheaply (no lock held, no GUS touched, no
+// agent spawned). Absent → 'full' (backward compatible).
+let MODE
+try {
+  MODE = resolveMode(args && args.mode)
+} catch (e) {
+  log(`invalid mode ${JSON.stringify(args && args.mode)} — aborting tick (${e.message})`)
+  return { exited: 'bad-mode', requested: String(args && args.mode) }
+}
+log(`mode: ${MODE}`)
+
 const identity = await resolveIdentity()
 if (identity.error || !identity.userId) {
   log(`identity resolution failed: ${identity.error || 'unknown'} — exiting`)
