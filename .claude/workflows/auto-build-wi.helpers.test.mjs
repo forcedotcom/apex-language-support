@@ -19,6 +19,7 @@ function loadHelpers() {
   const exportNames = [
     'parseSequence', 'topSegment', 'isBlockerSatisfied', 'extractBlockers', 'computeBuildConcurrency',
     'detectFileOverlap', 'pickReconcileBase', 'selectNextWi',
+    'resolveMode', 'MODE_CAPS', 'modeAllows',
   ]
   const exportTail = exportNames.map(n => `this.${n} = ${n};`).join('\n')
   vm.runInNewContext(block + '\n' + exportTail, ctx)
@@ -135,4 +136,54 @@ test('selectNextWi: null when all claimed', () => {
   const h = loadHelpers()
   const cands = [{ wiId: 'a', storyPoints: 1, createdDate: '2026-01-01' }]
   assert.equal(h.selectNextWi(cands, new Set(['a']), 0, 5), null)
+})
+
+test('resolveMode: absent/empty input defaults to full (backward compatible)', () => {
+  const h = loadHelpers()
+  assert.equal(h.resolveMode(undefined), 'full')
+  assert.equal(h.resolveMode(null), 'full')
+  assert.equal(h.resolveMode(''), 'full')
+  assert.equal(h.resolveMode('   '), 'full')
+})
+
+test('resolveMode: valid values normalize (case + trim)', () => {
+  const h = loadHelpers()
+  assert.equal(h.resolveMode('approve'), 'approve')
+  assert.equal(h.resolveMode('steward'), 'steward')
+  assert.equal(h.resolveMode('full'), 'full')
+  assert.equal(h.resolveMode('APPROVE'), 'approve')
+  assert.equal(h.resolveMode('  Steward  '), 'steward')
+})
+
+test('resolveMode: invalid token throws bad-mode', () => {
+  const h = loadHelpers()
+  assert.throws(() => h.resolveMode('stewrd'), /bad-mode:/)
+  assert.throws(() => h.resolveMode('all'), /bad-mode:/)
+})
+
+test('modeAllows: approve gates everything except peer-approve', () => {
+  const h = loadHelpers()
+  assert.equal(h.modeAllows('approve', 'monitor'), false)
+  assert.equal(h.modeAllows('approve', 'maintain'), false)
+  assert.equal(h.modeAllows('approve', 'build'), false)
+})
+
+test('modeAllows: steward allows monitor+maintain but not build (the boundary)', () => {
+  const h = loadHelpers()
+  assert.equal(h.modeAllows('steward', 'monitor'), true)
+  assert.equal(h.modeAllows('steward', 'maintain'), true)
+  assert.equal(h.modeAllows('steward', 'build'), false)
+})
+
+test('modeAllows: full allows every capability', () => {
+  const h = loadHelpers()
+  assert.equal(h.modeAllows('full', 'monitor'), true)
+  assert.equal(h.modeAllows('full', 'maintain'), true)
+  assert.equal(h.modeAllows('full', 'build'), true)
+})
+
+test('modeAllows: unknown mode or key is false (never throws)', () => {
+  const h = loadHelpers()
+  assert.equal(h.modeAllows('bogus', 'build'), false)
+  assert.equal(h.modeAllows('full', 'bogus'), false)
 })

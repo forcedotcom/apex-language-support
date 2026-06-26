@@ -595,6 +595,34 @@ const selectNextWi = (candidates, claimedIds, currentInProgress, activeCap) => {
     return String(a.createdDate).localeCompare(String(b.createdDate))
   })[0]
 }
+
+// ---- mode gating (pure) ----
+// One arg `mode` dials the tick's capability. Cumulative tiers:
+// approve ⊂ steward ⊂ full. Peer-approve is NOT represented here — it runs
+// unconditionally in every mode, so it has no capability key.
+const MODE_CAPS = {
+  approve: { monitor: false, maintain: false, build: false },
+  steward: { monitor: true, maintain: true, build: false },
+  full: { monitor: true, maintain: true, build: true },
+}
+
+// Normalize the raw arg into a canonical mode. Absent/empty → 'full' (the
+// current behavior, backward compatible). An unrecognized non-empty token
+// throws so the orchestrator can abort the tick BEFORE touching any state.
+const resolveMode = raw => {
+  if (raw == null) return 'full'
+  const m = String(raw).trim().toLowerCase()
+  if (m === '') return 'full'
+  if (m === 'approve' || m === 'steward' || m === 'full') return m
+  throw new Error(`bad-mode: ${m}`)
+}
+
+// Capability gate consulted at each phase call. Unknown mode/key → false
+// (fail closed; never throws on a lookup).
+const modeAllows = (mode, key) => {
+  const caps = MODE_CAPS[mode]
+  return caps ? caps[key] === true : false
+}
 // ===PURE-HELPERS-END===
 
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
