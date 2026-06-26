@@ -217,7 +217,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 {
   "development": {
     "experimental": {
-      "findMissingArtifactHandler": {
+      "findMissingArtifactProvider": {
         "enabled": true,
         "supportedModes": [
           "blocking",
@@ -410,7 +410,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
   },
   "production": {
     "experimental": {
-      "findMissingArtifactHandler": {
+      "findMissingArtifactProvider": {
         "enabled": true,
         "supportedModes": [
           "blocking",
@@ -549,7 +549,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent development client capabilities: development-client-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -745,7 +745,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent production client capabilities: production-client-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -883,7 +883,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for development mode: development-client-capabilities-via-function 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -1079,7 +1079,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should r
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for production mode: production-client-capabilities-via-function 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -1219,7 +1219,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
   {
     "expectedClient": {
       "experimental": {
-        "findMissingArtifactHandler": {
+        "findMissingArtifactProvider": {
           "enabled": true,
           "supportedModes": [
             "blocking",
@@ -1418,7 +1418,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
   {
     "expectedClient": {
       "experimental": {
-        "findMissingArtifactHandler": {
+        "findMissingArtifactProvider": {
           "enabled": true,
           "supportedModes": [
             "blocking",
@@ -1697,7 +1697,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
   "clientCapabilities": {
     "development": {
       "experimental": {
-        "findMissingArtifactHandler": {
+        "findMissingArtifactProvider": {
           "enabled": true,
           "supportedModes": [
             "blocking",
@@ -1890,7 +1890,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     },
     "production": {
       "experimental": {
-        "findMissingArtifactHandler": {
+        "findMissingArtifactProvider": {
           "enabled": true,
           "supportedModes": [
             "blocking",
@@ -2028,7 +2028,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     "client": {
       "development": {
         "experimental": {
-          "findMissingArtifactHandler": {
+          "findMissingArtifactProvider": {
             "enabled": true,
             "supportedModes": [
               "blocking",
@@ -2221,7 +2221,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       },
       "production": {
         "experimental": {
-          "findMissingArtifactHandler": {
+          "findMissingArtifactProvider": {
             "enabled": true,
             "supportedModes": [
               "blocking",

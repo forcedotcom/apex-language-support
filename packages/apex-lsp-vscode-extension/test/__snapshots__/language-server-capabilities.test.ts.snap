@@ -354,7 +354,7 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
 exports[`VSCode Extension Capabilities Alignment Client Capabilities Configuration should return development client capabilities for development mode: development-client-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -550,7 +550,7 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
 exports[`VSCode Extension Capabilities Alignment Client Capabilities Configuration should return production client capabilities for production mode: production-client-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -714,7 +714,7 @@ exports[`VSCode Extension Capabilities Alignment Document Selector Consistency s
 exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities should detect development mode correctly: development-mode-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
@@ -910,7 +910,7 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
 exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities should detect production mode correctly: production-mode-capabilities 1`] = `
 {
   "experimental": {
-    "findMissingArtifactHandler": {
+    "findMissingArtifactProvider": {
       "enabled": true,
       "supportedModes": [
         "blocking",
