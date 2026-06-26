@@ -224,6 +224,24 @@ Each WI gets an isolated git worktree at `../vscode-auto-wt/<ownerPrefix>-<wiNam
 | `build-stuck`             | Build agent gave up; worktree preserved for handoff    |
 | `claimed-and-pr-opened`   | Successful tick: new draft PR exists                   |
 
+## Parallel draining session
+
+A tick is a lock-guarded draining session. After the serial global phases
+(monitor/triage/finalize), a pool of K builder slots drains ready WIs
+concurrently, then an integration check reconciles cross-branch collisions.
+
+**Knobs:**
+- `args.maxInFlight` (default 5) — max WIs `In Progress` at once (the WI ceiling).
+- `args.buildConcurrency` — overrides the cores-derived K. K = clamp(floor((cores−2)/2),1,4).
+
+**Staged rollout (operator):**
+1. `buildConcurrency: 1` — behaviorally identical to the old serial drain; validates the refactor.
+2. `buildConcurrency: 2` on an epic of known parallel siblings — first concurrency test; watch machine load; confirm independent PRs + a clean integration check.
+3. Induced collision (two siblings editing one file) — confirm detection → plan-aware reconcile pushes a verified branch, or escalates cleanly. GATING before cores-derived concurrency.
+4. Default (cores-derived) — production.
+
+**Rollback:** single revertable commit per task on `.claude/workflows/auto-build-wi.js`; the cron invokes the registered workflow by name, so `git revert` needs no scheduler change.
+
 ### Constants
 
 Edit at the top of the script:

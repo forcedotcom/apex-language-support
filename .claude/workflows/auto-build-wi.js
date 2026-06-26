@@ -21,6 +21,8 @@ export const meta = {
     { title: 'Verify findings' },
     { title: 'Fix review findings' },
     { title: 'Draft PR' },
+    { title: 'Drain loop' },
+    { title: 'Integration check' },
   ],
 }
 
@@ -47,6 +49,17 @@ const REVIEW_SKILL_DENYLIST = [
 ]
 const REVIEW_CHANNEL_ID = 'C054SJJAB24'
 const PR_URL_RE = /https?:\/\/github\.com\/forcedotcom\/apex-language-support\/pull\/\d+/g
+
+// Slack MCP tools are namespaced differently per runner depending on how Slack was installed:
+// a PLUGIN install exposes mcp__plugin_slack_slack__<tool>, while a DIRECT mcpServers entry
+// exposes the bare mcp__slack__<tool>. A subagent handed one fixed name will fail on a runner
+// that has the other (and a weak model then fabricates "sent"/"prepared" instead of skipping).
+// These hints make the agent DISCOVER the tool by suffix via ToolSearch, accept either prefix,
+// and fail honestly. Interpolate into any prompt that touches Slack.
+const SLACK_SEND_HINT =
+  'the Slack send-message MCP tool — find it with ToolSearch (keyword "slack send message") and call whichever tool resolves whose name ends in "slack_send_message" (it may be mcp__plugin_slack_slack__slack_send_message OR the bare mcp__slack__slack_send_message, depending on how this runner installed Slack). If NO such tool resolves, skip the Slack step and report it truthfully in `detail` ("slack-skipped: no Slack MCP send tool") — never claim a message was sent or "prepared" when it was not, and never scan env vars or config files for Slack tokens'
+const SLACK_SEARCH_HINT =
+  'the Slack search MCP tool — find it with ToolSearch (keyword "slack search public") and call whichever resolves whose name ends in "slack_search_public" (mcp__plugin_slack_slack__slack_search_public OR bare mcp__slack__slack_search_public). If none resolves, skip this best-effort step'
 
 // Single-run guard: overlapping /loop ticks must NOT run concurrently. The Claude Code
 // scheduler's own .claude/scheduled_tasks.lock only enforces one scheduler per project — it
@@ -281,16 +294,16 @@ const PR_DRAFT_SCHEMA = {
   },
 }
 
-const PICKER_SCHEMA = {
-  type: 'object',
-  required: ['wiId', 'reason'],
-  properties: { wiId: { type: 'string' }, reason: { type: 'string' } },
-}
-
 const OK_SCHEMA = {
   type: 'object',
   required: ['ok'],
   properties: { ok: { type: 'boolean' }, detail: { type: ['string', 'null'] } },
+}
+
+const CORES_SCHEMA = {
+  type: 'object',
+  required: ['cores'],
+  properties: { cores: { type: 'number' } },
 }
 
 // Result of the no-PR reconcile: did GitHub already have a PR for the deterministic
@@ -302,6 +315,33 @@ const RECONCILE_SCHEMA = {
     found: { type: 'boolean' },
     prUrl: { type: ['string', 'null'] },
     persisted: { type: ['boolean', 'null'] },
+    detail: { type: ['string', 'null'] },
+  },
+}
+
+const BRANCH_FILES_SCHEMA = {
+  type: 'object',
+  required: ['files', 'headRank'],
+  properties: {
+    files: { type: 'array', items: { type: 'string' } },
+    headRank: { type: 'number' },
+  },
+}
+
+const MERGE_PROBE_SCHEMA = {
+  type: 'object',
+  required: ['conflicts'],
+  properties: {
+    conflicts: { type: 'boolean' },
+    conflictedFiles: { type: 'array', items: { type: 'string' } },
+  },
+}
+
+const RECONCILE_RESULT_SCHEMA = {
+  type: 'object',
+  required: ['status'],
+  properties: {
+    status: { enum: ['reconciled', 'failed'] },
     detail: { type: ['string', 'null'] },
   },
 }
@@ -398,16 +438,11 @@ const DIFF_RAW_SCHEMA = {
   },
 }
 
-const FILES_SCHEMA = {
-  type: 'object',
-  required: ['files'],
-  properties: { files: { type: 'array', items: { type: 'string' } } },
-}
-
 // =====================================================================
 // HELPERS
 // =====================================================================
 
+// ===PURE-HELPERS-START===
 const slugify = s =>
   String(s)
     .toLowerCase()
@@ -518,6 +553,96 @@ const parseShortstatLines = shortstat => {
   return Number(ins) + Number(del)
 }
 
+// Build-concurrency K from CPU cores. Each build itself fans out sub-agents and
+// runs wireit's internal parallelism, so one build is already multi-core-hungry:
+// halve, leave 2 cores headroom, clamp to [1,4] so a big machine doesn't thrash
+// disk with many concurrent npm installs. A positive override bypasses the math.
+const computeBuildConcurrency = (cores, override) => {
+  if (typeof override === 'number' && override > 0) return Math.floor(override)
+  return Math.max(1, Math.min(4, Math.floor((cores - 2) / 2)))
+}
+
+// Cheap pre-merge collision filter: two branches can only conflict if their
+// changed-file sets intersect. Disjoint sets are dismissed without a dry-run merge.
+const detectFileOverlap = (filesA, filesB) => {
+  const setB = new Set(filesB)
+  return filesA.some(f => setB.has(f))
+}
+
+// Deterministic reconcile-base picker for a confirmed conflict between two
+// branches: resolve onto the SMALLER diff (fewer changed files); tiebreak to the
+// later head commit (larger caller-supplied headEpochRank). Returns 'a' or 'b'.
+// headEpochRank is supplied by the caller — the helper never reads a clock.
+const pickReconcileBase = (a, b) => {
+  const na = a.files.length
+  const nb = b.files.length
+  if (na !== nb) return na < nb ? 'a' : 'b'
+  return a.headEpochRank >= b.headEpochRank ? 'a' : 'b'
+}
+
+// Pure pool-selection: pick the next WI for a free builder slot. Candidates are
+// ALREADY gated (sequencing + blockers applied upstream); this only chooses among
+// the unclaimed, honoring the active-cap. Smaller story-points first (null=5),
+// tiebreak oldest CreatedDate. Returns the WI object or null (nothing to pull).
+const selectNextWi = (candidates, claimedIds, currentInProgress, activeCap) => {
+  if (currentInProgress >= activeCap) return null
+  const pts = wi => (typeof wi.storyPoints === 'number' ? wi.storyPoints : 5)
+  const available = candidates.filter(c => !claimedIds.has(c.wiId))
+  if (!available.length) return null
+  return available.slice().sort((a, b) => {
+    const dp = pts(a) - pts(b)
+    if (dp !== 0) return dp
+    return String(a.createdDate).localeCompare(String(b.createdDate))
+  })[0]
+}
+
+// ---- mode gating (pure) ----
+// One arg `mode` dials the tick's capability. Cumulative tiers:
+// approve ⊂ steward ⊂ full. Peer-approve is NOT represented here — it runs
+// unconditionally in every mode, so it has no capability key.
+const MODE_CAPS = {
+  approve: { monitor: false, maintain: false, build: false },
+  steward: { monitor: true, maintain: true, build: false },
+  full: { monitor: true, maintain: true, build: true },
+}
+
+// Normalize the raw arg into a canonical mode. Absent/empty → 'full' (the
+// current behavior, backward compatible). An unrecognized non-empty token
+// throws so the orchestrator can abort the tick BEFORE touching any state.
+const resolveMode = raw => {
+  if (raw == null) return 'full'
+  const m = String(raw).trim().toLowerCase()
+  if (m === '') return 'full'
+  if (m === 'approve' || m === 'steward' || m === 'full') return m
+  throw new Error(`bad-mode: ${m}`)
+}
+
+// Capability gate consulted at each phase call. Unknown mode/key → false
+// (fail closed; never throws on a lookup).
+const modeAllows = (mode, key) => {
+  const caps = MODE_CAPS[mode]
+  return caps ? caps[key] === true : false
+}
+
+const classifyMonitor = monitorOutcomes => ({
+  toFinalize: monitorOutcomes.filter(r => r && r.decision === 'finalize'),
+  toTriage: monitorOutcomes.filter(r => r && r.decision === 'triage'),
+  toRestart: monitorOutcomes.filter(
+    r => r && (r.decision === 'no-pr-restart' || r.action === 'no-pr-restart')
+  ),
+  toCloseWi: monitorOutcomes.filter(r => r && r.decision === 'close-wi'),
+  toPlanOnly: monitorOutcomes.filter(r => r && r.decision === 'plan-only'),
+  toRefresh: monitorOutcomes.filter(
+    r =>
+      r &&
+      r.wi.prUrl &&
+      r.prState &&
+      r.prState.mergeable === 'CONFLICTING' &&
+      r.decision !== 'close-wi'
+  ),
+})
+// ===PURE-HELPERS-END===
+
 // Severity rank for sorting/threshold logic. effect 'must'/'should'/'consider'
 // map to critical/high/medium upstream before reaching here.
 const SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 }
@@ -554,24 +679,6 @@ const normalizeFindings = (skillFindings, skillsToCheck, thermo, effectDiffRevie
   }))
   return [...skill, ...thermoF, ...effectF]
 }
-
-const classifyMonitor = monitorOutcomes => ({
-  toFinalize: monitorOutcomes.filter(r => r && r.decision === 'finalize'),
-  toTriage: monitorOutcomes.filter(r => r && r.decision === 'triage'),
-  toRestart: monitorOutcomes.filter(
-    r => r && (r.decision === 'no-pr-restart' || r.action === 'no-pr-restart')
-  ),
-  toCloseWi: monitorOutcomes.filter(r => r && r.decision === 'close-wi'),
-  toPlanOnly: monitorOutcomes.filter(r => r && r.decision === 'plan-only'),
-  toRefresh: monitorOutcomes.filter(
-    r =>
-      r &&
-      r.wi.prUrl &&
-      r.prState &&
-      r.prState.mergeable === 'CONFLICTING' &&
-      r.decision !== 'close-wi'
-  ),
-})
 
 // =====================================================================
 // PROMPTS
@@ -643,6 +750,15 @@ Read .claude/skills/gha-rerun/SKILL.md (and .claude/commands/gha-rerun.md if pre
 
 Do not configure or rerun anything else. The daemon owns rerun budget; this step just keeps it alive.`
 
+const detectCoresPrompt = `Report this machine's logical CPU core count.
+
+Run ONE command that works on this OS:
+- macOS: 'sysctl -n hw.ncpu'
+- Linux: 'nproc'
+Try 'sysctl -n hw.ncpu' first; if it errors, try 'nproc'.
+
+Return {cores: <the integer>}. If both fail, return {cores: 4}. Structured result only.`
+
 const reapWorktreesPrompt = identity =>
   `Reap worktrees + branches for WIs whose PRs are already merged/closed (e.g. user merged manually and the WI dropped out of the in-flight query).
 
@@ -703,8 +819,8 @@ Steps (idempotent):
    sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Closed'"
 2. Remove worktree if present: 'git worktree remove ${wt} --force'.
 3. Delete local branch if present: from ${identity.projectRoot}, 'git branch -D ${branch}' (ignore failure if branch doesn't exist).
-4. Find the review-request Slack message and mark it merged: use mcp__slack__slack_search_public to search "PR ready for review ${r.wi.name}" in channel ${REVIEW_CHANNEL_ID}, take the matching message's ts.
-5. If found, add a :merge: reaction to that message (mcp__slack__slack_send_message reaction, or the reactions API) so reviewers see it landed. Best-effort — ignore failure.
+4. Find the review-request Slack message and mark it merged: use ${SLACK_SEARCH_HINT}, searching "PR ready for review ${r.wi.name}" in channel ${REVIEW_CHANNEL_ID}, take the matching message's ts.
+5. If found, add a :merge: reaction to that message (via the resolved Slack MCP tool's reaction capability, or the reactions API) so reviewers see it landed. Best-effort — ignore failure.
 
 Return {ok: true, detail} summarizing changes.`
 }
@@ -737,7 +853,7 @@ const planOnlyPrPrompt = (r, identity) => {
 2. Close the PR: 'gh pr close ${r.wi.prUrl} --delete-branch' (this also deletes the remote branch ${branch}).
 3. Bounce the WI back so the next tick rebuilds:
    sf data update record -s ADM_Work__c -i ${r.wi.wiId} -o gus -v "Status__c='Waiting'"
-4. DM the runner (Slack ID ${identity.slackId}) via mcp__slack__slack_send_message: "♻️ ${r.wi.name}: closed plan-only PR (no real diff), bounced to Waiting for rebuild. ${r.wi.prUrl}". Best-effort.
+4. DM the runner (Slack ID ${identity.slackId}, used as channel_id) via ${SLACK_SEND_HINT}. Message: "♻️ ${r.wi.name}: closed plan-only PR (no real diff), bounced to Waiting for rebuild. ${r.wi.prUrl}". Best-effort.
 
 Return {ok: true, detail} summarizing changes.`
 }
@@ -767,8 +883,8 @@ Return ONLY the structured result.`
 const dmCiFailurePrompt = (r, identity) =>
   `DM the runner about a CI failure that needs human attention.
 
-Slack ID: ${identity.slackId}
-Use mcp__slack__slack_send_message to send a DM with content:
+Slack ID: ${identity.slackId} (used as channel_id for the DM)
+Use ${SLACK_SEND_HINT}. Message content:
 "⚠️ ${r.wi.name} CI failed after rerun budget exhausted (route=${r.triage.route}): ${r.triage.summary}\nPR: ${r.wi.prUrl}"
 
 Return {ok: true} on success.`
@@ -814,7 +930,7 @@ Steps (idempotent; skip work if already current):
 2. cd worktree && git fetch origin main
 3. If 'git rev-list --count HEAD..origin/main' is 0, return {ok: true, detail: "already current"}.
 4. git merge origin/main --no-edit
-5. Conflicts → apply .claude/skills/merge-conflicts/SKILL.md best-effort. Unresolvable → 'git merge --abort' and DM ${identity.slackId} via mcp__slack__slack_send_message: "⚠️ ${r.wi.name} merge conflict with main — manual intervention needed\\nWorktree: <path>\\nPR: ${r.wi.prUrl}". Return {ok: false, detail: "merge-conflict-unresolved"}.
+5. Conflicts → apply .claude/skills/merge-conflicts/SKILL.md best-effort. Unresolvable → 'git merge --abort' and DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message: "⚠️ ${r.wi.name} merge conflict with main — manual intervention needed\\nWorktree: <path>\\nPR: ${r.wi.prUrl}". Return {ok: false, detail: "merge-conflict-unresolved"}.
 6. If package-lock.json changed, run 'npm install'.
 7. git push
 
@@ -841,9 +957,9 @@ Steps (idempotent):
    - gh pr view ${r.wi.prUrl} --json reviewRequests --jq '.reviewRequests[].login'
    - For each existing reviewer that isn't ${identity.githubLogin}: 'gh pr edit ${r.wi.prUrl} --remove-reviewer <login>'
    - 'gh pr edit ${r.wi.prUrl} --add-reviewer ${identity.githubLogin}' (if not already)
-4. Slack post in #ide-exp-code-review (channel ${REVIEW_CHANNEL_ID}) tagging the runner:
+4. Slack post in #ide-exp-code-review (channel_id ${REVIEW_CHANNEL_ID}) tagging the runner:
    "<@${identity.slackId}> PR ready for review: <${r.wi.prUrl}|PR> (${r.wi.name})"
-   Use mcp__slack__slack_send_message.
+   Use ${SLACK_SEND_HINT}.
 5. Remove the worktree: 'git worktree remove ${wt} --force' (if present).
 
 Return {ok: true, detail} where detail summarizes what changed.`
@@ -935,27 +1051,6 @@ HARD RULES:
 - Do NOT run any other queries. Zero records is valid — return {records: []}.
 - Do NOT add an open-only / Status filter, modify the WHERE clause, or transform fields.`
 
-const prFilesPrompt = url =>
-  `Run 'gh pr diff ${url} --name-only' and return {files: [<one path per line>]}.`
-
-const pickWiPrompt = (candidateList, inFlightFileList) =>
-  `Pick the next WI to work on from these candidates.
-
-Candidates (JSON):
-${JSON.stringify(candidateList, null, 2)}
-
-Files already touched by in-flight PRs (avoid overlap when possible):
-${inFlightFileList.join(', ') || 'none'}
-
-Candidates with unmet hard dependencies were already filtered out upstream — every WI here is unblocked.
-
-Selection rules (in order):
-1. If a candidate's likely files (inferred from Subject/Details) overlap heavily with in-flight files, defer it.
-2. Prefer smaller Story_Points (null treated as 5).
-3. Tie-break by oldest CreatedDate.
-
-Return ONLY {wiId, reason}.`
-
 const claimOrRestartPrompt = (chosen, identity, isRestart) => {
   const { wt, branch } = pathsFor(identity, chosen)
   if (isRestart) {
@@ -1029,7 +1124,7 @@ const bouncePlanPrompt = (chosen, planResult, identity) => {
 Steps:
 1. Update WI:
    sf data update record -s ADM_Work__c -i ${chosen.wiId} -o gus -v "Status__c='Waiting'"
-2. DM ${identity.slackId} via mcp__slack__slack_send_message:
+2. DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
    "🚧 ${chosen.name} bounced to Waiting (plan blocked): ${chosen.subject}\\nQuestions:\\n${(planResult.blocked && planResult.blocked.questions || []).map(q => `• ${q}`).join('\\n')}\\nRun /grill-me to refine."
 3. Remove worktree: 'git worktree remove ${wt} --force'.
 Return {ok: true}.`
@@ -1127,7 +1222,7 @@ const bounceBuildPrompt = (chosen, buildResult, identity) => {
 
 Steps:
 1. Update WI: sf data update record -s ADM_Work__c -i ${chosen.wiId} -o gus -v "Status__c='Waiting'"
-2. DM ${identity.slackId} via mcp__slack__slack_send_message:
+2. DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
    "⚠️ ${chosen.name} build stuck: ${(buildResult.reason || '').replace(/"/g, "'")}\\nWorktree: ${wt}\\nBranch: ${branch}"
 Return {ok: true}.`
 }
@@ -1251,6 +1346,68 @@ Steps:
 Return {prUrl, prNumber}.`
 }
 
+// headRank: integer ordering for the deterministic reconcile-base tiebreak, derived
+// from commit position (git rev-list count) — NOT a clock, so it is resume-safe.
+const branchFilesPrompt = (branch, identity) =>
+  `From ${identity.projectRoot}, for branch '${branch}':
+1. git fetch origin ${branch} (ignore failure if local).
+2. git diff --name-only origin/main...${branch}  -> the changed file paths.
+3. git rev-list --count origin/main..${branch}    -> integer commit count ahead of main.
+Return {files: [<one path per line>], headRank: <the integer count>}. Structured only.`
+
+const mergeProbePrompt = (branchA, branchB, identity) =>
+  `Dry-run merge two branches in a THROWAWAY scratch worktree to detect real conflicts. Run from ${identity.projectRoot}.
+
+Steps (always clean up, even on error):
+1. SCRATCH="${identity.projectRoot}/../$(basename ${identity.projectRoot})-wt/integ-probe"
+2. git worktree add "$SCRATCH" ${branchA}  (force-remove first if it exists)
+3. cd "$SCRATCH" && git merge --no-commit --no-ff ${branchB}
+4. Capture result:
+   - clean (exit 0)  -> conflicts=false, conflictedFiles=[]
+   - conflict        -> conflicts=true, conflictedFiles = 'git diff --name-only --diff-filter=U'
+5. ALWAYS: git merge --abort (ignore failure); cd ${identity.projectRoot}; git worktree remove "$SCRATCH" --force
+Return {conflicts: <bool>, conflictedFiles: [...]}. Structured only.`
+
+const reconcilePrompt = (baseWi, otherWi, conflictedFiles, identity) => {
+  const base = pathsFor(identity, baseWi)
+  const other = pathsFor(identity, otherWi)
+  return `Reconcile a real merge conflict between two auto-build branches using BOTH plans as intent. Resolve onto the BASE branch only.
+
+Base branch (resolve here): ${base.branch}  (worktree ${base.wt})
+Other branch:               ${other.branch}
+Conflicted files: ${conflictedFiles.join(', ')}
+Base plan:  .claude/plans/${baseWi.name}.md
+Other plan: .claude/plans/${otherWi.name}.md
+
+Steps:
+1. Reattach base worktree if missing: 'git worktree add ${base.wt} ${base.branch}'.
+2. cd ${base.wt} && git fetch origin ${other.branch} && git merge --no-commit --no-ff ${other.branch}.
+3. Read BOTH plans. Resolve each conflicted hunk by INTENT, not just text: if both sides
+   add independent entries (registry/array/exports), keep both; if both edit one function
+   for different stated goals, compose so both goals hold. Apply .claude/skills/merge-conflicts/SKILL.md.
+4. Stage resolutions, commit the merge (HEREDOC commit body with your Co-Authored-By trailer).
+5. Run the branch's verification — repo hooks surface compile/lint/dead-code/LSP on tool calls.
+   If verification FAILS or you cannot resolve confidently: 'git merge --abort', restore the
+   branch untouched, return {status: 'failed', detail: '<why>'}.
+6. If clean and verified: git push. Return {status: 'reconciled', detail: '<summary>'}.
+
+Do NOT touch the other branch. Structured result only.`
+}
+
+const reconcileCommentPrompt = (baseWi, otherWi, baseUrl, otherUrl, summary) =>
+  `Record an auto-reconcile on both PRs (best-effort; ignore failures).
+Post this comment on BOTH ${baseUrl} and ${otherUrl} via 'gh pr comment <url> --body "..."':
+"🔀 auto-build-wi reconciled a merge conflict between ${baseWi.name} and ${otherWi.name} on branch for ${baseWi.name}. ${summary}. Both PRs remain independent; review the reconciled hunks."
+Return {ok: true}.`
+
+const escalateConflictPrompt = (wiA, wiB, conflictedFiles, urlA, urlB, identity) =>
+  `Auto-reconcile FAILED between ${wiA.name} and ${wiB.name}. Escalate to the runner (best-effort).
+1. Dedupe: 'gh pr view ${urlA} --json comments' — if a comment already contains "auto-reconcile failed" for ${wiB.name}, skip the DM (return {ok: true, detail: "already-escalated"}).
+2. Else Slack-DM ${identity.slackId} (as channel_id) via ${SLACK_SEND_HINT}. Message:
+   "⚠️ auto-reconcile failed: ${wiA.name} ↔ ${wiB.name} conflict in ${conflictedFiles.join(', ')} — manual merge needed.\\n${urlA}\\n${urlB}"
+3. Post a one-line marker comment on ${urlA}: "auto-reconcile failed vs ${wiB.name} — escalated for manual merge".
+Return {ok: true}. Never error.`
+
 // =====================================================================
 // PHASE FUNCTIONS
 // =====================================================================
@@ -1262,6 +1419,17 @@ const resolveIdentity = async () => {
     label: 'resolve-identity',
     model: 'haiku',
   })
+}
+
+const detectCores = async () => {
+  const res = await agent(detectCoresPrompt, {
+    schema: CORES_SCHEMA,
+    label: 'detect-cores',
+    phase: 'Resolve identity',
+    model: 'haiku',
+  })
+  const n = res && typeof res.cores === 'number' ? Math.floor(res.cores) : 4
+  return n >= 1 ? n : 4
 }
 
 const ensureDaemons = async () => {
@@ -1518,9 +1686,7 @@ const peerApprove = async identity => {
   )
 }
 
-const pickCandidate = async (identity, inFlightWis) => {
-  phase('Pick candidate')
-
+const gateCandidates = async (identity, inFlightWis) => {
   const candidatesRaw = await agent(candidatesQueryPrompt(identity), {
     schema: WI_RECORDS_SCHEMA,
     label: 'query-candidates',
@@ -1572,7 +1738,7 @@ const pickCandidate = async (identity, inFlightWis) => {
     )
   ).filter(Boolean)
 
-  if (!candidateList.length) return null
+  if (!candidateList.length) return []
 
   // Deterministic blocked-WI gate: drop any candidate that declares a hard
   // dependency ("blocked by W-XXX", "depends on W-XXX", "after W-XXX merges")
@@ -1610,7 +1776,7 @@ const pickCandidate = async (identity, inFlightWis) => {
     })
     if (!unblocked.length) {
       log('all candidates blocked by unmerged dependencies — nothing to claim')
-      return null
+      return []
     }
     candidateList.length = 0
     candidateList.push(...unblocked)
@@ -1668,43 +1834,24 @@ const pickCandidate = async (identity, inFlightWis) => {
       const open = candidateList.filter(c => !blockedIds.has(c.wiId))
       if (!open.length) {
         log('all candidates gated by earlier unfinished epic work — nothing to claim')
-        return null
+        return []
       }
       candidateList.length = 0
       candidateList.push(...open)
     }
   }
 
-  if (candidateList.length === 1) {
-    log(`single candidate: ${candidateList[0].name}`)
-    return candidateList[0]
-  }
+  return candidateList
+}
 
-  const inFlightUrls = inFlightWis.filter(w => w.prUrl).map(w => w.prUrl)
-  const inFlightFiles = inFlightUrls.length
-    ? await parallel(
-        inFlightUrls.map(url => () =>
-          agent(prFilesPrompt(url), {
-            schema: FILES_SCHEMA,
-            label: `pr-files-${url.split('/').pop()}`,
-            phase: 'Pick candidate',
-            model: 'haiku',
-          })
-        )
-      )
-    : []
-  const inFlightFileList = [
-    ...new Set((inFlightFiles || []).filter(Boolean).flatMap(d => d.files || [])),
-  ]
-
-  const pick = await agent(pickWiPrompt(candidateList, inFlightFileList), {
-    schema: PICKER_SCHEMA,
-    label: 'pick-wi',
-    phase: 'Pick candidate',
-    model: 'sonnet',
-  })
-  const chosen = candidateList.find(c => c.wiId === pick.wiId) || candidateList[0]
-  log(`picked ${chosen.name}: ${pick.reason}`)
+const nextReadyWi = async (identity, inFlightWis, claimedIds, currentInProgress, activeCap) => {
+  if (currentInProgress >= activeCap) return null
+  const gated = await gateCandidates(identity, inFlightWis)
+  if (!gated.length) return null
+  // Atomic select-and-claim: NO await between selectNextWi reading claimedIds and
+  // recording the claim, so concurrent slots can never select the same WI.
+  const chosen = selectNextWi(gated, claimedIds, currentInProgress, activeCap)
+  if (chosen) claimedIds.add(chosen.wiId)
   return chosen
 }
 
@@ -1957,9 +2104,188 @@ const draftPr = async (chosen, identity, fixerResult) => {
   })
 }
 
+// One WI end-to-end, fully isolated: any failure is caught and reported as an
+// outcome so a single WI never aborts the pool. Reuses the existing phase fns.
+const runFullPipeline = async (chosen, identity, isRestart) => {
+  const { branch } = pathsFor(identity, chosen)
+  try {
+    const claimed = await claimOrRestart(chosen, identity, isRestart)
+    if (!claimed || !claimed.ok) {
+      return { wi: chosen, outcome: isRestart ? 'restart-failed' : 'claim-failed', detail: claimed && claimed.detail }
+    }
+
+    const { planResult, skillList } = await runPlan(chosen, identity)
+    if (!planResult) return { wi: chosen, outcome: 'plan-failed' }
+    if (planResult.verdict === 'blocked') {
+      await bounceBlockedPlan(chosen, planResult, identity)
+      return { wi: chosen, outcome: 'plan-blocked' }
+    }
+    await reviewAndCommitPlan(chosen, identity)
+
+    const buildResult = await runBuild(chosen, identity)
+    if (!buildResult) return { wi: chosen, outcome: 'build-failed' }
+    if (buildResult.status === 'stuck') {
+      await bounceStuckBuild(chosen, buildResult, identity)
+      return { wi: chosen, outcome: 'build-stuck', reason: buildResult.reason }
+    }
+
+    const fixerResult = await runReview(chosen, identity, skillList)
+    const prResult = await draftPr(chosen, identity, fixerResult)
+    if (!prResult || !prResult.prUrl) return { wi: chosen, outcome: 'pr-failed' }
+
+    log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
+    return { wi: chosen, outcome: 'pr-opened', prUrl: prResult.prUrl, branch }
+  } catch (e) {
+    log(`pipeline error for ${chosen.name}: ${(e && e.message) || e} — leaving for next tick`)
+    return { wi: chosen, outcome: 'errored', detail: (e && e.message) || String(e) }
+  }
+}
+
+// Bounded worker pool: K slots, each looping nextReadyWi -> runFullPipeline until
+// no ready WIs, claim-cap, or token-budget stops it. A finished slot immediately
+// pulls the next ready WI (no batch barrier). claimedIds + a live in-flight counter
+// are shared across slots so two slots never grab the same WI or exceed activeCap.
+const PER_BUILD_TOKEN_RESERVE = 150000
+
+const runDrainLoop = async (identity, inFlightWis, K, activeCap, initialInProgress) => {
+  phase('Drain loop')
+  // claimedIds tracks WIs claimed THIS session only. Pre-existing in-flight WIs are
+  // filtered out by gateCandidates (which re-queries GUS status), so we don't need
+  // to pre-seed. This allows a WI to be re-claimed if it regressed from a finalized
+  // status (e.g., 'Fixed' → 'New' due to CI failure) between ticks.
+  const claimedIds = new Set()
+  let inProgress = initialInProgress
+  let claimsRemaining = Math.max(0, activeCap - initialInProgress)
+  const built = []
+
+  const budgetOk = () =>
+    !budget.total || budget.remaining() > PER_BUILD_TOKEN_RESERVE
+
+  const slot = async () => {
+    while (claimsRemaining > 0 && budgetOk()) {
+      // Reserve a claim slot BEFORE the async pull so concurrent slots can't
+      // oversubscribe the cap while a pull is in flight.
+      claimsRemaining -= 1
+      try {
+        const chosen = await nextReadyWi(identity, inFlightWis, claimedIds, inProgress, activeCap)
+        if (!chosen) {
+          claimsRemaining += 1 // give the reservation back; nothing to pull
+          return
+        }
+        inProgress += 1
+        const result = await runFullPipeline(chosen, identity, false)
+        built.push(result)
+        // WI stays counted toward inProgress for the rest of the session (it now has
+        // a PR / is In Progress). Do NOT decrement — the cap is about total in-flight.
+      } catch (e) {
+        claimsRemaining += 1 // restore reservation if the pull/build threw
+        throw e
+      }
+    }
+  }
+
+  const slots = Array.from({ length: K }, () => slot)
+  await parallel(slots.map(s => s))
+  const builtBranches = built.filter(r => r.outcome === 'pr-opened' && r.branch).map(r => ({ wi: r.wi, branch: r.branch, prUrl: r.prUrl }))
+  log(`drain loop built ${built.length} WI(s): ${built.map(r => `${r.wi.name}=${r.outcome}`).join(', ') || 'none'}`)
+  return { built, builtBranches }
+}
+
+// After draining: detect collisions across this session's branches + all open
+// in-flight PR branches, auto-reconcile via both plans, escalate failures.
+// Best-effort: wrapped so nothing here blocks lock release.
+const runIntegrationCheck = async (identity, builtBranches, inFlightWis) => {
+  phase('Integration check')
+  try {
+    // Branch set: session-built + open in-flight PR branches (those with a prUrl).
+    const inFlightBranchEntries = inFlightWis
+      .filter(w => w.prUrl)
+      .map(w => ({ wi: w, branch: pathsFor(identity, w).branch }))
+    const sessionEntries = builtBranches.map(b => ({ wi: b.wi, branch: b.branch, prUrl: b.prUrl }))
+    // De-dup by branch name.
+    const byBranch = new Map()
+    for (const e of [...sessionEntries, ...inFlightBranchEntries]) byBranch.set(e.branch, e)
+    const entries = [...byBranch.values()]
+    if (entries.length < 2) {
+      log(`integration check: ${entries.length} branch(es) — nothing to cross-check`)
+      return
+    }
+
+    // Fetch changed files + head rank per branch.
+    const meta = await parallel(
+      entries.map(e => () =>
+        agent(branchFilesPrompt(e.branch, identity), {
+          schema: BRANCH_FILES_SCHEMA, label: `branch-files-${e.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        }).then(r => ({ ...e, files: (r && r.files) || [], headRank: (r && r.headRank) || 0 }))
+      )
+    )
+    const valid = meta.filter(Boolean)
+
+    // Cheap overlap filter -> only file-overlapping pairs get a dry-run merge.
+    const pairs = []
+    for (let i = 0; i < valid.length; i++) {
+      for (let j = i + 1; j < valid.length; j++) {
+        if (detectFileOverlap(valid[i].files, valid[j].files)) pairs.push([valid[i], valid[j]])
+      }
+    }
+    log(`integration check: ${valid.length} branches, ${pairs.length} file-overlapping pair(s)`)
+    if (!pairs.length) return
+
+    // Probe each overlapping pair; reconcile confirmed conflicts.
+    for (const [a, b] of pairs) {
+      const probe = await agent(mergeProbePrompt(a.branch, b.branch, identity), {
+        schema: MERGE_PROBE_SCHEMA, label: `merge-probe-${a.wi.name}-${b.wi.name}`,
+        phase: 'Integration check', model: 'sonnet',
+      })
+      if (!probe || !probe.conflicts) continue
+
+      const baseSide = pickReconcileBase(
+        { files: a.files, headEpochRank: a.headRank },
+        { files: b.files, headEpochRank: b.headRank }
+      )
+      const baseEntry = baseSide === 'a' ? a : b
+      const otherEntry = baseSide === 'a' ? b : a
+      const result = await agent(
+        reconcilePrompt(baseEntry.wi, otherEntry.wi, probe.conflictedFiles || [], identity),
+        { schema: RECONCILE_RESULT_SCHEMA, label: `reconcile-${baseEntry.wi.name}`,
+          phase: 'Integration check', model: 'opus' }
+      )
+
+      const aUrl = a.prUrl || a.wi.prUrl || (a.wi.details && extractPrUrl(a.wi.details)) || ''
+      const bUrl = b.prUrl || b.wi.prUrl || (b.wi.details && extractPrUrl(b.wi.details)) || ''
+      if (result && result.status === 'reconciled') {
+        await agent(reconcileCommentPrompt(baseEntry.wi, otherEntry.wi, aUrl, bUrl, result.detail || 'resolved'), {
+          schema: OK_SCHEMA, label: `reconcile-comment-${baseEntry.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        })
+      } else {
+        await agent(escalateConflictPrompt(a.wi, b.wi, probe.conflictedFiles || [], aUrl, bUrl, identity), {
+          schema: OK_SCHEMA, label: `escalate-${a.wi.name}-${b.wi.name}`,
+          phase: 'Integration check', model: 'haiku',
+        })
+      }
+    }
+  } catch (e) {
+    log(`integration check error (non-fatal): ${(e && e.message) || e}`)
+  }
+}
+
 // =====================================================================
 // ORCHESTRATION
 // =====================================================================
+
+// Resolve the capability mode FIRST — before identity, before the lock. An
+// invalid value aborts the tick cheaply (no lock held, no GUS touched, no
+// agent spawned). Absent → 'full' (backward compatible).
+let MODE
+try {
+  MODE = resolveMode(args && args.mode)
+} catch (e) {
+  log(`invalid mode ${JSON.stringify(args && args.mode)} — aborting tick (${e.message})`)
+  return { exited: 'bad-mode', requested: String(args && args.mode) }
+}
+log(`mode: ${MODE}`)
 
 const identity = await resolveIdentity()
 if (identity.error || !identity.userId) {
@@ -1978,88 +2304,65 @@ if (!lock || !lock.acquired) {
 }
 
 try {
-  await ensureDaemons()
-  await reapStrandedWorktrees(identity)
+  if (modeAllows(MODE, 'maintain')) {
+    await ensureDaemons()
+    await reapStrandedWorktrees(identity)
+  }
 
-  const { inFlightWis, monitorOutcomes } = await monitorInFlight(identity)
+  // Monitor only when the mode allows it. When skipped (approve mode), the
+  // outputs default to empties so classifyMonitor and every `if (toX.length)`
+  // guard below stay correct without special-casing.
+  let inFlightWis = []
+  let monitorOutcomes = []
+  if (modeAllows(MODE, 'monitor')) {
+    ;({ inFlightWis, monitorOutcomes } = await monitorInFlight(identity))
+  }
   const { toFinalize, toTriage, toRestart, toCloseWi, toPlanOnly, toRefresh } =
     classifyMonitor(monitorOutcomes)
 
-  if (toCloseWi.length) await closeMergedWis(toCloseWi, identity)
-  if (toPlanOnly.length) await handlePlanOnlyPrs(toPlanOnly, identity)
-  if (toTriage.length) await triageAndFixCi(toTriage, identity)
-  if (toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
-  if (toFinalize.length) await openForReview(toFinalize, identity)
+  if (modeAllows(MODE, 'maintain') && toCloseWi.length) await closeMergedWis(toCloseWi, identity)
+  if (modeAllows(MODE, 'maintain') && toPlanOnly.length) await handlePlanOnlyPrs(toPlanOnly, identity)
+  if (modeAllows(MODE, 'build') && toTriage.length) await triageAndFixCi(toTriage, identity)
+  if (modeAllows(MODE, 'build') && toRefresh.length) await keepInFlightCurrent(toRefresh, identity)
+  if (modeAllows(MODE, 'maintain') && toFinalize.length) await openForReview(toFinalize, identity)
   await peerApprove(identity)
 
-  // Cap = number of WIs currently 'In Progress' in GUS. GUS status is authoritative.
-  // 'Ready for Review'/'Fixed' WIs are waiting on human review — not consuming builder slots.
-  // No subtraction needed: GUS already reflects transitions from prior ticks.
-  const stillInFlight = inFlightWis.filter(w => w.status === 'In Progress').length
-  log(`cap: stillInFlight=${stillInFlight} (In Progress WIs) toFinalize=${toFinalize.length} toCloseWi=${toCloseWi.length} toRestart=${toRestart.length}`)
-
-  let chosen
-  let isRestart = false
-
-  if (toRestart.length) {
-    chosen = toRestart[0].wi
-    isRestart = true
-    log(`restarting stuck in-flight WI ${chosen.name} (no PR)`)
-  } else {
-    if (stillInFlight >= MAX_IN_FLIGHT) {
-      log(`at cap (${stillInFlight}/${MAX_IN_FLIGHT}); not claiming new WI`)
-      return { exited: 'at-cap', inFlight: stillInFlight, finalized: toFinalize.length }
-    }
-    chosen = await pickCandidate(identity, inFlightWis)
-    if (!chosen) {
-      log('no candidates — nothing to do')
-      return { exited: 'idle', inFlight: stillInFlight }
-    }
+  // The produce side — restart, drain, integration check — is full-only.
+  // approve/steward return after peer-approve with nothing built.
+  if (!modeAllows(MODE, 'build')) {
+    return { exited: 'drained', mode: MODE, builtCount: 0, built: [], finalized: toFinalize.length }
   }
 
-  const claimed = await claimOrRestart(chosen, identity, isRestart)
-  if (!claimed || !claimed.ok) {
-    log(`${isRestart ? 'restart' : 'claim'} failed: ${(claimed && claimed.detail) || 'subagent returned no result'}`)
-    return {
-      exited: isRestart ? 'restart-failed' : 'claim-failed',
-      error: claimed && claimed.detail,
-    }
+  // Restart any stranded no-PR in-flight WI first (single, like today), then drain.
+  const restartingWi = toRestart.length ? toRestart[0].wi : null
+
+  if (restartingWi) {
+    log(`restarting stuck in-flight WI ${restartingWi.name} (no PR)`)
+    await runFullPipeline(restartingWi, identity, true)
   }
 
-  const { planResult, skillList } = await runPlan(chosen, identity)
-  if (!planResult) {
-    log(`plan stage returned no result for ${chosen.name} — exiting`)
-    return { exited: 'plan-failed', wi: chosen.name }
-  }
-  if (planResult.verdict === 'blocked') {
-    await bounceBlockedPlan(chosen, planResult, identity)
-    return { exited: 'plan-blocked', wi: chosen.name }
-  }
-  await reviewAndCommitPlan(chosen, identity)
+  // Count the restart toward the active-build cap: it is now an actively-built WI.
+  // Only add it when its GUS status didn't already count it as 'In Progress',
+  // so the common case (a crashed 'In Progress' build) is unchanged.
+  const initialInProgress =
+    inFlightWis.filter(w => w.status === 'In Progress').length +
+    (restartingWi && restartingWi.status !== 'In Progress' ? 1 : 0)
 
-  const buildResult = await runBuild(chosen, identity)
-  if (!buildResult) {
-    log(`build stage returned no result for ${chosen.name} — exiting`)
-    return { exited: 'build-failed', wi: chosen.name }
-  }
-  if (buildResult.status === 'stuck') {
-    await bounceStuckBuild(chosen, buildResult, identity)
-    return { exited: 'build-stuck', wi: chosen.name, reason: buildResult.reason }
-  }
+  const cores = await detectCores()
+  const K = computeBuildConcurrency(cores, args && args.buildConcurrency)
+  log(`cores=${cores} buildConcurrency=${K} activeCap=${MAX_IN_FLIGHT} initialInProgress=${initialInProgress}`)
 
-  const fixerResult = await runReview(chosen, identity, skillList)
+  const { built, builtBranches } = await runDrainLoop(
+    identity, inFlightWis, K, MAX_IN_FLIGHT, initialInProgress
+  )
 
-  const prResult = await draftPr(chosen, identity, fixerResult)
-  if (!prResult || !prResult.prUrl) {
-    log(`draft-PR stage returned no PR URL for ${chosen.name} — exiting`)
-    return { exited: 'pr-failed', wi: chosen.name }
-  }
+  await runIntegrationCheck(identity, builtBranches, inFlightWis)
 
-  log(`opened draft PR ${prResult.prUrl} for ${chosen.name}`)
   return {
-    exited: 'claimed-and-pr-opened',
-    wi: chosen.name,
-    prUrl: prResult.prUrl,
+    exited: 'drained',
+    mode: MODE,
+    builtCount: built.length,
+    built: built.map(r => ({ wi: r.wi.name, outcome: r.outcome, prUrl: r.prUrl || null })),
     finalized: toFinalize.length,
   }
 } finally {
