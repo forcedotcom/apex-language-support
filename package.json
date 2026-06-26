@@ -103,7 +103,7 @@
     "jest": "^30.4.1",
     "jscpd": "^4.2.5",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.16.1",
+    "knip": "^6.21.0",
     "prettier": "^3.8.4",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.5",
