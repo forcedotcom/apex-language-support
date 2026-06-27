@@ -3514,6 +3514,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
 
             if (!targetSymbol) {
+              // A qualified reference (`Outer.Inner`) is stored under its full
+              // dotted name, which findSymbolByName (keyed on the leaf segment)
+              // can't match — leaving the edge unbound so findReferencesTo on the
+              // inner type misses the qualified caller entirely. The FQN index
+              // DOES key on the dotted name, so try it first for dotted names and
+              // bind to the actual leaf symbol (Inner), not its qualifier.
+              if (typeRef.name.includes('.')) {
+                const byFqn = yield* Effect.promise(() =>
+                  self.findSymbolByFQN(typeRef.name),
+                );
+                if (byFqn) {
+                  targetSymbol = byFqn;
+                }
+              }
+            }
+
+            if (!targetSymbol) {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
