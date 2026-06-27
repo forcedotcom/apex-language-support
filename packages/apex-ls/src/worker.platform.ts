@@ -820,9 +820,8 @@ async function loadSymbolDataForEnrichment(
           // this enrichment worker's LOCAL name index. Ask the data-owner
           // (which holds ALL workspace symbols) to resolve the remaining names
           // in one batched query and ingest the owning files' symbol tables.
-          const ingested = await resolveMissingNamesViaDataOwner(svc, [
-            ...classNames,
-          ]);
+          // The ingest count is intentionally not captured (see below).
+          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
 
           // Ingestion alone only lands the owning files' SYMBOLS in the local
           // name index (addSymbolTable processes same-file refs only and defers
@@ -840,7 +839,6 @@ async function loadSymbolDataForEnrichment(
           // resolution), so resolve whenever ANY class dep was requested.
           // resolveCrossFileReferencesForFile is re-entrancy-guarded and
           // addReference de-dupes, so this is near-free when nothing changed.
-          void ingested;
           await Effect.runPromise(
             svc.symbolManager.resolveCrossFileReferencesForFile(uri),
           );
@@ -1137,26 +1135,43 @@ export async function loadReferencedTypesForFile(
       await import('@salesforce/apex-lsp-parser-ast');
     const st = await svc.symbolManager.getSymbolTableForFile(uri);
     if (!st) return 0;
-    const refs = (
-      st as unknown as {
-        getAllReferences: () => Array<{ name: string; context: number }>;
-      }
-    ).getAllReferences();
-    const typeNames = new Set<string>();
+    const refs = st.getAllReferences();
+    // Group the referenced type leaf names by their qualifier so the qualifier
+    // can be threaded to the data-owner as a disambiguation namespace hint. A
+    // qualified `MyNs.Foo` resolves by its LEAF (`Foo`) — the data-owner's name
+    // index is keyed on the simple name — while the head (`MyNs`) is the
+    // namespace hint. `declaringFileForCursorSymbol` strips to the same leaf.
+    // The undefined-qualifier bucket is the unqualified hot path; it stays a
+    // single batched, namespace-free query (byte-identical to before).
+    const namesByQualifier = new Map<string | undefined, Set<string>>();
     for (const ref of refs) {
       if (
         ref.context === ReferenceContext.CLASS_REFERENCE ||
         ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
         ref.context === ReferenceContext.TYPE_DECLARATION
       ) {
-        // Strip a qualified prefix; the type owner is keyed by the leaf name.
-        typeNames.add(
-          ref.name.includes('.') ? ref.name.split('.')[0] : ref.name,
-        );
+        const dot = ref.name.lastIndexOf('.');
+        const leaf = dot >= 0 ? ref.name.slice(dot + 1) : ref.name;
+        const qualifier = dot >= 0 ? ref.name.slice(0, dot) : undefined;
+        const bucket = namesByQualifier.get(qualifier) ?? new Set<string>();
+        bucket.add(leaf);
+        namesByQualifier.set(qualifier, bucket);
       }
     }
-    if (typeNames.size === 0) return 0;
-    const ingested = await resolveMissingNamesViaDataOwner(svc, [...typeNames]);
+    if (namesByQualifier.size === 0) return 0;
+    // One batched query per distinct qualifier. In the common case a file's
+    // type refs share a single bucket (unqualified, or one managed package), so
+    // this is the same single round-trip as before; mixed qualifiers cost one
+    // hop each rather than collapsing namespaces onto one ambiguous query.
+    let ingested = 0;
+    for (const [qualifier, leaves] of namesByQualifier) {
+      ingested += await resolveMissingNamesViaDataOwner(
+        svc,
+        [...leaves],
+        undefined,
+        qualifier,
+      );
+    }
     // Bind the cursor file's references to the freshly-loaded type tables so the
     // reverse index + position-precise lookups resolve.
     await Effect.runPromise(
@@ -2150,6 +2165,23 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               ),
             ];
 
+            // Optional namespace hint: a qualified reference (`MyNs.Foo`)
+            // carries its leading qualifier so the data-owner can disambiguate
+            // same-named matches across namespaces. Applied as a SOFT
+            // preference, not a hard filter — if no symbol's namespace matches
+            // the hint, fall back to all matches. This keeps inner-class
+            // qualifiers (`Outer.Inner`, where `Outer` is a type, not a
+            // namespace) working: nothing matches the hint, so all candidates
+            // are returned as before.
+            const nsHint = req.namespace?.toLowerCase();
+            const symbolNamespace = (s: {
+              namespace?: unknown;
+            }): string | undefined => {
+              const ns = s.namespace;
+              if (!ns) return undefined;
+              return (typeof ns === 'string' ? ns : String(ns)).toLowerCase();
+            };
+
             const matches: Array<{
               name: string;
               fileUri: string;
@@ -2162,15 +2194,21 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               const symbols = yield* Effect.promise(() =>
                 sm.findSymbolByName(queryName),
               );
-              for (const symbol of symbols) {
-                if (!symbol?.fileUri) continue;
+              const withFile = symbols.filter((s) => !!s?.fileUri);
+              // Prefer the namespace-matched subset when the hint actually
+              // matches something; otherwise keep every candidate.
+              const nsMatched = nsHint
+                ? withFile.filter((s) => symbolNamespace(s) === nsHint)
+                : [];
+              const selected = nsMatched.length > 0 ? nsMatched : withFile;
+              for (const symbol of selected) {
                 matches.push({
                   name: symbol.name,
-                  fileUri: symbol.fileUri,
+                  fileUri: symbol.fileUri!,
                   kind:
                     typeof symbol.kind === 'string' ? symbol.kind : undefined,
                 });
-                uris.add(symbol.fileUri);
+                uris.add(symbol.fileUri!);
               }
             }
 
