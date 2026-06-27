@@ -504,6 +504,51 @@ describe('ReferencesProcessingService', () => {
       });
     });
 
+    describe('getReferenceLocations dedup', () => {
+      it('collapses the same (uri, range) surfaced by multiple sources', async () => {
+        // One physical reference reachable through BOTH findReferencesTo and
+        // findReferencesFrom (e.g. an extends/implements edge). It must appear
+        // once, not twice, in the returned Location[].
+        const dupRef = {
+          name: 'Base',
+          fileUri: 'file:///test/Derived.cls',
+          location: makeLocation(2, 21, 2, 25),
+        };
+        const uniqueRef = {
+          name: 'Base',
+          fileUri: 'file:///test/Other.cls',
+          location: makeLocation(9, 4, 9, 8),
+        };
+
+        jest
+          .spyOn(symbolManager, 'findReferencesTo')
+          .mockResolvedValue([dupRef, uniqueRef] as any);
+        jest
+          .spyOn(symbolManager, 'findReferencesFrom')
+          .mockResolvedValue([dupRef] as any);
+
+        const symbol = {
+          name: 'Base',
+          fileUri: 'file:///test/Base.cls',
+        };
+
+        const locations = await (service as any).getReferenceLocations(
+          symbol,
+          false,
+        );
+
+        // dupRef once + uniqueRef once = 2, not 3.
+        expect(locations).toHaveLength(2);
+        const derivedHits = locations.filter(
+          (l: any) =>
+            l.uri === 'file:///test/Derived.cls' &&
+            l.range.start.line === 1 &&
+            l.range.start.character === 21,
+        );
+        expect(derivedHits).toHaveLength(1);
+      });
+    });
+
     describe('getSymbolFileUri', () => {
       it('prefers fileUri when present', async () => {
         const uri = await (service as any).getSymbolFileUri({

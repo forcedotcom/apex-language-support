@@ -779,8 +779,15 @@ async function loadSymbolDataForEnrichment(
         }
       }
     }
-  } catch {
-    // Subset load failed; caller may still proceed with partial graph.
+  } catch (err) {
+    // Subset load failed (assistance channel down, IPC error, or the data-owner
+    // doesn't have the file). The caller proceeds on a partial/empty graph, so
+    // any request built on it (hover/definition/references/…) may silently
+    // return nothing. Warn — not debug — so an empty result has a breadcrumb
+    // distinguishing "real failure" from "genuinely nothing here".
+    getLogger().warn(
+      () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
+    );
   }
 
   return { version, detailLevel };
@@ -973,9 +980,11 @@ export async function loadDependentsForReferences(
     return ingested;
   } catch (err) {
     // Dependent pre-fetch is best-effort; reference search can still run on
-    // the tables already loaded (e.g. same-file references). Log at debug so a
-    // "cross-file references missing" report has a breadcrumb to follow.
-    getLogger().debug(
+    // the tables already loaded (e.g. same-file references). But reaching this
+    // catch means cross-file callers were NOT loaded, so the result is likely
+    // incomplete — warn so a "cross-file references missing" report has a
+    // breadcrumb to follow.
+    getLogger().warn(
       () => `[REFERENCES] Dependent pre-fetch failed for ${uri}: ${err}`,
     );
     return 0;
@@ -1016,7 +1025,10 @@ export async function recompileCursorFileAtFullDetail(
     );
     return true;
   } catch (err) {
-    getLogger().debug(
+    // The cursor file stays at public-api detail, so an in-body cursor won't
+    // resolve and Find References can return []. Warn so that empty result is
+    // attributable to a recompile failure rather than a genuine no-match.
+    getLogger().warn(
       () => `[REFERENCES] Full-detail recompile failed for ${uri}: ${err}`,
     );
     return false;
@@ -1063,7 +1075,9 @@ export async function loadReferencedTypesForFile(
     );
     return ingested;
   } catch (err) {
-    getLogger().debug(
+    // Target type tables may be absent locally, so findReferencesTo(type) can
+    // come back empty. Warn so the gap is attributable.
+    getLogger().warn(
       () => `[REFERENCES] Referenced-type load failed for ${uri}: ${err}`,
     );
     return 0;
@@ -1085,13 +1099,35 @@ async function declaringFileForCursorSymbol(
       line: position.line + 1,
       character: position.character,
     };
+    // Preferred: precise position→symbol resolution gives the declaring file
+    // directly.
     const symbol = await svc.symbolManager.getSymbolAtPosition(
       uri,
       parserPosition,
       'precise',
     );
     const fileUri = (symbol as { fileUri?: string } | null)?.fileUri;
-    return fileUri && fileUri !== uri ? fileUri : null;
+    if (fileUri && fileUri !== uri) return fileUri;
+
+    // Fallback: 'precise' can return null when the cursor file's reference
+    // isn't yet bound to a resolvedSymbolId (cross-file edges not fully
+    // materialized in the worker's partial graph). The reference under the
+    // cursor still carries the NAME, and the target symbol is loaded by name —
+    // so resolve the name to its declaring file directly. This is what lets
+    // find-references on a `RefUtil` usage reach RefUtil.cls's dependents.
+    // (Kept in sync with the Node platform; without it the web worker loads the
+    // cursor file's dependents instead of the target's and misses cross-file
+    // usages.)
+    const refs = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const name = refs?.[0]?.name;
+    if (!name) return null;
+    const leaf = name.includes('.') ? name.split('.').pop()! : name;
+    const named = await svc.symbolManager.findSymbolByName(leaf);
+    const namedUri = (named as { fileUri?: string } | null)?.fileUri;
+    return namedUri && namedUri !== uri ? namedUri : null;
   } catch {
     return null;
   }
@@ -1332,6 +1368,20 @@ const requestHandlers = {
         req.textDocument.uri,
         req.content,
       );
+
+      // The full-detail recompile (and therefore in-body position resolution)
+      // is gated on having the document text. The coordinator omits `content`
+      // when it isn't tracking the file as open, so an empty result here would
+      // be indistinguishable from a genuine no-match. Flag it explicitly.
+      const cursorTextAvailable = typeof req.content === 'string';
+      if (!cursorTextAvailable) {
+        getLogger().warn(
+          () =>
+            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
+            'cursor file cannot be recompiled at full detail and an in-body ' +
+            'cursor may yield no references. Result may be degraded.',
+        );
+      }
 
       // Recompile the cursor file at FULL detail so its in-body references
       // exist for position→symbol resolution. The data-owner serves public-api
