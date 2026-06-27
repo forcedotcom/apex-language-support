@@ -95,8 +95,11 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
-  isMethodSymbol as isMethodSymbolNarrowing,
 } from '../utils/symbolNarrowing';
+import {
+  buildReferencesToCacheKey,
+  buildReferencesFromCacheKey,
+} from './referenceCacheKey';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
@@ -744,7 +747,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all references to a symbol
    */
   async findReferencesTo(symbol: ApexSymbol): Promise<ReferenceResult[]> {
-    const cacheKey = this.buildReferencesToCacheKey(symbol);
+    const cacheKey = buildReferencesToCacheKey(symbol);
     const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
@@ -756,30 +759,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Build the `findReferencesTo` cache key.
-   *
-   * Name alone is too coarse: it collapses (a) overloads of one method and
-   * (b) same-named members across different files into a single cache entry, so
-   * a query for one would serve another's cached results. The key therefore
-   * also carries the declaring file and — for methods — the declared arity, the
-   * same discriminator the reverse-index overload separation uses (F11-2), so
-   * an overloaded method's per-arity results don't alias each other.
-   */
-  private buildReferencesToCacheKey(symbol: ApexSymbol): string {
-    const filePart = symbol.fileUri
-      ? extractFilePathFromUri(symbol.fileUri)
-      : 'no-file';
-    const arityPart = isMethodSymbolNarrowing(symbol)
-      ? `:${symbol.parameters?.length ?? 0}`
-      : '';
-    return `refs_to_${symbol.name}@${filePart}${arityPart}`;
-  }
-
-  /**
    * Find all references from a symbol
    */
   async findReferencesFrom(symbol: ApexSymbol): Promise<ReferenceResult[]> {
-    const cacheKey = `refs_from_${symbol.name}`;
+    const cacheKey = buildReferencesFromCacheKey(symbol);
     const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;

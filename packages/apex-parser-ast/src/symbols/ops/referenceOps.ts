@@ -14,6 +14,10 @@ import type { SymbolReference } from '../../types/symbolReference';
 import { SymbolIndexStore } from '../services/symbolIndexStore';
 import { ReferenceStore } from '../services/referenceStore';
 import { CacheStore } from '../services/cacheStore';
+import {
+  buildReferencesToCacheKey,
+  buildReferencesFromCacheKey,
+} from '../referenceCacheKey';
 
 /** Find all references pointing to the given symbol, with cache */
 export const findReferencesTo = (
@@ -21,7 +25,9 @@ export const findReferencesTo = (
 ): Effect.Effect<ReferenceResult[], never, ReferenceStore | CacheStore> =>
   Effect.gen(function* () {
     const cache = yield* CacheStore;
-    const cacheKey = `refs_to_${symbol.name}`;
+    // Share the file/arity-aware key with ApexSymbolManager so the two
+    // findReferencesTo paths don't alias overloads against each other (F11-2).
+    const cacheKey = buildReferencesToCacheKey(symbol);
     const cached = yield* cache.get<ReferenceResult[]>(cacheKey);
     if (cached) return cached;
 
@@ -37,7 +43,7 @@ export const findReferencesFrom = (
 ): Effect.Effect<ReferenceResult[], never, ReferenceStore | CacheStore> =>
   Effect.gen(function* () {
     const cache = yield* CacheStore;
-    const cacheKey = `refs_from_${symbol.name}`;
+    const cacheKey = buildReferencesFromCacheKey(symbol);
     const cached = yield* cache.get<ReferenceResult[]>(cacheKey);
     if (cached) return cached;
 
