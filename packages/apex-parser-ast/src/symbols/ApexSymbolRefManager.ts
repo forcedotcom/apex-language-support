@@ -52,7 +52,11 @@ import {
   keyToString,
   inTypeSymbolGroup,
 } from '../types/symbol';
-import { isBlockSymbol, isMethodSymbol } from '../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isMethodSymbol,
+  isMethodOrConstructorSymbol,
+} from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isApexKeyword } from '../utils/ApexKeywords';
@@ -1990,24 +1994,27 @@ export class ApexSymbolRefManager {
    * - Same-arity overloads (`f(String)` vs `f(Integer)`) cannot be separated by
    *   arity alone and remain unified; call-site type capture is the documented
    *   follow-up.
+   * - Applies to constructors as well as methods: constructor overloads
+   *   (`Foo()` vs `Foo(String)`) are separated by call-site arity the same way.
    */
   private separateOverloadReferences(
     symbol: ApexSymbol,
     results: ReferenceResult[],
   ): ReferenceResult[] {
-    if (!isMethodSymbol(symbol)) {
+    if (!isMethodOrConstructorSymbol(symbol)) {
       return results;
     }
 
-    // Count same-named method siblings on the same declaring type. Only when
-    // there is more than one is disambiguation meaningful.
+    // Count same-named invocable siblings (methods/constructors) on the same
+    // declaring type. Only when there is more than one is disambiguation
+    // meaningful.
     const declaringType = this.findDeclaringTypeForMember(symbol);
     if (!declaringType) {
       return results;
     }
     const siblings = this.findSymbolByName(symbol.name).filter(
       (s) =>
-        isMethodSymbol(s) &&
+        isMethodOrConstructorSymbol(s) &&
         s.fileUri === symbol.fileUri &&
         this.findDeclaringTypeForMember(s)?.id === declaringType.id,
     );

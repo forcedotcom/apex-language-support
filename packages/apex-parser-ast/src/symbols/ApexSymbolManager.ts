@@ -95,7 +95,7 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
-  isMethodSymbol as isMethodSymbolNarrowing,
+  isMethodOrConstructorSymbol,
 } from '../utils/symbolNarrowing';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
@@ -769,7 +769,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const filePart = symbol.fileUri
       ? extractFilePathFromUri(symbol.fileUri)
       : 'no-file';
-    const arityPart = isMethodSymbolNarrowing(symbol)
+    // Methods AND constructors carry an arity discriminator: both can be
+    // overloaded by parameter list, so keying on name+file alone would alias
+    // `Foo()` with `Foo(String)` (and one method overload with another) into a
+    // single cache entry that serves the wrong result set.
+    const arityPart = isMethodOrConstructorSymbol(symbol)
       ? `:${symbol.parameters?.length ?? 0}`
       : '';
     return `refs_to_${symbol.name}@${filePart}${arityPart}`;
