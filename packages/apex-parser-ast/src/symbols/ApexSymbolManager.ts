@@ -96,6 +96,10 @@ import {
   isChainedSymbolReference,
   isBlockSymbol,
 } from '../utils/symbolNarrowing';
+import {
+  buildReferencesToCacheKey,
+  buildReferencesFromCacheKey,
+} from './referenceCacheKey';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
@@ -743,7 +747,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all references to a symbol
    */
   async findReferencesTo(symbol: ApexSymbol): Promise<ReferenceResult[]> {
-    const cacheKey = `refs_to_${symbol.name}`;
+    const cacheKey = buildReferencesToCacheKey(symbol);
     const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
@@ -758,7 +762,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all references from a symbol
    */
   async findReferencesFrom(symbol: ApexSymbol): Promise<ReferenceResult[]> {
-    const cacheKey = `refs_from_${symbol.name}`;
+    const cacheKey = buildReferencesFromCacheKey(symbol);
     const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
@@ -2646,6 +2650,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
+            argumentCount: typeRef.argumentCount,
           },
         );
         if (stats) {
@@ -3546,6 +3551,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   {
                     methodName: typeRef.parentContext,
                     isStatic: isStatic,
+                    argumentCount: typeRef.argumentCount,
                   },
                 );
                 return; // Successfully resolved and added to graph
@@ -3581,6 +3587,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               {
                 methodName: typeRef.parentContext,
                 isStatic: isStatic,
+                argumentCount: typeRef.argumentCount,
               },
             );
           }
@@ -3699,6 +3706,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             {
               methodName: typeRef.parentContext,
               isStatic: isStatic,
+              argumentCount: typeRef.argumentCount,
             },
           );
           return;
@@ -3718,6 +3726,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
+            argumentCount: typeRef.argumentCount,
           },
         );
       } catch (error) {

@@ -165,3 +165,31 @@ describe('signature keying — F11-2 SymbolReference.argumentTypes', () => {
     expect(wire.argumentTypes).toEqual(['String', 'List<Integer>']);
   });
 });
+
+describe('signature keying — F11-2 SymbolReference.argumentCount', () => {
+  it('argumentCount is a plain post-construction field (not a constructor param)', () => {
+    // Set after construction rather than widening the already-long positional
+    // constructor — the discriminator pattern Peter Hale's review flagged.
+    const ref = SymbolReferenceFactory.createMethodCallReference(
+      'f',
+      LOCATION,
+      'caller',
+    );
+    expect(ref.argumentCount).toBeUndefined();
+
+    ref.argumentCount = 2;
+    expect(ref.argumentCount).toBe(2);
+  });
+
+  it('argumentCount survives JSON serialization (round-trips across the worker boundary)', () => {
+    const ref = new EnhancedSymbolReference(
+      'f',
+      LOCATION,
+      ReferenceContext.METHOD_CALL,
+    );
+    ref.argumentCount = 3;
+
+    const wire = JSON.parse(JSON.stringify(ref));
+    expect(wire.argumentCount).toBe(3);
+  });
+});

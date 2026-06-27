@@ -45,6 +45,7 @@ import { SymbolTable, SymbolLocation } from '../../types/symbol';
 import {
   isDotExpressionContext,
   isContextType,
+  countCallArguments,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
@@ -243,6 +244,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         location,
         parentContext,
       );
+      // Overload discriminator: call-site arity (F11-2). Set post-construction
+      // rather than via the already-long factory/constructor positional list.
+      reference.argumentCount = countCallArguments(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -308,6 +312,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         methodLocation,
         parentContext,
       );
+      // Overload discriminator: call-site arity (F11-2).
+      reference.argumentCount = countCallArguments(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -2240,6 +2246,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           methodLocation,
           parentContext,
         );
+        // Overload discriminator: call-site arity (F11-2).
+        reference.argumentCount = countCallArguments(ctx);
         this.symbolTable.addTypeReference(reference);
       }
     } catch (error) {
