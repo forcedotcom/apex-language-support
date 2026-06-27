@@ -929,8 +929,11 @@ export class DataOwnerQuerySymbolByName extends Schema.TaggedRequest<DataOwnerQu
       // naturally carries the tables for all matched names at once.
       names: Schema.optional(Schema.Array(Schema.String)),
       // Optional namespace/qualifier hint (e.g. the leading qualifier of a
-      // qualified TypeReference). Accepted now to avoid a wire-schema break
-      // later; the data-owner may use it to disambiguate name matches.
+      // qualified TypeReference). The data-owner uses it as a SOFT preference
+      // to disambiguate same-named matches across namespaces: matches whose
+      // namespace equals the hint are preferred, but if none match it falls
+      // back to all matches (so an inner-class qualifier like `Outer` in
+      // `Outer.Inner`, which is not a namespace, does not drop valid results).
       namespace: Schema.optional(Schema.String),
     },
   },
