@@ -95,7 +95,7 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
-  isMethodSymbol as isMethodSymbolNarrowing,
+  isMethodOrConstructorSymbol,
 } from '../utils/symbolNarrowing';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
@@ -769,7 +769,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const filePart = symbol.fileUri
       ? extractFilePathFromUri(symbol.fileUri)
       : 'no-file';
-    const arityPart = isMethodSymbolNarrowing(symbol)
+    // Methods AND constructors carry an arity discriminator: both can be
+    // overloaded by parameter list, so keying on name+file alone would alias
+    // `Foo()` with `Foo(String)` (and one method overload with another) into a
+    // single cache entry that serves the wrong result set.
+    const arityPart = isMethodOrConstructorSymbol(symbol)
       ? `:${symbol.parameters?.length ?? 0}`
       : '';
     return `refs_to_${symbol.name}@${filePart}${arityPart}`;
@@ -3505,6 +3509,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       typeRef.chainNodes[0].resolvedSymbolId = targetSymbol.id;
                     }
                   }
+                }
+              }
+            }
+
+            if (!targetSymbol) {
+              // A qualified reference (`Outer.Inner`) is stored under its full
+              // dotted name, which findSymbolByName (keyed on the leaf segment)
+              // can't match — leaving the edge unbound so findReferencesTo on the
+              // inner type misses the qualified caller entirely. The FQN index
+              // DOES key on the dotted name, so try it first for dotted names and
+              // bind to the actual leaf symbol (Inner), not its qualifier.
+              if (typeRef.name.includes('.')) {
+                const byFqn = yield* Effect.promise(() =>
+                  self.findSymbolByFQN(typeRef.name),
+                );
+                if (byFqn) {
+                  targetSymbol = byFqn;
                 }
               }
             }
