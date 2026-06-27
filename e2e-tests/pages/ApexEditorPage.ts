@@ -178,6 +178,63 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Trigger find-all-references at the current cursor position (Shift+F12).
+   *
+   * VS Code surfaces references in a peek widget (the `references-view` /
+   * `.peekview-widget`). Returns the number of reference entries the peek
+   * lists, or 0 when none appear. The peek is left OPEN so callers can assert
+   * on its contents; close it with {@link closePeek} when done.
+   */
+  async findReferences(): Promise<number> {
+    // Ensure the Find widget is closed and the editor has focus (same hazard as
+    // goToDefinition: a left-open Find widget swallows the shortcut).
+    const findWidget = this.page.locator('.editor-widget.find-widget');
+    if (await findWidget.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await findWidget
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
+    }
+
+    await this.page.keyboard.press('Shift+F12');
+
+    // The references peek widget appears for any non-empty result set. Give the
+    // LSP time to answer (references can fan out cross-file).
+    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    await peekWidget
+      .waitFor({ state: 'visible', timeout: this.defaultTimeout })
+      .catch(() => {});
+
+    if (!(await peekWidget.isVisible())) {
+      return 0;
+    }
+
+    // Each reference is a row in the peek's tree. Count the result entries
+    // (file/line rows), excluding the file-group headers.
+    const entries = peekWidget.locator(
+      '.monaco-list-row .referenceMatch, .monaco-list-row[role="treeitem"]',
+    );
+    const count = await entries.count().catch(() => 0);
+    return count;
+  }
+
+  /**
+   * Close any open peek widget (references / definition peek).
+   */
+  async closePeek(): Promise<void> {
+    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    for (let i = 0; i < 3; i++) {
+      if (!(await peekWidget.isVisible())) {
+        return;
+      }
+      await this.page.keyboard.press('Escape');
+      await peekWidget
+        .waitFor({ state: 'hidden', timeout: 500 })
+        .catch(() => {});
+    }
+  }
+
+  /**
    * Trigger completion/IntelliSense at the current cursor position.
    * Uses Ctrl+Space keyboard shortcut.
    */

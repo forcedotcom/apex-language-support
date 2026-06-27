@@ -504,6 +504,51 @@ describe('ReferencesProcessingService', () => {
       });
     });
 
+    describe('getReferenceLocations dedup', () => {
+      it('collapses the same (uri, range) surfaced by multiple sources', async () => {
+        // One physical reference reachable through BOTH findReferencesTo and
+        // findReferencesFrom (e.g. an extends/implements edge). It must appear
+        // once, not twice, in the returned Location[].
+        const dupRef = {
+          name: 'Base',
+          fileUri: 'file:///test/Derived.cls',
+          location: makeLocation(2, 21, 2, 25),
+        };
+        const uniqueRef = {
+          name: 'Base',
+          fileUri: 'file:///test/Other.cls',
+          location: makeLocation(9, 4, 9, 8),
+        };
+
+        jest
+          .spyOn(symbolManager, 'findReferencesTo')
+          .mockResolvedValue([dupRef, uniqueRef] as any);
+        jest
+          .spyOn(symbolManager, 'findReferencesFrom')
+          .mockResolvedValue([dupRef] as any);
+
+        const symbol = {
+          name: 'Base',
+          fileUri: 'file:///test/Base.cls',
+        };
+
+        const locations = await (service as any).getReferenceLocations(
+          symbol,
+          false,
+        );
+
+        // dupRef once + uniqueRef once = 2, not 3.
+        expect(locations).toHaveLength(2);
+        const derivedHits = locations.filter(
+          (l: any) =>
+            l.uri === 'file:///test/Derived.cls' &&
+            l.range.start.line === 1 &&
+            l.range.start.character === 21,
+        );
+        expect(derivedHits).toHaveLength(1);
+      });
+    });
+
     describe('getSymbolFileUri', () => {
       it('prefers fileUri when present', async () => {
         const uri = await (service as any).getSymbolFileUri({
@@ -765,6 +810,72 @@ describe('ReferencesProcessingService', () => {
         expect.objectContaining({ line: 18, character: 0 }),
         'precise',
       );
+    });
+  });
+
+  describe('locals-only references (single-file scope)', () => {
+    const localsUri = 'file:///test/LocalsOnly.cls';
+    // `total` is a local declared once and read on the next two lines. Find
+    // References on it must stay WITHIN the method — never escaping to the
+    // same-named field or to another method's local.
+    const localsSrc = [
+      'public class LocalsOnly {',
+      '    public Integer compute() {',
+      '        Integer total = 0;',
+      '        total = total + 1;',
+      '        return total;',
+      '    }',
+      '    public Integer other() {',
+      '        Integer total = 99;',
+      '        return total;',
+      '    }',
+      '}',
+    ].join('\n');
+
+    beforeEach(async () => {
+      const compilerService = new CompilerService();
+      const symbolTable = new SymbolTable();
+      compilerService.compile(
+        localsSrc,
+        localsUri,
+        new FullSymbolCollectorListener(symbolTable),
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, localsUri),
+      );
+      mockStorage.getDocument.mockResolvedValue(
+        TextDocument.create(localsUri, 'apex', 1, localsSrc),
+      );
+    });
+
+    const findRefs = (lspLine: number, lspChar: number) =>
+      (service as any).findReferences({
+        textDocument: { uri: localsUri },
+        position: { line: lspLine, character: lspChar },
+        context: { includeDeclaration: true },
+      }) as Promise<Location[]>;
+
+    it('resolves a local variable to its in-method usages only', async () => {
+      // Cursor on `total` in `total = total + 1;` (line 3, 0-based) col 8.
+      const locations = await findRefs(3, 8);
+
+      expect(Array.isArray(locations)).toBe(true);
+      expect(locations.length).toBeGreaterThan(0);
+
+      // Every location is in this file (a local never resolves cross-file).
+      for (const loc of locations) {
+        expect(loc.uri).toBe(localsUri);
+      }
+
+      // All hits fall within compute()'s body (LSP lines 2–4); none leak into
+      // other()'s same-named local on lines 7–8.
+      const lines = locations.map((l) => l.range.start.line).sort();
+      for (const line of lines) {
+        expect(line).toBeGreaterThanOrEqual(2);
+        expect(line).toBeLessThanOrEqual(4);
+      }
+      // other()'s `total` declaration (line 7) must NOT appear.
+      expect(lines).not.toContain(7);
     });
   });
 

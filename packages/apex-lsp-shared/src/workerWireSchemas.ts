@@ -643,6 +643,13 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
       context: Schema.Struct({
         includeDeclaration: Schema.Boolean,
       }),
+      // Live (possibly unsaved) document text. ReferencesProcessingService reads
+      // the document from the worker's local storage to map the cursor position
+      // to a symbol; the stateless request-pool worker has no document unless we
+      // thread the text in (same as DispatchDocumentSymbol). Without it the pool
+      // worker's storage misses and find-references returns [] for every cursor
+      // — including cross-file usages.
+      content: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -922,8 +929,11 @@ export class DataOwnerQuerySymbolByName extends Schema.TaggedRequest<DataOwnerQu
       // naturally carries the tables for all matched names at once.
       names: Schema.optional(Schema.Array(Schema.String)),
       // Optional namespace/qualifier hint (e.g. the leading qualifier of a
-      // qualified TypeReference). Accepted now to avoid a wire-schema break
-      // later; the data-owner may use it to disambiguate name matches.
+      // qualified TypeReference). The data-owner uses it as a SOFT preference
+      // to disambiguate same-named matches across namespaces: matches whose
+      // namespace equals the hint are preferred, but if none match it falls
+      // back to all matches (so an inner-class qualifier like `Outer` in
+      // `Outer.Inner`, which is not a namespace, does not drop valid results).
       namespace: Schema.optional(Schema.String),
     },
   },
