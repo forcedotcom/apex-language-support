@@ -199,6 +199,61 @@ describe('per-overload reference separation (F11-2 core)', () => {
     expect(arity1Calls.length).toBeGreaterThanOrEqual(2);
   });
 
+  /** Find a constructor symbol by declared parameter count. */
+  const constructorByArity = async (
+    fileUri: string,
+    arity: number,
+  ): Promise<ApexSymbol> => {
+    const symbols = await symbolManager.findSymbolsInFile(fileUri);
+    const match = symbols.find(
+      (s) =>
+        s.kind === SymbolKind.Constructor &&
+        ((s as { parameters?: unknown[] }).parameters?.length ?? 0) === arity,
+    );
+    if (!match) {
+      throw new Error(`No constructor/${arity} found in ${fileUri}`);
+    }
+    return match;
+  };
+
+  it('separates references to arity-distinct constructor overloads', async () => {
+    const URI = 'file:///test/CtorOverloads.cls';
+    // Ctor() and Ctor(String) are two constructor overloads; build() invokes
+    // each once. Before the fix, both collapsed onto one findReferencesTo cache
+    // key (no arity discriminator for SymbolKind.Constructor) and overload
+    // separation was skipped, so a query for one returned the other's calls too.
+    await compileAndAdd(
+      `public class CtorOverloads {
+         public CtorOverloads() {}
+         public CtorOverloads(String msg) {}
+         public static CtorOverloads build() {
+           CtorOverloads a = new CtorOverloads();
+           CtorOverloads b = new CtorOverloads('hi');
+           return a;
+         }
+       }`,
+      URI,
+    );
+    await resolveCrossFile(URI);
+
+    const ctorNoArg = await constructorByArity(URI, 0);
+    const ctorOneArg = await constructorByArity(URI, 1);
+
+    const refsToNoArg = await symbolManager.findReferencesTo(ctorNoArg);
+    const refsToOneArg = await symbolManager.findReferencesTo(ctorOneArg);
+
+    const noArgCallArities = refsToNoArg.map((r) => r.context?.argumentCount);
+    const oneArgCallArities = refsToOneArg.map((r) => r.context?.argumentCount);
+
+    // The zero-arg constructor must not pick up the new CtorOverloads('hi')
+    // call, and vice versa. (Distinct results prove the cache key no longer
+    // aliases the two overloads onto one entry.)
+    expect(noArgCallArities).not.toContain(1);
+    expect(oneArgCallArities).not.toContain(0);
+    expect(noArgCallArities).toContain(0);
+    expect(oneArgCallArities).toContain(1);
+  });
+
   // LISTENER-DRIFT GUARD. The compileAndAdd helper uses
   // ApexSymbolCollectorListener, but the worker topology collects references
   // via VisibilitySymbolListener + { collectReferences: true } — a DIFFERENT
