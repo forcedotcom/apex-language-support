@@ -8,23 +8,11 @@ on:
         required: false
         default: 'main'
         type: string
-      extensions:
-        description: 'VS Code extensions to release'
-        required: false
-        default: 'apex-lsp-vscode-extension'
-        type: choice
-        options:
-          - apex-lsp-vscode-extension
-          - all
-          - changed
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
+        default: false
+        type: boolean
   schedule:
     - cron: '0 4 * * *'
 
@@ -43,10 +31,11 @@ jobs:
     uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@feat/add-vscode-extension-ci
     with:
       branch: ${{ github.event.inputs.branch || 'main' }}
-      extensions: ${{ github.event.inputs.extensions || 'apex-lsp-vscode-extension' }}
+      # Always publish the apex-lsp-vscode-extension (only extension in this repo)
+      extensions: 'apex-lsp-vscode-extension'
       registries: 'all'
       pre-release: 'true'
       version-bump: 'auto'
       exclude-web-vsix: 'true'
-      dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      dry-run: ${{ github.event.inputs.dry-run == true || github.event.inputs.dry-run == 'true' }}
     secrets: inherit
