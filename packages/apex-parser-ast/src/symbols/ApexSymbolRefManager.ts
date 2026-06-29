@@ -2005,10 +2005,16 @@ export class ApexSymbolRefManager {
     if (!declaringType) {
       return results;
     }
-    const siblings = this.findSymbolByName(symbol.name).filter(
+    // Source candidates from the declaring symbol's own file rather than a
+    // workspace-wide findSymbolByName(name) scan: overload siblings live in the
+    // same file as the declaration, so this is bounded by file size instead of
+    // by the count of same-named symbols across the whole workspace. The
+    // name/method/declaring-type filters below are unchanged, so the result set
+    // is identical — only the candidate set we filter is narrower.
+    const siblings = this.getSymbolsInFile(symbol.fileUri).filter(
       (s) =>
+        s.name === symbol.name &&
         isMethodSymbol(s) &&
-        s.fileUri === symbol.fileUri &&
         this.findDeclaringTypeForMember(s)?.id === declaringType.id,
     );
     if (siblings.length <= 1) {
