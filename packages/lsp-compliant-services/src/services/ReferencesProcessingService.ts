@@ -513,8 +513,47 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         self.logger.debug(() => `Error getting reference locations: ${error}`);
       }
 
-      return locations;
+      // The four sources above (declaration, references-to, references-from,
+      // relationship edges) can surface the same physical location more than
+      // once — e.g. an `extends`/`implements` edge appears in both the graph
+      // reverse index and the relationship traversal, and a self-referential
+      // symbol can appear in both references-to and references-from. The LSP
+      // client renders each Location as a distinct entry, so collapse exact
+      // (uri, range) duplicates before returning.
+      return self.dedupeLocations(locations);
     });
+  }
+
+  /**
+   * Collapse Locations that point at the exact same (uri, range). Order is
+   * preserved (first occurrence wins) so the declaration — pushed first when
+   * requested — stays at the head of the list.
+   */
+  private dedupeLocations(locations: Location[]): Location[] {
+    const seen = new Set<string>();
+    const deduped: Location[] = [];
+    for (const loc of locations) {
+      const { start, end } = loc.range;
+      // JSON.stringify rather than a `join('|')`: a `|` delimiter is unsafe
+      // because URIs can legally contain pipes (legacy Windows drive URIs like
+      // `file:///C|/path`, or percent-encoded `%7C`), so a raw join could let a
+      // URI's own pipe align with a field boundary and collapse two distinct
+      // locations onto one key. JSON quotes the URI and preserves array
+      // structure, making the key unambiguous for any character.
+      const key = JSON.stringify([
+        loc.uri,
+        start.line,
+        start.character,
+        end.line,
+        end.character,
+      ]);
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      deduped.push(loc);
+    }
+    return deduped;
   }
 
   /**

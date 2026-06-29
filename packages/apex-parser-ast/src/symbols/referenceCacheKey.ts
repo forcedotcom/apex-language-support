@@ -8,7 +8,7 @@
 
 import type { ApexSymbol } from '../types/symbol';
 import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
-import { isMethodSymbol } from '../utils/symbolNarrowing';
+import { isMethodOrConstructorSymbol } from '../utils/symbolNarrowing';
 
 /**
  * Shared cache-key builders for the `findReferencesTo` / `findReferencesFrom`
@@ -26,8 +26,10 @@ import { isMethodSymbol } from '../utils/symbolNarrowing';
  * query for one would serve another's cached results. The key therefore also
  * carries the declaring file (normalized the same way symbol IDs and the
  * reverse index are, via {@link extractFilePathFromUri}, so two spellings of
- * one URI don't drift into separate entries) and — for methods — the declared
- * arity, the same discriminator the reverse-index overload separation uses.
+ * one URI don't drift into separate entries) and — for methods AND constructors
+ * — the declared arity, the same discriminator the reverse-index overload
+ * separation uses. Constructors are overloadable by parameter list too
+ * (`Foo()` vs `Foo(String)`), so they need the arity discriminator as well.
  *
  * The `refs_to_` / `refs_from_` prefixes are load-bearing: the relationship
  * cache is invalidated wholesale by the `^refs_(to|from)_` pattern in
@@ -39,7 +41,7 @@ function discriminator(symbol: ApexSymbol): string {
   const filePart = symbol.fileUri
     ? extractFilePathFromUri(symbol.fileUri)
     : 'no-file';
-  const arityPart = isMethodSymbol(symbol)
+  const arityPart = isMethodOrConstructorSymbol(symbol)
     ? `:${symbol.parameters?.length ?? 0}`
     : '';
   return `${symbol.name}@${filePart}${arityPart}`;

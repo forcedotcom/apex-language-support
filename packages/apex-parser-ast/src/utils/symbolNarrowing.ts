@@ -59,6 +59,21 @@ export const isConstructorSymbol = (
 } => !!symbol && symbol.kind === SymbolKind.Constructor;
 
 /**
+ * Type predicate for any invocable symbol — a method OR a constructor. Both are
+ * MethodSymbol-shaped (they carry `parameters`, so arity is well defined), and
+ * both can be overloaded by parameter list. Use this anywhere overload/arity
+ * handling must treat constructors the same as methods (e.g. the
+ * `findReferencesTo` cache key and overload separation); `isMethodSymbol` alone
+ * narrows on `SymbolKind.Method` and silently excludes constructors, which
+ * collapses constructor overloads onto one another.
+ */
+export const isMethodOrConstructorSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is MethodSymbol =>
+  !!symbol &&
+  (symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor);
+
+/**
  * Type predicate to check if a symbol is a ClassSymbol
  */
 export const isClassSymbol = (

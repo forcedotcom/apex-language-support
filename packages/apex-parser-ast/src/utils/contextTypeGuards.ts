@@ -255,3 +255,23 @@ export function countCallArguments(
 ): number {
   return ctx.expressionList()?.expression_list()?.length ?? 0;
 }
+
+/**
+ * Count the call-site arguments of a constructor call (`new Foo(a, b)`).
+ *
+ * Grammar: `newExpression` → `creator` → `classCreatorRest` →
+ * `arguments` (`LPAREN expressionList? RPAREN`), whose `expression_list()` is
+ * the positional argument array. A no-arg `new Foo()` still has a
+ * `classCreatorRest` with an empty `arguments`, so this returns `0`; a creator
+ * with no `classCreatorRest` (array/map/set creators) also returns `0`.
+ *
+ * This is the constructor call-site *arity* — the overload discriminator that
+ * lets `findReferencesTo` separate `Foo()` from `Foo(String)` the same way
+ * {@link countCallArguments} does for method overloads (F11-2). Without it,
+ * constructor-call references carry no `argumentCount` and constructor
+ * overloads collapse onto one another.
+ */
+export function countConstructorArguments(ctx: NewExpressionContext): number {
+  const rest = ctx.creator()?.classCreatorRest?.();
+  return rest?.arguments()?.expressionList()?.expression_list()?.length ?? 0;
+}
