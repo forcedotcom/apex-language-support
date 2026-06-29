@@ -547,6 +547,51 @@ describe('ReferencesProcessingService', () => {
         );
         expect(derivedHits).toHaveLength(1);
       });
+
+      // Review finding 3: the dedup key must not use an unescaped delimiter that
+      // can appear inside a URI. Legacy Windows drive URIs (`file:///C|/...`) and
+      // percent-encoded `%7C` both contain pipes, so a raw `join('|')` could let
+      // a URI's pipe align with a field boundary and collapse two DISTINCT
+      // locations onto one key.
+      it('does not collapse distinct pipe-containing URIs (delimiter safety)', () => {
+        // Two genuinely different locations. Under a naive `join('|')`:
+        //   'file:///C|/A.cls' + '|' + 0 + '|' + 0 + '|' + 0 + '|' + 10
+        //   'file:///C'        + '|' + '/A.cls|0' ...  (pipe in URI shifts fields)
+        // a crafted pair can produce the same joined string. JSON.stringify
+        // quotes the URI, so the two stay distinct.
+        const locA: Location = {
+          uri: 'file:///C|/A.cls',
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+        };
+        const locB: Location = {
+          uri: 'file:///C',
+          range: {
+            start: { line: 0, character: 0 }, // '/A.cls' would be folded in
+            end: { line: 0, character: 10 },
+          },
+        };
+
+        const deduped = (service as any).dedupeLocations([locA, locB]);
+        expect(deduped).toHaveLength(2);
+      });
+
+      it('still collapses exact duplicates whose URI contains a pipe', () => {
+        const loc: Location = {
+          uri: 'file:///C|/path/With%7CPipe.cls',
+          range: {
+            start: { line: 3, character: 2 },
+            end: { line: 3, character: 9 },
+          },
+        };
+        const deduped = (service as any).dedupeLocations([
+          loc,
+          { ...loc, range: { ...loc.range } },
+        ]);
+        expect(deduped).toHaveLength(1);
+      });
     });
 
     describe('getSymbolFileUri', () => {

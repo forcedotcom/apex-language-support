@@ -1006,7 +1006,10 @@ export async function recompileCursorFileAtFullDetail(
   uri: string,
   content?: string,
 ): Promise<boolean> {
-  if (!content) return false;
+  // Only truly-absent content (undefined) skips the recompile; '' is a valid
+  // zero-length file. See the Node platform for the full rationale — this
+  // mirrors the upstream `typeof req.content === 'string'` gate.
+  if (content === undefined) return false;
   try {
     const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
       await import('@salesforce/apex-lsp-parser-ast');
@@ -1385,27 +1388,36 @@ const requestHandlers = {
 
       // The full-detail recompile (and therefore in-body position resolution)
       // is gated on having the document text. The coordinator omits `content`
-      // when it isn't tracking the file as open, so an empty result here would
-      // be indistinguishable from a genuine no-match. Flag it explicitly.
+      // when it isn't tracking the file as open.
       const cursorTextAvailable = typeof req.content === 'string';
-      if (!cursorTextAvailable) {
-        getLogger().warn(
-          () =>
-            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
-            'cursor file cannot be recompiled at full detail and an in-body ' +
-            'cursor may yield no references. Result may be degraded.',
-        );
-      }
 
       // Recompile the cursor file at FULL detail so its in-body references
       // exist for position→symbol resolution. The data-owner serves public-api
       // (bodies stripped), so without this a cursor on an in-body usage
       // resolves to nothing and Find References returns [].
-      await recompileCursorFileAtFullDetail(
+      const cursorRecompiled = await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
         req.content,
       );
+
+      // Abort when content was absent rather than warn-then-continue: with no
+      // document text the recompile is skipped AND loadSymbolDataForEnrichment
+      // never stored a document, so position resolution returns [] regardless.
+      // See the Node platform for the full rationale (gated on
+      // !cursorTextAvailable so a content-present recompile failure still falls
+      // through to a declaration-cursor lookup).
+      if (!cursorRecompiled && !cursorTextAvailable) {
+        getLogger().warn(
+          () =>
+            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
+            'cursor file cannot be recompiled at full detail and the pool ' +
+            'worker has no stored document, so position resolution cannot ' +
+            'succeed. Aborting with an empty result (degraded, not a genuine ' +
+            'no-match).',
+        );
+        return [];
+      }
 
       // Load the tables of every TYPE the cursor file references — even ones the
       // data-owner already resolved. Find References needs the target type's

@@ -238,4 +238,41 @@ describe('reference-enrichment recipe (worker DispatchReferences path)', () => {
     // CallerB is absent — exactly the bug the declaring-file resolution fixes.
     expect(uris.some((u) => u.includes('RefCallerB'))).toBe(false);
   });
+
+  // recompileCursorFileAtFullDetail content-guard contract (review finding 1):
+  // the recompile must distinguish TRULY-ABSENT content (undefined → skip) from
+  // an empty zero-length file ('' → recompile). The DispatchReferences handler
+  // keys its abort-vs-continue decision on the boolean this returns.
+  describe('recompileCursorFileAtFullDetail content guard', () => {
+    const EMPTY_URI = 'file:///t/Empty.cls';
+
+    it('returns false when content is undefined (truly absent)', async () => {
+      const recompiled = await recompileCursorFileAtFullDetail(
+        svc,
+        CALLER_A_URI,
+        undefined,
+      );
+      expect(recompiled).toBe(false);
+    });
+
+    it('returns true for an empty string (valid zero-length file)', async () => {
+      // '' is a real, compilable (empty) document — not "no content". A falsy
+      // `!content` guard would wrongly reject it and leave the file degraded.
+      const recompiled = await recompileCursorFileAtFullDetail(
+        svc,
+        EMPTY_URI,
+        '',
+      );
+      expect(recompiled).toBe(true);
+    });
+
+    it('returns true when real content is recompiled', async () => {
+      const recompiled = await recompileCursorFileAtFullDetail(
+        svc,
+        CALLER_A_URI,
+        CALLER_A_SRC,
+      );
+      expect(recompiled).toBe(true);
+    });
+  });
 });

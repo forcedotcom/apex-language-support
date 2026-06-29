@@ -534,13 +534,19 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     const deduped: Location[] = [];
     for (const loc of locations) {
       const { start, end } = loc.range;
-      const key = [
+      // JSON.stringify rather than a `join('|')`: a `|` delimiter is unsafe
+      // because URIs can legally contain pipes (legacy Windows drive URIs like
+      // `file:///C|/path`, or percent-encoded `%7C`), so a raw join could let a
+      // URI's own pipe align with a field boundary and collapse two distinct
+      // locations onto one key. JSON quotes the URI and preserves array
+      // structure, making the key unambiguous for any character.
+      const key = JSON.stringify([
         loc.uri,
         start.line,
         start.character,
         end.line,
         end.character,
-      ].join('|');
+      ]);
       if (seen.has(key)) {
         continue;
       }

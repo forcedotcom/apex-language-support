@@ -1080,7 +1080,12 @@ export async function recompileCursorFileAtFullDetail(
   uri: string,
   content?: string,
 ): Promise<boolean> {
-  if (!content) return false;
+  // Only TRULY-ABSENT content (undefined) skips the recompile. An empty string
+  // is a valid zero-length file — rejecting it with a `!content` falsy check
+  // would leave a freshly-opened empty `.cls` at public-api detail and silently
+  // return []. This mirrors the upstream `typeof req.content === 'string'` gate,
+  // which already treats '' as "content present".
+  if (content === undefined) return false;
   try {
     const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
       await import('@salesforce/apex-lsp-parser-ast');
@@ -1517,27 +1522,45 @@ const requestHandlers = {
 
       // The full-detail recompile (and therefore in-body position resolution)
       // is gated on having the document text. The coordinator omits `content`
-      // when it isn't tracking the file as open, so an empty result here would
-      // be indistinguishable from a genuine no-match. Flag it explicitly.
+      // when it isn't tracking the file as open.
       const cursorTextAvailable = typeof req.content === 'string';
-      if (!cursorTextAvailable) {
-        getLogger().warn(
-          () =>
-            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
-            'cursor file cannot be recompiled at full detail and an in-body ' +
-            'cursor may yield no references. Result may be degraded.',
-        );
-      }
 
       // Recompile the cursor file at FULL detail so its in-body references
       // exist for position→symbol resolution. The data-owner serves public-api
       // (bodies stripped), so without this a cursor on an in-body usage
       // resolves to nothing and Find References returns [].
-      await recompileCursorFileAtFullDetail(
+      const cursorRecompiled = await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
         req.content,
       );
+
+      // Abort when content was absent rather than warn-then-continue. With no
+      // document text: (1) recompileCursorFileAtFullDetail skipped the recompile
+      // (returned false), so the cursor file stays at public-api detail; and
+      // (2) loadSymbolDataForEnrichment never stored a document, so the
+      // position→symbol lookup in ReferencesProcessingService returns [] no
+      // matter what dependent tables we load. Continuing would do a full round
+      // of cross-worker dependent loading on a state that cannot produce a
+      // result, and would emit a [] indistinguishable from a genuine no-match.
+      // Returning here makes the degradation explicit and attributable.
+      //
+      // Gated on !cursorTextAvailable specifically (not merely !cursorRecompiled)
+      // so a recompile that failed WITH content present — e.g. a transient
+      // compile error — still falls through: loadSymbolDataForEnrichment stored
+      // the document in that case, so a cursor on a declaration can still
+      // resolve against the public-api table.
+      if (!cursorRecompiled && !cursorTextAvailable) {
+        getLogger().warn(
+          () =>
+            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
+            'cursor file cannot be recompiled at full detail and the pool ' +
+            'worker has no stored document, so position resolution cannot ' +
+            'succeed. Aborting with an empty result (degraded, not a genuine ' +
+            'no-match).',
+        );
+        return [];
+      }
 
       // Load the tables of every TYPE the cursor file references — even ones
       // the data-owner already resolved (resolvedSymbolId set). Find References
