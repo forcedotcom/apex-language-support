@@ -83,6 +83,18 @@ export interface SymbolReference {
    * name-only keying, preserving today's behavior for non-overloaded methods).
    */
   argumentTypes?: string[];
+  /**
+   * Optional: number of call-site arguments for a METHOD_CALL / CONSTRUCTOR_CALL
+   * reference (the call's own arity, e.g. `2` for `f('x', y)`). Unlike
+   * {@link argumentTypes} this is statically knowable at parse time without type
+   * resolution, so it is the discriminator that lets a signature-aware
+   * `findReferencesTo` separate references to one *arity-distinct* overload from
+   * its same-named siblings (F11-2). Undefined for non-call references and for
+   * references parsed before this field existed (callers then fall back to
+   * name-only keying, preserving today's behavior). Same-arity overloads remain
+   * unified until call-site type capture lands (documented follow-up).
+   */
+  argumentCount?: number;
   /** Optional: ID of the resolved type (if type is known, undefined otherwise) */
   resolvedTypeId?: string;
   /** Optional: which tier resolved this reference */
@@ -142,6 +154,15 @@ export class EnhancedSymbolReference implements SymbolReference {
     public argumentTypes?: string[],
   ) {}
 
+  /**
+   * Call-site arity (see {@link SymbolReference.argumentCount}). Declared as a
+   * plain assignable field rather than a constructor parameter: the positional
+   * constructor is already long (15+ optional params), so new
+   * discriminator-style fields are set after construction (e.g. by the parser
+   * listener once the argument list is counted) instead of widening it further.
+   */
+  public argumentCount?: number;
+
   // Custom JSON serialization to avoid circular references
   toJSON(): any {
     const base: any = {
@@ -161,6 +182,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       validatedAccess: this.validatedAccess,
       accessValidationState: this.accessValidationState,
       argumentTypes: this.argumentTypes,
+      argumentCount: this.argumentCount,
     };
 
     // Add chained expression info without circular references

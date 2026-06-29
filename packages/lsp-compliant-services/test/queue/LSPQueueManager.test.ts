@@ -164,6 +164,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       enrichToLevel: jest.fn(),
       resolveWithEnrichment: jest.fn(),
       isStandardLibraryType: jest.fn(),
+      drainAllDeferredReferences: jest.fn(),
+      findSubtypes: jest.fn(),
+      findSupertypes: jest.fn(),
     };
 
     // Mock ApexSettingsManager
