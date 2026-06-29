@@ -237,3 +237,21 @@ export function getTypeNameFromCreatedName(
   }
   return pairs.map((pair) => pair.anyId().getText()).join('.');
 }
+
+/**
+ * Count the call-site arguments of a method-call context.
+ *
+ * Grammar: both `methodCall` (`id LPAREN expressionList? RPAREN`) and
+ * `dotMethodCall` (`anyId LPAREN expressionList? RPAREN`) carry an optional
+ * `expressionList`, whose `expression_list()` is the positional argument array.
+ * A bare call (`f()`) has no `expressionList`, so this returns `0`.
+ *
+ * This is the call-site *arity* — statically available at parse time without
+ * type resolution — used as the overload discriminator on METHOD_CALL
+ * references (see {@link SymbolReference.argumentCount}, F11-2).
+ */
+export function countCallArguments(
+  ctx: MethodCallContext | DotMethodCallContext,
+): number {
+  return ctx.expressionList()?.expression_list()?.length ?? 0;
+}
