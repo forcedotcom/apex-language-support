@@ -47,6 +47,8 @@ import {
   isContextType,
   countCallArguments,
   countConstructorArguments,
+  callArgumentExpressions,
+  constructorArgumentExpressions,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
@@ -248,6 +250,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Overload discriminator: call-site arity (F11-2). Set post-construction
       // rather than via the already-long factory/constructor positional list.
       reference.argumentCount = countCallArguments(ctx);
+      // Raw argument source texts — input to semantic argument-type resolution
+      // (same-arity overload separation). Type derivation happens later.
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -315,6 +320,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       );
       // Overload discriminator: call-site arity (F11-2).
       reference.argumentCount = countCallArguments(ctx);
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -1867,6 +1873,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Overload discriminator: constructor call-site arity (F11-2). Lets
       // findReferencesTo separate `new Foo()` from `new Foo(x)`.
       reference.argumentCount = countConstructorArguments(ctx);
+      reference.argumentExpressions = constructorArgumentExpressions(ctx);
 
       // Check if this constructor call has arguments (classCreatorRest)
       const classCreatorRest = (creator as any).classCreatorRest?.();
@@ -2251,6 +2258,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         // Overload discriminator: call-site arity (F11-2).
         reference.argumentCount = countCallArguments(ctx);
+        reference.argumentExpressions = callArgumentExpressions(ctx);
         this.symbolTable.addTypeReference(reference);
       }
     } catch (error) {

@@ -58,6 +58,7 @@ import {
   isMethodOrConstructorSymbol,
 } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
+import { doesSignatureMatch } from '../semantics/validation/utils/methodSignatureUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isApexKeyword } from '../utils/ApexKeywords';
 import { isStandardApexUri } from '../types/ProtocolHandler';
@@ -148,6 +149,11 @@ export interface ReferenceEdge {
     namespace?: string;
     /** Call-site arity, used as the overload discriminator (F11-2). */
     argumentCount?: number;
+    /**
+     * Positional call-site argument type strings, the signature key that
+     * separates same-arity overloads (`f(String)` vs `f(Integer)`, W-23182862).
+     */
+    argumentTypes?: string[];
   };
 }
 
@@ -167,6 +173,11 @@ export interface ReferenceResult {
     namespace?: string;
     /** Call-site arity, used as the overload discriminator (F11-2). */
     argumentCount?: number;
+    /**
+     * Positional call-site argument type strings, the signature key that
+     * separates same-arity overloads (`f(String)` vs `f(Integer)`, W-23182862).
+     */
+    argumentTypes?: string[];
   };
 }
 
@@ -232,6 +243,11 @@ export interface RefStoreEntry {
     namespace?: string;
     /** Call-site arity, used as the overload discriminator (F11-2). */
     argumentCount?: number;
+    /**
+     * Positional call-site argument type strings, the signature key that
+     * separates same-arity overloads (`f(String)` vs `f(Integer)`, W-23182862).
+     */
+    argumentTypes?: string[];
   };
 }
 
@@ -352,6 +368,7 @@ export class ApexSymbolRefManager {
         isStatic?: boolean;
         namespace?: string;
         argumentCount?: number;
+        argumentTypes?: string[];
       };
     }>
   > = new CaseInsensitiveHashMap();
@@ -369,6 +386,7 @@ export class ApexSymbolRefManager {
         isStatic?: boolean;
         namespace?: string;
         argumentCount?: number;
+        argumentTypes?: string[];
       };
     }>
   > = new CaseInsensitiveHashMap();
@@ -844,6 +862,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): boolean {
     const refEntry: RefStoreEntry = {
@@ -862,6 +881,7 @@ export class ApexSymbolRefManager {
             isStatic: context.isStatic,
             namespace: context.namespace,
             argumentCount: context.argumentCount,
+            argumentTypes: context.argumentTypes,
           }
         : undefined,
     };
@@ -1819,6 +1839,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): void {
     // Enforce source artifact invariant and normalize URI for stable matching.
@@ -1991,9 +2012,12 @@ export class ApexSymbolRefManager {
    *   whose `context.argumentCount` is undefined (parsed before this field
    *   existed, or non-call edges) are kept — we cannot prove they belong to a
    *   different overload, so we never drop them.
-   * - Same-arity overloads (`f(String)` vs `f(Integer)`) cannot be separated by
-   *   arity alone and remain unified; call-site type capture is the documented
-   *   follow-up.
+   * - Same-arity overloads (`f(String)` vs `f(Integer)`) are separated by
+   *   call-site argument TYPES when those types resolve (W-23182862): a
+   *   reference is dropped only when its `context.argumentTypes` matches a
+   *   different same-arity overload's signature but not the target's. When the
+   *   argument types are unresolved, or match no overload, the reference is
+   *   kept — the set stays unified rather than risk a wrong split.
    * - Applies to constructors as well as methods: constructor overloads
    *   (`Foo()` vs `Foo(String)`) are separated by call-site arity the same way.
    */
@@ -2029,11 +2053,53 @@ export class ApexSymbolRefManager {
     }
 
     const targetArity = symbol.parameters?.length ?? 0;
+
+    // Same-arity siblings (other than the target) are the overloads that arity
+    // alone cannot separate — e.g. `f(String)` vs `f(Integer)`. They drive the
+    // type-aware step below (W-23182862).
+    const sameAritySiblings = siblings.filter(
+      (s) =>
+        s.id !== symbol.id &&
+        isMethodOrConstructorSymbol(s) &&
+        (s.parameters?.length ?? 0) === targetArity,
+    );
+
     return results.filter((r) => {
       const callArity = r.context?.argumentCount;
-      // Keep references we cannot attribute to a specific arity (undefined) and
-      // those whose call-site arity matches this overload's parameter count.
-      return callArity === undefined || callArity === targetArity;
+      // Drop references whose call-site arity is known and differs from this
+      // overload's parameter count.
+      if (callArity !== undefined && callArity !== targetArity) {
+        return false;
+      }
+
+      // Arity matches (or is unknown). When the call-site has resolved argument
+      // types AND there are same-arity siblings, separate by signature: drop
+      // this reference only if its argument types match a DIFFERENT same-arity
+      // overload but NOT the target. If they match the target, or match no
+      // sibling (ambiguous / unresolved), keep it — we never split on a guess.
+      const callArgumentTypes = r.context?.argumentTypes;
+      if (
+        callArity === targetArity &&
+        callArgumentTypes !== undefined &&
+        sameAritySiblings.length > 0
+      ) {
+        const matchesTarget = doesSignatureMatch(
+          symbol,
+          symbol.name,
+          callArgumentTypes,
+        );
+        if (matchesTarget) {
+          return true;
+        }
+        const matchesOtherOverload = sameAritySiblings.some((s) =>
+          doesSignatureMatch(s, s.name, callArgumentTypes),
+        );
+        // Attributable to a different overload and not the target → drop.
+        return !matchesOtherOverload;
+      }
+
+      // No type info, no same-arity ambiguity, or unknown arity: keep.
+      return true;
     });
   }
 
@@ -3599,6 +3665,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): void {
     if (!sourceSymbol.fileUri) {
@@ -3648,6 +3715,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): void {
     const virtualSymbolId = generateSymbolId(
@@ -3729,6 +3797,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): void {
     // Don't create reference entries for scope symbols (they're structural, not semantic)
@@ -3775,6 +3844,7 @@ export class ApexSymbolRefManager {
             isStatic: context.isStatic,
             namespace: context.namespace,
             argumentCount: context.argumentCount,
+            argumentTypes: context.argumentTypes,
           }
         : undefined,
     };
@@ -3803,6 +3873,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ): void {
     if (!sourceSymbol.fileUri) {
@@ -3865,6 +3936,7 @@ export class ApexSymbolRefManager {
           isStatic?: boolean;
           namespace?: string;
           argumentCount?: number;
+          argumentTypes?: string[];
         };
       }>
     | undefined {

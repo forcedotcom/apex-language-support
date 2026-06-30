@@ -84,6 +84,17 @@ export interface SymbolReference {
    */
   argumentTypes?: string[];
   /**
+   * Optional: raw source text of each positional call-site argument for a
+   * METHOD_CALL / CONSTRUCTOR_CALL reference, in order (e.g. `['"hi"', 'x']`
+   * for `f("hi", x)`). Captured syntactically at parse time as the *input* to
+   * semantic argument-type resolution: the argument-expression AST does not
+   * survive the listener walk, so the text is lifted onto the reference here so
+   * the semantic phase can resolve each argument to a type and populate
+   * {@link argumentTypes}. Not a signature key itself — once {@link argumentTypes}
+   * is derived this is no longer consulted. Undefined for non-call references.
+   */
+  argumentExpressions?: string[];
+  /**
    * Optional: number of call-site arguments for a METHOD_CALL / CONSTRUCTOR_CALL
    * reference (the call's own arity, e.g. `2` for `f('x', y)`). Unlike
    * {@link argumentTypes} this is statically knowable at parse time without type
@@ -186,6 +197,13 @@ export class EnhancedSymbolReference implements SymbolReference {
    * argument list is counted.
    */
   public argumentCount?: number;
+  /**
+   * Raw call-site argument source texts (see
+   * {@link SymbolReference.argumentExpressions}). Stamped by the parser listener
+   * after construction, alongside {@link argumentCount}; consumed by semantic
+   * resolution to populate {@link argumentTypes}.
+   */
+  public argumentExpressions?: string[];
 
   constructor(
     public name: string,
@@ -229,6 +247,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       accessValidationState: this.accessValidationState,
       argumentTypes: this.argumentTypes,
       argumentCount: this.argumentCount,
+      argumentExpressions: this.argumentExpressions,
     };
 
     // Add chained expression info without circular references
