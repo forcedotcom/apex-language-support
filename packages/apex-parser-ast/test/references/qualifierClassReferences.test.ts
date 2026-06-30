@@ -161,14 +161,58 @@ describe('find-references on a class used only as a qualifier (W-23255936)', () 
       await classSymbol('file:///t/Helper.cls', 'Helper'),
     );
 
-    // The two type usages (`Helper h` and `new Helper()`) are found; the
-    // instance call `h.run()` is not mis-attributed to Helper.
-    const columns = refs
-      .map((r) => r.location?.symbolRange?.startColumn)
-      .sort((a, b) => (a ?? -1) - (b ?? -1));
+    // Exactly the two real TYPE usages are attributed to Helper: the local
+    // declaration `Helper h` and the constructor `new Helper()`. The instance
+    // call `h.run()` (where `h` is a value, not the type) must NOT appear.
+    // Assert on what SHOULD be present rather than the absence of a magic
+    // column, so the test can't pass for the wrong reason after a whitespace
+    // edit. The single source line `void m() { Helper h = new Helper(); h.run(); }`
+    // contains both type usages; identify each by the token range text.
+    const src =
+      'public class C { void m() { Helper h = new Helper(); h.run(); } }';
+    const refTexts = refs.map((r) => {
+      const range = r.location?.identifierRange ?? r.location?.symbolRange;
+      if (!range) return '';
+      return src.slice(range.startColumn, range.endColumn);
+    });
+
     expect(refs.length).toBe(2);
-    // `h.run()` starts at a later column than the ctor; assert it's absent by
-    // confirming no ref begins at the instance-call receiver position.
-    expect(columns).not.toContain(52);
+    // Both surviving refs name the `Helper` type token, never the `h` receiver.
+    refTexts.forEach((t) => expect(t).toBe('Helper'));
+    // And none of them is the instance-call receiver `h.run()`.
+    expect(refTexts).not.toContain('h');
+  });
+
+  it('finds a class qualifier despite an unrelated same-named local elsewhere', async () => {
+    // Registry is a real class referenced via a static call `Registry.init()`.
+    await add(
+      'public class Registry { public static void init() {} }',
+      'file:///t/Registry.cls',
+    );
+    // The caller file has an UNRELATED local named `Registry` in method1, and a
+    // legitimate static call `Registry.init()` in method2. A file-wide name
+    // match would let method1's local suppress the head edge for method2's call,
+    // losing the reference. A scope-aware check must keep it.
+    await add(
+      `public class Consumer {
+         void method1() { Object Registry = null; System.debug(Registry); }
+         void method2() { Registry.init(); }
+       }`,
+      'file:///t/Consumer.cls',
+    );
+    await resolveCrossFile('file:///t/Registry.cls');
+    await resolveCrossFile('file:///t/Consumer.cls');
+
+    const refs = await sm.findReferencesTo(
+      await classSymbol('file:///t/Registry.cls', 'Registry'),
+    );
+
+    // The `Registry.init()` static call in Consumer must be found despite the
+    // like-named local in another method of the same file.
+    expect(
+      refs.some((r) =>
+        (r.fileUri ?? r.symbol?.fileUri ?? '').includes('Consumer'),
+      ),
+    ).toBe(true);
   });
 });

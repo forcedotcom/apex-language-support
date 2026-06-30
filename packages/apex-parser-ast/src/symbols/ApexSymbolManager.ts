@@ -3887,39 +3887,83 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // Instance qualifier (obj.foo()) — the head is a value, not a type. Don't
-      // attribute it to a class with the same name.
-      const qualifierAsValue = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.name === head &&
-            (s.kind === SymbolKind.Variable ||
-              s.kind === SymbolKind.Field ||
-              s.kind === SymbolKind.Parameter),
+      const isValueKind = (s: ApexSymbol): boolean =>
+        s.kind === SymbolKind.Variable ||
+        s.kind === SymbolKind.Field ||
+        s.kind === SymbolKind.Parameter;
+      const isTypeKind = (s: ApexSymbol): boolean =>
+        s.kind === SymbolKind.Class ||
+        s.kind === SymbolKind.Interface ||
+        s.kind === SymbolKind.Enum;
+
+      // Determine whether the head is a VALUE (instance qualifier `obj.foo()`)
+      // or a TYPE (static qualifier `A.foo()`) in a SCOPE-AWARE way. A file-wide
+      // name match (getAllSymbols) is wrong: a local/field/param named like a
+      // class anywhere in the file would silently suppress the head edge for
+      // every qualified reference in the file.
+      let headType: ApexSymbol | undefined;
+
+      // Preferred: the chain resolution already bound the head node to a symbol
+      // (see resolution path that sets chainNodes[0].resolvedSymbolId). That
+      // binding is scope-correct, so trust it.
+      const resolvedHeadId =
+        isChainedSymbolReference(typeRef) &&
+        typeRef.chainNodes?.[0]?.resolvedSymbolId
+          ? typeRef.chainNodes[0].resolvedSymbolId
+          : undefined;
+      if (resolvedHeadId) {
+        const resolvedHead = yield* Effect.promise(() =>
+          self.getSymbol(resolvedHeadId),
         );
-      if (qualifierAsValue) {
-        return;
+        if (resolvedHead && isValueKind(resolvedHead)) {
+          // Instance qualifier resolved to a value in scope — not a type.
+          return;
+        }
+        if (resolvedHead && isTypeKind(resolvedHead) && resolvedHead.fileUri) {
+          headType = resolvedHead;
+        }
+      } else {
+        // Unresolved head: fall back to a SCOPE-LOCAL value check rather than a
+        // file-wide one. Look only at value symbols (variable/field/parameter)
+        // declared in the scope hierarchy enclosing the reference position.
+        // Residual limitation: this scope walk only inspects symbols in the
+        // SAME file's symbol table (the reference's own file), so an unresolved
+        // head whose value declaration lives in another file cannot be
+        // distinguished here — but cross-file values cannot shadow a qualifier
+        // in Apex, so this is safe.
+        const headLoc =
+          isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
+            ? typeRef.chainNodes[0].location
+            : typeRef.location;
+        const position = {
+          line: headLoc.identifierRange.startLine,
+          character: headLoc.identifierRange.startColumn,
+        };
+        const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+        const scopeIds = new Set(scopeHierarchy.map((s) => s.id));
+        const headAsValueInScope = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.name === head &&
+              isValueKind(s) &&
+              s.parentId != null &&
+              scopeIds.has(s.parentId),
+          );
+        if (headAsValueInScope) {
+          return;
+        }
       }
 
-      // Resolve the head name to its declaring type (Class/Interface/Enum).
-      const headCandidates = yield* Effect.promise(() =>
-        self.findSymbolByName(head),
-      );
-      const headType = headCandidates.find(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum,
-      );
+      // No type yet (unresolved head, or head node not bound). Resolve the head
+      // name to its declaring type (Class/Interface/Enum).
+      if (!headType) {
+        const headCandidates = yield* Effect.promise(() =>
+          self.findSymbolByName(head),
+        );
+        headType = headCandidates.find(isTypeKind);
+      }
       if (!headType || !headType.fileUri) {
-        return;
-      }
-
-      const headInGraph = self.symbolRefManager
-        .findSymbolByName(headType.name)
-        .find((s) => s.fileUri === headType.fileUri);
-      if (!headInGraph) {
         return;
       }
 
@@ -3930,9 +3974,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           ? typeRef.chainNodes[0].location
           : typeRef.location;
 
+      // Pass the resolved head TYPE symbol directly. addReference re-resolves
+      // the target by name+fileUri internally (and defers if not yet in the
+      // graph), so a separate presence pre-lookup is redundant.
       self.symbolRefManager.addReference(
         sourceInGraph,
-        headInGraph,
+        headType,
         ReferenceType.TYPE_REFERENCE,
         headLocation,
         {
