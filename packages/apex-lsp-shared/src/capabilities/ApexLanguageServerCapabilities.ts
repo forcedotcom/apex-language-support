@@ -110,6 +110,10 @@ export interface ExperimentalCapabilities {
    * Disabled for web platforms (see WEB_DISABLED_CAPABILITIES).
    */
   profilingProvider?: ProfilingCapability;
+  /** Client supports apex/workspaceIngestionComplete notifications */
+  workspaceIngestionProvider?: { enabled: boolean };
+  /** Client supports apex/requestWorkspaceLoad notifications */
+  requestWorkspaceLoadProvider?: { enabled: boolean };
 }
 
 /**
@@ -212,6 +216,12 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
     profilingProvider: {
       enabled: false, // Disabled by default in production
     },
+    workspaceIngestionProvider: {
+      enabled: true,
+    },
+    requestWorkspaceLoadProvider: {
+      enabled: true,
+    },
   },
 };
 
@@ -254,6 +264,12 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     // Filtered out for web via WEB_DISABLED_CAPABILITIES
     profilingProvider: {
       enabled: true, // Enabled by default in development
+    },
+    workspaceIngestionProvider: {
+      enabled: true,
+    },
+    requestWorkspaceLoadProvider: {
+      enabled: true,
     },
   },
 };
