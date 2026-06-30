@@ -9,6 +9,7 @@
 import { Connection, ProgressToken } from 'vscode-languageserver';
 import {
   LoggerInterface,
+  LSPConfigurationManager,
   RequestWorkspaceLoadParams,
   WorkspaceLoadCompleteParams,
   WorkspaceLoadReason,
@@ -91,6 +92,26 @@ function sendRequestWorkspaceLoadNotification(
         `[WORKSPACE-LOAD] Sending request notification (workDoneToken: ${tokenStatus}, ` +
         `reason: ${reason ?? 'startup'}) at ${notificationStartTime}`,
     );
+
+    // Default-allow: send unless client capabilities are present AND the
+    // specific key is NOT advertised (legacy clients lacking caps still get it)
+    try {
+      const cm = LSPConfigurationManager.getInstance();
+      const clientCaps = cm.getClientCapabilities();
+      if (
+        clientCaps !== undefined &&
+        !cm.isClientCapabilityAdvertised('requestWorkspaceLoadProvider')
+      ) {
+        logger.debug(
+          () =>
+            '[WORKSPACE-LOAD] Suppressing apex/requestWorkspaceLoad' +
+            ' — client did not advertise requestWorkspaceLoadProvider',
+        );
+        return;
+      }
+    } catch {
+      // LSPConfigurationManager not yet initialized — proceed with default-allow
+    }
 
     // sendNotification is synchronous and returns void
     try {

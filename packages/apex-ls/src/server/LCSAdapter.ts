@@ -953,6 +953,20 @@ export class LCSAdapter {
     );
 
     setIngestionCompleteCallback(() => {
+      const cm = LSPConfigurationManager.getInstance();
+      const caps = cm.getClientCapabilities();
+      // Default-allow: send unless client capabilities are present AND the
+      // specific key is NOT advertised (legacy clients lacking caps still get it)
+      if (
+        caps !== undefined &&
+        !cm.isClientCapabilityAdvertised('workspaceIngestionProvider')
+      ) {
+        this.logger.debug(
+          () =>
+            'Suppressing apex/workspaceIngestionComplete — client did not advertise workspaceIngestionProvider',
+        );
+        return;
+      }
       this.connection.sendNotification('apex/workspaceIngestionComplete', {});
     });
 
@@ -1627,6 +1641,11 @@ export class LCSAdapter {
           // Callback function to send notifications to client
           const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
+              // Default-deny: only send if client explicitly advertises queueStateProvider
+              const cm = LSPConfigurationManager.getInstance();
+              if (!cm.isClientCapabilityAdvertised('queueStateProvider')) {
+                return;
+              }
               this.logger.debug(
                 () =>
                   `Sending queue state notification: Started=${

@@ -299,6 +299,27 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
         return;
       }
 
+      // Default-allow: send if capabilities are undefined (legacy client) OR
+      // client explicitly advertises findMissingArtifactProvider. Gate only
+      // when we KNOW the client opted out.
+      try {
+        const cm = LSPConfigurationManager.getInstance();
+        const clientCaps = cm.getClientCapabilities();
+        if (
+          clientCaps !== undefined &&
+          !cm.isClientCapabilityAdvertised('findMissingArtifactProvider')
+        ) {
+          this.logger.debug(
+            () =>
+              `Suppressing apex/findMissingArtifact for ${names}` +
+              ' — client did not advertise findMissingArtifactProvider',
+          );
+          return;
+        }
+      } catch {
+        // LSPConfigurationManager not yet initialized — proceed with default-allow
+      }
+
       // Send request directly to client (fire-and-forget for background mode)
       connection
         .sendRequest('apex/findMissingArtifact', safeParams)
