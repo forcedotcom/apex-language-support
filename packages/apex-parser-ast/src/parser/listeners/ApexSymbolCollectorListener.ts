@@ -7047,8 +7047,10 @@ export class ApexSymbolCollectorListener
             memberName,
             memberLocation,
             context,
-            undefined, // resolvedSymbolId - will be set during second-pass resolution
-            parentContext,
+            {
+              // resolvedSymbolId set during second-pass resolution
+              parentContext,
+            },
           );
 
           this.symbolTable.addTypeReference(memberRef);
@@ -7109,18 +7111,14 @@ export class ApexSymbolCollectorListener
           },
         },
         finalNode.context, // Use final node's context
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        this.getCurrentMethodName(),
-        undefined, // access - will be set if in LHS context
-        finalNode.isStatic,
-        undefined,
-        undefined,
-        analyzedChainNodes, // Attach chainNodes to final node
-        undefined, // resolvedTypeId
-        undefined, // resolutionTier
-        undefined, // isFullyResolved
-        undefined, // validatedAccess
-        'syntax_only', // accessValidationState
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext: this.getCurrentMethodName(),
+          // access - will be set if in LHS context
+          isStatic: finalNode.isStatic,
+          chainNodes: analyzedChainNodes, // Attach chainNodes to final node
+          accessValidationState: 'syntax_only',
+        },
       );
 
       this.symbolTable.addTypeReference(finalRef);
@@ -7361,18 +7359,14 @@ export class ApexSymbolCollectorListener
           },
         },
         finalNode.context, // Use final node's context
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        this.getCurrentMethodName(),
-        undefined, // access - will be set if in LHS context
-        finalNode.isStatic,
-        undefined,
-        undefined,
-        analyzedChainNodes, // Attach chainNodes to final node
-        undefined, // resolvedTypeId
-        undefined, // resolutionTier
-        undefined, // isFullyResolved
-        undefined, // validatedAccess
-        'syntax_only', // accessValidationState
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext: this.getCurrentMethodName(),
+          // access - will be set if in LHS context
+          isStatic: finalNode.isStatic,
+          chainNodes: analyzedChainNodes, // Attach chainNodes to final node
+          accessValidationState: 'syntax_only',
+        },
       );
 
       this.symbolTable.addTypeReference(finalRef);
@@ -7462,8 +7456,10 @@ export class ApexSymbolCollectorListener
         memberName,
         memberLocation,
         context,
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        parentContext,
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext,
+        },
       );
 
       this.symbolTable.addTypeReference(memberRef);

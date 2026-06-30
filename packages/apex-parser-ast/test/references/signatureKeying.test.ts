@@ -146,19 +146,11 @@ describe('signature keying — F11-2 SymbolReference.argumentTypes', () => {
       'f',
       LOCATION,
       ReferenceContext.METHOD_CALL,
-      undefined,
-      'caller',
-      undefined,
-      false,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      ['String', 'List<Integer>'],
+      {
+        parentContext: 'caller',
+        isStatic: false,
+        argumentTypes: ['String', 'List<Integer>'],
+      },
     );
 
     const wire = JSON.parse(JSON.stringify(ref));
