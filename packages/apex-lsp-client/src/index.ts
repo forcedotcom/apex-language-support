@@ -49,3 +49,8 @@ export type {
 
 // Transport adapters — thin wrappers satisfying the RpcConnection port.
 export { JsonRpcConnection } from './transports/jsonRpcConnection';
+export {
+  createNodeStdioConnection,
+  type NodeStdioConnectionOptions,
+  type NodeStdioConnectionResult,
+} from './transports/createNodeStdioConnection';
