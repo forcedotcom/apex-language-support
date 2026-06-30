@@ -2653,6 +2653,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             argumentCount: typeRef.argumentCount,
           },
         );
+        // Also attribute the head of a qualified reference (`A.B`) to type `A`.
+        yield* self.addHeadQualifierReferenceEffect(
+          typeRef,
+          sourceInGraph,
+          symbolTable,
+        );
         if (stats) {
           stats.graphEdgesAdded += 1;
           stats.addReferenceMs += Date.now() - addReferenceStart;
@@ -3571,6 +3577,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     argumentCount: typeRef.argumentCount,
                   },
                 );
+                // Also attribute the head of a qualified reference (`A.B`) to
+                // type `A`, so a class used only as a qualifier is findable.
+                yield* self.addHeadQualifierReferenceEffect(
+                  typeRef,
+                  sourceInGraph,
+                  symbolTable,
+                );
                 return; // Successfully resolved and added to graph
               }
             }
@@ -3746,6 +3759,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             argumentCount: typeRef.argumentCount,
           },
         );
+        // Also attribute the head of a qualified reference (`A.B`) to type `A`.
+        yield* self.addHeadQualifierReferenceEffect(
+          typeRef,
+          sourceInGraph,
+          symbolTable,
+        );
       } catch (error) {
         self.logger.error(
           () => `Error processing type reference ${typeRef.name}: ${error}`,
@@ -3833,6 +3852,95 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       memberResolutionCache,
       resolverStats,
     );
+  }
+
+  /**
+   * For a qualified reference (`A.B`, `new A.B()`, `A.method()`, `List<A.B>`),
+   * also attribute the HEAD segment (`A`) to its declaring type and add a
+   * `source → A` graph edge.
+   *
+   * Without this, a class used ONLY as a qualifier is invisible to
+   * findReferencesTo: the reference is stored under its compound name
+   * (`A.B`), which never matches the bare class symbol id, so the head type's
+   * reverse index stays empty. The member edge (`source → B`) is created by the
+   * normal path; this adds the complementary head edge so the head class is
+   * findable too.
+   *
+   * Skips qualifiers that are not type references: `this`/`super`, and
+   * instance qualifiers that resolve to a variable/field/parameter in scope
+   * (those are instance calls on a value, not a reference to a type).
+   */
+  private addHeadQualifierReferenceEffect(
+    typeRef: SymbolReference,
+    sourceInGraph: ApexSymbol,
+    symbolTable: SymbolTable,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const qualifierInfo = self.extractQualifierFromChain(typeRef);
+      if (!qualifierInfo || !qualifierInfo.isQualified) {
+        return;
+      }
+      const head = qualifierInfo.qualifier;
+      const lowerHead = head.toLowerCase();
+      if (lowerHead === 'this' || lowerHead === 'super') {
+        return;
+      }
+
+      // Instance qualifier (obj.foo()) — the head is a value, not a type. Don't
+      // attribute it to a class with the same name.
+      const qualifierAsValue = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.name === head &&
+            (s.kind === SymbolKind.Variable ||
+              s.kind === SymbolKind.Field ||
+              s.kind === SymbolKind.Parameter),
+        );
+      if (qualifierAsValue) {
+        return;
+      }
+
+      // Resolve the head name to its declaring type (Class/Interface/Enum).
+      const headCandidates = yield* Effect.promise(() =>
+        self.findSymbolByName(head),
+      );
+      const headType = headCandidates.find(
+        (s) =>
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum,
+      );
+      if (!headType || !headType.fileUri) {
+        return;
+      }
+
+      const headInGraph = self.symbolRefManager
+        .findSymbolByName(headType.name)
+        .find((s) => s.fileUri === headType.fileUri);
+      if (!headInGraph) {
+        return;
+      }
+
+      // Point the edge at the head token itself when the chain preserved its
+      // location, so find-references highlights `A` (not the whole `A.B` span).
+      const headLocation =
+        isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
+          ? typeRef.chainNodes[0].location
+          : typeRef.location;
+
+      self.symbolRefManager.addReference(
+        sourceInGraph,
+        headInGraph,
+        ReferenceType.TYPE_REFERENCE,
+        headLocation,
+        {
+          methodName: typeRef.parentContext,
+          isStatic: typeRef.isStatic,
+        },
+      );
+    });
   }
 
   /**
