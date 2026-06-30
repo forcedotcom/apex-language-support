@@ -337,6 +337,35 @@ const summary = generateStartupSummary(settings);
 console.log(summary);
 ```
 
+### Client Capabilities Management
+
+`LSPConfigurationManager` stores the client capabilities received during LSP
+initialization and exposes methods for server-side capability gating:
+
+```typescript
+import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
+
+const cm = LSPConfigurationManager.getInstance();
+
+// Store capabilities from the initialize request
+cm.setClientCapabilities(params.capabilities);
+
+// Retrieve stored capabilities (undefined if not yet set)
+const caps = cm.getClientCapabilities();
+
+// Check whether the client advertised a specific experimental capability.
+// Performs safe runtime guards against undefined/null/non-object values.
+// Returns true only if experimental[key].enabled === true.
+if (cm.isClientCapabilityAdvertised('findMissingArtifactProvider')) {
+  // client supports this capability — proceed with send
+}
+```
+
+The `capabilityKey` field in the `APEX_METHODS` registry (see below) defines
+which experimental capability gates each server-to-client send. At runtime,
+`isClientCapabilityAdvertised(capabilityKey)` is called at each send site to
+determine whether the notification/request should be dispatched or suppressed.
+
 ### Custom LSP Protocol Extensions
 
 The package defines custom LSP protocol extensions:
@@ -358,6 +387,9 @@ Each entry is an `ApexMethodDescriptor` with these fields:
 - `kind` — `'request'` (expects a response) or `'notification'`.
 - `devModeOnly` — `true` when the method is only available in dev mode.
 - `capabilityKey` — optional experimental-capability key that gates the method.
+  The server gates `apex/*` sends at runtime using
+  `LSPConfigurationManager.isClientCapabilityAdvertised(capabilityKey)` (see
+  [Client Capabilities Management](#client-capabilities-management) above).
 
 ```typescript
 import {

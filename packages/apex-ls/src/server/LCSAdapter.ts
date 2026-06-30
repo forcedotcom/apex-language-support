@@ -954,11 +954,11 @@ export class LCSAdapter {
 
     setIngestionCompleteCallback(() => {
       const cm = LSPConfigurationManager.getInstance();
-      const caps = cm.getClientCapabilities();
+      const capabilities = cm.getClientCapabilities();
       // Default-allow: send unless client capabilities are present AND the
       // specific key is NOT advertised (legacy clients lacking caps still get it)
       if (
-        caps !== undefined &&
+        capabilities !== undefined &&
         !cm.isClientCapabilityAdvertised('workspaceIngestionProvider')
       ) {
         this.logger.debug(

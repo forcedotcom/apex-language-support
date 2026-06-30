@@ -81,7 +81,7 @@ export class LSPConfigurationManager {
   private autoDetectEnvironment: boolean;
   private settingsChangeListener?: () => void;
   private runtimeDependencies?: LSPRuntimeDependencies;
-  private clientCaps?: ClientCapabilities;
+  private clientCapabilities?: ClientCapabilities;
   private readonly logger = getLogger();
 
   constructor(options: LSPConfigurationOptions = {}) {
@@ -274,10 +274,12 @@ export class LSPConfigurationManager {
 
   /**
    * Set the client capabilities received during initialization
-   * @param caps - The client capabilities from the initialize request
+   * @param capabilities - The client capabilities from the initialize request
    */
-  public setClientCapabilities(caps: ClientCapabilities | undefined): void {
-    this.clientCaps = caps;
+  public setClientCapabilities(
+    capabilities: ClientCapabilities | undefined,
+  ): void {
+    this.clientCapabilities = capabilities;
   }
 
   /**
@@ -285,7 +287,7 @@ export class LSPConfigurationManager {
    * @returns The stored client capabilities, or undefined if not yet set
    */
   public getClientCapabilities(): ClientCapabilities | undefined {
-    return this.clientCaps;
+    return this.clientCapabilities;
   }
 
   /**
@@ -299,7 +301,7 @@ export class LSPConfigurationManager {
    * @returns True only if `experimental[capabilityKey].enabled === true`
    */
   public isClientCapabilityAdvertised(capabilityKey: string): boolean {
-    const exp = this.clientCaps?.experimental;
+    const exp = this.clientCapabilities?.experimental;
     return (
       exp != null &&
       typeof exp === 'object' &&

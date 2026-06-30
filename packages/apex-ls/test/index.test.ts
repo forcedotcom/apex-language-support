@@ -588,6 +588,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       }),
       setInitialSettings: jest.fn(),
       setClientCapabilities: jest.fn(),
+      getClientCapabilities: jest.fn().mockReturnValue(undefined),
       setConnection: jest.fn(),
       syncCapabilitiesWithSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue({}),

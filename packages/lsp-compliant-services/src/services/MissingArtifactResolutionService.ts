@@ -304,9 +304,9 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       // when we KNOW the client opted out.
       try {
         const cm = LSPConfigurationManager.getInstance();
-        const clientCaps = cm.getClientCapabilities();
+        const capabilities = cm.getClientCapabilities();
         if (
-          clientCaps !== undefined &&
+          capabilities !== undefined &&
           !cm.isClientCapabilityAdvertised('findMissingArtifactProvider')
         ) {
           this.logger.debug(
@@ -316,8 +316,13 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           );
           return;
         }
-      } catch {
-        // LSPConfigurationManager not yet initialized — proceed with default-allow
+      } catch (e) {
+        // getInstance() creates instance if absent — this only fires if the
+        // constructor throws (e.g., dependency initialization failure).
+        // Proceed with default-allow so notification still reaches client.
+        this.logger.debug(
+          () => `Capability check failed (proceeding with default-allow): ${e}`,
+        );
       }
 
       // Send request directly to client (fire-and-forget for background mode)

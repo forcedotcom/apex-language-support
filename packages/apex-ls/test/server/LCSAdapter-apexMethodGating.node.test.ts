@@ -9,6 +9,22 @@
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 
 /**
+ * Determine whether a default-allow notification should be suppressed.
+ * Mirrors the production gating logic in LCSAdapter and WorkspaceLoadCoordinator:
+ * suppress only when clientCapabilities is defined AND the specific key is absent.
+ */
+function shouldSuppressDefaultAllow(
+  configManager: LSPConfigurationManager,
+  capabilityKey: string,
+): boolean {
+  const capabilities = configManager.getClientCapabilities();
+  return (
+    capabilities !== undefined &&
+    !configManager.isClientCapabilityAdvertised(capabilityKey)
+  );
+}
+
+/**
  * Integration tests for server-to-client apex/* send gating.
  *
  * These tests verify the capability gating logic at the
@@ -32,13 +48,9 @@ describe('Server-to-client apex/* send gating', () => {
       // Legacy clients do not provide capabilities — default-allow
       expect(configManager.getClientCapabilities()).toBeUndefined();
       // Gate logic: caps undefined → send unconditionally
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
-          'workspaceIngestionProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+      expect(
+        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+      ).toBe(false);
     });
 
     it('allows send when client advertises workspaceIngestionProvider', () => {
@@ -46,13 +58,9 @@ describe('Server-to-client apex/* send gating', () => {
         experimental: { workspaceIngestionProvider: { enabled: true } },
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
-          'workspaceIngestionProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+      expect(
+        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+      ).toBe(false);
     });
 
     it('suppresses send when caps present but key absent', () => {
@@ -60,13 +68,9 @@ describe('Server-to-client apex/* send gating', () => {
         experimental: {},
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
-          'workspaceIngestionProvider',
-        );
-      expect(shouldSuppress).toBe(true);
+      expect(
+        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+      ).toBe(true);
     });
   });
 
@@ -103,13 +107,12 @@ describe('Server-to-client apex/* send gating', () => {
   describe('apex/findMissingArtifact (default-allow)', () => {
     it('allows send when clientCapabilities is undefined (legacy)', () => {
       expect(configManager.getClientCapabilities()).toBeUndefined();
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'findMissingArtifactProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+        ),
+      ).toBe(false);
     });
 
     it('allows send when client advertises findMissingArtifactProvider', () => {
@@ -117,13 +120,12 @@ describe('Server-to-client apex/* send gating', () => {
         experimental: { findMissingArtifactProvider: { enabled: true } },
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'findMissingArtifactProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+        ),
+      ).toBe(false);
     });
 
     it('suppresses send when caps present but key absent', () => {
@@ -131,26 +133,24 @@ describe('Server-to-client apex/* send gating', () => {
         experimental: {},
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'findMissingArtifactProvider',
-        );
-      expect(shouldSuppress).toBe(true);
+        ),
+      ).toBe(true);
     });
   });
 
   describe('apex/requestWorkspaceLoad (default-allow)', () => {
     it('allows send when clientCapabilities is undefined (legacy)', () => {
       expect(configManager.getClientCapabilities()).toBeUndefined();
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'requestWorkspaceLoadProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+        ),
+      ).toBe(false);
     });
 
     it('allows send when client advertises requestWorkspaceLoadProvider', () => {
@@ -160,13 +160,12 @@ describe('Server-to-client apex/* send gating', () => {
         },
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'requestWorkspaceLoadProvider',
-        );
-      expect(shouldSuppress).toBe(false);
+        ),
+      ).toBe(false);
     });
 
     it('suppresses send when caps present but key absent', () => {
@@ -174,13 +173,12 @@ describe('Server-to-client apex/* send gating', () => {
         experimental: {},
       } as any);
 
-      const caps = configManager.getClientCapabilities();
-      const shouldSuppress =
-        caps !== undefined &&
-        !configManager.isClientCapabilityAdvertised(
+      expect(
+        shouldSuppressDefaultAllow(
+          configManager,
           'requestWorkspaceLoadProvider',
-        );
-      expect(shouldSuppress).toBe(true);
+        ),
+      ).toBe(true);
     });
   });
 });

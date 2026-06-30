@@ -72,6 +72,9 @@ describe('MissingArtifactResolutionService — capability gating', () => {
 
   it('sends when clientCapabilities is undefined (legacy compat)', async () => {
     // Do NOT set client capabilities — simulates legacy client
+    expect(
+      LSPConfigurationManager.getInstance().getClientCapabilities(),
+    ).toBeUndefined();
     await service.resolveInBackground(makeParams());
 
     expect(mockConnection.sendRequest).toHaveBeenCalledWith(

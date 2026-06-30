@@ -8,8 +8,10 @@
 
 import { Effect } from 'effect';
 import {
+  enableConsoleLogging,
   getLogger,
   LSPConfigurationManager,
+  setLogLevel,
 } from '@salesforce/apex-lsp-shared';
 import {
   LocalWorkspaceLoadCoordinator,
@@ -101,6 +103,8 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
 
 describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
   beforeEach(() => {
+    enableConsoleLogging();
+    setLogLevel('error');
     resetWorkspaceLoadState();
     LSPConfigurationManager.resetInstance();
   });
@@ -112,6 +116,9 @@ describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
   it('sends when clientCapabilities is undefined (legacy — default-allow)', async () => {
     // Ensure LSPConfigurationManager exists but has no client caps
     LSPConfigurationManager.getInstance();
+    expect(
+      LSPConfigurationManager.getInstance().getClientCapabilities(),
+    ).toBeUndefined();
 
     const sendNotification = jest.fn();
     const connection = { sendNotification } as any;

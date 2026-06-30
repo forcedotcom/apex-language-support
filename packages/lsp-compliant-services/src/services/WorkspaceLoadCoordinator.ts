@@ -97,9 +97,9 @@ function sendRequestWorkspaceLoadNotification(
     // specific key is NOT advertised (legacy clients lacking caps still get it)
     try {
       const cm = LSPConfigurationManager.getInstance();
-      const clientCaps = cm.getClientCapabilities();
+      const capabilities = cm.getClientCapabilities();
       if (
-        clientCaps !== undefined &&
+        capabilities !== undefined &&
         !cm.isClientCapabilityAdvertised('requestWorkspaceLoadProvider')
       ) {
         logger.debug(
@@ -109,8 +109,14 @@ function sendRequestWorkspaceLoadNotification(
         );
         return;
       }
-    } catch {
-      // LSPConfigurationManager not yet initialized — proceed with default-allow
+    } catch (e) {
+      // getInstance() creates instance if absent — this only fires if the
+      // constructor throws (e.g., dependency initialization failure).
+      // Proceed with default-allow so notification still reaches client.
+      logger.debug(
+        () =>
+          `[WORKSPACE-LOAD] Capability check failed (proceeding with default-allow): ${e}`,
+      );
     }
 
     // sendNotification is synchronous and returns void
