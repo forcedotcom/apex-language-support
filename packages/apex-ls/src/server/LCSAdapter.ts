@@ -1338,6 +1338,12 @@ export class LCSAdapter {
     // Store client capabilities for later dynamic registration
     this.clientCapabilities = params.capabilities;
 
+    // Expose client capabilities on the shared configuration manager for
+    // server→client send gating (capability-aware notification suppression)
+    LSPConfigurationManager.getInstance().setClientCapabilities(
+      params.capabilities,
+    );
+
     this.hasConfigurationCapability =
       !!params.capabilities.workspace?.configuration;
     this.hasWorkspaceFolderCapability =

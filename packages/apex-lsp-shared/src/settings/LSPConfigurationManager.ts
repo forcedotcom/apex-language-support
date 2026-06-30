@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import {
+  ServerCapabilities,
+  ClientCapabilities,
+} from 'vscode-languageserver-protocol';
 import type {
   Connection,
   DidChangeConfigurationParams,
@@ -78,6 +81,7 @@ export class LSPConfigurationManager {
   private autoDetectEnvironment: boolean;
   private settingsChangeListener?: () => void;
   private runtimeDependencies?: LSPRuntimeDependencies;
+  private clientCaps?: ClientCapabilities;
   private readonly logger = getLogger();
 
   constructor(options: LSPConfigurationOptions = {}) {
@@ -266,6 +270,41 @@ export class LSPConfigurationManager {
    */
   public getRuntimePlatform(): RuntimePlatform {
     return this.runtimePlatform;
+  }
+
+  /**
+   * Set the client capabilities received during initialization
+   * @param caps - The client capabilities from the initialize request
+   */
+  public setClientCapabilities(caps: ClientCapabilities | undefined): void {
+    this.clientCaps = caps;
+  }
+
+  /**
+   * Get the client capabilities received during initialization
+   * @returns The stored client capabilities, or undefined if not yet set
+   */
+  public getClientCapabilities(): ClientCapabilities | undefined {
+    return this.clientCaps;
+  }
+
+  /**
+   * Check whether the client advertised a specific experimental capability.
+   *
+   * The LSP `ClientCapabilities.experimental` field is typed `any` in the
+   * protocol spec. This method performs safe runtime guards against
+   * undefined, null, non-object, or missing keys to prevent runtime errors.
+   *
+   * @param capabilityKey - The key to look up under `experimental`
+   * @returns True only if `experimental[capabilityKey].enabled === true`
+   */
+  public isClientCapabilityAdvertised(capabilityKey: string): boolean {
+    const exp = this.clientCaps?.experimental;
+    return (
+      exp != null &&
+      typeof exp === 'object' &&
+      exp[capabilityKey]?.enabled === true
+    );
   }
 
   /**
