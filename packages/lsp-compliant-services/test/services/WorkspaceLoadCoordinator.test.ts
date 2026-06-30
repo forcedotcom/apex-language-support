@@ -7,7 +7,10 @@
  */
 
 import { Effect } from 'effect';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  LSPConfigurationManager,
+} from '@salesforce/apex-lsp-shared';
 import {
   LocalWorkspaceLoadCoordinator,
   RemoteWorkspaceLoadCoordinator,
@@ -93,5 +96,65 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
       Effect.runPromise(coord.ensureLoaded()),
     ).resolves.toBeUndefined();
     expect(proxy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
+  beforeEach(() => {
+    resetWorkspaceLoadState();
+    LSPConfigurationManager.resetInstance();
+  });
+
+  afterEach(() => {
+    LSPConfigurationManager.resetInstance();
+  });
+
+  it('sends when clientCapabilities is undefined (legacy — default-allow)', async () => {
+    // Ensure LSPConfigurationManager exists but has no client caps
+    LSPConfigurationManager.getInstance();
+
+    const sendNotification = jest.fn();
+    const connection = { sendNotification } as any;
+    const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
+
+    await Effect.runPromise(coord.ensureLoaded('tok'));
+
+    expect(sendNotification).toHaveBeenCalledWith(
+      'apex/requestWorkspaceLoad',
+      expect.objectContaining({ workDoneToken: 'tok' }),
+    );
+  });
+
+  it('sends when client advertises requestWorkspaceLoadProvider', async () => {
+    const cm = LSPConfigurationManager.getInstance();
+    cm.setClientCapabilities({
+      experimental: { requestWorkspaceLoadProvider: { enabled: true } },
+    } as any);
+
+    const sendNotification = jest.fn();
+    const connection = { sendNotification } as any;
+    const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
+
+    await Effect.runPromise(coord.ensureLoaded());
+
+    expect(sendNotification).toHaveBeenCalledWith(
+      'apex/requestWorkspaceLoad',
+      expect.any(Object),
+    );
+  });
+
+  it('suppresses when caps present but key absent', async () => {
+    const cm = LSPConfigurationManager.getInstance();
+    cm.setClientCapabilities({
+      experimental: {},
+    } as any);
+
+    const sendNotification = jest.fn();
+    const connection = { sendNotification } as any;
+    const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
+
+    await Effect.runPromise(coord.ensureLoaded());
+
+    expect(sendNotification).not.toHaveBeenCalled();
   });
 });
