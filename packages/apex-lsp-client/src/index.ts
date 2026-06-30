@@ -46,3 +46,6 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
+
+// Transport adapters — thin wrappers satisfying the RpcConnection port.
+export { JsonRpcConnection } from './transports/jsonRpcConnection';

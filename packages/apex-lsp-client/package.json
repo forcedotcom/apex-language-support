@@ -130,7 +130,8 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.21.4"
+    "effect": "^3.21.4",
+    "vscode-jsonrpc": "^8.2.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
