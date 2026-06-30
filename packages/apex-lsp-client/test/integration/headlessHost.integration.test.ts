@@ -8,6 +8,7 @@
 
 import { describe, it, expect, afterAll } from '@jest/globals';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
 import { createHeadlessClient } from '../../src/hosts/headlessHost';
 import type { HeadlessClientResult } from '../../src/hosts/headlessHost';
@@ -18,17 +19,17 @@ import type { HeadlessClientResult } from '../../src/hosts/headlessHost';
  * initialize handshake, and asserts a clean shutdown/dispose cycle.
  *
  * This is a process-level integration test, NOT a Playwright e2e spec. It
- * validates adapter wiring, spawn lifecycle, and protocol round-trip. Skip if
- * the server binary is not available (CI may not build all packages).
+ * validates adapter wiring, spawn lifecycle, and protocol round-trip.
  *
- * Gated: skipped unless `RUN_INTEGRATION=1` is set in the environment.
+ * Gated: requires `RUN_INTEGRATION=1` AND the server binary must exist.
+ * To run locally: `npm run bundle -w @salesforce/apex-ls && RUN_INTEGRATION=1 npm test -w @salesforce/apex-lsp-client`
  */
-const runIntegration = process.env.RUN_INTEGRATION === '1';
+const serverPath = join(__dirname, '../../../apex-ls/dist/server.node.js');
+const serverAvailable = existsSync(serverPath);
+const runIntegration = process.env.RUN_INTEGRATION === '1' && serverAvailable;
 const describeIntegration = runIntegration ? describe : describe.skip;
 
 describeIntegration('headlessHost integration', () => {
-  const serverPath = join(__dirname, '../../../apex-ls/dist/server.node.js');
-
   let result: HeadlessClientResult | undefined;
 
   afterAll(async () => {

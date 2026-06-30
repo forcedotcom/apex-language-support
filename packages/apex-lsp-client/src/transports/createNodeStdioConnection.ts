@@ -69,6 +69,19 @@ export function createNodeStdioConnection(
     cwd,
   });
 
+  // Surface spawn failures (ENOENT, EACCES) as a clear rejection rather than
+  // letting them become unhandled 'error' events or cryptic downstream errors.
+  child.on('error', (err: Error) => {
+    const wrapped = new Error(
+      `createNodeStdioConnection: child process error: ${err.message}`,
+    );
+    (wrapped as any).cause = err;
+    // Emit on stderr-like channel; connection.onError will propagate if
+    // the connection is already listening, otherwise this surfaces at the
+    // caller's catch boundary via the returned process handle.
+    child.emit('spawnError', wrapped);
+  });
+
   if (!child.stdout || !child.stdin) {
     throw new Error(
       'createNodeStdioConnection: child process lacks stdio pipes',

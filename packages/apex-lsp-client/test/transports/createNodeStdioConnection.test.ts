@@ -15,6 +15,9 @@ const mockStdout = { on: jest.fn(), readable: true };
 const mockStdin = { on: jest.fn(), writable: true };
 const mockStderr = { on: jest.fn() };
 
+const mockOn = jest.fn();
+const mockEmit = jest.fn();
+
 const mockChildProcess = {
   stdout: mockStdout,
   stdin: mockStdin,
@@ -22,6 +25,8 @@ const mockChildProcess = {
   killed: false,
   kill: mockKill,
   pid: 12345,
+  on: mockOn,
+  emit: mockEmit,
 };
 
 jest.mock('child_process', () => ({
