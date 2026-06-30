@@ -3253,7 +3253,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             ? scopeHierarchy[scopeHierarchy.length - 1]
             : null;
         const lookupType = (identifier: string): string | undefined => {
-          const symbol = symbolTable.lookup(identifier, innermostScope);
+          // Resolve through the lexical scope CHAIN only (scope → parents →
+          // roots). Must NOT use lookup(), whose child-scope descent could
+          // resolve the argument to a same-named local in an unrelated nested
+          // block and feed a wrong type into overload separation.
+          const symbol = symbolTable.lookupInScopeChain(
+            identifier,
+            innermostScope,
+          );
           if (isVariableSymbol(symbol)) {
             return (
               symbol.type?.originalTypeString ?? symbol.type?.name ?? undefined
