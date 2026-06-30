@@ -56,7 +56,13 @@ export async function createHeadlessClient(
     connectionOptions,
   );
 
-  const core = await ApexClientCore.create(connection, coreOptions);
+  let core: ApexClientCore;
+  try {
+    core = await ApexClientCore.create(connection, coreOptions);
+  } catch (err) {
+    connection.dispose();
+    throw err;
+  }
 
   connection.listen();
 
