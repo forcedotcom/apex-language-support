@@ -54,3 +54,4 @@ export {
   type NodeStdioConnectionOptions,
   type NodeStdioConnectionResult,
 } from './transports/createNodeStdioConnection';
+export { createWebWorkerConnection } from './transports/createWebWorkerConnection';
