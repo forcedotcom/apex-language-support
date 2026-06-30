@@ -55,3 +55,10 @@ export {
   type NodeStdioConnectionResult,
 } from './transports/createNodeStdioConnection';
 export { createWebWorkerConnection } from './transports/createWebWorkerConnection';
+
+// Headless host — spawn + core build + listen in correct order.
+export {
+  createHeadlessClient,
+  type HeadlessClientOptions,
+  type HeadlessClientResult,
+} from './hosts/headlessHost';
