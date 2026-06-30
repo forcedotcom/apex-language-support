@@ -361,6 +361,12 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
         "background",
       ],
     },
+    "requestWorkspaceLoadProvider": {
+      "enabled": true,
+    },
+    "workspaceIngestionProvider": {
+      "enabled": true,
+    },
   },
   "general": {
     "markdown": {
@@ -557,6 +563,12 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
         "background",
       ],
     },
+    "requestWorkspaceLoadProvider": {
+      "enabled": true,
+    },
+    "workspaceIngestionProvider": {
+      "enabled": true,
+    },
   },
   "general": {
     "markdown": {
@@ -720,6 +732,12 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
         "blocking",
         "background",
       ],
+    },
+    "requestWorkspaceLoadProvider": {
+      "enabled": true,
+    },
+    "workspaceIngestionProvider": {
+      "enabled": true,
     },
   },
   "general": {
@@ -916,6 +934,12 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
         "blocking",
         "background",
       ],
+    },
+    "requestWorkspaceLoadProvider": {
+      "enabled": true,
+    },
+    "workspaceIngestionProvider": {
+      "enabled": true,
     },
   },
   "general": {
