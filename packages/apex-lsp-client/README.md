@@ -70,6 +70,44 @@ await core.initialize(mySettings, { rootUri: 'file:///workspace' });
 Calling a lifecycle method after `dispose()` rejects with
 `ApexClientDisposedError`.
 
+### LSP pass-through methods
+
+Typed wrappers for standard LSP operations flow through the registered
+middleware chain:
+
+```typescript
+const hover = await core.hover({
+  textDocument: { uri: 'file:///Foo.cls' },
+  position: { line: 10, character: 5 },
+});
+
+const completions = await core.completion({
+  textDocument: { uri: 'file:///Foo.cls' },
+  position: { line: 10, character: 5 },
+});
+
+const definition = await core.definition({
+  textDocument: { uri: 'file:///Foo.cls' },
+  position: { line: 10, character: 5 },
+});
+
+const symbols = await core.documentSymbol({
+  textDocument: { uri: 'file:///Foo.cls' },
+});
+```
+
+For methods not covered by a typed wrapper, use the generic escape hatches:
+
+```typescript
+// Generic request (returns Promise<R>)
+const result = await core.request<MyResult>('custom/method', { key: 'value' });
+
+// Generic notification (synchronous, void)
+core.notify('custom/didChange', { uri: 'file:///Foo.cls' });
+```
+
+All pass-through methods reject with `ApexClientDisposedError` after `dispose()`.
+
 ### Register middleware
 
 `use()` registers a middleware and returns a `Disposable` that removes it again.
@@ -95,6 +133,16 @@ disposable.dispose();
     idempotent on success.
   - `shutdown()` — send `shutdown` then `exit`; idempotent on success.
   - `use(mw)` — register a middleware; returns a `Disposable`.
+  - `request<R>(method, params?)` — generic request escape hatch; sends through
+    the middleware chain.
+  - `notify(method, params?)` — generic notification pass-through (synchronous).
+  - `hover(params)` — send `textDocument/hover` through the middleware chain.
+  - `completion(params)` — send `textDocument/completion` through the middleware
+    chain.
+  - `definition(params)` — send `textDocument/definition` through the middleware
+    chain.
+  - `documentSymbol(params)` — send `textDocument/documentSymbol` through the
+    middleware chain.
   - `isDisposed()` — whether the core has been disposed.
   - `dispose()` — tear down (finalizers run LIFO); idempotent.
 - `ApexClientCoreOptions` — construction options (additional `middlewares`).

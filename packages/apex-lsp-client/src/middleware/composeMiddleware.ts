@@ -57,7 +57,11 @@ export function composeRequestChain<P, R>(
     }
   }
 
-  return next(params);
+  try {
+    return next(params);
+  } catch (e: unknown) {
+    return Promise.reject(e);
+  }
 }
 
 /**
