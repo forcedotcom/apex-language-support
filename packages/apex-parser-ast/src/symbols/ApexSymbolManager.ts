@@ -1970,6 +1970,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
+      // Whether this file already had OUTGOING reference edges in the graph
+      // BEFORE we clear them below. A non-empty forward index means this is a
+      // re-add of a file whose references were previously built/resolved (the
+      // layered-enrichment write-back), as opposed to a first add. Only a re-add
+      // needs the cross-file re-resolution at the end of this method — on a first
+      // add the normal lazy/per-request resolution path still applies and we must
+      // NOT eagerly resolve every file (that would defeat the deliberate
+      // skip-cross-file-on-ingest behavior and add cost to bulk workspace loads).
+      const hadOutgoingEdgesBeforeClear =
+        (self.symbolRefManager.getForwardIndex().get(normalizedUri)?.size ??
+          0) > 0;
+
       // Rebuild per-file reference edges from the canonical table selected by registration.
       self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
 
@@ -2169,32 +2181,56 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
       }
 
-      // Eagerly resolve this file's own SUPERTYPE edges (extends / implements).
+      // Re-resolve this file's cross-file references after a clearing RE-ADD.
       // processSameFileReferencesToGraphEffect (run above) deliberately SKIPS
-      // cross-file references — including implements/extends, whose target type
-      // lives in another file — leaving them unresolved and absent from the
-      // reverse index. Normal cross-file refs (method calls, type refs) are fine
-      // to resolve lazily on first request, but supertype edges underpin
-      // findReferencesTo(type) → go-to-implementation / find-implementors of an
-      // interface or superclass. In the worker topology the data-owner never
-      // calls resolveCrossFileReferencesForFile on a batch-compiled implementor,
-      // so without this its implements edge never enters the reverse index and
-      // go-to-implementation returns nothing even after a full workspace load.
-      // Resolving here is bounded and cheap (a type declares only a handful of
-      // supertypes) and is guarded so files with no unresolved supertype edge
-      // pay nothing; resolveCrossFileReferencesForFile is re-entrancy-guarded and
-      // addReference de-dupes, so this stays near-free on repeated write-backs.
-      // (Targets must already be in the graph — the common cold-open-interface-
-      // then-load-implementor ordering; reverse ordering remains lazy.)
-      const hasUnresolvedSupertypeEdge = finalSymbolTable
+      // cross-file references, and the clearReferenceStateForFile call earlier in
+      // this method drops every previously-resolved cross-file edge from the
+      // reverse index. On a re-add (e.g. the fire-and-forget documentOpen
+      // enrichment write-back, which reuses the same document version) that
+      // leaves the file's table present but its cross-file refs unresolved and
+      // absent from the reverse index — silently downgrading a file whose refs
+      // were already resolved.
+      //
+      // Both hover and find-references resolve a position to a symbol via
+      // getSymbolAtPosition('precise') + the reverse index, which read ONLY the
+      // resolved state with no lazy re-resolution on read; and the prerequisite
+      // registry marks (uri, version) satisfied, so the per-request prereq path
+      // does NOT re-run resolution after the write-back. The net effect is that
+      // hover and find-references work for the first few seconds after open and
+      // then return null/empty until the next edit. Re-resolving here closes
+      // that window.
+      //
+      // Two triggers, both bounded by re-entrancy/de-dup so repeated calls are
+      // cheap:
+      //
+      // (1) RE-ADD recovery (hadOutgoingEdgesBeforeClear): a file that
+      //     previously had its cross-file edges built and just had them cleared.
+      //     Re-resolve so the enrichment write-back does not strand hover/
+      //     find-references. On a FIRST add we intentionally skip this: cross-
+      //     file refs are skipped at ingest by design and resolved lazily on
+      //     first request, and eagerly resolving every first add would add real
+      //     cost to bulk workspace loads.
+      //
+      // (2) SUPERTYPE edges (extends/implements) unresolved: kept from the
+      //     original guard and fires even on a FIRST add. In the worker topology
+      //     the data-owner never calls resolveCrossFileReferencesForFile on a
+      //     batch-compiled implementor, so without this its implements edge never
+      //     enters the reverse index and go-to-implementation returns nothing.
+      //     (Targets must already be in the graph — the common cold-open-
+      //     interface-then-load-implementor ordering.)
+      const unresolvedRefs = finalSymbolTable
         .getAllReferences()
-        .some(
-          (r) =>
-            !r.resolvedSymbolId &&
-            (r.context === ReferenceContext.INHERITANCE ||
-              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
-        );
-      if (hasUnresolvedSupertypeEdge) {
+        .filter((r) => !r.resolvedSymbolId);
+      const hasUnresolvedCrossFileEdge = unresolvedRefs.length > 0;
+      const hasUnresolvedSupertypeEdge = unresolvedRefs.some(
+        (r) =>
+          r.context === ReferenceContext.INHERITANCE ||
+          r.context === ReferenceContext.INTERFACE_IMPLEMENTATION,
+      );
+      if (
+        (hadOutgoingEdgesBeforeClear && hasUnresolvedCrossFileEdge) ||
+        hasUnresolvedSupertypeEdge
+      ) {
         yield* self.resolveCrossFileReferencesForFile(normalizedUri);
       }
 

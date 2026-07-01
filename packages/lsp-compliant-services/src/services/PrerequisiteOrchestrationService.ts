@@ -385,32 +385,6 @@ export class PrerequisiteOrchestrationService {
       }
     } else {
       // Async execution (fire-and-forget)
-      if (needsEnrichment) {
-        // Only signal a diagnostic refresh for request types where the client
-        // opened a document and may have pulled diagnostics prematurely.
-        // Blocking paths (diagnostics, hover, etc.) already produce accurate
-        // results and don't need a re-pull signal.
-        const shouldSignalRefresh =
-          requestType === 'file-open-single' || requestType === 'documentOpen';
-        this.layerEnrichmentService
-          .enrichFiles(
-            [fileUri],
-            requirements.requiredDetailLevel!,
-            'same-file',
-          )
-          .then(() => {
-            if (shouldSignalRefresh) {
-              Effect.runPromise(
-                getDiagnosticRefreshService().signalEnrichmentComplete(),
-              ).catch(() => {});
-            }
-          })
-          .catch((error: unknown) => {
-            this.logger.debug(
-              () => `Async enrichment failed for ${fileUri}: ${error}`,
-            );
-          });
-      }
 
       // For async (fire-and-forget) requests, bypass hasCrossFileResolution gate.
       // The gate checks the data-owner's ref state (resolvedSymbolId set), but the
@@ -418,8 +392,21 @@ export class PrerequisiteOrchestrationService {
       // Cross-file resolution on the enrichment worker fetches those tables via
       // QuerySymbolSubset, making getSymbol(resolvedSymbolId) work. Once loaded,
       // subsequent runs are fast (refs already resolved locally).
-      if (requirements.requiresCrossFileResolution) {
-        Effect.runPromise(
+      //
+      // Ordering matters: enrichment re-adds the file's SymbolTable (a clearing
+      // write-back that drops previously-resolved cross-file edges from the
+      // reverse index), so cross-file resolution MUST run AFTER enrichment
+      // settles — otherwise it races the write-back and resolves a table that is
+      // then cleared, leaving hover/find-references broken until the next edit.
+      // We therefore chain resolution onto enrichment's completion rather than
+      // firing both in parallel. (The data layer also re-resolves after the
+      // clearing write-back in ApexSymbolManager.addSymbolTable; this keeps the
+      // orchestration path correct on its own as defense in depth.)
+      const resolveCrossFileAfter = (): Promise<void> => {
+        if (!requirements.requiresCrossFileResolution) {
+          return Promise.resolve();
+        }
+        return Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         )
           .then(() =>
@@ -436,6 +423,39 @@ export class PrerequisiteOrchestrationService {
                 `Async cross-file resolution failed for ${fileUri}: ${error}`,
             );
           });
+      };
+
+      if (needsEnrichment) {
+        // Only signal a diagnostic refresh for request types where the client
+        // opened a document and may have pulled diagnostics prematurely.
+        // Blocking paths (diagnostics, hover, etc.) already produce accurate
+        // results and don't need a re-pull signal.
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+        this.layerEnrichmentService
+          .enrichFiles(
+            [fileUri],
+            requirements.requiredDetailLevel!,
+            'same-file',
+          )
+          // Cross-file resolution runs after the enrichment write-back so it
+          // re-resolves the table the write-back just cleared, not before.
+          .then(() => resolveCrossFileAfter())
+          .then(() => {
+            if (shouldSignalRefresh) {
+              Effect.runPromise(
+                getDiagnosticRefreshService().signalEnrichmentComplete(),
+              ).catch(() => {});
+            }
+          })
+          .catch((error: unknown) => {
+            this.logger.debug(
+              () => `Async enrichment failed for ${fileUri}: ${error}`,
+            );
+          });
+      } else {
+        // No enrichment write-back to wait on; resolve directly.
+        void resolveCrossFileAfter();
       }
     }
   }

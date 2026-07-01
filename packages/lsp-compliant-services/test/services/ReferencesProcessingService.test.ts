@@ -856,6 +856,27 @@ describe('ReferencesProcessingService', () => {
         'precise',
       );
     });
+
+    // Regression (declaration identifier): find-references invoked FROM a
+    // method's own declaration must surface its call sites. getReferencesAtPosition
+    // returns empty at a declaration (declarations are not stored as usage
+    // tokens), so the old hard short-circuit on empty references returned []
+    // here even though references existed. The fix lets the empty-references
+    // case fall through to getSymbolAtPosition('precise'), which resolves the
+    // declaration identifier - mirroring Hover/Definition. This is the
+    // dreamhouse GeocodingService.geocodeAddresses symptom in miniature.
+    it('finds references when invoked from a method declaration identifier', async () => {
+      // `process(Integer)` is declared at fixture line 17 (LSP line 16),
+      // `process` starts at col 17. It is called at lines 26-27.
+      const locations = (await findRefs(16, 17)) as Location[];
+      expect(Array.isArray(locations)).toBe(true);
+      // Must surface at least one call site despite the cursor being on the
+      // declaration (where there is no usage token to gate on).
+      expect(locations.length).toBeGreaterThan(0);
+      const targetLines = locations.map((loc) => loc.range.start.line);
+      // The Integer-overload call `process(42)` is on fixture line 26 (LSP 25).
+      expect(targetLines).toContain(25);
+    });
   });
 
   describe('locals-only references (single-file scope)', () => {

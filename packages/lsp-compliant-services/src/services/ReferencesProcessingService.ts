@@ -262,32 +262,41 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
     const parserPosition = transformLspToParserPosition(params.position);
 
-    // Check if there's a TypeReference at the position
-    // If no TypeReference exists, the position is on a keyword, whitespace, or nothing of interest
+    // Look for a usage/TypeReference token at the position. This is only a
+    // HINT for picking the name under the cursor on chained/qualified usages -
+    // it is NOT a gate. `getReferencesAtPosition` filters the file's stored
+    // *usage* tokens, so it is empty not only on keywords/whitespace but also
+    // on a symbol's own DECLARATION identifier (declarations are not stored as
+    // references). Short-circuiting on empty therefore discarded the common
+    // case of invoking find-references from a method/class declaration. We
+    // mirror Hover/Definition: fall through to getSymbolAtPosition('precise'),
+    // which resolves a declaration identifier and returns null on
+    // keyword/whitespace/punctuation. Keyword/whitespace rejection is delegated
+    // to that precise strategy plus the isApexKeyword guard below.
     const references = await this.symbolManager.getReferencesAtPosition(
       params.textDocument.uri,
       parserPosition,
     );
-
-    if (!references || references.length === 0) {
-      this.logger.debug(
-        () =>
-          'No TypeReference found at position - likely keyword, whitespace, or nothing of interest',
-      );
-      return [];
-    }
 
     // Determine the name under the cursor. For chained/qualified references
     // (e.g. "GeocodingService.GeocodingAddress") the first reference's `name`
     // holds the whole dotted string, which has no entry in findSymbolByName when
     // the cursor is on an inner segment. Walk the chainNodes to pick the node
     // whose identifierRange contains the cursor, falling back to the leaf
-    // identifier (last segment) of the dotted name.
-    const symbolName = this.pickNameUnderCursor(references[0], parserPosition);
+    // identifier (last segment) of the dotted name. When there is no reference
+    // token at the position (e.g. a declaration identifier), there is no name
+    // to pick here - precise position resolution handles it below.
+    const symbolName =
+      references && references.length > 0
+        ? this.pickNameUnderCursor(references[0], parserPosition)
+        : null;
 
     // Early keyword check: if the name under the cursor is a keyword, return
     // an empty array. This prevents find references from processing keywords.
-    if (isApexKeyword(symbolName)) {
+    // Only applies when a reference token yielded a name; declaration-identifier
+    // and whitespace positions (symbolName === null) are rejected downstream by
+    // getSymbolAtPosition('precise') returning null.
+    if (symbolName !== null && isApexKeyword(symbolName)) {
       this.logger.debug(
         () =>
           `Position is on keyword "${symbolName}", skipping references lookup`,
@@ -318,7 +327,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         'precise',
       );
 
-    if (!resolvedSymbol) {
+    // Name-based fallback only applies when a reference token under the cursor
+    // gave us a name. A null symbolName means the position was not on a usage
+    // token (e.g. a declaration identifier already resolved by 'precise' above,
+    // or whitespace/punctuation that 'precise' correctly rejected).
+    if (!resolvedSymbol && symbolName !== null) {
       const nameResult = await this.symbolManager.resolveSymbol(
         symbolName,
         context,
