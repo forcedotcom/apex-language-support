@@ -130,7 +130,8 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.21.4"
+    "effect": "^3.21.4",
+    "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",

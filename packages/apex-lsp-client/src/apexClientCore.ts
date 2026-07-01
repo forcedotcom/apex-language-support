@@ -21,6 +21,19 @@ import {
   loggingMiddleware,
 } from './middleware/loggingMiddleware';
 import { EffectLspLoggerLive } from './logging/effectLspLoggerLayer';
+import type {
+  CompletionItem,
+  CompletionList,
+  CompletionParams,
+  Definition,
+  DefinitionParams,
+  DocumentSymbol,
+  DocumentSymbolParams,
+  Hover,
+  HoverParams,
+  LocationLink,
+  SymbolInformation,
+} from './lspPassThroughs';
 import {
   composeRequestChain,
   composeNotificationChain,
@@ -512,6 +525,49 @@ export class ApexClientCore {
    */
   notify(method: string, params?: unknown): void {
     this.handle.notify(method, params);
+  }
+
+  /**
+   * Send `textDocument/hover` through the middleware chain.
+   */
+  hover(params: HoverParams): Promise<Hover | null> {
+    return this.request<Hover | null>('textDocument/hover', params);
+  }
+
+  /**
+   * Send `textDocument/completion` through the middleware chain.
+   */
+  completion(
+    params: CompletionParams,
+  ): Promise<CompletionList | CompletionItem[] | null> {
+    return this.request<CompletionList | CompletionItem[] | null>(
+      'textDocument/completion',
+      params,
+    );
+  }
+
+  /**
+   * Send `textDocument/definition` through the middleware chain.
+   */
+  definition(
+    params: DefinitionParams,
+  ): Promise<Definition | LocationLink[] | null> {
+    return this.request<Definition | LocationLink[] | null>(
+      'textDocument/definition',
+      params,
+    );
+  }
+
+  /**
+   * Send `textDocument/documentSymbol` through the middleware chain.
+   */
+  documentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
+    return this.request<DocumentSymbol[] | SymbolInformation[] | null>(
+      'textDocument/documentSymbol',
+      params,
+    );
   }
 
   /**
