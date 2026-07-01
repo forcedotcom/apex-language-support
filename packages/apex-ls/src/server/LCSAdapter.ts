@@ -953,6 +953,16 @@ export class LCSAdapter {
     );
 
     setIngestionCompleteCallback(() => {
+      const cm = LSPConfigurationManager.getInstance();
+      // Default-allow: send unless client capabilities are present AND the
+      // specific key is NOT advertised (legacy clients lacking caps still get it)
+      if (cm.shouldSuppressDefaultAllow('workspaceIngestionProvider')) {
+        this.logger.debug(
+          () =>
+            'Suppressing apex/workspaceIngestionComplete — client did not advertise workspaceIngestionProvider',
+        );
+        return;
+      }
       this.connection.sendNotification('apex/workspaceIngestionComplete', {});
     });
 
@@ -1338,6 +1348,12 @@ export class LCSAdapter {
     // Store client capabilities for later dynamic registration
     this.clientCapabilities = params.capabilities;
 
+    // Expose client capabilities on the shared configuration manager for
+    // server→client send gating (capability-aware notification suppression)
+    LSPConfigurationManager.getInstance().setClientCapabilities(
+      params.capabilities,
+    );
+
     this.hasConfigurationCapability =
       !!params.capabilities.workspace?.configuration;
     this.hasWorkspaceFolderCapability =
@@ -1621,6 +1637,11 @@ export class LCSAdapter {
           // Callback function to send notifications to client
           const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
+              // Default-deny: only send if client explicitly advertises queueStateProvider
+              const cm = LSPConfigurationManager.getInstance();
+              if (!cm.isClientCapabilityAdvertised('queueStateProvider')) {
+                return;
+              }
               this.logger.debug(
                 () =>
                   `Sending queue state notification: Started=${

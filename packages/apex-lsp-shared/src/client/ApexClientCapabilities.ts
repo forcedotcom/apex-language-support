@@ -66,6 +66,12 @@ const BASE_CLIENT_CAPABILITIES: ClientCapabilities = {
       enabled: true,
       supportedModes: ['blocking', 'background'],
     },
+    workspaceIngestionProvider: {
+      enabled: true,
+    },
+    requestWorkspaceLoadProvider: {
+      enabled: true,
+    },
   },
 };
 
@@ -100,6 +106,12 @@ export const PRODUCTION_CLIENT_CAPABILITIES: ClientCapabilities = {
     findMissingArtifactProvider: {
       enabled: true,
       supportedModes: ['blocking', 'background'],
+    },
+    workspaceIngestionProvider: {
+      enabled: true,
+    },
+    requestWorkspaceLoadProvider: {
+      enabled: true,
     },
   },
 };
@@ -165,6 +177,15 @@ export const DEVELOPMENT_CLIENT_CAPABILITIES: ClientCapabilities = {
     findMissingArtifactProvider: {
       enabled: true,
       supportedModes: ['blocking', 'background'],
+    },
+    workspaceIngestionProvider: {
+      enabled: true,
+    },
+    requestWorkspaceLoadProvider: {
+      enabled: true,
+    },
+    queueStateProvider: {
+      enabled: true,
     },
   },
 };

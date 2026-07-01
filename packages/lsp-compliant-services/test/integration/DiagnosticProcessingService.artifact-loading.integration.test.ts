@@ -113,6 +113,8 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     // Setup mock config manager (provides LSP connection)
     mockConfigManager = {
       getConnection: jest.fn().mockReturnValue(mockConnection),
+      getClientCapabilities: jest.fn().mockReturnValue(undefined),
+      isClientCapabilityAdvertised: jest.fn().mockReturnValue(false),
     };
 
     (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
