@@ -29,6 +29,13 @@ import {
 describe('LocalWorkspaceLoadCoordinator', () => {
   beforeEach(() => {
     resetWorkspaceLoadState();
+    enableConsoleLogging();
+    setLogLevel('error');
+  });
+
+  afterEach(() => {
+    // Restore logger state to prevent leaking into other tests
+    setLogLevel('error');
   });
 
   it('sends apex/requestWorkspaceLoad notification on first call', async () => {
@@ -59,6 +66,13 @@ describe('LocalWorkspaceLoadCoordinator', () => {
 describe('RemoteWorkspaceLoadCoordinator', () => {
   beforeEach(() => {
     resetWorkspaceLoadState();
+    enableConsoleLogging();
+    setLogLevel('error');
+  });
+
+  afterEach(() => {
+    // Restore logger state to prevent leaking into other tests
+    setLogLevel('error');
   });
 
   it('forwards to coordinator:EnsureWorkspaceLoaded over the assistance proxy', async () => {

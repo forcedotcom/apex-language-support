@@ -304,11 +304,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       // when we KNOW the client opted out.
       try {
         const cm = LSPConfigurationManager.getInstance();
-        const capabilities = cm.getClientCapabilities();
-        if (
-          capabilities !== undefined &&
-          !cm.isClientCapabilityAdvertised('findMissingArtifactProvider')
-        ) {
+        if (cm.shouldSuppressDefaultAllow('findMissingArtifactProvider')) {
           this.logger.debug(
             () =>
               `Suppressing apex/findMissingArtifact for ${names}` +

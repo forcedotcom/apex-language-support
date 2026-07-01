@@ -954,13 +954,9 @@ export class LCSAdapter {
 
     setIngestionCompleteCallback(() => {
       const cm = LSPConfigurationManager.getInstance();
-      const capabilities = cm.getClientCapabilities();
       // Default-allow: send unless client capabilities are present AND the
       // specific key is NOT advertised (legacy clients lacking caps still get it)
-      if (
-        capabilities !== undefined &&
-        !cm.isClientCapabilityAdvertised('workspaceIngestionProvider')
-      ) {
+      if (cm.shouldSuppressDefaultAllow('workspaceIngestionProvider')) {
         this.logger.debug(
           () =>
             'Suppressing apex/workspaceIngestionComplete — client did not advertise workspaceIngestionProvider',

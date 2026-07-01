@@ -184,6 +184,9 @@ export const DEVELOPMENT_CLIENT_CAPABILITIES: ClientCapabilities = {
     requestWorkspaceLoadProvider: {
       enabled: true,
     },
+    queueStateProvider: {
+      enabled: true,
+    },
   },
 };
 

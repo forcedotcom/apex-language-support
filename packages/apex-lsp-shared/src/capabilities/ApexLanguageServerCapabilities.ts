@@ -114,6 +114,8 @@ export interface ExperimentalCapabilities {
   workspaceIngestionProvider?: { enabled: boolean };
   /** Client supports apex/requestWorkspaceLoad notifications */
   requestWorkspaceLoadProvider?: { enabled: boolean };
+  /** Client supports apex/queueStateChanged notifications (development mode only) */
+  queueStateProvider?: { enabled: boolean };
 }
 
 /**
@@ -270,6 +272,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     },
     requestWorkspaceLoadProvider: {
       enabled: true,
+    },
+    queueStateProvider: {
+      enabled: true, // Enabled by default in development
     },
   },
 };

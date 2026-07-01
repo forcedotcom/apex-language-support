@@ -97,11 +97,7 @@ function sendRequestWorkspaceLoadNotification(
     // specific key is NOT advertised (legacy clients lacking caps still get it)
     try {
       const cm = LSPConfigurationManager.getInstance();
-      const capabilities = cm.getClientCapabilities();
-      if (
-        capabilities !== undefined &&
-        !cm.isClientCapabilityAdvertised('requestWorkspaceLoadProvider')
-      ) {
+      if (cm.shouldSuppressDefaultAllow('requestWorkspaceLoadProvider')) {
         logger.debug(
           () =>
             '[WORKSPACE-LOAD] Suppressing apex/requestWorkspaceLoad' +

@@ -361,6 +361,9 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
         "background",
       ],
     },
+    "queueStateProvider": {
+      "enabled": true,
+    },
     "requestWorkspaceLoadProvider": {
       "enabled": true,
     },
@@ -732,6 +735,9 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
         "blocking",
         "background",
       ],
+    },
+    "queueStateProvider": {
+      "enabled": true,
     },
     "requestWorkspaceLoadProvider": {
       "enabled": true,

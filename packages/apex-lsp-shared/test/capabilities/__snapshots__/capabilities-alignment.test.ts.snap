@@ -47,6 +47,9 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     "profilingProvider": {
       "enabled": true,
     },
+    "queueStateProvider": {
+      "enabled": true,
+    },
     "requestWorkspaceLoadProvider": {
       "enabled": true,
     },
@@ -235,6 +238,9 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
           "blocking",
           "background",
         ],
+      },
+      "queueStateProvider": {
+        "enabled": true,
       },
       "requestWorkspaceLoadProvider": {
         "enabled": true,
@@ -579,6 +585,9 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
         "blocking",
         "background",
       ],
+    },
+    "queueStateProvider": {
+      "enabled": true,
     },
     "requestWorkspaceLoadProvider": {
       "enabled": true,
@@ -925,6 +934,9 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should r
         "blocking",
         "background",
       ],
+    },
+    "queueStateProvider": {
+      "enabled": true,
     },
     "requestWorkspaceLoadProvider": {
       "enabled": true,
@@ -1485,6 +1497,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
             "background",
           ],
         },
+        "queueStateProvider": {
+          "enabled": true,
+        },
         "requestWorkspaceLoadProvider": {
           "enabled": true,
         },
@@ -1721,6 +1736,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
         "profilingProvider": {
           "enabled": true,
         },
+        "queueStateProvider": {
+          "enabled": true,
+        },
         "requestWorkspaceLoadProvider": {
           "enabled": true,
         },
@@ -1775,6 +1793,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             "blocking",
             "background",
           ],
+        },
+        "queueStateProvider": {
+          "enabled": true,
         },
         "requestWorkspaceLoadProvider": {
           "enabled": true,
@@ -2118,6 +2139,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
               "blocking",
               "background",
             ],
+          },
+          "queueStateProvider": {
+            "enabled": true,
           },
           "requestWorkspaceLoadProvider": {
             "enabled": true,
@@ -2498,6 +2522,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "profilingProvider": {
             "enabled": true,
           },
+          "queueStateProvider": {
+            "enabled": true,
+          },
           "requestWorkspaceLoadProvider": {
             "enabled": true,
           },
@@ -2667,6 +2694,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "timeoutMsHint": 2000,
         },
         "profilingProvider": {
+          "enabled": true,
+        },
+        "queueStateProvider": {
           "enabled": true,
         },
         "requestWorkspaceLoadProvider": {
@@ -2878,6 +2908,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "profilingProvider": {
         "enabled": true,
       },
+      "queueStateProvider": {
+        "enabled": true,
+      },
       "requestWorkspaceLoadProvider": {
         "enabled": true,
       },
@@ -3048,6 +3081,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "timeoutMsHint": 2000,
     },
     "profilingProvider": {
+      "enabled": true,
+    },
+    "queueStateProvider": {
       "enabled": true,
     },
     "requestWorkspaceLoadProvider": {

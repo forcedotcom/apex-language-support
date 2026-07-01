@@ -310,6 +310,26 @@ export class LSPConfigurationManager {
   }
 
   /**
+   * Determine whether a default-allow server→client notification should be
+   * suppressed based on client capabilities.
+   *
+   * Default-allow means legacy clients (no capabilities advertised) still
+   * receive the notification. Suppress only when clientCapabilities is
+   * defined AND the specific key is absent — this means the client speaks
+   * the capability protocol but chose not to opt in to this particular
+   * notification.
+   *
+   * @param capabilityKey - The experimental capability key (e.g., 'workspaceIngestionProvider')
+   * @returns True if the notification should be suppressed
+   */
+  public shouldSuppressDefaultAllow(capabilityKey: string): boolean {
+    return (
+      this.clientCapabilities !== undefined &&
+      !this.isClientCapabilityAdvertised(capabilityKey)
+    );
+  }
+
+  /**
    * Check if auto-detect environment is enabled
    * @returns True if auto-detect is enabled
    */

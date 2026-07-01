@@ -9,27 +9,12 @@
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 
 /**
- * Determine whether a default-allow notification should be suppressed.
- * Mirrors the production gating logic in LCSAdapter and WorkspaceLoadCoordinator:
- * suppress only when clientCapabilities is defined AND the specific key is absent.
- */
-function shouldSuppressDefaultAllow(
-  configManager: LSPConfigurationManager,
-  capabilityKey: string,
-): boolean {
-  const capabilities = configManager.getClientCapabilities();
-  return (
-    capabilities !== undefined &&
-    !configManager.isClientCapabilityAdvertised(capabilityKey)
-  );
-}
-
-/**
  * Integration tests for server-to-client apex/* send gating.
  *
  * These tests verify the capability gating logic at the
  * LSPConfigurationManager level, which is the control point for all
- * server-initiated apex/* sends.
+ * server-initiated apex/* sends. Tests use the actual helper method
+ * that production code calls.
  */
 describe('Server-to-client apex/* send gating', () => {
   let configManager: LSPConfigurationManager;
@@ -49,7 +34,7 @@ describe('Server-to-client apex/* send gating', () => {
       expect(configManager.getClientCapabilities()).toBeUndefined();
       // Gate logic: caps undefined → send unconditionally
       expect(
-        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+        configManager.shouldSuppressDefaultAllow('workspaceIngestionProvider'),
       ).toBe(false);
     });
 
@@ -59,7 +44,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+        configManager.shouldSuppressDefaultAllow('workspaceIngestionProvider'),
       ).toBe(false);
     });
 
@@ -69,7 +54,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(configManager, 'workspaceIngestionProvider'),
+        configManager.shouldSuppressDefaultAllow('workspaceIngestionProvider'),
       ).toBe(true);
     });
   });
@@ -108,10 +93,7 @@ describe('Server-to-client apex/* send gating', () => {
     it('allows send when clientCapabilities is undefined (legacy)', () => {
       expect(configManager.getClientCapabilities()).toBeUndefined();
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
-          'findMissingArtifactProvider',
-        ),
+        configManager.shouldSuppressDefaultAllow('findMissingArtifactProvider'),
       ).toBe(false);
     });
 
@@ -121,10 +103,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
-          'findMissingArtifactProvider',
-        ),
+        configManager.shouldSuppressDefaultAllow('findMissingArtifactProvider'),
       ).toBe(false);
     });
 
@@ -134,10 +113,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
-          'findMissingArtifactProvider',
-        ),
+        configManager.shouldSuppressDefaultAllow('findMissingArtifactProvider'),
       ).toBe(true);
     });
   });
@@ -146,8 +122,7 @@ describe('Server-to-client apex/* send gating', () => {
     it('allows send when clientCapabilities is undefined (legacy)', () => {
       expect(configManager.getClientCapabilities()).toBeUndefined();
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
+        configManager.shouldSuppressDefaultAllow(
           'requestWorkspaceLoadProvider',
         ),
       ).toBe(false);
@@ -161,8 +136,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
+        configManager.shouldSuppressDefaultAllow(
           'requestWorkspaceLoadProvider',
         ),
       ).toBe(false);
@@ -174,8 +148,7 @@ describe('Server-to-client apex/* send gating', () => {
       } as any);
 
       expect(
-        shouldSuppressDefaultAllow(
-          configManager,
+        configManager.shouldSuppressDefaultAllow(
           'requestWorkspaceLoadProvider',
         ),
       ).toBe(true);
