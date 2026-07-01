@@ -8,7 +8,10 @@
 
 import { spawn, type ChildProcess } from 'child_process';
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
-import { createMessageConnection } from 'vscode-jsonrpc';
+import {
+  createMessageConnection,
+  type MessageConnection,
+} from 'vscode-jsonrpc';
 import { JsonRpcConnection } from './jsonRpcConnection';
 
 /**
@@ -31,10 +34,61 @@ export interface NodeStdioConnectionOptions {
  * Result of {@link createNodeStdioConnection}.
  */
 export interface NodeStdioConnectionResult {
-  /** The `JsonRpcConnection` wrapping the stdio-based `MessageConnection`. */
-  readonly connection: JsonRpcConnection;
+  /** The `NodeStdioJsonRpcConnection` managing the child process lifecycle. */
+  readonly connection: NodeStdioJsonRpcConnection;
   /** The spawned child process; exposed so callers can observe exit/errors. */
   readonly process: ChildProcess;
+}
+
+/**
+ * `JsonRpcConnection` subclass that manages a Node child process lifecycle.
+ * Overrides `dispose()` to kill the child process and wait for clean exit.
+ */
+class NodeStdioJsonRpcConnection extends JsonRpcConnection {
+  constructor(
+    connection: MessageConnection,
+    private readonly child: ChildProcess,
+  ) {
+    super(connection);
+  }
+
+  /**
+   * Check if the child process is still alive.
+   */
+  isProcessAlive(): boolean {
+    return this.child.exitCode === null && this.child.signalCode === null;
+  }
+
+  /**
+   * Dispose the connection and kill the child process, waiting for clean exit.
+   */
+  override async dispose(): Promise<void> {
+    await super.dispose();
+    if (!this.child.killed) {
+      this.child.kill();
+      // Wait for child to exit to ensure cleanup completes.
+      await new Promise<void>((resolve) => {
+        if (this.child.exitCode !== null || this.child.signalCode !== null) {
+          resolve();
+        } else {
+          this.child.once('exit', () => resolve());
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Filter NODE_OPTIONS to remove debugger flags that would cause port conflicts.
+ * Prevents child processes from inheriting --inspect/--inspect-brk when spawned
+ * from debugged parent processes (e.g., Jest tests under VS Code debugger).
+ */
+function cleanNodeOptions(options: string | undefined): string | undefined {
+  if (!options) return undefined;
+  const cleaned = options
+    .replace(/--inspect(?:-brk)?(?:=[\w:.-]+)?/g, '')
+    .trim();
+  return cleaned || undefined;
 }
 
 /**
@@ -63,23 +117,39 @@ export function createNodeStdioConnection(
     cwd,
   } = options;
 
+  // Filter NODE_OPTIONS to prevent debugger port conflicts.
+  const filteredEnv: NodeJS.ProcessEnv = { ...process.env, ...env };
+  if (filteredEnv.NODE_OPTIONS) {
+    const cleaned = cleanNodeOptions(filteredEnv.NODE_OPTIONS);
+    if (cleaned) {
+      filteredEnv.NODE_OPTIONS = cleaned;
+    } else {
+      delete filteredEnv.NODE_OPTIONS;
+    }
+  }
+
   const child = spawn(nodePath, [...nodeArgs, serverPath, ...serverArgs], {
-    env: { ...process.env, ...env },
+    env: filteredEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
     cwd,
   });
 
-  // Surface spawn failures (ENOENT, EACCES) as a clear rejection rather than
-  // letting them become unhandled 'error' events or cryptic downstream errors.
+  // Capture and log stderr for diagnostics.
+  // Server warnings, errors, and stack traces written to stderr are otherwise lost.
+  child.stderr?.on('data', (data: Buffer) => {
+    const output = data.toString();
+    // Log to console.error so stderr is visible; callers can suppress via stdio redirect.
+    console.error(`[apex-lsp-client stderr] ${output}`);
+  });
+
+  // Surface spawn failures (ENOENT, EACCES) synchronously.
   child.on('error', (err: Error) => {
     const wrapped = new Error(
       `createNodeStdioConnection: child process error: ${err.message}`,
+      { cause: err },
     );
-    (wrapped as any).cause = err;
-    // Emit on stderr-like channel; connection.onError will propagate if
-    // the connection is already listening, otherwise this surfaces at the
-    // caller's catch boundary via the returned process handle.
-    child.emit('spawnError', wrapped);
+    // Re-throw as unhandled error since nothing can catch it at this point.
+    throw wrapped;
   });
 
   if (!child.stdout || !child.stdin) {
@@ -92,16 +162,7 @@ export function createNodeStdioConnection(
   const writer = new StreamMessageWriter(child.stdin);
   const messageConnection = createMessageConnection(reader, writer);
 
-  const connection = new JsonRpcConnection(messageConnection);
-
-  // Override dispose to also kill the child process.
-  const originalDispose = connection.dispose.bind(connection);
-  connection.dispose = (): void => {
-    originalDispose();
-    if (!child.killed) {
-      child.kill();
-    }
-  };
+  const connection = new NodeStdioJsonRpcConnection(messageConnection, child);
 
   return { connection, process: child };
 }

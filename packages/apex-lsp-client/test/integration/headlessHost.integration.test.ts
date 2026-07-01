@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, afterAll } from '@jest/globals';
+import { describe, it, expect, afterAll, beforeEach } from '@jest/globals';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
@@ -31,6 +31,13 @@ const describeIntegration = runIntegration ? describe : describe.skip;
 
 describeIntegration('headlessHost integration', () => {
   let result: HeadlessClientResult | undefined;
+  const errors: Error[] = [];
+  const closeEvents: string[] = [];
+
+  beforeEach(() => {
+    errors.length = 0;
+    closeEvents.length = 0;
+  });
 
   afterAll(async () => {
     if (result) {
@@ -49,6 +56,20 @@ describeIntegration('headlessHost integration', () => {
       serverArgs: ['--stdio'],
     });
 
+    // Register error and close handlers for observability.
+    result.connection.onError((err) => {
+      errors.push(err);
+    });
+
+    result.connection.onClose(() => {
+      closeEvents.push('connection closed');
+    });
+
+    // Verify process health before initialization.
+    expect(result.connection.isProcessAlive()).toBe(true);
+    expect(result.process.pid).toBeGreaterThan(0);
+    expect(result.process.killed).toBe(false);
+
     // Initialize with default Apex settings.
     const initResult = await result.core.initialize(DEFAULT_APEX_SETTINGS, {
       rootUri: `file://${process.cwd()}`,
@@ -57,14 +78,70 @@ describeIntegration('headlessHost integration', () => {
     // The server should return capabilities.
     expect(initResult).toBeDefined();
     expect(initResult.capabilities).toBeDefined();
+    expect(initResult.capabilities.textDocumentSync).toBeDefined();
+
+    // Verify process still healthy after initialization.
+    expect(result.connection.isProcessAlive()).toBe(true);
+    expect(errors).toHaveLength(0);
 
     // Shutdown + dispose.
     await result.core.shutdown();
     await result.core.dispose();
 
+    // Verify clean disposal.
     expect(result.core.isDisposed()).toBe(true);
+    expect(result.process.killed).toBe(true);
+    expect(errors).toHaveLength(0);
 
     // Prevent afterAll from double-disposing.
+    result = undefined;
+  }, 120_000);
+
+  it('handles precondition violation - already listening connection', async () => {
+    result = await createHeadlessClient(serverPath, {
+      nodeArgs: ['--nolazy'],
+      serverArgs: ['--stdio'],
+    });
+
+    // Connection is already listening after createHeadlessClient.
+    expect(result.connection.isListening()).toBe(true);
+
+    // Attempting to create core with already-listening connection should throw.
+    await expect(async () => {
+      const { ApexClientCore } = await import('../../src/apexClientCore');
+      await ApexClientCore.create(result!.connection);
+    }).rejects.toThrow(/already listening/);
+
+    // Clean up.
+    await result.core.shutdown();
+    await result.core.dispose();
+    result = undefined;
+  }, 120_000);
+
+  it('process exits cleanly after dispose', async () => {
+    result = await createHeadlessClient(serverPath, {
+      nodeArgs: ['--nolazy'],
+      serverArgs: ['--stdio'],
+    });
+
+    const pid = result.process.pid;
+    expect(pid).toBeGreaterThan(0);
+
+    // Initialize to ensure server is fully running.
+    await result.core.initialize(DEFAULT_APEX_SETTINGS, {
+      rootUri: `file://${process.cwd()}`,
+    });
+
+    // Dispose without shutdown (abrupt termination).
+    await result.core.dispose();
+
+    // Process should be killed and exit code set.
+    expect(result.process.killed).toBe(true);
+    expect(
+      result.process.exitCode !== null || result.process.signalCode !== null,
+    ).toBe(true);
+    expect(result.connection.isProcessAlive()).toBe(false);
+
     result = undefined;
   }, 120_000);
 });

@@ -26,6 +26,7 @@ import type { RpcConnection } from '../rpcConnection';
  */
 export class JsonRpcConnection implements RpcConnection {
   private readonly connection: MessageConnection;
+  private listening = false;
 
   constructor(connection: MessageConnection) {
     this.connection = connection;
@@ -68,10 +69,18 @@ export class JsonRpcConnection implements RpcConnection {
   }
 
   /**
+   * Check if the connection is actively listening for messages.
+   */
+  isListening(): boolean {
+    return this.listening;
+  }
+
+  /**
    * Start listening on the underlying connection. Call this AFTER
    * `ApexClientCore.create(...)` so handlers are registered before traffic flows.
    */
   listen(): void {
     this.connection.listen();
+    this.listening = true;
   }
 }
