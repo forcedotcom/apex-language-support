@@ -448,6 +448,19 @@ describe('Apex symbol replacement semantics', () => {
     await Effect.runPromise(
       manager.addSymbolTable(consumerCompactTable, consumerFile),
     );
+    // Resolve cross-file references the way the per-request prerequisite path
+    // does before the first hover/find-references request. addSymbolTable
+    // deliberately SKIPS cross-file references at ingest (they are resolved
+    // lazily on first request), so without this the baseline would under-count
+    // the consumer -> provider edges (the type reference and constructor call)
+    // and we would be comparing an unresolved baseline against a resolved
+    // re-add. Resolving here makes "before" and "after" the same resolved state.
+    await Effect.runPromise(
+      manager.resolveCrossFileReferencesForFile(consumerFile),
+    );
+    await Effect.runPromise(
+      manager.resolveCrossFileReferencesForFile(providerFile),
+    );
     const stableBefore = await manager.getStats();
 
     await Effect.runPromise(
@@ -458,6 +471,10 @@ describe('Apex symbol replacement semantics', () => {
     );
     const stableAfter = await manager.getStats();
 
+    // A semantically-equivalent re-parse must not drift the reference graph.
+    // The re-add clears and re-resolves cross-file edges (addSymbolTable's
+    // re-add recovery), and addReference de-dupes, so the resolved count is
+    // identical across the structurally-equivalent variants.
     expect(stableBefore.totalReferences).toBeGreaterThan(0);
     expect(stableAfter.totalReferences).toBe(stableBefore.totalReferences);
   });

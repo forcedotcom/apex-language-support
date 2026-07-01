@@ -505,10 +505,10 @@ describe('ReferencesProcessingService', () => {
     });
 
     describe('getReferenceLocations dedup', () => {
-      it('collapses the same (uri, range) surfaced by multiple sources', async () => {
-        // One physical reference reachable through BOTH findReferencesTo and
-        // findReferencesFrom (e.g. an extends/implements edge). It must appear
-        // once, not twice, in the returned Location[].
+      it('collapses the same (uri, range) surfaced twice by the inbound walk', async () => {
+        // findReferencesTo is override-aware: a call site reachable through two
+        // related types (e.g. an interface and its implementor) can be listed
+        // twice. It must appear once, not twice, in the returned Location[].
         const dupRef = {
           name: 'Base',
           fileUri: 'file:///test/Derived.cls',
@@ -522,10 +522,7 @@ describe('ReferencesProcessingService', () => {
 
         jest
           .spyOn(symbolManager, 'findReferencesTo')
-          .mockResolvedValue([dupRef, uniqueRef] as any);
-        jest
-          .spyOn(symbolManager, 'findReferencesFrom')
-          .mockResolvedValue([dupRef] as any);
+          .mockResolvedValue([dupRef, uniqueRef, dupRef] as any);
 
         const symbol = {
           name: 'Base',
@@ -546,6 +543,47 @@ describe('ReferencesProcessingService', () => {
             l.range.start.character === 21,
         );
         expect(derivedHits).toHaveLength(1);
+      });
+
+      it('returns ONLY inbound references — never outbound (findReferencesFrom / findRelatedSymbols)', async () => {
+        // "Find references" means "where is this symbol USED" — the inbound edges
+        // from findReferencesTo. The handler must NOT union outbound edges (what
+        // the symbol itself references), which previously flooded a single
+        // method's results with dozens of its own callees/fields/types.
+        const inbound = {
+          name: 'target',
+          fileUri: 'file:///test/Caller.cls',
+          location: makeLocation(5, 8, 5, 14),
+        };
+        const outbound = {
+          name: 'somethingTheMethodCalls',
+          fileUri: 'file:///test/Target.cls',
+          location: makeLocation(12, 4, 12, 27),
+        };
+
+        const toSpy = jest
+          .spyOn(symbolManager, 'findReferencesTo')
+          .mockResolvedValue([inbound] as any);
+        const fromSpy = jest
+          .spyOn(symbolManager, 'findReferencesFrom')
+          .mockResolvedValue([outbound] as any);
+        const relatedSpy = jest
+          .spyOn(symbolManager, 'findRelatedSymbols')
+          .mockResolvedValue([outbound] as any);
+
+        const symbol = { name: 'target', fileUri: 'file:///test/Target.cls' };
+        const locations = await (service as any).getReferenceLocations(
+          symbol,
+          false,
+        );
+
+        // Only the inbound reference — the outbound edge must not appear.
+        expect(locations).toHaveLength(1);
+        expect(locations[0].uri).toBe('file:///test/Caller.cls');
+        expect(toSpy).toHaveBeenCalled();
+        // Outbound sources must not be consulted at all.
+        expect(fromSpy).not.toHaveBeenCalled();
+        expect(relatedSpy).not.toHaveBeenCalled();
       });
 
       // Review finding 3: the dedup key must not use an unescaped delimiter that
@@ -855,6 +893,27 @@ describe('ReferencesProcessingService', () => {
         expect.objectContaining({ line: 18, character: 0 }),
         'precise',
       );
+    });
+
+    // Regression (declaration identifier): find-references invoked FROM a
+    // method's own declaration must surface its call sites. getReferencesAtPosition
+    // returns empty at a declaration (declarations are not stored as usage
+    // tokens), so the old hard short-circuit on empty references returned []
+    // here even though references existed. The fix lets the empty-references
+    // case fall through to getSymbolAtPosition('precise'), which resolves the
+    // declaration identifier - mirroring Hover/Definition. This is the
+    // dreamhouse GeocodingService.geocodeAddresses symptom in miniature.
+    it('finds references when invoked from a method declaration identifier', async () => {
+      // `process(Integer)` is declared at fixture line 17 (LSP line 16),
+      // `process` starts at col 17. It is called at lines 26-27.
+      const locations = (await findRefs(16, 17)) as Location[];
+      expect(Array.isArray(locations)).toBe(true);
+      // Must surface at least one call site despite the cursor being on the
+      // declaration (where there is no usage token to gate on).
+      expect(locations.length).toBeGreaterThan(0);
+      const targetLines = locations.map((loc) => loc.range.start.line);
+      // The Integer-overload call `process(42)` is on fixture line 26 (LSP 25).
+      expect(targetLines).toContain(25);
     });
   });
 

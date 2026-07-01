@@ -186,7 +186,12 @@ export function getPrerequisitesForLspRequestType(
         requiredDetailLevel: 'full', // Document open needs full semantics
         requiresReferences: true,
         requiresReferenceResolution: true,
-        requiresCrossFileResolution: false, // Can be async
+        // Resolve cross-file refs on open so hover/find-references work without
+        // an edit. This is sequenced AFTER the async enrichment write-back in
+        // PrerequisiteOrchestrationService (which clears cross-file edges), so it
+        // re-resolves the cleared table rather than racing it. Still async — file
+        // open is not blocked.
+        requiresCrossFileResolution: true,
         executionMode: 'async', // Don't block file open
         skipDuringWorkspaceLoad: true,
       };

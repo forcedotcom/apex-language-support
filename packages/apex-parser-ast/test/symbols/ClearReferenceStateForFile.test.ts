@@ -151,14 +151,18 @@ describe('clearReferenceStateForFile preserves incoming edges (W-22692424)', () 
     const graphRefsAfter = graph.findReferencesTo(aType!);
     expect(graphRefsAfter.some((r) => r.fileUri === bUri)).toBe(true);
 
-    // Prove this was NOT a no-op: A's OUTGOING edges were actually cleared by
-    // clearReferenceStateForFile (the forward index for A is emptied before the
-    // freshly parsed table re-adds them via resolve/drain).
-    const forwardAfterClear = graph.getForwardIndex().get(aUri);
-    expect(forwardAfterClear?.size ?? 0).toBe(0);
+    // A's OUTGOING edges (A -> Bar) are re-established automatically by the
+    // re-add itself. clearReferenceStateForFile empties A's forward index, but
+    // because A had outgoing edges before the clear (a genuine re-add, i.e. the
+    // enrichment write-back), addSymbolTable now re-runs cross-file resolution
+    // for A at the end of the re-add — so the forward index is non-empty again
+    // WITHOUT an explicit resolveCrossFileReferencesForFile call. This is what
+    // keeps hover/find-references working after the write-back instead of
+    // silently going empty until the next edit.
+    expect(graph.getForwardIndex().get(aUri)?.size ?? 0).toBeGreaterThan(0);
 
-    // Re-resolve + drain and confirm A's outgoing edges are re-established and
-    // B -> A is still present (clear-then-rebuild is lossless for incoming).
+    // An explicit re-resolve + drain is idempotent: edges stay established and
+    // the incoming B -> A edge is still present (clear-then-rebuild is lossless).
     await Effect.runPromise(
       symbolManager.resolveCrossFileReferencesForFile(aUri),
     );
