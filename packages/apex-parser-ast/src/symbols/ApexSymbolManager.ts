@@ -3941,27 +3941,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         };
         const scopeHierarchy = symbolTable.getScopeHierarchy(position);
         const scopeIds = new Set(scopeHierarchy.map((s) => s.id));
-        const headAsValueInScope = symbolTable
-          .getAllSymbols()
-          .find(
-            (s) =>
-              s.name === head &&
-              isValueKind(s) &&
-              s.parentId != null &&
-              scopeIds.has(s.parentId),
-          );
+        const headAsValueInScope = symbolTable.getAllSymbols().find(
+          (s) =>
+            // Apex is case-insensitive: a local `myclass` shadows a qualifier
+            // written as `MyClass`/`MYCLASS`, so compare case-folded names.
+            s.name?.toLowerCase() === lowerHead &&
+            isValueKind(s) &&
+            s.parentId != null &&
+            scopeIds.has(s.parentId),
+        );
         if (headAsValueInScope) {
           return;
         }
       }
 
       // No type yet (unresolved head, or head node not bound). Resolve the head
-      // name to its declaring type (Class/Interface/Enum).
+      // name to its declaring type (Class/Interface/Enum). Use the file-aware
+      // preferred-type resolver rather than picking the first workspace match:
+      // when multiple classes share a name across namespaces, this prefers the
+      // one declared in (or accessible from) the reference's own file, so the
+      // head edge does not bind to an inaccessible same-named class elsewhere.
       if (!headType) {
-        const headCandidates = yield* Effect.promise(() =>
-          self.findSymbolByName(head),
+        const preferred = yield* Effect.promise(() =>
+          self.resolvePreferredTypeSymbolForLookup(
+            head,
+            sourceInGraph.fileUri,
+            symbolTable,
+          ),
         );
-        headType = headCandidates.find(isTypeKind);
+        headType = preferred && isTypeKind(preferred) ? preferred : undefined;
       }
       if (!headType || !headType.fileUri) {
         return;
@@ -3977,6 +3985,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Pass the resolved head TYPE symbol directly. addReference re-resolves
       // the target by name+fileUri internally (and defers if not yet in the
       // graph), so a separate presence pre-lookup is redundant.
+      // NOTE: deliberately do NOT propagate `typeRef.isStatic` here. That flag
+      // describes the compound reference (`A.method()`), not the head type edge
+      // (`source → A`). A TYPE_REFERENCE to a class has no static-ness of its
+      // own, and leaking the compound's (possibly guessed) flag onto this edge
+      // would pollute method-overload disambiguation, which filters candidate
+      // overloads by the edge's isStatic.
       self.symbolRefManager.addReference(
         sourceInGraph,
         headType,
@@ -3984,7 +3998,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         headLocation,
         {
           methodName: typeRef.parentContext,
-          isStatic: typeRef.isStatic,
         },
       );
     });

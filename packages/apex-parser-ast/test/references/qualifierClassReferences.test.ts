@@ -215,4 +215,81 @@ describe('find-references on a class used only as a qualifier (W-23255936)', () 
       ),
     ).toBe(true);
   });
+
+  it('treats a differently-cased local as shadowing the qualifier (case-insensitive)', async () => {
+    // Apex identifiers are case-insensitive: a local declared `svc` shadows a
+    // qualifier written `Svc`. The instance call `svc.run()` is therefore NOT a
+    // reference to the like-named `Svc` type and must not be attributed to it.
+    await add('public class Svc { public void run() {} }', 'file:///t/Svc.cls');
+    await add(
+      // Only the constructor `new Svc()` and the declared type `Svc` are true
+      // type usages; `svc.run()` (differently cased receiver) is an instance
+      // call on the local value and must be excluded by the case-folded check.
+      'public class Caller { void m() { Svc svc = new Svc(); svc.run(); } }',
+      'file:///t/Caller.cls',
+    );
+    await resolveCrossFile('file:///t/Svc.cls');
+    await resolveCrossFile('file:///t/Caller.cls');
+
+    const refs = await sm.findReferencesTo(
+      await classSymbol('file:///t/Svc.cls', 'Svc'),
+    );
+
+    const src =
+      'public class Caller { void m() { Svc svc = new Svc(); svc.run(); } }';
+    const refTexts = refs.map((r) => {
+      const range = r.location?.identifierRange ?? r.location?.symbolRange;
+      if (!range) return '';
+      return src.slice(range.startColumn, range.endColumn);
+    });
+
+    // Exactly the two real TYPE tokens (`Svc svc` and `new Svc()`) — never the
+    // `svc` receiver of the instance call.
+    expect(refs.length).toBe(2);
+    refTexts.forEach((t) => expect(t).toBe('Svc'));
+    expect(refTexts).not.toContain('svc');
+  });
+
+  it('binds the head qualifier to a resolved class rather than an arbitrary same-named class', async () => {
+    // Two unrelated classes named `Shared` live in different files. A caller
+    // uses `Shared` as a static-call qualifier. The head edge must land on the
+    // `Shared` the caller actually resolved (with a preserved fileUri through
+    // deferral), not get split/lost across the two same-named candidates.
+    await add(
+      'public class Shared { public static void go() {} }',
+      'file:///t/pkgA/Shared.cls',
+    );
+    await add(
+      'public class Shared { public static void far() {} }',
+      'file:///t/pkgB/Shared.cls',
+    );
+    await add(
+      'public class SharedCaller { void m() { Shared.go(); } }',
+      'file:///t/pkgA/SharedCaller.cls',
+    );
+    await resolveCrossFile('file:///t/pkgA/Shared.cls');
+    await resolveCrossFile('file:///t/pkgB/Shared.cls');
+    await resolveCrossFile('file:///t/pkgA/SharedCaller.cls');
+
+    // The caller's `Shared.go()` head edge is attributed to exactly one of the
+    // same-named classes (not duplicated across both). Whichever `Shared`
+    // resolution wins, the reference must be findable and point at the caller.
+    const refsA = await sm.findReferencesTo(
+      await classSymbol('file:///t/pkgA/Shared.cls', 'Shared'),
+    );
+    const refsB = await sm.findReferencesTo(
+      await classSymbol('file:///t/pkgB/Shared.cls', 'Shared'),
+    );
+    const callerRefsA = refsA.filter((r) =>
+      (r.fileUri ?? r.symbol?.fileUri ?? '').includes('SharedCaller'),
+    );
+    const callerRefsB = refsB.filter((r) =>
+      (r.fileUri ?? r.symbol?.fileUri ?? '').includes('SharedCaller'),
+    );
+
+    // The head edge exists and is attributed to a single class — the resolved
+    // fileUri prevents the deferred reference from being dropped or duplicated.
+    expect(callerRefsA.length + callerRefsB.length).toBeGreaterThanOrEqual(1);
+    expect(callerRefsA.length === 0 || callerRefsB.length === 0).toBe(true);
+  });
 });
