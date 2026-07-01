@@ -46,3 +46,21 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
+
+// Transport adapters — thin wrappers satisfying the RpcConnection port.
+export { JsonRpcConnection } from './transports/jsonRpcConnection';
+export {
+  createNodeStdioConnection,
+  type NodeStdioConnectionOptions,
+  type NodeStdioConnectionResult,
+} from './transports/createNodeStdioConnection';
+// NOTE: createWebWorkerConnection is intentionally NOT exported from this Node
+// entry point. It lives in a separate browser entry (`src/browser.ts`) to avoid
+// polluting Node consumers with vscode-jsonrpc/browser imports.
+
+// Headless host — spawn + core build + listen in correct order.
+export {
+  createHeadlessClient,
+  type HeadlessClientOptions,
+  type HeadlessClientResult,
+} from './hosts/headlessHost';

@@ -47,6 +47,8 @@ import {
   isContextType,
   countCallArguments,
   countConstructorArguments,
+  callArgumentExpressions,
+  constructorArgumentExpressions,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
@@ -248,6 +250,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Overload discriminator: call-site arity (F11-2). Set post-construction
       // rather than via the already-long factory/constructor positional list.
       reference.argumentCount = countCallArguments(ctx);
+      // Raw argument source texts — input to semantic argument-type resolution
+      // (same-arity overload separation). Type derivation happens later.
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -315,6 +320,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       );
       // Overload discriminator: call-site arity (F11-2).
       reference.argumentCount = countCallArguments(ctx);
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       this.methodCallStack.push({
         callRef: reference,
@@ -1867,6 +1873,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Overload discriminator: constructor call-site arity (F11-2). Lets
       // findReferencesTo separate `new Foo()` from `new Foo(x)`.
       reference.argumentCount = countConstructorArguments(ctx);
+      reference.argumentExpressions = constructorArgumentExpressions(ctx);
 
       // Check if this constructor call has arguments (classCreatorRest)
       const classCreatorRest = (creator as any).classCreatorRest?.();
@@ -1958,8 +1965,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             chainNode.name,
             chainNode.location,
             finalContext,
-            undefined,
-            parentContext,
+            {
+              parentContext,
+            },
           );
           this.symbolTable.addTypeReference(memberRef);
         });
@@ -2040,12 +2048,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
                   node.name,
                   node.location,
                   node.context,
-                  node.resolvedSymbolId,
-                  node.parentContext,
-                  nodeAccess,
-                  node.isStatic,
-                  node.literalValue,
-                  node.literalType,
+                  {
+                    resolvedSymbolId: node.resolvedSymbolId,
+                    parentContext: node.parentContext,
+                    access: nodeAccess,
+                    isStatic: node.isStatic,
+                    literalValue: node.literalValue,
+                    literalType: node.literalType,
+                  },
                 );
               }
               return node;
@@ -2055,18 +2065,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               fullExpression,
               chainedExpressionLocation,
               finalNode.context, // Use final node's context
-              undefined, // resolvedSymbolId - will be set during second-pass resolution
-              parentContext,
-              finalAccess, // Overall chain access
-              finalNode.isStatic,
-              undefined,
-              undefined,
-              nodesWithAccess, // Attach chainNodes to final node
-              undefined, // resolvedTypeId
-              undefined, // resolutionTier
-              undefined, // isFullyResolved
-              undefined, // validatedAccess
-              'syntax_only', // accessValidationState
+              {
+                // resolvedSymbolId set during second-pass resolution
+                parentContext,
+                access: finalAccess, // Overall chain access
+                isStatic: finalNode.isStatic,
+                chainNodes: nodesWithAccess, // Attach chainNodes to final node
+                accessValidationState: 'syntax_only',
+              },
             );
 
             this.symbolTable.addTypeReference(finalRef);
@@ -2119,12 +2125,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               baseNode.name,
               baseNode.location,
               baseNode.context,
-              baseNode.resolvedSymbolId,
-              baseNode.parentContext,
-              'read',
-              baseNode.isStatic,
-              baseNode.literalValue,
-              baseNode.literalType,
+              {
+                resolvedSymbolId: baseNode.resolvedSymbolId,
+                parentContext: baseNode.parentContext,
+                access: 'read',
+                isStatic: baseNode.isStatic,
+                literalValue: baseNode.literalValue,
+                literalType: baseNode.literalType,
+              },
             )
           : baseNode;
 
@@ -2138,12 +2146,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             node.name,
             node.location,
             node.context,
-            node.resolvedSymbolId,
-            node.parentContext,
-            nodeAccess,
-            node.isStatic,
-            node.literalValue,
-            node.literalType,
+            {
+              resolvedSymbolId: node.resolvedSymbolId,
+              parentContext: node.parentContext,
+              access: nodeAccess,
+              isStatic: node.isStatic,
+              literalValue: node.literalValue,
+              literalType: node.literalType,
+            },
           );
         }
         return node;
@@ -2186,18 +2196,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         fullExpression,
         chainedExpression,
         finalNode.context, // Use final node's context (FIELD_ACCESS, METHOD_CALL, etc.)
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        this.getCurrentMethodName(),
-        finalAccess, // Overall chain access matches final node
-        finalNode.isStatic,
-        undefined,
-        undefined,
-        analyzedChainNodes, // Attach chainNodes to final node
-        undefined, // resolvedTypeId - will be set during TIER 2
-        undefined, // resolutionTier - will be set during resolution
-        undefined, // isFullyResolved - will be set during TIER 2
-        undefined, // validatedAccess - will be set during TIER 2
-        'syntax_only', // accessValidationState - TIER 1 capture only
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext: this.getCurrentMethodName(),
+          access: finalAccess, // Overall chain access matches final node
+          isStatic: finalNode.isStatic,
+          chainNodes: analyzedChainNodes, // Attach chainNodes to final node
+          accessValidationState: 'syntax_only', // TIER 1 capture only
+        },
       );
 
       this.symbolTable.addTypeReference(finalRef);
@@ -2252,6 +2258,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         // Overload discriminator: call-site arity (F11-2).
         reference.argumentCount = countCallArguments(ctx);
+        reference.argumentExpressions = callArgumentExpressions(ctx);
         this.symbolTable.addTypeReference(reference);
       }
     } catch (error) {
@@ -2737,14 +2744,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     context: ReferenceContext,
     access?: 'read' | 'write' | 'readwrite',
   ): SymbolReference {
-    return new EnhancedSymbolReference(
-      name,
-      location,
-      context,
-      undefined,
-      this.getCurrentMethodName(),
+    return new EnhancedSymbolReference(name, location, context, {
+      parentContext: this.getCurrentMethodName(),
       access,
-    );
+    });
   }
 
   private createPreciseBaseLocation(

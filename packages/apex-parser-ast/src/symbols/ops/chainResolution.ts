@@ -1047,7 +1047,7 @@ export async function resolveFirstNodeAsClass(
     firstNodeName,
     dummyLocation,
     ReferenceContext.CLASS_REFERENCE,
-    undefined, // resolvedSymbolId - will be set during second-pass resolution
+    // resolvedSymbolId set during second-pass resolution
   );
   const builtInSymbol = await self.resolveStandardLibraryType(typeRef);
   if (builtInSymbol) {
