@@ -22,7 +22,6 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ReferenceResult,
-  ReferenceType,
   SymbolReference,
   createQueuedItem,
   isPositionWithinLocation,
@@ -485,7 +484,23 @@ export class ReferencesProcessingService implements IReferencesProcessor {
           }
         }
 
-        // Get references to this symbol
+        // Get references TO this symbol — the canonical, complete inbound set.
+        //
+        // "Find references" answers "where is this symbol USED", i.e. the
+        // INBOUND edges whose target is this symbol. findReferencesTo reads the
+        // graph reverse-index bucket for the declaration and already returns
+        // every inbound edge REGARDLESS of reference type (method calls,
+        // constructor calls, field/static access, type references, ...), and is
+        // override-aware and overload-separated for methods.
+        //
+        // We deliberately do NOT union findReferencesFrom or the per-type
+        // findRelatedSymbols traversals here: both are OUTBOUND (they return
+        // what this symbol references — the callees, fields, and types touched
+        // inside its own body), which are not references TO the symbol. Unioning
+        // them flooded results — e.g. find-references on a single method
+        // surfaced ~100 locations, almost all of them the method body's own
+        // outbound edges — so a method with three call sites reported dozens of
+        // unrelated hits. Inbound-only keeps the answer both complete and exact.
         const referencesTo = yield* Effect.promise(() =>
           self.symbolManager.findReferencesTo(symbol),
         );
@@ -501,38 +516,15 @@ export class ReferencesProcessingService implements IReferencesProcessor {
             yield* Effect.yieldNow();
           }
         }
-
-        // Get references from this symbol (for bidirectional analysis)
-        const referencesFrom = yield* Effect.promise(() =>
-          self.symbolManager.findReferencesFrom(symbol),
-        );
-        for (let i = 0; i < referencesFrom.length; i++) {
-          const reference = referencesFrom[i];
-          const location = self.createLocationFromReference(reference);
-          if (location) {
-            locations.push(location);
-          }
-          // Yield after every batchSize references
-          if ((i + 1) % batchSize === 0 && i + 1 < referencesFrom.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-
-        // Get specific relationship type references
-        const relationshipReferences =
-          yield* self.getRelationshipTypeReferencesEffect(symbol);
-        locations.push(...relationshipReferences);
       } catch (error) {
         self.logger.debug(() => `Error getting reference locations: ${error}`);
       }
 
-      // The four sources above (declaration, references-to, references-from,
-      // relationship edges) can surface the same physical location more than
-      // once — e.g. an `extends`/`implements` edge appears in both the graph
-      // reverse index and the relationship traversal, and a self-referential
-      // symbol can appear in both references-to and references-from. The LSP
-      // client renders each Location as a distinct entry, so collapse exact
-      // (uri, range) duplicates before returning.
+      // The declaration (pushed first when requested) and the inbound edges can
+      // still surface the same physical location more than once — e.g. an
+      // override-aware method walk can re-list a call site reached via two
+      // related types. The LSP client renders each Location as a distinct entry,
+      // so collapse exact (uri, range) duplicates before returning.
       return self.dedupeLocations(locations);
     });
   }
@@ -641,148 +633,6 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     };
 
     return { uri, range };
-  }
-
-  /**
-   * Get references by specific relationship types
-   */
-  private async getRelationshipTypeReferences(
-    symbol: ApexSymbol,
-  ): Promise<Location[]> {
-    return await Effect.runPromise(
-      this.getRelationshipTypeReferencesEffect(symbol),
-    );
-  }
-
-  /**
-   * Get references by specific relationship types (Effect-based with yielding)
-   */
-  private getRelationshipTypeReferencesEffect(
-    symbol: ApexSymbol,
-  ): Effect.Effect<Location[], never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const locations: Location[] = [];
-      const batchSize = 50;
-
-      try {
-        // Get method calls using findRelatedSymbols with METHOD_CALL type
-        const methodCalls = yield* Effect.promise(() =>
-          self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.METHOD_CALL,
-          ),
-        );
-        for (let i = 0; i < methodCalls.length; i++) {
-          const call = methodCalls[i];
-          const location = self.createLocationFromReference(call);
-          if (location) {
-            locations.push(location);
-          }
-          if ((i + 1) % batchSize === 0 && i + 1 < methodCalls.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-
-        // Get field access using findRelatedSymbols with FIELD_ACCESS type
-        const fieldAccess = yield* Effect.promise(() =>
-          self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.FIELD_ACCESS,
-          ),
-        );
-        for (let i = 0; i < fieldAccess.length; i++) {
-          const access = fieldAccess[i];
-          const location = self.createLocationFromReference(access);
-          if (location) {
-            locations.push(location);
-          }
-          if ((i + 1) % batchSize === 0 && i + 1 < fieldAccess.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-
-        // Get type references using findRelatedSymbols with TYPE_REFERENCE type
-        const typeReferences = yield* Effect.promise(() =>
-          self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.TYPE_REFERENCE,
-          ),
-        );
-        for (let i = 0; i < typeReferences.length; i++) {
-          const ref = typeReferences[i];
-          const location = self.createLocationFromReference(ref);
-          if (location) {
-            locations.push(location);
-          }
-          if ((i + 1) % batchSize === 0 && i + 1 < typeReferences.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-
-        // Get constructor calls (if it's a class) using findRelatedSymbols with CONSTRUCTOR_CALL type
-        if (symbol.kind === 'class') {
-          const constructorCalls = yield* Effect.promise(() =>
-            self.symbolManager.findRelatedSymbols(
-              symbol,
-              ReferenceType.CONSTRUCTOR_CALL,
-            ),
-          );
-          for (let i = 0; i < constructorCalls.length; i++) {
-            const call = constructorCalls[i];
-            const location = self.createLocationFromReference(call);
-            if (location) {
-              locations.push(location);
-            }
-            if ((i + 1) % batchSize === 0 && i + 1 < constructorCalls.length) {
-              yield* Effect.yieldNow();
-            }
-          }
-        }
-
-        // Get static access using findRelatedSymbols with STATIC_ACCESS type
-        const staticAccess = yield* Effect.promise(() =>
-          self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.STATIC_ACCESS,
-          ),
-        );
-        for (let i = 0; i < staticAccess.length; i++) {
-          const access = staticAccess[i];
-          const location = self.createLocationFromReference(access);
-          if (location) {
-            locations.push(location);
-          }
-          if ((i + 1) % batchSize === 0 && i + 1 < staticAccess.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-
-        // Get import references using findRelatedSymbols with IMPORT_REFERENCE type
-        const importReferences = yield* Effect.promise(() =>
-          self.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.IMPORT_REFERENCE,
-          ),
-        );
-        for (let i = 0; i < importReferences.length; i++) {
-          const ref = importReferences[i];
-          const location = self.createLocationFromReference(ref);
-          if (location) {
-            locations.push(location);
-          }
-          if ((i + 1) % batchSize === 0 && i + 1 < importReferences.length) {
-            yield* Effect.yieldNow();
-          }
-        }
-      } catch (error) {
-        self.logger.debug(
-          () => `Error getting relationship type references: ${error}`,
-        );
-      }
-
-      return locations;
-    });
   }
 
   /**

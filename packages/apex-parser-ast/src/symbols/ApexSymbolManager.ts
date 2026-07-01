@@ -2687,11 +2687,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const referenceType = self.mapReferenceContextToType(typeRef.context);
         const isStatic = yield* self.isStaticReferenceEffect(typeRef);
         const addReferenceStart = Date.now();
+        // Pin the member edge to the leaf token of a qualified ref (see
+        // getMemberLeafLocation); the head type gets its own edge below.
         self.symbolRefManager.addReference(
           sourceInGraph,
           targetInGraph,
           referenceType,
-          typeRef.location,
+          self.getMemberLeafLocation(typeRef),
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
@@ -3690,11 +3692,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   typeRef.context,
                 );
                 const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+                // Pin the member edge to the leaf token of a qualified ref (see
+                // getMemberLeafLocation); the head type gets its own edge below.
                 self.symbolRefManager.addReference(
                   sourceInGraph,
                   targetInGraph,
                   referenceType,
-                  typeRef.location,
+                  self.getMemberLeafLocation(typeRef),
                   {
                     methodName: typeRef.parentContext,
                     isStatic: isStatic,
@@ -3738,7 +3742,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               sourceSymbol,
               typeRef.name,
               referenceType,
-              typeRef.location,
+              self.getMemberLeafLocation(typeRef),
               {
                 methodName: typeRef.parentContext,
                 isStatic: isStatic,
@@ -3849,6 +3853,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             )
           : targetSymbolsInGraph[0];
 
+        // Attribute the member edge to the LEAF token of a qualified reference.
+        // For a chained ref `A.B`, typeRef.location spans the whole `A.B`, but
+        // this edge targets the MEMBER `B` — using the full span would make
+        // find-references on `B` highlight (and double-count) the `A.` qualifier
+        // too. The head type `A` gets its own edge via
+        // addHeadQualifierReferenceEffect below (pointed at chainNodes[0]); this
+        // is the symmetric counterpart, pointing the member edge at the leaf
+        // chain node. Non-chained references keep typeRef.location unchanged.
+        const memberLocation = self.getMemberLeafLocation(typeRef);
+
         // Symbols should be in graph since addSymbolTable runs before processSymbolReferencesToGraph
         // If they're not, queue for when they are added (rare edge case)
         if (!sourceInGraph || !targetInGraph) {
@@ -3858,7 +3872,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             sourceSymbol,
             resolvedTargetSymbol.name,
             referenceType,
-            typeRef.location,
+            memberLocation,
             {
               methodName: typeRef.parentContext,
               isStatic: isStatic,
@@ -3879,7 +3893,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           sourceInGraph,
           targetInGraph,
           referenceType,
-          typeRef.location,
+          memberLocation,
           {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
@@ -3980,6 +3994,39 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       memberResolutionCache,
       resolverStats,
     );
+  }
+
+  /**
+   * Location to attribute the MEMBER edge of a (possibly chained) reference to.
+   *
+   * A chained reference `A.B` carries `location` spanning the whole `A.B`, but
+   * the member edge created for it targets the leaf member `B`. Attributing that
+   * edge to the full span makes find-references on `B` return an edge whose
+   * identifierRange also covers the `A.` qualifier — so a single call site
+   * `A.B()` surfaces as TWO hits (one leaf-only, one full-span) and the qualifier
+   * text is wrongly highlighted as a reference to the member. This returns the
+   * LEAF chain node's location instead, so the member edge is pinned to `B`
+   * alone. The head type `A` is attributed separately by
+   * {@link addHeadQualifierReferenceEffect} (pointed at `chainNodes[0]`).
+   *
+   * Non-chained references (no chainNodes, or a single node) fall through to
+   * `typeRef.location` unchanged, so simple references are byte-for-byte
+   * identical to before.
+   */
+  private getMemberLeafLocation(typeRef: SymbolReference): SymbolLocation {
+    if (!isChainedSymbolReference(typeRef)) {
+      return typeRef.location;
+    }
+    const nodes = typeRef.chainNodes;
+    if (!nodes || nodes.length < 2) {
+      return typeRef.location;
+    }
+    // The leaf member is the last chain node. Guard against a node missing a
+    // usable identifierRange (defensive; the collector always sets one) by
+    // falling back to the full-span location rather than emitting an edge with
+    // no precise position.
+    const leaf = nodes[nodes.length - 1];
+    return leaf?.location?.identifierRange ? leaf.location : typeRef.location;
   }
 
   /**
