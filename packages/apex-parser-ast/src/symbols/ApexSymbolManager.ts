@@ -95,7 +95,9 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
+  isVariableSymbol,
 } from '../utils/symbolNarrowing';
+import { resolveArgumentTypes } from '../utils/argumentTypeResolution';
 import {
   buildReferencesToCacheKey,
   buildReferencesFromCacheKey,
@@ -2074,6 +2076,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // wholesale invalidation of the family is correct and cheap to rebuild.
       self.unifiedCache.invalidatePattern('^refs_(to|from)_');
 
+      // Derive positional argumentTypes for call references BEFORE building any
+      // graph edges: the reverse-index edges copy each reference's argumentTypes
+      // into their context, so the signature key (used to separate same-arity
+      // overloads, W-23182862) must be populated first or it never reaches the
+      // edge. File-local and synchronous, so this is the natural place.
+      yield* self.resolveArgumentTypesEffect(finalSymbolTable);
+
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
       yield* self.processSameFileReferencesToGraphEffect(
@@ -2651,6 +2660,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
             argumentCount: typeRef.argumentCount,
+            argumentTypes: typeRef.argumentTypes,
           },
         );
         // Also attribute the head of a qualified reference (`A.B`) to type `A`.
@@ -3116,6 +3126,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
+        // Argument-type derivation for same-arity overload separation
+        // (W-23182862) already ran for this file's references at ingest
+        // (addSymbolTable → resolveArgumentTypesEffect), before its edges were
+        // built; it is idempotent and file-local, so it is not repeated here.
         yield* self.processSymbolReferencesToGraphEffect(
           symbolTable,
           normalizedUri,
@@ -3193,6 +3207,80 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               `to inherited method in ${resolved.fileUri ?? 'unknown'}`,
           );
           yield* Effect.yieldNow();
+        }
+      }
+    });
+  }
+
+  /**
+   * Phase B of type-aware overload separation (W-23182862): derive positional
+   * `argumentTypes` for each call reference from the raw argument source texts
+   * (`argumentExpressions`) the parser captured in Phase A.
+   *
+   * For each METHOD_CALL / CONSTRUCTOR_CALL reference that has captured argument
+   * texts but no `argumentTypes` yet, resolve each argument:
+   * - literals → their literal type (String/Integer/Boolean/…);
+   * - bare identifiers → the declared type of the local / parameter / field
+   *   they name, looked up in the reference's enclosing scope.
+   *
+   * `argumentTypes` is set only when EVERY argument resolves; if any argument
+   * cannot be typed at this depth (a method-call result, a member chain, a
+   * cast, `new T()`, or an identifier not in scope) the reference is left
+   * without a signature key, so its overload set stays unified — the
+   * conservative, correct degradation rather than a wrong split.
+   *
+   * Runs purely against the file's own symbol table (locals/params/fields are
+   * file-local), so it needs no cross-file graph; it executes after graph
+   * processing only to share the single resolution pass.
+   */
+  private resolveArgumentTypesEffect(
+    symbolTable: SymbolTable,
+  ): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      for (const ref of symbolTable.getAllReferences()) {
+        if (
+          ref.argumentTypes !== undefined ||
+          ref.argumentExpressions === undefined ||
+          (ref.context !== ReferenceContext.METHOD_CALL &&
+            ref.context !== ReferenceContext.CONSTRUCTOR_CALL)
+        ) {
+          continue;
+        }
+
+        // Resolve a bare identifier to the declared type string of the local /
+        // parameter / field it names, searched from the call's enclosing scope.
+        const position = {
+          line: ref.location.identifierRange.startLine,
+          character: ref.location.identifierRange.startColumn,
+        };
+        const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+        const innermostScope =
+          scopeHierarchy.length > 0
+            ? scopeHierarchy[scopeHierarchy.length - 1]
+            : null;
+        const lookupType = (identifier: string): string | undefined => {
+          // Resolve through the lexical scope CHAIN only (scope → parents →
+          // roots). Must NOT use lookup(), whose child-scope descent could
+          // resolve the argument to a same-named local in an unrelated nested
+          // block and feed a wrong type into overload separation.
+          const symbol = symbolTable.lookupInScopeChain(
+            identifier,
+            innermostScope,
+          );
+          if (isVariableSymbol(symbol)) {
+            return (
+              symbol.type?.originalTypeString ?? symbol.type?.name ?? undefined
+            );
+          }
+          return undefined;
+        };
+
+        const argumentTypes = resolveArgumentTypes(
+          ref.argumentExpressions,
+          lookupType,
+        );
+        if (argumentTypes !== undefined) {
+          ref.argumentTypes = argumentTypes;
         }
       }
     });
@@ -3575,6 +3663,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     methodName: typeRef.parentContext,
                     isStatic: isStatic,
                     argumentCount: typeRef.argumentCount,
+                    argumentTypes: typeRef.argumentTypes,
                   },
                 );
                 // Also attribute the head of a qualified reference (`A.B`) to
@@ -3618,6 +3707,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 methodName: typeRef.parentContext,
                 isStatic: isStatic,
                 argumentCount: typeRef.argumentCount,
+                argumentTypes: typeRef.argumentTypes,
               },
             );
           }
@@ -3737,6 +3827,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               methodName: typeRef.parentContext,
               isStatic: isStatic,
               argumentCount: typeRef.argumentCount,
+              argumentTypes: typeRef.argumentTypes,
             },
           );
           return;
@@ -3757,6 +3848,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             methodName: typeRef.parentContext,
             isStatic: isStatic,
             argumentCount: typeRef.argumentCount,
+            argumentTypes: typeRef.argumentTypes,
           },
         );
         // Also attribute the head of a qualified reference (`A.B`) to type `A`.
