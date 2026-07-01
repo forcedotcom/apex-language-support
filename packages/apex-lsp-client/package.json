@@ -10,6 +10,11 @@
       "types": "./out/index.d.ts",
       "import": "./out/index.js",
       "require": "./out/index.js"
+    },
+    "./browser": {
+      "types": "./out/browser.d.ts",
+      "import": "./out/browser.js",
+      "require": "./out/browser.js"
     }
   },
   "sideEffects": false,
@@ -130,7 +135,8 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.21.4"
+    "effect": "^3.21.4",
+    "vscode-jsonrpc": "^8.2.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
