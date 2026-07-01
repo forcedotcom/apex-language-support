@@ -190,7 +190,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
    */
   const registerIncomingRequest = (
     method: string,
-    rawHandler: (params: unknown) => unknown,
+    rawHandler: (params: unknown) => unknown | Promise<unknown>,
   ): Disposable =>
     connection.onRequest(method, (params: unknown) => {
       const middlewares = Runtime.runSync(runtime)(Ref.get(middlewareRef));
@@ -206,8 +206,11 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   /**
    * Register an incoming notification handler that flows through the middleware
    * chain. Synchronous per D2. Late-bound middlewareRef per D1.
+   *
+   * Not currently wired to a public method or CoreHandle — available for future
+   * incoming notification handlers (e.g. typed `apex/*` surface in 3.1).
    */
-  const registerIncomingNotification = (
+  const _registerIncomingNotification = (
     method: string,
     rawHandler: (params: unknown) => void,
   ): Disposable =>
@@ -390,7 +393,6 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     use,
     request,
     notify,
-    registerIncomingNotification,
     isDisposed,
     disposedRef,
   };

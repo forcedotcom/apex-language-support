@@ -169,10 +169,9 @@ describe('ApexClientCore incoming middleware chain (D1)', () => {
 
     const core = await ApexClientCore.create(connection, { middlewares: [mw] });
 
-    // The core itself doesn't register notification handlers by default, but
-    // registerIncomingNotification is available internally. We test the compose
-    // function for notifications via composeNotificationChain tests directly.
-    // Here we verify that onNotification was called on the connection.
+    // The core does not register notification handlers by default. We test the
+    // compose function for notifications via composeNotificationChain tests
+    // directly. Here we verify that onNotification is defined on the connection.
     expect(connection.onNotification).toBeDefined();
 
     await core.dispose();
