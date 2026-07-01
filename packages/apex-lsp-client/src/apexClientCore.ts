@@ -21,6 +21,10 @@ import {
   loggingMiddleware,
 } from './middleware/loggingMiddleware';
 import { EffectLspLoggerLive } from './logging/effectLspLoggerLayer';
+import {
+  composeRequestChain,
+  composeNotificationChain,
+} from './middleware/composeMiddleware';
 
 /**
  * The server→client request the core answers by default. Temporary literal —
@@ -80,6 +84,8 @@ interface CoreHandle {
   ) => Promise<InitializeResult>;
   readonly shutdown: () => Promise<void>;
   readonly use: (mw: ApexClientMiddleware) => Disposable;
+  readonly request: <R>(method: string, params?: unknown) => Promise<R>;
+  readonly notify: (method: string, params?: unknown) => void;
   readonly isDisposed: () => boolean;
   readonly dispose: () => Promise<void>;
 }
@@ -125,22 +131,91 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     }),
   );
 
-  // Default findMissingArtifact responder: { notFound: true }. Registered here,
-  // before traffic. Logging middleware observes the incoming request.
-  const findMissingArtifactDisposable = connection.onRequest(
-    FIND_MISSING_ARTIFACT_METHOD,
-    (params: unknown) => {
-      Runtime.runFork(runtime)(
-        logMiddlewareEvent(FIND_MISSING_ARTIFACT_METHOD, 'incoming').pipe(
-          // Fire-and-forget log: never let a logging failure surface or leave
-          // an unhandled cause on the forked fiber.
-          Effect.catchAllCause(() => Effect.void),
-        ),
+  // --- Middleware-composed send/receive helpers ---
+
+  /**
+   * Send a request through the outgoing middleware chain. Terminal function is
+   * `connection.sendRequest`. Reads `middlewareRef` at invocation time (late-bound).
+   */
+  const sendRequestThroughChain = <R>(
+    method: string,
+    params?: unknown,
+  ): Promise<R> => {
+    const middlewares = Runtime.runSync(runtime)(Ref.get(middlewareRef));
+    return composeRequestChain<unknown, R>(
+      middlewares,
+      (p) => connection.sendRequest<R>(method, p),
+      'outgoing',
+      method,
+      params,
+    );
+  };
+
+  /**
+   * Send a notification through the outgoing middleware chain (synchronous per D2).
+   * Terminal function is `connection.sendNotification`.
+   */
+  const sendNotificationThroughChain = (
+    method: string,
+    params?: unknown,
+  ): void => {
+    const middlewares = Runtime.runSync(runtime)(Ref.get(middlewareRef));
+    composeNotificationChain<unknown>(
+      middlewares,
+      (p) => {
+        connection.sendNotification(method, p);
+      },
+      'outgoing',
+      method,
+      params,
+    );
+  };
+
+  /**
+   * Register an incoming request handler that flows through the middleware chain.
+   * The composed handler reads `middlewareRef` at call time (late-bound per D1).
+   */
+  const registerIncomingRequest = (
+    method: string,
+    rawHandler: (params: unknown) => unknown,
+  ): Disposable =>
+    connection.onRequest(method, (params: unknown) => {
+      const middlewares = Runtime.runSync(runtime)(Ref.get(middlewareRef));
+      return composeRequestChain<unknown, unknown>(
+        middlewares,
+        (p) => Promise.resolve(rawHandler(p)),
+        'incoming',
+        method,
+        params,
       );
-      // TODO(3.1): delegate to a registered onFindMissingArtifact handler when
-      // the typed apex/* surface lands; fall back to { notFound: true }.
-      return { notFound: true };
-    },
+    });
+
+  /**
+   * Register an incoming notification handler that flows through the middleware
+   * chain. Synchronous per D2. Late-bound middlewareRef per D1.
+   */
+  const registerIncomingNotification = (
+    method: string,
+    rawHandler: (params: unknown) => void,
+  ): Disposable =>
+    connection.onNotification(method, (params: unknown) => {
+      const middlewares = Runtime.runSync(runtime)(Ref.get(middlewareRef));
+      composeNotificationChain<unknown>(
+        middlewares,
+        (p) => rawHandler(p),
+        'incoming',
+        method,
+        params,
+      );
+    });
+
+  // Default findMissingArtifact responder: { notFound: true }. Registered here,
+  // before traffic. Logging middleware observes the incoming request via the chain.
+  const findMissingArtifactDisposable = registerIncomingRequest(
+    FIND_MISSING_ARTIFACT_METHOD,
+    // TODO(3.1): delegate to a registered onFindMissingArtifact handler when
+    // the typed apex/* surface lands; fall back to { notFound: true }.
+    (_params) => ({ notFound: true }),
   );
   yield* Ref.update(cleanupRef, (ds) => [...ds, findMissingArtifactDisposable]);
 
@@ -268,6 +343,28 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     };
   };
 
+  /**
+   * Generic request escape hatch: sends method+params through the outgoing
+   * middleware chain. Guards against use-after-dispose.
+   */
+  const request = <R>(method: string, params?: unknown): Promise<R> => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      return Promise.reject(new ApexClientDisposedError('request'));
+    }
+    return sendRequestThroughChain<R>(method, params);
+  };
+
+  /**
+   * Generic notification pass-through: sends method+params through the outgoing
+   * middleware chain (synchronous per D2). Guards against use-after-dispose.
+   */
+  const notify = (method: string, params?: unknown): void => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      throw new ApexClientDisposedError('notify');
+    }
+    sendNotificationThroughChain(method, params);
+  };
+
   // `Ref.get` is synchronous, so the disposed state can be read at the boundary
   // with `Runtime.runSync` — `isDisposed()` stays a plain `boolean` (matching
   // the shared `ClientInterface` contract) while the state still lives in a Ref.
@@ -278,6 +375,9 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     initialize,
     shutdown,
     use,
+    request,
+    notify,
+    registerIncomingNotification,
     isDisposed,
     disposedRef,
   };
@@ -353,6 +453,8 @@ export class ApexClientCore {
       initialize: built.initialize,
       shutdown: built.shutdown,
       use: built.use,
+      request: built.request,
+      notify: built.notify,
       isDisposed: built.isDisposed,
       dispose: closeScope,
     };
@@ -392,6 +494,24 @@ export class ApexClientCore {
    */
   use(mw: ApexClientMiddleware): Disposable {
     return this.handle.use(mw);
+  }
+
+  /**
+   * Generic request escape hatch: sends `method` + `params` through the
+   * registered middleware chain to `connection.sendRequest`. Rejects with
+   * {@link ApexClientDisposedError} if called after `dispose()`.
+   */
+  request<R>(method: string, params?: unknown): Promise<R> {
+    return this.handle.request<R>(method, params);
+  }
+
+  /**
+   * Generic notification pass-through: sends `method` + `params` through the
+   * registered middleware chain (synchronous per D2). Throws
+   * {@link ApexClientDisposedError} if called after `dispose()`.
+   */
+  notify(method: string, params?: unknown): void {
+    this.handle.notify(method, params);
   }
 
   /**
