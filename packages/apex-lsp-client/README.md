@@ -12,7 +12,13 @@ language server from any non-VS-Code host.
 - **Transport-agnostic core**: `ApexClientCore` is written against the
   `RpcConnection` port only — never against `vscode-jsonrpc`,
   `vscode-languageclient`, or `vscode`. Concrete transports plug in via thin
-  adapters in later work items.
+  adapters.
+- **Transport adapters**: `JsonRpcConnection` wraps a `vscode-jsonrpc`
+  `MessageConnection` (1:1 delegation); `createNodeStdioConnection` spawns a
+  server child process over stdio; `createWebWorkerConnection` wraps a Web
+  Worker message channel.
+- **Headless host**: `createHeadlessClient` encapsulates the correct
+  spawn-then-build-then-listen ordering in a single async call.
 - **LSP lifecycle**: `initialize` sends `initialize` then `initialized`
   (strictly sequential); `shutdown` sends `shutdown` then `exit`. Both are
   idempotent on success and serialize concurrent first-time calls (first
@@ -35,7 +41,61 @@ npm install @salesforce/apex-lsp-client
 
 ## Usage
 
-### Create a core, run the lifecycle, dispose
+### Headless client (recommended for non-VS-Code hosts)
+
+`createHeadlessClient` spawns a server, builds the core, and starts listening in
+the correct order:
+
+```typescript
+import { createHeadlessClient } from '@salesforce/apex-lsp-client';
+
+const { core, connection, process } = await createHeadlessClient(
+  '/path/to/server.js',
+  { serverArgs: ['--stdio'] },
+);
+
+const result = await core.initialize(mySettings, {
+  rootUri: 'file:///workspace',
+});
+// ... use the server ...
+
+await core.shutdown();
+await core.dispose();
+```
+
+### Transport adapters
+
+`JsonRpcConnection` wraps a `vscode-jsonrpc` `MessageConnection` to satisfy the
+`RpcConnection` port:
+
+```typescript
+import { createMessageConnection } from 'vscode-jsonrpc';
+import { JsonRpcConnection, ApexClientCore } from '@salesforce/apex-lsp-client';
+
+const messageConnection = createMessageConnection(reader, writer);
+const connection = new JsonRpcConnection(messageConnection);
+
+// Build core BEFORE listening (handlers must register first).
+const core = await ApexClientCore.create(connection);
+connection.listen();
+
+const result = await core.initialize(mySettings);
+```
+
+For Node stdio transports, `createNodeStdioConnection` handles spawning:
+
+```typescript
+import { createNodeStdioConnection, ApexClientCore } from '@salesforce/apex-lsp-client';
+
+const { connection, process } = createNodeStdioConnection('/path/to/server.js', {
+  serverArgs: ['--stdio'],
+});
+
+const core = await ApexClientCore.create(connection);
+connection.listen();
+```
+
+### Create a core directly (advanced)
 
 `ApexClientCore.create` registers default handlers (the logging middleware and
 the `findMissingArtifact` responder) during construction, **before** any message
@@ -45,8 +105,8 @@ only after the core is built.
 ```typescript
 import { ApexClientCore, type RpcConnection } from '@salesforce/apex-lsp-client';
 
-// `connection` is your RpcConnection implementation (e.g. a future
-// JsonRpcConnection or LanguageClientConnection adapter), not yet started.
+// `connection` is your RpcConnection implementation
+// (JsonRpcConnection or LanguageClientConnection adapter), not yet started.
 declare const connection: RpcConnection;
 
 const core = await ApexClientCore.create(connection);
@@ -126,6 +186,8 @@ disposable.dispose();
 
 ## API Reference
 
+### Core
+
 - `ApexClientCore` — the transport-agnostic client core.
   - `static create(connection, options?)` — build a core over a (not-yet-started)
     `RpcConnection`; registers default handlers.
@@ -153,15 +215,39 @@ disposable.dispose();
 - `RpcConnection` — the narrow transport port the core is written against
   (`sendRequest`, `sendNotification`, `onRequest`, `onNotification`, `onError`,
   `onClose`, `dispose`).
+
+### Transport Adapters
+
+- `JsonRpcConnection` — thin adapter wrapping `vscode-jsonrpc` `MessageConnection`
+  to satisfy `RpcConnection`. Methods delegate 1:1; `listen()` starts traffic.
+- `createNodeStdioConnection(serverPath, options?)` — spawn a Node child process
+  and return `{ connection: JsonRpcConnection, process: ChildProcess }`.
+  - `NodeStdioConnectionOptions` — `nodePath`, `nodeArgs`, `serverArgs`, `env`,
+    `cwd`.
+  - `NodeStdioConnectionResult` — the connection + process tuple.
+- `createWebWorkerConnection(worker)` — wrap a Web Worker's message channel in a
+  `JsonRpcConnection` (exported from the browser entry `@salesforce/apex-lsp-client/browser`).
+
+### Headless Host
+
+- `createHeadlessClient(serverPath, options?)` — spawn server, build core, start
+  listening; returns `Promise<HeadlessClientResult>`.
+  - `HeadlessClientOptions` — extends `NodeStdioConnectionOptions` with
+    `coreOptions`.
+  - `HeadlessClientResult` — `{ core, connection, process }`.
+
+### Middleware
+
 - `ApexClientMiddleware` / `MiddlewareDirection` — the `next`-based interceptor
   type and its direction enum.
 - `loggingMiddleware` — the default observability middleware.
 
 ## Intentional orphan state
 
-As of W-23163181 (foundation, group 1) this package is deliberately NOT listed in
-any other package's `dependencies`. TypeScript project `references`/`paths`
-affect compilation only, not runtime consumability. The adapter work items add
-the dependency when they consume the SDK (`JsonRpcConnection` in 2.3,
-`LanguageClientConnection`/extension consolidation in 4.1). The absence of a
-parent consumer here is by design, not an omission.
+As of W-23163191 (2.3) this package ships `JsonRpcConnection`, the Node-stdio
+and Web-Worker connection helpers, and `createHeadlessClient`. It is deliberately
+NOT yet listed in any other package's `dependencies`. TypeScript project
+`references`/`paths` affect compilation only, not runtime consumability. The
+extension consolidation work item (4.1) will add the runtime dependency when the
+existing `LanguageClientConnection` adapter migrates to consume this SDK. The
+absence of a parent consumer here is by design, not an omission.

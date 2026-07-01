@@ -16,9 +16,12 @@
  * through the reverse index, and findReferencesTo filters the union down to the
  * call sites whose arity matches the requested overload's parameter count.
  *
- * Scope: arity-distinct overloads (f() vs f(x) vs f(x, y)) — the common case.
- * Same-arity / different-type overloads (f(String) vs f(Integer)) cannot be
- * separated by arity alone and remain unified (documented follow-up).
+ * Scope: arity-distinct overloads (f() vs f(x) vs f(x, y)) — the common case —
+ * AND same-arity / different-type overloads (f(String) vs f(Integer)), which
+ * are separated by call-site argument TYPES once those types resolve
+ * (W-23182862). When a call's argument types do not resolve, that call stays
+ * attributed to every same-arity overload (the conservative, no-wrong-split
+ * degradation).
  */
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
@@ -173,11 +176,29 @@ describe('per-overload reference separation (F11-2 core)', () => {
     expect(callSite).toBeDefined();
   });
 
-  it('keeps same-arity overloads unified (documented arity-only limit)', async () => {
+  /** Find a `use`/1 overload by its single parameter's declared type. */
+  const useOverloadByParamType = async (
+    fileUri: string,
+    paramType: string,
+  ): Promise<ApexSymbol> => {
+    const symbols = await symbolManager.findSymbolsInFile(fileUri);
+    const match = symbols.find(
+      (s) =>
+        s.kind === SymbolKind.Method &&
+        s.name === 'use' &&
+        isMethodSymbol(s) &&
+        s.parameters?.[0]?.type?.originalTypeString === paramType,
+    );
+    if (!match) {
+      throw new Error(`No use(${paramType}) overload found in ${fileUri}`);
+    }
+    return match;
+  };
+
+  it('separates same-arity overloads by literal argument type (F11-2 type-aware)', async () => {
     const URI = 'file:///test/SameArity.cls';
-    // Two one-arg overloads distinguished only by type. Arity cannot separate
-    // them, so a query for either returns both call sites — the documented
-    // limit until call-site type capture lands.
+    // Two one-arg overloads distinguished only by parameter type. Arity cannot
+    // separate them; call-site argument TYPES (String vs Integer literal) do.
     await compileAndAdd(
       `public class SameArity {
          public void use(String s) {}
@@ -191,12 +212,72 @@ describe('per-overload reference separation (F11-2 core)', () => {
     );
     await resolveCrossFile(URI);
 
-    const useString = await methodByArity(URI, 'use', 1);
+    const useString = await useOverloadByParamType(URI, 'String');
+    const useInteger = await useOverloadByParamType(URI, 'Integer');
+
+    const refsToString = await symbolManager.findReferencesTo(useString);
+    const refsToInteger = await symbolManager.findReferencesTo(useInteger);
+
+    // Each overload sees only its own call site.
+    expect(refsToString.map((r) => r.context?.argumentTypes)).toEqual([
+      ['String'],
+    ]);
+    expect(refsToInteger.map((r) => r.context?.argumentTypes)).toEqual([
+      ['Integer'],
+    ]);
+  });
+
+  it('separates same-arity overloads by local-variable argument type', async () => {
+    const URI = 'file:///test/SameArityVars.cls';
+    // Arguments are locals, not literals: their types are resolved from the
+    // enclosing scope during semantic resolution (Phase B).
+    await compileAndAdd(
+      `public class SameArityVars {
+         public void use(String s) {}
+         public void use(Integer i) {}
+         public void caller() {
+           String text = 'x';
+           Integer num = 1;
+           use(text);
+           use(num);
+         }
+       }`,
+      URI,
+    );
+    await resolveCrossFile(URI);
+
+    const useString = await useOverloadByParamType(URI, 'String');
+    const useInteger = await useOverloadByParamType(URI, 'Integer');
+
+    expect(await symbolManager.findReferencesTo(useString)).toHaveLength(1);
+    expect(await symbolManager.findReferencesTo(useInteger)).toHaveLength(1);
+  });
+
+  it('keeps same-arity overloads unified when an argument type is unresolved', async () => {
+    const URI = 'file:///test/SameArityUnresolved.cls';
+    // The argument is a method-call result, which Phase B intentionally does
+    // NOT resolve. With no signature key, neither overload can claim the call,
+    // so it stays attributed to both — the conservative, no-wrong-split path.
+    await compileAndAdd(
+      `public class SameArityUnresolved {
+         public void use(String s) {}
+         public void use(Integer i) {}
+         public String mk() { return 'x'; }
+         public void caller() {
+           use(mk());
+         }
+       }`,
+      URI,
+    );
+    await resolveCrossFile(URI);
+
+    const useString = await useOverloadByParamType(URI, 'String');
     const refs = await symbolManager.findReferencesTo(useString);
 
-    // Both same-arity call sites surface (arity 1 each); not separated.
-    const arity1Calls = refs.filter((r) => r.context?.argumentCount === 1);
-    expect(arity1Calls.length).toBeGreaterThanOrEqual(2);
+    // The unresolved-argument call site is retained (not dropped on a guess).
+    const callSite = refs.find((r) => r.context?.argumentCount === 1);
+    expect(callSite).toBeDefined();
+    expect(callSite?.context?.argumentTypes).toBeUndefined();
   });
 
   /** Find a constructor symbol by declared parameter count. */
@@ -257,10 +338,11 @@ describe('per-overload reference separation (F11-2 core)', () => {
   // LISTENER-DRIFT GUARD. The compileAndAdd helper uses
   // ApexSymbolCollectorListener, but the worker topology collects references
   // via VisibilitySymbolListener + { collectReferences: true } — a DIFFERENT
-  // pass (ApexReferenceCollectorListener). The argumentCount discriminator was
-  // added to BOTH listeners; this asserts the worker pass also stamps it, so
-  // the two cannot drift apart and silently disable overload separation live.
-  it('worker reference pass stamps call-site argumentCount on METHOD_CALL refs', () => {
+  // pass (ApexReferenceCollectorListener). The argumentCount discriminator AND
+  // the argumentExpressions capture were added to BOTH listeners; this asserts
+  // the worker pass also stamps them, so the two cannot drift apart and
+  // silently disable overload separation live.
+  it('worker reference pass stamps call-site argumentCount + argumentExpressions on METHOD_CALL refs', () => {
     const table = new SymbolTable();
     const listener = new VisibilitySymbolListener('public-api', table);
     const result = compilerService.compile(
@@ -286,5 +368,14 @@ describe('per-overload reference separation (F11-2 core)', () => {
       .map((r) => r.argumentCount)
       .sort((a, b) => (a ?? -1) - (b ?? -1));
     expect(arities).toEqual([0, 1, 2]);
+
+    // The worker pass must also capture raw argument source texts (Phase A),
+    // the input semantic resolution turns into the argumentTypes signature key.
+    const exprsByArity = new Map(
+      callRefs.map((r) => [r.argumentCount, r.argumentExpressions]),
+    );
+    expect(exprsByArity.get(0)).toEqual([]);
+    expect(exprsByArity.get(1)).toEqual(["'hi'"]);
+    expect(exprsByArity.get(2)).toEqual(["'a'", "'b'"]);
   });
 });

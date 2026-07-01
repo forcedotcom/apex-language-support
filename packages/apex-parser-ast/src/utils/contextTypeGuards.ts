@@ -275,3 +275,42 @@ export function countConstructorArguments(ctx: NewExpressionContext): number {
   const rest = ctx.creator()?.classCreatorRest?.();
   return rest?.arguments()?.expressionList()?.expression_list()?.length ?? 0;
 }
+
+/**
+ * Raw source text of each positional argument in an `expressionList`, in order.
+ *
+ * This is a purely *syntactic* capture — `expr.getText()` of each argument
+ * expression, e.g. `['"hi"', 'x', 'new Account()']` for `f("hi", x, new
+ * Account())`. It deliberately does NOT resolve types: an identifier argument
+ * stays as its source name (`x`), to be resolved to a declared type later
+ * during semantic resolution. Capturing it here is necessary because the
+ * argument-expression AST does not survive the parser listener walk — only the
+ * reference object persists — so the raw text must be lifted onto the reference
+ * now for the semantic phase to work with.
+ */
+const argumentExpressionTexts = (
+  list: ExpressionListContext | null,
+): string[] => (list?.expression_list() ?? []).map((expr) => expr.getText());
+
+/**
+ * Positional source texts of a method call's arguments (see
+ * {@link argumentExpressionTexts}). Mirrors {@link countCallArguments}; returns
+ * `[]` for a bare call `f()`.
+ */
+export function callArgumentExpressions(
+  ctx: MethodCallContext | DotMethodCallContext,
+): string[] {
+  return argumentExpressionTexts(ctx.expressionList());
+}
+
+/**
+ * Positional source texts of a constructor call's arguments (see
+ * {@link argumentExpressionTexts}). Mirrors {@link countConstructorArguments};
+ * returns `[]` for `new Foo()` or a non-class creator.
+ */
+export function constructorArgumentExpressions(
+  ctx: NewExpressionContext,
+): string[] {
+  const rest = ctx.creator()?.classCreatorRest?.();
+  return argumentExpressionTexts(rest?.arguments()?.expressionList() ?? null);
+}

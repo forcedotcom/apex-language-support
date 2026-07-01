@@ -146,19 +146,11 @@ describe('signature keying — F11-2 SymbolReference.argumentTypes', () => {
       'f',
       LOCATION,
       ReferenceContext.METHOD_CALL,
-      undefined,
-      'caller',
-      undefined,
-      false,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      ['String', 'List<Integer>'],
+      {
+        parentContext: 'caller',
+        isStatic: false,
+        argumentTypes: ['String', 'List<Integer>'],
+      },
     );
 
     const wire = JSON.parse(JSON.stringify(ref));
@@ -191,5 +183,36 @@ describe('signature keying — F11-2 SymbolReference.argumentCount', () => {
 
     const wire = JSON.parse(JSON.stringify(ref));
     expect(wire.argumentCount).toBe(3);
+  });
+});
+
+describe('signature keying — W-23182862 SymbolReference.argumentExpressions', () => {
+  it('argumentExpressions is a plain post-construction field', () => {
+    // Stamped by the parser listener after construction (alongside
+    // argumentCount); the raw arg texts are the input to semantic argument-type
+    // resolution.
+    const ref = SymbolReferenceFactory.createMethodCallReference(
+      'f',
+      LOCATION,
+      'caller',
+    );
+    expect(ref.argumentExpressions).toBeUndefined();
+
+    ref.argumentExpressions = ["'hi'", 'x'];
+    expect(ref.argumentExpressions).toEqual(["'hi'", 'x']);
+  });
+
+  it('argumentExpressions survives JSON serialization (worker pass captures, data-owner resolves)', () => {
+    // Phase A runs on the (possibly worker) reference pass; Phase B resolves on
+    // the data-owner. The captured texts must cross the wire intact.
+    const ref = new EnhancedSymbolReference(
+      'f',
+      LOCATION,
+      ReferenceContext.METHOD_CALL,
+    );
+    ref.argumentExpressions = ["'hi'", 'x'];
+
+    const wire = JSON.parse(JSON.stringify(ref));
+    expect(wire.argumentExpressions).toEqual(["'hi'", 'x']);
   });
 });

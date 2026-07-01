@@ -446,6 +446,15 @@ export class ApexClientCore {
     connection: RpcConnection,
     options: ApexClientCoreOptions = {},
   ): Promise<ApexClientCore> {
+    // Enforce precondition: connection must not be listening yet.
+    if (connection.isListening?.() === true) {
+      throw new Error(
+        'ApexClientCore.create: connection is already listening. ' +
+          'Handlers must be registered before traffic flows. ' +
+          'Pass a not-yet-started connection and call listen() after core creation.',
+      );
+    }
+
     const scope = await Effect.runPromise(Scope.make());
     const built = await Effect.runPromise(
       makeCore(connection, options).pipe(
