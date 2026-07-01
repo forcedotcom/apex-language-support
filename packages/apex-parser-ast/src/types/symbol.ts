@@ -1751,6 +1751,53 @@ export class SymbolTable {
   }
 
   /**
+   * Lookup a symbol by name through the lexical scope CHAIN only: the starting
+   * scope, its parent scopes, then file-level roots. Unlike {@link lookup},
+   * this does NOT descend into child/sibling scopes.
+   *
+   * This models real Apex name resolution at a given program point: an
+   * identifier is visible only if declared in the current block, an enclosing
+   * block, or file scope — never in a deeper or sibling block. Callers that
+   * resolve a name AS USED AT A POSITION (e.g. argument-type resolution) must
+   * use this, not {@link lookup}, whose child-descent fallback can wrongly
+   * resolve a name to a same-named local in an unrelated nested block (which is
+   * only reachable from code that does not compile, but still yields a wrong
+   * type at the AST layer).
+   *
+   * @param name The name of the symbol to find
+   * @param startingScope The starting scope (null when at file level)
+   * @returns The symbol if found in the scope chain, undefined otherwise
+   */
+  lookupInScopeChain(
+    name: string,
+    startingScope?: ScopeSymbol | null,
+  ): ApexSymbol | undefined {
+    // Search from the starting scope up through parent scopes.
+    let scope: ScopeSymbol | null = startingScope ?? null;
+    while (scope) {
+      const symbol = this.findSymbolInScope(scope.id, name);
+      if (symbol) {
+        return symbol;
+      }
+      if (scope.parentId) {
+        const parentResult = this.symbolMap.get(scope.parentId);
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
+        scope =
+          parent && parent.kind === SymbolKind.Block
+            ? (parent as ScopeSymbol)
+            : null;
+      } else {
+        scope = null;
+      }
+    }
+
+    // Fall back to file-level roots. No child-scope descent.
+    return this.findSymbolInScope(null, name);
+  }
+
+  /**
    * Lookup a symbol by key
    * @param key The key of the symbol to find
    * @returns The symbol if found, undefined otherwise

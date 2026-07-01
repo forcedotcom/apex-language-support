@@ -151,6 +151,8 @@ import {
   getTypeNameFromCreatedName,
   countCallArguments,
   countConstructorArguments,
+  callArgumentExpressions,
+  constructorArgumentExpressions,
 } from '../../utils/contextTypeGuards';
 import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
@@ -3077,6 +3079,9 @@ export class ApexSymbolCollectorListener
       // Overload discriminator: call-site arity (F11-2). Set post-construction
       // rather than via the already-long factory/constructor positional list.
       reference.argumentCount = countCallArguments(ctx);
+      // Raw argument source texts — input to semantic argument-type resolution
+      // (same-arity overload separation). Type derivation happens later.
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       // Push onto method call stack for parameter tracking
       // This happens BEFORE ExpressionListContext is entered, so parameters
@@ -3148,6 +3153,7 @@ export class ApexSymbolCollectorListener
       );
       // Overload discriminator: call-site arity (F11-2).
       reference.argumentCount = countCallArguments(ctx);
+      reference.argumentExpressions = callArgumentExpressions(ctx);
 
       // Push onto method call stack for parameter tracking
       this.methodCallStack.push({
@@ -6013,6 +6019,7 @@ export class ApexSymbolCollectorListener
       // Overload discriminator: constructor call-site arity (F11-2). Lets
       // findReferencesTo separate `new Foo()` from `new Foo(x)`.
       ctorRef.argumentCount = countConstructorArguments(ctx);
+      ctorRef.argumentExpressions = constructorArgumentExpressions(ctx);
       this.symbolTable.addTypeReference(ctorRef);
 
       // Check if this constructor call has arguments (classCreatorRest)
@@ -6961,6 +6968,7 @@ export class ApexSymbolCollectorListener
         );
         // Overload discriminator: call-site arity (F11-2).
         methodRef.argumentCount = countCallArguments(ctx);
+        methodRef.argumentExpressions = callArgumentExpressions(ctx);
 
         this.symbolTable.addTypeReference(methodRef);
 
@@ -6999,6 +7007,7 @@ export class ApexSymbolCollectorListener
         );
         // Overload discriminator: call-site arity (F11-2).
         reference.argumentCount = countCallArguments(ctx);
+        reference.argumentExpressions = callArgumentExpressions(ctx);
         this.symbolTable.addTypeReference(reference);
       }
     } catch (error) {
@@ -7047,8 +7056,10 @@ export class ApexSymbolCollectorListener
             memberName,
             memberLocation,
             context,
-            undefined, // resolvedSymbolId - will be set during second-pass resolution
-            parentContext,
+            {
+              // resolvedSymbolId set during second-pass resolution
+              parentContext,
+            },
           );
 
           this.symbolTable.addTypeReference(memberRef);
@@ -7109,18 +7120,14 @@ export class ApexSymbolCollectorListener
           },
         },
         finalNode.context, // Use final node's context
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        this.getCurrentMethodName(),
-        undefined, // access - will be set if in LHS context
-        finalNode.isStatic,
-        undefined,
-        undefined,
-        analyzedChainNodes, // Attach chainNodes to final node
-        undefined, // resolvedTypeId
-        undefined, // resolutionTier
-        undefined, // isFullyResolved
-        undefined, // validatedAccess
-        'syntax_only', // accessValidationState
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext: this.getCurrentMethodName(),
+          // access - will be set if in LHS context
+          isStatic: finalNode.isStatic,
+          chainNodes: analyzedChainNodes, // Attach chainNodes to final node
+          accessValidationState: 'syntax_only',
+        },
       );
 
       this.symbolTable.addTypeReference(finalRef);
@@ -7361,18 +7368,14 @@ export class ApexSymbolCollectorListener
           },
         },
         finalNode.context, // Use final node's context
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        this.getCurrentMethodName(),
-        undefined, // access - will be set if in LHS context
-        finalNode.isStatic,
-        undefined,
-        undefined,
-        analyzedChainNodes, // Attach chainNodes to final node
-        undefined, // resolvedTypeId
-        undefined, // resolutionTier
-        undefined, // isFullyResolved
-        undefined, // validatedAccess
-        'syntax_only', // accessValidationState
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext: this.getCurrentMethodName(),
+          // access - will be set if in LHS context
+          isStatic: finalNode.isStatic,
+          chainNodes: analyzedChainNodes, // Attach chainNodes to final node
+          accessValidationState: 'syntax_only',
+        },
       );
 
       this.symbolTable.addTypeReference(finalRef);
@@ -7462,8 +7465,10 @@ export class ApexSymbolCollectorListener
         memberName,
         memberLocation,
         context,
-        undefined, // resolvedSymbolId - will be set during second-pass resolution
-        parentContext,
+        {
+          // resolvedSymbolId set during second-pass resolution
+          parentContext,
+        },
       );
 
       this.symbolTable.addTypeReference(memberRef);
