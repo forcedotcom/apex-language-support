@@ -150,19 +150,20 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * workspace ingestion completes, which means cross-file symbol resolution is available.
  *
  * @param page - Playwright page instance
- * @param timeout - Maximum wait time in milliseconds (default: 30s desktop, 20s web)
+ * @param timeout - Maximum wait time in milliseconds (default: 45s desktop, 30s web)
  */
 export const waitForWorkspaceIngestion = async (
   page: Page,
   timeout?: number,
 ): Promise<void> => {
   const isDesktopMode = isDesktop();
-  const defaultTimeout = timeout ?? (isDesktopMode ? 30_000 : 20_000);
+  const defaultTimeout = timeout ?? (isDesktopMode ? 45_000 : 30_000);
 
-  // Poll the status bar for the ready state. The extension shows "Apex" when
-  // workspace ingestion is complete, and various loading messages during ingestion.
-  // We wait for the status bar to NOT contain loading indicators like "Loading",
-  // "Scanning", "Indexing", etc.
+  // Poll the status bar for the ready state. The extension shows
+  // "Apex-LS-TS Server Ready" when workspace ingestion is complete,
+  // and various loading messages during ingestion (with $(sync~spin) icon).
+  // We wait for the status bar to show the ready message or at least
+  // NOT contain loading/spinning indicators.
   await page
     .waitForFunction(
       () => {
@@ -172,26 +173,44 @@ export const waitForWorkspaceIngestion = async (
         if (!statusBar) return false;
 
         const statusText = statusBar.textContent || '';
-        // Look for the Apex status item - it should say "Apex" when ready,
-        // not "Apex: Loading...", "Apex: Scanning...", etc.
-        const apexStatusMatch = statusText.match(/Apex[:\s]*([^\n]*)/i);
+        // Look for the Apex LSP status item
+        // Ready state: "Apex-LS-TS Server Ready" (with $(check) icon)
+        // Loading states: various messages with $(sync~spin) icon
+        if (statusText.includes('Apex-LS-TS Server Ready')) {
+          return true;
+        }
+        // Also check for legacy "Apex" status (if older build)
+        const apexStatusMatch = statusText.match(
+          /Apex(?:-LS-TS)?[\s:]*(.*?)(?=\n|$)/i,
+        );
         if (!apexStatusMatch) return false;
 
         const apexStatus = apexStatusMatch[1].trim();
-        // Ready when it's just "Apex" or when there's no loading/scanning indicator
+        // Not ready if it contains loading/scanning/compressing/sending indicators
         return (
           apexStatus === '' ||
           (!apexStatus.toLowerCase().includes('loading') &&
             !apexStatus.toLowerCase().includes('scanning') &&
-            !apexStatus.toLowerCase().includes('indexing'))
+            !apexStatus.toLowerCase().includes('indexing') &&
+            !apexStatus.toLowerCase().includes('compressing') &&
+            !apexStatus.toLowerCase().includes('sending') &&
+            !apexStatus.toLowerCase().includes('found') &&
+            !apexStatus.toLowerCase().includes('created') &&
+            !apexStatus.toLowerCase().includes('batches'))
         );
       },
       { timeout: defaultTimeout },
     )
-    .catch(() => {
-      // If timeout, log but don't fail - tests will fail later if workspace isn't ready
+    .catch(async () => {
+      // If timeout, capture actual status bar state for debugging
+      const statusBarText = await page.evaluate(() => {
+        const statusBar = document.querySelector(
+          '[id="workbench.parts.statusbar"]',
+        );
+        return statusBar?.textContent || 'STATUS BAR NOT FOUND';
+      });
       console.warn(
-        `⚠️  Workspace ingestion wait timed out after ${defaultTimeout}ms`,
+        `⚠️  Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`,
       );
     });
 };
