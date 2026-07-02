@@ -48,7 +48,7 @@ describe('Server-to-client apex/* send gating', () => {
       ).toBe(false);
     });
 
-    it('suppresses send when caps present but key absent', () => {
+    it('suppresses send when experimental is present but key absent', () => {
       configManager.setClientCapabilities({
         experimental: {},
       } as any);
@@ -56,6 +56,16 @@ describe('Server-to-client apex/* send gating', () => {
       expect(
         configManager.shouldSuppressDefaultAllow('workspaceIngestionProvider'),
       ).toBe(true);
+    });
+
+    it('allows send when caps present but no experimental section (standard VS Code client)', () => {
+      configManager.setClientCapabilities({
+        textDocument: { hover: { dynamicRegistration: true } },
+      } as any);
+
+      expect(
+        configManager.shouldSuppressDefaultAllow('workspaceIngestionProvider'),
+      ).toBe(false);
     });
   });
 
