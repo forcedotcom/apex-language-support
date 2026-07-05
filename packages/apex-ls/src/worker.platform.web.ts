@@ -2246,9 +2246,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentChange',
     (svc, req) =>
       Effect.gen(function* () {
+        // Store the full post-change text (full-text sync). UpdateSymbolSubset
+        // merges the recompiled symbols but never restores document text, so a
+        // blank placeholder here would leave the file's text empty until the
+        // next full workspace ingest, dropping it from text-based scans like
+        // the find-references lexical prefilter (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
@@ -2264,13 +2269,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentSave',
     (svc, req) =>
       Effect.gen(function* () {
-        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // Mirror DispatchDocumentChange: store the full saved text and arm the
         // readiness latch so the CompileDocument this save triggers can write
         // its symbols back and a racing request re-evaluates against the saved
-        // version. The compile message carries the real saved content.
+        // version. UpdateSymbolSubset merges symbols but never restores document
+        // text, so we store the real content here rather than a blank
+        // placeholder (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };

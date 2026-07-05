@@ -2503,9 +2503,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentChange',
     (svc, req) =>
       Effect.gen(function* () {
+        // Store the full post-change text (full-text sync). The compile this
+        // change triggers writes symbols back via UpdateSymbolSubset, which
+        // merges the symbol table but does NOT touch the stored document text —
+        // so a blank placeholder here would leave the file's text empty until
+        // the next full workspace ingest, silently dropping it from text-based
+        // scans like the find-references lexical prefilter (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
@@ -2523,15 +2529,17 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentSave',
     (svc, req) =>
       Effect.gen(function* () {
-        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // Mirror DispatchDocumentChange: store the full saved text and arm the
         // readiness latch so the CompileDocument this save triggers can write
         // its symbols back (UpdateSymbolSubset requires the document present at
         // this version) and a request racing the save re-evaluates against the
-        // saved version. The compile message carries the real saved content; the
-        // placeholder text is replaced when the write-back merges.
+        // saved version. UpdateSymbolSubset merges symbols but never restores
+        // document text, so we must store the real content here — a blank
+        // placeholder would drop the file from text-based scans like the
+        // find-references lexical prefilter (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
