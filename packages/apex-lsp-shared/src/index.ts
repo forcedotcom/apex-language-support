@@ -441,6 +441,7 @@ export {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  FindOccurrenceCandidates,
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   CompileDocument,

@@ -813,6 +813,33 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
 ) {}
 
 // ---------------------------------------------------------------------------
+// FindOccurrenceCandidates — find-references rebuild asks the data-owner to
+// lexically scan ALL workspace .cls content for files whose text mentions
+// `symbolName` (matched on word boundaries), returning candidate
+// {uri, content} pairs. This is phase-1 of find-references: a cheap textual
+// pre-filter that narrows the set of files worth parsing before the precise
+// symbol-resolution pass runs.
+// ---------------------------------------------------------------------------
+
+export class FindOccurrenceCandidates extends Schema.TaggedRequest<FindOccurrenceCandidates>()(
+  'FindOccurrenceCandidates',
+  {
+    success: Schema.Struct({
+      candidates: Schema.Array(
+        Schema.Struct({ uri: Schema.String, content: Schema.String }),
+      ),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('FindOccurrenceCandidatesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      symbolName: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // EnsureWorkspaceLoaded — worker → coordinator (over the assistance bus) to
 // ask the coordinator to send a workspace-load notification to the LSP
 // client. Fire-and-forget at the LSP layer (the notification carries no
@@ -953,6 +980,7 @@ export const DataOwnerTags = [
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'ResolveDependentUris',
+  'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
   'DrainDeferredReferences',
   'QueryGraphData',
@@ -1030,6 +1058,7 @@ export type DataOwnerRequest =
   | UpdateSymbolSubset
   | ResolveDepUris
   | ResolveDependentUris
+  | FindOccurrenceCandidates
   | WorkspaceBatchIngest
   | DrainDeferredReferences
   | QueryGraphData

@@ -389,6 +389,64 @@ describe('ReferencesProcessingService', () => {
     });
   });
 
+  describe('declaration-site invocation (W-23272674)', () => {
+    // Find All References is routinely invoked with the cursor on a symbol's
+    // DECLARATION, not a usage. A declaration site has no reference object at
+    // the position (getReferencesAtPosition returns []), only the declared
+    // symbol. The service must resolve via getSymbolAtPosition('precise') in
+    // that case and still return the usage sites — an earlier version bailed on
+    // empty references and returned [] for every declaration-site request,
+    // which is what made Find All References on GeocodingService.geocodeAddresses
+    // return nothing.
+    //
+    // The real ApexSymbolManager is loaded with the TestClass fixture in
+    // beforeEach; getStaticValue() is declared on line 6 (1-based parser line)
+    // and called on lines 15 and 27. LSP positions are 0-based.
+    const TEST_CLASS_URI = 'file:///test/TestClass.cls';
+
+    const declarationParams = (
+      includeDeclaration: boolean,
+    ): ReferenceParams => ({
+      textDocument: { uri: TEST_CLASS_URI },
+      // Line 6 (1-based) -> LSP line 5; cursor inside "getStaticValue".
+      position: { line: 5, character: 25 },
+      context: { includeDeclaration },
+    });
+
+    const loadTestClassDocument = () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const content = readFileSync(join(fixturesDir, 'TestClass.cls'), 'utf8');
+      const document = TextDocument.create(TEST_CLASS_URI, 'apex', 1, content);
+      mockStorage.getDocument.mockResolvedValue(document);
+    };
+
+    it('returns the call sites when the cursor is on the method declaration', async () => {
+      loadTestClassDocument();
+
+      const result = await service.processReferences(declarationParams(false));
+
+      // getStaticValue() has exactly two INCOMING call sites (testStatic and
+      // testIntegration). The count is asserted exactly — not >= 2 — so the
+      // outbound-edge regression is caught: find-references must return only
+      // references TO the symbol, never the edges FROM its body (W-23272674).
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(2);
+      result.forEach((loc) => expect(loc.uri).toBe(TEST_CLASS_URI));
+    });
+
+    it('includes the declaration itself when includeDeclaration is set', async () => {
+      loadTestClassDocument();
+
+      const withDecl = await service.processReferences(declarationParams(true));
+      const withoutDecl = await service.processReferences(
+        declarationParams(false),
+      );
+
+      // The declaration adds exactly one more location than the usages alone.
+      expect(withDecl.length).toBe(withoutDecl.length + 1);
+    });
+  });
+
   describe('location/URI helpers', () => {
     // Build a SymbolLocation-shaped object (symbolRange + identifierRange).
     const makeLocation = (

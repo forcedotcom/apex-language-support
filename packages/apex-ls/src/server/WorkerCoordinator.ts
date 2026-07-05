@@ -26,6 +26,7 @@ import {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   DrainDeferredReferences,
@@ -877,6 +878,14 @@ function createDispatcher(
             new ResolveDependentUris({
               uri: prd.uri,
               symbolName: prd.symbolName,
+            }),
+          );
+        }
+        case 'FindOccurrenceCandidates': {
+          const pfc = params as { symbolName: string };
+          return callbacks.sendToDataOwner(
+            new FindOccurrenceCandidates({
+              symbolName: pfc.symbolName,
             }),
           );
         }

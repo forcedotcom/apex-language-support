@@ -85,8 +85,21 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'references',
     priority: Priority.Low,
-    timeout: 5000,
-    maxRetries: 2,
+    // Find All References runs a workspace-wide two-phase search: a lexical
+    // prefilter on the data-owner, then a FULL-detail recompile of every
+    // candidate file on the request-pool worker so in-body call edges resolve.
+    // That recompile is intrinsically heavier than the old public-api path
+    // (~6-10s on dreamhouse-lwc's GeocodingServiceTest, dominated by
+    // addSymbolTable's finalResolve/sameFileRefs phases — W-23272674). The
+    // former 5s budget fired mid-recompile and discarded a correct result;
+    // 15s matches the diagnostics budget, the comparable heavy cross-file
+    // operation. maxRetries is 0: a timeout here means the recompile genuinely
+    // needs more than the budget, and re-running the same deterministic work
+    // only multiplies the cost (the wasted 3x recompiles seen in traces). The
+    // addSymbolTable phase-trim that would let this drop back toward 5s is
+    // tracked separately (project-findreferences-addtable-bottleneck).
+    timeout: 15000,
+    maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),
   },
   {
