@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import {
+  ServerCapabilities,
+  ClientCapabilities,
+} from 'vscode-languageserver-protocol';
 import type {
   Connection,
   DidChangeConfigurationParams,
@@ -78,6 +81,7 @@ export class LSPConfigurationManager {
   private autoDetectEnvironment: boolean;
   private settingsChangeListener?: () => void;
   private runtimeDependencies?: LSPRuntimeDependencies;
+  private clientCapabilities?: ClientCapabilities;
   private readonly logger = getLogger();
 
   constructor(options: LSPConfigurationOptions = {}) {
@@ -266,6 +270,67 @@ export class LSPConfigurationManager {
    */
   public getRuntimePlatform(): RuntimePlatform {
     return this.runtimePlatform;
+  }
+
+  /**
+   * Set the client capabilities received during initialization
+   * @param capabilities - The client capabilities from the initialize request
+   */
+  public setClientCapabilities(
+    capabilities: ClientCapabilities | undefined,
+  ): void {
+    this.clientCapabilities = capabilities;
+  }
+
+  /**
+   * Get the client capabilities received during initialization
+   * @returns The stored client capabilities, or undefined if not yet set
+   */
+  public getClientCapabilities(): ClientCapabilities | undefined {
+    return this.clientCapabilities;
+  }
+
+  /**
+   * Check whether the client advertised a specific experimental capability.
+   *
+   * The LSP `ClientCapabilities.experimental` field is typed `any` in the
+   * protocol spec. This method performs safe runtime guards against
+   * undefined, null, non-object, or missing keys to prevent runtime errors.
+   *
+   * @param capabilityKey - The key to look up under `experimental`
+   * @returns True only if `experimental[capabilityKey].enabled === true`
+   */
+  public isClientCapabilityAdvertised(capabilityKey: string): boolean {
+    const exp = this.clientCapabilities?.experimental;
+    return (
+      exp != null &&
+      typeof exp === 'object' &&
+      exp[capabilityKey]?.enabled === true
+    );
+  }
+
+  /**
+   * Determine whether a default-allow server→client notification should be
+   * suppressed based on client capabilities.
+   *
+   * Default-allow means: send unless the client explicitly participates in
+   * experimental capability negotiation AND chose not to opt in. A client
+   * that sends standard LSP capabilities without an `experimental` section
+   * is not participating in our capability protocol — treat it like a
+   * legacy client and allow the notification through.
+   *
+   * Suppress only when `experimental` is defined (client is participating)
+   * AND the specific key is absent (client opted out of this notification).
+   *
+   * @param capabilityKey - The experimental capability key (e.g., 'workspaceIngestionProvider')
+   * @returns True if the notification should be suppressed
+   */
+  public shouldSuppressDefaultAllow(capabilityKey: string): boolean {
+    const exp = this.clientCapabilities?.experimental;
+    if (exp == null || typeof exp !== 'object') {
+      return false;
+    }
+    return !this.isClientCapabilityAdvertised(capabilityKey);
   }
 
   /**
