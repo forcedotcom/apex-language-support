@@ -34,6 +34,14 @@ export type DeferredReference = {
   sourceSymbol: ApexSymbol;
   referenceType: EnumValue<typeof ReferenceType>;
   location: SymbolLocation;
+  /**
+   * fileUri of the target symbol resolved at enqueue time, when known. The
+   * deferred map is keyed only by target NAME, so when several symbols share a
+   * name (e.g. same-named classes in different namespaces) the processor would
+   * otherwise pick an arbitrary `targetSymbols[0]`. Preserving the resolved
+   * fileUri lets the processor rebind to the exact symbol the caller resolved.
+   */
+  targetFileUri?: string;
   context?: {
     methodName?: string;
     parameterIndex?: number;
@@ -47,6 +55,8 @@ export type DeferredReference = {
  */
 export type PendingDeferredReference = {
   targetSymbolName: string;
+  /** See {@link DeferredReference.targetFileUri}. */
+  targetFileUri?: string;
   referenceType: EnumValue<typeof ReferenceType>;
   location: SymbolLocation;
   context?: {
@@ -56,6 +66,28 @@ export type PendingDeferredReference = {
     namespace?: string;
   };
 };
+
+/**
+ * Select the target symbol among same-named candidates, preferring the one whose
+ * fileUri matches the resolution captured at enqueue time. Falls back to the
+ * first candidate when no fileUri was captured or none matches (preserving prior
+ * behavior for the common single-candidate case).
+ */
+export function selectDeferredTargetSymbol(
+  candidates: ApexSymbol[],
+  preferredFileUri?: string,
+): ApexSymbol | undefined {
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  if (preferredFileUri) {
+    const match = candidates.find((s) => s.fileUri === preferredFileUri);
+    if (match) {
+      return match;
+    }
+  }
+  return candidates[0];
+}
 
 /**
  * Individual reference processing task
@@ -241,6 +273,7 @@ export function processDeferredReference(
       const pending = pendingRefs.get(ref.sourceSymbol.name) || [];
       pending.push({
         targetSymbolName: task.symbolName,
+        targetFileUri: ref.targetFileUri,
         referenceType: ref.referenceType,
         location: ref.location,
         context: ref.context,
@@ -267,8 +300,12 @@ export function processDeferredReference(
       return { success: false, reason: 'source_not_found', needsRetry: true };
     }
 
-    // Process the single reference
-    const targetSymbol = targetSymbols[0];
+    // Process the single reference. Prefer the target the caller resolved
+    // (by fileUri) over an arbitrary same-named candidate.
+    const targetSymbol = selectDeferredTargetSymbol(
+      targetSymbols,
+      ref.targetFileUri,
+    )!;
     const sourceId = service.getSymbolId(
       sourceSymbolInGraph,
       sourceSymbolInGraph.fileUri,
@@ -378,7 +415,10 @@ export function processPendingDeferredReference(
     }
 
     const sourceSymbol = sourceSymbols[0];
-    const targetSymbol = targetSymbols[0];
+    const targetSymbol = selectDeferredTargetSymbol(
+      targetSymbols,
+      ref.targetFileUri,
+    )!;
     const sourceId = service.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
     const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
@@ -484,7 +524,9 @@ export function processBatchedDeferredReferences(
         `size=${batchSize}`,
     );
 
-    // Find target symbol once for the batch
+    // Find target candidates once for the batch (all share the same name key),
+    // but pick the specific symbol per-ref below: refs under one name may target
+    // different files when same-named types exist across namespaces.
     const targetSymbols = service.findSymbolByName(task.symbolName);
     if (targetSymbols.length === 0) {
       // Target not found - will retry later
@@ -495,9 +537,6 @@ export function processBatchedDeferredReferences(
       );
       return { processed: 0, failed: batchSize };
     }
-
-    const targetSymbol = targetSymbols[0];
-    const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
     const batchStartTime = Date.now();
     const YIELD_TIME_THRESHOLD_MS = service.yieldTimeThresholdMs ?? 50;
@@ -526,6 +565,7 @@ export function processBatchedDeferredReferences(
         const pending = pendingRefs.get(ref.sourceSymbol.name) || [];
         pending.push({
           targetSymbolName: task.symbolName,
+          targetFileUri: ref.targetFileUri,
           referenceType: ref.referenceType,
           location: ref.location,
           context: ref.context,
@@ -550,6 +590,14 @@ export function processBatchedDeferredReferences(
         sourceSymbolInGraph,
         sourceSymbolInGraph.fileUri,
       );
+
+      // Rebind to the exact target the caller resolved (by fileUri) rather than
+      // the first same-named candidate.
+      const targetSymbol = selectDeferredTargetSymbol(
+        targetSymbols,
+        ref.targetFileUri,
+      )!;
+      const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
       const referenceEdge: ReferenceEdge = {
         type: ref.referenceType,
@@ -783,7 +831,10 @@ export function processBatchedPendingDeferredReferences(
         continue;
       }
 
-      const targetSymbol = targetSymbols[0];
+      const targetSymbol = selectDeferredTargetSymbol(
+        targetSymbols,
+        ref.targetFileUri,
+      )!;
       const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
       const referenceEdge: ReferenceEdge = {
@@ -980,9 +1031,9 @@ export function processDeferredReferencesBatchEffect(
       return { needsRetry: true, reason: 'target_not_found' };
     }
 
-    // Use the first symbol with this name
-    const targetSymbol = targetSymbols[0];
-    const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
+    // Target symbol is selected per-ref below (by fileUri): refs sharing this
+    // name key may target different files when same-named types exist across
+    // namespaces.
 
     // Process in batches to avoid blocking
     const batchSize = Math.min(service.deferredBatchSize, deferred.length);
@@ -1025,6 +1076,7 @@ export function processDeferredReferencesBatchEffect(
         const pending = pendingRefs.get(ref.sourceSymbol.name) || [];
         pending.push({
           targetSymbolName: symbolName,
+          targetFileUri: ref.targetFileUri,
           referenceType: ref.referenceType,
           location: ref.location,
           context: ref.context,
@@ -1057,6 +1109,13 @@ export function processDeferredReferencesBatchEffect(
         sourceSymbolInGraph,
         sourceSymbolInGraph.fileUri,
       );
+
+      // Rebind to the exact target the caller resolved (by fileUri).
+      const targetSymbol = selectDeferredTargetSymbol(
+        targetSymbols,
+        ref.targetFileUri,
+      )!;
+      const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
       const referenceEdge: ReferenceEdge = {
         type: ref.referenceType,
@@ -1273,7 +1332,10 @@ export function retryPendingDeferredReferencesBatchEffect(
         continue;
       }
 
-      const targetSymbol = targetSymbols[0];
+      const targetSymbol = selectDeferredTargetSymbol(
+        targetSymbols,
+        ref.targetFileUri,
+      )!;
       const targetId = service.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
       const referenceEdge: ReferenceEdge = {

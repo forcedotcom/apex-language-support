@@ -2663,6 +2663,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             argumentTypes: typeRef.argumentTypes,
           },
         );
+        // Also attribute the head of a qualified reference (`A.B`) to type `A`.
+        yield* self.addHeadQualifierReferenceEffect(
+          typeRef,
+          sourceInGraph,
+          symbolTable,
+        );
         if (stats) {
           stats.graphEdgesAdded += 1;
           stats.addReferenceMs += Date.now() - addReferenceStart;
@@ -3660,6 +3666,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     argumentTypes: typeRef.argumentTypes,
                   },
                 );
+                // Also attribute the head of a qualified reference (`A.B`) to
+                // type `A`, so a class used only as a qualifier is findable.
+                yield* self.addHeadQualifierReferenceEffect(
+                  typeRef,
+                  sourceInGraph,
+                  symbolTable,
+                );
                 return; // Successfully resolved and added to graph
               }
             }
@@ -3838,6 +3851,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             argumentTypes: typeRef.argumentTypes,
           },
         );
+        // Also attribute the head of a qualified reference (`A.B`) to type `A`.
+        yield* self.addHeadQualifierReferenceEffect(
+          typeRef,
+          sourceInGraph,
+          symbolTable,
+        );
       } catch (error) {
         self.logger.error(
           () => `Error processing type reference ${typeRef.name}: ${error}`,
@@ -3925,6 +3944,155 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       memberResolutionCache,
       resolverStats,
     );
+  }
+
+  /**
+   * For a qualified reference (`A.B`, `new A.B()`, `A.method()`, `List<A.B>`),
+   * also attribute the HEAD segment (`A`) to its declaring type and add a
+   * `source → A` graph edge.
+   *
+   * Without this, a class used ONLY as a qualifier is invisible to
+   * findReferencesTo: the reference is stored under its compound name
+   * (`A.B`), which never matches the bare class symbol id, so the head type's
+   * reverse index stays empty. The member edge (`source → B`) is created by the
+   * normal path; this adds the complementary head edge so the head class is
+   * findable too.
+   *
+   * Skips qualifiers that are not type references: `this`/`super`, and
+   * instance qualifiers that resolve to a variable/field/parameter in scope
+   * (those are instance calls on a value, not a reference to a type).
+   */
+  private addHeadQualifierReferenceEffect(
+    typeRef: SymbolReference,
+    sourceInGraph: ApexSymbol,
+    symbolTable: SymbolTable,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const qualifierInfo = self.extractQualifierFromChain(typeRef);
+      if (!qualifierInfo || !qualifierInfo.isQualified) {
+        return;
+      }
+      const head = qualifierInfo.qualifier;
+      const lowerHead = head.toLowerCase();
+      if (lowerHead === 'this' || lowerHead === 'super') {
+        return;
+      }
+
+      const isValueKind = (s: ApexSymbol): boolean =>
+        s.kind === SymbolKind.Variable ||
+        s.kind === SymbolKind.Field ||
+        s.kind === SymbolKind.Parameter;
+      const isTypeKind = (s: ApexSymbol): boolean =>
+        s.kind === SymbolKind.Class ||
+        s.kind === SymbolKind.Interface ||
+        s.kind === SymbolKind.Enum;
+
+      // Determine whether the head is a VALUE (instance qualifier `obj.foo()`)
+      // or a TYPE (static qualifier `A.foo()`) in a SCOPE-AWARE way. A file-wide
+      // name match (getAllSymbols) is wrong: a local/field/param named like a
+      // class anywhere in the file would silently suppress the head edge for
+      // every qualified reference in the file.
+      let headType: ApexSymbol | undefined;
+
+      // Preferred: the chain resolution already bound the head node to a symbol
+      // (see resolution path that sets chainNodes[0].resolvedSymbolId). That
+      // binding is scope-correct, so trust it.
+      const resolvedHeadId =
+        isChainedSymbolReference(typeRef) &&
+        typeRef.chainNodes?.[0]?.resolvedSymbolId
+          ? typeRef.chainNodes[0].resolvedSymbolId
+          : undefined;
+      if (resolvedHeadId) {
+        const resolvedHead = yield* Effect.promise(() =>
+          self.getSymbol(resolvedHeadId),
+        );
+        if (resolvedHead && isValueKind(resolvedHead)) {
+          // Instance qualifier resolved to a value in scope — not a type.
+          return;
+        }
+        if (resolvedHead && isTypeKind(resolvedHead) && resolvedHead.fileUri) {
+          headType = resolvedHead;
+        }
+      } else {
+        // Unresolved head: fall back to a SCOPE-LOCAL value check rather than a
+        // file-wide one. Look only at value symbols (variable/field/parameter)
+        // declared in the scope hierarchy enclosing the reference position.
+        // Residual limitation: this scope walk only inspects symbols in the
+        // SAME file's symbol table (the reference's own file), so an unresolved
+        // head whose value declaration lives in another file cannot be
+        // distinguished here — but cross-file values cannot shadow a qualifier
+        // in Apex, so this is safe.
+        const headLoc =
+          isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
+            ? typeRef.chainNodes[0].location
+            : typeRef.location;
+        const position = {
+          line: headLoc.identifierRange.startLine,
+          character: headLoc.identifierRange.startColumn,
+        };
+        const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+        const scopeIds = new Set(scopeHierarchy.map((s) => s.id));
+        const headAsValueInScope = symbolTable.getAllSymbols().find(
+          (s) =>
+            // Apex is case-insensitive: a local `myclass` shadows a qualifier
+            // written as `MyClass`/`MYCLASS`, so compare case-folded names.
+            s.name?.toLowerCase() === lowerHead &&
+            isValueKind(s) &&
+            s.parentId != null &&
+            scopeIds.has(s.parentId),
+        );
+        if (headAsValueInScope) {
+          return;
+        }
+      }
+
+      // No type yet (unresolved head, or head node not bound). Resolve the head
+      // name to its declaring type (Class/Interface/Enum). Use the file-aware
+      // preferred-type resolver rather than picking the first workspace match:
+      // when multiple classes share a name across namespaces, this prefers the
+      // one declared in (or accessible from) the reference's own file, so the
+      // head edge does not bind to an inaccessible same-named class elsewhere.
+      if (!headType) {
+        const preferred = yield* Effect.promise(() =>
+          self.resolvePreferredTypeSymbolForLookup(
+            head,
+            sourceInGraph.fileUri,
+            symbolTable,
+          ),
+        );
+        headType = preferred && isTypeKind(preferred) ? preferred : undefined;
+      }
+      if (!headType || !headType.fileUri) {
+        return;
+      }
+
+      // Point the edge at the head token itself when the chain preserved its
+      // location, so find-references highlights `A` (not the whole `A.B` span).
+      const headLocation =
+        isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
+          ? typeRef.chainNodes[0].location
+          : typeRef.location;
+
+      // Pass the resolved head TYPE symbol directly. addReference re-resolves
+      // the target by name+fileUri internally (and defers if not yet in the
+      // graph), so a separate presence pre-lookup is redundant.
+      // NOTE: deliberately do NOT propagate `typeRef.isStatic` here. That flag
+      // describes the compound reference (`A.method()`), not the head type edge
+      // (`source → A`). A TYPE_REFERENCE to a class has no static-ness of its
+      // own, and leaking the compound's (possibly guessed) flag onto this edge
+      // would pollute method-overload disambiguation, which filters candidate
+      // overloads by the edge's isStatic.
+      self.symbolRefManager.addReference(
+        sourceInGraph,
+        headType,
+        ReferenceType.TYPE_REFERENCE,
+        headLocation,
+        {
+          methodName: typeRef.parentContext,
+        },
+      );
+    });
   }
 
   /**

@@ -362,6 +362,9 @@ export class ApexSymbolRefManager {
       sourceSymbol: ApexSymbol;
       referenceType: EnumValue<typeof ReferenceType>;
       location: SymbolLocation;
+      // Resolved target fileUri (when known at enqueue time), so the processor
+      // can rebind to the correct same-named symbol across namespaces.
+      targetFileUri?: string;
       context?: {
         methodName?: string;
         parameterIndex?: number;
@@ -378,6 +381,8 @@ export class ApexSymbolRefManager {
   private pendingDeferredReferences: CaseInsensitiveHashMap<
     Array<{
       targetSymbolName: string;
+      // See deferredReferences.targetFileUri.
+      targetFileUri?: string;
       referenceType: EnumValue<typeof ReferenceType>;
       location: SymbolLocation;
       context?: {
@@ -1883,14 +1888,19 @@ export class ApexSymbolRefManager {
       : null;
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
-      // If symbols don't exist yet, add deferred reference
-      // Use symbol name as key since we don't know the exact fileUri
+      // If symbols don't exist yet, add deferred reference. Key by name (the
+      // exact fileUri may not be in the graph yet) but preserve the caller's
+      // resolved target fileUri so the processor can rebind to the correct
+      // same-named symbol rather than an arbitrary first match.
       this.addDeferredReference(
         normalizedSourceSymbol,
         targetSymbol.name,
         referenceType,
         location,
         context,
+        targetSymbol.fileUri
+          ? extractFilePathFromUri(targetSymbol.fileUri)
+          : undefined,
       );
 
       // Scalar keywords (void, null) use apexlib URIs but are not loaded as graph vertices;
@@ -3667,6 +3677,7 @@ export class ApexSymbolRefManager {
       argumentCount?: number;
       argumentTypes?: string[];
     },
+    targetFileUri?: string,
   ): void {
     if (!sourceSymbol.fileUri) {
       this.logger.warn(
@@ -3680,6 +3691,7 @@ export class ApexSymbolRefManager {
       sourceSymbol,
       referenceType,
       location,
+      targetFileUri,
       context,
     });
     this.deferredReferences.set(targetSymbolName, existing);
@@ -3875,6 +3887,7 @@ export class ApexSymbolRefManager {
       argumentCount?: number;
       argumentTypes?: string[];
     },
+    targetFileUri?: string,
   ): void {
     if (!sourceSymbol.fileUri) {
       this.logger.warn(
@@ -3917,6 +3930,7 @@ export class ApexSymbolRefManager {
       referenceType,
       location,
       context,
+      targetFileUri ? extractFilePathFromUri(targetFileUri) : undefined,
     );
   }
 
