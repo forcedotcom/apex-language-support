@@ -1016,14 +1016,6 @@ interface DocumentEventParams {
   };
   readonly textDocument?: { readonly uri: string };
   readonly text?: string;
-  readonly contentChanges?: ReadonlyArray<{
-    readonly range?: {
-      readonly start: { readonly line: number; readonly character: number };
-      readonly end: { readonly line: number; readonly character: number };
-    };
-    readonly rangeLength?: number;
-    readonly text: string;
-  }>;
 }
 
 /** Params shape for position-based enrichment dispatches. */
@@ -1061,18 +1053,18 @@ function buildDataOwnerMessage(
       return new DispatchDocumentChange({
         uri: p.document?.uri ?? p.textDocument?.uri ?? '',
         version: p.document?.version ?? 0,
-        contentChanges: (p.contentChanges ?? []).map((c) => ({
-          text: c.text,
-          ...(c.range ? { range: c.range } : {}),
-          ...(c.rangeLength !== undefined
-            ? { rangeLength: c.rangeLength }
-            : {}),
-        })),
+        // Full-text sync: the change event carries the entire updated document,
+        // so document.getText() is the authoritative post-change content. The
+        // data-owner stores this as the file's text (used by text-based scans
+        // like find-references' lexical prefilter) rather than a blank
+        // placeholder (W-23272674).
+        content: p.document?.getText?.() ?? p.text ?? '',
       });
     case 'documentSave':
       return new DispatchDocumentSave({
         uri: p.document?.uri ?? p.textDocument?.uri ?? '',
         version: p.document?.version ?? 0,
+        content: p.document?.getText?.() ?? p.text ?? '',
       });
     case 'documentClose':
       return new DispatchDocumentClose({

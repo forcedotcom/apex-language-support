@@ -216,6 +216,97 @@ describe('find-references through the worker topology (location count)', () => {
     expect(uris.some((u) => u.includes('RefCallerB'))).toBe(true);
   }, 120_000);
 
+  it('returns the same count on a repeat request after an intervening documentChange (W-23272674)', async () => {
+    // Regression: find-references was not idempotent. The phase-1 lexical
+    // prefilter scans the data-owner's stored document text; a documentChange
+    // used to overwrite that text with a blank placeholder (the write-back
+    // merges symbols but never restores text), so any file edited since the
+    // last full workspace ingest silently dropped out of the candidate set and
+    // its call sites vanished from the second request's result.
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: 'error',
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: UTIL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => UTIL_SRC,
+          },
+          textDocument: { uri: UTIL_URI },
+          text: UTIL_SRC,
+        }),
+      );
+
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createBatchCompileDispatcher();
+      yield* Effect.promise(() => ingest('wf-refs-idem', ALL_ENTRIES));
+      yield* Effect.promise(() => compile('wf-refs-idem', ALL_ENTRIES));
+
+      const dispatchRefs = () =>
+        Effect.promise(() =>
+          dispatcher.dispatch('references', {
+            textDocument: { uri: CALLER_A_URI },
+            position: { line: 2, character: 8 }, // on `RefUtil` usage in caller A
+            context: { includeDeclaration: true },
+          }),
+        );
+
+      const first = yield* dispatchRefs();
+
+      // A caller file is edited (content unchanged, new version) — the exact
+      // event that used to blank RefCallerB's stored text on the data-owner.
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri: CALLER_B_URI,
+            languageId: 'apex',
+            version: 2,
+            getText: () => CALLER_B_SRC,
+          },
+          textDocument: { uri: CALLER_B_URI },
+          text: CALLER_B_SRC,
+        }),
+      );
+
+      const second = yield* dispatchRefs();
+
+      return { first, second };
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const { first, second } = await Effect.runPromise(program);
+
+    const firstUris = toLocations(first).map((l) => l.uri ?? l.targetUri ?? '');
+    const secondUris = toLocations(second).map(
+      (l) => l.uri ?? l.targetUri ?? '',
+    );
+    console.log(
+      `[refs-topology:idempotent] first=${firstUris.length} second=${secondUris.length}`,
+    );
+
+    // The second request must return the same locations as the first — in
+    // particular RefCallerB (the edited file) must still contribute its usages.
+    expect(secondUris.length).toBe(firstUris.length);
+    expect(secondUris.some((u) => u.includes('RefCallerB'))).toBe(true);
+    expect(secondUris.some((u) => u.includes('RefCallerA'))).toBe(true);
+  }, 120_000);
+
   it('omits the declaration when includeDeclaration is false', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({

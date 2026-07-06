@@ -521,7 +521,13 @@ export class DispatchDocumentChange extends Schema.TaggedRequest<DispatchDocumen
     payload: {
       uri: Schema.String,
       version: Schema.Number,
-      contentChanges: Schema.Array(WireContentChangeEvent),
+      // Full document text after the change. The LS negotiates full-text sync
+      // (TextDocumentSyncKind.Full), so each change carries the entire updated
+      // document. The data-owner stores this as the file's authoritative text
+      // (used by e.g. the find-references lexical prefilter); storing a blank
+      // placeholder here silently drops the file out of any text-based scan
+      // until the next full workspace ingest (W-23272674).
+      content: Schema.String,
     },
   },
 ) {}
@@ -534,6 +540,8 @@ export class DispatchDocumentSave extends Schema.TaggedRequest<DispatchDocumentS
     payload: {
       uri: Schema.String,
       version: Schema.Number,
+      // Full saved document text — see DispatchDocumentChange.content.
+      content: Schema.String,
     },
   },
 ) {}
