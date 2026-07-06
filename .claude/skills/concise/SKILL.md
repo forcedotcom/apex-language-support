@@ -1,6 +1,6 @@
 ---
 name: concise
-description: Writing style for AI-consumed docs. Proactively apply when creating or editing any md file in .claude/skills/ or .claude/rules/.
+description: Writing style for AI-consumed docs. Proactively apply when creating or editing any md file in .claude/skills/ or .claude/rules/ or .cursor/rules/ or .claude/plans/.
 disable-model-invocation: false
 ---
 
@@ -14,3 +14,4 @@ Save tokens and preserve context window.
 - remove words without altering meaning
 - cut repetition
 - prefer shorter synonyms
+- use numerals (4 not four)
