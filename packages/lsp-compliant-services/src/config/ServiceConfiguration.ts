@@ -100,7 +100,22 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     // tracked separately (project-findreferences-addtable-bottleneck).
     timeout: 15000,
     maxRetries: 0,
-    serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),
+    // References are ALWAYS answered by the request-pool worker's two-phase
+    // scan (LSPQueueManager dispatches to the worker and never falls back for
+    // this type). This config entry exists ONLY to register the priority/
+    // timeout the worker dispatch derives from `getTimeout('references')`; the
+    // local handler it would build is dead. The stub below throws loudly so a
+    // regression that ever routes references to the local registry path is
+    // caught immediately instead of silently returning incomplete results.
+    serviceFactory: () => ({
+      processReferences: () => {
+        throw new Error(
+          'Local references handler invoked, but references are handled ' +
+            'exclusively by the request-pool worker. This indicates the ' +
+            'worker dispatch path in LSPQueueManager was bypassed.',
+        );
+      },
+    }),
   },
   {
     requestType: 'diagnostics',

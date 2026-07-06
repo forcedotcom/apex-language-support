@@ -104,10 +104,13 @@ const posKey = (loc: SymbolLocation): string | null => {
 };
 
 /**
- * Yield a reference and every nested chain node, flattened. A qualified call
+ * Yield a reference and its chain nodes, flattened one level. A qualified call
  * like `GeocodingService.geocodeAddresses(...)` is stored as one top-level
  * reference plus chain nodes; the genuine method-call token can live on either,
- * so both must be inspected.
+ * so both must be inspected. Every construction site (SymbolReferenceFactory
+ * and the collector listeners) attaches a `chainNodes` array only to a final
+ * node whose own elements are leaf references without their own `chainNodes`,
+ * so nesting never exceeds depth 1 — a single-level flatten is sufficient.
  */
 function* flattenReferences(
   refs: readonly SymbolReference[],
@@ -116,7 +119,7 @@ function* flattenReferences(
     yield ref;
     const chain = ref.chainNodes;
     if (chain && chain.length > 0) {
-      yield* flattenReferences(chain);
+      yield* chain;
     }
   }
 }

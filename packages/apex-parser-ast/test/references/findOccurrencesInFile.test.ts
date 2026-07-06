@@ -84,6 +84,32 @@ describe('findOccurrencesInFile (find-references phase-2 standalone scan)', () =
     expect(asMethod.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('with an UNKNOWN kind, falls back to BOTH field-access and method-call contexts', () => {
+    const uri = 'file:///t/FallbackKind.cls';
+    // Same `status` name used as a field access AND as a method call. With no
+    // kind (the by-name fallback path where the name is absent from the graph's
+    // name index), the search must NOT narrow to one context — it applies
+    // USAGE_CONTEXTS_FALLBACK and surfaces both the field read/write and the
+    // method call.
+    const code = `public class FallbackKind {
+       Integer status;
+       void go() {
+         this.status = 1;
+         Integer x = status();
+       }
+       Integer status2() { return status; }
+     }`;
+    // No `kind` supplied → contextsForKind(undefined) → USAGE_CONTEXTS_FALLBACK.
+    const matches = findOccurrencesInFile(parse(code, uri), uri, {
+      name: 'status',
+    });
+    const contexts = new Set(matches.map((m) => m.context));
+    // Field access (FIELD_ACCESS = 3) is present...
+    expect(contexts.has(3 /* FIELD_ACCESS */)).toBe(true);
+    // ...and so is the method call (METHOD_CALL = 0): the fallback spans both.
+    expect(contexts.has(0 /* METHOD_CALL */)).toBe(true);
+  });
+
   it('is case-insensitive on the identifier (Apex semantics)', () => {
     const uri = 'file:///t/CaseTest.cls';
     const code = `public class CaseTest {

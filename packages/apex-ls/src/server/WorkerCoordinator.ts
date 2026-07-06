@@ -1150,7 +1150,7 @@ function buildLspRequestMessage(
         context: {
           includeDeclaration: r.context?.includeDeclaration ?? false,
         },
-        // The pool worker's ReferencesProcessingService maps the cursor to a
+        // The pool worker's DispatchReferences handler maps the cursor to a
         // symbol via its local document; carry the live text so its storage
         // isn't empty (same as documentSymbol). Without it find-references
         // returns [] on the pool.
