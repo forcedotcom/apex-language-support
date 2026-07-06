@@ -7,7 +7,7 @@
  */
 
 import { LSPRequestType } from '../queue';
-import { Priority } from '@salesforce/apex-lsp-shared';
+import { Priority, getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service configuration interface
@@ -100,20 +100,26 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     // tracked separately (project-findreferences-addtable-bottleneck).
     timeout: 15000,
     maxRetries: 0,
-    // References are ALWAYS answered by the request-pool worker's two-phase
-    // scan (LSPQueueManager dispatches to the worker and never falls back for
-    // this type). This config entry exists ONLY to register the priority/
-    // timeout the worker dispatch derives from `getTimeout('references')`; the
-    // local handler it would build is dead. The stub below throws loudly so a
-    // regression that ever routes references to the local registry path is
-    // caught immediately instead of silently returning incomplete results.
+    // References are normally answered by the request-pool worker's two-phase
+    // scan. This config entry also registers the priority/timeout the worker
+    // dispatch derives from `getTimeout('references')`. LSPQueueManager CAN
+    // still fall through to this local handler on the cold-start race (worker
+    // not yet wired, cold-read gate not ready, or a dispatch error). This stub
+    // returns an empty result plus a WARN rather than running the removed local
+    // discovery, because that old local path silently returned incomplete
+    // results. The throw that used to live here never reached the user anyway
+    // (LCSAdapter catches it and returns null), so an empty result + warn is
+    // the honest equivalent without the misleading server-log error.
     serviceFactory: () => ({
-      processReferences: () => {
-        throw new Error(
-          'Local references handler invoked, but references are handled ' +
-            'exclusively by the request-pool worker. This indicates the ' +
-            'worker dispatch path in LSPQueueManager was bypassed.',
+      processReferences: async () => {
+        getLogger().warn(
+          () =>
+            'Local references handler was invoked, so the request-pool worker ' +
+            'dispatch was bypassed (cold-start race, cold-read gate not ready, ' +
+            'or dispatch error). References are normally served by the ' +
+            'request-pool worker; returning an empty result.',
         );
+        return [];
       },
     }),
   },

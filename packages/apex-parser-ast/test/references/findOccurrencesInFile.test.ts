@@ -125,8 +125,11 @@ describe('findOccurrencesInFile (find-references phase-2 standalone scan)', () =
   it('returns nothing for an empty or whitespace target name', () => {
     const uri = 'file:///t/Empty.cls';
     const code = 'public class Empty { void t() { foo(); } }';
-    expect(findOccurrencesInFile(parse(code, uri), uri, { name: '' })).toEqual(
-      [],
-    );
+    const table = parse(code, uri);
+    // Empty name: caught by the `if (!targetLeaf) return []` guard.
+    expect(findOccurrencesInFile(table, uri, { name: '' })).toEqual([]);
+    // Whitespace-only name: truthy, so it flows past the guard, but no
+    // reference identifier equals a whitespace string, so nothing matches.
+    expect(findOccurrencesInFile(table, uri, { name: '   ' })).toEqual([]);
   });
 });

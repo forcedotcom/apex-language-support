@@ -1476,7 +1476,22 @@ const requestHandlers = {
         { symbolName: target.name },
         true,
       )) as { candidates: Array<{ uri: string; content: string }> };
-      const candidates = scan?.candidates ?? [];
+      const rawCandidates = scan?.candidates ?? [];
+
+      // Live-buffer fidelity for the file under the cursor: phase-1 and phase-2
+      // both scan the data-owner's STORED content, which can lag the unsaved
+      // editor buffer. `req.content` is the live text for the cursor file, so
+      // override that one candidate's content with it (matched by URI). Other
+      // files keep their stored content. Safe for phase-2, which parses each
+      // candidate's `content` standalone (see scanCandidatesForOccurrences).
+      const candidates =
+        typeof req.content === 'string'
+          ? rawCandidates.map((c) =>
+              c.uri === req.textDocument.uri
+                ? { ...c, content: req.content as string }
+                : c,
+            )
+          : rawCandidates;
       emitWorkerLog('info', `[REFERENCES] candidates: ${candidates.length}`);
 
       // --- Phase-2: standalone parse + reference scan over each candidate.
@@ -1509,7 +1524,10 @@ const requestHandlers = {
           endColumn: number;
         },
       ): void => {
-        const key = `${uri}${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
+        // NUL separator between uri and range so a URI ending in digits can't
+        // abut the line number and collapse two distinct (uri,range) pairs onto
+        // one key. Pure safety; behavior unchanged for real URIs.
+        const key = `${uri}\x1f${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
         if (seenRanges.has(key)) return;
         seenRanges.add(key);
         locations.push({
@@ -2180,7 +2198,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 languageId: entry.languageId,
                 version: entry.version,
               };
-              void storage.setDocument(entry.uri, doc as never);
+              // Await the store (like DispatchDocumentChange) rather than
+              // fire-and-forget: an async storage backend could otherwise
+              // report ingest complete before content is persisted, racing the
+              // find-references prefilter that reads exactly this content.
+              yield* Effect.promise(() =>
+                storage.setDocument(entry.uri, doc as never),
+              );
             }
             const elapsed = Date.now() - startTime;
             yield* Effect.logDebug(

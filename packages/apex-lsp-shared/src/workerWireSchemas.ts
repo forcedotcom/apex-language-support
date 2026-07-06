@@ -812,7 +812,7 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
 
 // ---------------------------------------------------------------------------
 // FindOccurrenceCandidates — find-references rebuild asks the data-owner to
-// lexically scan ALL workspace .cls content for files whose text mentions
+// lexically scan all stored workspace documents for files whose text mentions
 // `symbolName` (matched on word boundaries), returning candidate
 // {uri, content} pairs. This is phase-1 of find-references: a cheap textual
 // pre-filter that narrows the set of files worth parsing before the precise
