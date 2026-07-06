@@ -59,6 +59,12 @@ import {
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
 import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
+import type {
+  DataOwnerServices,
+  RequestServices,
+} from '@salesforce/apex-lsp-compliant-services';
+import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -431,3 +437,867 @@ export function symbolsAreCurrent(
     reqVersion < 0 ? latch.version : Math.max(reqVersion, latch.version);
   return mergedVersion >= requiredVersion;
 }
+
+// ---------------------------------------------------------------------------
+// Handler factories & request types
+//
+// The outer shell (guardRole → dataOwnerWrite/ensureRequestServices) is
+// identical across handlers; each factory captures the shared shell and
+// leaves the caller to supply only the unique body logic.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Data-owner document handler factory
+//
+// The outer shell (guardRole → dataOwnerWrite → ensureDataOwnerServices)
+// is identical for all document mutation handlers. The factory captures
+// this; each handler only provides its unique body logic.
+// ---------------------------------------------------------------------------
+
+export const dataOwnerDocHandler =
+  <R, A>(
+    tag: string,
+    body: (svc: DataOwnerServices, req: R) => Effect.Effect<A>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            return yield* body(svc, req);
+          }),
+        ),
+      ),
+    );
+
+// ---------------------------------------------------------------------------
+// Enrichment handler factory
+//
+// All enrichment dispatch handlers follow the same pattern: guard the
+// role, lazily bootstrap services, call a service method, clone the
+// result for structured-clone-safe postMessage. The factory captures
+// this pattern; each handler is a one-liner config.
+// ---------------------------------------------------------------------------
+
+export const requestHandler =
+  <R>(
+    tag: string,
+    callService: (svc: RequestServices, req: R) => Promise<unknown>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const svc = yield* ensureRequestServices;
+          const result = yield* Effect.promise(() => callService(svc, req));
+          return { result: cloneForWire(result) };
+        }),
+      ),
+    );
+
+export type PositionReq = {
+  textDocument: { uri: string };
+  position: { line: number; character: number };
+  content?: string;
+};
+export type DocOnlyReq = { textDocument: { uri: string } };
+export type DocWithContentReq = {
+  textDocument: { uri: string };
+  content?: string;
+};
+export type RefsReq = PositionReq & {
+  context: { includeDeclaration: boolean };
+};
+export type CompletionReq = PositionReq & {
+  context?: { triggerKind: number; triggerCharacter?: string };
+};
+export type SignatureHelpReq = PositionReq & { context?: unknown };
+export type CodeActionReq = {
+  textDocument: { uri: string };
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  content?: string;
+  context?: unknown;
+};
+
+// ---------------------------------------------------------------------------
+// Enrichment helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Load symbol data from the data-owner worker into the local enrichment
+ * worker's symbol manager. Stores the document text in local storage
+ * and queries the data-owner for the file's symbol table via the
+ * coordinator assistance proxy.
+ *
+ * Returns version and detail level metadata for the loaded URI.
+ */
+export async function loadSymbolDataForEnrichment(
+  svc: RequestServices,
+  uri: string,
+  content?: string,
+): Promise<{ version: number; detailLevel: string }> {
+  if (content) {
+    const doc: WorkerDocument = {
+      uri,
+      getText: () => content,
+      languageId: 'apex',
+      version: 0,
+    };
+    svc.storageManager.getStorage().setDocument(uri, doc as never);
+  }
+
+  let version = -1;
+  let detailLevel = 'public-api';
+
+  try {
+    const response = (await requestCoordinatorAssistancePromiseShared(
+      'dataOwner:QuerySymbolSubset',
+      { uris: [uri] },
+      true,
+    )) as {
+      entries: Record<string, unknown>;
+      versions: Record<string, number>;
+      detailLevels: Record<string, string>;
+    };
+
+    if (response?.entries) {
+      const { SymbolTable, ReferenceContext } =
+        await import('@salesforce/apex-lsp-parser-ast');
+      const ingestEntries = (entries: Record<string, unknown>) => {
+        const tables: Array<{ fileUri: string; st: any }> = [];
+        for (const [fileUri, stData] of Object.entries(entries)) {
+          if (stData) {
+            tables.push({
+              fileUri,
+              st: SymbolTable.fromSerializedData(
+                stData as SerializedSymbolTableData,
+              ),
+            });
+          }
+        }
+        return tables;
+      };
+
+      const loaded = ingestEntries(response.entries);
+      for (const { fileUri, st } of loaded) {
+        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+      }
+      version = response.versions?.[uri] ?? -1;
+      detailLevel = response.detailLevels?.[uri] ?? 'public-api';
+
+      // Phase 2: pre-fetch cross-file dependencies.
+      // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
+      // loaded file and ask the data-owner to resolve them to symbol tables.
+      const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
+      if (currentSt) {
+        const refs = currentSt.getAllReferences() as Array<{
+          name: string;
+          context: number;
+          resolvedSymbolId?: string;
+        }>;
+        const classNames = new Set<string>();
+        for (const ref of refs) {
+          if (
+            !ref.resolvedSymbolId &&
+            (ref.context === ReferenceContext.CLASS_REFERENCE ||
+              ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+              ref.context === ReferenceContext.TYPE_DECLARATION)
+          ) {
+            classNames.add(ref.name);
+          }
+        }
+        if (classNames.size > 0) {
+          try {
+            const depResponse =
+              (await requestCoordinatorAssistancePromiseShared(
+                'dataOwner:ResolveDepUris',
+                { classNames: [...classNames] },
+                true,
+              )) as { entries: Record<string, unknown> };
+            if (depResponse?.entries) {
+              for (const { fileUri: depUri, st: depSt } of ingestEntries(
+                depResponse.entries,
+              )) {
+                await Effect.runPromise(
+                  svc.symbolManager.addSymbolTable(depSt, depUri),
+                );
+              }
+            }
+          } catch {
+            // Dep pre-fetch is best-effort; resolution can still work on-demand.
+          }
+
+          // Cross-worker fallback: ResolveDepUris resolves names that map to a
+          // file via the data-owner's class→file index, but a qualified
+          // TypeReference can still miss when the target file is not loaded in
+          // this enrichment worker's LOCAL name index. Ask the data-owner
+          // (which holds ALL workspace symbols) to resolve the remaining names
+          // in one batched query and ingest the owning files' symbol tables.
+          // The ingest count is intentionally not captured (see below).
+          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
+
+          // Ingestion alone only lands the owning files' SYMBOLS in the local
+          // name index (addSymbolTable processes same-file refs only and defers
+          // cross-file edges). Hover/Completion/Definition resolve via an
+          // on-demand name lookup, so the symbol is enough for them — but the
+          // requesting file's TypeReference is still unresolved (no
+          // resolvedSymbolId, no reverse-index edge). Materialize those edges
+          // now so reverse-index + position-precise consumers see them too.
+          //
+          // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
+          // earlier ResolveDepUris pass may have already loaded every dep, which
+          // makes that count 0 even though the cursor file's references are
+          // still unbound. find-references' 'precise' position→symbol lookup
+          // needs those bindings (unlike hover/definition's on-demand by-name
+          // resolution), so resolve whenever ANY class dep was requested.
+          // resolveCrossFileReferencesForFile is re-entrancy-guarded and
+          // addReference de-dupes, so this is near-free when nothing changed.
+          await Effect.runPromise(
+            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+          );
+        }
+      }
+    }
+  } catch (err) {
+    // Subset load failed (assistance channel down, IPC error, or the data-owner
+    // doesn't have the file). The caller proceeds on a partial/empty graph, so
+    // any request built on it (hover/definition/references/…) may silently
+    // return nothing. Warn — not debug — so an empty result has a breadcrumb
+    // distinguishing "real failure" from "genuinely nothing here".
+    getLogger().warn(
+      () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
+    );
+  }
+
+  return { version, detailLevel };
+}
+
+/**
+ * Cross-worker symbol resolution fallback.
+ *
+ * When the enrichment worker's LOCAL name index ({@link findSymbolByName})
+ * misses a referenced name, route a {@link DataOwnerQuerySymbolByName} query
+ * through the assistance proxy to the data-owner — which holds ALL workspace
+ * symbols — and ingest the owning file's symbol table so the reference can
+ * resolve locally.
+ *
+ * Best-effort and idempotent: names already known locally are skipped, and a
+ * failed query leaves the graph partial.
+ *
+ * keep this helper in sync with worker.platform.web.ts — the two platforms
+ * intentionally carry identical enrichment bodies.
+ *
+ * @param svc Enrichment services (symbol manager + storage).
+ * @param names Candidate names to resolve (e.g. unresolved class references).
+ * @param queryByName Coordinator-assistance fetcher; injectable so the
+ *   ingestion contract can be unit-tested without a live assistance bus.
+ *   Defaults to {@link requestCoordinatorAssistancePromise}.
+ * @param namespace Optional namespace/qualifier hint (e.g. the leading
+ *   qualifier of a qualified TypeReference such as `MyNs` in `MyNs.Foo`).
+ *   Threaded through to the {@link DataOwnerQuerySymbolByName} query so the
+ *   data-owner can disambiguate same-named matches across namespaces. Omitted
+ *   from the wire payload when absent so unqualified queries are byte-identical
+ *   to before.
+ * @returns Count of owning files ingested (0 on failure or no matches).
+ */
+export async function resolveMissingNamesViaDataOwner(
+  svc: RequestServices,
+  names: readonly string[],
+  queryByName: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown> = requestCoordinatorAssistancePromiseShared,
+  namespace?: string,
+): Promise<number> {
+  // Drop duplicates and names the LOCAL name index already resolves before any
+  // IPC. The local-skip also dedups against ResolveDepUris: any name it already
+  // resolved is now in the local index, so it falls out here and is not
+  // re-queried. The residual is exactly the set ResolveDepUris could not map.
+  const residual: string[] = [];
+  const seen = new Set<string>();
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const local = await svc.symbolManager.findSymbolByName(name);
+    if (local.length === 0) residual.push(name);
+  }
+
+  if (residual.length === 0) return 0;
+
+  const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+  try {
+    // ONE blocking round-trip for the whole residual set. A file referencing N
+    // unowned/managed-package types previously fired N sequential blocking hops
+    // per keystroke; batching makes it a single hop. The success `entries` map
+    // is keyed by owning file URI, so it carries every matched name's table.
+    //
+    // Thread the optional namespace/qualifier hint through to the data-owner
+    // for same-name disambiguation. Only add the key when a namespace is
+    // supplied so unqualified queries keep the exact prior payload shape.
+    const queryParams: { names: string[]; namespace?: string } = {
+      names: residual,
+    };
+    if (namespace) {
+      queryParams.namespace = namespace;
+    }
+    const response = (await queryByName(
+      'dataOwner:QuerySymbolByName',
+      queryParams,
+      true,
+    )) as {
+      matches?: ReadonlyArray<{ name: string; fileUri: string }>;
+      entries?: Record<string, unknown>;
+    };
+
+    if (!response?.entries) return 0;
+    let ingested = 0;
+    for (const [fileUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const st = SymbolTable.fromSerializedData(
+        stData as SerializedSymbolTableData,
+      );
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+      ingested++;
+    }
+    getLogger().debug(
+      () =>
+        `[ENRICHMENT] Cross-worker resolved ${residual.length} name(s) via ` +
+        `data-owner: ${response.matches?.length ?? 0} match(es), ` +
+        `${ingested} file(s) ingested`,
+    );
+    return ingested;
+  } catch (err) {
+    getLogger().debug(
+      () =>
+        '[ENRICHMENT] Cross-worker resolve failed for ' +
+        `${residual.length} name(s): ${err}`,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Load caller-side symbol tables needed by Find References into the local
+ * enrichment worker's symbol manager.
+ *
+ * Where {@link loadSymbolDataForEnrichment} pre-fetches *outbound* deps (the
+ * files this file references), Find References needs the *inbound* direction:
+ * the files whose declared symbols reference the target. Those caller tables
+ * must be present locally before `processReferences` runs so the reference
+ * search sees cross-file usages, not just same-file ones.
+ *
+ * Best-effort: a failed resolve leaves the graph partial and the caller
+ * proceeds with whatever tables are already loaded.
+ *
+ * @param svc Enrichment services (symbol manager + storage).
+ * @param uri Target file URI whose dependents we want to load.
+ * @param symbolName Optional narrowing to a single declared symbol's
+ *   dependents; when omitted, dependents of any symbol declared in `uri`.
+ * @param fetchDependents Coordinator-assistance fetcher; injectable so the
+ *   ingestion contract can be unit-tested without a live assistance bus.
+ *   Defaults to {@link requestCoordinatorAssistancePromise}.
+ * @returns Count of dependent files ingested (0 on failure or no dependents).
+ */
+export async function loadDependentsForReferences(
+  svc: RequestServices,
+  uri: string,
+  symbolName?: string,
+  fetchDependents: (
+    method: string,
+    params: unknown,
+    blocking: boolean,
+  ) => Promise<unknown> = requestCoordinatorAssistancePromiseShared,
+): Promise<number> {
+  try {
+    const response = (await fetchDependents(
+      'dataOwner:ResolveDependentUris',
+      { uri, symbolName },
+      true,
+    )) as { entries: Record<string, unknown> };
+
+    if (!response?.entries) return 0;
+
+    const { SymbolTable } = await import('@salesforce/apex-lsp-parser-ast');
+    let ingested = 0;
+    const ingestedUris: string[] = [];
+    for (const [fileUri, stData] of Object.entries(response.entries)) {
+      if (!stData) continue;
+      const st = SymbolTable.fromSerializedData(
+        stData as SerializedSymbolTableData,
+      );
+      await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+      ingested++;
+      ingestedUris.push(fileUri);
+    }
+
+    // Resolve each freshly-loaded dependent's own cross-file references so its
+    // OUTGOING edges — crucially the implements/extends supertype edges — land
+    // in this worker's reverse index. find-implementation / find-references on a
+    // supertype reads the reverse index of the TARGET (interface/superclass) for
+    // its INCOMING edges; that edge is authored on the DEPENDENT (implementor/
+    // subclass) side, so resolving the target file alone never materializes it.
+    // The dependents were just ingested above, so their resolution targets are
+    // present and this is bounded; resolveCrossFileReferencesForFile is
+    // re-entrancy-guarded and addReference de-dupes, keeping it near-free on
+    // repeat. (Replaces the former whole-workspace superClass/interfaces[] string
+    // scan in ImplementationProcessingService, which masked this gap.)
+    for (const fileUri of ingestedUris) {
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+      );
+    }
+
+    getLogger().debug(
+      () =>
+        `[REFERENCES] Loaded ${ingested} dependent table(s) for ${uri}` +
+        (symbolName ? ` (symbol: ${symbolName})` : ''),
+    );
+    return ingested;
+  } catch (err) {
+    // Dependent pre-fetch is best-effort; reference search can still run on
+    // the tables already loaded (e.g. same-file references). But reaching this
+    // catch means cross-file callers were NOT loaded, so the result is likely
+    // incomplete — warn so a "cross-file references missing" report has a
+    // breadcrumb to follow.
+    getLogger().warn(
+      () => `[REFERENCES] Dependent pre-fetch failed for ${uri}: ${err}`,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Recompile the cursor file at FULL detail into the worker's local symbol
+ * manager, then resolve its cross-file references.
+ *
+ * Find References maps the cursor POSITION to a symbol via
+ * getReferencesAtPosition / getSymbolAtPosition, which only see references that
+ * live inside method bodies when the file was parsed at full detail. The
+ * data-owner serves files at 'public-api' (bodies stripped), so a cursor on an
+ * in-body usage (`RefUtil u = new RefUtil()`) resolves to nothing and Find
+ * References returns []. documentSymbol hits the same wall and solves it by
+ * recompiling the open file from its text with FullSymbolCollectorListener;
+ * we do the same here so the cursor file carries its in-body references, then
+ * resolve cross-file edges so usages in OTHER files still resolve to it.
+ *
+ * Best-effort: a missing/uncompilable document leaves the public-api graph in
+ * place and Find References proceeds with whatever it has.
+ *
+ * @param svc Enrichment services (symbol manager).
+ * @param uri Cursor file URI to recompile.
+ * @param content Live document text; when absent, nothing is recompiled.
+ */
+export async function recompileCursorFileAtFullDetail(
+  svc: RequestServices,
+  uri: string,
+  content?: string,
+): Promise<boolean> {
+  // Only TRULY-ABSENT content (undefined) skips the recompile. An empty string
+  // is a valid zero-length file — rejecting it with a `!content` falsy check
+  // would leave a freshly-opened empty `.cls` at public-api detail and silently
+  // return []. This mirrors the upstream `typeof req.content === 'string'` gate,
+  // which already treats '' as "content present".
+  if (content === undefined) return false;
+  try {
+    const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const table = new SymbolTable();
+    const listener = new FullSymbolCollectorListener(table);
+    const result = new CompilerService().compile(content, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const st = result?.result instanceof SymbolTable ? result.result : table;
+    await Effect.runPromise(svc.symbolManager.addSymbolTable(st, uri));
+    // Re-resolve so the freshly-parsed in-body references re-key into the
+    // cross-file reverse index (the public-api version's edges are superseded).
+    await Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    return true;
+  } catch (err) {
+    // The cursor file stays at public-api detail, so an in-body cursor won't
+    // resolve and Find References can return []. Warn so that empty result is
+    // attributable to a recompile failure rather than a genuine no-match.
+    getLogger().warn(
+      () => `[REFERENCES] Full-detail recompile failed for ${uri}: ${err}`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Load the symbol tables of every TYPE the cursor file references, regardless of
+ * whether those references already carry a resolvedSymbolId.
+ *
+ * loadSymbolDataForEnrichment's Phase-2 prefetch only fetches types whose
+ * references are UNRESOLVED (`!resolvedSymbolId`) — correct for hover/definition,
+ * which follow the resolvedSymbolId to the data-owner on demand. But Find
+ * References needs the referenced type's table PRESENT locally to enumerate that
+ * type's own references: a `RefUtil` usage already resolved by the data-owner
+ * still leaves RefUtil's table absent in the pool, so findReferencesTo(RefUtil)
+ * sees nothing. This loads those already-resolved type tables too.
+ *
+ * Best-effort: failures leave the partial graph in place.
+ *
+ * @param svc Enrichment services (symbol manager).
+ * @param uri Cursor file URI whose referenced types to load.
+ */
+export async function loadReferencedTypesForFile(
+  svc: RequestServices,
+  uri: string,
+): Promise<number> {
+  try {
+    const { ReferenceContext } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const st = await svc.symbolManager.getSymbolTableForFile(uri);
+    if (!st) return 0;
+    const refs = st.getAllReferences();
+    // Group the referenced type leaf names by their qualifier so the qualifier
+    // can be threaded to the data-owner as a disambiguation namespace hint. A
+    // qualified `MyNs.Foo` resolves by its LEAF (`Foo`) — the data-owner's name
+    // index is keyed on the simple name — while the head (`MyNs`) is the
+    // namespace hint. `declaringFileForCursorSymbol` strips to the same leaf.
+    // The undefined-qualifier bucket is the unqualified hot path; it stays a
+    // single batched, namespace-free query (byte-identical to before).
+    const namesByQualifier = new Map<string | undefined, Set<string>>();
+    for (const ref of refs) {
+      if (
+        ref.context === ReferenceContext.CLASS_REFERENCE ||
+        ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        ref.context === ReferenceContext.TYPE_DECLARATION
+      ) {
+        const dot = ref.name.lastIndexOf('.');
+        const leaf = dot >= 0 ? ref.name.slice(dot + 1) : ref.name;
+        const qualifier = dot >= 0 ? ref.name.slice(0, dot) : undefined;
+        const bucket = namesByQualifier.get(qualifier) ?? new Set<string>();
+        bucket.add(leaf);
+        namesByQualifier.set(qualifier, bucket);
+      }
+    }
+    if (namesByQualifier.size === 0) return 0;
+    // One batched query per distinct qualifier. In the common case a file's
+    // type refs share a single bucket (unqualified, or one managed package), so
+    // this is the same single round-trip as before; mixed qualifiers cost one
+    // hop each rather than collapsing namespaces onto one ambiguous query.
+    let ingested = 0;
+    for (const [qualifier, leaves] of namesByQualifier) {
+      ingested += await resolveMissingNamesViaDataOwner(
+        svc,
+        [...leaves],
+        undefined,
+        qualifier,
+      );
+    }
+    // Bind the cursor file's references to the freshly-loaded type tables so the
+    // reverse index + position-precise lookups resolve.
+    await Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    return ingested;
+  } catch (err) {
+    // Target type tables may be absent locally, so findReferencesTo(type) can
+    // come back empty. Warn so the gap is attributable.
+    getLogger().warn(
+      () => `[REFERENCES] Referenced-type load failed for ${uri}: ${err}`,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Resolve the symbol under the cursor and return the file URI it is DECLARED
+ * in. Find References on a usage must load callers of the TARGET symbol, which
+ * may live in a different file than the cursor (e.g. the cursor is on a
+ * `RefUtil` usage in CallerA, but the references span CallerB too). The target's
+ * dependents hang off its declaring file, so the handler loads dependents for
+ * THIS uri rather than the cursor file.
+ *
+ * Requires the cursor file to already be compiled at full detail locally (so
+ * the position resolves). Returns null when no symbol resolves or it carries no
+ * fileUri, in which case the caller falls back to the cursor file.
+ */
+export async function declaringFileForCursorSymbol(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<string | null> {
+  try {
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+
+    // Preferred: precise position→symbol resolution gives the declaring file
+    // directly.
+    const symbol = await svc.symbolManager.getSymbolAtPosition(
+      uri,
+      parserPosition,
+      'precise',
+    );
+    const fileUri = (symbol as { fileUri?: string } | null)?.fileUri;
+    if (fileUri && fileUri !== uri) return fileUri;
+
+    // Fallback: 'precise' can return null when the cursor file's reference
+    // isn't yet bound to a resolvedSymbolId (cross-file edges not fully
+    // materialized in the worker's partial graph). The reference under the
+    // cursor still carries the NAME, and the target symbol is loaded by name —
+    // so resolve the name to its declaring file directly. This is what lets
+    // find-references on a `RefUtil` usage reach RefUtil.cls's dependents.
+    const refs = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const name = refs?.[0]?.name;
+    if (!name) return null;
+    // Strip any qualified prefix (`Outer.Inner` → leaf segment is searched, but
+    // a type usage like `RefUtil` is already unqualified).
+    const leaf = name.includes('.') ? name.split('.').pop()! : name;
+    const named = await svc.symbolManager.findSymbolByName(leaf);
+    const namedUri = (named as { fileUri?: string } | null)?.fileUri;
+    return namedUri && namedUri !== uri ? namedUri : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lazy role-specific service containers (bootstrapped on first dispatch)
+// ---------------------------------------------------------------------------
+
+/**
+ * Get numeric order index for detail levels.
+ * Matches LayerEnrichmentService's ordering.
+ */
+export function getLayerOrderIndex(
+  level: 'public-api' | 'protected' | 'private' | 'full',
+): number {
+  const order: Record<string, number> = {
+    'public-api': 1,
+    protected: 2,
+    private: 3,
+    full: 4,
+  };
+  return order[level] || 0;
+}
+
+export const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const { bootstrapDataOwnerServices } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-compliant-services'),
+        );
+        const resourceLoaderLayer = (yield* Effect.promise(() =>
+          _makeResourceLoaderRemoteLayer(),
+        )) as import('effect').Layer.Layer<
+          import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
+        >;
+        const svc = yield* Effect.promise(() =>
+          bootstrapDataOwnerServices(resourceLoaderLayer),
+        );
+        yield* Effect.logInfo('[DATA-OWNER] services bootstrapped');
+        return svc;
+      }),
+    ),
+  );
+
+export const ensureRequestServices: Effect.Effect<RequestServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const {
+          bootstrapRequestServices,
+          EnhancedMissingArtifactResolutionService,
+        } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-compliant-services'),
+        );
+        const resourceLoaderLayer = (yield* Effect.promise(() =>
+          _makeResourceLoaderRemoteLayer(),
+        )) as import('effect').Layer.Layer<
+          import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
+        >;
+        const svc = yield* Effect.promise(() =>
+          bootstrapRequestServices(resourceLoaderLayer),
+        );
+
+        // Wire coordinator assistance so the enrichment worker can forward
+        // apex/findMissingArtifact to the coordinator (which holds the LSP
+        // client connection) rather than silently dropping the request.
+        EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
+          requestCoordinatorAssistancePromiseShared(
+            'apex/findMissingArtifact',
+            params,
+            false,
+          ),
+        );
+
+        yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
+        return svc;
+      }),
+    ),
+  );
+
+// ---------------------------------------------------------------------------
+// Compilation services (lazy bootstrap)
+// ---------------------------------------------------------------------------
+
+export interface CompilationServices {
+  readonly compile: (
+    content: string,
+    uri: string,
+  ) => {
+    symbolTable: unknown;
+    errors: unknown[];
+  } | null;
+}
+
+export const ensureCompilationServices: Effect.Effect<CompilationServices> =
+  Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const { CompilerService, VisibilitySymbolListener, SymbolTable } =
+          yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+        const compilerService = new CompilerService();
+
+        const compile = (content: string, uri: string) => {
+          const table = new SymbolTable();
+          const listener = new VisibilitySymbolListener('public-api', table);
+          const result = compilerService.compile(content, uri, listener, {
+            collectReferences: true,
+            resolveReferences: true,
+          });
+          if (!result) return null;
+          const symbolTable =
+            result.result instanceof SymbolTable ? result.result : table;
+          return { symbolTable, errors: result.errors };
+        };
+
+        yield* Effect.logInfo('[COMPILATION] services bootstrapped');
+        return { compile } as CompilationServices;
+      }),
+    ),
+  );
+
+// ---------------------------------------------------------------------------
+// Compiled-symbol write-back (compilation role)
+// ---------------------------------------------------------------------------
+
+export async function writeBackCompiledSymbols(
+  symbolTable: {
+    getAllSymbols(): unknown[];
+    getAllReferences(): unknown[];
+    getAllHierarchicalReferences?(): unknown[];
+    getMetadata(): unknown;
+    getFileUri(): string;
+  },
+  uri: string,
+  documentVersion: number,
+): Promise<boolean> {
+  const startTime = Date.now();
+  try {
+    // Sanitize for the wire BEFORE posting. The assistance bus posts this
+    // payload via MessagePort.postMessage, which uses the structured-clone
+    // algorithm — and structured clone THROWS on function values
+    // ("() => null could not be cloned"). A compiled SymbolTable's
+    // getAllSymbols() can carry function-valued properties (lazy thunks), which
+    // appear for real type-referencing Apex but not for trivial self-contained
+    // classes. Without this, the postMessage throws synchronously, the
+    // write-back never reaches the coordinator/data-owner, the readiness latch
+    // is never resolved, and the cold-read gate burns its full budget before
+    // falling back to a local compile — the ~2s cold-start stall.
+    //
+    // cloneForWire (JSON round-trip) is the same sanitizer every other
+    // wire-crossing data-owner payload already uses; it drops functions and
+    // other non-cloneable values, leaving plain JSON the data-owner can merge.
+    const enrichedSymbolTable = cloneForWire({
+      symbols: symbolTable.getAllSymbols(),
+      references: symbolTable.getAllReferences(),
+      hierarchicalReferences:
+        symbolTable.getAllHierarchicalReferences?.() ?? [],
+      metadata: symbolTable.getMetadata(),
+      fileUri: symbolTable.getFileUri(),
+    });
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
+
+    const response = (await requestCoordinatorAssistancePromiseShared(
+      'dataOwner:UpdateSymbolSubset',
+      {
+        uri,
+        documentVersion,
+        enrichedSymbolTable,
+        enrichedDetailLevel: 'public-api',
+        sourceWorkerId: workerId,
+      },
+      true,
+    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+    const elapsed = Date.now() - startTime;
+    const accepted = response?.accepted ?? false;
+
+    await Effect.runPromise(
+      Effect.logDebug(
+        `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+          `${symbolCount} symbols for ${uri} (v${documentVersion}, ${elapsed}ms)` +
+          (response?.versionMismatch ? ' [version mismatch]' : ''),
+      ),
+    );
+    return accepted;
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    await Effect.runPromise(
+      Effect.logWarning(
+        `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
+      ),
+    );
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Role-specific initialization
+// ---------------------------------------------------------------------------
+
+export const handleWorkerInitRole = (
+  req: Schema.Schema.Type<typeof WorkerInit>,
+): Effect.Effect<{ ready: boolean }> => {
+  if (req.role === 'resourceLoader') {
+    return Effect.gen(function* () {
+      const { ResourceLoader } = yield* Effect.promise(
+        () => import('@salesforce/apex-lsp-parser-ast'),
+      );
+      yield* Effect.promise(() => ResourceLoader.getInstance().initialize());
+      yield* Effect.logInfo('[resource-loader] stdlib loaded');
+      return { ready: true };
+    });
+  }
+  if (req.role === 'dataOwner') {
+    return Effect.gen(function* () {
+      yield* ensureDataOwnerServices;
+      return { ready: true };
+    });
+  }
+  if (req.role === 'lspRequest') {
+    return Effect.gen(function* () {
+      yield* ensureRequestServices;
+      return { ready: true };
+    });
+  }
+  if (req.role === 'compilation') {
+    return Effect.gen(function* () {
+      yield* ensureCompilationServices;
+      return { ready: true };
+    });
+  }
+  return Effect.succeed({ ready: true });
+};

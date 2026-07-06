@@ -16,6 +16,7 @@ import {
   requestCoordinatorAssistancePromiseShared,
   setWorkerId,
   workerId,
+  resolveMissingNamesViaDataOwner,
 } from '../../src/worker.platform.shared';
 
 describe('worker.platform.shared', () => {
@@ -61,5 +62,20 @@ describe('worker.platform.shared', () => {
   it('setWorkerId updates the shared workerId binding', () => {
     setWorkerId('worker-test-123');
     expect(workerId).toBe('worker-test-123');
+  });
+
+  it('resolveMissingNamesViaDataOwner resolves via the injected transport', async () => {
+    setAssistanceTransport(async () => ({ entries: {} }));
+    const svc = {
+      symbolManager: {
+        addSymbolTable: () => Promise.resolve(),
+        // findSymbolByName is consulted first (local-index skip) before any
+        // transport round-trip; an empty match keeps the name in the
+        // residual set so the transport call below is actually exercised.
+        findSymbolByName: () => Promise.resolve([]),
+      },
+    } as unknown as Parameters<typeof resolveMissingNamesViaDataOwner>[0];
+    const count = await resolveMissingNamesViaDataOwner(svc, ['Foo']);
+    expect(typeof count).toBe('number');
   });
 });
