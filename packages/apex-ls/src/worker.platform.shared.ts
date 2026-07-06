@@ -18,6 +18,7 @@
  * shell via the setter functions below, called once at module load.
  */
 
+import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import { Effect, LogLevel, Schema, Queue, Deferred } from 'effect';
 import {
   WorkerInit,
@@ -55,6 +56,8 @@ import {
   isAllowedTag,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  WIRE_PROTOCOL_VERSION,
+  ApexCapabilitiesManager,
   type WorkerRole,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -241,6 +244,28 @@ export function setResourceLoaderLayerFactory(
   fn: ResourceLoaderLayerFactory,
 ): void {
   _makeResourceLoaderRemoteLayer = fn;
+}
+
+// 5th DI shim, not enumerated in the plan's 4-hook DI-boundary list: the
+// WorkerRemoteStdlibWarmup handler (moving to shared in this task) calls
+// warmRemoteStdlibNamespaceCache(), whose Node/Web bodies are structurally
+// different (Node throws if the namespace map isn't initialized; Web
+// swallows errors and has a differently-shaped response payload) and so
+// stay in each platform shell, same rationale as makeResourceLoaderRemoteLayer.
+type WarmRemoteStdlibNamespaceCache = () => Promise<void>;
+
+let _warmRemoteStdlibNamespaceCache: WarmRemoteStdlibNamespaceCache = () => {
+  throw new Error('remote stdlib namespace warmup not initialized');
+};
+
+export function setWarmRemoteStdlibNamespaceCache(
+  fn: WarmRemoteStdlibNamespaceCache,
+): void {
+  _warmRemoteStdlibNamespaceCache = fn;
+}
+
+function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
+  return _warmRemoteStdlibNamespaceCache();
 }
 
 // ---------------------------------------------------------------------------
@@ -1300,4 +1325,1422 @@ export const handleWorkerInitRole = (
     });
   }
   return Effect.succeed({ ready: true });
+};
+
+// ---------------------------------------------------------------------------
+// Enrichment write-back gating & write-back (Step 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine if enrichment is needed based on current and required detail levels.
+ * Uses the same ordering as LayerEnrichmentService on origin/main.
+ */
+export function shouldEnrich(
+  currentLevel: string,
+  requiredLevel: 'public-api' | 'protected' | 'private' | 'full',
+): boolean {
+  const levelOrder: Record<string, number> = {
+    'public-api': 1,
+    protected: 2,
+    private: 3,
+    full: 4,
+  };
+
+  const currentOrder = levelOrder[currentLevel] || 0;
+  const requiredOrder = levelOrder[requiredLevel] || 0;
+
+  return requiredOrder > currentOrder;
+}
+
+/**
+ * Write back enriched symbol data to the data-owner worker.
+ * Returns true if the write-back was accepted, false otherwise.
+ */
+export async function writeBackEnrichedSymbols(
+  svc: RequestServices,
+  uri: string,
+  documentVersion: number,
+  enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
+): Promise<boolean> {
+  const startTime = Date.now();
+  try {
+    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
+    if (!symbolTable) {
+      await Effect.runPromise(
+        Effect.logDebug(
+          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
+        ),
+      );
+      return false;
+    }
+
+    // Serialize symbol table to wire format
+    const enrichedSymbolTable = {
+      symbols: symbolTable.getAllSymbols(),
+      references: symbolTable.getAllReferences(),
+      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+      metadata: symbolTable.getMetadata(),
+      fileUri: symbolTable.getFileUri(),
+    };
+
+    const symbolCount = enrichedSymbolTable.symbols.length;
+
+    const response = (await requestCoordinatorAssistancePromiseShared(
+      'dataOwner:UpdateSymbolSubset',
+      {
+        uri,
+        documentVersion,
+        enrichedSymbolTable,
+        enrichedDetailLevel,
+        sourceWorkerId: workerId,
+      },
+      true,
+    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+    const elapsed = Date.now() - startTime;
+    const accepted = response?.accepted ?? false;
+
+    await Effect.runPromise(
+      Effect.logDebug(
+        `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+          `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
+          `(v${documentVersion}, ${elapsed}ms)` +
+          (response?.versionMismatch ? ' [version mismatch]' : ''),
+      ),
+    );
+
+    return accepted;
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    await Effect.runPromise(
+      Effect.logWarning(
+        `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
+      ),
+    );
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment dispatch handlers (Step 11 on the original file)
+// ---------------------------------------------------------------------------
+
+const requestHandlers = {
+  DispatchHover: requestHandler<PositionReq>(
+    'DispatchHover',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.hoverService.processHover({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchCompletion: requestHandler<CompletionReq>(
+    'DispatchCompletion',
+    async (svc, req) => {
+      // Completion runs on the in-flight (possibly unsaved) document text, so
+      // load the local subset from that content rather than the data-owner's
+      // last-stored version.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Completion needs full member visibility for member-access suggestions.
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      // triggerKind crosses the wire as a plain number but IS a
+      // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
+      // types, so build the params untyped and let the service narrow.
+      const completionParams = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context ? { context: req.context } : {}),
+      };
+      const result = await svc.completionService.processCompletion(
+        completionParams as Parameters<
+          typeof svc.completionService.processCompletion
+        >[0],
+      );
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchSignatureHelp: requestHandler<SignatureHelpReq>(
+    'DispatchSignatureHelp',
+    async (svc, req) => {
+      // Signature help runs on the in-flight document text while typing args.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.signatureHelpService.processSignatureHelp(
+        params as Parameters<
+          typeof svc.signatureHelpService.processSignatureHelp
+        >[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchCodeAction: requestHandler<CodeActionReq>(
+    'DispatchCodeAction',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+      const params = {
+        textDocument: { uri: req.textDocument.uri },
+        range: req.range,
+        ...(req.context !== undefined ? { context: req.context } : {}),
+      };
+      const result = await svc.codeActionService.processCodeAction(
+        params as Parameters<typeof svc.codeActionService.processCodeAction>[0],
+      );
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+      return result;
+    },
+  ),
+  DispatchDefinition: requestHandler<PositionReq>(
+    'DispatchDefinition',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.definitionService.processDefinition({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchReferences: requestHandler<RefsReq>(
+    'DispatchReferences',
+    async (svc, req) => {
+      // Mirror the hover/definition enrichment shape:
+      //   load symbol data → load caller-side dependents → process → write back.
+      // Thread req.content so the pool worker's storage holds the document:
+      // ReferencesProcessingService maps the cursor position to a symbol via
+      // storage.getDocument(), and returns [] when it's absent. The stateless
+      // pool worker has no document otherwise (same as documentSymbol).
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // The full-detail recompile (and therefore in-body position resolution)
+      // is gated on having the document text. The coordinator omits `content`
+      // when it isn't tracking the file as open.
+      const cursorTextAvailable = typeof req.content === 'string';
+
+      // Recompile the cursor file at FULL detail so its in-body references
+      // exist for position→symbol resolution. The data-owner serves public-api
+      // (bodies stripped), so without this a cursor on an in-body usage
+      // resolves to nothing and Find References returns [].
+      const cursorRecompiled = await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // Abort when content was absent rather than warn-then-continue. With no
+      // document text: (1) recompileCursorFileAtFullDetail skipped the recompile
+      // (returned false), so the cursor file stays at public-api detail; and
+      // (2) loadSymbolDataForEnrichment never stored a document, so the
+      // position→symbol lookup in ReferencesProcessingService returns [] no
+      // matter what dependent tables we load. Continuing would do a full round
+      // of cross-worker dependent loading on a state that cannot produce a
+      // result, and would emit a [] indistinguishable from a genuine no-match.
+      // Returning here makes the degradation explicit and attributable.
+      //
+      // Gated on !cursorTextAvailable specifically (not merely !cursorRecompiled)
+      // so a recompile that failed WITH content present — e.g. a transient
+      // compile error — still falls through: loadSymbolDataForEnrichment stored
+      // the document in that case, so a cursor on a declaration can still
+      // resolve against the public-api table.
+      if (!cursorRecompiled && !cursorTextAvailable) {
+        getLogger().warn(
+          () =>
+            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
+            'cursor file cannot be recompiled at full detail and the pool ' +
+            'worker has no stored document, so position resolution cannot ' +
+            'succeed. Aborting with an empty result (degraded, not a genuine ' +
+            'no-match).',
+        );
+        return [];
+      }
+
+      // Load the tables of every TYPE the cursor file references — even ones
+      // the data-owner already resolved (resolvedSymbolId set). Find References
+      // needs the target type's table PRESENT to enumerate its references; the
+      // resolved-only prefetch in loadSymbolDataForEnrichment skips them.
+      await loadReferencedTypesForFile(svc, req.textDocument.uri);
+
+      // Load the caller-side tables (files that reference the TARGET symbol).
+      // The target may be declared in a DIFFERENT file than the cursor: e.g.
+      // find-references on a `RefUtil` usage inside CallerA must surface usages
+      // in CallerB too. So resolve the cursor to its symbol, then load
+      // dependents of that symbol's DECLARING file — not the cursor file, whose
+      // own dependents are unrelated. Falls back to the cursor file when the
+      // symbol or its declaring file can't be determined.
+      const targetUri = await declaringFileForCursorSymbol(
+        svc,
+        req.textDocument.uri,
+        req.position,
+      );
+      await loadDependentsForReferences(svc, targetUri ?? req.textDocument.uri);
+
+      // Re-assert the cursor file at full detail: loadDependentsForReferences
+      // may have re-ingested it at public-api (the cursor file can itself be a
+      // caller of the target), which would strip the in-body references the
+      // position lookup needs. Idempotent + bounded, so cheap on the no-op path.
+      await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // References resolve against protected members of dependent files, so a
+      // 'protected' detail level matches the existing service behavior (see
+      // LayerEnrichmentService enrichment of references in
+      // ReferencesProcessingService).
+      const requiredLevel = 'protected';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.referencesService.processReferences({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+        context: { includeDeclaration: req.context.includeDeclaration },
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchImplementation: requestHandler<PositionReq>(
+    'DispatchImplementation',
+    async (svc, req) => {
+      // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
+      // EXTENDS direction:
+      //   load symbol data → load inbound implementor/subtype tables →
+      //   resolve cross-file edges → process → write back.
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Go-to-implementation must see every implementor/subtype of the target
+      // type, which live in *other* files. loadDependentsForReferences pulls the
+      // inbound tables (files whose declared symbols reference symbols in this
+      // file) from the data-owner AND resolves each one's cross-file references,
+      // so the implements/extends edges authored on those implementor/subclass
+      // files land in this worker's reverse index — which is what
+      // ImplementationProcessingService.findSubtypes reads.
+      await loadDependentsForReferences(svc, req.textDocument.uri);
+
+      // Also resolve the target file's own cross-file refs (e.g. an interface
+      // that extends another interface) so the full supertype graph is present.
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+
+      // Implementor discovery reads interfaces/superClass + method declarations,
+      // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.implementationService.processImplementation({
+        textDocument: { uri: req.textDocument.uri },
+        position: req.position,
+      });
+
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
+    'DispatchDocumentSymbol',
+    async (svc, req) => {
+      // documentSymbol re-compiles the file from its TEXT
+      // (DefaultApexDocumentSymbolProvider parses with
+      // FullSymbolCollectorListener for a complete hierarchy) rather than
+      // reading the dataOwner symbol graph. So the pool worker must have the
+      // document text in local storage: thread req.content into
+      // loadSymbolDataForEnrichment, which stores it before the provider runs.
+      // Without it the provider's storage.getDocument() returns null and the
+      // outline is empty (the cold-open regression).
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
+      return svc.documentSymbolService.processDocumentSymbol({
+        textDocument: { uri: req.textDocument.uri },
+      });
+    },
+  ),
+  DispatchCodeLens: requestHandler<DocOnlyReq>(
+    'DispatchCodeLens',
+    async (svc, req) => {
+      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+      return svc.codeLensService.processCodeLens({
+        textDocument: { uri: req.textDocument.uri },
+      });
+    },
+  ),
+  DispatchDiagnostic: requestHandler<DocOnlyReq>(
+    'DispatchDiagnostic',
+    async (svc, req) => {
+      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+
+      // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
+      const requiredLevel = 'full';
+      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+      const result = await svc.diagnosticService.processDiagnostic({
+        textDocument: { uri: req.textDocument.uri },
+      });
+
+      // Write back enriched symbols if enrichment occurred
+      if (needsEnrichment) {
+        await writeBackEnrichedSymbols(
+          svc,
+          req.textDocument.uri,
+          version,
+          requiredLevel,
+        );
+      }
+
+      return result;
+    },
+  ),
+  DispatchCrossFileEnrichment: requestHandler<DocOnlyReq>(
+    'DispatchCrossFileEnrichment',
+    async (svc, req) => {
+      const { version } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+      );
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        ),
+      );
+      await writeBackEnrichedSymbols(
+        svc,
+        req.textDocument.uri,
+        version,
+        'public-api',
+      );
+      return { resolved: true };
+    },
+  ),
+};
+
+// ---------------------------------------------------------------------------
+// Write-back metrics tracking (worker.platform.ts:161-194)
+//
+// Not named in the plan's export list — moved here because it's mutated
+// inside UpdateSymbolSubset, which is moving in this task. The two exported
+// accessor wrappers Node carried (`getWriteBackMetrics`/
+// `resetWriteBackMetrics`) are confirmed dead (zero consumers repo-wide, per
+// the plan doc) and are intentionally NOT re-exported here — only the
+// underlying mutable object, which UpdateSymbolSubset needs, moves.
+// ---------------------------------------------------------------------------
+
+interface WriteBackMetrics {
+  attempted: number;
+  accepted: number;
+  rejectedVersionMismatch: number;
+  rejectedDocumentMissing: number;
+  rejectedDetailLevel: number;
+  totalSymbolsMerged: number;
+}
+
+const writeBackMetrics: WriteBackMetrics = {
+  attempted: 0,
+  accepted: 0,
+  rejectedVersionMismatch: 0,
+  rejectedDocumentMissing: 0,
+  rejectedDetailLevel: 0,
+  totalSymbolsMerged: 0,
+};
+
+// ---------------------------------------------------------------------------
+// Handlers — one per _tag in AllWorkerRequests
+// ---------------------------------------------------------------------------
+
+export const handlers: WorkerRunner.SerializedRunner.Handlers<
+  Schema.Schema.Type<typeof AllWorkerRequests>
+> = {
+  WorkerInit: (req) => {
+    if (assignedRole !== null) {
+      return Effect.die(
+        new Error('WorkerInit received but role already assigned'),
+      );
+    }
+    setAssignedRole(req.role);
+    if (req.logLevel) {
+      setWorkerLogLevel(req.logLevel);
+    }
+    const resolvedServerMode = req.serverMode ?? 'production';
+    ApexCapabilitiesManager.getInstance().setMode(resolvedServerMode);
+    (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
+      resolvedServerMode;
+    return Effect.gen(function* () {
+      yield* Effect.logInfo(
+        `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
+          ` logLevel=${currentWorkerLogLevel}`,
+      );
+      yield* Effect.logDebug('[WorkerInit] Testing debug log after init');
+    }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
+  },
+
+  PingWorker: (req) =>
+    guardRole('PingWorker').pipe(Effect.map(() => ({ echo: req.echo }))),
+
+  WorkerRemoteStdlibWarmup: (_req) =>
+    guardRole('WorkerRemoteStdlibWarmup').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          if (assignedRole === 'dataOwner') {
+            yield* ensureDataOwnerServices;
+          } else if (assignedRole === 'lspRequest') {
+            yield* ensureRequestServices;
+          } else if (assignedRole === 'compilation') {
+            yield* ensureCompilationServices;
+          }
+          yield* Effect.tryPromise({
+            try: () => warmRemoteStdlibNamespaceCacheShared(),
+            catch: (e) => ({
+              _tag: 'WorkerRemoteStdlibWarmupError' as const,
+              message: e instanceof Error ? e.message : String(e),
+            }),
+          });
+          return { ok: true as const };
+        }),
+      ),
+    ),
+
+  // -- Data-owner handlers (routed through internal tiered queue) ------------
+
+  QuerySymbolSubset: (req) =>
+    guardRole('QuerySymbolSubset').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+            const storage = svc.storageManager.getStorage();
+            const cache = getDocumentStateCache();
+
+            const entries: Record<string, unknown> = {};
+            const versions: Record<string, number> = {};
+            const detailLevels: Record<
+              string,
+              'public-api' | 'protected' | 'private' | 'full'
+            > = {};
+
+            const serializeSt = (
+              st: Awaited<ReturnType<typeof sm.getSymbolTableForFile>> & object,
+            ) =>
+              cloneForWire({
+                symbols: st.getAllSymbols(),
+                references: st.getAllReferences(),
+                hierarchicalReferences: st.getAllHierarchicalReferences(),
+                metadata: st.getMetadata(),
+                fileUri: st.getFileUri(),
+              });
+
+            for (const uri of req.uris) {
+              // Get symbol table
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              entries[uri] = st ? serializeSt(st) : null;
+
+              // Get document version
+              const doc = yield* Effect.promise(() => storage.getDocument(uri));
+              versions[uri] = doc?.version ?? -1;
+
+              // Get detail level from cache
+              const state = cache.getCurrentState(uri);
+              const level = state?.detailLevel ?? 'public-api';
+              // Ensure type safety
+              detailLevels[uri] =
+                level === 'public-api' ||
+                level === 'protected' ||
+                level === 'private' ||
+                level === 'full'
+                  ? level
+                  : 'public-api';
+            }
+
+            return { entries, versions, detailLevels };
+          }),
+        ),
+      ),
+    ),
+
+  // Deterministic readiness wait: block until the symbol graph for
+  // {uri, version} is populated, or report why not.
+  //
+  // "Snapshot in runner, await outside": the serial data-owner fiber must never
+  // block on a Deferred whose resolver (UpdateSymbolSubset) is queued behind it
+  // on that same fiber — that is a self-deadlock. So the only work done *inside*
+  // the runner (peekReadiness) is a fast, non-blocking read that returns either
+  // an immediate verdict or the latch's Deferred handle. The actual wait happens
+  // here, on the handler's own fiber.
+  AwaitSymbolReadiness: (req) =>
+    guardRole('AwaitSymbolReadiness').pipe(
+      Effect.flatMap(() => {
+        // Peek: resolve the current state through the serial runner without
+        // blocking it. Returns the latch's Deferred only when a compile for this
+        // (or a newer) version is actually pending.
+        // A negative req.version means "match whatever version is currently
+        // armed" — the coordinator gate uses it when the triggering request
+        // (e.g. documentSymbol) carries no version of its own and simply wants
+        // the latest open/change to finish compiling.
+        const matchLatest = req.version < 0;
+        const peekReadiness = dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const st = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(req.uri),
+            );
+            const latch = readinessLatches.get(req.uri);
+            if (symbolsAreCurrent(req.uri, req.version, st != null)) {
+              return { kind: 'ready' as const };
+            }
+            if (!latch) {
+              // Nothing armed: no open/change is driving a compile for this URI.
+              // The coordinator decides whether to fall back to a local handler.
+              return { kind: 'no-latch' as const };
+            }
+            if (!matchLatest && latch.version > req.version) {
+              // A newer edit superseded the version we were asked about.
+              return { kind: 'stale-version' as const };
+            }
+            return { kind: 'await' as const, deferred: latch.deferred };
+          }),
+        );
+
+        return Effect.gen(function* () {
+          const snapshot = yield* peekReadiness;
+          if (snapshot.kind === 'ready') {
+            return { ready: true };
+          }
+          if (snapshot.kind === 'no-latch') {
+            return { ready: false, reason: 'no-compile-pending' as const };
+          }
+          if (snapshot.kind === 'stale-version') {
+            return { ready: false, reason: 'stale-version' as const };
+          }
+
+          // Await the latch off the serial fiber, bounded by the caller's
+          // timeout. A `false` here means the timer won the race.
+          const fired = yield* Deferred.await(snapshot.deferred).pipe(
+            Effect.as(true),
+            Effect.timeoutTo({
+              duration: `${req.timeoutMs} millis`,
+              onTimeout: () => false,
+              onSuccess: () => true,
+            }),
+          );
+          if (!fired) {
+            return { ready: false, reason: 'timeout' as const };
+          }
+
+          // The latch resolves on a successful merge, on supersession by a newer
+          // version, AND on a rejected write-back (armReadiness/clearReadiness/
+          // the reject branches). Re-peek with the SAME currency check as the
+          // initial peek (symbolsAreCurrent) to tell a real merge from a stale
+          // wake-up: a supersession or rejected-write-back wake-up leaves the
+          // prior version's table present while the merged version has NOT
+          // advanced — reporting ready off that stale table is the bug. When not
+          // current, return stale-version so the coordinator re-issues the gate
+          // against the newer version.
+          const after = yield* dataOwnerRead(
+            Effect.gen(function* () {
+              const svc = yield* ensureDataOwnerServices;
+              const st = yield* Effect.promise(() =>
+                svc.symbolManager.getSymbolTableForFile(req.uri),
+              );
+              return symbolsAreCurrent(req.uri, req.version, st != null);
+            }),
+          );
+          return after
+            ? { ready: true }
+            : { ready: false, reason: 'stale-version' as const };
+        });
+      }),
+    ),
+
+  UpdateSymbolSubset: (req) =>
+    guardRole('UpdateSymbolSubset').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            writeBackMetrics.attempted++;
+
+            const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
+            const cache = getDocumentStateCache();
+
+            // Version validation
+            const currentDoc = yield* Effect.promise(() =>
+              storage.getDocument(req.uri),
+            );
+
+            if (!currentDoc) {
+              writeBackMetrics.rejectedDocumentMissing++;
+              yield* Effect.logDebug(
+                `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
+              );
+              // Terminal for this version: no document means no awaiter can ever
+              // be satisfied by it. Release so the coordinator stops waiting and
+              // falls back rather than blocking the full gate budget.
+              resolveReadiness(req.uri, req.documentVersion);
+              return {
+                accepted: false,
+                merged: 0,
+                versionMismatch: false,
+              };
+            }
+
+            if (currentDoc.version !== req.documentVersion) {
+              writeBackMetrics.rejectedVersionMismatch++;
+              yield* Effect.logDebug(
+                '[DATA-OWNER] Write-back rejected: version mismatch ' +
+                  `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
+                  `for ${req.uri} from ${req.sourceWorkerId}`,
+              );
+              // The compile was for a stale version; the current version's
+              // write-back (if any) will resolve its own latch. Release any
+              // awaiter for this version so it re-evaluates.
+              resolveReadiness(req.uri, req.documentVersion);
+              return {
+                accepted: false,
+                merged: 0,
+                versionMismatch: true,
+              };
+            }
+
+            // Detail level validation
+            // When no cache entry exists (file not yet compiled on data-owner),
+            // currentOrder is 0 so any write-back level is accepted.
+            const currentState = cache.getCurrentState(req.uri);
+            const rawLevel = currentState?.detailLevel;
+            const currentOrder =
+              rawLevel === 'public-api' ||
+              rawLevel === 'protected' ||
+              rawLevel === 'private' ||
+              rawLevel === 'full'
+                ? getLayerOrderIndex(rawLevel)
+                : 0;
+            const enrichedOrder = getLayerOrderIndex(req.enrichedDetailLevel);
+
+            // The detail-level downgrade guard prevents a poorer enrichment from
+            // overwriting a richer one — but ONLY for the SAME document version.
+            // A write-back for a NEWER version carries fresh content and MUST
+            // merge even at an equal/lower detail level: the cached level
+            // describes the OLD version's symbols, which are now stale. Guarding
+            // on level alone dropped a new version's symbols whenever its compile
+            // happened to land at the same level (e.g. public-api after an edit),
+            // leaving the graph stuck on the prior version's symbols until some
+            // later write-back happened to raise the level. Only skip when the
+            // cache is at the same-or-newer version AND same-or-richer level.
+            const cachedVersion = currentState?.documentVersion ?? -1;
+            const sameOrOlderVersion = req.documentVersion <= cachedVersion;
+            if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
+              writeBackMetrics.rejectedDetailLevel++;
+              yield* Effect.logDebug(
+                `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
+                  `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
+                  `at v${cachedVersion} >= v${req.documentVersion} for ${req.uri}`,
+              );
+              // Symbols at this (or a richer) level are already in the graph for
+              // this (or a newer) version — the awaiter's data IS ready. Release.
+              resolveReadiness(req.uri, req.documentVersion);
+              return { accepted: false, merged: 0, versionMismatch: false };
+            }
+
+            // Deserialize enriched symbol table
+            const { SymbolTable } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const enrichedSt = SymbolTable.fromSerializedData(
+              req.enrichedSymbolTable as never,
+            );
+
+            // Merge into symbol manager (returns Effect, so yield directly)
+            yield* svc.symbolManager.addSymbolTable(
+              enrichedSt,
+              req.uri,
+              req.documentVersion,
+              false, // hasErrors
+            );
+
+            // Populate cross-file incoming edges for this file now that its
+            // symbols are merged. Resolves references from this file into the
+            // workspace graph (and defers any whose targets aren't ingested yet,
+            // to be drained post-batch via DrainDeferredReferences).
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+
+            // Update cache with new detail level
+            cache.merge(req.uri, {
+              documentVersion: req.documentVersion,
+              detailLevel: req.enrichedDetailLevel,
+              timestamp: Date.now(),
+            });
+
+            const mergedCount = enrichedSt.getAllSymbols().length;
+            writeBackMetrics.accepted++;
+            writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            // Symbols for this version are now in the graph — release any
+            // coordinator request awaiting readiness for this URI/version.
+            resolveReadiness(req.uri, req.documentVersion);
+
+            // Log to both Effect logger and console for debugging
+            const logMsg =
+              `[DATA-OWNER] Write-back accepted: ${mergedCount} symbols ` +
+              `merged at ${req.enrichedDetailLevel} level for ${req.uri} ` +
+              `(from ${req.sourceWorkerId})`;
+            console.log(logMsg);
+            yield* Effect.logDebug(logMsg);
+
+            return {
+              accepted: true,
+              merged: mergedCount,
+              versionMismatch: false,
+            };
+          }),
+        ),
+      ),
+    ),
+
+  DrainDeferredReferences: () =>
+    guardRole('DrainDeferredReferences').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const resolved =
+              yield* svc.symbolManager.drainAllDeferredReferences();
+            yield* Effect.logDebug(
+              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
+            );
+            return { resolved };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDepUris: (req) =>
+    guardRole('ResolveDepUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            const uris = new Set<string>();
+            for (const name of req.classNames) {
+              const files = yield* Effect.promise(() =>
+                sm.findFilesForSymbol(name),
+              );
+              for (const f of files) uris.add(f);
+            }
+
+            const entries: Record<string, unknown> = {};
+            for (const uri of uris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                // Key the entry by the table's CANONICAL fileUri, not the
+                // lookup `uri`. findFilesForSymbol strips the `file://` scheme
+                // (returns `/test/X.cls`), so keying by `uri` would make the
+                // requesting worker ingest the table under a schemeless URI that
+                // never matches its references' `file:///test/X.cls` targets —
+                // cross-file edges then fail to bind and find-references on a
+                // usage of this type returns []. getFileUri() preserves scheme.
+                const canonicalUri = st.getFileUri();
+                entries[canonicalUri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: canonicalUri,
+                });
+              }
+            }
+
+            return { entries };
+          }),
+        ),
+      ),
+    ),
+
+  // NOTE: keep this handler in sync with worker.platform.web.ts —
+  // the two platforms intentionally carry identical data-owner bodies.
+  DataOwnerQuerySymbolByName: (req) =>
+    guardRole('DataOwnerQuerySymbolByName').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const sm = svc.symbolManager;
+
+            // Resolve a batch (`names`) or a single name. Batching lets an
+            // enrichment worker collapse N per-keystroke blocking round-trips
+            // into one. De-dupe so a name repeated across callers is queried
+            // once.
+            const queryNames = [
+              ...new Set(
+                (req.names && req.names.length > 0
+                  ? req.names
+                  : req.name
+                    ? [req.name]
+                    : []
+                ).filter((n): n is string => !!n),
+              ),
+            ];
+
+            // Optional namespace hint: a qualified reference (`MyNs.Foo`)
+            // carries its leading qualifier so the data-owner can disambiguate
+            // same-named matches across namespaces. Applied as a SOFT
+            // preference, not a hard filter — if no symbol's namespace matches
+            // the hint, fall back to all matches. This keeps inner-class
+            // qualifiers (`Outer.Inner`, where `Outer` is a type, not a
+            // namespace) working: nothing matches the hint, so all candidates
+            // are returned as before.
+            const nsHint = req.namespace?.toLowerCase();
+            const symbolNamespace = (s: {
+              namespace?: unknown;
+            }): string | undefined => {
+              const ns = s.namespace;
+              if (!ns) return undefined;
+              return (typeof ns === 'string' ? ns : String(ns)).toLowerCase();
+            };
+
+            const matches: Array<{
+              name: string;
+              fileUri: string;
+              kind?: string;
+            }> = [];
+            const uris = new Set<string>();
+            for (const queryName of queryNames) {
+              // The data-owner holds ALL workspace symbols, so its name index
+              // resolves names an enrichment worker's local subset may miss.
+              const symbols = yield* Effect.promise(() =>
+                sm.findSymbolByName(queryName),
+              );
+              const withFile = symbols.filter((s) => !!s?.fileUri);
+              // Prefer the namespace-matched subset when the hint actually
+              // matches something; otherwise keep every candidate.
+              const nsMatched = nsHint
+                ? withFile.filter((s) => symbolNamespace(s) === nsHint)
+                : [];
+              const selected = nsMatched.length > 0 ? nsMatched : withFile;
+              for (const symbol of selected) {
+                matches.push({
+                  name: symbol.name,
+                  fileUri: symbol.fileUri!,
+                  kind:
+                    typeof symbol.kind === 'string' ? symbol.kind : undefined,
+                });
+                uris.add(symbol.fileUri!);
+              }
+            }
+
+            // Return the owning files' symbol tables so the worker can ingest
+            // them and finish resolving the reference (mirrors ResolveDepUris).
+            const entries: Record<string, unknown> = {};
+            for (const uri of uris) {
+              const st = yield* Effect.promise(() =>
+                sm.getSymbolTableForFile(uri),
+              );
+              if (st) {
+                entries[uri] = cloneForWire({
+                  symbols: st.getAllSymbols(),
+                  references: st.getAllReferences(),
+                  hierarchicalReferences: st.getAllHierarchicalReferences(),
+                  metadata: st.getMetadata(),
+                  fileUri: st.getFileUri(),
+                });
+              }
+            }
+
+            return { matches, entries };
+          }),
+        ),
+      ),
+    ),
+
+  ResolveDependentUris: (req) =>
+    guardRole('ResolveDependentUris').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { resolveDependentUris } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const result = yield* Effect.promise(() =>
+              resolveDependentUris(svc.symbolManager, req.uri, req.symbolName),
+            );
+            const wire: Record<string, unknown> = {};
+            for (const [uri, entry] of Object.entries(result.entries)) {
+              // cloneForWire (JSON round-trip) drops the class identity and
+              // any non-enumerable/getter props on the symbol-table objects
+              // so the result is a plain tree that survives structured-clone
+              // across the worker postMessage boundary.
+              wire[uri] = cloneForWire(entry);
+            }
+            return { entries: wire };
+          }),
+        ),
+      ),
+    ),
+
+  WorkspaceBatchIngest: (req) =>
+    guardRole('WorkspaceBatchIngest').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const startTime = Date.now();
+            const svc = yield* ensureDataOwnerServices;
+            const storage = svc.storageManager.getStorage();
+            for (const entry of req.entries) {
+              const doc: WorkerDocument = {
+                uri: entry.uri,
+                getText: () => entry.content,
+                languageId: entry.languageId,
+                version: entry.version,
+              };
+              void storage.setDocument(entry.uri, doc as never);
+            }
+            const elapsed = Date.now() - startTime;
+            const stats = (yield* Effect.promise(
+              () =>
+                (svc.symbolManager as any).getStats?.() ??
+                Promise.resolve(null),
+            )) as {
+              totalFiles: number;
+              totalSymbols: number;
+              totalReferences: number;
+            } | null;
+            const statsStr = stats
+              ? ` | graph: ${stats.totalFiles} files, ${stats.totalSymbols} symbols, ${stats.totalReferences} refs`
+              : '';
+            yield* Effect.logDebug(
+              `[DATA-OWNER] WorkspaceBatchIngest: session=${req.sessionId}, ` +
+                `stored=${req.entries.length} files in ${elapsed}ms${statsStr}`,
+            );
+            return { processedCount: req.entries.length };
+          }),
+        ),
+      ),
+    ),
+
+  QueryGraphData: (req) =>
+    guardRole('QueryGraphData').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { GraphDataProcessingService } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-compliant-services'),
+            );
+            const service = new GraphDataProcessingService(
+              getLogger(),
+              svc.symbolManager,
+            );
+            const result = yield* Effect.promise(() =>
+              service.processGraphData({
+                type: req.type,
+                fileUri: req.fileUri,
+                symbolType: req.symbolType,
+                includeMetadata: req.includeMetadata ?? false,
+                includeDiagnostics: req.includeDiagnostics ?? false,
+              }),
+            );
+            return cloneForWire(result);
+          }),
+        ),
+      ),
+    ),
+
+  DispatchDocumentOpen: dataOwnerDocHandler(
+    'DispatchDocumentOpen',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => req.content,
+          languageId: req.languageId,
+          version: req.version,
+        };
+        // Await the store: the write-back's version check (UpdateSymbolSubset)
+        // and the readiness latch both require the document to be present at
+        // this version BEFORE the compile this open triggers runs. The prior
+        // `void` left that a race — a fast compile could write back before the
+        // store landed and be rejected as "document not found".
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        // Arm before returning: dispatch() sequences this store ahead of the
+        // compile, so the latch exists when a fast-following documentSymbol
+        // awaits it.
+        armReadiness(req.uri, req.version);
+        return { accepted: true };
+      }),
+  ),
+
+  DispatchDocumentChange: dataOwnerDocHandler(
+    'DispatchDocumentChange',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: req.version,
+        };
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        // Re-arm at the new version; supersedes the prior latch so an awaiter
+        // for the old version stops waiting and re-evaluates.
+        armReadiness(req.uri, req.version);
+        return { accepted: true };
+      }),
+  ),
+
+  DispatchDocumentSave: dataOwnerDocHandler(
+    'DispatchDocumentSave',
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // readiness latch so the CompileDocument this save triggers can write
+        // its symbols back (UpdateSymbolSubset requires the document present at
+        // this version) and a request racing the save re-evaluates against the
+        // saved version. The compile message carries the real saved content; the
+        // placeholder text is replaced when the write-back merges.
+        const doc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: req.version,
+        };
+        yield* Effect.promise(() =>
+          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
+        );
+        armReadiness(req.uri, req.version);
+        return { accepted: true };
+      }),
+  ),
+
+  DispatchDocumentClose: dataOwnerDocHandler(
+    'DispatchDocumentClose',
+    (svc, req) =>
+      Effect.sync(() => {
+        const closeDoc: WorkerDocument = {
+          uri: req.uri,
+          getText: () => '',
+          languageId: 'apex',
+          version: 0,
+        };
+        svc.documentCloseProcessingService.processDocumentClose({
+          document: closeDoc as never,
+        });
+        // Release any awaiter and drop the latch so the Map doesn't grow
+        // unbounded across a long session of opens/closes.
+        clearReadiness(req.uri);
+        return { accepted: true };
+      }),
+  ),
+
+  // -- Compilation worker handlers ---------------------------------------------
+
+  CompileDocument: (req) =>
+    guardRole('CompileDocument').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const startTime = Date.now();
+          const svc = yield* ensureCompilationServices;
+
+          const result = svc.compile(req.content, req.uri);
+          let compiledCount = 0;
+          if (result && result.symbolTable) {
+            compiledCount = 1;
+            yield* Effect.promise(() =>
+              writeBackCompiledSymbols(
+                result.symbolTable as any,
+                req.uri,
+                req.version,
+              ),
+            );
+          }
+
+          const elapsedMs = Date.now() - startTime;
+          yield* Effect.logDebug(
+            `[COMPILATION] CompileDocument: ${req.uri} (v${req.version}, ` +
+              `priority=${req.priority}, ${elapsedMs}ms)`,
+          );
+          return { compiledCount, elapsedMs };
+        }),
+      ),
+    ),
+
+  WorkspaceBatchCompile: (req) =>
+    guardRole('WorkspaceBatchCompile').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const batchStartTime = Date.now();
+          const svc = yield* ensureCompilationServices;
+
+          let compiledCount = 0;
+          let errorCount = 0;
+          const YIELD_INTERVAL = 10;
+
+          for (let i = 0; i < req.entries.length; i++) {
+            const entry = req.entries[i];
+            try {
+              const result = svc.compile(entry.content, entry.uri);
+              if (result && result.symbolTable) {
+                compiledCount++;
+                yield* Effect.promise(() =>
+                  writeBackCompiledSymbols(
+                    result.symbolTable as any,
+                    entry.uri,
+                    entry.version,
+                  ),
+                );
+              } else {
+                errorCount++;
+              }
+            } catch {
+              errorCount++;
+            }
+
+            if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < req.entries.length) {
+              yield* Effect.yieldNow();
+            }
+          }
+
+          // Post-batch: ask the data-owner to drain deferred cross-file
+          // references into graph edges now that every file in the batch has
+          // been written back and had its references resolved. Best-effort:
+          // a drain failure must not fail the batch compile.
+          yield* Effect.tryPromise({
+            try: () =>
+              requestCoordinatorAssistancePromiseShared(
+                'dataOwner:DrainDeferredReferences',
+                {},
+                true,
+              ),
+            catch: (e) => e,
+          }).pipe(
+            Effect.catchAll((e) =>
+              Effect.logWarning(
+                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
+              ),
+            ),
+          );
+
+          const elapsedMs = Date.now() - batchStartTime;
+          yield* Effect.logInfo(
+            `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
+              `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
+          );
+          return { compiledCount, errorCount, elapsedMs };
+        }),
+      ),
+    ),
+
+  // -- Enrichment/search pool handlers (Step 11) ----------------------------
+  //
+  // All enrichment handlers follow the same pattern: guard role, bootstrap
+  // services, call the service method, clone the result for postMessage.
+  // The `requestHandler` factory eliminates the repetition.
+
+  ...requestHandlers,
+
+  DispatchGenericLspRequest: (req) =>
+    guardRole('DispatchGenericLspRequest').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          yield* Effect.logWarning(
+            `[ENRICHMENT] GenericLspRequest: unhandled type=${req.requestType}`,
+          );
+          return { result: null };
+        }),
+      ),
+    ),
+
+  // -- Resource-loader handlers (Step 9) -------------------------------------
+
+  ResourceLoaderGetSymbolTable: (req) =>
+    guardRole('ResourceLoaderGetSymbolTable').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const st = yield* Effect.promise(() =>
+            ResourceLoader.getInstance().getSymbolTable(req.classPath),
+          );
+          if (!st) return { found: false };
+          return { found: true, symbolTable: cloneForWire(st) };
+        }),
+      ),
+    ),
+
+  ResourceLoaderGetFile: (req) =>
+    guardRole('ResourceLoaderGetFile').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const content = yield* Effect.promise(() =>
+            ResourceLoader.getInstance().getFile(req.path),
+          );
+          return content !== undefined
+            ? { found: true, content }
+            : { found: false };
+        }),
+      ),
+    ),
+
+  ResourceLoaderResolveClass: (req) =>
+    guardRole('ResourceLoaderResolveClass').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const fqn = ResourceLoader.getInstance().resolveStandardClassFqn(
+            req.className,
+          );
+          return fqn !== null ? { found: true, fqn } : { found: false };
+        }),
+      ),
+    ),
+
+  ResourceLoaderGetStandardNamespaces: () =>
+    guardRole('ResourceLoaderGetStandardNamespaces').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const raw = ResourceLoader.getInstance().getStandardNamespaces();
+          const namespaces: Record<string, string[]> = {};
+          for (const [k, v] of raw) {
+            namespaces[k] = v.map((cis) =>
+              typeof cis === 'string' ? cis : (cis as { value: string }).value,
+            );
+          }
+          return { namespaces };
+        }),
+      ),
+    ),
 };
