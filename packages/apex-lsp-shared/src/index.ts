@@ -456,7 +456,6 @@ export {
   WireLspRequestType,
   WirePosition,
   WireRange,
-  WireContentChangeEvent,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,

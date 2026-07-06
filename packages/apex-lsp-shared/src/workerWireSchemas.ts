@@ -483,16 +483,6 @@ export const WireRange = Schema.Struct({
 });
 
 /**
- * Mirrors LSP TextDocumentContentChangeEvent.
- * Incremental: range + text; full: text only.
- */
-export const WireContentChangeEvent = Schema.Struct({
-  range: Schema.optional(WireRange),
-  rangeLength: Schema.optional(Schema.Number),
-  text: Schema.String,
-});
-
-/**
  * Text document identifier (mirrors LSP TextDocumentIdentifier).
  */
 const WireTextDocumentId = Schema.Struct({ uri: Schema.String });
