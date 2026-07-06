@@ -47,6 +47,22 @@ export type {
   ApexClientInitializeParams,
 } from './apexClientCore';
 
+// LSP param/result types re-exported for SDK consumers.
+export type {
+  CompletionItem,
+  CompletionList,
+  CompletionParams,
+  Definition,
+  DefinitionParams,
+  DocumentSymbol,
+  DocumentSymbolParams,
+  Hover,
+  HoverParams,
+  Location,
+  LocationLink,
+  SymbolInformation,
+} from './lspPassThroughs';
+
 // Transport adapters — thin wrappers satisfying the RpcConnection port.
 export { JsonRpcConnection } from './transports/jsonRpcConnection';
 export {

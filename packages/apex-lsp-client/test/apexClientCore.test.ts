@@ -127,7 +127,9 @@ describe('ApexClientCore', () => {
         FIND_MISSING_ARTIFACT_METHOD,
       );
       expect(handler).toBeDefined();
-      expect(handler!({ uri: 'file:///x.cls' })).toEqual({ notFound: true });
+      await expect(handler!({ uri: 'file:///x.cls' })).resolves.toEqual({
+        notFound: true,
+      });
 
       await core.dispose();
     });
