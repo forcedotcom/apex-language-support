@@ -145,8 +145,80 @@ export const activateExtension = async (page: Page): Promise<void> => {
 };
 
 /**
- * Waits for LSP server to initialize.
- * Waits for Monaco editor to be ready and for view lines (content) to be visible.
+ * Waits for workspace ingestion to complete by polling the status bar.
+ * The Apex LSP extension updates the status bar to "Apex" (ready state) when
+ * workspace ingestion completes, which means cross-file symbol resolution is available.
+ *
+ * @param page - Playwright page instance
+ * @param timeout - Maximum wait time in milliseconds (default: 45s desktop, 30s web)
+ */
+export const waitForWorkspaceIngestion = async (
+  page: Page,
+  timeout?: number,
+): Promise<void> => {
+  const isDesktopMode = isDesktop();
+  const defaultTimeout = timeout ?? (isDesktopMode ? 45_000 : 30_000);
+
+  // Poll the status bar for the ready state. The extension shows
+  // "Apex-LS-TS Server Ready" when workspace ingestion is complete,
+  // and various loading messages during ingestion (with $(sync~spin) icon).
+  // We wait for the status bar to show the ready message or at least
+  // NOT contain loading/spinning indicators.
+  await page
+    .waitForFunction(
+      () => {
+        const statusBar = document.querySelector(
+          '[id="workbench.parts.statusbar"]',
+        );
+        if (!statusBar) return false;
+
+        const statusText = statusBar.textContent || '';
+        // Look for the Apex LSP status item
+        // Ready state: "Apex-LS-TS Server Ready" (with $(check) icon)
+        // Loading states: various messages with $(sync~spin) icon
+        if (statusText.includes('Apex-LS-TS Server Ready')) {
+          return true;
+        }
+        // Also check for legacy "Apex" status (if older build)
+        const apexStatusMatch = statusText.match(
+          /Apex(?:-LS-TS)?[\s:]*(.*?)(?=\n|$)/i,
+        );
+        if (!apexStatusMatch) return false;
+
+        const apexStatus = apexStatusMatch[1].trim();
+        // Not ready if it contains loading/scanning/compressing/sending indicators
+        return (
+          apexStatus === '' ||
+          (!apexStatus.toLowerCase().includes('loading') &&
+            !apexStatus.toLowerCase().includes('scanning') &&
+            !apexStatus.toLowerCase().includes('indexing') &&
+            !apexStatus.toLowerCase().includes('compressing') &&
+            !apexStatus.toLowerCase().includes('sending') &&
+            !apexStatus.toLowerCase().includes('found') &&
+            !apexStatus.toLowerCase().includes('created') &&
+            !apexStatus.toLowerCase().includes('batches'))
+        );
+      },
+      { timeout: defaultTimeout },
+    )
+    .catch(async () => {
+      // If timeout, capture actual status bar state for debugging
+      const statusBarText = await page.evaluate(() => {
+        const statusBar = document.querySelector(
+          '[id="workbench.parts.statusbar"]',
+        );
+        return statusBar?.textContent || 'STATUS BAR NOT FOUND';
+      });
+      console.warn(
+        `⚠️  Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`,
+      );
+    });
+};
+
+/**
+ * Waits for LSP server to initialize and workspace ingestion to complete.
+ * Waits for Monaco editor to be ready, view lines (content) to be visible,
+ * and workspace indexing to finish (so cross-file navigation works).
  *
  * @param page - Playwright page instance
  */
@@ -164,6 +236,11 @@ export const waitForLSPInitialization = async (page: Page): Promise<void> => {
   await viewLines
     .first()
     .waitFor({ state: 'visible', timeout: selectorTimeout });
+
+  // Wait for workspace ingestion to complete - critical for cross-file navigation
+  // Without this, go-to-definition on cross-file references may fail because
+  // the target files haven't been indexed yet.
+  await waitForWorkspaceIngestion(page);
 };
 
 /**

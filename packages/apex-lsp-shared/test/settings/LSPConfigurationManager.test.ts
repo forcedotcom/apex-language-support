@@ -518,4 +518,104 @@ describe('LSPConfigurationManager', () => {
       );
     });
   });
+
+  describe('client capabilities', () => {
+    it('should round-trip get/set for client capabilities', () => {
+      const caps = {
+        textDocument: { hover: { dynamicRegistration: true } },
+        experimental: { findMissingArtifactProvider: { enabled: true } },
+      } as any;
+
+      configurationManager.setClientCapabilities(caps);
+      expect(configurationManager.getClientCapabilities()).toBe(caps);
+    });
+
+    it('should return undefined when client capabilities have not been set', () => {
+      expect(configurationManager.getClientCapabilities()).toBeUndefined();
+    });
+
+    describe('isClientCapabilityAdvertised', () => {
+      it('should return true for present key with enabled: true', () => {
+        configurationManager.setClientCapabilities({
+          experimental: { findMissingArtifactProvider: { enabled: true } },
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(true);
+      });
+
+      it('should return false for present key with enabled: false', () => {
+        configurationManager.setClientCapabilities({
+          experimental: { findMissingArtifactProvider: { enabled: false } },
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+
+      it('should return false for absent key', () => {
+        configurationManager.setClientCapabilities({
+          experimental: { otherCapability: { enabled: true } },
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+
+      it('should return false when experimental is undefined', () => {
+        configurationManager.setClientCapabilities({
+          textDocument: {},
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+
+      it('should return false when experimental is a non-object (string)', () => {
+        configurationManager.setClientCapabilities({
+          experimental: 'not-an-object',
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+
+      it('should return false when experimental is a non-object (number)', () => {
+        configurationManager.setClientCapabilities({
+          experimental: 42,
+        } as any);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+
+      it('should return false when clientCapabilities itself is undefined', () => {
+        configurationManager.setClientCapabilities(undefined);
+
+        expect(
+          configurationManager.isClientCapabilityAdvertised(
+            'findMissingArtifactProvider',
+          ),
+        ).toBe(false);
+      });
+    });
+  });
 });
