@@ -342,8 +342,7 @@ function resolveTypeSymbol(
       symbolManager.findSymbolByName(typeName),
     );
     const typeSymbol = symbols.find((s: ApexSymbol) => inTypeSymbolGroup(s)) as
-      | TypeSymbol
-      | undefined;
+      TypeSymbol | undefined;
 
     if (typeSymbol) {
       return typeSymbol;

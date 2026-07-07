@@ -3586,12 +3586,7 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       let literalValue: string | number | boolean | null = null;
       let literalType:
-        | 'Integer'
-        | 'Long'
-        | 'Decimal'
-        | 'String'
-        | 'Boolean'
-        | 'Null' = 'Null';
+        'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null' = 'Null';
 
       // Extract literal value and determine type
       if (ctx.IntegerLiteral()) {

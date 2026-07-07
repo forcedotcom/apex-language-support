@@ -1247,8 +1247,7 @@ export async function targetSymbolForCursor(
     if (!name) return null;
     const leaf = name.includes('.') ? name.split('.').pop()! : name;
     const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0] as
-      | { name?: string; kind?: unknown }
-      | undefined;
+      { name?: string; kind?: unknown } | undefined;
     return {
       name: named?.name ?? leaf,
       kind: named && typeof named.kind === 'string' ? named.kind : undefined,
@@ -2798,8 +2797,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 // Worker channel that @effect/platform uses for its wire protocol.
 const assistPort: import('node:worker_threads').MessagePort | null =
   ((workerData as Record<string, unknown> | undefined)?.assistPort as
-    | import('node:worker_threads').MessagePort
-    | null) ?? null;
+    import('node:worker_threads').MessagePort | null) ?? null;
 
 const pendingAssistanceCallbacks = new Map<
   string,

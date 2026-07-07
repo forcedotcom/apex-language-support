@@ -73,8 +73,7 @@ export function isAssignInsideSObjectConstructor(
   ctx: AssignExpressionContext,
 ): boolean {
   let ancestor: ParserRuleContext | undefined = ctx.parentCtx as
-    | ParserRuleContext
-    | undefined;
+    ParserRuleContext | undefined;
   while (ancestor) {
     const name = ancestor.constructor?.name ?? '';
     if (name === 'ClassCreatorRestContext') return true;
@@ -2678,8 +2677,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
    */
   private isClassExtendsTypeRef(ctx: TypeRefContext): boolean {
     const parent = ctx.parentCtx as
-      | (ParserRuleContext & { typeRef?: () => unknown })
-      | undefined;
+      (ParserRuleContext & { typeRef?: () => unknown }) | undefined;
     if (!parent || parent.constructor.name !== 'ClassDeclarationContext') {
       return false;
     }

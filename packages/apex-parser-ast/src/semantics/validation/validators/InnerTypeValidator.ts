@@ -133,8 +133,7 @@ export const InnerTypeValidator: Validator = {
         if (!typeSymbol.parentId) continue;
 
         const parent = allSymbols.find((s) => s.id === typeSymbol.parentId) as
-          | ApexSymbol
-          | undefined;
+          ApexSymbol | undefined;
 
         if (!parent) continue;
 
@@ -180,9 +179,7 @@ export const InnerTypeValidator: Validator = {
           const parser = new ApexParser(tokenStream);
 
           let parseTree:
-            | CompilationUnitContext
-            | TriggerUnitContext
-            | BlockContext;
+            CompilationUnitContext | TriggerUnitContext | BlockContext;
           if (isTrigger) {
             parseTree = parser.triggerUnit();
           } else if (isAnonymous) {

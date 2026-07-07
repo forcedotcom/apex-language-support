@@ -82,9 +82,7 @@ export class CompletionHandler {
           ),
         );
         return CompletionList.create(result.items, result.isIncomplete) as
-          | CompletionList
-          | CompletionItem[]
-          | null;
+          CompletionList | CompletionItem[] | null;
       }
 
       const items = yield* Effect.tryPromise(() =>

@@ -41,12 +41,12 @@ const makeMockConnection = (): MockConnection => {
       dispose: jest.fn(),
     }),
   );
-  const onError = jest.fn(
-    (_handler: (e: Error) => void): Disposable => ({ dispose: jest.fn() }),
-  );
-  const onClose = jest.fn(
-    (_handler: () => void): Disposable => ({ dispose: jest.fn() }),
-  );
+  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: jest.fn(),
+  }));
+  const onClose = jest.fn((_handler: () => void): Disposable => ({
+    dispose: jest.fn(),
+  }));
   const dispose = jest.fn((): void => undefined);
 
   return {

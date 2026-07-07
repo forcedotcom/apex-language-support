@@ -164,5 +164,4 @@ export interface SchedulerUtilsInitializedState {
 }
 
 export type SchedulerUtilsState =
-  | SchedulerUtilsUninitializedState
-  | SchedulerUtilsInitializedState;
+  SchedulerUtilsUninitializedState | SchedulerUtilsInitializedState;

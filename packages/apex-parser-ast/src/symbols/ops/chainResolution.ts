@@ -2833,11 +2833,9 @@ export async function resolveQualifiedReferenceFromChain(
       collectionElementType =
         rawTypeName === 'List' || rawTypeName === 'Set'
           ? ((qualifierTypeObj?.typeParameters?.[0]?.originalTypeString as
-              | string
-              | undefined) ??
+              string | undefined) ??
             (qualifierTypeObj?.typeParameters?.[0]?.name as
-              | string
-              | undefined) ??
+              string | undefined) ??
             null)
           : null;
       let collectionTypeSymbol = await resolvePreferredTypeOp(

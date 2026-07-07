@@ -82,8 +82,7 @@ function findParentClassInSameFile(
   // Check if the parent class matches the superClass name
   if (childClass.parentId) {
     const outerClass = allClasses.find((s) => s.id === childClass.parentId) as
-      | TypeSymbol
-      | undefined;
+      TypeSymbol | undefined;
 
     if (outerClass) {
       // Check if outer class name matches superClass name

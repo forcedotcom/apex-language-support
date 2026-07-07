@@ -178,8 +178,7 @@ export const NewExpressionValidator: Validator = {
         // Inner class parentId may point to class block; traverse to get outer type symbol
         let outerType: TypeSymbol | null = resolvedType.parentId
           ? ((allSymbols.find((s) => s.id === resolvedType.parentId) as
-              | TypeSymbol
-              | undefined) ?? null)
+              TypeSymbol | undefined) ?? null)
           : null;
         if (outerType && isBlockSymbol(outerType)) {
           const block = outerType as ScopeSymbol;
