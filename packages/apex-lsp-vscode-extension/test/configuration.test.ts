@@ -6,6 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// The shared vscode mock omits env/UIKind; provide them for environment detection.
+jest.mock('vscode', () => ({
+  ...jest.requireActual('vscode'),
+  env: { uiKind: 1, language: 'en' },
+  UIKind: { Desktop: 1, Web: 2 },
+}));
+
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
 import {

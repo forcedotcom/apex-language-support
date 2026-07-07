@@ -1383,6 +1383,7 @@ export class LCSAdapter {
     this.clientVscodeVersion = envSettings?.vscodeVersion ?? '';
     this.clientWorkspaceFileCount = envSettings?.workspaceFileCount ?? 0;
     this.clientApexFileCount = envSettings?.apexFileCount ?? 0;
+    this.workerPlatformWebUrl = envSettings?.workerPlatformWebUrl;
 
     const serverModeAfter = configManager.getCapabilitiesManager().getMode();
 
@@ -2418,7 +2419,10 @@ export class LCSAdapter {
         () =>
           `[WorkerCoordinator] Topology initialization failed: ${formattedError(error)}`,
       );
-      if (!process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT) {
+      if (
+        typeof process.exit === 'function' &&
+        !process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT
+      ) {
         this.logger.error(
           () => '[WorkerCoordinator] Exiting process due to topology failure',
         );

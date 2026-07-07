@@ -264,6 +264,7 @@ const DEFAULT_WORKER_SCRIPT =
 export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
+  readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
@@ -410,6 +411,7 @@ export function initializeTopology(
     return {
       dataOwner,
       requestPool,
+      requestPoolSize: poolSize,
       resourceLoader,
       compilation,
     } as WorkerTopology;
@@ -955,7 +957,7 @@ export function makeWorkerDispatcher(
       },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
-      poolSize: 0,
+      poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
       getDocumentContent,
     },
