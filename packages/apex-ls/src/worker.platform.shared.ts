@@ -713,9 +713,6 @@ export async function loadSymbolDataForEnrichment(
  * Best-effort and idempotent: names already known locally are skipped, and a
  * failed query leaves the graph partial.
  *
- * keep this helper in sync with worker.platform.web.ts — the two platforms
- * intentionally carry identical enrichment bodies.
- *
  * @param svc Enrichment services (symbol manager + storage).
  * @param names Candidate names to resolve (e.g. unresolved class references).
  * @param queryByName Coordinator-assistance fetcher; injectable so the
@@ -2277,8 +2274,6 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  // NOTE: keep this handler in sync with worker.platform.web.ts —
-  // the two platforms intentionally carry identical data-owner bodies.
   DataOwnerQuerySymbolByName: (req) =>
     guardRole('DataOwnerQuerySymbolByName').pipe(
       Effect.flatMap(() =>

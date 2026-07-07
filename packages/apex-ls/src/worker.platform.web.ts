@@ -47,14 +47,7 @@ import {
   setResourceLoaderLayerFactory,
   setWarmRemoteStdlibNamespaceCache,
   currentWorkerLogLevel,
-  loadDependentsForReferences,
 } from './worker.platform.shared.ts';
-
-// Re-exported for an existing test import that still references this path
-// (test/server/loadDependentsForReferences.web.test.ts). Task 8 repoints it
-// to import from worker.platform.shared.ts directly, at which point this
-// re-export can be removed.
-export { loadDependentsForReferences };
 
 // ---------------------------------------------------------------------------
 // Worker ID (no process.pid in browser)

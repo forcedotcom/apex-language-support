@@ -51,7 +51,7 @@ import {
   loadDependentsForReferences,
   recompileCursorFileAtFullDetail,
   declaringFileForCursorSymbol,
-} from '../../src/worker.platform';
+} from '../../src/worker.platform.shared';
 
 const UTIL_URI = 'file:///t/RefUtil.cls';
 const CALLER_A_URI = 'file:///t/RefCallerA.cls';

@@ -35,24 +35,7 @@ import {
   setResourceLoaderLayerFactory,
   setWarmRemoteStdlibNamespaceCache,
   currentWorkerLogLevel,
-  resolveMissingNamesViaDataOwner,
-  loadDependentsForReferences,
-  recompileCursorFileAtFullDetail,
-  declaringFileForCursorSymbol,
 } from './worker.platform.shared.ts';
-
-// Re-exported for existing test imports that still reference this path
-// (test/server/resolveMissingNamesViaDataOwner.test.ts,
-// test/server/loadDependentsForReferences.node.test.ts,
-// test/server/referenceEnrichmentRecipe.node.test.ts). Task 8 repoints these
-// to import from worker.platform.shared.ts directly, at which point this
-// re-export block can be removed.
-export {
-  resolveMissingNamesViaDataOwner,
-  loadDependentsForReferences,
-  recompileCursorFileAtFullDetail,
-  declaringFileForCursorSymbol,
-};
 
 // ---------------------------------------------------------------------------
 // Worker ID for write-back tracking
