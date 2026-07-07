@@ -107,6 +107,16 @@ export class ApexStorage extends ApexStorageBase {
     return true;
   }
 
+  async getAllDocumentContents(): Promise<
+    Array<{ uri: string; content: string }>
+  > {
+    const out: Array<{ uri: string; content: string }> = [];
+    for (const [uri, doc] of this.documents) {
+      out.push({ uri, content: doc.getText() });
+    }
+    return out;
+  }
+
   // Hover getters and setters
   public async getHover(symbolName: string): Promise<string | undefined> {
     return this.hoverMap.get(symbolName);

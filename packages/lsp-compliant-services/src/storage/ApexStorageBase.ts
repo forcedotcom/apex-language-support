@@ -124,6 +124,16 @@ export abstract class ApexStorageBase implements ApexStorageInterface {
   abstract deleteDocument(uri: string): Promise<boolean>;
 
   /**
+   * Get every stored document as a { uri, content } pair. Used by
+   * workspace-wide content-prefilter discovery to scan all raw file content
+   * for textual mentions of a target symbol.
+   * @returns Promise resolving to an array of { uri, content } pairs
+   */
+  abstract getAllDocumentContents(): Promise<
+    Array<{ uri: string; content: string }>
+  >;
+
+  /**
    * Set a definition for a given symbol
    * @param symbolName The name of the symbol to set the definition for
    * @param definition The ApexReference to store as the definition

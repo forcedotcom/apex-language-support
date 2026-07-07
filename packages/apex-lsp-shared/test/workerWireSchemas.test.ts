@@ -223,13 +223,14 @@ describe('workerWireSchemas', () => {
       const req = new DispatchDocumentChange({
         uri: 'file:///MyClass.cls',
         version: 2,
-        contentChanges: [{ text: 'updated' }],
+        content: 'updated',
       });
       expect(req._tag).toBe('DispatchDocumentChange');
 
       const encoded = Schema.encodeSync(DispatchDocumentChange)(req);
       const decoded = Schema.decodeSync(DispatchDocumentChange)(encoded);
       expect(decoded.version).toBe(2);
+      expect(decoded.content).toBe('updated');
     });
   });
 
@@ -238,10 +239,12 @@ describe('workerWireSchemas', () => {
       const req = new DispatchDocumentSave({
         uri: 'file:///MyClass.cls',
         version: 3,
+        content: 'saved',
       });
       const encoded = Schema.encodeSync(DispatchDocumentSave)(req);
       const decoded = Schema.decodeSync(DispatchDocumentSave)(encoded);
       expect(decoded.uri).toBe('file:///MyClass.cls');
+      expect(decoded.content).toBe('saved');
     });
   });
 
