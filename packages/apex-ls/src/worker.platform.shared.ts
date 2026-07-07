@@ -1883,7 +1883,6 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
           ` logLevel=${currentWorkerLogLevel}`,
       );
-      yield* Effect.logDebug('[WorkerInit] Testing debug log after init');
     }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
 
