@@ -9,7 +9,9 @@
       "entry": [
         "src/server.*.ts",
         "src/server.ts",
-        "src/server/webWorkerServer.ts"
+        "src/server/webWorkerServer.ts",
+        "src/worker.platform.ts",
+        "src/worker.platform.web.ts"
       ],
       "ignoreDependencies": [
         "@effect/platform",

@@ -39,6 +39,7 @@ import {
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
+// @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 import {
   handlers,
   AllWorkerRequests,
