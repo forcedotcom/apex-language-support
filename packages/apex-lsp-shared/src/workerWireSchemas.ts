@@ -483,16 +483,6 @@ export const WireRange = Schema.Struct({
 });
 
 /**
- * Mirrors LSP TextDocumentContentChangeEvent.
- * Incremental: range + text; full: text only.
- */
-export const WireContentChangeEvent = Schema.Struct({
-  range: Schema.optional(WireRange),
-  rangeLength: Schema.optional(Schema.Number),
-  text: Schema.String,
-});
-
-/**
  * Text document identifier (mirrors LSP TextDocumentIdentifier).
  */
 const WireTextDocumentId = Schema.Struct({ uri: Schema.String });
@@ -521,7 +511,13 @@ export class DispatchDocumentChange extends Schema.TaggedRequest<DispatchDocumen
     payload: {
       uri: Schema.String,
       version: Schema.Number,
-      contentChanges: Schema.Array(WireContentChangeEvent),
+      // Full document text after the change. The LS negotiates full-text sync
+      // (TextDocumentSyncKind.Full), so each change carries the entire updated
+      // document. The data-owner stores this as the file's authoritative text
+      // (used by e.g. the find-references lexical prefilter); storing a blank
+      // placeholder here silently drops the file out of any text-based scan
+      // until the next full workspace ingest (W-23272674).
+      content: Schema.String,
     },
   },
 ) {}
@@ -534,6 +530,8 @@ export class DispatchDocumentSave extends Schema.TaggedRequest<DispatchDocumentS
     payload: {
       uri: Schema.String,
       version: Schema.Number,
+      // Full saved document text — see DispatchDocumentChange.content.
+      content: Schema.String,
     },
   },
 ) {}
@@ -643,12 +641,12 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
       context: Schema.Struct({
         includeDeclaration: Schema.Boolean,
       }),
-      // Live (possibly unsaved) document text. ReferencesProcessingService reads
-      // the document from the worker's local storage to map the cursor position
-      // to a symbol; the stateless request-pool worker has no document unless we
-      // thread the text in (same as DispatchDocumentSymbol). Without it the pool
-      // worker's storage misses and find-references returns [] for every cursor
-      // — including cross-file usages.
+      // Live (possibly unsaved) document text. The worker's DispatchReferences
+      // handler reads the document from the worker's local storage to map the
+      // cursor position to a symbol; the stateless request-pool worker has no
+      // document unless we thread the text in (same as DispatchDocumentSymbol).
+      // Without it the pool worker's storage misses and find-references returns
+      // [] for every cursor — including cross-file usages.
       content: Schema.optional(Schema.String),
     },
   },
@@ -813,6 +811,33 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
 ) {}
 
 // ---------------------------------------------------------------------------
+// FindOccurrenceCandidates — find-references rebuild asks the data-owner to
+// lexically scan all stored workspace documents for files whose text mentions
+// `symbolName` (matched on word boundaries), returning candidate
+// {uri, content} pairs. This is phase-1 of find-references: a cheap textual
+// pre-filter that narrows the set of files worth parsing before the precise
+// symbol-resolution pass runs.
+// ---------------------------------------------------------------------------
+
+export class FindOccurrenceCandidates extends Schema.TaggedRequest<FindOccurrenceCandidates>()(
+  'FindOccurrenceCandidates',
+  {
+    success: Schema.Struct({
+      candidates: Schema.Array(
+        Schema.Struct({ uri: Schema.String, content: Schema.String }),
+      ),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('FindOccurrenceCandidatesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      symbolName: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // EnsureWorkspaceLoaded — worker → coordinator (over the assistance bus) to
 // ask the coordinator to send a workspace-load notification to the LSP
 // client. Fire-and-forget at the LSP layer (the notification carries no
@@ -953,6 +978,7 @@ export const DataOwnerTags = [
   'UpdateSymbolSubset',
   'ResolveDepUris',
   'ResolveDependentUris',
+  'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
   'DrainDeferredReferences',
   'QueryGraphData',
@@ -1030,6 +1056,7 @@ export type DataOwnerRequest =
   | UpdateSymbolSubset
   | ResolveDepUris
   | ResolveDependentUris
+  | FindOccurrenceCandidates
   | WorkspaceBatchIngest
   | DrainDeferredReferences
   | QueryGraphData

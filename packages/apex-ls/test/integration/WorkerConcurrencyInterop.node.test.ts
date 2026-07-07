@@ -79,7 +79,6 @@ const changeParams = (uri: string, text: string, version: number) => ({
     getText: () => text,
   },
   textDocument: { uri, version },
-  contentChanges: [{ text }],
   text,
 });
 
