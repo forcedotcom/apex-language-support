@@ -2313,9 +2313,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           name: symbol.name,
           namespace,
           kind: symbol.kind as
-            | SymbolKind.Class
-            | SymbolKind.Interface
-            | SymbolKind.Enum,
+            SymbolKind.Class | SymbolKind.Interface | SymbolKind.Enum,
           symbolId: symbol.id,
           fileUri,
           isStdlib: false, // User type

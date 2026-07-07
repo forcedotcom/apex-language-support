@@ -19,8 +19,7 @@
  * @returns Data URL string or undefined
  */
 export function getEmbeddedStandardLibraryTypeRegistryDataUrl():
-  | string
-  | undefined {
+  string | undefined {
   try {
     // In bundled builds, esbuild will replace this require with a data URL
     // In unbundled builds, this will fail and we fall back to disk loading

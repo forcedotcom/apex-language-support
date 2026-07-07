@@ -100,8 +100,7 @@ export function composeNotificationChain<P>(
   for (let i = middlewares.length - 1; i >= 0; i--) {
     const mw = middlewares[i];
     const hookFn = mw[hook] as
-      | ((method: string, params: P, next: (p: P) => void) => void)
-      | undefined;
+      ((method: string, params: P, next: (p: P) => void) => void) | undefined;
     if (hookFn) {
       const currentNext = next;
       next = (p: P) => {

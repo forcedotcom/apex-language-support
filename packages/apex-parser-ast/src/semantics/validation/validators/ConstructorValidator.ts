@@ -553,8 +553,7 @@ function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
       if (isContextType(primary, LiteralPrimaryContext)) {
         const literalPrimary = primary as LiteralPrimaryContext;
         const literal = literalPrimary.literal?.() as
-          | LiteralContext
-          | undefined;
+          LiteralContext | undefined;
         if (literal) {
           // Use StringLiteral() method to check for string literal
           return !!literal.StringLiteral?.();
@@ -591,8 +590,7 @@ function isNumericLiteral(
     const primary = primaryExpr.primary?.();
     if (primary && isContextType(primary, LiteralPrimaryContext)) {
       const literal = (primary as LiteralPrimaryContext).literal?.() as
-        | LiteralContext
-        | undefined;
+        LiteralContext | undefined;
       if (literal) {
         const intLiteral = literal.IntegerLiteral?.();
         const longLiteral = literal.LongLiteral?.();
@@ -1188,8 +1186,7 @@ function findParentClassInSameFile(
   // Check if child class is an inner class extending its outer class
   if (childClass.parentId) {
     const outerClass = allClasses.find((s) => s.id === childClass.parentId) as
-      | TypeSymbol
-      | undefined;
+      TypeSymbol | undefined;
 
     if (outerClass && outerClass.name.toLowerCase() === superClassName) {
       return outerClass;
@@ -1274,9 +1271,7 @@ export const ConstructorValidator: Validator = {
       try {
         // Use cached parse tree if available, otherwise parse source content
         let parseTree:
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
         if (options.parseTree) {
           // Use cached parse tree from DocumentStateCache
           parseTree = options.parseTree;

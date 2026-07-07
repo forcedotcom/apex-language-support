@@ -728,10 +728,7 @@ export class LSPConfigurationManager {
    */
   public getCompilationOptions(
     operationType:
-      | 'documentChange'
-      | 'documentOpen'
-      | 'documentSymbols'
-      | 'foldingRanges',
+      'documentChange' | 'documentOpen' | 'documentSymbols' | 'foldingRanges',
     fileSize?: number,
   ) {
     return this.settingsManager.getCompilationOptions(operationType, fileSize);

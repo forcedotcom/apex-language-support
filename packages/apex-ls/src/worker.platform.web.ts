@@ -1078,8 +1078,7 @@ export async function targetSymbolForCursor(
     if (!name) return null;
     const leaf = name.includes('.') ? name.split('.').pop()! : name;
     const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0] as
-      | { name?: string; kind?: unknown }
-      | undefined;
+      { name?: string; kind?: unknown } | undefined;
     return {
       name: named?.name ?? leaf,
       kind: named && typeof named.kind === 'string' ? named.kind : undefined,

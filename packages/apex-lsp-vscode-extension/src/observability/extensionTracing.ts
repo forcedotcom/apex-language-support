@@ -25,14 +25,12 @@ class ServicesExtensionActivationError extends Data.TaggedError(
 )<{ cause: unknown }> {}
 
 let extensionTracingRuntime:
-  | ManagedRuntime.ManagedRuntime<never, never>
-  | undefined;
+  ManagedRuntime.ManagedRuntime<never, never> | undefined;
 
 let salesforceServicesApi: SalesforceVSCodeServicesApi | undefined;
 
 export function getSalesforceServicesApi():
-  | SalesforceVSCodeServicesApi
-  | undefined {
+  SalesforceVSCodeServicesApi | undefined {
   return salesforceServicesApi;
 }
 

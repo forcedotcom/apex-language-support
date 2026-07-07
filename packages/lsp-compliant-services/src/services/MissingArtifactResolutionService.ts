@@ -22,11 +22,7 @@ import type { Connection } from 'vscode-languageserver';
  * Result types for blocking resolution
  */
 export type BlockingResult =
-  | 'resolved'
-  | 'not-found'
-  | 'timeout'
-  | 'cancelled'
-  | 'unsupported';
+  'resolved' | 'not-found' | 'timeout' | 'cancelled' | 'unsupported';
 
 /**
  * Configuration for missing artifact resolution
@@ -67,8 +63,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
    * via setMissingArtifactAssistanceProxy().
    */
   private static assistanceProxy:
-    | ((params: unknown) => Promise<unknown>)
-    | null = null;
+    ((params: unknown) => Promise<unknown>) | null = null;
 
   static setAssistanceProxy(fn: (params: unknown) => Promise<unknown>): void {
     EnhancedMissingArtifactResolutionService.assistanceProxy = fn;

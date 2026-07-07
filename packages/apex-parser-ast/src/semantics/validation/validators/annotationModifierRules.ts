@@ -26,10 +26,7 @@ export type AnnotationElementKind =
 
 /** Required modifier on defining type: isTest, RestResource, global, namespaceAccessible */
 export type RequiredDefiningModifier =
-  | 'isTest'
-  | 'RestResource'
-  | 'global'
-  | 'namespaceAccessibleOrGlobal';
+  'isTest' | 'RestResource' | 'global' | 'namespaceAccessibleOrGlobal';
 
 /**
  * Annotations that require a specific unit type (defining type).

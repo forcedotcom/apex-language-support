@@ -12,10 +12,7 @@ import { SymbolResolutionContext } from '../../types/ISymbolManager';
  * LSP request types that require position-based resolution
  */
 export type ResolutionRequestType =
-  | 'hover'
-  | 'definition'
-  | 'references'
-  | 'completion';
+  'hover' | 'definition' | 'references' | 'completion';
 
 /**
  * Position information for resolution requests
