@@ -33,11 +33,17 @@ import {
   clearRawWorkers,
 } from '../../src/server/WorkerCoordinator';
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
-import { getLogger, type LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  type LoggerInterface,
+  enableConsoleLogging,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 import { Effect, Fiber } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'error';
 
 const MATCH_LATEST_VERSION = -1;
 
@@ -102,7 +108,13 @@ function wireMediator(
 }
 
 describe('Worker concurrency + interop (live assistance bus)', () => {
-  const logger = getLogger();
+  let logger: LoggerInterface;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -138,7 +150,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -206,7 +218,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
     const finalSymbols =
       entry?.symbols?.map((s) => s.name).join(',') ?? '<none>';
 
-    console.log(
+    logger.debug(
       `[stale-version] readyV1=${JSON.stringify(readyV1)} ` +
         `latestReadiness=${JSON.stringify(readiness)} waitedMs=${waitedMs} ` +
         `docVersion=${query.versions[URI]} finalSymbols=[${finalSymbols}]`,
@@ -269,7 +281,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -352,7 +364,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
 
     const { writeResult, writeMs } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[write-liveness] reads=${READ_BURST} writeAccepted=${writeResult.accepted} ` +
         `versionMismatch=${writeResult.versionMismatch} writeMs=${writeMs}`,
     );
@@ -392,7 +404,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const openDocs = new Map<string, string>();
       const dispatcher = makeWorkerDispatcher(topology, logger, (u) =>
@@ -455,7 +467,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       new Set(results.filter((r) => !r.ready).map((r) => r.reason)),
     );
 
-    console.log(
+    logger.debug(
       `[stampede] awaiters=${AWAITERS} ready=${readyCount} ` +
         `notReadyReasons=[${reasons.join(',')}]`,
     );
@@ -489,7 +501,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const openDocs = new Map<string, string>();
       const dispatcher = makeWorkerDispatcher(topology, logger, (u) =>
@@ -547,7 +559,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
 
     const { a, b, finalLevel } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[detail-race] fullAccepted=${a.accepted} protectedAccepted=${b.accepted} ` +
         `finalLevel=${finalLevel}`,
     );

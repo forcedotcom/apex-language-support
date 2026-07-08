@@ -47,11 +47,16 @@ import {
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  enableConsoleLogging,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'error';
 
 // A simple, self-contained interface: trivial to compile and outline. Mirrors
 // the live-log file (MyInterface.cls) whose cold-open documentSymbol returned
@@ -98,7 +103,13 @@ function wireProductionMediator(
 }
 
 describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
-  const logger = getLogger();
+  let logger: ReturnType<typeof getLogger>;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -110,7 +121,7 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
       wireProductionMediator(topology, dispatcher, logger);
@@ -149,7 +160,9 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
     const response = await Effect.runPromise(program);
     const symbols = response.result as unknown[] | null;
 
-    console.log(`[cold-open:documentSymbol] result=${JSON.stringify(symbols)}`);
+    logger.debug(
+      `[cold-open:documentSymbol] result=${JSON.stringify(symbols)}`,
+    );
 
     // The outline must contain the interface (and ideally its members). With the
     // regression, `symbols` is null/empty because the pool worker has no
