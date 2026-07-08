@@ -523,19 +523,18 @@ const scrapeExceptions = (ref: ClassReference) =>
       ];
     }
 
-    return extracted.map(
-      ({ name, parentClass }): ExceptionScrapeResult =>
-        parentClass
-          ? { kind: 'inner', name, parentClass }
-          : {
-              kind: 'topLevel',
-              cls: new ApexClass({
-                name,
-                namespace: ref.namespace,
-                methods: [],
-                properties: [],
-              }),
-            },
+    return extracted.map(({ name, parentClass }): ExceptionScrapeResult =>
+      parentClass
+        ? { kind: 'inner', name, parentClass }
+        : {
+            kind: 'topLevel',
+            cls: new ApexClass({
+              name,
+              namespace: ref.namespace,
+              methods: [],
+              properties: [],
+            }),
+          },
     );
   });
 

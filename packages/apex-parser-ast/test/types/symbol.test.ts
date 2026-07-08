@@ -862,6 +862,104 @@ describe('SymbolTable', () => {
     expect(table.lookup('nonExistentVar', childScope ?? null)).toBeUndefined();
   });
 
+  it('lookupInScopeChain resolves through parents and roots but NOT into child scopes', () => {
+    table.setFileUri('test://scopeChain.cls');
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 20, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
+    // A file-level (root) symbol, and a method body scope under it.
+    const rootSymbol: ApexSymbol = {
+      name: 'rootVar',
+      kind: SymbolKind.Variable,
+      ...MOCK_SYMBOL_PROPS,
+      id: 'root-var-id',
+      parentId: fileScope?.id ?? null,
+    };
+    table.addSymbol(rootSymbol, fileScope ?? null);
+
+    const methodLocation: SymbolLocation = {
+      symbolRange: { startLine: 2, startColumn: 0, endLine: 18, endColumn: 0 },
+      identifierRange: {
+        startLine: 2,
+        startColumn: 0,
+        endLine: 2,
+        endColumn: 6,
+      },
+    };
+    const methodScope = table.enterScope(
+      'methodScope',
+      'block',
+      methodLocation,
+      undefined,
+      fileScope ?? null,
+    );
+    const methodLocal: ApexSymbol = {
+      name: 'methodVar',
+      kind: SymbolKind.Variable,
+      ...MOCK_SYMBOL_PROPS,
+      id: 'method-var-id',
+      parentId: methodScope?.id ?? null,
+    };
+    table.addSymbol(methodLocal, methodScope ?? null);
+
+    // A nested block inside the method, declaring `nestedVar`. In real Apex
+    // `nestedVar` is NOT visible from the method body — only from inside the
+    // nested block.
+    const nestedLocation: SymbolLocation = {
+      symbolRange: { startLine: 5, startColumn: 0, endLine: 8, endColumn: 0 },
+      identifierRange: {
+        startLine: 5,
+        startColumn: 0,
+        endLine: 5,
+        endColumn: 6,
+      },
+    };
+    const nestedScope = table.enterScope(
+      'nestedScope',
+      'block',
+      nestedLocation,
+      undefined,
+      methodScope ?? null,
+    );
+    const nestedLocal: ApexSymbol = {
+      name: 'nestedVar',
+      kind: SymbolKind.Variable,
+      ...MOCK_SYMBOL_PROPS,
+      id: 'nested-var-id',
+      parentId: nestedScope?.id ?? null,
+    };
+    table.addSymbol(nestedLocal, nestedScope ?? null);
+
+    // Parents + roots resolve as usual.
+    expect(table.lookupInScopeChain('methodVar', methodScope ?? null)).toBe(
+      methodLocal,
+    );
+    expect(table.lookupInScopeChain('rootVar', methodScope ?? null)).toBe(
+      rootSymbol,
+    );
+
+    // The bug guard: from the method body, `nestedVar` (declared only in a
+    // child block) must NOT resolve. lookup() descends into children and finds
+    // it; lookupInScopeChain() must not.
+    expect(table.lookup('nestedVar', methodScope ?? null)).toBe(nestedLocal);
+    expect(
+      table.lookupInScopeChain('nestedVar', methodScope ?? null),
+    ).toBeUndefined();
+
+    // From inside the nested block, `nestedVar` is in scope and resolves.
+    expect(table.lookupInScopeChain('nestedVar', nestedScope ?? null)).toBe(
+      nestedLocal,
+    );
+  });
+
   it('should look up a symbol by its key', () => {
     const symbol: ApexSymbol = {
       name: 'myVar',

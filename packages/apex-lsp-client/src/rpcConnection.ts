@@ -94,4 +94,11 @@ export interface RpcConnection {
    * Tear down the transport. May be sync or async.
    */
   dispose(): void | Promise<void>;
+
+  /**
+   * Check if the connection is actively listening for messages.
+   * Used to enforce the precondition that ApexClientCore.create() must receive
+   * a not-yet-listening connection so handlers can be registered before traffic flows.
+   */
+  isListening?(): boolean;
 }

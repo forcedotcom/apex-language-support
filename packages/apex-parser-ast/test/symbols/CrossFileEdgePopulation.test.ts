@@ -243,11 +243,11 @@ describe('Cross-file edge population (W-22692421)', () => {
         },
       };
       symbolTable.addTypeReference(
+        // resolvedSymbolId omitted: UNRESOLVED — triggers name-match fallback
         new EnhancedSymbolReference(
           'total',
           injectedLoc,
           ReferenceContext.VARIABLE_USAGE,
-          undefined, // resolvedSymbolId: UNRESOLVED — triggers name-match fallback
         ),
       );
 

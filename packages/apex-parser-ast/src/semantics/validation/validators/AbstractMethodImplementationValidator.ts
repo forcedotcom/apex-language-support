@@ -53,8 +53,7 @@ function findParentClassInSameFile(
   if (childClass.parentId) {
     // parentId may point to class block (scope) or directly to outer class
     let outerClass = allClasses.find((s) => s.id === childClass.parentId) as
-      | TypeSymbol
-      | undefined;
+      TypeSymbol | undefined;
 
     if (!outerClass) {
       // parentId points to class block; find class containing that block
@@ -66,8 +65,7 @@ function findParentClassInSameFile(
       );
       if (block) {
         outerClass = allClasses.find((s) => s.id === block.parentId) as
-          | TypeSymbol
-          | undefined;
+          TypeSymbol | undefined;
       }
     }
 

@@ -168,9 +168,7 @@ export const DmlLoopQueryValidator: Validator = {
 
       try {
         let parseTree:
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
         if (options.parseTree) {
           parseTree = options.parseTree;
         } else {

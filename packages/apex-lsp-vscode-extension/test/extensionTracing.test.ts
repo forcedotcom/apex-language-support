@@ -174,8 +174,7 @@ describe('extensionTracing', () => {
 
   describe('onDidChangeConfiguration listener', () => {
     let capturedListener:
-      | ((event: vscode.ConfigurationChangeEvent) => Promise<void>)
-      | undefined;
+      ((event: vscode.ConfigurationChangeEvent) => Promise<void>) | undefined;
 
     beforeEach(async () => {
       mockOnDidChangeConfiguration.mockImplementation((listener) => {

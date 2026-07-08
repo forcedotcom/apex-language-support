@@ -6,9 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexSymbol } from '../types/symbol';
+import type { ApexSymbol, MethodSymbol } from '../types/symbol';
 import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
-import { isMethodSymbol } from '../utils/symbolNarrowing';
+import { isMethodOrConstructorSymbol } from '../utils/symbolNarrowing';
 
 /**
  * Shared cache-key builders for the `findReferencesTo` / `findReferencesFrom`
@@ -26,23 +26,39 @@ import { isMethodSymbol } from '../utils/symbolNarrowing';
  * query for one would serve another's cached results. The key therefore also
  * carries the declaring file (normalized the same way symbol IDs and the
  * reverse index are, via {@link extractFilePathFromUri}, so two spellings of
- * one URI don't drift into separate entries) and — for methods — the declared
- * arity, the same discriminator the reverse-index overload separation uses.
+ * one URI don't drift into separate entries) and — for methods AND constructors
+ * — the declared signature: parameter count plus parameter type strings.
+ * Constructors are overloadable by parameter list too (`Foo()` vs
+ * `Foo(String)`), so they need the discriminator as well. The parameter TYPES
+ * (not just the count) are load-bearing now that same-arity overloads are
+ * separated by signature (W-23182862): `use(String)` and `use(Integer)` are
+ * distinct targets with distinct reference sets, so an arity-only key would
+ * collide them and serve one overload's filtered results for the other.
  *
  * The `refs_to_` / `refs_from_` prefixes are load-bearing: the relationship
  * cache is invalidated wholesale by the `^refs_(to|from)_` pattern in
  * `ApexSymbolManager`, so both builders must keep those prefixes.
  */
 
-/** File + arity discriminator shared by both key shapes. */
+/** File + signature discriminator shared by both key shapes. */
 function discriminator(symbol: ApexSymbol): string {
   const filePart = symbol.fileUri
     ? extractFilePathFromUri(symbol.fileUri)
     : 'no-file';
-  const arityPart = isMethodSymbol(symbol)
-    ? `:${symbol.parameters?.length ?? 0}`
-    : '';
-  return `${symbol.name}@${filePart}${arityPart}`;
+  let signaturePart = '';
+  if (isMethodOrConstructorSymbol(symbol)) {
+    const params = (symbol as MethodSymbol).parameters ?? [];
+    // Arity, then the parameter type strings, so same-arity overloads
+    // (`use(String)` vs `use(Integer)`) get distinct keys. Lowercased to match
+    // the case-insensitive signature comparison used in overload separation.
+    const paramTypes = params
+      .map((p) =>
+        (p.type?.originalTypeString ?? p.type?.name ?? '').toLowerCase(),
+      )
+      .join(',');
+    signaturePart = `:${params.length}(${paramTypes})`;
+  }
+  return `${symbol.name}@${filePart}${signaturePart}`;
 }
 
 /** Build the `findReferencesTo` relationship cache key. */

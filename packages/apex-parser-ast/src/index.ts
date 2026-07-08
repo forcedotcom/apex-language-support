@@ -143,6 +143,14 @@ export {
   type ResolveDependentUrisResult,
 } from './symbols/ops/resolveDependentUris';
 export {
+  escapeForRegExp,
+  textMentionsSymbol,
+} from './symbols/ops/textMentionsSymbol';
+export {
+  findOccurrencesInFile,
+  type OccurrenceMatch,
+} from './symbols/ops/findOccurrencesInFile';
+export {
   analyzeDependencies as analyzeDependenciesOp,
   detectCircularDependencies as detectCircularDependenciesOp,
   getGraphData as getGraphDataOp,

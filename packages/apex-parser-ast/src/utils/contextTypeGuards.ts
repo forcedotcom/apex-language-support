@@ -255,3 +255,62 @@ export function countCallArguments(
 ): number {
   return ctx.expressionList()?.expression_list()?.length ?? 0;
 }
+
+/**
+ * Count the call-site arguments of a constructor call (`new Foo(a, b)`).
+ *
+ * Grammar: `newExpression` → `creator` → `classCreatorRest` →
+ * `arguments` (`LPAREN expressionList? RPAREN`), whose `expression_list()` is
+ * the positional argument array. A no-arg `new Foo()` still has a
+ * `classCreatorRest` with an empty `arguments`, so this returns `0`; a creator
+ * with no `classCreatorRest` (array/map/set creators) also returns `0`.
+ *
+ * This is the constructor call-site *arity* — the overload discriminator that
+ * lets `findReferencesTo` separate `Foo()` from `Foo(String)` the same way
+ * {@link countCallArguments} does for method overloads (F11-2). Without it,
+ * constructor-call references carry no `argumentCount` and constructor
+ * overloads collapse onto one another.
+ */
+export function countConstructorArguments(ctx: NewExpressionContext): number {
+  const rest = ctx.creator()?.classCreatorRest?.();
+  return rest?.arguments()?.expressionList()?.expression_list()?.length ?? 0;
+}
+
+/**
+ * Raw source text of each positional argument in an `expressionList`, in order.
+ *
+ * This is a purely *syntactic* capture — `expr.getText()` of each argument
+ * expression, e.g. `['"hi"', 'x', 'new Account()']` for `f("hi", x, new
+ * Account())`. It deliberately does NOT resolve types: an identifier argument
+ * stays as its source name (`x`), to be resolved to a declared type later
+ * during semantic resolution. Capturing it here is necessary because the
+ * argument-expression AST does not survive the parser listener walk — only the
+ * reference object persists — so the raw text must be lifted onto the reference
+ * now for the semantic phase to work with.
+ */
+const argumentExpressionTexts = (
+  list: ExpressionListContext | null,
+): string[] => (list?.expression_list() ?? []).map((expr) => expr.getText());
+
+/**
+ * Positional source texts of a method call's arguments (see
+ * {@link argumentExpressionTexts}). Mirrors {@link countCallArguments}; returns
+ * `[]` for a bare call `f()`.
+ */
+export function callArgumentExpressions(
+  ctx: MethodCallContext | DotMethodCallContext,
+): string[] {
+  return argumentExpressionTexts(ctx.expressionList());
+}
+
+/**
+ * Positional source texts of a constructor call's arguments (see
+ * {@link argumentExpressionTexts}). Mirrors {@link countConstructorArguments};
+ * returns `[]` for `new Foo()` or a non-class creator.
+ */
+export function constructorArgumentExpressions(
+  ctx: NewExpressionContext,
+): string[] {
+  const rest = ctx.creator()?.classCreatorRest?.();
+  return argumentExpressionTexts(rest?.arguments()?.expressionList() ?? null);
+}

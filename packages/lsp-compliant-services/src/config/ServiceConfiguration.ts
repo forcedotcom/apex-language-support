@@ -7,7 +7,7 @@
  */
 
 import { LSPRequestType } from '../queue';
-import { Priority } from '@salesforce/apex-lsp-shared';
+import { Priority, getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service configuration interface
@@ -27,7 +27,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
     priority: Priority.Immediate,
-    timeout: 1000,
+    timeout: 5000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },
@@ -85,9 +85,43 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'references',
     priority: Priority.Low,
-    timeout: 5000,
-    maxRetries: 2,
-    serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),
+    // Find All References runs a workspace-wide two-phase search: a lexical
+    // prefilter on the data-owner, then a FULL-detail recompile of every
+    // candidate file on the request-pool worker so in-body call edges resolve.
+    // That recompile is intrinsically heavier than the old public-api path
+    // (~6-10s on dreamhouse-lwc's GeocodingServiceTest, dominated by
+    // addSymbolTable's finalResolve/sameFileRefs phases — W-23272674). The
+    // former 5s budget fired mid-recompile and discarded a correct result;
+    // 15s matches the diagnostics budget, the comparable heavy cross-file
+    // operation. maxRetries is 0: a timeout here means the recompile genuinely
+    // needs more than the budget, and re-running the same deterministic work
+    // only multiplies the cost (the wasted 3x recompiles seen in traces). The
+    // addSymbolTable phase-trim that would let this drop back toward 5s is
+    // tracked separately (project-findreferences-addtable-bottleneck).
+    timeout: 15000,
+    maxRetries: 0,
+    // References are normally answered by the request-pool worker's two-phase
+    // scan. This config entry also registers the priority/timeout the worker
+    // dispatch derives from `getTimeout('references')`. LSPQueueManager CAN
+    // still fall through to this local handler on the cold-start race (worker
+    // not yet wired, cold-read gate not ready, or a dispatch error). This stub
+    // returns an empty result plus a WARN rather than running the removed local
+    // discovery, because that old local path silently returned incomplete
+    // results. The throw that used to live here never reached the user anyway
+    // (LCSAdapter catches it and returns null), so an empty result + warn is
+    // the honest equivalent without the misleading server-log error.
+    serviceFactory: () => ({
+      processReferences: async () => {
+        getLogger().warn(
+          () =>
+            'Local references handler was invoked, so the request-pool worker ' +
+            'dispatch was bypassed (cold-start race, cold-read gate not ready, ' +
+            'or dispatch error). References are normally served by the ' +
+            'request-pool worker; returning an empty result.',
+        );
+        return [];
+      },
+    }),
   },
   {
     requestType: 'diagnostics',

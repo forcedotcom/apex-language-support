@@ -52,6 +52,11 @@ import {
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  // Phase-1 lexical scan (workspace-wide find-references rebuild). Mirror of the
+  // Node platform. Schema class provided by the shared package (agreed
+  // signature: { symbolName: string } →
+  // { candidates: Array<{ uri: string; content: string }> }).
+  FindOccurrenceCandidates,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -103,6 +108,7 @@ const AllWorkerRequests = Schema.Union(
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  FindOccurrenceCandidates,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -752,9 +758,8 @@ async function loadSymbolDataForEnrichment(
           // this enrichment worker's LOCAL name index. Ask the data-owner
           // (which holds ALL workspace symbols) to resolve the remaining names
           // in one batched query and ingest the owning files' symbol tables.
-          const ingested = await resolveMissingNamesViaDataOwner(svc, [
-            ...classNames,
-          ]);
+          // The ingest count is intentionally not captured (see below).
+          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
 
           // Ingestion alone only lands the owning files' SYMBOLS in the local
           // name index (addSymbolTable processes same-file refs only and defers
@@ -762,19 +767,31 @@ async function loadSymbolDataForEnrichment(
           // on-demand name lookup, so the symbol is enough for them — but the
           // requesting file's TypeReference is still unresolved (no
           // resolvedSymbolId, no reverse-index edge). Materialize those edges
-          // now so reverse-index consumers see them too. Gated on a real
-          // ingest, and resolveCrossFileReferencesForFile is re-entrancy-guarded
-          // + addReference de-dupes, so this is near-free when nothing landed.
-          if (ingested > 0) {
-            await Effect.runPromise(
-              svc.symbolManager.resolveCrossFileReferencesForFile(uri),
-            );
-          }
+          // now so reverse-index + position-precise consumers see them too.
+          //
+          // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
+          // earlier ResolveDepUris pass may have already loaded every dep, which
+          // makes that count 0 even though the cursor file's references are
+          // still unbound. find-references' 'precise' position→symbol lookup
+          // needs those bindings (unlike hover/definition's on-demand by-name
+          // resolution), so resolve whenever ANY class dep was requested.
+          // resolveCrossFileReferencesForFile is re-entrancy-guarded and
+          // addReference de-dupes, so this is near-free when nothing changed.
+          await Effect.runPromise(
+            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+          );
         }
       }
     }
-  } catch {
-    // Subset load failed; caller may still proceed with partial graph.
+  } catch (err) {
+    // Subset load failed (assistance channel down, IPC error, or the data-owner
+    // doesn't have the file). The caller proceeds on a partial/empty graph, so
+    // any request built on it (hover/definition/references/…) may silently
+    // return nothing. Warn — not debug — so an empty result has a breadcrumb
+    // distinguishing "real failure" from "genuinely nothing here".
+    getLogger().warn(
+      () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
+    );
   }
 
   return { version, detailLevel };
@@ -967,12 +984,231 @@ export async function loadDependentsForReferences(
     return ingested;
   } catch (err) {
     // Dependent pre-fetch is best-effort; reference search can still run on
-    // the tables already loaded (e.g. same-file references). Log at debug so a
-    // "cross-file references missing" report has a breadcrumb to follow.
-    getLogger().debug(
+    // the tables already loaded (e.g. same-file references). But reaching this
+    // catch means cross-file callers were NOT loaded, so the result is likely
+    // incomplete — warn so a "cross-file references missing" report has a
+    // breadcrumb to follow.
+    getLogger().warn(
       () => `[REFERENCES] Dependent pre-fetch failed for ${uri}: ${err}`,
     );
     return 0;
+  }
+}
+
+/**
+ * Recompile the cursor file at FULL detail into the worker's local symbol
+ * manager, then resolve its cross-file references. See the Node platform's
+ * {@link recompileCursorFileAtFullDetail} for the full rationale: the
+ * data-owner serves public-api (method bodies stripped), so a cursor on an
+ * in-body usage resolves to nothing and Find References returns []. Recompiling
+ * from the live document text (as documentSymbol does) restores the in-body
+ * references for position→symbol resolution.
+ *
+ * Best-effort: a missing/uncompilable document leaves the public-api graph in
+ * place and Find References proceeds with whatever it has.
+ */
+export async function recompileCursorFileAtFullDetail(
+  svc: RequestServices,
+  uri: string,
+  content?: string,
+): Promise<boolean> {
+  // Only truly-absent content (undefined) skips the recompile; '' is a valid
+  // zero-length file. See the Node platform for the full rationale — this
+  // mirrors the upstream `typeof req.content === 'string'` gate.
+  if (content === undefined) return false;
+  try {
+    const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const table = new SymbolTable();
+    const listener = new FullSymbolCollectorListener(table);
+    const result = new CompilerService().compile(content, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const st = result?.result instanceof SymbolTable ? result.result : table;
+    await Effect.runPromise(svc.symbolManager.addSymbolTable(st, uri));
+    await Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    return true;
+  } catch (err) {
+    // The cursor file stays at public-api detail, so an in-body cursor won't
+    // resolve and Find References can return []. Warn so that empty result is
+    // attributable to a recompile failure rather than a genuine no-match.
+    getLogger().warn(
+      () => `[REFERENCES] Full-detail recompile failed for ${uri}: ${err}`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Resolve the target symbol under the cursor to its NAME and kind, for the
+ * workspace-wide find-references rebuild (mirror of the Node platform's
+ * {@link targetSymbolForCursor}). Only name+kind are needed here — no
+ * declaring-file lookup, type prefetch, or dependent loading (phase-2 does the
+ * symbolic match). The cursor file must already be compiled at full detail.
+ */
+export async function targetSymbolForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<{ name: string; kind?: string } | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = (await svc.symbolManager.getSymbolAtPosition(
+      uri,
+      parserPosition,
+      'precise',
+    )) as { name?: string; kind?: unknown } | null;
+    if (symbol?.name) {
+      return {
+        name: symbol.name,
+        kind: typeof symbol.kind === 'string' ? symbol.kind : undefined,
+      };
+    }
+    const refs = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const name = refs?.[0]?.name;
+    if (!name) return null;
+    const leaf = name.includes('.') ? name.split('.').pop()! : name;
+    const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0] as
+      { name?: string; kind?: unknown } | undefined;
+    return {
+      name: named?.name ?? leaf,
+      kind: named && typeof named.kind === 'string' ? named.kind : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find-references phase-2 (standalone-scan pivot; mirror of the Node platform's
+ * {@link scanCandidatesForOccurrences}). Parse each candidate at full detail
+ * into its OWN throwaway SymbolTable and scan for genuine references to the
+ * target — no shared-graph ingest (see memory
+ * project-findreferences-standalone-pivot). Returns parser coordinates
+ * (1-based line, 0-based column).
+ */
+export async function scanCandidatesForOccurrences(
+  candidates: Array<{ uri: string; content: string }>,
+  target: { name: string; kind?: string },
+): Promise<
+  Array<{
+    uri: string;
+    identifierRange: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+  }>
+> {
+  const {
+    CompilerService,
+    FullSymbolCollectorListener,
+    SymbolTable,
+    findOccurrencesInFile,
+  } = await import('@salesforce/apex-lsp-parser-ast');
+
+  const out: Array<{
+    uri: string;
+    identifierRange: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+  }> = [];
+
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (seen.has(candidate.uri)) continue;
+    seen.add(candidate.uri);
+    try {
+      const table = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(table);
+      const result = new CompilerService().compile(
+        candidate.content,
+        candidate.uri,
+        listener,
+        { collectReferences: true, resolveReferences: true },
+      );
+      const st = result?.result instanceof SymbolTable ? result.result : table;
+      for (const m of findOccurrencesInFile(st, candidate.uri, target)) {
+        out.push({ uri: m.uri, identifierRange: m.identifierRange });
+      }
+    } catch (err) {
+      getLogger().warn(
+        () => `[REFERENCES] phase2 scan failed for ${candidate.uri}: ${err}`,
+      );
+    }
+  }
+  return out;
+}
+
+/**
+ * A declaration's file URI and identifier range (parser coordinates: 1-based
+ * line, 0-based column). Mirror of the Node platform's DeclarationLocation.
+ */
+type DeclarationLocation = {
+  uri: string;
+  identifierRange: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  };
+};
+
+/**
+ * Resolve the DECLARATION location of the symbol under the cursor, for
+ * find-references with `includeDeclaration` (mirror of the Node platform's
+ * {@link declarationLocationForCursor}).
+ */
+export async function declarationLocationForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<DeclarationLocation | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const asDecl = (sym: unknown): DeclarationLocation | null => {
+      const s = sym as {
+        fileUri?: string;
+        location?: { identifierRange?: DeclarationLocation['identifierRange'] };
+      } | null;
+      const ir = s?.location?.identifierRange;
+      if (!s?.fileUri || !ir) return null;
+      return { uri: s.fileUri, identifierRange: ir };
+    };
+    const precise = await svc.symbolManager.getSymbolAtPosition(
+      uri,
+      parserPosition,
+      'precise',
+    );
+    const fromPrecise = asDecl(precise);
+    if (fromPrecise) return fromPrecise;
+    const refs = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const name = refs?.[0]?.name;
+    if (!name) return null;
+    const leaf = name.includes('.') ? name.split('.').pop()! : name;
+    const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0];
+    return asDecl(named);
+  } catch {
+    return null;
   }
 }
 
@@ -1200,40 +1436,126 @@ const requestHandlers = {
   DispatchReferences: requestHandler<RefsReq>(
     'DispatchReferences',
     async (svc, req) => {
-      // Mirror the hover/definition enrichment shape:
-      //   load symbol data → load caller-side dependents → process → write back.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
+      // Two-phase workspace scan (W-23272674, standalone-scan pivot; mirror of
+      // the Node platform's DispatchReferences). Recompile only the cursor file
+      // (to resolve the target); then lexically prefilter the workspace and
+      // scan each candidate STANDALONE — no per-candidate shared-graph ingest.
+      const cursorTextAvailable = typeof req.content === 'string';
+      const cursorRecompiled = await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
+        req.content,
       );
 
-      // Find References needs the caller-side tables (files that reference the
-      // target's symbols), which loadSymbolDataForEnrichment does not fetch.
-      await loadDependentsForReferences(svc, req.textDocument.uri);
-
-      // References resolve against protected members of dependent files, so a
-      // 'protected' detail level matches the existing service behavior (see
-      // LayerEnrichmentService enrichment of references in
-      // ReferencesProcessingService).
-      const requiredLevel = 'protected';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.referencesService.processReferences({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-        context: { includeDeclaration: req.context.includeDeclaration },
-      });
-
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
-          svc,
-          req.textDocument.uri,
-          version,
-          requiredLevel,
+      if (!cursorRecompiled && !cursorTextAvailable) {
+        getLogger().warn(
+          () =>
+            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
+            'cursor file cannot be recompiled at full detail, so position ' +
+            'resolution cannot succeed. Aborting with an empty result.',
         );
+        return [];
       }
 
-      return result;
+      // --- Phase-1: resolve the target, then lexically prefilter the workspace.
+      const target = await targetSymbolForCursor(
+        svc,
+        req.textDocument.uri,
+        req.position,
+      );
+      emitWorkerLog(
+        'info',
+        `[REFERENCES] target: name=${target?.name ?? '<none>'} ` +
+          `kind=${target?.kind ?? '<none>'}`,
+      );
+      if (!target?.name) return [];
+
+      const scan = (await requestCoordinatorAssistancePromise(
+        'dataOwner:FindOccurrenceCandidates',
+        { symbolName: target.name },
+        true,
+      )) as { candidates: Array<{ uri: string; content: string }> };
+      const rawCandidates = scan?.candidates ?? [];
+
+      // Live-buffer fidelity for the file under the cursor: phase-1 and phase-2
+      // both scan the data-owner's STORED content, which can lag the unsaved
+      // editor buffer. `req.content` is the live text for the cursor file, so
+      // override that one candidate's content with it (matched by URI). Other
+      // files keep their stored content. Safe for phase-2, which parses each
+      // candidate's `content` standalone (see scanCandidatesForOccurrences).
+      const candidates =
+        typeof req.content === 'string'
+          ? rawCandidates.map((c) =>
+              c.uri === req.textDocument.uri
+                ? { ...c, content: req.content as string }
+                : c,
+            )
+          : rawCandidates;
+      emitWorkerLog('info', `[REFERENCES] candidates: ${candidates.length}`);
+
+      // --- Phase-2: standalone parse + reference scan over each candidate.
+      const occurrences = await scanCandidatesForOccurrences(
+        candidates,
+        target,
+      );
+      emitWorkerLog(
+        'info',
+        `[REFERENCES] phase2: ${occurrences.length} occurrence(s) across ` +
+          `${candidates.length} candidate(s)`,
+      );
+
+      // Build the LSP result: parser (1-based line) → LSP (0-based line);
+      // de-dupe by (uri, range).
+      const locations: Array<{
+        uri: string;
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+      }> = [];
+      const seenRanges = new Set<string>();
+      const pushLocation = (
+        uri: string,
+        r: {
+          startLine: number;
+          startColumn: number;
+          endLine: number;
+          endColumn: number;
+        },
+      ): void => {
+        // NUL separator between uri and range so a URI ending in digits can't
+        // abut the line number and collapse two distinct (uri,range) pairs onto
+        // one key. Pure safety; behavior unchanged for real URIs.
+        const key = `${uri}\x1f${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
+        if (seenRanges.has(key)) return;
+        seenRanges.add(key);
+        locations.push({
+          uri,
+          range: {
+            start: { line: r.startLine - 1, character: r.startColumn },
+            end: { line: r.endLine - 1, character: r.endColumn },
+          },
+        });
+      };
+
+      if (req.context.includeDeclaration) {
+        const decl = await declarationLocationForCursor(
+          svc,
+          req.textDocument.uri,
+          req.position,
+        );
+        if (decl) pushLocation(decl.uri, decl.identifierRange);
+      }
+
+      for (const occ of occurrences) {
+        pushLocation(occ.uri, occ.identifierRange);
+      }
+
+      emitWorkerLog(
+        'info',
+        `[REFERENCES] done (${locations.length} location(s))`,
+      );
+      return locations;
     },
   ),
   DispatchImplementation: requestHandler<PositionReq>(
@@ -1688,12 +2010,19 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 sm.getSymbolTableForFile(uri),
               );
               if (st) {
-                entries[uri] = cloneForWire({
+                // Key by the table's CANONICAL fileUri, not the schemeless
+                // lookup `uri` (findFilesForSymbol strips `file://`). Keying by
+                // `uri` makes the requesting worker ingest under a URI that
+                // never matches its references' targets, so cross-file edges
+                // fail to bind and find-references returns []. See the Node
+                // platform handler for the full rationale.
+                const canonicalUri = st.getFileUri();
+                entries[canonicalUri] = cloneForWire({
                   symbols: st.getAllSymbols(),
                   references: st.getAllReferences(),
                   hierarchicalReferences: st.getAllHierarchicalReferences(),
                   metadata: st.getMetadata(),
-                  fileUri: st.getFileUri(),
+                  fileUri: canonicalUri,
                 });
               }
             }
@@ -1729,6 +2058,21 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               ),
             ];
 
+            // Optional namespace hint: a qualified reference (`MyNs.Foo`)
+            // carries its leading qualifier so the data-owner can disambiguate
+            // same-named matches across namespaces. Applied as a SOFT
+            // preference, not a hard filter — if no symbol's namespace matches
+            // the hint, fall back to all matches (see the Node platform for the
+            // full rationale, including the inner-class qualifier case).
+            const nsHint = req.namespace?.toLowerCase();
+            const symbolNamespace = (s: {
+              namespace?: unknown;
+            }): string | undefined => {
+              const ns = s.namespace;
+              if (!ns) return undefined;
+              return (typeof ns === 'string' ? ns : String(ns)).toLowerCase();
+            };
+
             const matches: Array<{
               name: string;
               fileUri: string;
@@ -1741,15 +2085,19 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               const symbols = yield* Effect.promise(() =>
                 sm.findSymbolByName(queryName),
               );
-              for (const symbol of symbols) {
-                if (!symbol?.fileUri) continue;
+              const withFile = symbols.filter((s) => !!s?.fileUri);
+              const nsMatched = nsHint
+                ? withFile.filter((s) => symbolNamespace(s) === nsHint)
+                : [];
+              const selected = nsMatched.length > 0 ? nsMatched : withFile;
+              for (const symbol of selected) {
                 matches.push({
                   name: symbol.name,
-                  fileUri: symbol.fileUri,
+                  fileUri: symbol.fileUri!,
                   kind:
                     typeof symbol.kind === 'string' ? symbol.kind : undefined,
                 });
-                uris.add(symbol.fileUri);
+                uris.add(symbol.fileUri!);
               }
             }
 
@@ -1803,6 +2151,37 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  // Phase-1 lexical scan for the workspace-wide find-references rebuild (mirror
+  // of the Node platform). The request-pool worker resolves the target symbol
+  // name under the cursor, then asks the data-owner (the only worker holding
+  // every file's raw content) to return documents that mention that name on a
+  // word boundary. Heavy symbolic match is deferred to phase-2 on the
+  // request-pool worker so this read fiber stays cheap.
+  FindOccurrenceCandidates: (req) =>
+    guardRole('FindOccurrenceCandidates').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { textMentionsSymbol } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const all = yield* Effect.promise(() =>
+              svc.storageManager.getStorage().getAllDocumentContents(),
+            );
+            const candidates = all.filter((d) =>
+              textMentionsSymbol(d.content, req.symbolName),
+            );
+            yield* Effect.logInfo(
+              `[REFERENCES] FindOccurrenceCandidates: symbol=${req.symbolName} ` +
+                `scanned ${all.length} docs, ${candidates.length} candidates`,
+            );
+            return { candidates };
+          }),
+        ),
+      ),
+    ),
+
   WorkspaceBatchIngest: (req) =>
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
@@ -1818,7 +2197,13 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 languageId: entry.languageId,
                 version: entry.version,
               };
-              void storage.setDocument(entry.uri, doc as never);
+              // Await the store (like DispatchDocumentChange) rather than
+              // fire-and-forget: an async storage backend could otherwise
+              // report ingest complete before content is persisted, racing the
+              // find-references prefilter that reads exactly this content.
+              yield* Effect.promise(() =>
+                storage.setDocument(entry.uri, doc as never),
+              );
             }
             const elapsed = Date.now() - startTime;
             yield* Effect.logDebug(
@@ -1884,9 +2269,14 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentChange',
     (svc, req) =>
       Effect.gen(function* () {
+        // Store the full post-change text (full-text sync). UpdateSymbolSubset
+        // merges the recompiled symbols but never restores document text, so a
+        // blank placeholder here would leave the file's text empty until the
+        // next full workspace ingest, dropping it from text-based scans like
+        // the find-references lexical prefilter (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
@@ -1902,13 +2292,15 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     'DispatchDocumentSave',
     (svc, req) =>
       Effect.gen(function* () {
-        // Mirror DispatchDocumentChange: store a version placeholder and arm the
+        // Mirror DispatchDocumentChange: store the full saved text and arm the
         // readiness latch so the CompileDocument this save triggers can write
         // its symbols back and a racing request re-evaluates against the saved
-        // version. The compile message carries the real saved content.
+        // version. UpdateSymbolSubset merges symbols but never restores document
+        // text, so we store the real content here rather than a blank
+        // placeholder (W-23272674).
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
@@ -2343,22 +2735,35 @@ function effectLogLevelToWire(level: LogLevel.LogLevel): WorkerLogLevel | null {
 // Buffer for log messages emitted before assistPort is set.
 const preAssistBuffer: WorkerLogMessage[] = [];
 
-const workerLogger = Logger.make(({ logLevel, message }) => {
-  const wireLevel = effectLogLevelToWire(logLevel);
-  if (!wireLevel) return;
-  if (LOG_LEVEL_PRIORITY[wireLevel] < LOG_LEVEL_PRIORITY[currentWorkerLogLevel])
+/**
+ * Post a log line directly to the coordinator's output channel from a plain
+ * (non-Effect) worker context. Mirrors the Node platform's emitWorkerLog: async
+ * request handlers (e.g. DispatchReferences) can't reach the channel through
+ * getLogger(), only through this WorkerLogMessage post. Buffers when the
+ * assistPort isn't wired yet (flushed by the WorkerPortsInit bootstrap).
+ */
+function emitWorkerLog(level: WorkerLogLevel, message: string): void {
+  if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[currentWorkerLogLevel])
     return;
-
   const msg: WorkerLogMessage = {
     _tag: 'WorkerLogMessage',
-    level: wireLevel,
-    message: typeof message === 'string' ? message : String(message),
+    level,
+    message,
   };
   if (assistPort) {
     assistPort.postMessage(msg);
   } else {
     preAssistBuffer.push(msg);
   }
+}
+
+const workerLogger = Logger.make(({ logLevel, message }) => {
+  const wireLevel = effectLogLevelToWire(logLevel);
+  if (!wireLevel) return;
+  emitWorkerLog(
+    wireLevel,
+    typeof message === 'string' ? message : String(message),
+  );
 });
 
 const WorkerLoggerLayer = Layer.merge(

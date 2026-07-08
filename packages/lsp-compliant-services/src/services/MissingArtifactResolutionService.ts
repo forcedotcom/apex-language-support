@@ -22,11 +22,7 @@ import type { Connection } from 'vscode-languageserver';
  * Result types for blocking resolution
  */
 export type BlockingResult =
-  | 'resolved'
-  | 'not-found'
-  | 'timeout'
-  | 'cancelled'
-  | 'unsupported';
+  'resolved' | 'not-found' | 'timeout' | 'cancelled' | 'unsupported';
 
 /**
  * Configuration for missing artifact resolution
@@ -67,8 +63,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
    * via setMissingArtifactAssistanceProxy().
    */
   private static assistanceProxy:
-    | ((params: unknown) => Promise<unknown>)
-    | null = null;
+    ((params: unknown) => Promise<unknown>) | null = null;
 
   static setAssistanceProxy(fn: (params: unknown) => Promise<unknown>): void {
     EnhancedMissingArtifactResolutionService.assistanceProxy = fn;
@@ -297,6 +292,28 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
             `No LSP connection or assistance proxy available for background resolution of: ${names}`,
         );
         return;
+      }
+
+      // Default-allow: send if capabilities are undefined (legacy client) OR
+      // client explicitly advertises findMissingArtifactProvider. Gate only
+      // when we KNOW the client opted out.
+      try {
+        const cm = LSPConfigurationManager.getInstance();
+        if (cm.shouldSuppressDefaultAllow('findMissingArtifactProvider')) {
+          this.logger.debug(
+            () =>
+              `Suppressing apex/findMissingArtifact for ${names}` +
+              ' — client did not advertise findMissingArtifactProvider',
+          );
+          return;
+        }
+      } catch (e) {
+        // getInstance() creates instance if absent — this only fires if the
+        // constructor throws (e.g., dependency initialization failure).
+        // Proceed with default-allow so notification still reaches client.
+        this.logger.debug(
+          () => `Capability check failed (proceeding with default-allow): ${e}`,
+        );
       }
 
       // Send request directly to client (fire-and-forget for background mode)

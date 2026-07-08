@@ -86,8 +86,7 @@ export const getClientOutputChannel = (): vscode.OutputChannel | undefined =>
  * @returns The worker/server output channel or undefined if not initialized
  */
 export const getWorkerServerOutputChannel = ():
-  | vscode.OutputChannel
-  | undefined => workerServerOutputChannel;
+  vscode.OutputChannel | undefined => workerServerOutputChannel;
 
 /**
  * Logs a message to the worker/server output channel (for worker and server logs)

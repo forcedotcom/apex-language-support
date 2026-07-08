@@ -40,8 +40,7 @@ export class MissingArtifactUtils {
    * Get or create the missing artifact resolution service on-demand
    */
   private getMissingArtifactService():
-    | MissingArtifactResolutionService
-    | undefined {
+    MissingArtifactResolutionService | undefined {
     if (!this.missingArtifactService) {
       try {
         // Create on-demand using the factory

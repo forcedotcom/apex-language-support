@@ -37,6 +37,7 @@ export interface ReferenceStoreShape {
       isStatic?: boolean;
       namespace?: string;
       argumentCount?: number;
+      argumentTypes?: string[];
     },
   ) => Effect.Effect<void>;
   readonly findReferencesTo: (
