@@ -65,7 +65,6 @@ jest.mock('../../src/factories/ServiceFactory', () => ({
     createHoverService: jest.fn(),
     createCompletionService: jest.fn(),
     createDefinitionService: jest.fn(),
-    createReferencesService: jest.fn(),
     createDocumentSymbolService: jest.fn(),
     createWorkspaceSymbolService: jest.fn(),
     createDiagnosticService: jest.fn(),

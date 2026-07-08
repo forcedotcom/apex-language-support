@@ -318,6 +318,21 @@ const WorkerLoggerLayer = Layer.merge(
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
+// ---------------------------------------------------------------------------
+// Re-export shared functions for testing
+// ---------------------------------------------------------------------------
+
+export {
+  recompileCursorFileAtFullDetail,
+  loadDependentsForReferences,
+  resolveMissingNamesViaDataOwner,
+  scanCandidatesForOccurrences,
+  targetSymbolForCursor,
+  declarationLocationForCursor,
+  writeBackCompiledSymbols,
+  // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
+} from './worker.platform.shared.ts';
+
 self.addEventListener('message', (event: MessageEvent) => {
   const data = event.data as Record<string, unknown> | null;
   if (!data || data._tag !== 'WorkerPortsInit') return;

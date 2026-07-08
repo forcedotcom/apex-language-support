@@ -110,6 +110,20 @@ Workers inherit profiling, debug, and heap-size flags from the main process via 
 - **Thread naming**: Workers are named `apex-worker-<role>` (visible in Chrome DevTools).
 - **Stderr forwarding**: Worker stderr is line-buffered and logged with role labels. Debug port assignments appear in the Output panel.
 
+## Worker Log Reachability
+
+From inside a worker, only two log paths reach the coordinator's output channel:
+
+1. **Effect logs** (`Effect.logInfo`/`logDebug`/etc.) executed under the worker's replaced `workerLogger` layer — these post a `WorkerLogMessage` over the assistance port.
+2. **`emitWorkerLog(level, msg)`** (in `worker.platform.ts`) — posts a `WorkerLogMessage` directly; works from ANY context.
+
+These do NOT reach the channel:
+
+- **`getLogger().info/debug/warn()`** from an async request handler (e.g. `DispatchReferences`) — writes to a logger not wired to the parent port.
+- **`Effect.logInfo` run under an ad-hoc `Effect.runPromise`** inside a handler — uses the default logger, not `workerLogger`.
+
+**Rule of thumb:** for diagnostics in an async worker handler, use `emitWorkerLog`. If you must log from deep inside an Effect that a handler runs via `Effect.runPromise` (e.g. `addSymbolTable`), stash the message on an instance field and have the handler emit it via `emitWorkerLog` after the run.
+
 ## Key Paths
 
 - Worker entry: `packages/apex-ls/src/worker.platform.ts`
