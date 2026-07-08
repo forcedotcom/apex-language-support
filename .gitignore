@@ -108,3 +108,4 @@ scripts/test-extensions/memfs-provider/workspace-files.json
 .vscode-test-web/
 .claude/worktrees/
 .superpowers/
+/.fastcontext

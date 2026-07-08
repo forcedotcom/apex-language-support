@@ -56,6 +56,7 @@ import {
   isAllowedTag,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
   type WorkerRole,
@@ -87,6 +88,7 @@ export const AllWorkerRequests = Schema.Union(
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  FindOccurrenceCandidates,
   CompileDocument,
   WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
@@ -2472,6 +2474,32 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
+  FindOccurrenceCandidates: (req) =>
+    guardRole('FindOccurrenceCandidates').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const { textMentionsSymbol } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            const all = yield* Effect.promise(() =>
+              svc.storageManager.getStorage().getAllDocumentContents(),
+            );
+            const candidates = all.filter((d) =>
+              textMentionsSymbol(d.content, req.symbolName),
+            );
+            emitWorkerLog(
+              'info',
+              `[REFERENCES] FindOccurrenceCandidates: symbol=${req.symbolName} ` +
+                `scanned ${all.length} docs, ${candidates.length} candidates`,
+            );
+            return { candidates };
+          }),
+        ),
+      ),
+    ),
+
   DrainDeferredReferences: () =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
@@ -2755,7 +2783,7 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
       Effect.gen(function* () {
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };

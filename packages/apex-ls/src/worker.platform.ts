@@ -352,6 +352,21 @@ const WorkerLoggerLayer = Layer.merge(
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
+// ---------------------------------------------------------------------------
+// Re-export shared functions for testing
+// ---------------------------------------------------------------------------
+
+export {
+  recompileCursorFileAtFullDetail,
+  loadDependentsForReferences,
+  resolveMissingNamesViaDataOwner,
+  scanCandidatesForOccurrences,
+  targetSymbolForCursor,
+  declarationLocationForCursor,
+  writeBackCompiledSymbols,
+  // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
+} from './worker.platform.shared.ts';
+
 WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
   Effect.provide(WorkerLoggerLayer),
   Effect.runFork,
