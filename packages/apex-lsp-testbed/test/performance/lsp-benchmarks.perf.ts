@@ -73,9 +73,7 @@ const getFilenameFromUri = (uri: string): string => {
 
 // Runtime server type configuration
 const serverType = (process.env.SERVER_TYPE || 'nodeServer') as
-  | 'nodeServer'
-  | 'jorje'
-  | 'webServer';
+  'nodeServer' | 'jorje' | 'webServer';
 const isValidServerType = ['nodeServer', 'jorje', 'webServer'].includes(
   serverType,
 );

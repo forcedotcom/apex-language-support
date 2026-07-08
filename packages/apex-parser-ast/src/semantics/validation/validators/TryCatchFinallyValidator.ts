@@ -170,9 +170,7 @@ export const TryCatchFinallyValidator: Validator = {
       try {
         // Use cached parse tree if available, otherwise parse source content
         let parseTree:
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
         if (options.parseTree) {
           // Use cached parse tree from DocumentStateCache
           parseTree = options.parseTree;

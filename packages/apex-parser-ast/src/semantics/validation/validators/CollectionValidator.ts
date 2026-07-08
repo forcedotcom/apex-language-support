@@ -141,13 +141,8 @@ class CollectionListener extends BaseApexParserListener<void> {
     }
 
     let literalType:
-      | 'integer'
-      | 'long'
-      | 'decimal'
-      | 'string'
-      | 'boolean'
-      | 'null'
-      | null = null;
+      'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null' | null =
+      null;
 
     if (literal.IntegerLiteral()) {
       literalType = 'integer';
@@ -462,9 +457,7 @@ export const CollectionValidator: Validator = {
       try {
         // Use cached parse tree if available, otherwise parse source content
         let parseTree:
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
         if (options.parseTree) {
           // Use cached parse tree from DocumentStateCache
           parseTree = options.parseTree;

@@ -179,9 +179,7 @@ export const PropertyAccessorValidator: Validator = {
       try {
         // Use cached parse tree if available, otherwise parse source content
         let parseTree:
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
         if (options.parseTree) {
           parseTree = options.parseTree;
         } else {

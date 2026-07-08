@@ -809,9 +809,7 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
 };
 
 export type SymbolTableParseCompleteness =
-  | 'complete'
-  | 'incomplete'
-  | 'unknown';
+  'complete' | 'incomplete' | 'unknown';
 
 export interface SymbolTableMetadata {
   fileUri: string;

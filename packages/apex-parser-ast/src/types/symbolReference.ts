@@ -116,9 +116,7 @@ export interface SymbolReference {
   validatedAccess?: 'read' | 'write' | 'readwrite' | 'invalid';
   /** Optional: access validation state */
   accessValidationState?:
-    | 'syntax_only'
-    | 'partially_validated'
-    | 'fully_validated';
+    'syntax_only' | 'partially_validated' | 'fully_validated';
 }
 
 /**
@@ -154,9 +152,7 @@ export interface SymbolReferenceOptions {
   isFullyResolved?: boolean;
   validatedAccess?: 'read' | 'write' | 'readwrite' | 'invalid';
   accessValidationState?:
-    | 'syntax_only'
-    | 'partially_validated'
-    | 'fully_validated';
+    'syntax_only' | 'partially_validated' | 'fully_validated';
   argumentTypes?: string[];
   /** Call-site arity (see {@link SymbolReference.argumentCount}). */
   argumentCount?: number;
@@ -174,21 +170,14 @@ export class EnhancedSymbolReference implements SymbolReference {
   public isStatic?: boolean;
   public literalValue?: string | number | boolean | null;
   public literalType?:
-    | 'Integer'
-    | 'Long'
-    | 'Decimal'
-    | 'String'
-    | 'Boolean'
-    | 'Null';
+    'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
   public chainNodes?: SymbolReference[];
   public resolvedTypeId?: string;
   public resolutionTier?: 'TIER_1' | 'TIER_2';
   public isFullyResolved?: boolean;
   public validatedAccess?: 'read' | 'write' | 'readwrite' | 'invalid';
   public accessValidationState?:
-    | 'syntax_only'
-    | 'partially_validated'
-    | 'fully_validated';
+    'syntax_only' | 'partially_validated' | 'fully_validated';
   public argumentTypes?: string[];
   /**
    * Call-site arity (see {@link SymbolReference.argumentCount}). Like the other
@@ -486,8 +475,7 @@ export class SymbolReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     context:
-      | ReferenceContext.INHERITANCE
-      | ReferenceContext.INTERFACE_IMPLEMENTATION,
+      ReferenceContext.INHERITANCE | ReferenceContext.INTERFACE_IMPLEMENTATION,
     parentContext?: string,
     preciseLocations?: SymbolLocation[],
   ): SymbolReference {

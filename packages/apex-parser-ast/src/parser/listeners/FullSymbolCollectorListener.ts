@@ -61,10 +61,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   // Track if we've been walked (to know when to apply reference collection/resolution)
   private hasBeenWalked: boolean = false;
   private parseTree:
-    | CompilationUnitContext
-    | TriggerUnitContext
-    | BlockContext
-    | null = null;
+    CompilationUnitContext | TriggerUnitContext | BlockContext | null = null;
 
   /**
    * Creates a new instance of the FullSymbolCollectorListener.

@@ -239,8 +239,7 @@ describe('EDA Workspace Performance Tests', () => {
                 // Track metrics for each file in batch
                 batch.forEach((fileConfig, index) => {
                   const result = (results as Array<unknown>)[index] as
-                    | CompilationResult<SymbolTable>
-                    | undefined;
+                    CompilationResult<SymbolTable> | undefined;
                   const fileInfo = fileContents[currentBatchStart + index];
 
                   if (result) {
@@ -764,8 +763,7 @@ describe('EDA Workspace Performance Tests', () => {
               } else {
                 // Single listener compilation
                 const listener = testConfig.createListener() as
-                  | ApexSymbolCollectorListener
-                  | VisibilitySymbolListener;
+                  ApexSymbolCollectorListener | VisibilitySymbolListener;
 
                 // Compile all files
                 const compilationConfigs = fileContents.map((file) => ({
@@ -1087,8 +1085,7 @@ describe('EDA Workspace Performance Tests', () => {
             totalReferences = symbolTable.getAllReferences().length;
           } else {
             const listener = testConfig.createListener() as
-              | ApexSymbolCollectorListener
-              | VisibilitySymbolListener;
+              ApexSymbolCollectorListener | VisibilitySymbolListener;
 
             for (const file of sampleFiles) {
               const result = compilerService.compile(

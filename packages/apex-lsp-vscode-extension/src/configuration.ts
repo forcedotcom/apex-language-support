@@ -75,9 +75,7 @@ export const getDebugConfig = (): DebugConfig => {
 
   return {
     mode: config.get<string>('debug', 'off') as
-      | 'off'
-      | 'inspect'
-      | 'inspect-brk',
+      'off' | 'inspect' | 'inspect-brk',
     port: config.get<number>('debugPort', 6009),
   };
 };

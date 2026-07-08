@@ -217,9 +217,7 @@ export interface FindMissingArtifactParams {
 }
 
 export type FindMissingArtifactResult =
-  | { opened: string[] }
-  | { notFound: true }
-  | { accepted: true };
+  { opened: string[] } | { notFound: true } | { accepted: true };
 
 /**
  * Result type for findApexTests command
@@ -409,9 +407,7 @@ export interface WorkDoneProgressEnd {
 }
 
 export type WorkDoneProgress =
-  | WorkDoneProgressBegin
-  | WorkDoneProgressReport
-  | WorkDoneProgressEnd;
+  WorkDoneProgressBegin | WorkDoneProgressReport | WorkDoneProgressEnd;
 
 // Wire schemas for IdentifierSpec — safe for postMessage / structured clone
 export {

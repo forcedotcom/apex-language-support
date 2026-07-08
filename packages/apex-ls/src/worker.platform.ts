@@ -61,8 +61,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 // Worker channel that @effect/platform uses for its wire protocol.
 const assistPort: import('node:worker_threads').MessagePort | null =
   ((workerData as Record<string, unknown> | undefined)?.assistPort as
-    | import('node:worker_threads').MessagePort
-    | null) ?? null;
+    import('node:worker_threads').MessagePort | null) ?? null;
 
 const pendingAssistanceCallbacks = new Map<
   string,
