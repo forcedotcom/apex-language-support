@@ -29,7 +29,7 @@ permissions:
 jobs:
   promote:
     # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@feat/add-vscode-extension-ci
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@main
     with:
       extension-name: 'apex-lsp-vscode-extension'
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'

@@ -32,7 +32,7 @@ permissions:
 jobs:
   promote:
     # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@feat/add-vscode-extension-ci
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@main
     with:
       min-tag-age-days: ${{ inputs.min-tag-age-days || '7' }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'

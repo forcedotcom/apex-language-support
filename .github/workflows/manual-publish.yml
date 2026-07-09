@@ -93,7 +93,7 @@ permissions:
 jobs:
   manual-publish:
     # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@feat/add-vscode-extension-ci
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
     with:
       extension-name: ${{ inputs.extension }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'

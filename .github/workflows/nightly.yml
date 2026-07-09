@@ -28,7 +28,7 @@ permissions:
 jobs:
   nightly-release:
     # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@feat/add-vscode-extension-ci
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@main
     with:
       branch: ${{ github.event.inputs.branch || 'main' }}
       # Always publish the apex-lsp-vscode-extension (only extension in this repo)
