@@ -20,7 +20,6 @@ import {
   generateStartupSummary,
   mergeWithDefaults,
 } from '@salesforce/apex-lsp-shared';
-import { detectEnvironment } from './utils/serverUtils';
 
 /**
  * Creates a clean, serializable notification object for workspace/didChangeConfiguration
@@ -59,9 +58,17 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
     settings = {};
   }
 
-  // Merge user settings with defaults, ensuring all required properties exist
+  // Merge user settings with defaults, ensuring all required properties exist.
+  //
+  // NOTE: intentionally always merges against the 'desktop' defaults, even in a
+  // web extension host. Routing web through BROWSER_DEFAULT_APEX_SETTINGS (via
+  // detectEnvironment()) regressed document-symbol/outline population in web —
+  // the browser scheduler/queue tuning starves symbol requests so the outline
+  // never populates and the diagnostics progress never resolves. Until those
+  // browser defaults are corrected, use the desktop defaults that web shipped
+  // with historically. See W-<TBD>.
   const userSettings = { apex: settings };
-  return mergeWithDefaults(userSettings, detectEnvironment());
+  return mergeWithDefaults(userSettings, 'desktop');
 };
 
 /**
