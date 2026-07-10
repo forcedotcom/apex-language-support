@@ -24,7 +24,7 @@
  */
 
 import { Effect } from 'effect';
-import { resolveMissingNamesViaDataOwner } from '../../src/worker.platform';
+import { resolveMissingNamesViaDataOwner } from '../../src/worker.platform.shared';
 
 const TARGET_URI = 'file:///test/CrossWorkerTarget.cls';
 
