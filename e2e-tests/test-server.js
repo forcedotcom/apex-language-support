@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const {
   readLocalVSCodeVersion,
+  resolveVscodeWebBuildOptions,
 } = require('../scripts/sync-vscode-version');
 
 async function startTestServer() {
@@ -128,6 +129,7 @@ async function startTestServer() {
     console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
 
     const vsCodeVersion = readLocalVSCodeVersion();
+    const vscodeWebBuildOptions = resolveVscodeWebBuildOptions(vsCodeVersion);
 
     // Log extension files for debugging
     console.log('📋 Extension files:');
@@ -157,8 +159,7 @@ async function startTestServer() {
       folderPath: workspacePath,
       headless: true, // Always headless - Playwright will open its own browser window
       browserType: 'chromium',
-      quality: 'stable',
-      commit: vsCodeVersion,
+      ...vscodeWebBuildOptions,
       printServerLog: true,
       verbose: true,
       coi: true, // Cross-origin isolation for SharedArrayBuffer support
