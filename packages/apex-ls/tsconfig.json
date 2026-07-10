@@ -8,5 +8,17 @@
     "tsBuildInfoFile": "./out/.tsbuildinfo",
     "declaration": true,
     "declarationMap": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "esbuild.config.ts",
+    "test/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/worker.platform.ts",
+    "src/worker.platform.web.ts",
+    "src/worker.platform.shared.ts"
+  ]
 }

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": "..",
-    "types": ["node", "node/net", "node/stream", "node/buffer", "node/process", "jest"]
+    "types": ["node", "node/net", "node/stream", "node/buffer", "node/process", "jest"],
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts", "../src/**/*.ts"],
   "exclude": ["node_modules"]

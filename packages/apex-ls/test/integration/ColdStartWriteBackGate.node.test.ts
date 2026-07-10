@@ -59,11 +59,17 @@ import {
   clearRawWorkers,
 } from '../../src/server/WorkerCoordinator';
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
-import { getLogger, type LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  type LoggerInterface,
+  enableConsoleLogging,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'error';
 
 // A trivial, fully self-contained class: no stdlib/System dependencies, so the
 // compile can always produce a symbol table even on a cold (un-warmed) server.
@@ -124,7 +130,13 @@ const openParams = (uri: string, text: string, version = 1) => ({
 });
 
 describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
-  const logger = getLogger();
+  let logger: LoggerInterface;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -142,7 +154,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -193,7 +205,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[GREEN] readiness=${JSON.stringify(readiness)} waitedMs=${waitedMs} ` +
         `version=${query.versions[TEST_URI]} ` +
         `hasEntry=${query.entries[TEST_URI] !== undefined}`,
@@ -228,7 +240,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -281,7 +293,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[CANDIDATE-A] readiness=${JSON.stringify(readiness)} waitedMs=${waitedMs} ` +
         `version=${query.versions[TEST_URI]} ` +
         `entry=${JSON.stringify(query.entries[TEST_URI])}`,
@@ -326,7 +338,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -376,7 +388,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[REGRESSION] readiness=${JSON.stringify(readiness)} waitedMs=${waitedMs} ` +
         `version=${query.versions[STDLIB_URI]} ` +
         `hasEntry=${query.entries[STDLIB_URI] != null}`,
@@ -408,7 +420,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
 
       const openDocs = new Map<string, string>();
@@ -456,7 +468,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
 
     const { readiness, waitedMs } = await Effect.runPromise(program);
 
-    console.log(
+    logger.debug(
       `[CANDIDATE-C] readiness=${JSON.stringify(readiness)} waitedMs=${waitedMs}`,
     );
 
