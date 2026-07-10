@@ -256,9 +256,25 @@ export class LSPQueueManager {
             //   - 'stale-version': a newer edit superseded the version awaited.
             // Dispatching best-effort to an empty graph would return "No
             // Symbols"; the local fallback returns real results.
+            //
+            // EXCEPTION — 'completion': completion fires WHILE TYPING (on every
+            // keystroke and on the '.'/'@' trigger characters), so the dataOwner
+            // graph is almost always a version behind and the gate would report
+            // 'stale-version' (or 'timeout'). The completion pool handler does
+            // NOT depend on the dataOwner graph being current for the cursor
+            // file: it recompiles the file from the live in-flight text carried
+            // on the request (see DispatchCompletion → recompileCursorFileAtFull
+            // Detail). Falling back to the coordinator-local handler instead is
+            // wrong on web, where the coordinator holds NO symbols (they live on
+            // the dataOwner) so the local read returns zero items AND flags the
+            // list isIncomplete — which left the suggest widget stuck on
+            // "Loading…" in web e2e. So completion always dispatches to the pool
+            // and skips the readiness gate entirely.
             let symbolsReady = true;
             const uri = requestTargetUri(params);
+            const selfLoadsLiveContent = type === 'completion';
             if (
+              !selfLoadsLiveContent &&
               uri &&
               workerDispatcher.dispatchesToPool?.(type) &&
               workerDispatcher.isFileOpen?.(uri) === true &&
