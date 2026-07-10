@@ -29,13 +29,19 @@ test.describe('Apex Find All References', () => {
     });
 
     await test.step('Position on a symbol that is used more than once', async () => {
-      // `sayHello` is declared and called within ApexClassExample.
-      await apexEditor.positionCursorOnWord('sayHello');
+      // `String` is used many times throughout ApexClassExample (parameter
+      // types, locals, return types), so find-references surfaces a clear,
+      // multi-entry result set that all lives WITHIN this one file. We
+      // deliberately avoid a user-declared method here: the fixture's methods
+      // are each referenced at most once, and VS Code does not open the
+      // references peek for a single-entry result (it navigates instead) — so
+      // a once-used symbol can't reliably assert on peek contents.
+      await apexEditor.positionCursorOnWord('String');
     });
 
     await test.step('Trigger find-references and assert results appear', async () => {
       const count = await apexEditor.findReferences();
-      // At least the declaration + one call site.
+      // Many intra-file usages of `String`.
       expect(count).toBeGreaterThan(0);
       console.log(`✅ Find-references returned ${count} entries`);
       await apexEditor.closePeek();
@@ -95,7 +101,10 @@ test.describe('Apex Find All References', () => {
   test('find-references is responsive', async ({ apexEditor }) => {
     await apexEditor.openFile('ApexClassExample.cls');
     await apexEditor.waitForLanguageServerReady();
-    await apexEditor.positionCursorOnWord('sayHello');
+    // Use a symbol with many intra-file usages so the references peek reliably
+    // opens (see the intra-file test above for why a once-used symbol does not
+    // surface a peek).
+    await apexEditor.positionCursorOnWord('String');
 
     const startTime = Date.now();
     await apexEditor.findReferences();

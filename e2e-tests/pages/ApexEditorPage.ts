@@ -178,10 +178,27 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * The references peek widget, across VS Code variants.
+   *
+   * Find-all-references surfaces results in the dedicated references peek, whose
+   * container is `.zone-widget-container.peekview-widget.reference-zone-widget`.
+   * NOTE: this is NOT the `.editor-widget.peekview-widget` used by the go-to
+   * peek — the references peek is a `zone-widget-container`, so an
+   * `.editor-widget.peekview-widget` selector never matches it and the wait
+   * times out. Match the references-specific class instead, and keep the
+   * generic `.peekview-widget` as a fallback for other VS Code builds.
+   */
+  private get referencesPeek() {
+    return this.page.locator(
+      '.reference-zone-widget, .editor-widget.peekview-widget',
+    );
+  }
+
+  /**
    * Trigger find-all-references at the current cursor position (Shift+F12).
    *
-   * VS Code surfaces references in a peek widget (the `references-view` /
-   * `.peekview-widget`). Returns the number of reference entries the peek
+   * VS Code surfaces references in a peek widget (the references peek /
+   * `.reference-zone-widget`). Returns the number of reference entries the peek
    * lists, or 0 when none appear. The peek is left OPEN so callers can assert
    * on its contents; close it with {@link closePeek} when done.
    */
@@ -200,7 +217,7 @@ export class ApexEditorPage extends BasePage {
 
     // The references peek widget appears for any non-empty result set. Give the
     // LSP time to answer (references can fan out cross-file).
-    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    const peekWidget = this.referencesPeek.first();
     await peekWidget
       .waitFor({ state: 'visible', timeout: this.defaultTimeout })
       .catch(() => {});
@@ -209,20 +226,52 @@ export class ApexEditorPage extends BasePage {
       return 0;
     }
 
-    // Each reference is a row in the peek's tree. Count the result entries
-    // (file/line rows), excluding the file-group headers.
+    // The peek title reports the total as `References (N)` (a `.meta` span);
+    // this is stable regardless of which file groups happen to be expanded in
+    // the tree, so it's the most reliable count.
+    const metaText = await peekWidget
+      .locator('.peekview-title .meta')
+      .first()
+      .innerText()
+      .catch(() => '');
+    const metaMatch = metaText.match(/\((\d+)\)/);
+    if (metaMatch) {
+      return Number(metaMatch[1]);
+    }
+
+    // Fallback for builds without the meta count: sum the per-file badge counts
+    // in the results tree (each file group shows its match count as a badge).
+    const badges = peekWidget.locator(
+      '.monaco-list-row .count, .monaco-list-row .monaco-count-badge',
+    );
+    const badgeCount = await badges.count().catch(() => 0);
+    if (badgeCount > 0) {
+      let total = 0;
+      for (let i = 0; i < badgeCount; i++) {
+        const n = Number(
+          (await badges
+            .nth(i)
+            .innerText()
+            .catch(() => '')) || 0,
+        );
+        if (!Number.isNaN(n)) total += n;
+      }
+      if (total > 0) return total;
+    }
+
+    // Last resort: count reference rows directly (file-group headers included,
+    // so this over-counts slightly, but still distinguishes "some" from "none").
     const entries = peekWidget.locator(
       '.monaco-list-row .referenceMatch, .monaco-list-row[role="treeitem"]',
     );
-    const count = await entries.count().catch(() => 0);
-    return count;
+    return await entries.count().catch(() => 0);
   }
 
   /**
    * Close any open peek widget (references / definition peek).
    */
   async closePeek(): Promise<void> {
-    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    const peekWidget = this.referencesPeek.first();
     for (let i = 0; i < 3; i++) {
       if (!(await peekWidget.isVisible())) {
         return;
