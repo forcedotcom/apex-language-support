@@ -72,6 +72,27 @@ function readLocalVSCodeVersion() {
 }
 
 /**
+ * Maps `.vscode-version` content to @vscode/test-web download options.
+ *
+ * @vscode/test-web's getBuild() computes `quality = options.quality || options.version`
+ * and only downloads the **stable** channel when that value is the literal string
+ * `'stable'`. A semver like `1.121.0` is not `'stable'`, so passing it as `version`
+ * would fetch the **latest Insiders** build instead of that release. The `commit`
+ * option is not an escape hatch either: it must be a 40-char SHA, so passing a
+ * semver there makes the CDN lookup 404 ("Failed to find a download for stable and
+ * 1.121.0"). Without a real commit SHA, the closest we can pin is the stable channel.
+ *
+ * @param {string} vsCodeVersion from readLocalVSCodeVersion()
+ * @returns {{ quality: 'stable' } | { version: string }}
+ */
+function resolveVscodeWebBuildOptions(vsCodeVersion) {
+  if (vsCodeVersion === 'stable' || /^\d+\.\d+\.\d+$/.test(vsCodeVersion)) {
+    return { quality: 'stable' };
+  }
+  return { version: vsCodeVersion };
+}
+
+/**
  * Fetches the VS Code version from the Code Builder Web repo and writes
  * it to the local `.vscode-version` file.
  *
@@ -183,4 +204,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { readLocalVSCodeVersion };
+module.exports = { readLocalVSCodeVersion, resolveVscodeWebBuildOptions };

@@ -95,6 +95,9 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'remoteAgentHostService',
   'Remote agent host is not enabled',
   'no remote connection is available',
+  'vscode.mermaid-markdown-features',
+  'legacyToolReferenceFullNames',
+  'chatParticipantPrivate',
 
   // Network and connectivity (often transient)
   'hostname could not be found',

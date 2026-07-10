@@ -25,7 +25,7 @@
  */
 
 import { Effect } from 'effect';
-import { loadDependentsForReferences } from '../../src/worker.platform';
+import { loadDependentsForReferences } from '../../src/worker.platform.shared';
 import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
 
