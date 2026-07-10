@@ -38,11 +38,17 @@ import {
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  enableConsoleLogging,
+  setLogLevel,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'debug';
 
 // A utility class whose instance method `greet` is called from TWO other files,
 // twice in one of them — three cross-file call sites in total. Self-contained
@@ -134,7 +140,13 @@ const toLocations = (
   }>;
 
 describe('find-references through the worker topology (location count)', () => {
-  const logger = getLogger();
+  let logger: LoggerInterface;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -146,7 +158,7 @@ describe('find-references through the worker topology (location count)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -198,11 +210,11 @@ describe('find-references through the worker topology (location count)', () => {
     );
 
     const { result } = await Effect.runPromise(program);
-    console.log('[D2]', JSON.stringify(result));
+    logger.debug(`[D2] ${JSON.stringify(result)}`);
 
     const locations = toLocations(result);
     const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
-    console.log(
+    logger.debug(
       `[refs-topology] count=${locations.length} uris=${JSON.stringify(uris)}`,
     );
 
@@ -228,7 +240,7 @@ describe('find-references through the worker topology (location count)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -296,7 +308,7 @@ describe('find-references through the worker topology (location count)', () => {
     const secondUris = toLocations(second).map(
       (l) => l.uri ?? l.targetUri ?? '',
     );
-    console.log(
+    logger.debug(
       `[refs-topology:idempotent] first=${firstUris.length} second=${secondUris.length}`,
     );
 
@@ -313,7 +325,7 @@ describe('find-references through the worker topology (location count)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -359,7 +371,7 @@ describe('find-references through the worker topology (location count)', () => {
 
     const locations = toLocations(result);
     const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
-    console.log(
+    logger.debug(
       `[refs-topology:no-decl] count=${locations.length} uris=${JSON.stringify(uris)}`,
     );
 
