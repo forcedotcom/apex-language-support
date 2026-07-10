@@ -4,6 +4,8 @@
     "outDir": "./out/worker",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": true,
     "lib": [
       "ES2022",
       "WebWorker",
