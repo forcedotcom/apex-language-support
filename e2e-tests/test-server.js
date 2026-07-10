@@ -157,7 +157,8 @@ async function startTestServer() {
       folderPath: workspacePath,
       headless: true, // Always headless - Playwright will open its own browser window
       browserType: 'chromium',
-      version: vsCodeVersion,
+      quality: 'stable',
+      commit: vsCodeVersion,
       printServerLog: true,
       verbose: true,
       coi: true, // Cross-origin isolation for SharedArrayBuffer support
