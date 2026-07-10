@@ -33,26 +33,10 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const {
   readLocalVSCodeVersion,
+  resolveVscodeWebBuildOptions,
 } = require('./sync-vscode-version');
 
 const execAsync = promisify(exec);
-
-/**
- * Maps `.vscode-version` content to @vscode/test-web download options.
- * getBuild() uses `quality = options.quality || options.version` and only
- * downloads **stable** when that value is the literal string `'stable'`.
- * A semver like `1.108.0` is not `'stable'`, so the harness would otherwise
- * fetch **latest Insider** (not that release). Semver pins here mean "match
- * stable channel" unless you also pass a 40-char `commit`.
- * @param {string} vsCodeVersion from readLocalVSCodeVersion()
- * @returns {{ quality: 'stable' } | { version: string }}
- */
-function resolveVscodeWebBuildOptions(vsCodeVersion) {
-  if (vsCodeVersion === 'stable' || /^\d+\.\d+\.\d+$/.test(vsCodeVersion)) {
-    return { quality: 'stable' };
-  }
-  return { version: vsCodeVersion };
-}
 
 /**
  * Creates a test Apex class with @isTest annotations for testing CodeLens functionality
