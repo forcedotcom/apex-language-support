@@ -628,12 +628,25 @@ export async function loadSymbolDataForEnrichment(
         }>;
         const classNames = new Set<string>();
         for (const ref of refs) {
-          if (
+          // Unresolved outbound type refs: fetch the owning file so the name
+          // resolves. Skipped once resolved (the resolvedSymbolId already points
+          // at the target for on-demand hover/definition).
+          const isUnresolvedTypeRef =
             !ref.resolvedSymbolId &&
             (ref.context === ReferenceContext.CLASS_REFERENCE ||
               ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
-              ref.context === ReferenceContext.TYPE_DECLARATION)
-          ) {
+              ref.context === ReferenceContext.TYPE_DECLARATION);
+          // Supertype edges: `extends` (INHERITANCE) and `implements` / interface
+          // `extends` (INTERFACE_IMPLEMENTATION). These must be fetched EVEN WHEN
+          // the data-owner already resolved them (resolvedSymbolId set): the
+          // resolvedSymbolId only names the target — goto-definition and hover on
+          // the supertype still need the DECLARING FILE's symbol table PRESENT in
+          // this pool worker to produce a location. Without this, goto-def on a
+          // base class / interface declared in another file returns nothing.
+          const isSupertypeRef =
+            ref.context === ReferenceContext.INHERITANCE ||
+            ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
+          if (isUnresolvedTypeRef || isSupertypeRef) {
             classNames.add(ref.name);
           }
         }
@@ -1666,6 +1679,21 @@ const requestHandlers = {
         req.content,
       );
 
+      // The data-owner serves the cursor file at PUBLIC-API detail only — the
+      // compilation worker collects it with VisibilitySymbolListener('public-api'),
+      // so implicit-private fields, locals, and private members are absent from
+      // that table. Hover on any such member would resolve to nothing. Recompile
+      // the cursor file locally at FULL detail from the live buffer (same move
+      // DispatchReferences makes) so member-level symbols exist for processHover.
+      // Runs AFTER loadSymbolDataForEnrichment so the full-detail table wins over
+      // the public-api one and the cross-file dep tables it loaded stay present
+      // for the re-resolve inside recompileCursorFileAtFullDetail.
+      await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
       // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
       const requiredLevel = 'full';
       const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
@@ -1797,6 +1825,21 @@ const requestHandlers = {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
+        // Pass the live buffer so enrichment and the recompile below operate on
+        // the unsaved editor text, not the data-owner's last-stored version.
+        // (Previously omitted — definition resolved against stale stored state.)
+        req.content,
+      );
+
+      // Same as DispatchHover: the data-owner holds only public-api detail for
+      // the cursor file, so definition on a field/local/private member would
+      // resolve to nothing. Recompile the cursor file locally at full detail
+      // from the live buffer (after the enrichment load) so member-level symbols
+      // exist for processDefinition.
+      await recompileCursorFileAtFullDetail(
+        svc,
+        req.textDocument.uri,
+        req.content,
       );
 
       // Definition requires 'full' detail level per LspRequestPrerequisiteMapping

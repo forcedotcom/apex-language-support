@@ -2333,18 +2333,36 @@ export class LCSAdapter {
           scope,
         );
       } else {
-        // Resolve the worker script relative to the parent server bundle's own
-        // origin. Using the client-injected extension URL directly (a different
-        // origin — the extension's dist/) breaks sub-worker spawning for
-        // resolution-heavy roles: makeBrowserWorkerLayer's cross-origin
-        // fetch→blob misbehaves, silently degrading hover/definition symbol
-        // resolution while basic requests still work. workerPlatformWebUrl is
-        // kept only as a last-resort base when location.href is unavailable.
-        const selfHref =
-          (globalThis as any).location?.href ??
-          this.workerPlatformWebUrl ??
-          'file:///server.web.js';
-        const workerUrl = new URL('./worker.platform.web.js', selfHref).href;
+        // Resolve the worker script URL. Preferred: relative to the parent
+        // server bundle's own origin (location.href) — same-origin, no CORS.
+        //
+        // BUT VS Code Web serves the server bundle from a `blob:` URL (subdomain
+        // isolation), and a `blob:` href is NOT a valid base for
+        // `new URL(relative, base)` — it throws "Failed to construct 'URL':
+        // Invalid URL", which aborts topology init entirely and silently drops
+        // the whole worker pool (hover/definition/references then fall back to
+        // the coordinator-local path, and references — whose local handler is an
+        // empty stub — returns nothing). When the href is unusable as a base,
+        // fall back to the client-injected absolute worker URL
+        // (workerPlatformWebUrl), which points straight at the worker file.
+        // makeBrowserWorkerLayer fetches whatever URL we hand it and re-wraps
+        // the script in a SAME-ORIGIN blob before spawning, so the sub-worker
+        // shares the parent's origin regardless of which base produced the URL.
+        const rawHref = (globalThis as any).location?.href;
+        const hrefUsableAsBase =
+          typeof rawHref === 'string' && !rawHref.startsWith('blob:');
+        let workerUrl: string;
+        if (hrefUsableAsBase) {
+          workerUrl = new URL('./worker.platform.web.js', rawHref).href;
+        } else if (this.workerPlatformWebUrl) {
+          // Already an absolute URL to the worker file — use as-is.
+          workerUrl = this.workerPlatformWebUrl;
+        } else {
+          workerUrl = new URL(
+            './worker.platform.web.js',
+            'file:///server.web.js',
+          ).href;
+        }
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
