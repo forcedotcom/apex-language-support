@@ -1167,11 +1167,21 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
         // Wire coordinator assistance so the enrichment worker can forward
         // apex/findMissingArtifact to the coordinator (which holds the LSP
         // client connection) rather than silently dropping the request.
+        //
+        // blocking=true: the coordinator mediator must AWAIT its handler (drive
+        // the client to open the artifact, which flows to the data-owner via
+        // didOpen) and return the real FindMissingArtifactResult. With
+        // blocking=false the mediator returns {accepted:true} immediately, which
+        // the blocking-resolution caller would mis-read as "resolved" before the
+        // artifact actually loaded — so goto-definition's re-query saw nothing.
+        // The background caller doesn't await this promise, so blocking=true is
+        // harmless there (the coordinator queues background work Low-priority and
+        // returns promptly).
         EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
           requestCoordinatorAssistancePromiseShared(
             'apex/findMissingArtifact',
             params,
-            false,
+            true,
           ),
         );
 
