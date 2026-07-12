@@ -198,9 +198,13 @@ export class ApexEditorPage extends BasePage {
 
     await this.page.keyboard.press('Shift+F12');
 
-    // The references peek widget appears for any non-empty result set. Give the
-    // LSP time to answer (references can fan out cross-file).
-    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    // Find-all-references renders in the `reference-zone-widget` peek — a
+    // DIFFERENT DOM node than the go-to-definition peek
+    // (`.editor-widget.peekview-widget`). Match the references widget
+    // specifically so we don't miss it and report 0.
+    const peekWidget = this.page.locator(
+      '.peekview-widget.reference-zone-widget',
+    );
     await peekWidget
       .waitFor({ state: 'visible', timeout: this.defaultTimeout })
       .catch(() => {});
@@ -209,8 +213,22 @@ export class ApexEditorPage extends BasePage {
       return 0;
     }
 
-    // Each reference is a row in the peek's tree. Count the result entries
-    // (file/line rows), excluding the file-group headers.
+    // The peek's result tree is VIRTUALIZED: only the on-screen rows exist in
+    // the DOM (a 5-result peek may render just 2-3 `.monaco-list-row`s), so
+    // counting rows undercounts. The peek title carries the authoritative
+    // total — "References (5)" — so parse that first.
+    const titleText = await peekWidget
+      .locator('.head .peekview-title .meta')
+      .first()
+      .textContent()
+      .catch(() => null);
+    const match = titleText?.match(/References?\s*\((\d+)\)/i);
+    if (match) {
+      return Number(match[1]);
+    }
+
+    // Fallback: no parseable title (older VS Code, or a single-result peek that
+    // navigates instead of showing a count) — count the rendered result rows.
     const entries = peekWidget.locator(
       '.monaco-list-row .referenceMatch, .monaco-list-row[role="treeitem"]',
     );
@@ -222,7 +240,11 @@ export class ApexEditorPage extends BasePage {
    * Close any open peek widget (references / definition peek).
    */
   async closePeek(): Promise<void> {
-    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    // Both peek variants share the `.peekview-widget` base class: the
+    // go-to-definition peek (`.editor-widget.peekview-widget`) and the
+    // find-references peek (`.reference-zone-widget`). Match the base class so
+    // either is dismissed.
+    const peekWidget = this.page.locator('.peekview-widget');
     for (let i = 0; i < 3; i++) {
       if (!(await peekWidget.isVisible())) {
         return;
