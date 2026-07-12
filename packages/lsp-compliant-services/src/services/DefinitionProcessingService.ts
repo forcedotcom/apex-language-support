@@ -322,7 +322,14 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       // Check for duplicate definitions (same unifiedId)
       // For duplicate symbols, return all definition locations so users can see all duplicates
-      // This helps users identify duplicate declaration errors
+      // This helps users identify duplicate declaration errors.
+      //
+      // Match on kind as well as unifiedId: a genuine duplicate declaration is
+      // always the same kind (e.g. two fields sharing a name), whereas a field
+      // and a same-named constructor parameter can share a unifiedId today — the
+      // parser derives the id from a scope path that collapses a constructor's
+      // scope onto its enclosing class — yet they are different kinds and must
+      // not be grouped.
       let allSymbols: ApexSymbol[] = [symbol];
       if (symbol.key?.unifiedId) {
         // Try to find duplicates by getting all symbols in the file and checking for same unifiedId
@@ -330,7 +337,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           symbol.fileUri,
         );
         const duplicates = fileSymbols.filter(
-          (s) => s.key?.unifiedId === symbol.key.unifiedId,
+          (s) =>
+            s.key?.unifiedId === symbol.key.unifiedId && s.kind === symbol.kind,
         );
         if (duplicates.length > 1) {
           // Found duplicates - include all of them
@@ -353,13 +361,29 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         locations.push(...symLocations);
       }
 
+      // Collapse locations that point at the same declaration line. A genuine
+      // duplicate declaration lives on its own line, but layered compilation
+      // (public-api load + full recompile) can leave two same-kind entries for
+      // one declaration on the SAME line — one anchored to the identifier, one
+      // to the type token. Returning both makes VS Code open a peek instead of
+      // jumping, so keep only the first location per (uri, line).
+      const seen = new Set<string>();
+      const dedupedLocations = locations.filter((loc) => {
+        const lineKey = `${loc.uri}#${loc.range.start.line}`;
+        if (seen.has(lineKey)) {
+          return false;
+        }
+        seen.add(lineKey);
+        return true;
+      });
+
       this.logger.debug(
         () =>
-          `Returning ${locations.length} definition location(s) for: ${symbol?.name ?? 'null'}`,
+          `Returning ${dedupedLocations.length} definition location(s) for: ${symbol?.name ?? 'null'}`,
       );
 
       // Return the locations array (may contain multiple locations for duplicates)
-      return locations;
+      return dedupedLocations;
     } catch (error) {
       this.logger.error(() => `Error processing definition request: ${error}`);
       return null;
