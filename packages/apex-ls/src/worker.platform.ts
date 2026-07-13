@@ -767,15 +767,23 @@ async function loadSymbolDataForEnrichment(
   let detailLevel = 'public-api';
 
   try {
-    const response = (await requestCoordinatorAssistancePromise(
-      'dataOwner:QuerySymbolSubset',
-      { uris: [uri] },
-      true,
-    )) as {
-      entries: Record<string, unknown>;
-      versions: Record<string, number>;
-      detailLevels: Record<string, string>;
-    };
+    const response = await Effect.runPromise(
+      Effect.fn('worker.enrichment.querySymbolSubset', { attributes: { uri } })(
+        function* () {
+          return (yield* Effect.promise(() =>
+            requestCoordinatorAssistancePromise(
+              'dataOwner:QuerySymbolSubset',
+              { uris: [uri] },
+              true,
+            ),
+          )) as {
+            entries: Record<string, unknown>;
+            versions: Record<string, number>;
+            detailLevels: Record<string, string>;
+          };
+        },
+      )().pipe(provideWorkerTracing()),
+    );
 
     if (response?.entries) {
       const { SymbolTable, ReferenceContext } =
@@ -797,7 +805,13 @@ async function loadSymbolDataForEnrichment(
 
       const loaded = ingestEntries(response.entries);
       for (const { fileUri, st } of loaded) {
-        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+        await Effect.runPromise(
+          Effect.fn('worker.enrichment.addSymbolTable', {
+            attributes: { fileUri },
+          })(() => svc.symbolManager.addSymbolTable(st, fileUri))().pipe(
+            provideWorkerTracing(),
+          ),
+        );
       }
       version = response.versions?.[uri] ?? -1;
       detailLevel = response.detailLevels?.[uri] ?? 'public-api';
@@ -825,11 +839,19 @@ async function loadSymbolDataForEnrichment(
         }
         if (classNames.size > 0) {
           try {
-            const depResponse = (await requestCoordinatorAssistancePromise(
-              'dataOwner:ResolveDepUris',
-              { classNames: [...classNames] },
-              true,
-            )) as { entries: Record<string, unknown> };
+            const depResponse = await Effect.runPromise(
+              Effect.fn('worker.enrichment.resolveDepUris', {
+                attributes: { classNameCount: classNames.size },
+              })(function* () {
+                return (yield* Effect.promise(() =>
+                  requestCoordinatorAssistancePromise(
+                    'dataOwner:ResolveDepUris',
+                    { classNames: [...classNames] },
+                    true,
+                  ),
+                )) as { entries: Record<string, unknown> };
+              })().pipe(provideWorkerTracing()),
+            );
             if (depResponse?.entries) {
               for (const { fileUri: depUri, st: depSt } of ingestEntries(
                 depResponse.entries,
@@ -869,7 +891,11 @@ async function loadSymbolDataForEnrichment(
           // resolveCrossFileReferencesForFile is re-entrancy-guarded and
           // addReference de-dupes, so this is near-free when nothing changed.
           await Effect.runPromise(
-            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+            Effect.fn('worker.enrichment.resolveCrossFileReferences', {
+              attributes: { uri },
+            })(() =>
+              svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+            )().pipe(provideWorkerTracing()),
           );
         }
       }
@@ -957,14 +983,18 @@ export async function resolveMissingNamesViaDataOwner(
     if (namespace) {
       queryParams.namespace = namespace;
     }
-    const response = (await queryByName(
-      'dataOwner:QuerySymbolByName',
-      queryParams,
-      true,
-    )) as {
-      matches?: ReadonlyArray<{ name: string; fileUri: string }>;
-      entries?: Record<string, unknown>;
-    };
+    const response = await Effect.runPromise(
+      Effect.fn('worker.enrichment.querySymbolByName', {
+        attributes: { nameCount: residual.length },
+      })(function* () {
+        return (yield* Effect.promise(() =>
+          queryByName('dataOwner:QuerySymbolByName', queryParams, true),
+        )) as {
+          matches?: ReadonlyArray<{ name: string; fileUri: string }>;
+          entries?: Record<string, unknown>;
+        };
+      })().pipe(provideWorkerTracing()),
+    );
 
     if (!response?.entries) return 0;
     let ingested = 0;
@@ -1333,17 +1363,29 @@ async function writeBackEnrichedSymbols(
 
     const symbolCount = enrichedSymbolTable.symbols.length;
 
-    const response = (await requestCoordinatorAssistancePromise(
-      'dataOwner:UpdateSymbolSubset',
-      {
-        uri,
-        documentVersion,
-        enrichedSymbolTable,
-        enrichedDetailLevel,
-        sourceWorkerId: workerId,
-      },
-      true,
-    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+    const response = await Effect.runPromise(
+      Effect.fn('worker.enrichment.updateSymbolSubset', {
+        attributes: {
+          uri,
+          symbolCount,
+          detailLevel: enrichedDetailLevel,
+        },
+      })(function* () {
+        return (yield* Effect.promise(() =>
+          requestCoordinatorAssistancePromise(
+            'dataOwner:UpdateSymbolSubset',
+            {
+              uri,
+              documentVersion,
+              enrichedSymbolTable,
+              enrichedDetailLevel,
+              sourceWorkerId: workerId,
+            },
+            true,
+          ),
+        )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+      })().pipe(provideWorkerTracing()),
+    );
 
     const elapsed = Date.now() - startTime;
     const accepted = response?.accepted ?? false;
