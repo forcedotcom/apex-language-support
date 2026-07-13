@@ -38,11 +38,17 @@ import {
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  enableConsoleLogging,
+  setLogLevel,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'debug';
 
 // A utility class whose instance method `greet` is called from TWO other files,
 // twice in one of them — three cross-file call sites in total. Self-contained
@@ -134,7 +140,13 @@ const toLocations = (
   }>;
 
 describe('find-references through the worker topology (location count)', () => {
-  const logger = getLogger();
+  let logger: LoggerInterface;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -146,7 +158,7 @@ describe('find-references through the worker topology (location count)', () => {
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -198,11 +210,11 @@ describe('find-references through the worker topology (location count)', () => {
     );
 
     const { result } = await Effect.runPromise(program);
-    console.log('[D2]', JSON.stringify(result));
+    logger.debug(`[D2] ${JSON.stringify(result)}`);
 
     const locations = toLocations(result);
     const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
-    console.log(
+    logger.debug(
       `[refs-topology] count=${locations.length} uris=${JSON.stringify(uris)}`,
     );
 
@@ -216,13 +228,104 @@ describe('find-references through the worker topology (location count)', () => {
     expect(uris.some((u) => u.includes('RefCallerB'))).toBe(true);
   }, 120_000);
 
+  it('returns the same count on a repeat request after an intervening documentChange (W-23272674)', async () => {
+    // Regression: find-references was not idempotent. The phase-1 lexical
+    // prefilter scans the data-owner's stored document text; a documentChange
+    // used to overwrite that text with a blank placeholder (the write-back
+    // merges symbols but never restores text), so any file edited since the
+    // last full workspace ingest silently dropped out of the candidate set and
+    // its call sites vanished from the second request's result.
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: UTIL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => UTIL_SRC,
+          },
+          textDocument: { uri: UTIL_URI },
+          text: UTIL_SRC,
+        }),
+      );
+
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createBatchCompileDispatcher();
+      yield* Effect.promise(() => ingest('wf-refs-idem', ALL_ENTRIES));
+      yield* Effect.promise(() => compile('wf-refs-idem', ALL_ENTRIES));
+
+      const dispatchRefs = () =>
+        Effect.promise(() =>
+          dispatcher.dispatch('references', {
+            textDocument: { uri: CALLER_A_URI },
+            position: { line: 2, character: 8 }, // on `RefUtil` usage in caller A
+            context: { includeDeclaration: true },
+          }),
+        );
+
+      const first = yield* dispatchRefs();
+
+      // A caller file is edited (content unchanged, new version) — the exact
+      // event that used to blank RefCallerB's stored text on the data-owner.
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri: CALLER_B_URI,
+            languageId: 'apex',
+            version: 2,
+            getText: () => CALLER_B_SRC,
+          },
+          textDocument: { uri: CALLER_B_URI },
+          text: CALLER_B_SRC,
+        }),
+      );
+
+      const second = yield* dispatchRefs();
+
+      return { first, second };
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
+    );
+
+    const { first, second } = await Effect.runPromise(program);
+
+    const firstUris = toLocations(first).map((l) => l.uri ?? l.targetUri ?? '');
+    const secondUris = toLocations(second).map(
+      (l) => l.uri ?? l.targetUri ?? '',
+    );
+    logger.debug(
+      `[refs-topology:idempotent] first=${firstUris.length} second=${secondUris.length}`,
+    );
+
+    // The second request must return the same locations as the first — in
+    // particular RefCallerB (the edited file) must still contribute its usages.
+    expect(secondUris.length).toBe(firstUris.length);
+    expect(secondUris.some((u) => u.includes('RefCallerB'))).toBe(true);
+    expect(secondUris.some((u) => u.includes('RefCallerA'))).toBe(true);
+  }, 120_000);
+
   it('omits the declaration when includeDeclaration is false', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -268,7 +371,7 @@ describe('find-references through the worker topology (location count)', () => {
 
     const locations = toLocations(result);
     const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
-    console.log(
+    logger.debug(
       `[refs-topology:no-decl] count=${locations.length} uris=${JSON.stringify(uris)}`,
     );
 

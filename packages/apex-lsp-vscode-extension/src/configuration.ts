@@ -21,6 +21,7 @@ import {
   generateStartupSummary,
   mergeWithDefaults,
 } from '@salesforce/apex-lsp-shared';
+import { detectEnvironment } from './utils/serverUtils';
 
 /**
  * Creates a clean, serializable notification object for workspace/didChangeConfiguration
@@ -61,7 +62,7 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
 
   // Merge user settings with defaults, ensuring all required properties exist
   const userSettings = { apex: settings };
-  return mergeWithDefaults(userSettings, 'desktop');
+  return mergeWithDefaults(userSettings, detectEnvironment());
 };
 
 /**

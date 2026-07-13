@@ -1403,6 +1403,7 @@ export class LCSAdapter {
     this.clientVscodeVersion = envSettings?.vscodeVersion ?? '';
     this.clientWorkspaceFileCount = envSettings?.workspaceFileCount ?? 0;
     this.clientApexFileCount = envSettings?.apexFileCount ?? 0;
+    this.workerPlatformWebUrl = envSettings?.workerPlatformWebUrl;
 
     const serverModeAfter = configManager.getCapabilitiesManager().getMode();
 
@@ -2390,13 +2391,18 @@ export class LCSAdapter {
           scope,
         );
       } else {
-        const injectedUrl = this.workerPlatformWebUrl;
+        // Resolve the worker script relative to the parent server bundle's own
+        // origin. Using the client-injected extension URL directly (a different
+        // origin — the extension's dist/) breaks sub-worker spawning for
+        // resolution-heavy roles: makeBrowserWorkerLayer's cross-origin
+        // fetch→blob misbehaves, silently degrading hover/definition symbol
+        // resolution while basic requests still work. workerPlatformWebUrl is
+        // kept only as a last-resort base when location.href is unavailable.
         const selfHref =
-          injectedUrl ??
           (globalThis as any).location?.href ??
+          this.workerPlatformWebUrl ??
           'file:///server.web.js';
-        const workerUrl =
-          injectedUrl ?? new URL('./worker.platform.web.js', selfHref).href;
+        const workerUrl = new URL('./worker.platform.web.js', selfHref).href;
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
@@ -2476,7 +2482,10 @@ export class LCSAdapter {
         () =>
           `[WorkerCoordinator] Topology initialization failed: ${formattedError(error)}`,
       );
-      if (!process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT) {
+      if (
+        typeof process.exit === 'function' &&
+        !process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT
+      ) {
         this.logger.error(
           () => '[WorkerCoordinator] Exiting process due to topology failure',
         );

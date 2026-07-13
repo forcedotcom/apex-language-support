@@ -558,6 +558,78 @@ export class LSPConfigurationManager {
         }
       }
 
+      // Check and set load workspace settings
+      if (apexSettings.loadWorkspace) {
+        const currentLoadWorkspace =
+          this.settingsManager.getSettings().apex.loadWorkspace;
+        const newLoadWorkspace = apexSettings.loadWorkspace;
+
+        const loadWorkspaceChanges: any = {};
+        let hasLoadWorkspaceChanges = false;
+
+        Object.keys(newLoadWorkspace).forEach((key) => {
+          const typedKey = key as keyof typeof newLoadWorkspace;
+          if (currentLoadWorkspace?.[typedKey] !== newLoadWorkspace[typedKey]) {
+            loadWorkspaceChanges[typedKey] = newLoadWorkspace[typedKey];
+            hasLoadWorkspaceChanges = true;
+          }
+        });
+
+        if (hasLoadWorkspaceChanges) {
+          this.settingsManager.updateSettings({
+            apex: {
+              loadWorkspace: loadWorkspaceChanges,
+            },
+          } as Partial<ApexLanguageServerSettings>);
+          hasChanges = true;
+        }
+      }
+
+      // Check and set queue processing settings
+      if (apexSettings.queueProcessing) {
+        const currentQueueProcessing =
+          this.settingsManager.getSettings().apex.queueProcessing;
+        const newQueueProcessing = apexSettings.queueProcessing;
+
+        const currentMaxConcurrency = currentQueueProcessing?.maxConcurrency;
+        const newMaxConcurrency = newQueueProcessing.maxConcurrency;
+
+        const maxConcurrencyChanges: any = {};
+        let hasQueueProcessingChanges = false;
+
+        if (newMaxConcurrency) {
+          Object.keys(newMaxConcurrency).forEach((key) => {
+            const typedKey = key as keyof typeof newMaxConcurrency;
+            if (
+              currentMaxConcurrency?.[typedKey] !== newMaxConcurrency[typedKey]
+            ) {
+              maxConcurrencyChanges[typedKey] = newMaxConcurrency[typedKey];
+              hasQueueProcessingChanges = true;
+            }
+          });
+        }
+
+        if (
+          newQueueProcessing.maxTotalConcurrency !== undefined &&
+          currentQueueProcessing?.maxTotalConcurrency !==
+            newQueueProcessing.maxTotalConcurrency
+        ) {
+          hasQueueProcessingChanges = true;
+        }
+
+        if (hasQueueProcessingChanges) {
+          this.settingsManager.updateSettings({
+            apex: {
+              queueProcessing: {
+                maxTotalConcurrency: newQueueProcessing.maxTotalConcurrency,
+                maxConcurrency: maxConcurrencyChanges,
+              },
+            },
+          } as Partial<ApexLanguageServerSettings>);
+          hasChanges = true;
+        }
+      }
+
       if (hasChanges) {
         this.logger.debug('Initial settings applied with changes detected');
       } else {

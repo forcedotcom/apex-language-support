@@ -354,7 +354,9 @@ describe('Validator Integration Tests', () => {
       if (r.errors.length > 0 && typeof r.errors[0] === 'string') {
         // Convert legacy string[] format to ValidationErrorInfo[]
         return (r.errors as string[]).map(
-          (msg): ValidationErrorInfo => ({ message: msg }),
+          (msg): ValidationErrorInfo => ({
+            message: msg,
+          }),
         );
       }
       return r.errors as ValidationErrorInfo[];

@@ -15,7 +15,6 @@ import {
   Hover,
   DefinitionParams,
   ImplementationParams,
-  ReferenceParams,
   Location,
   CodeLensParams,
   CodeLens,
@@ -62,7 +61,6 @@ export * from './handlers/DidDeleteDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/DefinitionHandler';
 export * from './handlers/ImplementationHandler';
-export * from './handlers/ReferencesHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
@@ -92,7 +90,6 @@ export * from './services/HoverProcessingService';
 export * from './services/BackgroundProcessingInitializationService';
 export * from './services/CompletionProcessingService';
 export * from './services/strategies';
-export * from './services/ReferencesProcessingService';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
 export * from './services/DiagnosticRefreshService';
@@ -359,18 +356,6 @@ export const dispatchProcessOnDefinition = async (
 ): Promise<Location[] | null> => {
   const handler = HandlerFactory.createDefinitionHandler();
   return await handler.handleDefinition(params);
-};
-
-/**
- * Dispatch function for references requests
- * @param params The references parameters
- * @returns Promise resolving to reference locations or null
- */
-export const dispatchProcessOnReferences = async (
-  params: ReferenceParams,
-): Promise<Location[] | null> => {
-  const handler = HandlerFactory.createReferencesHandler();
-  return await handler.handleReferences(params);
 };
 
 /**

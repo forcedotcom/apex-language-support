@@ -52,11 +52,14 @@ import {
   DispatchReferences,
   DispatchImplementation,
   getLogger,
+  enableConsoleLogging,
+  setLogLevel,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const LOG_LEVEL = 'error';
 
 // A class with an interface + implementor in one file, so go-to-implementation
 // and references have real edges to resolve, while staying self-contained
@@ -141,7 +144,13 @@ function wireProductionMediator(
 }
 
 describe('Enrichment round-trip through the worker topology (live assistance bus)', () => {
-  const logger = getLogger();
+  let logger: ReturnType<typeof getLogger>;
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel(LOG_LEVEL);
+    logger = getLogger();
+  });
 
   afterEach(() => {
     clearRawWorkers();
@@ -158,7 +167,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
       wireProductionMediator(topology, dispatcher, logger);
@@ -207,7 +216,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       ),
     );
 
-    console.log(
+    logger.debug(
       `[round-trip:hover] completed result=${JSON.stringify(response.result)}`,
     );
     // The round-trip closed: a (possibly null) result came back rather than
@@ -228,7 +237,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       ),
     );
 
-    console.log(
+    logger.debug(
       `[round-trip:references] completed result=${JSON.stringify(response.result)}`,
     );
     expect(response).toBeDefined();
@@ -246,7 +255,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       ),
     );
 
-    console.log(
+    logger.debug(
       `[round-trip:implementation] completed result=${JSON.stringify(response.result)}`,
     );
     expect(response).toBeDefined();
@@ -282,7 +291,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         poolSize: 3, // multiple enrichment workers
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
       wireProductionMediator(topology, dispatcher, logger);
@@ -339,7 +348,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     };
     const finalLevel = query.detailLevels[URI];
 
-    console.log(
+    logger.debug(
       `[round-trip:concurrent-hovers] completed=${results.length} ` +
         `version=${query.versions[URI]} finalLevel=${finalLevel}`,
     );
@@ -379,7 +388,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       // getDocumentContent serves whichever file is asked for (the coordinator's
       // TextDocuments would do this live); documentSymbol/implementation thread
@@ -444,7 +453,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     ) as Array<{ uri?: string; targetUri?: string }>;
     const targetUris = locations.map((l) => l.uri ?? l.targetUri ?? '');
 
-    console.log(
+    logger.debug(
       `[round-trip:goto-impl] count=${locations.length} targets=${JSON.stringify(targetUris)}`,
     );
 
@@ -476,7 +485,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       const sources: Record<string, string> = { [IFACE_URI]: IFACE_SRC };
       const dispatcher = makeWorkerDispatcher(
@@ -553,7 +562,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
     const firstUris = toUris(firstResult);
     const secondUris = toUris(secondResult);
-    console.log(
+    logger.debug(
       `[round-trip:goto-impl-multi] first=${JSON.stringify(firstUris)} ` +
         `second=${JSON.stringify(secondUris)}`,
     );
@@ -604,7 +613,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         poolSize: 1,
         enableResourceLoader: true,
         logger,
-        logLevel: 'error',
+        logLevel: LOG_LEVEL,
       });
       // Serve whichever content each URI currently holds; updated as the
       // implementor is edited so getDocumentContent (used by request-pool
@@ -677,7 +686,6 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
             getText: () => IMPL3_FINAL_SRC,
           },
           textDocument: { uri: IMPL3_URI },
-          contentChanges: [{ text: IMPL3_FINAL_SRC }],
         }),
       );
       yield* Effect.promise(() =>
@@ -717,7 +725,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
     const firstUris = toUris(firstResult);
     const secondUris = toUris(secondResult);
-    console.log(
+    logger.debug(
       `[round-trip:goto-impl-live-edit] first=${JSON.stringify(firstUris)} ` +
         `second=${JSON.stringify(secondUris)}`,
     );

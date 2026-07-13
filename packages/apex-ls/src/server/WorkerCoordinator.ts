@@ -26,6 +26,7 @@ import {
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
+  FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   DrainDeferredReferences,
@@ -265,6 +266,7 @@ const DEFAULT_WORKER_SCRIPT =
 export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
+  readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
@@ -390,59 +392,71 @@ export function initializeTopology(
           >)
         : eff;
 
-    let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
-      null;
-    if (config.enableResourceLoader) {
-      const worker = yield* withRoleLayer(
-        Worker.makeSerialized<ResourceLoaderRequest>({
-          initialMessage: () =>
-            makeInitMessage(
-              'resourceLoader',
-              logLevel,
-              serverMode,
-              spanCollectorUrl,
-            ),
-        }),
-        'resourceLoader',
+    // Spawn all workers in parallel for faster initialization
+    const [resourceLoader, dataOwner, compilation, requestPool] =
+      yield* Effect.all(
+        [
+          config.enableResourceLoader
+            ? withRoleLayer(
+                Worker.makeSerialized<ResourceLoaderRequest>({
+                  initialMessage: () =>
+                    makeInitMessage(
+                      'resourceLoader',
+                      logLevel,
+                      serverMode,
+                      spanCollectorUrl,
+                    ),
+                }),
+                'resourceLoader',
+              )
+            : Effect.succeed(null),
+          withRoleLayer(
+            Worker.makeSerialized<DataOwnerRequest>({
+              initialMessage: () =>
+                makeInitMessage(
+                  'dataOwner',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
+            }),
+            'dataOwner',
+          ),
+          withRoleLayer(
+            Worker.makeSerialized<CompilationRequest>({
+              initialMessage: () =>
+                makeInitMessage(
+                  'compilation',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
+            }),
+            'compilation',
+          ),
+          withRoleLayer(
+            Worker.makePoolSerialized<LspRequestMessage>({
+              size: poolSize,
+              initialMessage: () =>
+                makeInitMessage(
+                  'lspRequest',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
+            }),
+            'lspRequest',
+          ),
+        ],
+        { concurrency: 'unbounded' },
       );
-      resourceLoader = worker;
+
+    // Log after all are initialized
+    if (resourceLoader) {
       logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
-
-    const dataOwnerWorker = yield* withRoleLayer(
-      Worker.makeSerialized<DataOwnerRequest>({
-        initialMessage: () =>
-          makeInitMessage('dataOwner', logLevel, serverMode, spanCollectorUrl),
-      }),
-      'dataOwner',
-    );
-    const dataOwner = dataOwnerWorker;
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
-
-    const compilationWorker = yield* withRoleLayer(
-      Worker.makeSerialized<CompilationRequest>({
-        initialMessage: () =>
-          makeInitMessage(
-            'compilation',
-            logLevel,
-            serverMode,
-            spanCollectorUrl,
-          ),
-      }),
-      'compilation',
-    );
-    const compilation = compilationWorker;
     logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
-
-    const pool = yield* withRoleLayer(
-      Worker.makePoolSerialized<LspRequestMessage>({
-        size: poolSize,
-        initialMessage: () =>
-          makeInitMessage('lspRequest', logLevel, serverMode, spanCollectorUrl),
-      }),
-      'lspRequest',
-    );
-    const requestPool = pool;
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -451,6 +465,7 @@ export function initializeTopology(
     return {
       dataOwner,
       requestPool,
+      requestPoolSize: poolSize,
       resourceLoader,
       compilation,
     } as WorkerTopology;
@@ -573,10 +588,16 @@ export const runRemoteStdlibWarmupPhase = (
       return;
     }
     const n = clampPoolSize(poolSize);
-    yield* topology.dataOwner.executeEffect(req);
-    for (let i = 0; i < n; i++) {
-      yield* topology.requestPool.executeEffect(req);
-    }
+    // Warm all workers in parallel — each is independent
+    yield* Effect.all(
+      [
+        topology.dataOwner.executeEffect(req),
+        ...Array.from({ length: n }, () =>
+          topology.requestPool.executeEffect(req),
+        ),
+      ],
+      { concurrency: 'unbounded' },
+    );
   });
 };
 
@@ -934,6 +955,14 @@ function createDispatcher(
             }),
           );
         }
+        case 'FindOccurrenceCandidates': {
+          const pfc = params as { symbolName: string };
+          return callbacks.sendToDataOwner(
+            new FindOccurrenceCandidates({
+              symbolName: pfc.symbolName,
+            }),
+          );
+        }
         case 'QuerySymbolByName': {
           const pqn = params as {
             name?: string;
@@ -1009,7 +1038,7 @@ export function makeWorkerDispatcher(
       },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
-      poolSize: 0,
+      poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
       getDocumentContent,
     },
@@ -1061,14 +1090,6 @@ interface DocumentEventParams {
   };
   readonly textDocument?: { readonly uri: string };
   readonly text?: string;
-  readonly contentChanges?: ReadonlyArray<{
-    readonly range?: {
-      readonly start: { readonly line: number; readonly character: number };
-      readonly end: { readonly line: number; readonly character: number };
-    };
-    readonly rangeLength?: number;
-    readonly text: string;
-  }>;
 }
 
 /** Params shape for position-based enrichment dispatches. */
@@ -1106,18 +1127,18 @@ function buildDataOwnerMessage(
       return new DispatchDocumentChange({
         uri: p.document?.uri ?? p.textDocument?.uri ?? '',
         version: p.document?.version ?? 0,
-        contentChanges: (p.contentChanges ?? []).map((c) => ({
-          text: c.text,
-          ...(c.range ? { range: c.range } : {}),
-          ...(c.rangeLength !== undefined
-            ? { rangeLength: c.rangeLength }
-            : {}),
-        })),
+        // Full-text sync: the change event carries the entire updated document,
+        // so document.getText() is the authoritative post-change content. The
+        // data-owner stores this as the file's text (used by text-based scans
+        // like find-references' lexical prefilter) rather than a blank
+        // placeholder (W-23272674).
+        content: p.document?.getText?.() ?? p.text ?? '',
       });
     case 'documentSave':
       return new DispatchDocumentSave({
         uri: p.document?.uri ?? p.textDocument?.uri ?? '',
         version: p.document?.version ?? 0,
+        content: p.document?.getText?.() ?? p.text ?? '',
       });
     case 'documentClose':
       return new DispatchDocumentClose({
@@ -1203,7 +1224,7 @@ function buildLspRequestMessage(
         context: {
           includeDeclaration: r.context?.includeDeclaration ?? false,
         },
-        // The pool worker's ReferencesProcessingService maps the cursor to a
+        // The pool worker's DispatchReferences handler maps the cursor to a
         // symbol via its local document; carry the live text so its storage
         // isn't empty (same as documentSymbol). Without it find-references
         // returns [] on the pool.

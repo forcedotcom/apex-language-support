@@ -203,18 +203,18 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: Partial<ApexLanguageServerSettings> 
         yieldDelayMs: 25,
       },
 
+      // Scheduler tuning matches desktop's values (not halved like the other
+      // browser tiers above). Halving these caused the scheduler's internal
+      // notification/idle-wait/starvation-relief loops to behave differently
+      // enough under the browser's single-threaded web-worker runtime that
+      // documentSymbol (and other) requests stalled past their client-side
+      // timeout in e2e — most notably queueStateNotificationIntervalMs: 0,
+      // which turns startQueueStateNotificationTask's `while (true) {
+      // sleep(intervalMs); ... }` loop into a busy-spin that starves other
+      // fibers of event-loop turns. Verified by reverting this block to
+      // desktop's exact values, which fixed the stalls with no regressions.
       scheduler: {
-        queueCapacity: {
-          CRITICAL: 64,
-          IMMEDIATE: 64,
-          HIGH: 64,
-          NORMAL: 64,
-          LOW: 128,
-          BACKGROUND: 128,
-        },
-        idleSleepMs: 50,
-        maxHighPriorityStreak: 5,
-        queueStateNotificationIntervalMs: 0,
+        ...DEFAULT_APEX_SETTINGS.apex.scheduler,
       },
     },
   };

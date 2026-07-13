@@ -55,6 +55,7 @@ import {
 import { EXTENSION_CONSTANTS } from './constants';
 import {
   determineServerMode,
+  detectEnvironment,
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
@@ -64,6 +65,8 @@ import {
   getSpanCollectorUrl,
 } from './observability/extensionTracing';
 import { EXCLUDE_GLOB } from './workspace-loader';
+
+export { detectEnvironment };
 
 /**
  * Global language client instance
@@ -94,34 +97,6 @@ function registerIngestionCompleteHandler(client: ClientInterface) {
     );
     updateApexServerStatusReady();
   });
-}
-
-/**
- * Compile-time bundle target, injected by esbuild `define`:
- *   - the Node bundle (dist/extension.js)  -> 'desktop'
- *   - the browser bundle (dist/extension.web.js) -> 'web'
- *
- * The bundle target IS the extension-host type, which is the correct
- * desktop-vs-web discriminator. `vscode.env.uiKind` only reports where the UI
- * renders, so it misclassifies a Node extension host with a browser-rendered
- * UI (e.g. code-server) as 'web' — sending it down the web-worker client path,
- * which a Node host cannot run. Declared loosely so unbundled runs (tests,
- * tsc-only) fall back to the uiKind heuristic below.
- */
-declare const __APEX_LS_TARGET__: 'desktop' | 'web' | undefined;
-
-/**
- * Environment detection
- */
-export function detectEnvironment(): 'desktop' | 'web' {
-  // Bundle target is authoritative: the Node entry point only loads in a Node
-  // extension host (desktop VS Code AND code-server), the browser entry point
-  // only loads in a web-worker host (vscode.dev).
-  if (typeof __APEX_LS_TARGET__ !== 'undefined') {
-    return __APEX_LS_TARGET__;
-  }
-  // Fallback for unbundled execution (no define injected): approximate via UI kind.
-  return vscode.env.uiKind === vscode.UIKind.Web ? 'web' : 'desktop';
 }
 
 /**

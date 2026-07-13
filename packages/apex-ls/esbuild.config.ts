@@ -7,7 +7,6 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import { copy } from 'esbuild-plugin-copy';
 import {
   configureWebWorkerPolyfills,
   forceAntlr4CjsPlugin,
@@ -127,21 +126,7 @@ const builds: BuildOptions[] = [
       '.zip': 'dataurl',
       '.gz': 'dataurl',
     },
-    plugins: [
-      forceAntlr4CjsPlugin,
-      stubApexParserCheckPlugin,
-      copy({
-        resolveFrom: 'cwd',
-        assets: [
-          {
-            from: ['out/worker.d.ts'],
-            to: ['./dist/worker.d.ts'],
-          },
-        ],
-        watch: true,
-        verbose: true,
-      }),
-    ],
+    plugins: [forceAntlr4CjsPlugin, stubApexParserCheckPlugin],
   },
   // Node.js internal worker build — spawned by WorkerCoordinator (Step 3)
   // Same Node externals as server.node; browser variant added in Step 10
