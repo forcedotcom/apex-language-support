@@ -1690,13 +1690,22 @@ const requestHandlers = {
       // from the live buffer. Runs after loadSymbolDataForEnrichment so the
       // full-detail table wins while the cross-file dep tables it loaded stay
       // present for the re-resolve inside recompileCursorFileAtFullDetail.
+      //
+      // DEFERRED perf (W-23408848): this runs on every hover on ALL platforms,
+      // not just web. It is NOT safe to gate on the data-owner's reported
+      // detailLevel (`shouldEnrich(detailLevel, 'full')`): that level reflects
+      // the DATA-OWNER's stored table, not what THIS pool member holds locally,
+      // so a fresh pool worker with detailLevel='full' still lacks the member
+      // symbols and skipping the recompile regresses field/instance-variable
+      // hover+definition (verified: 3 web e2e failures). A correct gate needs a
+      // LOCAL full-detail marker for the uri; deferred until one exists.
       await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
         req.content,
       );
 
-      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
+      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping.
       const requiredLevel = 'full';
       const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
 
@@ -1834,14 +1843,16 @@ const requestHandlers = {
 
       // As in DispatchHover: the data-owner holds only public-api detail, so
       // definition on a field/local/private member resolves to nothing.
-      // Recompile locally at full detail from the live buffer.
+      // Recompile locally at full detail from the live buffer. See DispatchHover
+      // for why this can't safely be gated on the reported detailLevel
+      // (DEFERRED perf, W-23408848).
       await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
         req.content,
       );
 
-      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
+      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping.
       const requiredLevel = 'full';
       const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
 

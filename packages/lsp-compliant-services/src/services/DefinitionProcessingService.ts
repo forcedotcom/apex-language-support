@@ -361,6 +361,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       // recompile) can leave two same-kind entries for one declaration on the
       // same line — one on the identifier, one on the type token. Returning both
       // makes VS Code open a peek instead of jumping, so keep one per (uri, line).
+      //
+      // DEFERRED (W-23408848, do NOT "fix" by adding column to the key): keying
+      // on (uri, line) can also collapse two GENUINE duplicate declarations that
+      // happen to share a line, e.g. a multi-declarator `String a, a;`. That is
+      // a rare, already-degenerate case. Adding startColumn to the key would
+      // separate such duplicates — BUT it would also re-separate the layered
+      // identifier/type-token artifacts above (which differ ONLY by column) and
+      // reintroduce the peek bug this fix removes. If genuine same-line
+      // duplicates must be surfaced later, dedup on (uri, line, unifiedId+kind)
+      // — NOT column.
       const seen = new Set<string>();
       const dedupedLocations = locations.filter((loc) => {
         const lineKey = `${loc.uri}#${loc.range.start.line}`;

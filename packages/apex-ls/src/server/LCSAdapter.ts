@@ -2349,8 +2349,10 @@ export class LCSAdapter {
         const workerUrl =
           typeof rawHref === 'string' && !rawHref.startsWith('blob:')
             ? resolveWorkerUrl(rawHref)
-            : (this.workerPlatformWebUrl ??
-              resolveWorkerUrl('file:///server.web.js'));
+            : // `||` (not `??`): an empty string is as unusable a base as
+              // undefined, so fall through to the placeholder in both cases.
+              this.workerPlatformWebUrl ||
+              resolveWorkerUrl('file:///server.web.js');
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
