@@ -99,7 +99,11 @@ connection.listen();
 
 `ApexClientCore.create` registers default handlers (the logging middleware and
 the `findMissingArtifact` responder) during construction, **before** any message
-flows. The `RpcConnection` you pass MUST NOT be started/listening yet — start it
+flows. The default `findMissingArtifact` handler (responds `{ notFound: true }`)
+is managed through the `ApexMethodSurface` factory and can be customized via
+`core.onFindMissingArtifact(handler)` before or after `initialize()`.
+
+The `RpcConnection` you pass MUST NOT be started/listening yet — start it
 only after the core is built.
 
 ```typescript
@@ -184,6 +188,55 @@ const disposable = core.use(timingMiddleware);
 disposable.dispose();
 ```
 
+### Typed apex/* methods
+
+The core exposes typed sender methods for all client-to-server `apex/*`
+requests/notifications, and `on*` registration methods for server-to-client
+handlers. These are type-safe alternatives to the generic `request()`/`notify()`
+escape hatches:
+
+```typescript
+// --- Typed senders (client → server) ---
+
+// Send workspace batch data to the server
+const result = await core.sendWorkspaceBatch({ batch: myBatch });
+
+// Trigger batch processing
+const processResult = await core.processWorkspaceBatches({ options: {} });
+
+// Notify the server that workspace load is complete (void notification)
+core.workspaceLoadComplete({ timestamp: Date.now() });
+
+// Query profiling status
+const status = await core.profilingStatus({ verbose: true });
+
+// --- Handler registrations (server → client) ---
+
+// Register a custom findMissingArtifact handler (replaces the default)
+const disposable = core.onFindMissingArtifact(async (params) => {
+  const resolved = await resolveArtifact(params.artifactPath);
+  return resolved ?? { notFound: true };
+});
+// Disposing reverts to the default { notFound: true } fallback
+disposable.dispose();
+
+// Listen for server workspace-load requests
+const loadDisposable = core.onRequestWorkspaceLoad((params) => {
+  console.log('Server requests workspace load:', params);
+});
+
+// Listen for ingestion-complete and queue-state-changed notifications
+core.onWorkspaceIngestionComplete((params) => {
+  console.log('Ingestion complete:', params);
+});
+core.onQueueStateChanged((params) => {
+  console.log('Queue state:', params);
+});
+```
+
+All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
+`on*` registrations throw synchronously if called after `dispose()`.
+
 ## API Reference
 
 ### Core
@@ -205,6 +258,27 @@ disposable.dispose();
     chain.
   - `documentSymbol(params)` — send `textDocument/documentSymbol` through the
     middleware chain.
+  - `sendWorkspaceBatch(params)` — send `apex/sendWorkspaceBatch` request.
+  - `processWorkspaceBatches(params)` — send `apex/processWorkspaceBatches`
+    request.
+  - `workspaceLoadComplete(params)` — send `apex/workspaceLoadComplete`
+    notification.
+  - `workspaceLoadFailed(params)` — send `apex/workspaceLoadFailed`
+    notification.
+  - `queueState(params)` — send `apex/queueState` request.
+  - `graphData(params)` — send `apex/graphData` request.
+  - `profilingStart(params)` — send `apex/profiling/start` request.
+  - `profilingStop(params)` — send `apex/profiling/stop` request.
+  - `profilingStatus(params)` — send `apex/profiling/status` request.
+  - `onFindMissingArtifact(handler)` — register a handler for
+    `apex/findMissingArtifact`; returns a `Disposable` that reverts to the
+    default `{ notFound: true }` fallback.
+  - `onRequestWorkspaceLoad(handler)` — register a handler for
+    `apex/requestWorkspaceLoad`; returns a `Disposable`.
+  - `onWorkspaceIngestionComplete(handler)` — register a handler for
+    `apex/workspaceIngestionComplete`; returns a `Disposable`.
+  - `onQueueStateChanged(handler)` — register a handler for
+    `apex/queueStateChanged`; returns a `Disposable`.
   - `isDisposed()` — whether the core has been disposed.
   - `dispose()` — tear down (finalizers run LIFO); idempotent.
 - `ApexClientCoreOptions` — construction options (additional `middlewares`).

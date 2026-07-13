@@ -48,11 +48,13 @@ export type {
 } from './apexClientCore';
 
 // Typed apex/* method surface types — public API for typed sender/handler usage.
+// Note: ApexMethodSurfaceOptions is intentionally NOT exported — it is an
+// internal factory dependency that exposes raw middleware closures and Effect
+// types (Ref, Runtime). Consumers receive the built surface via ApexClientCore.
 export type {
   ApexMethodSurface,
   ApexMethodSenders,
   ApexMethodHandlers,
-  ApexMethodSurfaceOptions,
 } from './apexMethods';
 
 // LSP param/result types re-exported for SDK consumers.
