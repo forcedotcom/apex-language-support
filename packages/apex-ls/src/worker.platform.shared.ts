@@ -531,6 +531,36 @@ export const requestHandler =
       ),
     );
 
+/**
+ * Effect-returning request handler variant for handlers that need to yield*
+ * Effect-returning helpers (e.g. loadSymbolDataForEnrichment after Part B
+ * conversion). Identical to requestHandler except callService returns an Effect
+ * and is yielded directly instead of wrapped in Effect.promise.
+ */
+export const effectRequestHandler =
+  <R>(
+    tag: string,
+    callService: (
+      svc: RequestServices,
+      req: R,
+    ) => Effect.Effect<unknown, never, never>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        withExtractedTraceContext(
+          req as { traceContext?: string },
+          Effect.fn(`worker.lspRequest.${tag}`, {
+            attributes: { telemetryIgnore: true },
+          })(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* callService(svc, req);
+            return { result: cloneForWire(result) };
+          })(),
+        ),
+      ),
+    );
+
 export type PositionReq = {
   textDocument: { uri: string };
   position: { line: number; character: number };
@@ -570,145 +600,171 @@ export type CodeActionReq = {
  *
  * Returns version and detail level metadata for the loaded URI.
  */
-export async function loadSymbolDataForEnrichment(
+export function loadSymbolDataForEnrichment(
   svc: RequestServices,
   uri: string,
   content?: string,
-): Promise<{ version: number; detailLevel: string }> {
-  if (content) {
-    const doc: WorkerDocument = {
-      uri,
-      getText: () => content,
-      languageId: 'apex',
-      version: 0,
-    };
-    svc.storageManager.getStorage().setDocument(uri, doc as never);
-  }
+): Effect.Effect<{ version: number; detailLevel: string }, never, never> {
+  return Effect.gen(function* () {
+    if (content) {
+      const doc: WorkerDocument = {
+        uri,
+        getText: () => content,
+        languageId: 'apex',
+        version: 0,
+      };
+      svc.storageManager.getStorage().setDocument(uri, doc as never);
+    }
 
-  let version = -1;
-  let detailLevel = 'public-api';
+    let version = -1;
+    let detailLevel = 'public-api';
 
-  try {
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:QuerySymbolSubset',
-      { uris: [uri] },
-      true,
-    )) as {
-      entries: Record<string, unknown>;
-      versions: Record<string, number>;
-      detailLevels: Record<string, string>;
-    };
-
-    if (response?.entries) {
-      const { SymbolTable, ReferenceContext } =
-        await import('@salesforce/apex-lsp-parser-ast');
-      const ingestEntries = (entries: Record<string, unknown>) => {
-        const tables: Array<{ fileUri: string; st: any }> = [];
-        for (const [fileUri, stData] of Object.entries(entries)) {
-          if (stData) {
-            tables.push({
-              fileUri,
-              st: SymbolTable.fromSerializedData(
-                stData as SerializedSymbolTableData,
-              ),
-            });
-          }
-        }
-        return tables;
+    try {
+      const response = (yield* Effect.fn(
+        'worker.enrichment.querySymbolSubset',
+        { attributes: { uri } },
+      )(function* () {
+        return (yield* Effect.promise(() =>
+          requestCoordinatorAssistancePromiseShared(
+            'dataOwner:QuerySymbolSubset',
+            { uris: [uri] },
+            true,
+          ),
+        )) as {
+          entries: Record<string, unknown>;
+          versions: Record<string, number>;
+          detailLevels: Record<string, string>;
+        };
+      })()) as {
+        entries: Record<string, unknown>;
+        versions: Record<string, number>;
+        detailLevels: Record<string, string>;
       };
 
-      const loaded = ingestEntries(response.entries);
-      for (const { fileUri, st } of loaded) {
-        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
-      }
-      version = response.versions?.[uri] ?? -1;
-      detailLevel = response.detailLevels?.[uri] ?? 'public-api';
-
-      // Phase 2: pre-fetch cross-file dependencies.
-      // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
-      // loaded file and ask the data-owner to resolve them to symbol tables.
-      const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
-      if (currentSt) {
-        const refs = currentSt.getAllReferences() as Array<{
-          name: string;
-          context: number;
-          resolvedSymbolId?: string;
-        }>;
-        const classNames = new Set<string>();
-        for (const ref of refs) {
-          if (
-            !ref.resolvedSymbolId &&
-            (ref.context === ReferenceContext.CLASS_REFERENCE ||
-              ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
-              ref.context === ReferenceContext.TYPE_DECLARATION)
-          ) {
-            classNames.add(ref.name);
-          }
-        }
-        if (classNames.size > 0) {
-          try {
-            const depResponse =
-              (await requestCoordinatorAssistancePromiseShared(
-                'dataOwner:ResolveDepUris',
-                { classNames: [...classNames] },
-                true,
-              )) as { entries: Record<string, unknown> };
-            if (depResponse?.entries) {
-              for (const { fileUri: depUri, st: depSt } of ingestEntries(
-                depResponse.entries,
-              )) {
-                await Effect.runPromise(
-                  svc.symbolManager.addSymbolTable(depSt, depUri),
-                );
-              }
+      if (response?.entries) {
+        const { SymbolTable, ReferenceContext } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-parser-ast'),
+        );
+        const ingestEntries = (entries: Record<string, unknown>) => {
+          const tables: Array<{ fileUri: string; st: any }> = [];
+          for (const [fileUri, stData] of Object.entries(entries)) {
+            if (stData) {
+              tables.push({
+                fileUri,
+                st: SymbolTable.fromSerializedData(
+                  stData as SerializedSymbolTableData,
+                ),
+              });
             }
-          } catch {
-            // Dep pre-fetch is best-effort; resolution can still work on-demand.
           }
+          return tables;
+        };
 
-          // Cross-worker fallback: ResolveDepUris resolves names that map to a
-          // file via the data-owner's class→file index, but a qualified
-          // TypeReference can still miss when the target file is not loaded in
-          // this enrichment worker's LOCAL name index. Ask the data-owner
-          // (which holds ALL workspace symbols) to resolve the remaining names
-          // in one batched query and ingest the owning files' symbol tables.
-          // The ingest count is intentionally not captured (see below).
-          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
+        const loaded = ingestEntries(response.entries);
+        for (const { fileUri, st } of loaded) {
+          yield* Effect.fn('worker.enrichment.addSymbolTable', {
+            attributes: { uri: fileUri },
+          })(function* () {
+            yield* svc.symbolManager.addSymbolTable(st, fileUri);
+          })();
+        }
+        version = response.versions?.[uri] ?? -1;
+        detailLevel = response.detailLevels?.[uri] ?? 'public-api';
 
-          // Ingestion alone only lands the owning files' SYMBOLS in the local
-          // name index (addSymbolTable processes same-file refs only and defers
-          // cross-file edges). Hover/Completion/Definition resolve via an
-          // on-demand name lookup, so the symbol is enough for them — but the
-          // requesting file's TypeReference is still unresolved (no
-          // resolvedSymbolId, no reverse-index edge). Materialize those edges
-          // now so reverse-index + position-precise consumers see them too.
-          //
-          // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
-          // earlier ResolveDepUris pass may have already loaded every dep, which
-          // makes that count 0 even though the cursor file's references are
-          // still unbound. find-references' 'precise' position→symbol lookup
-          // needs those bindings (unlike hover/definition's on-demand by-name
-          // resolution), so resolve whenever ANY class dep was requested.
-          // resolveCrossFileReferencesForFile is re-entrancy-guarded and
-          // addReference de-dupes, so this is near-free when nothing changed.
-          await Effect.runPromise(
-            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
-          );
+        // Phase 2: pre-fetch cross-file dependencies.
+        // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
+        // loaded file and ask the data-owner to resolve them to symbol tables.
+        const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
+        if (currentSt) {
+          const refs = currentSt.getAllReferences() as Array<{
+            name: string;
+            context: number;
+            resolvedSymbolId?: string;
+          }>;
+          const classNames = new Set<string>();
+          for (const ref of refs) {
+            if (
+              !ref.resolvedSymbolId &&
+              (ref.context === ReferenceContext.CLASS_REFERENCE ||
+                ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+                ref.context === ReferenceContext.TYPE_DECLARATION)
+            ) {
+              classNames.add(ref.name);
+            }
+          }
+          if (classNames.size > 0) {
+            try {
+              const depResponse = (yield* Effect.fn(
+                'worker.enrichment.resolveDepUris',
+                { attributes: { uri, depCount: classNames.size } },
+              )(function* () {
+                return (yield* Effect.promise(() =>
+                  requestCoordinatorAssistancePromiseShared(
+                    'dataOwner:ResolveDepUris',
+                    { classNames: [...classNames] },
+                    true,
+                  ),
+                )) as { entries: Record<string, unknown> };
+              })()) as { entries: Record<string, unknown> };
+              if (depResponse?.entries) {
+                for (const { fileUri: depUri, st: depSt } of ingestEntries(
+                  depResponse.entries,
+                )) {
+                  yield* svc.symbolManager.addSymbolTable(depSt, depUri);
+                }
+              }
+            } catch {
+              // Dep pre-fetch is best-effort; resolution can still work on-demand.
+            }
+
+            // Cross-worker fallback: ResolveDepUris resolves names that map to a
+            // file via the data-owner's class→file index, but a qualified
+            // TypeReference can still miss when the target file is not loaded in
+            // this enrichment worker's LOCAL name index. Ask the data-owner
+            // (which holds ALL workspace symbols) to resolve the remaining names
+            // in one batched query and ingest the owning files' symbol tables.
+            // The ingest count is intentionally not captured (see below).
+            yield* Effect.promise(() =>
+              resolveMissingNamesViaDataOwner(svc, [...classNames]),
+            );
+
+            // Ingestion alone only lands the owning files' SYMBOLS in the local
+            // name index (addSymbolTable processes same-file refs only and defers
+            // cross-file edges). Hover/Completion/Definition resolve via an
+            // on-demand name lookup, so the symbol is enough for them — but the
+            // requesting file's TypeReference is still unresolved (no
+            // resolvedSymbolId, no reverse-index edge). Materialize those edges
+            // now so reverse-index + position-precise consumers see them too.
+            //
+            // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
+            // earlier ResolveDepUris pass may have already loaded every dep, which
+            // makes that count 0 even though the cursor file's references are
+            // still unbound. find-references' 'precise' position→symbol lookup
+            // needs those bindings (unlike hover/definition's on-demand by-name
+            // resolution), so resolve whenever ANY class dep was requested.
+            // resolveCrossFileReferencesForFile is re-entrancy-guarded and
+            // addReference de-dupes, so this is near-free when nothing changed.
+            yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
+              attributes: { uri },
+            })(function* () {
+              yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
+            })();
+          }
         }
       }
+    } catch (err) {
+      // Subset load failed (assistance channel down, IPC error, or the data-owner
+      // doesn't have the file). The caller proceeds on a partial/empty graph, so
+      // any request built on it (hover/definition/references/…) may silently
+      // return nothing. Warn — not debug — so an empty result has a breadcrumb
+      // distinguishing "real failure" from "genuinely nothing here".
+      getLogger().warn(
+        () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
+      );
     }
-  } catch (err) {
-    // Subset load failed (assistance channel down, IPC error, or the data-owner
-    // doesn't have the file). The caller proceeds on a partial/empty graph, so
-    // any request built on it (hover/definition/references/…) may silently
-    // return nothing. Warn — not debug — so an empty result has a breadcrumb
-    // distinguishing "real failure" from "genuinely nothing here".
-    getLogger().warn(
-      () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
-    );
-  }
 
-  return { version, detailLevel };
+    return { version, detailLevel };
+  });
 }
 
 /**
@@ -1363,69 +1419,78 @@ export function shouldEnrich(
  * Write back enriched symbol data to the data-owner worker.
  * Returns true if the write-back was accepted, false otherwise.
  */
-export async function writeBackEnrichedSymbols(
+export function writeBackEnrichedSymbols(
   svc: RequestServices,
   uri: string,
   documentVersion: number,
   enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
-): Promise<boolean> {
-  const startTime = Date.now();
-  try {
-    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
-    if (!symbolTable) {
-      await Effect.runPromise(
-        Effect.logDebug(
-          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
-        ),
+): Effect.Effect<boolean, never, never> {
+  return Effect.gen(function* () {
+    const startTime = Date.now();
+    try {
+      const symbolTable = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbolTableForFile(uri),
       );
-      return false;
-    }
+      if (!symbolTable) {
+        yield* Effect.logDebug(
+          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
+        );
+        return false;
+      }
 
-    // Serialize symbol table to wire format
-    const enrichedSymbolTable = {
-      symbols: symbolTable.getAllSymbols(),
-      references: symbolTable.getAllReferences(),
-      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
-      metadata: symbolTable.getMetadata(),
-      fileUri: symbolTable.getFileUri(),
-    };
+      // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
+      // function values (lazy thunks) that structured clone cannot handle — see
+      // writeBackCompiledSymbols for the full rationale.
+      const enrichedSymbolTable = cloneForWire({
+        symbols: symbolTable.getAllSymbols(),
+        references: symbolTable.getAllReferences(),
+        hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+        metadata: symbolTable.getMetadata(),
+        fileUri: symbolTable.getFileUri(),
+      });
 
-    const symbolCount = enrichedSymbolTable.symbols.length;
+      const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+        ? enrichedSymbolTable.symbols.length
+        : 0;
 
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:UpdateSymbolSubset',
-      {
-        uri,
-        documentVersion,
-        enrichedSymbolTable,
-        enrichedDetailLevel,
-        sourceWorkerId: workerId,
-      },
-      true,
-    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+      const response = (yield* Effect.fn(
+        'worker.enrichment.updateSymbolSubset',
+        { attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel } },
+      )(function* () {
+        return (yield* Effect.promise(() =>
+          requestCoordinatorAssistancePromiseShared(
+            'dataOwner:UpdateSymbolSubset',
+            {
+              uri,
+              documentVersion,
+              enrichedSymbolTable,
+              enrichedDetailLevel,
+              sourceWorkerId: workerId,
+            },
+            true,
+          ),
+        )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+      })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
 
-    const elapsed = Date.now() - startTime;
-    const accepted = response?.accepted ?? false;
+      const elapsed = Date.now() - startTime;
+      const accepted = response?.accepted ?? false;
 
-    await Effect.runPromise(
-      Effect.logDebug(
+      yield* Effect.logDebug(
         `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
           `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
           `(v${documentVersion}, ${elapsed}ms)` +
           (response?.versionMismatch ? ' [version mismatch]' : ''),
-      ),
-    );
+      );
 
-    return accepted;
-  } catch (err) {
-    const elapsed = Date.now() - startTime;
-    await Effect.runPromise(
-      Effect.logWarning(
+      return accepted;
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      yield* Effect.logWarning(
         `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
-      ),
-    );
-    return false;
-  }
+      );
+      return false;
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1666,169 +1731,186 @@ export async function declarationLocationForCursor(
 // ---------------------------------------------------------------------------
 
 const requestHandlers = {
-  DispatchHover: requestHandler<PositionReq>(
+  DispatchHover: effectRequestHandler<PositionReq>(
     'DispatchHover',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.hoverService.processHover({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
 
-      return result;
-    },
+        // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.hoverService.processHover({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchCompletion: requestHandler<CompletionReq>(
+  DispatchCompletion: effectRequestHandler<CompletionReq>(
     'DispatchCompletion',
-    async (svc, req) => {
-      // Completion runs on the in-flight (possibly unsaved) document text, so
-      // load the local subset from that content rather than the data-owner's
-      // last-stored version.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // Completion needs full member visibility for member-access suggestions.
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      // triggerKind crosses the wire as a plain number but IS a
-      // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
-      // types, so build the params untyped and let the service narrow.
-      const completionParams = {
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-        ...(req.context ? { context: req.context } : {}),
-      };
-      const result = await svc.completionService.processCompletion(
-        completionParams as Parameters<
-          typeof svc.completionService.processCompletion
-        >[0],
-      );
-
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Completion runs on the in-flight (possibly unsaved) document text, so
+        // load the local subset from that content rather than the data-owner's
+        // last-stored version.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
 
-      return result;
-    },
+        // Completion needs full member visibility for member-access suggestions.
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        // triggerKind crosses the wire as a plain number but IS a
+        // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
+        // types, so build the params untyped and let the service narrow.
+        const completionParams = {
+          textDocument: { uri: req.textDocument.uri },
+          position: req.position,
+          ...(req.context ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.completionService.processCompletion(
+            completionParams as Parameters<
+              typeof svc.completionService.processCompletion
+            >[0],
+          ),
+        );
+
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchSignatureHelp: requestHandler<SignatureHelpReq>(
+  DispatchSignatureHelp: effectRequestHandler<SignatureHelpReq>(
     'DispatchSignatureHelp',
-    async (svc, req) => {
-      // Signature help runs on the in-flight document text while typing args.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-      const params = {
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-        ...(req.context !== undefined ? { context: req.context } : {}),
-      };
-      const result = await svc.signatureHelpService.processSignatureHelp(
-        params as Parameters<
-          typeof svc.signatureHelpService.processSignatureHelp
-        >[0],
-      );
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Signature help runs on the in-flight document text while typing args.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
-      return result;
-    },
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        const params = {
+          textDocument: { uri: req.textDocument.uri },
+          position: req.position,
+          ...(req.context !== undefined ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.signatureHelpService.processSignatureHelp(
+            params as Parameters<
+              typeof svc.signatureHelpService.processSignatureHelp
+            >[0],
+          ),
+        );
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+        return result;
+      }),
   ),
-  DispatchCodeAction: requestHandler<CodeActionReq>(
+  DispatchCodeAction: effectRequestHandler<CodeActionReq>(
     'DispatchCodeAction',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-      const params = {
-        textDocument: { uri: req.textDocument.uri },
-        range: req.range,
-        ...(req.context !== undefined ? { context: req.context } : {}),
-      };
-      const result = await svc.codeActionService.processCodeAction(
-        params as Parameters<typeof svc.codeActionService.processCodeAction>[0],
-      );
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
-      return result;
-    },
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        const params = {
+          textDocument: { uri: req.textDocument.uri },
+          range: req.range,
+          ...(req.context !== undefined ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.codeActionService.processCodeAction(
+            params as Parameters<
+              typeof svc.codeActionService.processCodeAction
+            >[0],
+          ),
+        );
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+        return result;
+      }),
   ),
-  DispatchDefinition: requestHandler<PositionReq>(
+  DispatchDefinition: effectRequestHandler<PositionReq>(
     'DispatchDefinition',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
-
-      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.definitionService.processDefinition({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
         );
-      }
 
-      return result;
-    },
+        // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.definitionService.processDefinition({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
   DispatchReferences: requestHandler<RefsReq>(
     'DispatchReferences',
@@ -1971,132 +2053,147 @@ const requestHandlers = {
       return locations;
     },
   ),
-  DispatchImplementation: requestHandler<PositionReq>(
+  DispatchImplementation: effectRequestHandler<PositionReq>(
     'DispatchImplementation',
-    async (svc, req) => {
-      // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
-      // EXTENDS direction:
-      //   load symbol data → load inbound implementor/subtype tables →
-      //   resolve cross-file edges → process → write back.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
-
-      // Go-to-implementation must see every implementor/subtype of the target
-      // type, which live in *other* files. loadDependentsForReferences pulls the
-      // inbound tables (files whose declared symbols reference symbols in this
-      // file) from the data-owner AND resolves each one's cross-file references,
-      // so the implements/extends edges authored on those implementor/subclass
-      // files land in this worker's reverse index — which is what
-      // ImplementationProcessingService.findSubtypes reads.
-      await loadDependentsForReferences(svc, req.textDocument.uri);
-
-      // Also resolve the target file's own cross-file refs (e.g. an interface
-      // that extends another interface) so the full supertype graph is present.
-      await Effect.runPromise(
-        svc.symbolManager.resolveCrossFileReferencesForFile(
-          req.textDocument.uri,
-        ),
-      );
-
-      // Implementor discovery reads interfaces/superClass + method declarations,
-      // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.implementationService.processImplementation({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
+        // EXTENDS direction:
+        //   load symbol data → load inbound implementor/subtype tables →
+        //   resolve cross-file edges → process → write back.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
         );
-      }
 
-      return result;
-    },
+        // Go-to-implementation must see every implementor/subtype of the target
+        // type, which live in *other* files. loadDependentsForReferences pulls the
+        // inbound tables (files whose declared symbols reference symbols in this
+        // file) from the data-owner AND resolves each one's cross-file references,
+        // so the implements/extends edges authored on those implementor/subclass
+        // files land in this worker's reverse index — which is what
+        // ImplementationProcessingService.findSubtypes reads.
+        yield* Effect.promise(() =>
+          loadDependentsForReferences(svc, req.textDocument.uri),
+        );
+
+        // Also resolve the target file's own cross-file refs (e.g. an interface
+        // that extends another interface) so the full supertype graph is present.
+        yield* svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        );
+
+        // Implementor discovery reads interfaces/superClass + method declarations,
+        // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.implementationService.processImplementation({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
+  DispatchDocumentSymbol: effectRequestHandler<DocWithContentReq>(
     'DispatchDocumentSymbol',
-    async (svc, req) => {
-      // documentSymbol re-compiles the file from its TEXT
-      // (DefaultApexDocumentSymbolProvider parses with
-      // FullSymbolCollectorListener for a complete hierarchy) rather than
-      // reading the dataOwner symbol graph. So the pool worker must have the
-      // document text in local storage: thread req.content into
-      // loadSymbolDataForEnrichment, which stores it before the provider runs.
-      // Without it the provider's storage.getDocument() returns null and the
-      // outline is empty (the cold-open regression).
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
-      return svc.documentSymbolService.processDocumentSymbol({
-        textDocument: { uri: req.textDocument.uri },
-      });
-    },
+    (svc, req) =>
+      Effect.gen(function* () {
+        // documentSymbol re-compiles the file from its TEXT
+        // (DefaultApexDocumentSymbolProvider parses with
+        // FullSymbolCollectorListener for a complete hierarchy) rather than
+        // reading the dataOwner symbol graph. So the pool worker must have the
+        // document text in local storage: thread req.content into
+        // loadSymbolDataForEnrichment, which stores it before the provider runs.
+        // Without it the provider's storage.getDocument() returns null and the
+        // outline is empty (the cold-open regression).
+        yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+          req.content,
+        );
+        return yield* Effect.promise(() =>
+          svc.documentSymbolService.processDocumentSymbol({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
+      }),
   ),
-  DispatchCodeLens: requestHandler<DocOnlyReq>(
+  DispatchCodeLens: effectRequestHandler<DocOnlyReq>(
     'DispatchCodeLens',
-    async (svc, req) => {
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
-      return svc.codeLensService.processCodeLens({
-        textDocument: { uri: req.textDocument.uri },
-      });
-    },
+    (svc, req) =>
+      Effect.gen(function* () {
+        yield* loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+        return yield* Effect.promise(() =>
+          svc.codeLensService.processCodeLens({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
+      }),
   ),
-  DispatchDiagnostic: requestHandler<DocOnlyReq>(
+  DispatchDiagnostic: effectRequestHandler<DocOnlyReq>(
     'DispatchDiagnostic',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+        );
 
-      // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
 
-      const result = await svc.diagnosticService.processDiagnostic({
-        textDocument: { uri: req.textDocument.uri },
-      });
+        const result = yield* Effect.promise(() =>
+          svc.diagnosticService.processDiagnostic({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
 
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
+  ),
+  DispatchCrossFileEnrichment: effectRequestHandler<DocOnlyReq>(
+    'DispatchCrossFileEnrichment',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version } = yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+        );
+        yield* svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        );
+        yield* writeBackEnrichedSymbols(
           svc,
           req.textDocument.uri,
           version,
-          requiredLevel,
+          'public-api',
         );
-      }
-
-      return result;
-    },
-  ),
-  DispatchCrossFileEnrichment: requestHandler<DocOnlyReq>(
-    'DispatchCrossFileEnrichment',
-    async (svc, req) => {
-      const { version } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
-      await Effect.runPromise(
-        svc.symbolManager.resolveCrossFileReferencesForFile(
-          req.textDocument.uri,
-        ),
-      );
-      await writeBackEnrichedSymbols(
-        svc,
-        req.textDocument.uri,
-        version,
-        'public-api',
-      );
-      return { resolved: true };
-    },
+        return { resolved: true };
+      }),
   ),
 };
 
