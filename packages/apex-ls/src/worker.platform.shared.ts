@@ -173,7 +173,7 @@ export function makeWorkerDocument(
       let low = 0;
       let high = lineStarts.length - 1;
       while (low < high) {
-        const mid = Math.ceil((low + high) / 2);
+        const mid = Math.floor((low + high + 1) / 2);
         if (lineStarts[mid] <= clamped) {
           low = mid;
         } else {
