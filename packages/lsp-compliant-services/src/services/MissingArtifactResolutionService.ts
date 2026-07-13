@@ -158,16 +158,13 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
 
     const requestPromise = (async (): Promise<BlockingResult> => {
       try {
-        // Worker context (enrichment/request pool): there is no LSP connection
-        // and this worker's queue manager cannot reach the client, so submitting
-        // findMissingArtifact to the local queue would resolve nothing. Forward
-        // the blocking request through the coordinator assistance proxy and AWAIT
-        // it — the coordinator owns the connection, drives the client to open the
-        // artifact (which flows to the data-owner via didOpen), and returns the
-        // FindMissingArtifactResult. Only the background path used the proxy
-        // before, so blocking resolution (goto-definition's responsive path)
-        // silently failed in the pool. Awaiting here means the caller's re-query
-        // sees the freshly-loaded artifact.
+        // Worker context (enrichment/request pool): no LSP connection, so the
+        // local queue can't reach the client and would resolve nothing. Forward
+        // the blocking request through the coordinator assistance proxy and
+        // await it — the coordinator owns the connection, drives the client to
+        // open the artifact (which flows to the data-owner via didOpen), and
+        // returns the result. Awaiting here means the caller's re-query sees the
+        // freshly-loaded artifact.
         const proxy = EnhancedMissingArtifactResolutionService.assistanceProxy;
         if (!this.getConnection() && proxy) {
           this.logger.debug(

@@ -199,7 +199,7 @@ export class ApexEditorPage extends BasePage {
     await this.page.keyboard.press('Shift+F12');
 
     // Find-all-references renders in the `reference-zone-widget` peek — a
-    // DIFFERENT DOM node than the go-to-definition peek
+    // different DOM node than the go-to-definition peek
     // (`.editor-widget.peekview-widget`). Match the references widget
     // specifically so we don't miss it and report 0.
     const peekWidget = this.page.locator(
@@ -213,10 +213,10 @@ export class ApexEditorPage extends BasePage {
       return 0;
     }
 
-    // The peek's result tree is VIRTUALIZED: only the on-screen rows exist in
-    // the DOM (a 5-result peek may render just 2-3 `.monaco-list-row`s), so
-    // counting rows undercounts. The peek title carries the authoritative
-    // total — "References (5)" — so parse that first.
+    // The peek's result tree is virtualized: only on-screen rows exist in the
+    // DOM (a 5-result peek may render just 2-3 `.monaco-list-row`s), so counting
+    // rows undercounts. The peek title carries the authoritative total —
+    // "References (5)" — so parse that first.
     const titleText = await peekWidget
       .locator('.head .peekview-title .meta')
       .first()

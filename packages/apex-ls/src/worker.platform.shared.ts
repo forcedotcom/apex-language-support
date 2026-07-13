@@ -629,20 +629,17 @@ export async function loadSymbolDataForEnrichment(
         const classNames = new Set<string>();
         for (const ref of refs) {
           // Unresolved outbound type refs: fetch the owning file so the name
-          // resolves. Skipped once resolved (the resolvedSymbolId already points
-          // at the target for on-demand hover/definition).
+          // resolves. Skipped once resolved — the resolvedSymbolId already
+          // points at the target for on-demand hover/definition.
           const isUnresolvedTypeRef =
             !ref.resolvedSymbolId &&
             (ref.context === ReferenceContext.CLASS_REFERENCE ||
               ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
               ref.context === ReferenceContext.TYPE_DECLARATION);
-          // Supertype edges: `extends` (INHERITANCE) and `implements` / interface
-          // `extends` (INTERFACE_IMPLEMENTATION). These must be fetched EVEN WHEN
-          // the data-owner already resolved them (resolvedSymbolId set): the
-          // resolvedSymbolId only names the target — goto-definition and hover on
-          // the supertype still need the DECLARING FILE's symbol table PRESENT in
-          // this pool worker to produce a location. Without this, goto-def on a
-          // base class / interface declared in another file returns nothing.
+          // Supertype edges (`extends`/`implements`) must be fetched even when
+          // already resolved: the resolvedSymbolId only names the target, but
+          // goto-definition still needs the declaring file's symbol table
+          // present in this pool worker to produce a location.
           const isSupertypeRef =
             ref.context === ReferenceContext.INHERITANCE ||
             ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
@@ -1168,15 +1165,13 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
         // apex/findMissingArtifact to the coordinator (which holds the LSP
         // client connection) rather than silently dropping the request.
         //
-        // blocking=true: the coordinator mediator must AWAIT its handler (drive
+        // blocking=true: the coordinator mediator must await its handler (drive
         // the client to open the artifact, which flows to the data-owner via
         // didOpen) and return the real FindMissingArtifactResult. With
-        // blocking=false the mediator returns {accepted:true} immediately, which
-        // the blocking-resolution caller would mis-read as "resolved" before the
-        // artifact actually loaded — so goto-definition's re-query saw nothing.
-        // The background caller doesn't await this promise, so blocking=true is
-        // harmless there (the coordinator queues background work Low-priority and
-        // returns promptly).
+        // blocking=false it returns {accepted:true} immediately, which the
+        // blocking-resolution caller mis-reads as "resolved" before the artifact
+        // loads. The background caller doesn't await, so blocking=true is
+        // harmless there.
         EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
           requestCoordinatorAssistancePromiseShared(
             'apex/findMissingArtifact',
@@ -1689,15 +1684,12 @@ const requestHandlers = {
         req.content,
       );
 
-      // The data-owner serves the cursor file at PUBLIC-API detail only — the
-      // compilation worker collects it with VisibilitySymbolListener('public-api'),
-      // so implicit-private fields, locals, and private members are absent from
-      // that table. Hover on any such member would resolve to nothing. Recompile
-      // the cursor file locally at FULL detail from the live buffer (same move
-      // DispatchReferences makes) so member-level symbols exist for processHover.
-      // Runs AFTER loadSymbolDataForEnrichment so the full-detail table wins over
-      // the public-api one and the cross-file dep tables it loaded stay present
-      // for the re-resolve inside recompileCursorFileAtFullDetail.
+      // The data-owner holds the cursor file at public-api detail only, so
+      // implicit-private fields, locals, and private members are absent and
+      // hover on them resolves to nothing. Recompile locally at full detail
+      // from the live buffer. Runs after loadSymbolDataForEnrichment so the
+      // full-detail table wins while the cross-file dep tables it loaded stay
+      // present for the re-resolve inside recompileCursorFileAtFullDetail.
       await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
@@ -1835,17 +1827,14 @@ const requestHandlers = {
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
         svc,
         req.textDocument.uri,
-        // Pass the live buffer so enrichment and the recompile below operate on
-        // the unsaved editor text, not the data-owner's last-stored version.
-        // (Previously omitted — definition resolved against stale stored state.)
+        // Live buffer so enrichment and the recompile below run on the unsaved
+        // editor text, not the data-owner's last-stored version.
         req.content,
       );
 
-      // Same as DispatchHover: the data-owner holds only public-api detail for
-      // the cursor file, so definition on a field/local/private member would
-      // resolve to nothing. Recompile the cursor file locally at full detail
-      // from the live buffer (after the enrichment load) so member-level symbols
-      // exist for processDefinition.
+      // As in DispatchHover: the data-owner holds only public-api detail, so
+      // definition on a field/local/private member resolves to nothing.
+      // Recompile locally at full detail from the live buffer.
       await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,

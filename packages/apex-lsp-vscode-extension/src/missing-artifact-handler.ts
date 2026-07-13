@@ -119,12 +119,11 @@ async function resolveFromWorkspace(
     return { notFound: true };
   }
 
-  // The origin file is already open — re-opening it can never resolve a
-  // *missing* artifact. It must be excluded from candidates: the
-  // parentContext.containingType strategy generates a pattern for the class
-  // enclosing the reference (always the origin file for supertype refs like
-  // `implements DataProcessor`), which otherwise sorts highest and
-  // short-circuits the loop before the correct target strategy runs.
+  // Exclude the origin file from candidates — it's already open, so re-opening
+  // it can never resolve a *missing* artifact. The parentContext.containingType
+  // strategy targets the class enclosing the reference (the origin file itself
+  // for supertype refs like `implements DataProcessor`), which otherwise sorts
+  // highest and short-circuits the loop before the correct target strategy runs.
   const originPath = originPathFor(params.origin?.uri);
 
   const uniqueSpecs = dedupeByIdentifierName(identifiers);

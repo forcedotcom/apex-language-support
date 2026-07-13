@@ -29,11 +29,10 @@ test.describe('Apex Find All References', () => {
     });
 
     await test.step('Position on a symbol that is used more than once', async () => {
-      // `accounts` is the instance field (declared line 8) with several
-      // intra-file usages (lines 25, 67, 78, 91, …). A field with multiple
-      // same-file references reliably surfaces the references peek in VS Code
-      // Web; a symbol with only a declaration + single usage does not open a
-      // peek there (VS Code collapses a near-empty same-file result set).
+      // `accounts` is the instance field with several intra-file references. A
+      // field with multiple same-file references reliably surfaces the peek in
+      // VS Code Web; a symbol with only a declaration + single usage does not
+      // (VS Code collapses a near-empty same-file result set).
       await apexEditor.positionCursorOnWord('accounts');
     });
 
