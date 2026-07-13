@@ -274,15 +274,36 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
       );
     });
 
+  // --- Guarded send helpers for the typed surface ---
+  // These wrap the raw chain closures with the same disposed-check that
+  // `request()` / `notify()` use, so typed senders fail fast after dispose.
+  const guardedSendRequest = <R>(
+    method: string,
+    params?: unknown,
+  ): Promise<R> => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      return Promise.reject(new ApexClientDisposedError('request'));
+    }
+    return sendRequestThroughChain<R>(method, params);
+  };
+
+  const guardedSendNotification = (method: string, params?: unknown): void => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      throw new ApexClientDisposedError('notify');
+    }
+    sendNotificationThroughChain(method, params);
+  };
+
   // Create the typed apex/* method surface. This registers the default
   // findMissingArtifact responder ({ notFound: true }) and exposes typed
   // senders + on* handler registrations. Replaces the inline registration.
   const apexSurface = createApexMethodSurface({
-    sendRequest: sendRequestThroughChain,
-    sendNotification: sendNotificationThroughChain,
+    sendRequest: guardedSendRequest,
+    sendNotification: guardedSendNotification,
     registerIncomingRequest,
     registerIncomingNotification: _registerIncomingNotification,
     cleanupRef,
+    disposedRef,
     runtime,
   });
 
@@ -338,6 +359,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           const mode = settings.apex.environment.serverMode ?? 'production';
           const modeCapabilities = getClientCapabilitiesForMode(mode);
           const experimentalCaps = modeCapabilities.experimental ?? {};
+          const textDocumentCaps = modeCapabilities.textDocument ?? {};
 
           const initParams: InitializeParams = {
             processId:
@@ -348,6 +370,10 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
             ...params,
             capabilities: {
               ...params?.capabilities,
+              textDocument: {
+                ...params?.capabilities?.textDocument,
+                ...textDocumentCaps,
+              },
               experimental: {
                 ...params?.capabilities?.experimental,
                 ...experimentalCaps,

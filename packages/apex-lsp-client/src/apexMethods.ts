@@ -184,6 +184,12 @@ export interface ApexMethodSurfaceOptions {
   readonly cleanupRef: Ref.Ref<ReadonlyArray<Disposable>>;
 
   /**
+   * The `disposedRef` from makeCore — checked before mutating state to
+   * prevent use-after-dispose errors from Runtime.runSync on a closed scope.
+   */
+  readonly disposedRef: Ref.Ref<boolean>;
+
+  /**
    * The captured runtime from makeCore — used for synchronous Ref operations.
    */
   readonly runtime: Runtime.Runtime<never>;
@@ -207,8 +213,16 @@ export const createApexMethodSurface = (
     registerIncomingRequest,
     registerIncomingNotification,
     cleanupRef,
+    disposedRef,
     runtime,
   } = options;
+
+  // Helper: check if core is disposed; throws if so
+  const ensureNotDisposed = (operation: string): void => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      throw new Error(`Cannot ${operation}: ApexClientCore has been disposed`);
+    }
+  };
 
   // Helper to push a disposable to cleanupRef
   const pushCleanup = (d: Disposable): void => {
@@ -299,6 +313,7 @@ export const createApexMethodSurface = (
       params: FindMissingArtifactParams,
     ) => FindMissingArtifactResult | Promise<FindMissingArtifactResult>,
   ): Disposable => {
+    ensureNotDisposed('register onFindMissingArtifact handler');
     // Dispose the current registration (default or previously-set handler)
     if (currentFindMissingArtifactDisposable) {
       removeCleanup(currentFindMissingArtifactDisposable);
@@ -313,9 +328,16 @@ export const createApexMethodSurface = (
     currentFindMissingArtifactDisposable = newDisposable;
     pushCleanup(newDisposable);
 
-    // Return a Disposable that reverts to the default fallback
+    // Return a Disposable that reverts to the default fallback.
+    // Staleness check: if onFindMissingArtifact was called again after this
+    // disposable was created, the current handler has already been replaced —
+    // disposing a stale disposable must be a no-op to avoid clobbering.
     return {
       dispose: () => {
+        if (currentFindMissingArtifactDisposable !== newDisposable) {
+          // This disposable is stale — a newer handler has been registered.
+          return;
+        }
         removeCleanup(newDisposable);
         newDisposable.dispose();
         // Re-register the default fallback
@@ -332,6 +354,7 @@ export const createApexMethodSurface = (
   const onRequestWorkspaceLoad = (
     handler: (params: RequestWorkspaceLoadParams) => void,
   ): Disposable => {
+    ensureNotDisposed('register onRequestWorkspaceLoad handler');
     const disposable = registerIncomingNotification(
       APEX_METHODS.requestWorkspaceLoad.method,
       handler as (params: unknown) => void,
@@ -348,6 +371,7 @@ export const createApexMethodSurface = (
   const onWorkspaceIngestionComplete = (
     handler: (params: WorkspaceIngestionCompleteParams) => void,
   ): Disposable => {
+    ensureNotDisposed('register onWorkspaceIngestionComplete handler');
     const disposable = registerIncomingNotification(
       APEX_METHODS.workspaceIngestionComplete.method,
       handler as (params: unknown) => void,
@@ -364,6 +388,7 @@ export const createApexMethodSurface = (
   const onQueueStateChanged = (
     handler: (params: QueueStateChangedParams) => void,
   ): Disposable => {
+    ensureNotDisposed('register onQueueStateChanged handler');
     const disposable = registerIncomingNotification(
       APEX_METHODS.queueStateChanged.method,
       handler as (params: unknown) => void,
