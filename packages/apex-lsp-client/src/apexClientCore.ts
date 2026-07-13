@@ -9,6 +9,7 @@
 import { Effect, Exit, Option, Ref, Runtime, Scope } from 'effect';
 import {
   DEFAULT_APEX_SETTINGS,
+  getClientCapabilitiesForMode,
   type ApexLanguageServerSettings,
   type Disposable,
   type FindMissingArtifactParams,
@@ -333,14 +334,25 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           if (Option.isSome(existing)) {
             return existing.value;
           }
+          // Determine mode from settings for capability advertisement.
+          const mode = settings.apex.environment.serverMode ?? 'production';
+          const modeCapabilities = getClientCapabilitiesForMode(mode);
+          const experimentalCaps = modeCapabilities.experimental ?? {};
+
           const initParams: InitializeParams = {
             processId:
               typeof process !== 'undefined' && process.pid
                 ? process.pid
                 : null,
             rootUri: null,
-            capabilities: {},
             ...params,
+            capabilities: {
+              ...params?.capabilities,
+              experimental: {
+                ...params?.capabilities?.experimental,
+                ...experimentalCaps,
+              },
+            },
             initializationOptions: settings,
           };
           // Strict LSP order: the `initialized` notification is sent ONLY after
