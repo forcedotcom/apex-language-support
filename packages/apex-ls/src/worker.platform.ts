@@ -31,6 +31,7 @@ import {
   Queue,
   Deferred,
 } from 'effect';
+import { trace, context, propagation } from '@opentelemetry/api';
 import {
   WorkerInit,
   PingWorker,
@@ -70,6 +71,9 @@ import {
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   getLogger,
+  initWorkerTracing,
+  provideWorkerTracing,
+  withExtractedTraceContext,
 } from '@salesforce/apex-lsp-shared';
 import {
   isAssistanceResponse,
@@ -215,6 +219,12 @@ const guardRole = (tag: string): Effect.Effect<void> => {
   return Effect.void;
 };
 
+/**
+ * Trace context extraction now handled by withExtractedTraceContext() from apex-lsp-shared.
+ * That function properly wraps Effect execution (not just creation) so OTEL context
+ * is active when spans are actually created.
+ */
+
 // ---------------------------------------------------------------------------
 // Data-owner internal tiered queue (Step 5)
 //
@@ -275,7 +285,10 @@ const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
 ).pipe(Effect.runSync);
 
 const dataOwnerRead = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
+  Effect.fn(
+    'worker.dataOwner.read',
+    {},
+  )(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
     yield* Queue.offer(queues.read, {
@@ -283,10 +296,13 @@ const dataOwnerRead = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
     });
     return yield* Deferred.await(deferred);
-  });
+  })().pipe(provideWorkerTracing());
 
 const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
+  Effect.fn(
+    'worker.dataOwner.write',
+    {},
+  )(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
     yield* Queue.offer(queues.write, {
@@ -294,7 +310,7 @@ const dataOwnerWrite = <A, E>(eff: Effect.Effect<A, E>): Effect.Effect<A, E> =>
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
     });
     return yield* Deferred.await(deferred);
-  });
+  })().pipe(provideWorkerTracing());
 
 // ---------------------------------------------------------------------------
 // Symbol-readiness latches (data-owner role)
@@ -647,7 +663,7 @@ const handleWorkerInitRole = (
 // this; each handler only provides its unique body logic.
 // ---------------------------------------------------------------------------
 
-const dataOwnerDocHandler =
+const _dataOwnerDocHandler =
   <R, A>(
     tag: string,
     body: (svc: DataOwnerServices, req: R) => Effect.Effect<A>,
@@ -674,28 +690,40 @@ const dataOwnerDocHandler =
 // ---------------------------------------------------------------------------
 
 const requestHandler =
-  <R>(
+  <R extends { traceContext?: string }>(
     tag: string,
     callService: (svc: RequestServices, req: R) => Promise<unknown>,
   ) =>
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureRequestServices;
-          const result = yield* Effect.promise(() => callService(svc, req));
-          return { result: cloneForWire(result) };
-        }),
+        withExtractedTraceContext(
+          req,
+          Effect.fn(
+            `worker.lspRequest.${tag}`,
+            {},
+          )(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* Effect.promise(() => callService(svc, req));
+            return { result: cloneForWire(result) };
+          })(),
+        ),
       ),
+      // provideWorkerTracing() is now applied inside withExtractedTraceContext()
     );
 
 type PositionReq = {
   textDocument: { uri: string };
   position: { line: number; character: number };
   content?: string;
+  traceContext?: string;
 };
-type DocOnlyReq = { textDocument: { uri: string } };
-type DocWithContentReq = { textDocument: { uri: string }; content?: string };
+type DocOnlyReq = { textDocument: { uri: string }; traceContext?: string };
+type DocWithContentReq = {
+  textDocument: { uri: string };
+  content?: string;
+  traceContext?: string;
+};
 type RefsReq = PositionReq & { context: { includeDeclaration: boolean } };
 type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
@@ -709,6 +737,7 @@ type CodeActionReq = {
   };
   content?: string;
   context?: unknown;
+  traceContext?: string;
 };
 
 /**
@@ -1767,12 +1796,27 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     ApexCapabilitiesManager.getInstance().setMode(resolvedServerMode);
     (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
       resolvedServerMode;
+
+    // Initialize worker tracing if span collector URL provided (desktop only)
+    if (req.spanCollectorUrl) {
+      const serviceName = `apex-ls-worker-${req.role}`;
+      initWorkerTracing(req.spanCollectorUrl, serviceName);
+    }
+
     return Effect.gen(function* () {
       yield* Effect.logInfo(
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
-          ` logLevel=${currentWorkerLogLevel}`,
+          ` logLevel=${currentWorkerLogLevel}` +
+          (req.spanCollectorUrl ? ' tracing=enabled' : ''),
       );
       yield* Effect.logDebug('[WorkerInit] Testing debug log after init');
+
+      // TEST: Create a test span to verify Effect tracing is working
+      if (req.spanCollectorUrl) {
+        yield* Effect.fn('worker.init.test.span')(() =>
+          Effect.succeed({ message: 'Test span for tracing verification' }),
+        )().pipe(provideWorkerTracing());
+      }
     }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
 
@@ -1808,7 +1852,11 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('QuerySymbolSubset').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
-          Effect.gen(function* () {
+          Effect.fn('worker.dataOwner.querySymbolSubset', {
+            attributes: {
+              uri_count: req.uris.length,
+            },
+          })(function* () {
             const svc = yield* ensureDataOwnerServices;
             const sm = svc.symbolManager;
             const storage = svc.storageManager.getStorage();
@@ -1857,7 +1905,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { entries, versions, detailLevels };
-          }),
+          })(),
         ),
       ),
     ),
@@ -1883,7 +1931,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
         // the latest open/change to finish compiling.
         const matchLatest = req.version < 0;
         const peekReadiness = dataOwnerRead(
-          Effect.gen(function* () {
+          Effect.fn(
+            'worker.dataOwner.peekReadiness',
+            {},
+          )(function* () {
             const svc = yield* ensureDataOwnerServices;
             const st = yield* Effect.promise(() =>
               svc.symbolManager.getSymbolTableForFile(req.uri),
@@ -1902,7 +1953,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               return { kind: 'stale-version' as const };
             }
             return { kind: 'await' as const, deferred: latch.deferred };
-          }),
+          })(),
         );
 
         return Effect.gen(function* () {
@@ -1960,7 +2011,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('UpdateSymbolSubset').pipe(
       Effect.flatMap(() =>
         dataOwnerWrite(
-          Effect.gen(function* () {
+          Effect.fn('worker.dataOwner.updateSymbolSubset', {
+            attributes: {
+              uri: req.uri,
+              version: req.documentVersion,
+            },
+          })(function* () {
             writeBackMetrics.attempted++;
 
             const svc = yield* ensureDataOwnerServices;
@@ -2095,7 +2151,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               merged: mergedCount,
               versionMismatch: false,
             };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2104,7 +2160,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
         dataOwnerWrite(
-          Effect.gen(function* () {
+          Effect.fn(
+            'worker.dataOwner.drainDeferredReferences',
+            {},
+          )(function* () {
             const svc = yield* ensureDataOwnerServices;
             const resolved =
               yield* svc.symbolManager.drainAllDeferredReferences();
@@ -2112,7 +2171,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
             );
             return { resolved };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2121,7 +2180,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('ResolveDepUris').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
-          Effect.gen(function* () {
+          Effect.fn(
+            'worker.dataOwner.resolveDepUris',
+            {},
+          )(function* () {
             const svc = yield* ensureDataOwnerServices;
             const sm = svc.symbolManager;
 
@@ -2158,7 +2220,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { entries };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2169,7 +2231,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('DataOwnerQuerySymbolByName').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
-          Effect.gen(function* () {
+          Effect.fn(
+            'worker.dataOwner.querySymbolByName',
+            {},
+          )(function* () {
             const svc = yield* ensureDataOwnerServices;
             const sm = svc.symbolManager;
 
@@ -2254,7 +2319,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             return { matches, entries };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2263,7 +2328,10 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('ResolveDependentUris').pipe(
       Effect.flatMap(() =>
         dataOwnerRead(
-          Effect.gen(function* () {
+          Effect.fn(
+            'worker.dataOwner.resolveDependentUris',
+            {},
+          )(function* () {
             const svc = yield* ensureDataOwnerServices;
             const { resolveDependentUris } = yield* Effect.promise(
               () => import('@salesforce/apex-lsp-parser-ast'),
@@ -2280,7 +2348,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
               wire[uri] = cloneForWire(entry);
             }
             return { entries: wire };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2289,7 +2357,12 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
         dataOwnerWrite(
-          Effect.gen(function* () {
+          Effect.fn('worker.dataOwner.batchIngest', {
+            attributes: {
+              session_id: req.sessionId,
+              file_count: req.entries.length,
+            },
+          })(function* () {
             const startTime = Date.now();
             const svc = yield* ensureDataOwnerServices;
             const storage = svc.storageManager.getStorage();
@@ -2320,7 +2393,7 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
                 `stored=${req.entries.length} files in ${elapsed}ms${statsStr}`,
             );
             return { processedCount: req.entries.length };
-          }),
+          })(),
         ),
       ),
     ),
@@ -2353,192 +2426,255 @@ const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 
-  DispatchDocumentOpen: dataOwnerDocHandler(
-    'DispatchDocumentOpen',
-    (svc, req) =>
-      Effect.gen(function* () {
-        const doc: WorkerDocument = {
-          uri: req.uri,
-          getText: () => req.content,
-          languageId: req.languageId,
-          version: req.version,
-        };
-        // Await the store: the write-back's version check (UpdateSymbolSubset)
-        // and the readiness latch both require the document to be present at
-        // this version BEFORE the compile this open triggers runs. The prior
-        // `void` left that a race — a fast compile could write back before the
-        // store landed and be rejected as "document not found".
-        yield* Effect.promise(() =>
-          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
-        );
-        // Arm before returning: dispatch() sequences this store ahead of the
-        // compile, so the latch exists when a fast-following documentSymbol
-        // awaits it.
-        armReadiness(req.uri, req.version);
-        return { accepted: true };
-      }),
-  ),
+  DispatchDocumentOpen: (req) =>
+    guardRole('DispatchDocumentOpen').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.fn('worker.dataOwner.document.open', {
+            attributes: {
+              uri: req.uri,
+              version: req.version,
+            },
+          })(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const doc: WorkerDocument = {
+              uri: req.uri,
+              getText: () => req.content,
+              languageId: req.languageId,
+              version: req.version,
+            };
+            // Await the store: the write-back's version check (UpdateSymbolSubset)
+            // and the readiness latch both require the document to be present at
+            // this version BEFORE the compile this open triggers runs. The prior
+            // `void` left that a race — a fast compile could write back before the
+            // store landed and be rejected as "document not found".
+            yield* Effect.promise(() =>
+              svc.storageManager
+                .getStorage()
+                .setDocument(req.uri, doc as never),
+            );
+            // Arm before returning: dispatch() sequences this store ahead of the
+            // compile, so the latch exists when a fast-following documentSymbol
+            // awaits it.
+            armReadiness(req.uri, req.version);
+            return { accepted: true };
+          })(),
+        ),
+      ),
+    ),
 
-  DispatchDocumentChange: dataOwnerDocHandler(
-    'DispatchDocumentChange',
-    (svc, req) =>
-      Effect.gen(function* () {
-        const doc: WorkerDocument = {
-          uri: req.uri,
-          getText: () => '',
-          languageId: 'apex',
-          version: req.version,
-        };
-        yield* Effect.promise(() =>
-          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
-        );
-        // Re-arm at the new version; supersedes the prior latch so an awaiter
-        // for the old version stops waiting and re-evaluates.
-        armReadiness(req.uri, req.version);
-        return { accepted: true };
-      }),
-  ),
+  DispatchDocumentChange: (req) =>
+    guardRole('DispatchDocumentChange').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.fn('worker.dataOwner.document.change', {
+            attributes: {
+              uri: req.uri,
+              version: req.version,
+            },
+          })(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const doc: WorkerDocument = {
+              uri: req.uri,
+              getText: () => '',
+              languageId: 'apex',
+              version: req.version,
+            };
+            yield* Effect.promise(() =>
+              svc.storageManager
+                .getStorage()
+                .setDocument(req.uri, doc as never),
+            );
+            // Re-arm at the new version; supersedes the prior latch so an awaiter
+            // for the old version stops waiting and re-evaluates.
+            armReadiness(req.uri, req.version);
+            return { accepted: true };
+          })(),
+        ),
+      ),
+    ),
 
-  DispatchDocumentSave: dataOwnerDocHandler(
-    'DispatchDocumentSave',
-    (svc, req) =>
-      Effect.gen(function* () {
-        // Mirror DispatchDocumentChange: store a version placeholder and arm the
-        // readiness latch so the CompileDocument this save triggers can write
-        // its symbols back (UpdateSymbolSubset requires the document present at
-        // this version) and a request racing the save re-evaluates against the
-        // saved version. The compile message carries the real saved content; the
-        // placeholder text is replaced when the write-back merges.
-        const doc: WorkerDocument = {
-          uri: req.uri,
-          getText: () => '',
-          languageId: 'apex',
-          version: req.version,
-        };
-        yield* Effect.promise(() =>
-          svc.storageManager.getStorage().setDocument(req.uri, doc as never),
-        );
-        armReadiness(req.uri, req.version);
-        return { accepted: true };
-      }),
-  ),
+  DispatchDocumentSave: (req) =>
+    guardRole('DispatchDocumentSave').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.fn('worker.dataOwner.document.save', {
+            attributes: {
+              uri: req.uri,
+              version: req.version,
+            },
+          })(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            // Mirror DispatchDocumentChange: store a version placeholder and arm the
+            // readiness latch so the CompileDocument this save triggers can write
+            // its symbols back (UpdateSymbolSubset requires the document present at
+            // this version) and a request racing the save re-evaluates against the
+            // saved version. The compile message carries the real saved content; the
+            // placeholder text is replaced when the write-back merges.
+            const doc: WorkerDocument = {
+              uri: req.uri,
+              getText: () => '',
+              languageId: 'apex',
+              version: req.version,
+            };
+            yield* Effect.promise(() =>
+              svc.storageManager
+                .getStorage()
+                .setDocument(req.uri, doc as never),
+            );
+            armReadiness(req.uri, req.version);
+            return { accepted: true };
+          })(),
+        ),
+      ),
+    ),
 
-  DispatchDocumentClose: dataOwnerDocHandler(
-    'DispatchDocumentClose',
-    (svc, req) =>
-      Effect.sync(() => {
-        const closeDoc: WorkerDocument = {
-          uri: req.uri,
-          getText: () => '',
-          languageId: 'apex',
-          version: 0,
-        };
-        svc.documentCloseProcessingService.processDocumentClose({
-          document: closeDoc as never,
-        });
-        // Release any awaiter and drop the latch so the Map doesn't grow
-        // unbounded across a long session of opens/closes.
-        clearReadiness(req.uri);
-        return { accepted: true };
-      }),
-  ),
+  DispatchDocumentClose: (req) =>
+    guardRole('DispatchDocumentClose').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.fn('worker.dataOwner.document.close', {
+            attributes: {
+              uri: req.uri,
+            },
+          })(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const closeDoc: WorkerDocument = {
+              uri: req.uri,
+              getText: () => '',
+              languageId: 'apex',
+              version: 0,
+            };
+            svc.documentCloseProcessingService.processDocumentClose({
+              document: closeDoc as never,
+            });
+            // Release any awaiter and drop the latch so the Map doesn't grow
+            // unbounded across a long session of opens/closes.
+            clearReadiness(req.uri);
+            return { accepted: true };
+          })(),
+        ),
+      ),
+    ),
 
   // -- Compilation worker handlers ---------------------------------------------
 
   CompileDocument: (req) =>
     guardRole('CompileDocument').pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const startTime = Date.now();
-          const svc = yield* ensureCompilationServices;
+        withExtractedTraceContext(
+          req,
+          Effect.fn('worker.compilation.compileDocument', {
+            attributes: {
+              uri: req.uri,
+              version: req.version,
+              priority: req.priority,
+            },
+          })(function* () {
+            const startTime = Date.now();
+            const svc = yield* ensureCompilationServices;
 
-          const result = svc.compile(req.content, req.uri);
-          let compiledCount = 0;
-          if (result && result.symbolTable) {
-            compiledCount = 1;
-            yield* Effect.promise(() =>
-              writeBackCompiledSymbols(
-                result.symbolTable as any,
-                req.uri,
-                req.version,
-              ),
+            const result = svc.compile(req.content, req.uri);
+            let compiledCount = 0;
+            if (result && result.symbolTable) {
+              compiledCount = 1;
+              yield* Effect.promise(() =>
+                writeBackCompiledSymbols(
+                  result.symbolTable as any,
+                  req.uri,
+                  req.version,
+                ),
+              );
+            }
+
+            const elapsedMs = Date.now() - startTime;
+            yield* Effect.logDebug(
+              `[COMPILATION] CompileDocument: ${req.uri} (v${req.version}, ` +
+                `priority=${req.priority}, ${elapsedMs}ms)`,
             );
-          }
-
-          const elapsedMs = Date.now() - startTime;
-          yield* Effect.logDebug(
-            `[COMPILATION] CompileDocument: ${req.uri} (v${req.version}, ` +
-              `priority=${req.priority}, ${elapsedMs}ms)`,
-          );
-          return { compiledCount, elapsedMs };
-        }),
+            return { compiledCount, elapsedMs };
+          })(),
+        ),
       ),
+      // provideWorkerTracing() is now applied inside withExtractedTraceContext()
     ),
 
   WorkspaceBatchCompile: (req) =>
     guardRole('WorkspaceBatchCompile').pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const batchStartTime = Date.now();
-          const svc = yield* ensureCompilationServices;
+        withExtractedTraceContext(
+          req,
+          Effect.fn('worker.compilation.batchCompile', {
+            attributes: {
+              session_id: req.sessionId,
+              file_count: req.entries.length,
+            },
+          })(function* () {
+            const batchStartTime = Date.now();
+            const svc = yield* ensureCompilationServices;
 
-          let compiledCount = 0;
-          let errorCount = 0;
-          const YIELD_INTERVAL = 10;
+            let compiledCount = 0;
+            let errorCount = 0;
+            const YIELD_INTERVAL = 10;
 
-          for (let i = 0; i < req.entries.length; i++) {
-            const entry = req.entries[i];
-            try {
-              const result = svc.compile(entry.content, entry.uri);
-              if (result && result.symbolTable) {
-                compiledCount++;
-                yield* Effect.promise(() =>
-                  writeBackCompiledSymbols(
-                    result.symbolTable as any,
-                    entry.uri,
-                    entry.version,
-                  ),
-                );
-              } else {
+            for (let i = 0; i < req.entries.length; i++) {
+              const entry = req.entries[i];
+              try {
+                const result = svc.compile(entry.content, entry.uri);
+                if (result && result.symbolTable) {
+                  compiledCount++;
+                  yield* Effect.promise(() =>
+                    writeBackCompiledSymbols(
+                      result.symbolTable as any,
+                      entry.uri,
+                      entry.version,
+                    ),
+                  );
+                } else {
+                  errorCount++;
+                }
+              } catch {
                 errorCount++;
               }
-            } catch {
-              errorCount++;
+
+              if (
+                (i + 1) % YIELD_INTERVAL === 0 &&
+                i + 1 < req.entries.length
+              ) {
+                yield* Effect.yieldNow();
+              }
             }
 
-            if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < req.entries.length) {
-              yield* Effect.yieldNow();
-            }
-          }
-
-          // Post-batch: ask the data-owner to drain deferred cross-file
-          // references into graph edges now that every file in the batch has
-          // been written back and had its references resolved. Best-effort:
-          // a drain failure must not fail the batch compile.
-          yield* Effect.tryPromise({
-            try: () =>
-              requestCoordinatorAssistancePromise(
-                'dataOwner:DrainDeferredReferences',
-                {},
-                true,
+            // Post-batch: ask the data-owner to drain deferred cross-file
+            // references into graph edges now that every file in the batch has
+            // been written back and had its references resolved. Best-effort:
+            // a drain failure must not fail the batch compile.
+            yield* Effect.tryPromise({
+              try: () =>
+                requestCoordinatorAssistancePromise(
+                  'dataOwner:DrainDeferredReferences',
+                  {},
+                  true,
+                ),
+              catch: (e) => e,
+            }).pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(
+                  `[COMPILATION] DrainDeferredReferences failed: ${e}`,
+                ),
               ),
-            catch: (e) => e,
-          }).pipe(
-            Effect.catchAll((e) =>
-              Effect.logWarning(
-                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
-              ),
-            ),
-          );
+            );
 
-          const elapsedMs = Date.now() - batchStartTime;
-          yield* Effect.logInfo(
-            `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
-              `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
-          );
-          return { compiledCount, errorCount, elapsedMs };
-        }),
+            const elapsedMs = Date.now() - batchStartTime;
+            yield* Effect.logInfo(
+              `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
+                `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
+            );
+            return { compiledCount, errorCount, elapsedMs };
+          })(),
+        ),
       ),
+      // provideWorkerTracing() is now applied inside withExtractedTraceContext()
     ),
 
   // -- Enrichment/search pool handlers (Step 11) ----------------------------
@@ -2711,6 +2847,19 @@ export function requestCoordinatorAssistance(
     // globally unique, so this makes correlationIds unique across all workers.
     const correlationId = `assist-${workerId}-${++assistanceIdCounter}-${Date.now()}`;
 
+    // Inject current trace context for distributed tracing
+    let traceContext: string | undefined;
+    try {
+      const activeSpan = trace.getActiveSpan();
+      if (activeSpan) {
+        const carrier: Record<string, string> = {};
+        propagation.inject(context.active(), carrier);
+        traceContext = carrier.traceparent;
+      }
+    } catch (_error) {
+      // Trace context injection is optional - don't fail if it doesn't work
+    }
+
     const result = yield* Effect.async<unknown, AssistanceError>((resume) => {
       pendingAssistanceCallbacks.set(correlationId, {
         resolve: (value) => resume(Effect.succeed(value)),
@@ -2724,6 +2873,7 @@ export function requestCoordinatorAssistance(
         method,
         params,
         blocking,
+        traceContext,
       });
     });
 
@@ -2935,10 +3085,99 @@ const WorkerLoggerLayer = Layer.merge(
 );
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Trace context extraction wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap handlers to extract and apply trace context from requests.
+ * This maintains parent-child span relationships across coordinator→worker boundary.
+ */
+function wrapHandlersWithTraceContext(
+  handlers: WorkerRunner.SerializedRunner.Handlers<
+    Schema.Schema.Type<typeof AllWorkerRequests>
+  >,
+): WorkerRunner.SerializedRunner.Handlers<
+  Schema.Schema.Type<typeof AllWorkerRequests>
+> {
+  const wrapped: Record<
+    string,
+    (req: unknown) => Effect.Effect<unknown, never, never>
+  > = {};
+
+  for (const [tag, handler] of Object.entries(handlers)) {
+    wrapped[tag] = (req: unknown) => {
+      // Extract trace context if present
+      const reqWithTrace = req as { _tag?: string; traceContext?: string };
+      if (reqWithTrace.traceContext) {
+        console.log(
+          `[worker] Extracting trace context for ${tag}: ${reqWithTrace.traceContext}`,
+        );
+        try {
+          const carrier = { traceparent: reqWithTrace.traceContext };
+          const parentContext = propagation.extract(context.active(), carrier);
+
+          console.log(
+            `[worker] Successfully extracted parent context for ${tag}`,
+          );
+
+          // Run the handler within the parent trace context
+          return Effect.async<unknown, never, never>((resume) => {
+            context.with(parentContext, () => {
+              Effect.runPromise(
+                (
+                  handler as (
+                    r: unknown,
+                  ) => Effect.Effect<unknown, never, never>
+                )(req),
+              )
+                .then((result) => resume(Effect.succeed(result)))
+                .catch((error) => {
+                  // This should never happen since the handler error channel is `never`
+                  console.error(
+                    `[worker] Unexpected error in handler for ${tag}:`,
+                    error,
+                  );
+                  resume(Effect.succeed(null));
+                });
+            });
+          });
+        } catch (error) {
+          // Trace context extraction failed - run handler normally
+          console.error(
+            `[worker] Failed to extract trace context for ${tag}: ${error}`,
+          );
+          return (
+            handler as (r: unknown) => Effect.Effect<unknown, never, never>
+          )(req);
+        }
+      } else {
+        console.log(
+          `[worker] No trace context in request for ${tag} (role=${assignedRole})`,
+        );
+      }
+
+      // No trace context - run handler normally
+      return (handler as (r: unknown) => Effect.Effect<unknown, never, never>)(
+        req,
+      );
+    };
+  }
+
+  return wrapped as unknown as WorkerRunner.SerializedRunner.Handlers<
+    Schema.Schema.Type<typeof AllWorkerRequests>
+  >;
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap — Node worker runner
 // ---------------------------------------------------------------------------
 
-const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
+const wrappedHandlers = wrapHandlersWithTraceContext(handlers);
+const runnerLayer = WorkerRunner.layerSerialized(
+  AllWorkerRequests,
+  wrappedHandlers,
+);
 
 WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
   Effect.provide(WorkerLoggerLayer),

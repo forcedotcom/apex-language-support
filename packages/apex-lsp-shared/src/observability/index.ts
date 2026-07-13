@@ -25,6 +25,7 @@ export {
   disableTracing,
   runWithSpan,
   runSyncWithSpan,
+  runWithCapturedContext,
   withTracing,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
@@ -42,3 +43,12 @@ export { CommandPerformanceAggregator } from './commandPerformanceAggregator';
 
 export { collectStartupSnapshot, generateSessionId } from './startupSnapshot';
 export type { StartupSnapshotParams } from './startupSnapshot';
+
+export {
+  initWorkerTracing,
+  shutdownWorkerTracing,
+  getWorkerTracerLayer,
+  getCollectorUrl,
+  provideWorkerTracing,
+  withExtractedTraceContext,
+} from './workerTracing';

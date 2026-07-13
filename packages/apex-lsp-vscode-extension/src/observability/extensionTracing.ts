@@ -9,7 +9,14 @@
 import * as vscode from 'vscode';
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
 import { Data, Effect, ManagedRuntime } from 'effect';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from '../logging';
+import {
+  startSpanCollector,
+  stopSpanCollector,
+  getCollectorPort,
+} from './spanCollectorService';
+import { context, propagation, trace } from '@opentelemetry/api';
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
 
@@ -36,6 +43,49 @@ export function getSalesforceServicesApi():
   return salesforceServicesApi;
 }
 
+/**
+ * Get the span collector port if running (undefined otherwise).
+ * Used by the language server to pass to workers.
+ */
+export function getSpanCollectorUrl(): string | undefined {
+  const port = getCollectorPort();
+  return port ? `http://127.0.0.1:${port}` : undefined;
+}
+
+/**
+ * Inject W3C trace context from the current active span into a payload object.
+ * Returns the payload with an added `traceContext` field containing the traceparent header.
+ *
+ * This is called from LSP client middleware to propagate trace context from extension
+ * spans into LSP requests, so the language server and workers can create child spans.
+ *
+ * @param payload - The request payload (typically LSP params)
+ * @returns The same payload with traceContext field added if a span is active
+ */
+export function injectTraceContextFromActiveSpan<
+  T extends Record<string, unknown>,
+>(payload: T): T & { traceContext?: string } {
+  try {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      const carrier: Record<string, string> = {};
+      propagation.inject(context.active(), carrier);
+
+      if (carrier.traceparent) {
+        return { ...payload, traceContext: carrier.traceparent };
+      }
+    }
+  } catch (error) {
+    // Trace injection should never break requests - fail silently
+    logToOutputChannel(
+      `[traceContext] Failed to inject trace context: ${error}`,
+      'debug',
+    );
+  }
+
+  return payload;
+}
+
 /** Effect that resolves the services extension API, activating it if needed. */
 const getServicesApi = Effect.sync(() =>
   vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(SERVICES_EXT_ID),
@@ -54,6 +104,16 @@ const getServicesApi = Effect.sync(() =>
         }),
   ),
 );
+
+/** Check if any tracing setting is enabled. */
+function isTracingEnabled(): boolean {
+  const config = vscode.workspace.getConfiguration(SALESFORCE_DX_SECTION);
+  return (
+    config.get<boolean>('enableFileTraces') === true ||
+    config.get<boolean>('enableConsoleTraces') === true ||
+    config.get<boolean>('enableLocalTraces') === true
+  );
+}
 
 /** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
 async function buildTracingRuntime(
@@ -78,6 +138,12 @@ async function buildTracingRuntime(
               'Extension-host OTEL tracing initialized via salesforcedx-vscode-services',
               'info',
             );
+
+            // Start the span collector if tracing is enabled (desktop only)
+            if (isTracingEnabled()) {
+              const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+              await startSpanCollector(extensionTracingRuntime, otlpEndpoint);
+            }
           },
           catch: (cause) => new ServicesExtensionActivationError({ cause }),
         }),
@@ -93,7 +159,7 @@ async function buildTracingRuntime(
       Effect.catchAll((error) =>
         Effect.sync(() =>
           logToOutputChannel(
-            `Failed to initialize extension-host OTEL tracing: ${error}`,
+            `Failed to initialize extension-host OTEL tracing: ${formattedError(error)}`,
             'warning',
           ),
         ),
@@ -179,6 +245,9 @@ export function emitTelemetrySpan(event: Record<string, unknown>): void {
  * Call this from the extension's deactivate() function.
  */
 export async function shutdownExtensionTracing(): Promise<void> {
+  // Stop the span collector first
+  await stopSpanCollector();
+
   const rt = extensionTracingRuntime;
   extensionTracingRuntime = undefined;
   if (rt) {

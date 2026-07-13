@@ -15,13 +15,9 @@ import {
   resetServerStartRetries,
   getLastRestartTime,
   setLastRestartTime,
-  setStartingFlag,
   getGlobalContext,
 } from './commands';
-import {
-  updateApexServerStatusStopped,
-  updateApexServerStatusError,
-} from './status-bar';
+import { updateApexServerStatusError } from './status-bar';
 
 /**
  * Handles auto-restart logic with exponential backoff
@@ -95,39 +91,4 @@ export const handleMaxRetriesExceeded = (
         restartHandler(getGlobalContext());
       }
     });
-};
-
-/**
- * Handles client closed event with proper state management
- * @param restartHandler The function to handle server restart
- */
-export const handleClientClosed = async (
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
-): Promise<void> => {
-  logToOutputChannel(
-    `Connection to server closed - ${new Date().toISOString()}`,
-    'info',
-  );
-
-  setStartingFlag(false);
-  updateApexServerStatusStopped();
-
-  // Attempt auto-restart
-  await handleAutoRestart(restartHandler);
-};
-
-/**
- * Handles client error with proper logging
- * @param error The error object
- * @param message The error message
- */
-export const handleClientError = (error: Error, message: any): void => {
-  logToOutputChannel(
-    `LSP Error: ${message?.toString() || 'Unknown error'}`,
-    'error',
-  );
-  if (error) {
-    logToOutputChannel(`Error details: ${error}`, 'debug');
-  }
-  updateApexServerStatusError();
 };

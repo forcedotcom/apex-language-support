@@ -421,6 +421,23 @@ export class LSPConfigurationManager {
             hasChanges = true;
           }
         }
+
+        // Span collector URL (desktop only, for worker tracing)
+        if (envSettings.spanCollectorUrl !== undefined) {
+          const currentUrl =
+            this.settingsManager.getSettings().apex.environment
+              .spanCollectorUrl;
+          if (currentUrl !== envSettings.spanCollectorUrl) {
+            this.settingsManager.updateSettings({
+              apex: {
+                environment: {
+                  spanCollectorUrl: envSettings.spanCollectorUrl,
+                },
+              },
+            } as Partial<ApexLanguageServerSettings>);
+            hasChanges = true;
+          }
+        }
       }
 
       // Check and set resource settings

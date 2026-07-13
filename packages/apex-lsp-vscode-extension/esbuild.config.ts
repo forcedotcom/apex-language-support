@@ -20,6 +20,21 @@ import {
   stubApexParserCheckPlugin,
 } from '@salesforce/esbuild-presets';
 
+// OTEL packages used by apex-lsp-shared workerTracing - should be external
+// These use Node.js built-ins (async_hooks) and must not be bundled
+const OTEL_EXTERNAL = [
+  '@opentelemetry/api',
+  '@opentelemetry/context-async-hooks',
+  '@opentelemetry/core',
+  '@opentelemetry/exporter-trace-otlp-http',
+  '@opentelemetry/resources',
+  '@opentelemetry/sdk-trace-base',
+  '@opentelemetry/sdk-trace-node',
+  '@opentelemetry/sdk-node',
+  '@effect/opentelemetry',
+  'async_hooks',
+];
+
 const builds: BuildOptions[] = [
   {
     ...nodeBaseConfig,
@@ -28,7 +43,7 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     sourcemap: true,
-    external: ['vscode', 'vm', 'net', 'worker_threads'],
+    external: ['vscode', 'vm', 'net', 'worker_threads', ...OTEL_EXTERNAL],
     // Node bundle runs in a Node extension host (desktop VS Code + code-server).
     define: { __APEX_LS_TARGET__: '"desktop"' },
     footer: undefined,
@@ -96,7 +111,7 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.web.js' },
     sourcemap: true,
-    external: browserBaseConfig.external ?? [],
+    external: [...(browserBaseConfig.external ?? []), ...OTEL_EXTERNAL],
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     plugins: [
@@ -122,7 +137,7 @@ const builds: BuildOptions[] = [
     outExtension: { '.js': '.bundle.js' },
     sourcemap: true,
     splitting: false,
-    external: [],
+    external: OTEL_EXTERNAL, // Mark OTEL as external (unused in webviews but may be imported)
     bundle: true,
     treeShaking: true,
     keepNames: true,
@@ -140,7 +155,7 @@ const builds: BuildOptions[] = [
     outExtension: { '.js': '.bundle.js' },
     sourcemap: true,
     splitting: false,
-    external: [],
+    external: OTEL_EXTERNAL, // Mark OTEL as external (unused in webviews but may be imported)
     bundle: true,
     treeShaking: true,
     keepNames: true,

@@ -204,7 +204,9 @@ export class LCSAdapter {
       await storageManager.initialize();
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
-      this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
+      this.logger.error(
+        `❌ Failed to initialize ApexStorageManager: ${formattedError(error)}`,
+      );
     }
 
     // Initialize scheduler early, before document handlers are registered
@@ -215,7 +217,9 @@ export class LCSAdapter {
       await schedulerService.ensureInitialized();
       this.logger.debug('✅ Priority scheduler initialized successfully');
     } catch (error) {
-      this.logger.error(`❌ Failed to initialize scheduler: ${error}`);
+      this.logger.error(
+        `❌ Failed to initialize scheduler: ${formattedError(error)}`,
+      );
       // Don't throw - allow server to continue, scheduler will retry on first use
     }
 
@@ -379,7 +383,7 @@ export class LCSAdapter {
             loadedClasses++;
           } catch (error) {
             this.logger.debug(
-              `Failed to pre-populate ${namespace}.${classFile.value}: ${error}`,
+              `Failed to pre-populate ${namespace}.${classFile.value}: ${formattedError(error)}`,
             );
           }
         }
@@ -455,18 +459,32 @@ export class LCSAdapter {
           `Processing textDocument/didOpen for: ${open.document.uri} ` +
           `(version: ${open.document.version}, language: ${open.document.languageId})`,
       );
-      dispatchProcessOnOpenDocument(open);
+      // Wrap dispatch in span - dispatchProcessOnOpenDocument now returns a promise
+      runWithSpan(LSP_SPAN_NAMES.DOCUMENT_OPEN, () =>
+        dispatchProcessOnOpenDocument(open),
+      ).catch(() => {
+        // Fire-and-forget: swallow errors to avoid unhandled rejection
+      });
     });
 
     this.documents.onDidChangeContent((change) => {
       // Fire-and-forget: LSP notification, no response expected
       this.logger.debug(() => `Document changed: ${change.document.uri}`);
-      dispatchProcessOnChangeDocument(change);
+      // Wrap dispatch in span - dispatchProcessOnChangeDocument now returns a promise
+      runWithSpan(LSP_SPAN_NAMES.DOCUMENT_CHANGE, () =>
+        dispatchProcessOnChangeDocument(change),
+      ).catch(() => {
+        // Fire-and-forget: swallow errors to avoid unhandled rejection
+      });
     });
 
     this.documents.onDidSave((save) => {
       // Fire-and-forget: LSP notification, no response expected
-      dispatchProcessOnSaveDocument(save);
+      runWithSpan(LSP_SPAN_NAMES.DOCUMENT_SAVE, () =>
+        dispatchProcessOnSaveDocument(save),
+      ).catch(() => {
+        // Fire-and-forget: swallow errors to avoid unhandled rejection
+      });
     });
 
     this.documents.onDidClose((close) => {
@@ -1325,7 +1343,9 @@ export class LCSAdapter {
         () => `🚀 Auto-started interactive profiling: ${result.message}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to auto-start interactive profiling: ${error}`);
+      this.logger.error(
+        `Failed to auto-start interactive profiling: ${formattedError(error)}`,
+      );
       // Don't throw - allow server to continue without profiling
     }
   }
@@ -2188,7 +2208,9 @@ export class LCSAdapter {
         '⏳ Server mode will be determined from initialization options during initialize request',
       );
     } catch (error) {
-      this.logger.error(`Error logging environment info: ${error}`);
+      this.logger.error(
+        `Error logging environment info: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -2282,12 +2304,48 @@ export class LCSAdapter {
 
       const mainLogLevel = apexSettings.logLevel ?? 'error';
 
+      // Span collector URL for worker tracing (desktop only, if provided by extension)
+      // Fallback to environment variable for testing scenarios
+      let spanCollectorUrl = apexSettings.environment?.spanCollectorUrl;
+      if (
+        !spanCollectorUrl &&
+        typeof process !== 'undefined' &&
+        process.versions?.node
+      ) {
+        const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        const tracingEnabled =
+          process.env.APEX_LS_ENABLE_TRACING?.toLowerCase() === 'true';
+        if (otlpEndpoint && tracingEnabled) {
+          spanCollectorUrl = otlpEndpoint;
+          this.logger.info(
+            `[LCSAdapter] Span collector URL from environment: ${spanCollectorUrl}`,
+          );
+        }
+      }
+
+      if (spanCollectorUrl) {
+        this.logger.info(
+          `[LCSAdapter] Span collector URL configured: ${spanCollectorUrl}`,
+        );
+        // Initialize coordinator-side OTEL tracing (Node.js only - dynamic import to avoid bundling in browser)
+        if (typeof process !== 'undefined' && process.versions?.node) {
+          void import('./coordinatorTracing').then((module) => {
+            module.initCoordinatorTracing(spanCollectorUrl!);
+          });
+        }
+      } else {
+        this.logger.debug(
+          '[LCSAdapter] No span collector URL configured (tracing disabled)',
+        );
+      }
+
       const config = {
         poolSize: workerCfg?.poolSize ?? 2,
         enableResourceLoader,
         logger: this.logger,
         logLevel: mainLogLevel,
         serverMode,
+        spanCollectorUrl,
       };
 
       const isNodeJs =

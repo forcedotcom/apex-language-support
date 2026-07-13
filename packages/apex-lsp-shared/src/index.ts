@@ -72,6 +72,7 @@ export {
   disableTracing,
   runWithSpan,
   runSyncWithSpan,
+  runWithCapturedContext,
   withTracing,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
@@ -85,6 +86,12 @@ export {
   type CommandSummary,
   type CommandPerformanceEvent,
   type TelemetryEvent,
+  initWorkerTracing,
+  shutdownWorkerTracing,
+  getWorkerTracerLayer,
+  getCollectorUrl,
+  provideWorkerTracing,
+  withExtractedTraceContext,
 } from './observability';
 
 // Experimental protocol: Missing Artifact Resolution

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { trace, SpanStatusCode, context } from '@opentelemetry/api';
 import type { Tracer } from '@opentelemetry/api';
 
 const TRACER_NAME = 'apex-language-server';
@@ -91,6 +91,20 @@ export const runWithSpan = async <T>(
       span.end();
     }
   });
+};
+
+/**
+ * Capture the current OTEL context and run an async function within it.
+ * This preserves trace context across async boundaries that would otherwise lose it.
+ *
+ * Use this when you need to run async work (like an IIFE) but want to maintain
+ * the parent span context for any child spans created inside.
+ */
+export const runWithCapturedContext = async <T>(
+  fn: () => Promise<T>,
+): Promise<T> => {
+  const capturedContext = context.active();
+  return context.with(capturedContext, fn);
 };
 
 /**
@@ -180,4 +194,33 @@ export const LSP_SPAN_NAMES = {
   // Queue operations
   QUEUE_PROCESS: 'extension.queue.process',
   QUEUE_WAIT: 'extension.queue.wait',
+
+  // Workspace load pipeline (coordinator — uses runWithSpan)
+  WORKSPACE_LOAD_TOTAL: 'workspace.load.total',
+  WORKSPACE_BATCH_DECODE: 'workspace.batch.decode',
+  WORKSPACE_BATCH_INGEST_CHUNK: 'workspace.batch.ingestChunk',
+  WORKSPACE_BATCH_COMPILE_CHUNK: 'workspace.batch.compileChunk',
+  WORKSPACE_CROSS_FILE_ENRICHMENT: 'workspace.crossFileEnrichment',
+  COLD_READ_GATE_WAIT: 'coldReadGate.wait',
+
+  // Worker spans (via Effect.fn — names must match exactly)
+  WORKER_DATA_OWNER_READ: 'worker.dataOwner.read',
+  WORKER_DATA_OWNER_WRITE: 'worker.dataOwner.write',
+  WORKER_DATA_OWNER_BATCH_INGEST: 'worker.dataOwner.batchIngest',
+  WORKER_DATA_OWNER_QUERY_SYMBOL_SUBSET: 'worker.dataOwner.querySymbolSubset',
+  WORKER_DATA_OWNER_UPDATE_SYMBOL_SUBSET: 'worker.dataOwner.updateSymbolSubset',
+  WORKER_DATA_OWNER_DRAIN_DEFERRED: 'worker.dataOwner.drainDeferredReferences',
+  WORKER_DATA_OWNER_RESOLVE_DEP_URIS: 'worker.dataOwner.resolveDepUris',
+  WORKER_DATA_OWNER_RESOLVE_DEPENDENT_URIS:
+    'worker.dataOwner.resolveDependentUris',
+  WORKER_DATA_OWNER_QUERY_SYMBOL_BY_NAME: 'worker.dataOwner.querySymbolByName',
+  WORKER_DATA_OWNER_PEEK_READINESS: 'worker.dataOwner.peekReadiness',
+  WORKER_DATA_OWNER_DOCUMENT_OPEN: 'worker.dataOwner.document.open',
+  WORKER_DATA_OWNER_DOCUMENT_CHANGE: 'worker.dataOwner.document.change',
+  WORKER_DATA_OWNER_DOCUMENT_SAVE: 'worker.dataOwner.document.save',
+  WORKER_DATA_OWNER_DOCUMENT_CLOSE: 'worker.dataOwner.document.close',
+  WORKER_COMPILATION_COMPILE_DOCUMENT: 'worker.compilation.compileDocument',
+  WORKER_COMPILATION_BATCH_COMPILE: 'worker.compilation.batchCompile',
+  WORKER_COMPILATION_BATCH_COMPILE_FILE: 'worker.compilation.batchCompile.file',
+  WORKER_LSP_REQUEST: 'worker.lspRequest', // suffix is the tag (hover, definition, etc.)
 } as const;

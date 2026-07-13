@@ -41,12 +41,23 @@ const NODE_SERVER_EXTERNAL = [
   'util',
   'events',
   'assert',
+  'async_hooks', // Used by @opentelemetry/context-async-hooks
   'node:util', // Used by vscode-languageserver/node internally
   'node:fs',
   'node:path',
   'node:os',
   'node:stream',
   'node:events',
+  // OTEL packages for worker tracing - should not be bundled
+  '@opentelemetry/context-async-hooks',
+  '@opentelemetry/core',
+  '@opentelemetry/api',
+  '@opentelemetry/exporter-trace-otlp-http',
+  '@opentelemetry/resources',
+  '@opentelemetry/sdk-trace-base',
+  '@opentelemetry/sdk-trace-node',
+  '@opentelemetry/sdk-node',
+  '@effect/opentelemetry',
   // node-dir uses fs/path internally, safe to bundle
   // Anything else used at runtime needs to be bundled or use Node built-ins
 ];
@@ -68,6 +79,23 @@ const WORKER_EXTERNAL: string[] = [
   '@effect/platform-node/NodeWorker',
   // NOTE: @effect/platform/WorkerError must NOT be external — it is a
   // dependency of @effect/platform-browser/BrowserWorker which runs in browser.
+
+  // Coordinator tracing (Node.js only) - dynamically imported, needs to be external
+  './coordinatorTracing',
+  // Worker and coordinator tracing OTEL packages (Node.js only) - these use Node.js
+  // built-ins like async_hooks and should never be bundled into browser builds.
+  // They're imported by apex-lsp-shared which gets bundled, so mark them external
+  // even for browser builds (dead code elimination will remove their usage).
+  '@opentelemetry/sdk-trace-node',
+  '@opentelemetry/exporter-trace-otlp-http',
+  '@opentelemetry/resources',
+  '@opentelemetry/sdk-trace-base',
+  '@opentelemetry/context-async-hooks',
+  '@opentelemetry/core',
+  '@opentelemetry/api',
+  '@opentelemetry/sdk-node',
+  '@effect/opentelemetry',
+  'async_hooks',
 ];
 
 const builds: BuildOptions[] = [
@@ -144,7 +172,7 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     minify: false, // DEBUG: keep unminified for stack trace readability
     metafile: true,
-    external: [],
+    external: WORKER_EXTERNAL, // Mark OTEL packages external even for browser (dead code)
     keepNames: true,
     splitting: false,
     bundle: true,

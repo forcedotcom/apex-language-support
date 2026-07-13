@@ -16,6 +16,7 @@ import {
 } from './logging';
 import {
   ApexLanguageServerSettings,
+  formattedError,
   generateChangeSummary,
   generateStartupSummary,
   mergeWithDefaults,
@@ -178,7 +179,7 @@ export const registerConfigurationChangeListener = (
             );
           } catch (error) {
             logToOutputChannel(
-              `Failed to update trace level: ${error}`,
+              `Failed to update trace level: ${formattedError(error)}`,
               'error',
             );
           }

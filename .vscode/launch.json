@@ -137,6 +137,32 @@
       }
     },
     {
+      "name": "Run Extension + Grafana",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "trace": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
+      ],
+      "preLaunchTask": "Compile and Start Grafana",
+      "env": {
+        "NODE_OPTIONS": "--enable-source-maps",
+        "APEX_LS_MODE": "development",
+        "APEX_WORKER_EXPERIMENT": "1",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"
+      }
+    },
+    {
       "name": "Extension Tests",
       "type": "extensionHost",
       "request": "launch",

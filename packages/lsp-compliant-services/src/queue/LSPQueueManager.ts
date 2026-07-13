@@ -6,7 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Priority, getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  Priority,
+  getLogger,
+  runWithSpan,
+  runWithCapturedContext,
+  LSP_SPAN_NAMES,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -274,17 +280,28 @@ export class LSPQueueManager {
                   Math.floor(timeout * COLD_READ_GATE_FRACTION),
                 ),
               );
-              const readiness = await workerDispatcher.awaitSymbolDataReady(
-                uri,
-                MATCH_LATEST_VERSION,
-                gateBudgetMs,
+              const gateStartTime = Date.now();
+              const readiness = await runWithSpan(
+                LSP_SPAN_NAMES.COLD_READ_GATE_WAIT,
+                () =>
+                  workerDispatcher.awaitSymbolDataReady!(
+                    uri,
+                    MATCH_LATEST_VERSION,
+                    gateBudgetMs,
+                  ),
+                {
+                  uri,
+                  budget_ms: gateBudgetMs,
+                  request_type: type,
+                },
               );
+              const actualWaitMs = Date.now() - gateStartTime;
               if (!readiness.ready) {
                 symbolsReady = false;
                 logger.debug(
                   () =>
                     `Cold-read gate not ready for ${type} on ${uri} ` +
-                    `(${readiness.reason ?? 'unknown'}) — ` +
+                    `(${readiness.reason ?? 'unknown'}, waited ${actualWaitMs}ms) — ` +
                     'falling back to local handler',
                 );
               }
@@ -292,7 +309,12 @@ export class LSPQueueManager {
             if (symbolsReady) {
               try {
                 logger.debug(() => `Dispatching ${type} request to worker`);
-                return (await workerDispatcher.dispatch(type, params)) as T;
+                // Wrap dispatch in a span so trace context injection can access it
+                return (await runWithSpan(
+                  `lsp.coordinator.${type}`,
+                  () => workerDispatcher.dispatch(type, params),
+                  { request_type: type, uri: requestTargetUri(params) },
+                )) as T;
               } catch (dispatchError) {
                 logger.debug(
                   () =>
@@ -548,15 +570,16 @@ export class LSPQueueManager {
       timeout?: number;
       errorCallback?: (error: Error) => void;
     } = {},
-  ): void {
+  ): Promise<void> {
     if (this.isShutdown) {
       const error = new Error('LSP Queue Manager is shutdown');
       options.errorCallback?.(error);
-      return;
+      return Promise.resolve();
     }
 
-    // Queue the work but don't wait for completion
-    (async () => {
+    // Return the promise to keep the caller's span alive until dispatch completes
+    // Wrap in runWithCapturedContext to preserve OTEL trace context across the async boundary
+    return runWithCapturedContext(async () => {
       try {
         // Ensure scheduler is initialized
         await this.ensureSchedulerInitialized();
@@ -596,14 +619,14 @@ export class LSPQueueManager {
         );
         options.errorCallback?.(error as Error);
       }
-    })();
+    });
   }
 
   /**
    * Submit a document open notification (fire-and-forget)
    */
-  submitDocumentOpenNotification(params: any): void {
-    this.submitNotification('documentOpen', params, {
+  submitDocumentOpenNotification(params: any): Promise<void> {
+    return this.submitNotification('documentOpen', params, {
       priority: Priority.High,
     });
   }
@@ -611,8 +634,8 @@ export class LSPQueueManager {
   /**
    * Submit a document save notification (fire-and-forget)
    */
-  submitDocumentSaveNotification(params: any): void {
-    this.submitNotification('documentSave', params, {
+  submitDocumentSaveNotification(params: any): Promise<void> {
+    return this.submitNotification('documentSave', params, {
       priority: Priority.Normal,
     });
   }
@@ -620,8 +643,8 @@ export class LSPQueueManager {
   /**
    * Submit a document change notification (fire-and-forget)
    */
-  submitDocumentChangeNotification(params: any): void {
-    this.submitNotification('documentChange', params, {
+  submitDocumentChangeNotification(params: any): Promise<void> {
+    return this.submitNotification('documentChange', params, {
       priority: Priority.Normal,
     });
   }
@@ -629,8 +652,8 @@ export class LSPQueueManager {
   /**
    * Submit a document close notification (fire-and-forget)
    */
-  submitDocumentCloseNotification(params: any): void {
-    this.submitNotification('documentClose', params, {
+  submitDocumentCloseNotification(params: any): Promise<void> {
+    return this.submitNotification('documentClose', params, {
       priority: Priority.Immediate,
     });
   }

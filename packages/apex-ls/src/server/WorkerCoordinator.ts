@@ -64,6 +64,7 @@ import type {
   WorkerHandle,
   PoolHandle,
 } from '@salesforce/apex-lsp-compliant-services';
+import { injectTraceContextFromOtelSpan } from './traceContextInjection';
 
 // ---------------------------------------------------------------------------
 // Worker Layer factory (Node.js — dynamically imported to avoid bundling
@@ -275,6 +276,8 @@ export interface TopologyConfig {
   readonly logLevel?: string;
   /** Mirrors LSP `apex.environment.serverMode` for worker-side capabilities (e.g. dev hover metrics). */
   readonly serverMode?: 'production' | 'development';
+  /** Span collector URL for worker tracing (desktop only, if provided by extension). */
+  readonly spanCollectorUrl?: string;
   /** Per-role worker layer factory. When provided, each worker spawn uses a role-specific layer
    *  (e.g. with custom execArgv for profiling/debug). When omitted, the caller must provide
    *  Worker.WorkerManager | Worker.Spawner externally (existing behavior). */
@@ -287,12 +290,14 @@ const makeInitMessage = (
   role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
+  spanCollectorUrl?: string,
 ) =>
   new WorkerInit({
     role,
     protocolVersion: WIRE_PROTOCOL_VERSION,
     logLevel,
     serverMode,
+    spanCollectorUrl,
   });
 
 export function clampPoolSize(requested: number): number {
@@ -306,6 +311,28 @@ export function clampPoolSize(requested: number): number {
   const max = Math.max(1, cpuCount - 2);
   return Math.max(1, Math.min(requested, max));
 }
+
+// ---------------------------------------------------------------------------
+// Trace context injection helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Inject trace context into a message payload using OTEL's global active span.
+ * Mutates the message object by adding a traceContext field if a span is active.
+ *
+ * This must be called synchronously within the same call stack as runWithSpan(),
+ * otherwise the OTEL context will be lost.
+ */
+function injectTraceContextIntoMessage(message: Record<string, unknown>): void {
+  const enriched = injectTraceContextFromOtelSpan(message);
+  if ('traceContext' in enriched) {
+    (message as Record<string, unknown>).traceContext = enriched.traceContext;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Topology initialization
+// ---------------------------------------------------------------------------
 
 /**
  * Spawn the full worker topology and return handles.
@@ -337,7 +364,7 @@ export function initializeTopology(
   Worker.WorkerManager | Worker.Spawner | Scope.Scope
 > {
   return Effect.gen(function* () {
-    const { logger, logLevel } = config;
+    const { logger, logLevel, spanCollectorUrl } = config;
     const serverMode = config.serverMode ?? 'production';
     const poolSize = clampPoolSize(config.poolSize);
 
@@ -366,42 +393,56 @@ export function initializeTopology(
     let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
       null;
     if (config.enableResourceLoader) {
-      resourceLoader = yield* withRoleLayer(
+      const worker = yield* withRoleLayer(
         Worker.makeSerialized<ResourceLoaderRequest>({
           initialMessage: () =>
-            makeInitMessage('resourceLoader', logLevel, serverMode),
+            makeInitMessage(
+              'resourceLoader',
+              logLevel,
+              serverMode,
+              spanCollectorUrl,
+            ),
         }),
         'resourceLoader',
       );
+      resourceLoader = worker;
       logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
 
-    const dataOwner = yield* withRoleLayer(
+    const dataOwnerWorker = yield* withRoleLayer(
       Worker.makeSerialized<DataOwnerRequest>({
         initialMessage: () =>
-          makeInitMessage('dataOwner', logLevel, serverMode),
+          makeInitMessage('dataOwner', logLevel, serverMode, spanCollectorUrl),
       }),
       'dataOwner',
     );
+    const dataOwner = dataOwnerWorker;
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
 
-    const compilation = yield* withRoleLayer(
+    const compilationWorker = yield* withRoleLayer(
       Worker.makeSerialized<CompilationRequest>({
         initialMessage: () =>
-          makeInitMessage('compilation', logLevel, serverMode),
+          makeInitMessage(
+            'compilation',
+            logLevel,
+            serverMode,
+            spanCollectorUrl,
+          ),
       }),
       'compilation',
     );
+    const compilation = compilationWorker;
     logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
 
-    const requestPool = yield* withRoleLayer(
+    const pool = yield* withRoleLayer(
       Worker.makePoolSerialized<LspRequestMessage>({
         size: poolSize,
         initialMessage: () =>
-          makeInitMessage('lspRequest', logLevel, serverMode),
+          makeInitMessage('lspRequest', logLevel, serverMode, spanCollectorUrl),
       }),
       'lspRequest',
     );
+    const requestPool = pool;
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -721,6 +762,15 @@ function createDispatcher(
       ) {
         const dataOwnerMsg = buildDataOwnerMessage(type, params);
         const compileMsg = buildCompileMessage(type, params);
+
+        // Inject trace context into both messages
+        injectTraceContextIntoMessage(
+          dataOwnerMsg as unknown as Record<string, unknown>,
+        );
+        injectTraceContextIntoMessage(
+          compileMsg as unknown as Record<string, unknown>,
+        );
+
         logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
         // Store the document on the data-owner BEFORE dispatching the compile.
         // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
@@ -743,6 +793,9 @@ function createDispatcher(
 
       if (DATA_OWNER_TYPES.has(type)) {
         const msg = buildDataOwnerMessage(type, params);
+        injectTraceContextIntoMessage(
+          msg as unknown as Record<string, unknown>,
+        );
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
         return callbacks.sendToDataOwner(msg);
       }
@@ -751,6 +804,7 @@ function createDispatcher(
         params,
         callbacks.getDocumentContent,
       );
+      injectTraceContextIntoMessage(msg as unknown as Record<string, unknown>);
       logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
       return (response as { result: unknown }).result;
