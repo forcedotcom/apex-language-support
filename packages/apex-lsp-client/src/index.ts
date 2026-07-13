@@ -47,6 +47,14 @@ export type {
   ApexClientInitializeParams,
 } from './apexClientCore';
 
+// Typed apex/* method surface types — public API for typed sender/handler usage.
+export type {
+  ApexMethodSurface,
+  ApexMethodSenders,
+  ApexMethodHandlers,
+  ApexMethodSurfaceOptions,
+} from './apexMethods';
+
 // LSP param/result types re-exported for SDK consumers.
 export type {
   CompletionItem,

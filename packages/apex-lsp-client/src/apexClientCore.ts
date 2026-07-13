@@ -11,8 +11,29 @@ import {
   DEFAULT_APEX_SETTINGS,
   type ApexLanguageServerSettings,
   type Disposable,
+  type FindMissingArtifactParams,
+  type FindMissingArtifactResult,
+  type GraphDataParams,
+  type GraphDataResult,
   type InitializeParams,
   type InitializeResult,
+  type ProcessWorkspaceBatchesParams,
+  type ProcessWorkspaceBatchesResult,
+  type ProfilingStartParams,
+  type ProfilingStartResult,
+  type ProfilingStatusParams,
+  type ProfilingStatusResult,
+  type ProfilingStopParams,
+  type ProfilingStopResult,
+  type QueueStateChangedParams,
+  type QueueStateParams,
+  type QueueStateResult,
+  type RequestWorkspaceLoadParams,
+  type SendWorkspaceBatchParams,
+  type SendWorkspaceBatchResult,
+  type WorkspaceIngestionCompleteParams,
+  type WorkspaceLoadCompleteParams,
+  type WorkspaceLoadFailedParams,
 } from '@salesforce/apex-lsp-shared';
 import type { RpcConnection } from './rpcConnection';
 import type { ApexClientMiddleware } from './apexClientMiddleware';
@@ -38,17 +59,7 @@ import {
   composeRequestChain,
   composeNotificationChain,
 } from './middleware/composeMiddleware';
-
-/**
- * The server→client request the core answers by default. Temporary literal —
- * replace with the shared registry constant + `FindMissingArtifactResult` type
- * in 1.1/3.1.
- *
- * TODO(1.1/3.1): replace `'apex/findMissingArtifact'` and the inline
- * `{ notFound: true }` with the canonical registry constant and the
- * `FindMissingArtifactResult` type from `@salesforce/apex-lsp-shared`.
- */
-const FIND_MISSING_ARTIFACT_METHOD = 'apex/findMissingArtifact';
+import { createApexMethodSurface } from './apexMethods';
 
 /**
  * Caller-supplied `initialize` params. `initializationOptions` is intentionally
@@ -101,6 +112,43 @@ interface CoreHandle {
   readonly notify: (method: string, params?: unknown) => void;
   readonly isDisposed: () => boolean;
   readonly dispose: () => Promise<void>;
+
+  // --- Typed apex/* senders (9 clientToServer) ---
+  readonly sendWorkspaceBatch: (
+    params: SendWorkspaceBatchParams,
+  ) => Promise<SendWorkspaceBatchResult>;
+  readonly processWorkspaceBatches: (
+    params: ProcessWorkspaceBatchesParams,
+  ) => Promise<ProcessWorkspaceBatchesResult>;
+  readonly workspaceLoadComplete: (params: WorkspaceLoadCompleteParams) => void;
+  readonly workspaceLoadFailed: (params: WorkspaceLoadFailedParams) => void;
+  readonly queueState: (params: QueueStateParams) => Promise<QueueStateResult>;
+  readonly graphData: (params: GraphDataParams) => Promise<GraphDataResult>;
+  readonly profilingStart: (
+    params: ProfilingStartParams,
+  ) => Promise<ProfilingStartResult>;
+  readonly profilingStop: (
+    params: ProfilingStopParams,
+  ) => Promise<ProfilingStopResult>;
+  readonly profilingStatus: (
+    params: ProfilingStatusParams,
+  ) => Promise<ProfilingStatusResult>;
+
+  // --- Typed apex/* handler registrations (4 serverToClient) ---
+  readonly onFindMissingArtifact: (
+    handler: (
+      params: FindMissingArtifactParams,
+    ) => FindMissingArtifactResult | Promise<FindMissingArtifactResult>,
+  ) => Disposable;
+  readonly onRequestWorkspaceLoad: (
+    handler: (params: RequestWorkspaceLoadParams) => void,
+  ) => Disposable;
+  readonly onWorkspaceIngestionComplete: (
+    handler: (params: WorkspaceIngestionCompleteParams) => void,
+  ) => Disposable;
+  readonly onQueueStateChanged: (
+    handler: (params: QueueStateChangedParams) => void,
+  ) => Disposable;
 }
 
 /**
@@ -225,15 +273,17 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
       );
     });
 
-  // Default findMissingArtifact responder: { notFound: true }. Registered here,
-  // before traffic. Logging middleware observes the incoming request via the chain.
-  const findMissingArtifactDisposable = registerIncomingRequest(
-    FIND_MISSING_ARTIFACT_METHOD,
-    // TODO(3.1): delegate to a registered onFindMissingArtifact handler when
-    // the typed apex/* surface lands; fall back to { notFound: true }.
-    (_params) => ({ notFound: true }),
-  );
-  yield* Ref.update(cleanupRef, (ds) => [...ds, findMissingArtifactDisposable]);
+  // Create the typed apex/* method surface. This registers the default
+  // findMissingArtifact responder ({ notFound: true }) and exposes typed
+  // senders + on* handler registrations. Replaces the inline registration.
+  const apexSurface = createApexMethodSurface({
+    sendRequest: sendRequestThroughChain,
+    sendNotification: sendNotificationThroughChain,
+    registerIncomingRequest,
+    registerIncomingNotification: _registerIncomingNotification,
+    cleanupRef,
+    runtime,
+  });
 
   // Register handler/middleware cleanup LAST so LIFO runs it FIRST (before the
   // transport is torn down).
@@ -395,6 +445,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     notify,
     isDisposed,
     disposedRef,
+    apexSurface,
   };
 });
 
@@ -481,6 +532,22 @@ export class ApexClientCore {
       notify: built.notify,
       isDisposed: built.isDisposed,
       dispose: closeScope,
+      // Typed apex/* senders
+      sendWorkspaceBatch: built.apexSurface.sendWorkspaceBatch,
+      processWorkspaceBatches: built.apexSurface.processWorkspaceBatches,
+      workspaceLoadComplete: built.apexSurface.workspaceLoadComplete,
+      workspaceLoadFailed: built.apexSurface.workspaceLoadFailed,
+      queueState: built.apexSurface.queueState,
+      graphData: built.apexSurface.graphData,
+      profilingStart: built.apexSurface.profilingStart,
+      profilingStop: built.apexSurface.profilingStop,
+      profilingStatus: built.apexSurface.profilingStatus,
+      // Typed apex/* handler registrations
+      onFindMissingArtifact: built.apexSurface.onFindMissingArtifact,
+      onRequestWorkspaceLoad: built.apexSurface.onRequestWorkspaceLoad,
+      onWorkspaceIngestionComplete:
+        built.apexSurface.onWorkspaceIngestionComplete,
+      onQueueStateChanged: built.apexSurface.onQueueStateChanged,
     };
     return new ApexClientCore(handle, closeScope);
   }
@@ -579,6 +646,122 @@ export class ApexClientCore {
       'textDocument/documentSymbol',
       params,
     );
+  }
+
+  // --- Typed apex/* senders (9 clientToServer) ---
+
+  /**
+   * Send `apex/sendWorkspaceBatch` through the middleware chain.
+   */
+  sendWorkspaceBatch(
+    params: SendWorkspaceBatchParams,
+  ): Promise<SendWorkspaceBatchResult> {
+    return this.handle.sendWorkspaceBatch(params);
+  }
+
+  /**
+   * Send `apex/processWorkspaceBatches` through the middleware chain.
+   */
+  processWorkspaceBatches(
+    params: ProcessWorkspaceBatchesParams,
+  ): Promise<ProcessWorkspaceBatchesResult> {
+    return this.handle.processWorkspaceBatches(params);
+  }
+
+  /**
+   * Send `apex/workspaceLoadComplete` notification through the middleware chain.
+   */
+  workspaceLoadComplete(params: WorkspaceLoadCompleteParams): void {
+    this.handle.workspaceLoadComplete(params);
+  }
+
+  /**
+   * Send `apex/workspaceLoadFailed` notification through the middleware chain.
+   */
+  workspaceLoadFailed(params: WorkspaceLoadFailedParams): void {
+    this.handle.workspaceLoadFailed(params);
+  }
+
+  /**
+   * Send `apex/queueState` through the middleware chain.
+   */
+  queueState(params: QueueStateParams): Promise<QueueStateResult> {
+    return this.handle.queueState(params);
+  }
+
+  /**
+   * Send `apex/graphData` through the middleware chain.
+   */
+  graphData(params: GraphDataParams): Promise<GraphDataResult> {
+    return this.handle.graphData(params);
+  }
+
+  /**
+   * Send `apex/profiling/start` through the middleware chain.
+   */
+  profilingStart(params: ProfilingStartParams): Promise<ProfilingStartResult> {
+    return this.handle.profilingStart(params);
+  }
+
+  /**
+   * Send `apex/profiling/stop` through the middleware chain.
+   */
+  profilingStop(params: ProfilingStopParams): Promise<ProfilingStopResult> {
+    return this.handle.profilingStop(params);
+  }
+
+  /**
+   * Send `apex/profiling/status` through the middleware chain.
+   */
+  profilingStatus(
+    params: ProfilingStatusParams,
+  ): Promise<ProfilingStatusResult> {
+    return this.handle.profilingStatus(params);
+  }
+
+  // --- Typed apex/* handler registrations (4 serverToClient) ---
+
+  /**
+   * Register a handler for the `apex/findMissingArtifact` server request.
+   * Returns a Disposable that, when disposed, reverts to the default
+   * `{ notFound: true }` fallback handler.
+   */
+  onFindMissingArtifact(
+    handler: (
+      params: FindMissingArtifactParams,
+    ) => FindMissingArtifactResult | Promise<FindMissingArtifactResult>,
+  ): Disposable {
+    return this.handle.onFindMissingArtifact(handler);
+  }
+
+  /**
+   * Register a handler for the `apex/requestWorkspaceLoad` notification.
+   * Returns a Disposable that removes the handler.
+   */
+  onRequestWorkspaceLoad(
+    handler: (params: RequestWorkspaceLoadParams) => void,
+  ): Disposable {
+    return this.handle.onRequestWorkspaceLoad(handler);
+  }
+
+  /**
+   * Register a handler for the `apex/workspaceIngestionComplete` notification.
+   * Returns a Disposable that removes the handler.
+   */
+  onWorkspaceIngestionComplete(
+    handler: (params: WorkspaceIngestionCompleteParams) => void,
+  ): Disposable {
+    return this.handle.onWorkspaceIngestionComplete(handler);
+  }
+
+  /**
+   * Register a handler for the `apex/queueStateChanged` notification.
+   * Returns a Disposable that removes the handler.
+   */
+  onQueueStateChanged(
+    handler: (params: QueueStateChangedParams) => void,
+  ): Disposable {
+    return this.handle.onQueueStateChanged(handler);
   }
 
   /**
