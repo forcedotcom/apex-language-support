@@ -265,6 +265,7 @@ const DEFAULT_WORKER_SCRIPT =
 export interface WorkerTopology {
   readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
+  readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorker<CompilationRequest>;
 }
@@ -364,45 +365,51 @@ export function initializeTopology(
           >)
         : eff;
 
-    let resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null =
-      null;
-    if (config.enableResourceLoader) {
-      resourceLoader = yield* withRoleLayer(
-        Worker.makeSerialized<ResourceLoaderRequest>({
-          initialMessage: () =>
-            makeInitMessage('resourceLoader', logLevel, serverMode),
-        }),
-        'resourceLoader',
+    // Spawn all workers in parallel for faster initialization
+    const [resourceLoader, dataOwner, compilation, requestPool] =
+      yield* Effect.all(
+        [
+          config.enableResourceLoader
+            ? withRoleLayer(
+                Worker.makeSerialized<ResourceLoaderRequest>({
+                  initialMessage: () =>
+                    makeInitMessage('resourceLoader', logLevel, serverMode),
+                }),
+                'resourceLoader',
+              )
+            : Effect.succeed(null),
+          withRoleLayer(
+            Worker.makeSerialized<DataOwnerRequest>({
+              initialMessage: () =>
+                makeInitMessage('dataOwner', logLevel, serverMode),
+            }),
+            'dataOwner',
+          ),
+          withRoleLayer(
+            Worker.makeSerialized<CompilationRequest>({
+              initialMessage: () =>
+                makeInitMessage('compilation', logLevel, serverMode),
+            }),
+            'compilation',
+          ),
+          withRoleLayer(
+            Worker.makePoolSerialized<LspRequestMessage>({
+              size: poolSize,
+              initialMessage: () =>
+                makeInitMessage('lspRequest', logLevel, serverMode),
+            }),
+            'lspRequest',
+          ),
+        ],
+        { concurrency: 'unbounded' },
       );
+
+    // Log after all are initialized
+    if (resourceLoader) {
       logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
-
-    const dataOwner = yield* withRoleLayer(
-      Worker.makeSerialized<DataOwnerRequest>({
-        initialMessage: () =>
-          makeInitMessage('dataOwner', logLevel, serverMode),
-      }),
-      'dataOwner',
-    );
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
-
-    const compilation = yield* withRoleLayer(
-      Worker.makeSerialized<CompilationRequest>({
-        initialMessage: () =>
-          makeInitMessage('compilation', logLevel, serverMode),
-      }),
-      'compilation',
-    );
     logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
-
-    const requestPool = yield* withRoleLayer(
-      Worker.makePoolSerialized<LspRequestMessage>({
-        size: poolSize,
-        initialMessage: () =>
-          makeInitMessage('lspRequest', logLevel, serverMode),
-      }),
-      'lspRequest',
-    );
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -411,6 +418,7 @@ export function initializeTopology(
     return {
       dataOwner,
       requestPool,
+      requestPoolSize: poolSize,
       resourceLoader,
       compilation,
     } as WorkerTopology;
@@ -533,10 +541,16 @@ export const runRemoteStdlibWarmupPhase = (
       return;
     }
     const n = clampPoolSize(poolSize);
-    yield* topology.dataOwner.executeEffect(req);
-    for (let i = 0; i < n; i++) {
-      yield* topology.requestPool.executeEffect(req);
-    }
+    // Warm all workers in parallel — each is independent
+    yield* Effect.all(
+      [
+        topology.dataOwner.executeEffect(req),
+        ...Array.from({ length: n }, () =>
+          topology.requestPool.executeEffect(req),
+        ),
+      ],
+      { concurrency: 'unbounded' },
+    );
   });
 };
 
@@ -961,7 +975,7 @@ export function makeWorkerDispatcher(
       },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
-      poolSize: 0,
+      poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
       getDocumentContent,
     },

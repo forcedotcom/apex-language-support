@@ -107,4 +107,5 @@ scripts/test-extensions/memfs-provider/workspace-files.json
 .session-files/
 .vscode-test-web/
 .claude/worktrees/
-.github/workflows/backup/
+.superpowers/
+/.fastcontext
