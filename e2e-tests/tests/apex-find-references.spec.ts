@@ -29,8 +29,11 @@ test.describe('Apex Find All References', () => {
     });
 
     await test.step('Position on a symbol that is used more than once', async () => {
-      // `sayHello` is declared and called within ApexClassExample.
-      await apexEditor.positionCursorOnWord('sayHello');
+      // `accounts` is the instance field with several intra-file references. A
+      // field with multiple same-file references reliably surfaces the peek in
+      // VS Code Web; a symbol with only a declaration + single usage does not
+      // (VS Code collapses a near-empty same-file result set).
+      await apexEditor.positionCursorOnWord('accounts');
     });
 
     await test.step('Trigger find-references and assert results appear', async () => {
@@ -95,7 +98,7 @@ test.describe('Apex Find All References', () => {
   test('find-references is responsive', async ({ apexEditor }) => {
     await apexEditor.openFile('ApexClassExample.cls');
     await apexEditor.waitForLanguageServerReady();
-    await apexEditor.positionCursorOnWord('sayHello');
+    await apexEditor.positionCursorOnWord('accounts');
 
     const startTime = Date.now();
     await apexEditor.findReferences();
