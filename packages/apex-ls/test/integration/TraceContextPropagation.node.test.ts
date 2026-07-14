@@ -30,7 +30,7 @@ import {
   ApexStorageManager,
   ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import type { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import type { TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -45,14 +45,10 @@ describe('Trace context propagation - promise chain fix', () => {
     await storageManager.initialize();
 
     // Initialize queue manager with minimal config
-    const logger = getLogger();
     initializeLSPQueueManager({
-      logger,
-      symbolManager: {
-        initializeSymbolManager: () => Promise.resolve(),
-        shutdownSymbolManager: () => Promise.resolve(),
-      },
-    });
+      initializeSymbolManager: () => Promise.resolve(),
+      shutdownSymbolManager: () => Promise.resolve(),
+    } as unknown as ISymbolManager);
   });
 
   afterAll(async () => {

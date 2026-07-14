@@ -251,8 +251,12 @@ describe('DocumentSelectorUtils', () => {
             idleSleepMs: 1,
             queueStateNotificationIntervalMs: 200,
           },
-          worker: {
-            logLevel: 'info',
+          experimental: {
+            workers: {
+              enabled: true,
+              poolSize: 2,
+              resourceLoader: true,
+            },
           },
         },
       };

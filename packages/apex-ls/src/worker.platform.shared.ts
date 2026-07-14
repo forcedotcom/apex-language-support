@@ -62,9 +62,6 @@ import {
   ApexCapabilitiesManager,
   type WorkerRole,
   type WorkerLogLevel,
-  initWorkerTracing,
-  provideWorkerTracing,
-  withExtractedTraceContext,
 } from '@salesforce/apex-lsp-shared';
 import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
 import type {
@@ -128,6 +125,65 @@ export interface WorkerDocument {
   readonly languageId: string;
   readonly version: number;
   getText(): string;
+  // Position/offset helpers. Completion (analyzeCompletionContext,
+  // GeneralCompletionStrategy.getWordAtPosition) calls document.offsetAt(); a
+  // bare object without it throws "offsetAt is not a function" and the request
+  // returns zero items. These are optional so existing minimal WorkerDocuments
+  // (hover/documentSymbol only use getText()) keep compiling; makeWorkerDocument
+  // supplies real implementations for the enrichment path.
+  offsetAt?(position: { line: number; character: number }): number;
+  positionAt?(offset: number): { line: number; character: number };
+}
+
+/**
+ * Build a WorkerDocument backed by `content` with working offsetAt/positionAt
+ * helpers. The worker deliberately avoids importing the full
+ * vscode-languageserver-textdocument package (see WorkerDocument), so we compute
+ * line/character⇄offset from the text directly. Newlines are counted as part of
+ * the preceding line (matching TextDocument's line-start indexing), so an
+ * offset/position round-trips for the line/character values the LSP hands us.
+ */
+export function makeWorkerDocument(
+  uri: string,
+  content: string,
+  version = 0,
+): WorkerDocument {
+  // Offsets of the first character of each line. lineStarts[0] === 0.
+  const lineStarts: number[] = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content.charCodeAt(i) === 10 /* \n */) {
+      lineStarts.push(i + 1);
+    }
+  }
+  return {
+    uri,
+    languageId: 'apex',
+    version,
+    getText: () => content,
+    offsetAt: (position) => {
+      const line = Math.max(0, Math.min(position.line, lineStarts.length - 1));
+      const lineStart = lineStarts[line];
+      const lineEnd =
+        line + 1 < lineStarts.length ? lineStarts[line + 1] : content.length;
+      const maxChar = lineEnd - lineStart;
+      return lineStart + Math.max(0, Math.min(position.character, maxChar));
+    },
+    positionAt: (offset) => {
+      const clamped = Math.max(0, Math.min(offset, content.length));
+      // Binary search for the line whose start is the greatest ≤ clamped.
+      let low = 0;
+      let high = lineStarts.length - 1;
+      while (low < high) {
+        const mid = Math.floor((low + high + 1) / 2);
+        if (lineStarts[mid] <= clamped) {
+          low = mid;
+        } else {
+          high = mid - 1;
+        }
+      }
+      return { line: low, character: clamped - lineStarts[low] };
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +290,31 @@ export function requestCoordinatorAssistancePromiseShared(
   return _requestCoordinatorAssistancePromise(method, params, blocking);
 }
 
+type WorkerTracingHooks = {
+  readonly initialize: (url: string, serviceName: string) => void;
+  readonly provide: <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E, R>;
+  readonly withParent: <A, E>(
+    request: { readonly traceContext?: string },
+    effect: Effect.Effect<A, E, never>,
+  ) => Effect.Effect<A, E, never>;
+};
+
+let workerTracingHooks: WorkerTracingHooks = {
+  initialize: () => {},
+  provide: (effect) => effect,
+  withParent: (_request, effect) => effect,
+};
+
+/**
+ * Install Node-only tracing at the platform boundary. The browser worker leaves
+ * the no-op hooks in place, so its bundle never imports OTEL or async_hooks.
+ */
+export function setWorkerTracingHooks(hooks: WorkerTracingHooks): void {
+  workerTracingHooks = hooks;
+}
+
 export let workerId = 'uninitialized';
 
 export function setWorkerId(id: string): void {
@@ -326,7 +407,7 @@ const processItem = (item: DOQueueItem) =>
     // daemon still has the default no-op tracer, so its phase spans are never
     // exported. Re-provide the initialized worker tracer at the point where
     // queued work actually executes.
-    execution = execution.pipe(provideWorkerTracing());
+    execution = workerTracingHooks.provide(execution);
 
     const result = yield* Effect.either(execution);
     if (result._tag === 'Right') {
@@ -571,11 +652,16 @@ export const requestHandler =
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureRequestServices;
-          const result = yield* Effect.promise(() => callService(svc, req));
-          return { result: cloneForWire(result) };
-        }),
+        workerTracingHooks.withParent(
+          req as { traceContext?: string },
+          Effect.fn(`worker.lspRequest.${tag}`, {
+            attributes: { telemetryIgnore: true },
+          })(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* Effect.promise(() => callService(svc, req));
+            return { result: cloneForWire(result) };
+          })(),
+        ),
       ),
     );
 
@@ -596,11 +682,16 @@ export const effectRequestHandler =
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureRequestServices;
-          const result = yield* callService(svc, req);
-          return { result: cloneForWire(result) };
-        }),
+        workerTracingHooks.withParent(
+          req as { traceContext?: string },
+          Effect.fn(`worker.lspRequest.${tag}`, {
+            attributes: { telemetryIgnore: true },
+          })(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* callService(svc, req);
+            return { result: cloneForWire(result) };
+          })(),
+        ),
       ),
     );
 
@@ -648,166 +739,167 @@ export function loadSymbolDataForEnrichment(
   uri: string,
   content?: string,
 ): Effect.Effect<{ version: number; detailLevel: string }, never, never> {
+  let version = -1;
+  let detailLevel = 'public-api';
+
   return Effect.gen(function* () {
     if (content) {
-      const doc: WorkerDocument = {
-        uri,
-        getText: () => content,
-        languageId: 'apex',
-        version: 0,
-      };
+      // Completion needs offsetAt/positionAt for live-buffer analysis.
+      const doc = makeWorkerDocument(uri, content);
       svc.storageManager.getStorage().setDocument(uri, doc as never);
     }
 
-    let version = -1;
-    let detailLevel = 'public-api';
-
-    try {
-      const response = (yield* Effect.fn(
-        'worker.enrichment.querySymbolSubset',
-        { attributes: { uri } },
-      )(function* () {
-        return (yield* Effect.promise(() =>
+    const response = (yield* Effect.fn('worker.enrichment.querySymbolSubset', {
+      attributes: { uri },
+    })(function* () {
+      return (yield* Effect.tryPromise({
+        try: () =>
           requestCoordinatorAssistancePromiseShared(
             'dataOwner:QuerySymbolSubset',
             { uris: [uri] },
             true,
           ),
-        )) as {
-          entries: Record<string, unknown>;
-          versions: Record<string, number>;
-          detailLevels: Record<string, string>;
-        };
-      })()) as {
+        catch: (cause) => cause,
+      })) as {
         entries: Record<string, unknown>;
         versions: Record<string, number>;
         detailLevels: Record<string, string>;
       };
+    })()) as {
+      entries: Record<string, unknown>;
+      versions: Record<string, number>;
+      detailLevels: Record<string, string>;
+    };
 
-      if (response?.entries) {
-        const { SymbolTable, ReferenceContext } = yield* Effect.promise(
-          () => import('@salesforce/apex-lsp-parser-ast'),
-        );
-        const ingestEntries = (entries: Record<string, unknown>) => {
-          const tables: Array<{ fileUri: string; st: any }> = [];
-          for (const [fileUri, stData] of Object.entries(entries)) {
-            if (stData) {
-              tables.push({
-                fileUri,
-                st: SymbolTable.fromSerializedData(
-                  stData as SerializedSymbolTableData,
+    if (response?.entries) {
+      const { SymbolTable, ReferenceContext } = yield* Effect.tryPromise({
+        try: () => import('@salesforce/apex-lsp-parser-ast'),
+        catch: (cause) => cause,
+      });
+      const ingestEntries = (entries: Record<string, unknown>) => {
+        const tables: Array<{ fileUri: string; st: any }> = [];
+        for (const [fileUri, stData] of Object.entries(entries)) {
+          if (stData) {
+            tables.push({
+              fileUri,
+              st: SymbolTable.fromSerializedData(
+                stData as SerializedSymbolTableData,
+              ),
+            });
+          }
+        }
+        return tables;
+      };
+
+      const loaded = ingestEntries(response.entries);
+      for (const { fileUri, st } of loaded) {
+        yield* Effect.fn('worker.enrichment.addSymbolTable', {
+          attributes: { uri: fileUri },
+        })(function* () {
+          yield* svc.symbolManager.addSymbolTable(st, fileUri);
+        })();
+      }
+      version = response.versions?.[uri] ?? -1;
+      detailLevel = response.detailLevels?.[uri] ?? 'public-api';
+
+      // Phase 2: pre-fetch cross-file dependencies.
+      // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
+      // loaded file and ask the data-owner to resolve them to symbol tables.
+      const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
+      if (currentSt) {
+        const refs = currentSt.getAllReferences() as Array<{
+          name: string;
+          context: number;
+          resolvedSymbolId?: string;
+        }>;
+        const classNames = new Set<string>();
+        for (const ref of refs) {
+          const isUnresolvedTypeRef =
+            !ref.resolvedSymbolId &&
+            (ref.context === ReferenceContext.CLASS_REFERENCE ||
+              ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+              ref.context === ReferenceContext.TYPE_DECLARATION);
+          const isSupertypeRef =
+            ref.context === ReferenceContext.INHERITANCE ||
+            ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
+          if (isUnresolvedTypeRef || isSupertypeRef) {
+            classNames.add(ref.name);
+          }
+        }
+        if (classNames.size > 0) {
+          const depResponse = yield* Effect.fn(
+            'worker.enrichment.resolveDepUris',
+            { attributes: { uri, depCount: classNames.size } },
+          )(function* () {
+            return (yield* Effect.tryPromise({
+              try: () =>
+                requestCoordinatorAssistancePromiseShared(
+                  'dataOwner:ResolveDepUris',
+                  { classNames: [...classNames] },
+                  true,
                 ),
-              });
+              catch: (cause) => cause,
+            })) as { entries: Record<string, unknown> };
+          })().pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+          if (depResponse?.entries) {
+            for (const { fileUri: depUri, st: depSt } of ingestEntries(
+              depResponse.entries,
+            )) {
+              yield* svc.symbolManager.addSymbolTable(depSt, depUri);
             }
           }
-          return tables;
-        };
 
-        const loaded = ingestEntries(response.entries);
-        for (const { fileUri, st } of loaded) {
-          yield* Effect.fn('worker.enrichment.addSymbolTable', {
-            attributes: { uri: fileUri },
+          // Cross-worker fallback: ResolveDepUris resolves names that map to a
+          // file via the data-owner's class→file index, but a qualified
+          // TypeReference can still miss when the target file is not loaded in
+          // this enrichment worker's LOCAL name index. Ask the data-owner
+          // (which holds ALL workspace symbols) to resolve the remaining names
+          // in one batched query and ingest the owning files' symbol tables.
+          // The ingest count is intentionally not captured (see below).
+          yield* Effect.tryPromise({
+            try: () => resolveMissingNamesViaDataOwner(svc, [...classNames]),
+            catch: (cause) => cause,
+          }).pipe(Effect.catchAll(() => Effect.void));
+
+          // Ingestion alone only lands the owning files' SYMBOLS in the local
+          // name index (addSymbolTable processes same-file refs only and defers
+          // cross-file edges). Hover/Completion/Definition resolve via an
+          // on-demand name lookup, so the symbol is enough for them — but the
+          // requesting file's TypeReference is still unresolved (no
+          // resolvedSymbolId, no reverse-index edge). Materialize those edges
+          // now so reverse-index + position-precise consumers see them too.
+          //
+          // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
+          // earlier ResolveDepUris pass may have already loaded every dep, which
+          // makes that count 0 even though the cursor file's references are
+          // still unbound. find-references' 'precise' position→symbol lookup
+          // needs those bindings (unlike hover/definition's on-demand by-name
+          // resolution), so resolve whenever ANY class dep was requested.
+          // resolveCrossFileReferencesForFile is re-entrancy-guarded and
+          // addReference de-dupes, so this is near-free when nothing changed.
+          yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
+            attributes: { uri },
           })(function* () {
-            yield* svc.symbolManager.addSymbolTable(st, fileUri);
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
           })();
         }
-        version = response.versions?.[uri] ?? -1;
-        detailLevel = response.detailLevels?.[uri] ?? 'public-api';
-
-        // Phase 2: pre-fetch cross-file dependencies.
-        // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
-        // loaded file and ask the data-owner to resolve them to symbol tables.
-        const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
-        if (currentSt) {
-          const refs = currentSt.getAllReferences() as Array<{
-            name: string;
-            context: number;
-            resolvedSymbolId?: string;
-          }>;
-          const classNames = new Set<string>();
-          for (const ref of refs) {
-            if (
-              !ref.resolvedSymbolId &&
-              (ref.context === ReferenceContext.CLASS_REFERENCE ||
-                ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
-                ref.context === ReferenceContext.TYPE_DECLARATION)
-            ) {
-              classNames.add(ref.name);
-            }
-          }
-          if (classNames.size > 0) {
-            try {
-              const depResponse = (yield* Effect.fn(
-                'worker.enrichment.resolveDepUris',
-                { attributes: { uri, depCount: classNames.size } },
-              )(function* () {
-                return (yield* Effect.promise(() =>
-                  requestCoordinatorAssistancePromiseShared(
-                    'dataOwner:ResolveDepUris',
-                    { classNames: [...classNames] },
-                    true,
-                  ),
-                )) as { entries: Record<string, unknown> };
-              })()) as { entries: Record<string, unknown> };
-              if (depResponse?.entries) {
-                for (const { fileUri: depUri, st: depSt } of ingestEntries(
-                  depResponse.entries,
-                )) {
-                  yield* svc.symbolManager.addSymbolTable(depSt, depUri);
-                }
-              }
-            } catch {
-              // Dep pre-fetch is best-effort; resolution can still work on-demand.
-            }
-
-            // Cross-worker fallback: ResolveDepUris resolves names that map to a
-            // file via the data-owner's class→file index, but a qualified
-            // TypeReference can still miss when the target file is not loaded in
-            // this enrichment worker's LOCAL name index. Ask the data-owner
-            // (which holds ALL workspace symbols) to resolve the remaining names
-            // in one batched query and ingest the owning files' symbol tables.
-            // The ingest count is intentionally not captured (see below).
-            yield* Effect.promise(() =>
-              resolveMissingNamesViaDataOwner(svc, [...classNames]),
-            );
-
-            // Ingestion alone only lands the owning files' SYMBOLS in the local
-            // name index (addSymbolTable processes same-file refs only and defers
-            // cross-file edges). Hover/Completion/Definition resolve via an
-            // on-demand name lookup, so the symbol is enough for them — but the
-            // requesting file's TypeReference is still unresolved (no
-            // resolvedSymbolId, no reverse-index edge). Materialize those edges
-            // now so reverse-index + position-precise consumers see them too.
-            //
-            // NOT gated on resolveMissingNamesViaDataOwner's ingest count: the
-            // earlier ResolveDepUris pass may have already loaded every dep, which
-            // makes that count 0 even though the cursor file's references are
-            // still unbound. find-references' 'precise' position→symbol lookup
-            // needs those bindings (unlike hover/definition's on-demand by-name
-            // resolution), so resolve whenever ANY class dep was requested.
-            // resolveCrossFileReferencesForFile is re-entrancy-guarded and
-            // addReference de-dupes, so this is near-free when nothing changed.
-            yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
-              attributes: { uri },
-            })(function* () {
-              yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
-            })();
-          }
-        }
       }
-    } catch (err) {
-      // Subset load failed (assistance channel down, IPC error, or the data-owner
-      // doesn't have the file). The caller proceeds on a partial/empty graph, so
-      // any request built on it (hover/definition/references/…) may silently
-      // return nothing. Warn — not debug — so an empty result has a breadcrumb
-      // distinguishing "real failure" from "genuinely nothing here".
-      getLogger().warn(
-        () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
-      );
     }
 
     return { version, detailLevel };
-  });
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.sync(() => {
+        // Assistance failures are expected during degradation. Preserve the
+        // partial graph and let the LSP request continue.
+        getLogger().warn(
+          () =>
+            `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${String(error)}`,
+        );
+        return { version, detailLevel };
+      }),
+    ),
+  );
 }
 
 /**
@@ -1261,11 +1353,19 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
         // Wire coordinator assistance so the enrichment worker can forward
         // apex/findMissingArtifact to the coordinator (which holds the LSP
         // client connection) rather than silently dropping the request.
+        //
+        // blocking=true: the coordinator mediator must await its handler (drive
+        // the client to open the artifact, which flows to the data-owner via
+        // didOpen) and return the real FindMissingArtifactResult. With
+        // blocking=false it returns {accepted:true} immediately, which the
+        // blocking-resolution caller mis-reads as "resolved" before the artifact
+        // loads. The background caller doesn't await, so blocking=true is
+        // harmless there.
         EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
           requestCoordinatorAssistancePromiseShared(
             'apex/findMissingArtifact',
             params,
-            false,
+            true,
           ),
         );
 
@@ -1468,39 +1568,39 @@ export function writeBackEnrichedSymbols(
   documentVersion: number,
   enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
 ): Effect.Effect<boolean, never, never> {
+  const startTime = Date.now();
   return Effect.gen(function* () {
-    const startTime = Date.now();
-    try {
-      const symbolTable = yield* Effect.promise(() =>
-        svc.symbolManager.getSymbolTableForFile(uri),
+    const symbolTable = yield* Effect.tryPromise({
+      try: () => svc.symbolManager.getSymbolTableForFile(uri),
+      catch: (cause) => cause,
+    });
+    if (!symbolTable) {
+      yield* Effect.logDebug(
+        `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
       );
-      if (!symbolTable) {
-        yield* Effect.logDebug(
-          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
-        );
-        return false;
-      }
+      return false;
+    }
 
-      // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
-      // function values (lazy thunks) that structured clone cannot handle — see
-      // writeBackCompiledSymbols for the full rationale.
-      const enrichedSymbolTable = cloneForWire({
-        symbols: symbolTable.getAllSymbols(),
-        references: symbolTable.getAllReferences(),
-        hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
-        metadata: symbolTable.getMetadata(),
-        fileUri: symbolTable.getFileUri(),
-      });
+    // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
+    // function values (lazy thunks) that structured clone cannot handle — see
+    // writeBackCompiledSymbols for the full rationale.
+    const enrichedSymbolTable = cloneForWire({
+      symbols: symbolTable.getAllSymbols(),
+      references: symbolTable.getAllReferences(),
+      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+      metadata: symbolTable.getMetadata(),
+      fileUri: symbolTable.getFileUri(),
+    });
 
-      const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
-        ? enrichedSymbolTable.symbols.length
-        : 0;
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
 
-      const response = (yield* Effect.fn(
-        'worker.enrichment.updateSymbolSubset',
-        { attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel } },
-      )(function* () {
-        return (yield* Effect.promise(() =>
+    const response = (yield* Effect.fn('worker.enrichment.updateSymbolSubset', {
+      attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel },
+    })(function* () {
+      return (yield* Effect.tryPromise({
+        try: () =>
           requestCoordinatorAssistancePromiseShared(
             'dataOwner:UpdateSymbolSubset',
             {
@@ -1512,28 +1612,32 @@ export function writeBackEnrichedSymbols(
             },
             true,
           ),
-        )) as { accepted: boolean; merged: number; versionMismatch: boolean };
-      })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
+        catch: (cause) => cause,
+      })) as { accepted: boolean; merged: number; versionMismatch: boolean };
+    })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
 
-      const elapsed = Date.now() - startTime;
-      const accepted = response?.accepted ?? false;
+    const elapsed = Date.now() - startTime;
+    const accepted = response?.accepted ?? false;
 
-      yield* Effect.logDebug(
-        `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
-          `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
-          `(v${documentVersion}, ${elapsed}ms)` +
-          (response?.versionMismatch ? ' [version mismatch]' : ''),
-      );
+    yield* Effect.logDebug(
+      `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+        `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
+        `(v${documentVersion}, ${elapsed}ms)` +
+        (response?.versionMismatch ? ' [version mismatch]' : ''),
+    );
 
-      return accepted;
-    } catch (err) {
-      const elapsed = Date.now() - startTime;
-      yield* Effect.logWarning(
-        `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
-      );
-      return false;
-    }
-  });
+    return accepted;
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        const elapsed = Date.now() - startTime;
+        yield* Effect.logWarning(
+          `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${String(error)}`,
+        );
+        return false;
+      }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1783,6 +1887,16 @@ const requestHandlers = {
           req.content,
         );
 
+        // The data-owner only retains public-api detail. Recompile the live
+        // cursor file locally so private members, fields, and locals exist.
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
+        );
+
         // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
         const requiredLevel = 'full';
         const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
@@ -1818,6 +1932,16 @@ const requestHandlers = {
           svc,
           req.textDocument.uri,
           req.content,
+        );
+
+        // Completion operates on in-flight declarations, not the data-owner's
+        // previous public-api snapshot.
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
         );
 
         // Completion needs full member visibility for member-access suggestions.
@@ -1928,6 +2052,15 @@ const requestHandlers = {
         const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
+          req.content,
+        );
+
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
         );
 
         // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
@@ -2295,7 +2428,7 @@ export function withWorkerRequestTracing<A, E>(
     attributes: { telemetryIgnore: true, 'worker.role': role },
   })(() => effect)();
 
-  return withExtractedTraceContext(request, tracedEffect);
+  return workerTracingHooks.withParent(request, tracedEffect);
 }
 
 const untracedHandlers: SerializedWorkerHandlers = {
@@ -2317,7 +2450,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
     // Initialize worker tracing if span collector URL provided (desktop only)
     if (req.spanCollectorUrl) {
       const serviceName = `apex-ls-worker-${req.role}`;
-      initWorkerTracing(req.spanCollectorUrl, serviceName);
+      workerTracingHooks.initialize(req.spanCollectorUrl, serviceName);
     }
 
     return Effect.gen(function* () {
@@ -2326,13 +2459,6 @@ const untracedHandlers: SerializedWorkerHandlers = {
           ` logLevel=${currentWorkerLogLevel}` +
           (req.spanCollectorUrl ? ' tracing=enabled' : ''),
       );
-
-      // TEST: Create a test span to verify Effect tracing is working
-      if (req.spanCollectorUrl) {
-        yield* Effect.fn('worker.init.test.span')(() =>
-          Effect.succeed({ message: 'Test span for tracing verification' }),
-        )().pipe(provideWorkerTracing());
-      }
     }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
 

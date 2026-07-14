@@ -5,11 +5,37 @@
   "main": "out/index.js",
   "module": "out/index.js",
   "types": "out/index.d.ts",
+  "browser": {
+    "./out/observability/workerTracing.js": "./out/observability/workerTracing.browser.js",
+    "./out/observability/coordinatorEffectTracing.js": "./out/observability/coordinatorEffectTracing.browser.js"
+  },
   "exports": {
     ".": {
       "types": "./out/index.d.ts",
       "import": "./out/index.js",
       "require": "./out/index.js"
+    },
+    "./observability/workerTracing": {
+      "types": "./out/observability/workerTracing.d.ts",
+      "browser": "./out/observability/workerTracing.browser.js",
+      "import": "./out/observability/workerTracing.js",
+      "require": "./out/observability/workerTracing.js"
+    },
+    "./observability/workerTracing.browser": {
+      "types": "./out/observability/workerTracing.browser.d.ts",
+      "import": "./out/observability/workerTracing.browser.js",
+      "require": "./out/observability/workerTracing.browser.js"
+    },
+    "./observability/coordinatorEffectTracing": {
+      "types": "./out/observability/coordinatorEffectTracing.d.ts",
+      "browser": "./out/observability/coordinatorEffectTracing.browser.js",
+      "import": "./out/observability/coordinatorEffectTracing.js",
+      "require": "./out/observability/coordinatorEffectTracing.js"
+    },
+    "./observability/coordinatorEffectTracing.browser": {
+      "types": "./out/observability/coordinatorEffectTracing.browser.d.ts",
+      "import": "./out/observability/coordinatorEffectTracing.browser.js",
+      "require": "./out/observability/coordinatorEffectTracing.browser.js"
     }
   },
   "sideEffects": false,

@@ -91,7 +91,6 @@ const WORKER_EXTERNAL: string[] = [
   '@opentelemetry/sdk-trace-base',
   '@opentelemetry/context-async-hooks',
   '@opentelemetry/core',
-  '@opentelemetry/api',
   '@opentelemetry/sdk-node',
   '@effect/opentelemetry',
   'async_hooks',
@@ -162,6 +161,10 @@ const builds: BuildOptions[] = [
     splitting: false,
     bundle: true,
     treeShaking: true,
+    alias: {
+      '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing':
+        '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing.browser',
+    },
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     loader: {
@@ -186,6 +189,10 @@ const builds: BuildOptions[] = [
     bundle: true,
     outExtension: { '.js': '.web.js' },
     treeShaking: true,
+    alias: {
+      '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing':
+        '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing.browser',
+    },
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs

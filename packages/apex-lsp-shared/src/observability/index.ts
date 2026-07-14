@@ -44,18 +44,3 @@ export { CommandPerformanceAggregator } from './commandPerformanceAggregator';
 
 export { collectStartupSnapshot, generateSessionId } from './startupSnapshot';
 export type { StartupSnapshotParams } from './startupSnapshot';
-
-export {
-  initWorkerTracing,
-  shutdownWorkerTracing,
-  getWorkerTracerLayer,
-  getCollectorUrl,
-  getActiveWorkerTraceContext,
-  provideWorkerTracing,
-  withExtractedTraceContext,
-} from './workerTracing';
-
-export {
-  getCoordinatorTracerLayer,
-  provideCoordinatorTracing,
-} from './coordinatorEffectTracing';

@@ -23,12 +23,14 @@ import * as Effect from 'effect/Effect';
 import {
   initWorkerTracing,
   getActiveWorkerTraceContext,
+  provideWorkerTracing,
   withExtractedTraceContext,
   shutdownWorkerTracing,
-} from '@salesforce/apex-lsp-shared';
+} from '@salesforce/apex-lsp-shared/observability/workerTracing';
 import {
   dataOwnerWrite,
   setAssignedRole,
+  setWorkerTracingHooks,
   withWorkerRequestTracing,
 } from '../../src/worker.platform.shared';
 
@@ -46,6 +48,13 @@ describe('withExtractedTraceContext()', () => {
   let receivedBodies: string[] = [];
 
   beforeAll(async () => {
+    setWorkerTracingHooks({
+      initialize: initWorkerTracing,
+      provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        provideWorkerTracing<A, E, R>()(effect),
+      withParent: withExtractedTraceContext,
+    });
+
     // Start a mock OTLP HTTP server to capture exported spans
     await new Promise<void>((resolve) => {
       mockCollector = http.createServer((req, res) => {

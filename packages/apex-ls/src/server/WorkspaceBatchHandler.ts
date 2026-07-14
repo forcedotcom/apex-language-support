@@ -19,8 +19,8 @@ import {
   getLogger,
   ApexSettingsManager,
   LSP_SPAN_NAMES,
-  provideCoordinatorTracing,
 } from '@salesforce/apex-lsp-shared';
+import { provideCoordinatorTracing } from '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing';
 import {
   createQueuedItem,
   offer,

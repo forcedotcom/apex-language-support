@@ -87,15 +87,6 @@ export {
   type CommandSummary,
   type CommandPerformanceEvent,
   type TelemetryEvent,
-  initWorkerTracing,
-  shutdownWorkerTracing,
-  getWorkerTracerLayer,
-  getCollectorUrl,
-  getActiveWorkerTraceContext,
-  provideWorkerTracing,
-  withExtractedTraceContext,
-  getCoordinatorTracerLayer,
-  provideCoordinatorTracing,
 } from './observability';
 
 // Experimental protocol: Missing Artifact Resolution
@@ -518,6 +509,76 @@ export type {
   WorkerLogMessage,
   WorkerLogLevel,
 } from './workerWireSchemas';
+
+// Profiling param/result types for apex/profiling/* methods (3.1 typed surface)
+// Structurally mirror the inline shapes in LCSAdapter + ProfilingService without
+// importing them (shared stays adapter-free).
+
+/**
+ * Parameters for `apex/profiling/start` request.
+ */
+export interface ProfilingStartParams {
+  readonly type?: 'cpu' | 'heap' | 'both';
+}
+
+/**
+ * Result for `apex/profiling/start` request.
+ */
+export interface ProfilingStartResult {
+  readonly success: boolean;
+  readonly message: string;
+  readonly type?: 'cpu' | 'heap' | 'both';
+}
+
+/**
+ * Parameters for `apex/profiling/stop` request.
+ */
+export interface ProfilingStopParams {
+  readonly tag?: string;
+}
+
+/**
+ * Result for `apex/profiling/stop` request.
+ */
+export interface ProfilingStopResult {
+  readonly success: boolean;
+  readonly message: string;
+  readonly files?: readonly string[];
+}
+
+/**
+ * Parameters for `apex/profiling/status` request.
+ */
+export type ProfilingStatusParams = Record<string, never>;
+
+/**
+ * Result for `apex/profiling/status` request.
+ */
+export interface ProfilingStatusResult {
+  readonly isProfiling: boolean;
+  readonly type: 'idle' | 'cpu' | 'heap' | 'both';
+  readonly available: boolean;
+}
+
+/**
+ * Parameters for `apex/workspaceLoadFailed` notification (client→server).
+ * Same shape as WorkspaceLoadCompleteParams — aliased for semantic clarity.
+ */
+export type WorkspaceLoadFailedParams = WorkspaceLoadCompleteParams;
+
+/**
+ * Parameters for `apex/queueStateChanged` notification (server→client).
+ */
+export interface QueueStateChangedParams {
+  readonly metrics: Record<string, unknown>;
+  readonly metadata: { readonly timestamp: number };
+}
+
+/**
+ * Parameters for `apex/workspaceIngestionComplete` notification (server→client).
+ * Empty object — no payload.
+ */
+export type WorkspaceIngestionCompleteParams = Record<string, never>;
 
 // QueueState/GraphData protocol types — shared contract for apex/queueState
 // and apex/graphData custom LSP requests. Structurally model the canonical

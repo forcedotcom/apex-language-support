@@ -54,8 +54,14 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     WORKSPACE_BATCH_COMPILE_CHUNK: 'workspace.batch.compileChunk',
     WORKSPACE_CROSS_FILE_ENRICHMENT: 'workspace.crossFileEnrichment',
   },
-  provideCoordinatorTracing: jest.fn(() => (effect: any) => effect),
 }));
+
+jest.mock(
+  '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing',
+  () => ({
+    provideCoordinatorTracing: jest.fn(() => (effect: any) => effect),
+  }),
+);
 
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
   createQueuedItem: jest.fn((eff: any) =>

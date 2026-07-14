@@ -36,10 +36,10 @@ import * as BrowserWorkerRunner from '@effect/platform-browser/BrowserWorkerRunn
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
   isAssistanceResponse,
-  getActiveWorkerTraceContext,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import { getActiveWorkerTraceContext } from '@salesforce/apex-lsp-shared/observability/workerTracing.browser';
 
 import {
   handlers,

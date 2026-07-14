@@ -100,9 +100,11 @@ export function initWorkerTracing(url: string, serviceName: string): void {
 }
 
 /**
- * Shut down worker tracing, clearing the tracer layer.
+ * Shut down worker tracing. The OTLP layer is scoped to each provided Effect,
+ * so its exporter is finalized and flushed when that Effect completes; there
+ * is no long-lived exporter left to await here.
  */
-export async function shutdownWorkerTracing(): Promise<void> {
+export function shutdownWorkerTracing(): void {
   tracerLayer = undefined;
   collectorUrl = undefined;
 }

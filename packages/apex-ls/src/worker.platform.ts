@@ -24,10 +24,15 @@ import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
   isAssistanceResponse,
-  getActiveWorkerTraceContext,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import {
+  initWorkerTracing,
+  getActiveWorkerTraceContext,
+  provideWorkerTracing,
+  withExtractedTraceContext,
+} from '@salesforce/apex-lsp-shared/observability/workerTracing';
 
 import {
   handlers,
@@ -35,6 +40,7 @@ import {
   setAssistanceTransport,
   setWorkerId,
   setResourceLoaderLayerFactory,
+  setWorkerTracingHooks,
   setWarmRemoteStdlibNamespaceCache,
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
@@ -301,6 +307,12 @@ setWorkerId(workerId);
 setAssistanceTransport(requestCoordinatorAssistancePromise);
 setResourceLoaderLayerFactory(makeResourceLoaderRemoteLayer);
 setWarmRemoteStdlibNamespaceCache(warmRemoteStdlibNamespaceCache);
+setWorkerTracingHooks({
+  initialize: initWorkerTracing,
+  provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    provideWorkerTracing<A, E, R>()(effect),
+  withParent: withExtractedTraceContext,
+});
 
 // ---------------------------------------------------------------------------
 // Worker→coordinator log transport

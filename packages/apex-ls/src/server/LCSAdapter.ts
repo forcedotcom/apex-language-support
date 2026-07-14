@@ -2564,18 +2564,26 @@ export class LCSAdapter {
           scope,
         );
       } else {
-        // Resolve the worker script relative to the parent server bundle's own
-        // origin. Using the client-injected extension URL directly (a different
-        // origin — the extension's dist/) breaks sub-worker spawning for
-        // resolution-heavy roles: makeBrowserWorkerLayer's cross-origin
-        // fetch→blob misbehaves, silently degrading hover/definition symbol
-        // resolution while basic requests still work. workerPlatformWebUrl is
-        // kept only as a last-resort base when location.href is unavailable.
-        const selfHref =
-          (globalThis as any).location?.href ??
-          this.workerPlatformWebUrl ??
-          'file:///server.web.js';
-        const workerUrl = new URL('./worker.platform.web.js', selfHref).href;
+        // Resolve the worker script URL relative to the parent server bundle's
+        // own origin (location.href) — same-origin, no CORS. But VS Code Web
+        // serves the bundle from a `blob:` URL, which is NOT a valid base for
+        // `new URL(relative, base)` — it throws, aborting topology init and
+        // silently dropping the whole worker pool (hover/definition/references
+        // fall back to the coordinator-local path, and references — an empty
+        // stub there — returns nothing). When href is unusable as a base, use
+        // the client-injected absolute worker URL, then a file:// placeholder.
+        // makeBrowserWorkerLayer re-wraps the fetched script in a SAME-ORIGIN
+        // blob regardless, so the sub-worker always shares the parent's origin.
+        const resolveWorkerUrl = (base: string) =>
+          new URL('./worker.platform.web.js', base).href;
+        const rawHref = (globalThis as any).location?.href;
+        const workerUrl =
+          typeof rawHref === 'string' && !rawHref.startsWith('blob:')
+            ? resolveWorkerUrl(rawHref)
+            : // `||` (not `??`): an empty string is as unusable a base as
+              // undefined, so fall through to the placeholder in both cases.
+              this.workerPlatformWebUrl ||
+              resolveWorkerUrl('file:///server.web.js');
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );

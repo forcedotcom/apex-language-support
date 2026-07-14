@@ -33,9 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         test_file:
+          - apex-capability-gating.spec.ts
           - apex-extension-core.spec.ts
           - apex-goto-definition.spec.ts
           - apex-hover.spec.ts
+          - apex-hover-stdlib.spec.ts
           - apex-lsp-integration.spec.ts
           - apex-outline.spec.ts
 
@@ -271,9 +273,11 @@ jobs:
 
           # Expected spec files from the matrix — keep in sync with the matrix above
           EXPECTED_SPECS=(
+            "apex-capability-gating.spec.ts"
             "apex-extension-core.spec.ts"
             "apex-goto-definition.spec.ts"
             "apex-hover.spec.ts"
+            "apex-hover-stdlib.spec.ts"
             "apex-lsp-integration.spec.ts"
             "apex-outline.spec.ts"
           )
