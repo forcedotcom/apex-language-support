@@ -590,93 +590,92 @@ function waitForBatchIngestionDispatcher(
 function processStoredBatches(
   sessionId: string,
   batches: SendWorkspaceBatchParams[],
+  totalFiles: number,
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
 
   const effect = Effect.gen(function* () {
-    const dispatcher = yield* waitForBatchIngestionDispatcher(logger);
-
-    const totalFiles = batches.reduce(
-      (sum, b) => sum + (b.fileMetadata?.length ?? 0),
-      0,
-    );
-    const batchStartTime = Date.now();
-    logger.debug(
-      () =>
-        `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
-    );
-
-    let fileUris: string[] = [];
-
-    if (dispatcher) {
-      const entries = yield* decodeBatches(batches, logger);
-      yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
-      fileUris = entries.map((e) => e.uri);
-    } else {
-      yield* processLocally(sessionId, batches, logger);
-    }
-
-    batchStorage.removeSession(sessionId);
-    const totalElapsed = Date.now() - batchStartTime;
-    const actualFiles = totalFiles || batches.length * 100;
-    const throughput =
-      totalElapsed > 0 ? ((actualFiles / totalElapsed) * 1000).toFixed(0) : '∞';
-    logger.info(
-      () =>
-        `[BATCH-PROCESSING] Completed session ${sessionId}: ` +
-        `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
-        `(${throughput} files/sec)`,
-    );
-    ingestionCompleteCallback?.();
-
-    const settings = ApexSettingsManager.getInstance().getSettings();
-    if (
-      settings.apex.deferredReferenceProcessing?.enableCrossFileDeferral &&
-      crossFileEnrichmentDispatcher &&
-      fileUris.length > 0
-    ) {
-      yield* Effect.withSpan('workspace.enrichment', {
-        attributes: {
-          'workspace.session_id': sessionId,
-          'workspace.file_count': fileUris.length,
-        },
-      })(
-        Effect.gen(function* () {
-          logger.info(
-            () =>
-              `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
-          );
-          try {
-            const result = yield* Effect.tryPromise({
-              try: () => crossFileEnrichmentDispatcher!(fileUris),
-              catch: (e) => e as Error,
-            });
-            logger.info(
-              () =>
-                `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
-            );
-          } catch (err) {
-            logger.error(
-              () => `[CROSS-FILE] Enrichment dispatch failed: ${err}`,
-            );
-          }
-        }),
-      );
-    }
-  });
-
-  return effect.pipe(
-    provideCoordinatorTracing(),
-    Effect.withSpan('workspace.load.total', {
+    // Wrap entire processing in root span - yielded properly
+    yield* Effect.withSpan('workspace.load.total', {
       attributes: {
         'workspace.session_id': sessionId,
         'workspace.batch_count': batches.length,
-        'workspace.total_files': batches.reduce(
-          (sum, b) => sum + (b.fileMetadata?.length ?? 0),
-          0,
-        ),
+        'workspace.total_files': totalFiles,
       },
-    }),
+    })(
+      Effect.gen(function* () {
+        const dispatcher = yield* waitForBatchIngestionDispatcher(logger);
+
+        const batchStartTime = Date.now();
+        logger.debug(
+          () =>
+            `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
+        );
+
+        let fileUris: string[] = [];
+
+        if (dispatcher) {
+          const entries = yield* decodeBatches(batches, logger);
+          yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
+          fileUris = entries.map((e) => e.uri);
+        } else {
+          yield* processLocally(sessionId, batches, logger);
+        }
+
+        batchStorage.removeSession(sessionId);
+        const totalElapsed = Date.now() - batchStartTime;
+        const actualFiles = totalFiles || batches.length * 100;
+        const throughput =
+          totalElapsed > 0
+            ? ((actualFiles / totalElapsed) * 1000).toFixed(0)
+            : '∞';
+        logger.info(
+          () =>
+            `[BATCH-PROCESSING] Completed session ${sessionId}: ` +
+            `${batches.length} batches, ~${actualFiles} files in ${totalElapsed}ms ` +
+            `(${throughput} files/sec)`,
+        );
+        ingestionCompleteCallback?.();
+
+        const settings = ApexSettingsManager.getInstance().getSettings();
+        if (
+          settings.apex.deferredReferenceProcessing?.enableCrossFileDeferral &&
+          crossFileEnrichmentDispatcher &&
+          fileUris.length > 0
+        ) {
+          yield* Effect.withSpan('workspace.enrichment', {
+            attributes: {
+              'workspace.session_id': sessionId,
+              'workspace.file_count': fileUris.length,
+            },
+          })(
+            Effect.gen(function* () {
+              logger.info(
+                () =>
+                  `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
+              );
+              try {
+                const result = yield* Effect.tryPromise({
+                  try: () => crossFileEnrichmentDispatcher!(fileUris),
+                  catch: (e) => e as Error,
+                });
+                logger.info(
+                  () =>
+                    `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
+                );
+              } catch (err) {
+                logger.error(
+                  () => `[CROSS-FILE] Enrichment dispatch failed: ${err}`,
+                );
+              }
+            }),
+          );
+        }
+      }),
+    ); // Close the workspace.load.total span
+  });
+
+  return effect.pipe(
     Effect.catchAll((error: unknown) =>
       Effect.gen(function* () {
         const errorMessage =
@@ -952,23 +951,31 @@ export async function handleProcessWorkspaceBatchesRequest(params: {
     // Get all batches sorted by index
     const batches = batchStorage.getBatches(sessionId);
 
-    // Fork processing to avoid blocking request handler
-    Effect.runPromise(
-      Effect.forkDaemon(processStoredBatches(sessionId, batches)),
-    )
-      .then(() => {
-        logger.debug(
-          () =>
-            `[BATCH-PROCESSING] Started background processing for session ${sessionId}`,
-        );
-      })
-      .catch((error) => {
+    // Process batches directly - wrapping with the root span inside processStoredBatches
+    const totalFiles = batches.reduce(
+      (sum, b) => sum + (b.fileMetadata?.length ?? 0),
+      0,
+    );
+
+    // Start processing in background - use setTimeout(0) for cross-platform compatibility
+    setTimeout(() => {
+      Effect.runPromise(
+        processStoredBatches(sessionId, batches, totalFiles).pipe(
+          provideCoordinatorTracing(),
+        ),
+      ).catch((error) => {
         logger.error(
           () =>
-            '[BATCH-PROCESSING] Failed to start batch processing: ' +
+            '[BATCH-PROCESSING] Background processing failed: ' +
             `${error instanceof Error ? error.message : String(error)}`,
         );
       });
+    }, 0);
+
+    logger.debug(
+      () =>
+        `[BATCH-PROCESSING] Started background processing for session ${sessionId}`,
+    );
 
     return { success: true };
   } catch (error) {
