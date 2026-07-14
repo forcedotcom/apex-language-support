@@ -10,6 +10,11 @@ import type { BaseLanguageClient, State } from 'vscode-languageclient';
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 import type { RpcConnection } from '../rpcConnection';
 
+// State enum values from vscode-languageclient. Imported as type-only above
+// (vscode-languageclient requires `vscode` at module load, which is unavailable
+// in some host contexts during testing). Values: Stopped=1, Running=2, Starting=3.
+const STATE_STOPPED: State = 1 as State;
+
 /**
  * Adapter wrapping a `vscode-languageclient` {@link BaseLanguageClient} to
  * satisfy the SDK's {@link RpcConnection} port.
@@ -31,6 +36,7 @@ import type { RpcConnection } from '../rpcConnection';
  */
 export class LanguageClientConnection implements RpcConnection {
   private readonly client: BaseLanguageClient;
+  private disposing = false;
 
   constructor(client: BaseLanguageClient) {
     this.client = client;
@@ -62,13 +68,15 @@ export class LanguageClientConnection implements RpcConnection {
    * Subscribe to connection-level errors. Since `BaseLanguageClient` has no
    * direct `onError` event, this synthesizes an error when the client
    * transitions to `Stopped` unexpectedly (i.e., the previous state was not
-   * `Stopped`).
+   * `Stopped` and the adapter is not being intentionally disposed).
    */
   onError(handler: (e: Error) => void): Disposable {
     const disposable = this.client.onDidChangeState((event) => {
-      // State enum: Stopped = 1, Starting = 3, Running = 4
-      const STOPPED: State = 1 as State;
-      if (event.newState === STOPPED && event.oldState !== STOPPED) {
+      if (
+        event.newState === STATE_STOPPED &&
+        event.oldState !== STATE_STOPPED &&
+        !this.disposing
+      ) {
         handler(new Error('Language client stopped unexpectedly'));
       }
     });
@@ -81,8 +89,10 @@ export class LanguageClientConnection implements RpcConnection {
    */
   onClose(handler: () => void): Disposable {
     const disposable = this.client.onDidChangeState((event) => {
-      const STOPPED: State = 1 as State;
-      if (event.newState === STOPPED && event.oldState !== STOPPED) {
+      if (
+        event.newState === STATE_STOPPED &&
+        event.oldState !== STATE_STOPPED
+      ) {
         handler();
       }
     });
@@ -100,6 +110,7 @@ export class LanguageClientConnection implements RpcConnection {
    * Tear down the language client by calling `stop()`.
    */
   dispose(): Promise<void> {
+    this.disposing = true;
     return this.client.stop();
   }
 }

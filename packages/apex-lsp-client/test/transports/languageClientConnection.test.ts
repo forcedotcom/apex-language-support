@@ -11,6 +11,13 @@ import type { BaseLanguageClient, State } from 'vscode-languageclient';
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 import { LanguageClientConnection } from '../../src/transports/languageClientConnection';
 
+// Mirror the State enum values from vscode-languageclient (Stopped=1, Running=2,
+// Starting=3). We cannot import State as a value because vscode-languageclient
+// requires the `vscode` module at runtime which is unavailable in unit tests.
+const State_Stopped = 1 as unknown as State;
+const State_Running = 2 as unknown as State;
+const State_Starting = 3 as unknown as State;
+
 /**
  * Unit tests for `LanguageClientConnection`. Each test verifies 1:1 delegation
  * to the underlying `BaseLanguageClient` mock, including the synthesized
@@ -112,7 +119,7 @@ describe('LanguageClientConnection', () => {
     it('fires handler with Error when state transitions to Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener: any) => {
+      mockClient.onDidChangeState.mockImplementation((listener) => {
         capturedListener = listener;
         return { dispose: jest.fn() };
       });
@@ -122,8 +129,8 @@ describe('LanguageClientConnection', () => {
 
       expect(capturedListener).toBeDefined();
 
-      // Simulate transition from Running (4) to Stopped (1).
-      capturedListener!({ oldState: 4 as State, newState: 1 as State });
+      // Simulate transition from Running to Stopped.
+      capturedListener!({ oldState: State_Running, newState: State_Stopped });
 
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith(expect.any(Error));
@@ -135,7 +142,7 @@ describe('LanguageClientConnection', () => {
     it('does not fire when state stays Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener: any) => {
+      mockClient.onDidChangeState.mockImplementation((listener) => {
         capturedListener = listener;
         return { dispose: jest.fn() };
       });
@@ -144,7 +151,7 @@ describe('LanguageClientConnection', () => {
       adapter.onError(handler);
 
       // Simulate Stopped→Stopped (no change).
-      capturedListener!({ oldState: 1 as State, newState: 1 as State });
+      capturedListener!({ oldState: State_Stopped, newState: State_Stopped });
 
       expect(handler).not.toHaveBeenCalled();
     });
@@ -162,7 +169,7 @@ describe('LanguageClientConnection', () => {
     it('fires handler when state transitions to Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener: any) => {
+      mockClient.onDidChangeState.mockImplementation((listener) => {
         capturedListener = listener;
         return { dispose: jest.fn() };
       });
@@ -172,8 +179,8 @@ describe('LanguageClientConnection', () => {
 
       expect(capturedListener).toBeDefined();
 
-      // Simulate transition from Running (4) to Stopped (1).
-      capturedListener!({ oldState: 4 as State, newState: 1 as State });
+      // Simulate transition from Running to Stopped.
+      capturedListener!({ oldState: State_Running, newState: State_Stopped });
 
       expect(handler).toHaveBeenCalledTimes(1);
     });
@@ -181,7 +188,7 @@ describe('LanguageClientConnection', () => {
     it('does not fire when transitioning from Stopped to Starting', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener: any) => {
+      mockClient.onDidChangeState.mockImplementation((listener) => {
         capturedListener = listener;
         return { dispose: jest.fn() };
       });
@@ -190,7 +197,7 @@ describe('LanguageClientConnection', () => {
       adapter.onClose(handler);
 
       // Simulate Stopped→Starting (not a close event).
-      capturedListener!({ oldState: 1 as State, newState: 3 as State });
+      capturedListener!({ oldState: State_Stopped, newState: State_Starting });
 
       expect(handler).not.toHaveBeenCalled();
     });

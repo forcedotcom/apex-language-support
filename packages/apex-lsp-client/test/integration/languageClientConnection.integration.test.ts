@@ -9,7 +9,6 @@
 import { describe, it, expect, afterAll } from '@jest/globals';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
 import { LanguageClientConnection } from '../../src/transports/languageClientConnection';
 import { ApexClientCore } from '../../src/apexClientCore';
 
@@ -63,34 +62,27 @@ describeIntegration('LanguageClientConnection integration', () => {
       },
     );
 
-    // Start the client (this launches the server).
-    await client.start();
-
-    // Wrap in our adapter.
+    // Wrap in our adapter BEFORE starting the client, so isListening() is
+    // false and ApexClientCore.create's precondition passes.
     connection = new LanguageClientConnection(client);
+    expect(connection.isListening()).toBe(false);
 
-    // The client should be running.
-    expect(connection.isListening()).toBe(true);
-
-    // Create the core on the adapter. Since the LanguageClient manages its own
-    // lifecycle (already listening), we pass it directly — ApexClientCore.create
-    // will detect `isListening() === true` and skip the precondition check
-    // because LanguageClientConnection is already running.
+    // Create the core on the not-yet-started adapter. This registers handlers
+    // (middleware, findMissingArtifact responder) before traffic flows.
     core = await ApexClientCore.create(connection);
 
-    // Initialize with default Apex settings.
-    const initResult = await core.initialize(DEFAULT_APEX_SETTINGS, {
-      rootUri: `file://${process.cwd()}`,
-    });
+    // Start the client — BaseLanguageClient.start() launches the server
+    // process AND performs the full LSP initialize/initialized handshake
+    // internally. We do NOT call core.initialize() separately because the
+    // LanguageClient already owns that exchange.
+    await client.start();
 
-    // The server should return capabilities.
-    expect(initResult).toBeDefined();
-    expect(initResult.capabilities).toBeDefined();
-
-    // Adapter still reports running.
+    // Adapter should now report running.
     expect(connection.isListening()).toBe(true);
 
-    // Shutdown + dispose.
+    // Verify we can communicate through the adapter by sending a request the
+    // server will respond to (shutdown is a valid LSP request at any time).
+    // Using core.shutdown() exercises the full adapter round-trip path.
     await core.shutdown();
     await core.dispose();
 
