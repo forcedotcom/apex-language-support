@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogLevel } from 'effect';
+import { Effect, LogLevel } from 'effect';
 import {
   cloneForWire,
   setWorkerLogLevel,
@@ -17,6 +17,8 @@ import {
   setWorkerId,
   workerId,
   resolveMissingNamesViaDataOwner,
+  loadSymbolDataForEnrichment,
+  writeBackEnrichedSymbols,
 } from '../../src/worker.platform.shared';
 
 describe('worker.platform.shared', () => {
@@ -77,5 +79,43 @@ describe('worker.platform.shared', () => {
     } as unknown as Parameters<typeof resolveMissingNamesViaDataOwner>[0];
     const count = await resolveMissingNamesViaDataOwner(svc, ['Foo']);
     expect(typeof count).toBe('number');
+  });
+
+  it('degrades gracefully when symbol-subset assistance rejects', async () => {
+    setAssistanceTransport(async () => {
+      throw new Error('assistance unavailable');
+    });
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: jest.fn() }) },
+      symbolManager: {},
+    } as unknown as Parameters<typeof loadSymbolDataForEnrichment>[0];
+
+    await expect(
+      Effect.runPromise(loadSymbolDataForEnrichment(svc, 'file:///Broken.cls')),
+    ).resolves.toEqual({ version: -1, detailLevel: 'public-api' });
+  });
+
+  it('returns false when write-back assistance rejects', async () => {
+    setAssistanceTransport(async () => {
+      throw new Error('assistance unavailable');
+    });
+    const symbolTable = {
+      getAllSymbols: () => [],
+      getAllReferences: () => [],
+      getAllHierarchicalReferences: () => [],
+      getMetadata: () => ({}),
+      getFileUri: () => 'file:///Broken.cls',
+    };
+    const svc = {
+      symbolManager: {
+        getSymbolTableForFile: async () => symbolTable,
+      },
+    } as unknown as Parameters<typeof writeBackEnrichedSymbols>[0];
+
+    await expect(
+      Effect.runPromise(
+        writeBackEnrichedSymbols(svc, 'file:///Broken.cls', 1, 'full'),
+      ),
+    ).resolves.toBe(false);
   });
 });

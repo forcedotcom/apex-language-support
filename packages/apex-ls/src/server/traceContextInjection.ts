@@ -30,19 +30,9 @@ export function injectTraceContextEffect<T extends Record<string, unknown>>(
     Effect.map((span) => {
       // Build W3C traceparent: 00-<traceId>-<spanId>-01
       const traceparent = `00-${span.traceId}-${span.spanId}-01`;
-
-      console.log(
-        `[traceContext] Injecting trace context into ${(payload as any)._tag}: ${traceparent}`,
-      );
-
       return { ...payload, traceContext: traceparent };
     }),
-    Effect.catchTag('NoSuchElementException', () => {
-      console.log(
-        `[traceContext] No active Effect span for ${(payload as any)._tag}`,
-      );
-      return Effect.succeed(payload);
-    }),
+    Effect.catchTag('NoSuchElementException', () => Effect.succeed(payload)),
   );
 }
 
@@ -63,19 +53,13 @@ export function injectTraceContextFromOtelSpan<
       propagation.inject(context.active(), carrier);
 
       if (carrier.traceparent) {
-        console.log(
-          `[traceContext] Injecting trace context into ${(payload as any)._tag}: ${carrier.traceparent}`,
-        );
         return { ...payload, traceContext: carrier.traceparent };
       }
     }
-  } catch (error) {
-    console.log(`[traceContext] Failed to inject trace context: ${error}`);
+  } catch {
+    // Trace propagation is optional and must never disrupt request dispatch.
   }
 
-  console.log(
-    `[traceContext] No active OTEL span for ${(payload as any)._tag}`,
-  );
   return payload;
 }
 

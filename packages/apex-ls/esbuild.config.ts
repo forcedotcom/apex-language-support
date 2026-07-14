@@ -91,7 +91,6 @@ const WORKER_EXTERNAL: string[] = [
   '@opentelemetry/sdk-trace-base',
   '@opentelemetry/context-async-hooks',
   '@opentelemetry/core',
-  '@opentelemetry/api',
   '@opentelemetry/sdk-node',
   '@effect/opentelemetry',
   'async_hooks',

@@ -23,9 +23,11 @@ import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
+  initWorkerTracing,
   isAssistanceResponse,
   type WorkerLogMessage,
   type WorkerLogLevel,
+  withExtractedTraceContext,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -34,6 +36,7 @@ import {
   setAssistanceTransport,
   setWorkerId,
   setResourceLoaderLayerFactory,
+  setWorkerTracingHooks,
   setWarmRemoteStdlibNamespaceCache,
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
@@ -61,8 +64,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 // Worker channel that @effect/platform uses for its wire protocol.
 const assistPort: import('node:worker_threads').MessagePort | null =
   ((workerData as Record<string, unknown> | undefined)?.assistPort as
-    | import('node:worker_threads').MessagePort
-    | null) ?? null;
+    import('node:worker_threads').MessagePort | null) ?? null;
 
 const pendingAssistanceCallbacks = new Map<
   string,
@@ -296,6 +298,10 @@ setWorkerId(workerId);
 setAssistanceTransport(requestCoordinatorAssistancePromise);
 setResourceLoaderLayerFactory(makeResourceLoaderRemoteLayer);
 setWarmRemoteStdlibNamespaceCache(warmRemoteStdlibNamespaceCache);
+setWorkerTracingHooks({
+  initialize: initWorkerTracing,
+  withParent: withExtractedTraceContext,
+});
 
 // ---------------------------------------------------------------------------
 // Worker→coordinator log transport

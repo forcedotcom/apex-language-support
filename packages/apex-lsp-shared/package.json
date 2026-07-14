@@ -5,6 +5,9 @@
   "main": "out/index.js",
   "module": "out/index.js",
   "types": "out/index.d.ts",
+  "browser": {
+    "./out/observability/workerTracing.js": "./out/observability/workerTracing.browser.js"
+  },
   "exports": {
     ".": {
       "types": "./out/index.d.ts",

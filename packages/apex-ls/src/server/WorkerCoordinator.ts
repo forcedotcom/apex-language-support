@@ -1190,6 +1190,7 @@ function buildLspRequestMessage(
       return new DispatchDefinition({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'signatureHelp': {
       const s = p as PositionBasedParams & { context?: unknown };
