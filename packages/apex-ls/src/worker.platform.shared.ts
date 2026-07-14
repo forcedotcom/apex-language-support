@@ -124,6 +124,65 @@ export interface WorkerDocument {
   readonly languageId: string;
   readonly version: number;
   getText(): string;
+  // Position/offset helpers. Completion (analyzeCompletionContext,
+  // GeneralCompletionStrategy.getWordAtPosition) calls document.offsetAt(); a
+  // bare object without it throws "offsetAt is not a function" and the request
+  // returns zero items. These are optional so existing minimal WorkerDocuments
+  // (hover/documentSymbol only use getText()) keep compiling; makeWorkerDocument
+  // supplies real implementations for the enrichment path.
+  offsetAt?(position: { line: number; character: number }): number;
+  positionAt?(offset: number): { line: number; character: number };
+}
+
+/**
+ * Build a WorkerDocument backed by `content` with working offsetAt/positionAt
+ * helpers. The worker deliberately avoids importing the full
+ * vscode-languageserver-textdocument package (see WorkerDocument), so we compute
+ * line/character⇄offset from the text directly. Newlines are counted as part of
+ * the preceding line (matching TextDocument's line-start indexing), so an
+ * offset/position round-trips for the line/character values the LSP hands us.
+ */
+export function makeWorkerDocument(
+  uri: string,
+  content: string,
+  version = 0,
+): WorkerDocument {
+  // Offsets of the first character of each line. lineStarts[0] === 0.
+  const lineStarts: number[] = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content.charCodeAt(i) === 10 /* \n */) {
+      lineStarts.push(i + 1);
+    }
+  }
+  return {
+    uri,
+    languageId: 'apex',
+    version,
+    getText: () => content,
+    offsetAt: (position) => {
+      const line = Math.max(0, Math.min(position.line, lineStarts.length - 1));
+      const lineStart = lineStarts[line];
+      const lineEnd =
+        line + 1 < lineStarts.length ? lineStarts[line + 1] : content.length;
+      const maxChar = lineEnd - lineStart;
+      return lineStart + Math.max(0, Math.min(position.character, maxChar));
+    },
+    positionAt: (offset) => {
+      const clamped = Math.max(0, Math.min(offset, content.length));
+      // Binary search for the line whose start is the greatest ≤ clamped.
+      let low = 0;
+      let high = lineStarts.length - 1;
+      while (low < high) {
+        const mid = Math.floor((low + high + 1) / 2);
+        if (lineStarts[mid] <= clamped) {
+          low = mid;
+        } else {
+          high = mid - 1;
+        }
+      }
+      return { line: low, character: clamped - lineStarts[low] };
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -568,12 +627,10 @@ export async function loadSymbolDataForEnrichment(
   content?: string,
 ): Promise<{ version: number; detailLevel: string }> {
   if (content) {
-    const doc: WorkerDocument = {
-      uri,
-      getText: () => content,
-      languageId: 'apex',
-      version: 0,
-    };
+    // Store a document with working offsetAt/positionAt so completion's
+    // analyzeCompletionContext/getWordAtPosition (which call offsetAt) work in
+    // the worker; a bare {getText} object throws and yields zero completions.
+    const doc = makeWorkerDocument(uri, content);
     svc.storageManager.getStorage().setDocument(uri, doc as never);
   }
 
@@ -1734,6 +1791,24 @@ const requestHandlers = {
       // load the local subset from that content rather than the data-owner's
       // last-stored version.
       const { version, detailLevel } = await loadSymbolDataForEnrichment(
+        svc,
+        req.textDocument.uri,
+        req.content,
+      );
+
+      // loadSymbolDataForEnrichment only ingests the data-owner's LAST-COMPILED
+      // symbol table for this file (public-api detail, and a version behind the
+      // keystroke that triggered completion). Completion fires WHILE TYPING, so
+      // that table is missing the symbols the user just typed — most visibly the
+      // receiver of a member-access (`String s = ...; s.` where `s` was just
+      // declared) and any local declared on the current edit. Recompile the file
+      // from its live text so the worker's symbol manager reflects the in-flight
+      // declarations, exactly as documentSymbol and find-references already do
+      // (see recompileCursorFileAtFullDetail / DispatchReferences). Without this
+      // the strategies resolve `s` to nothing and return zero items, so the
+      // suggest widget never appears in web. Best-effort: a missing/uncompilable
+      // document leaves the ingested table in place.
+      await recompileCursorFileAtFullDetail(
         svc,
         req.textDocument.uri,
         req.content,

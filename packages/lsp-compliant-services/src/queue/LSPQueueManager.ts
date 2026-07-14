@@ -124,6 +124,30 @@ const COLD_READ_GATE_MAX_MS = 3_000;
 const MATCH_LATEST_VERSION = -1;
 
 /**
+ * Pool request types whose worker handler recompiles the cursor file from the
+ * live in-flight text carried on the request (DispatchCompletion / Hover /
+ * Definition / SignatureHelp / CodeAction / DocumentSymbol all thread
+ * req.content into loadSymbolDataForEnrichment / recompileCursorFileAtFullDetail).
+ * These do NOT depend on the dataOwner graph being current for the cursor file,
+ * so the cold-read readiness gate is both unnecessary and harmful for them:
+ * they fire while typing, so the gate would report 'stale-version'/'timeout'
+ * and drop the request to the coordinator-local handler — which holds NO
+ * symbols on web and returns an empty, isIncomplete result. They always
+ * dispatch straight to the pool and skip the gate.
+ *
+ * Types NOT listed here (implementation, codeLens, diagnostics) read the
+ * dataOwner graph and still need the gate to avoid a cold-open empty read.
+ */
+const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
+  'completion',
+  'hover',
+  'definition',
+  'signatureHelp',
+  'codeAction',
+  'documentSymbol',
+]);
+
+/**
  * Extract the `textDocument.uri` a request targets, if it carries one. Used by
  * the cold-read gate to decide whether a pool read is for an open file.
  */
@@ -256,9 +280,22 @@ export class LSPQueueManager {
             //   - 'stale-version': a newer edit superseded the version awaited.
             // Dispatching best-effort to an empty graph would return "No
             // Symbols"; the local fallback returns real results.
+            //
+            // EXCEPTION — self-loading request types (see
+            // SELF_LOADING_REQUEST_TYPES): these recompile the cursor file from
+            // the live in-flight text on the request, so they don't depend on
+            // the dataOwner graph being current. They fire while typing, so the
+            // gate would report 'stale-version'/'timeout' and drop them to the
+            // coordinator-local handler — wrong on web, where the coordinator
+            // holds NO symbols (they live on the dataOwner), so the local read
+            // returns zero results (and completion flags the list isIncomplete,
+            // leaving the suggest widget stuck on "Loading…"). They always
+            // dispatch to the pool and skip the readiness gate entirely.
             let symbolsReady = true;
             const uri = requestTargetUri(params);
+            const selfLoadsLiveContent = SELF_LOADING_REQUEST_TYPES.has(type);
             if (
+              !selfLoadsLiveContent &&
               uri &&
               workerDispatcher.dispatchesToPool?.(type) &&
               workerDispatcher.isFileOpen?.(uri) === true &&
