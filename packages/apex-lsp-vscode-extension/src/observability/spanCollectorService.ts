@@ -21,22 +21,21 @@ import type {
   IncomingMessage,
   ServerResponse,
 } from 'http';
-import type { ManagedRuntime } from 'effect';
+import { SdkSpanReplay, type SdkSpanRuntimeFactory } from './sdkSpanReplay';
 
 let collectorPort: number | undefined;
 let httpServer: HttpServer | undefined;
-let otlpEndpoint: string | undefined;
+let sdkSpanReplay: SdkSpanReplay | undefined;
 
 /**
  * Start the span collector HTTP service (desktop only).
  * Returns the ephemeral port number, or undefined if not started.
  *
- * @param _runtime - Kept for API compatibility but no longer used
- * @param endpoint - OTLP collector endpoint (e.g., "http://localhost:4318")
+ * @param runtimeFactory Creates a Salesforce SDK runtime for each service
+ * represented by incoming OTLP resource spans.
  */
 export async function startSpanCollector(
-  _runtime: ManagedRuntime.ManagedRuntime<never, never>,
-  endpoint?: string,
+  runtimeFactory: SdkSpanRuntimeFactory,
 ): Promise<number | undefined> {
   // No-op in web extension
   if (vscode.env.uiKind === vscode.UIKind.Web) {
@@ -49,11 +48,12 @@ export async function startSpanCollector(
     return collectorPort;
   }
 
-  // Store the endpoint for use in request handlers
-  otlpEndpoint = endpoint;
+  sdkSpanReplay = new SdkSpanReplay(runtimeFactory, (message) =>
+    logToOutputChannel(`[spanCollector] ${message}`, 'debug'),
+  );
 
   logToOutputChannel(
-    `[spanCollector] Starting span collector for worker span forwarding to ${otlpEndpoint || 'unknown endpoint'}`,
+    '[spanCollector] Starting collector for Salesforce SDK span export',
     'info',
   );
 
@@ -69,6 +69,8 @@ export async function startSpanCollector(
           `Span collector server error: ${formattedError(error)}`,
           'warning',
         );
+        void sdkSpanReplay?.shutdown();
+        sdkSpanReplay = undefined;
         httpServer = undefined;
         collectorPort = undefined;
         resolve(undefined);
@@ -132,9 +134,13 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         `[spanCollector] Processing ${body.length} byte trace export`,
         'debug',
       );
-      await processTraceExport(json);
+      const spanCount = await processTraceExport(json);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('');
+      logToOutputChannel(
+        `[spanCollector] Accepted ${spanCount} spans for SDK export`,
+        'debug',
+      );
     } catch (error) {
       logToOutputChannel(
         `Error processing trace request: ${formattedError(error)}`,
@@ -159,25 +165,33 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
  * Stop the span collector HTTP service.
  */
 export async function stopSpanCollector(): Promise<void> {
-  if (!httpServer) {
-    return;
+  if (httpServer) {
+    await new Promise<void>((resolve) => {
+      httpServer?.close((error) => {
+        if (error) {
+          logToOutputChannel(
+            `Error stopping span collector: ${formattedError(error)}`,
+            'warning',
+          );
+        } else {
+          logToOutputChannel('Span collector stopped', 'info');
+        }
+        httpServer = undefined;
+        collectorPort = undefined;
+        resolve();
+      });
+    });
   }
 
-  return new Promise<void>((resolve) => {
-    httpServer?.close((error) => {
-      if (error) {
-        logToOutputChannel(
-          `Error stopping span collector: ${formattedError(error)}`,
-          'warning',
-        );
-      } else {
-        logToOutputChannel('Span collector stopped', 'info');
-      }
-      httpServer = undefined;
-      collectorPort = undefined;
-      resolve();
-    });
-  });
+  try {
+    await sdkSpanReplay?.shutdown();
+  } catch (error) {
+    logToOutputChannel(
+      `Error flushing SDK span replay: ${formattedError(error)}`,
+      'warning',
+    );
+  }
+  sdkSpanReplay = undefined;
 }
 
 /**
@@ -188,74 +202,15 @@ export function getCollectorPort(): number | undefined {
 }
 
 /**
- * Process OTLP/JSON ExportTraceServiceRequest and forward directly
- * to the configured OTLP collector endpoint.
- *
- * This preserves the original trace hierarchy (traceId, spanId, parentSpanId)
- * instead of creating disconnected root spans.
+ * Process an OTLP/JSON ExportTraceServiceRequest through the Salesforce SDK.
+ * SdkSpanReplay buffers and remaps the trace so SDK-generated span IDs retain
+ * the original distributed hierarchy while gaining every configured SDK sink.
  */
 async function processTraceExport(
   body: Record<string, unknown>,
-): Promise<void> {
-  if (!otlpEndpoint) {
-    logToOutputChannel(
-      '[spanCollector] OTLP endpoint not configured - spans will be dropped',
-      'debug',
-    );
-    return;
+): Promise<number> {
+  if (!sdkSpanReplay) {
+    throw new Error('Salesforce SDK span replay is not initialized');
   }
-
-  try {
-    // body is already OTLP ExportTraceServiceRequest format - forward it as-is
-    const resourceSpans = (body.resourceSpans ?? []) as Array<
-      Record<string, unknown>
-    >;
-
-    if (resourceSpans.length === 0) {
-      return;
-    }
-
-    // Count spans for logging
-    let spanCount = 0;
-    for (const rs of resourceSpans) {
-      const scopeSpans = (rs.scopeSpans ?? []) as Array<
-        Record<string, unknown>
-      >;
-      for (const ss of scopeSpans) {
-        const spans = (ss.spans ?? []) as Array<Record<string, unknown>>;
-        spanCount += spans.length;
-      }
-    }
-
-    logToOutputChannel(
-      `[spanCollector] Forwarding ${spanCount} worker spans to ${otlpEndpoint}`,
-      'debug',
-    );
-
-    // Forward the OTLP payload to the real collector
-    const response = await fetch(`${otlpEndpoint}/v1/traces`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      logToOutputChannel(
-        `[spanCollector] Failed to forward spans: ${response.status} ${response.statusText}`,
-        'warning',
-      );
-    } else {
-      logToOutputChannel(
-        `[spanCollector] Successfully forwarded ${spanCount} worker spans`,
-        'debug',
-      );
-    }
-  } catch (error) {
-    logToOutputChannel(
-      `Error forwarding trace export: ${formattedError(error)}`,
-      'warning',
-    );
-  }
+  return sdkSpanReplay.ingest(body);
 }

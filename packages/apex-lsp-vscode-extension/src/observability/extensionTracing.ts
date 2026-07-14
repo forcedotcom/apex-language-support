@@ -16,6 +16,10 @@ import {
   stopSpanCollector,
   getCollectorPort,
 } from './spanCollectorService';
+import type {
+  CollectedSpanResource,
+  SdkSpanRuntimeFactory,
+} from './sdkSpanReplay';
 import { context, propagation, trace } from '@opentelemetry/api';
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
@@ -33,6 +37,9 @@ class ServicesExtensionActivationError extends Data.TaggedError(
 
 let extensionTracingRuntime:
   ManagedRuntime.ManagedRuntime<never, never> | undefined;
+const collectedSpanRuntimes = new Set<
+  ManagedRuntime.ManagedRuntime<never, never>
+>();
 
 let salesforceServicesApi: SalesforceVSCodeServicesApi | undefined;
 
@@ -135,6 +142,49 @@ function isTracingEnabled(): boolean {
   );
 }
 
+interface SdkLayerConfig {
+  readonly extensionName: string;
+  readonly extensionVersion: string;
+  readonly [key: string]: unknown;
+}
+
+/**
+ * Build SDK runtimes with the original process/worker service identity.
+ * Older services-extension APIs that do not expose their layer config still
+ * use the extension runtime, preserving sink coverage with reduced resource
+ * separation rather than dropping collected spans.
+ */
+export function makeCollectedSpanRuntimeFactory(
+  api: SalesforceVSCodeServicesApi,
+  extensionContext: vscode.ExtensionContext,
+  fallbackRuntime: ManagedRuntime.ManagedRuntime<never, never>,
+): SdkSpanRuntimeFactory {
+  const services = api.services as typeof api.services & {
+    getSdkLayerConfigFromContext?: (
+      context: vscode.ExtensionContext,
+    ) => SdkLayerConfig;
+  };
+  const baseConfig = services.getSdkLayerConfigFromContext?.(extensionContext);
+  if (!baseConfig) return () => fallbackRuntime;
+
+  return (resource: CollectedSpanResource) => {
+    const sdkLayerForConfig = services.SdkLayerFor as unknown as (
+      config: SdkLayerConfig,
+    ) => ReturnType<typeof services.SdkLayerFor>;
+    const sdkLayer = sdkLayerForConfig({
+      ...baseConfig,
+      extensionName: resource.serviceName,
+      extensionVersion:
+        resource.serviceVersion ?? baseConfig.extensionVersion ?? 'unknown',
+    });
+    const runtime = ManagedRuntime.make(
+      sdkLayer,
+    ) as ManagedRuntime.ManagedRuntime<never, never>;
+    collectedSpanRuntimes.add(runtime);
+    return runtime;
+  };
+}
+
 /** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
 async function buildTracingRuntime(
   context: vscode.ExtensionContext,
@@ -161,8 +211,13 @@ async function buildTracingRuntime(
 
             // Start the span collector if tracing is enabled (desktop only)
             if (isTracingEnabled()) {
-              const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
-              await startSpanCollector(extensionTracingRuntime, otlpEndpoint);
+              await startSpanCollector(
+                makeCollectedSpanRuntimeFactory(
+                  api,
+                  context,
+                  extensionTracingRuntime,
+                ),
+              );
             }
           },
           catch: (cause) => new ServicesExtensionActivationError({ cause }),
@@ -280,6 +335,15 @@ export function runWithExtensionTracing<A, E>(
 export async function shutdownExtensionTracing(): Promise<void> {
   // Stop the span collector first
   await stopSpanCollector();
+
+  for (const runtime of collectedSpanRuntimes) {
+    try {
+      await Effect.runPromise(runtime.disposeEffect);
+    } catch {
+      // Best-effort disposal, matching the primary extension runtime.
+    }
+  }
+  collectedSpanRuntimes.clear();
 
   const rt = extensionTracingRuntime;
   extensionTracingRuntime = undefined;

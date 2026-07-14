@@ -38,6 +38,25 @@ The tracing instrumentation is now in place and all tests pass. To verify that w
    - Value: `true`
    - This enables the span collector and sets the collector URL
 
+### Verify the Salesforce SDK filesystem sink
+
+To validate that extension, coordinator, and worker spans all use the SDK
+exporters without relying on a local OTLP collector, use these settings:
+
+```json
+"salesforcedx-vscode-salesforcedx.enableFileTraces": true,
+"salesforcedx-vscode-salesforcedx.enableConsoleTraces": false,
+"salesforcedx-vscode-salesforcedx.enableLocalTraces": false
+```
+
+Reload the Extension Development Host, reproduce a workspace load and an LSP
+request, then inspect the newest file under `~/.sf/vscode-spans/*.jsonl`.
+The file should contain resource service names for the extension, coordinator,
+and worker roles, including `apex-language-server-extension`,
+`apex-ls-coordinator`, and `apex-ls-worker-*`. SDK replay intentionally creates
+new span IDs; parent IDs in the file must reference those new IDs, with no
+missing parents inside the captured server/worker subtree.
+
 ### Verification Steps
 
 1. **Build the extension with tracing changes:**

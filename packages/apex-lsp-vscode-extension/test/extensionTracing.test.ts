@@ -48,6 +48,7 @@ import {
   initializeExtensionTracing,
   injectTraceContextFromCurrentEffectSpan,
   emitTelemetrySpan,
+  makeCollectedSpanRuntimeFactory,
   runWithExtensionTracing,
   shutdownExtensionTracing,
 } from '../src/observability/extensionTracing';
@@ -65,7 +66,12 @@ function makeChangeEvent(
 
 describe('extensionTracing', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockServicesApi: { services: { SdkLayerFor: jest.Mock } };
+  let mockServicesApi: {
+    services: {
+      SdkLayerFor: jest.Mock;
+      getSdkLayerConfigFromContext?: jest.Mock;
+    };
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -169,6 +175,44 @@ describe('extensionTracing', () => {
       expect(mockServicesApi.services.SdkLayerFor).toHaveBeenCalledWith(
         mockContext,
       );
+    });
+
+    it('creates collected-span SDK runtimes with the original service identity', () => {
+      const { ManagedRuntime } = require('effect') as typeof import('effect');
+      const fallbackRuntime = {
+        runPromise: jest.fn(),
+      } as unknown as import('effect').ManagedRuntime.ManagedRuntime<
+        never,
+        never
+      >;
+      mockServicesApi.services.getSdkLayerConfigFromContext = jest
+        .fn()
+        .mockReturnValue({
+          extensionName: 'apex-language-server-extension',
+          extensionVersion: '0.9.18',
+          productFeatureId: 'apex-ls',
+        });
+
+      const factory = makeCollectedSpanRuntimeFactory(
+        mockServicesApi as never,
+        mockContext,
+        fallbackRuntime,
+      );
+      factory({
+        serviceName: 'apex-ls-worker-dataOwner',
+        serviceVersion: '1.2.3',
+        attributes: {},
+      });
+
+      expect(
+        mockServicesApi.services.getSdkLayerConfigFromContext,
+      ).toHaveBeenCalledWith(mockContext);
+      expect(mockServicesApi.services.SdkLayerFor).toHaveBeenCalledWith({
+        extensionName: 'apex-ls-worker-dataOwner',
+        extensionVersion: '1.2.3',
+        productFeatureId: 'apex-ls',
+      });
+      expect(ManagedRuntime.make).toHaveBeenCalled();
     });
   });
 
