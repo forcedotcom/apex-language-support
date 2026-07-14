@@ -46,6 +46,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
       getSettings: mockGetSettings,
     })),
   },
+  provideCoordinatorTracing: jest.fn(() => (effect: any) => effect),
 }));
 
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({

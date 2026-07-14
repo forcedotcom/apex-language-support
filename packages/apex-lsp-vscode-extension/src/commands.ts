@@ -28,8 +28,7 @@ let serverStartRetries = 0;
 let lastRestartTime = 0;
 let isStarting = false;
 let restartHandler:
-  | ((context: vscode.ExtensionContext) => Promise<void>)
-  | undefined;
+  ((context: vscode.ExtensionContext) => Promise<void>) | undefined;
 
 /**
  * Initialize command state

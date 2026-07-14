@@ -393,10 +393,7 @@ export class ApexSettingsManager {
    */
   public getCompilationOptions(
     operationType:
-      | 'documentChange'
-      | 'documentOpen'
-      | 'documentSymbols'
-      | 'foldingRanges',
+      'documentChange' | 'documentOpen' | 'documentSymbols' | 'foldingRanges',
     fileSize?: number,
   ): CompilationOptions {
     const settings = this.currentSettings;

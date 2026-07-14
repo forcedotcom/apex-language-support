@@ -223,8 +223,7 @@ export const StaticContextValidator: Validator = {
       const containingClass = (allSymbols.find(
         (s) => isClassOrInterfaceSymbol(s) && s.parentId === null,
       ) ?? allSymbols.find((s) => isClassOrInterfaceSymbol(s))) as
-        | TypeSymbol
-        | undefined;
+        TypeSymbol | undefined;
 
       if (!containingClass) {
         return { isValid: true, errors, warnings };
@@ -247,9 +246,7 @@ export const StaticContextValidator: Validator = {
             const parser = new ApexParser(tokenStream);
 
             let parseTree:
-              | CompilationUnitContext
-              | TriggerUnitContext
-              | BlockContext;
+              CompilationUnitContext | TriggerUnitContext | BlockContext;
             if (isTrigger) {
               parseTree = parser.triggerUnit();
             } else if (isAnonymous) {

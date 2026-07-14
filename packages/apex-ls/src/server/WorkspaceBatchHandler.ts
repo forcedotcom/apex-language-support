@@ -14,7 +14,11 @@ import type {
   SendWorkspaceBatchParams,
   SendWorkspaceBatchResult,
 } from '@salesforce/apex-lsp-shared';
-import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  ApexSettingsManager,
+  provideCoordinatorTracing,
+} from '@salesforce/apex-lsp-shared';
 import {
   createQueuedItem,
   offer,
@@ -589,7 +593,7 @@ function processStoredBatches(
 ): Effect.Effect<void, never, never> {
   const logger = getLogger();
 
-  return Effect.gen(function* () {
+  const effect = Effect.gen(function* () {
     const dispatcher = yield* waitForBatchIngestionDispatcher(logger);
 
     const totalFiles = batches.reduce(
@@ -631,24 +635,48 @@ function processStoredBatches(
       crossFileEnrichmentDispatcher &&
       fileUris.length > 0
     ) {
-      logger.info(
-        () =>
-          `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
+      yield* Effect.withSpan('workspace.enrichment', {
+        attributes: {
+          'workspace.session_id': sessionId,
+          'workspace.file_count': fileUris.length,
+        },
+      })(
+        Effect.gen(function* () {
+          logger.info(
+            () =>
+              `[CROSS-FILE] Dispatching enrichment for ${fileUris.length} files`,
+          );
+          try {
+            const result = yield* Effect.tryPromise({
+              try: () => crossFileEnrichmentDispatcher!(fileUris),
+              catch: (e) => e as Error,
+            });
+            logger.info(
+              () =>
+                `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
+            );
+          } catch (err) {
+            logger.error(
+              () => `[CROSS-FILE] Enrichment dispatch failed: ${err}`,
+            );
+          }
+        }),
       );
-      try {
-        const result = yield* Effect.tryPromise({
-          try: () => crossFileEnrichmentDispatcher!(fileUris),
-          catch: (e) => e as Error,
-        });
-        logger.info(
-          () =>
-            `[CROSS-FILE] Enrichment complete: ${result.resolved} resolved, ${result.failed} failed`,
-        );
-      } catch (err) {
-        logger.error(() => `[CROSS-FILE] Enrichment dispatch failed: ${err}`);
-      }
     }
-  }).pipe(
+  });
+
+  return effect.pipe(
+    provideCoordinatorTracing(),
+    Effect.withSpan('workspace.load.total', {
+      attributes: {
+        'workspace.session_id': sessionId,
+        'workspace.batch_count': batches.length,
+        'workspace.total_files': batches.reduce(
+          (sum, b) => sum + (b.fileMetadata?.length ?? 0),
+          0,
+        ),
+      },
+    }),
     Effect.catchAll((error: unknown) =>
       Effect.gen(function* () {
         const errorMessage =
@@ -673,20 +701,33 @@ function decodeBatches(
     const allEntries: BatchEntry[] = [];
 
     for (const batchParams of batches) {
-      const t0 = Date.now();
-      const entries = yield* Effect.try({
-        try: () => extractBatchEntries(batchParams.compressedData),
-        catch: (e) =>
-          new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
-      });
-      const decodeMs = Date.now() - t0;
-      allEntries.push(...entries);
+      const entries = yield* Effect.withSpan('workspace.batch.decode', {
+        attributes: {
+          'workspace.batch_index': batchParams.batchIndex,
+          'workspace.batch_total': batchParams.totalBatches,
+          'workspace.file_count': batchParams.fileMetadata.length,
+        },
+      })(
+        Effect.gen(function* () {
+          const t0 = Date.now();
+          const entries = yield* Effect.try({
+            try: () => extractBatchEntries(batchParams.compressedData),
+            catch: (e) =>
+              new Error(`Decode failed batch ${batchParams.batchIndex}: ${e}`),
+          });
+          const decodeMs = Date.now() - t0;
 
-      logger.debug(
-        () =>
-          `[BATCH-DECODE] Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
-          `${entries.length} files (${decodeMs}ms)`,
+          logger.debug(
+            () =>
+              `[BATCH-DECODE] Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches}: ` +
+              `${entries.length} files (${decodeMs}ms)`,
+          );
+
+          return entries;
+        }),
       );
+
+      allEntries.push(...entries);
     }
 
     return allEntries;
@@ -702,70 +743,89 @@ function processViaDataOwner(
   return Effect.gen(function* () {
     const CHUNK_SIZE = 100;
 
-    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-      const chunk = entries.slice(i, i + CHUNK_SIZE);
-      const t0 = Date.now();
-      const result = yield* Effect.tryPromise({
-        try: () => dispatcher(sessionId, chunk),
-        catch: (e) => e as Error,
-      });
-      const ingestMs = Date.now() - t0;
+    yield* Effect.withSpan('workspace.batch.ingest', {
+      attributes: {
+        'workspace.session_id': sessionId,
+        'workspace.total_files': entries.length,
+        'workspace.chunk_size': CHUNK_SIZE,
+      },
+    })(
+      Effect.gen(function* () {
+        for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+          const chunk = entries.slice(i, i + CHUNK_SIZE);
+          const t0 = Date.now();
+          const result = yield* Effect.tryPromise({
+            try: () => dispatcher(sessionId, chunk),
+            catch: (e) => e as Error,
+          });
+          const ingestMs = Date.now() - t0;
 
-      logger.debug(
-        () =>
-          `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
-          `${result.processedCount} files (${ingestMs}ms)`,
-      );
-    }
+          logger.debug(
+            () =>
+              `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
+              `${result.processedCount} files (${ingestMs}ms)`,
+          );
+        }
+      }),
+    );
 
     const compileDispatcher = batchCompileDispatcher;
     if (compileDispatcher) {
-      const CHUNK_SIZE = 100;
-      const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
+      yield* Effect.withSpan('workspace.batch.compile', {
+        attributes: {
+          'workspace.session_id': sessionId,
+          'workspace.total_files': entries.length,
+        },
+      })(
+        Effect.gen(function* () {
+          const CHUNK_SIZE = 100;
+          const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
 
-      logger.info(
-        () =>
-          `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
-          `${entries.length} files in ${totalChunks} chunks`,
-      );
-
-      const compileStartTime = Date.now();
-      let totalCompiled = 0;
-      let totalErrors = 0;
-
-      for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-        const chunk = entries.slice(i, i + CHUNK_SIZE);
-        const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
-        try {
-          const result = yield* Effect.tryPromise({
-            try: () => compileDispatcher(sessionId, chunk),
-            catch: (e) => e as Error,
-          });
-          totalCompiled += result.compiledCount;
-          totalErrors += result.errorCount;
-          logger.debug(
+          logger.info(
             () =>
-              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
-              `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+              `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
+              `${entries.length} files in ${totalChunks} chunks`,
           );
-        } catch (err) {
-          logger.error(
-            () =>
-              `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks} failed: ${err}`,
-          );
-        }
-      }
 
-      const totalElapsed = Date.now() - compileStartTime;
-      const throughput =
-        totalElapsed > 0
-          ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
-          : '∞';
-      logger.info(
-        () =>
-          `[BATCH-COMPILE] Completed session ${sessionId}: ` +
-          `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
-          `(${throughput} files/sec)`,
+          const compileStartTime = Date.now();
+          let totalCompiled = 0;
+          let totalErrors = 0;
+
+          for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+            const chunk = entries.slice(i, i + CHUNK_SIZE);
+            const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
+            try {
+              const result = yield* Effect.tryPromise({
+                try: () => compileDispatcher(sessionId, chunk),
+                catch: (e) => e as Error,
+              });
+              totalCompiled += result.compiledCount;
+              totalErrors += result.errorCount;
+              logger.debug(
+                () =>
+                  `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
+                  `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+              );
+            } catch (err) {
+              logger.error(
+                () =>
+                  `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks} failed: ${err}`,
+              );
+            }
+          }
+
+          const totalElapsed = Date.now() - compileStartTime;
+          const throughput =
+            totalElapsed > 0
+              ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
+              : '∞';
+          logger.info(
+            () =>
+              `[BATCH-COMPILE] Completed session ${sessionId}: ` +
+              `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
+              `(${throughput} files/sec)`,
+          );
+        }),
       );
     }
   });

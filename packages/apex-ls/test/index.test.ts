@@ -976,9 +976,15 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
   describe('Protocol Handler Integration', () => {
     beforeEach(async () => {
-      // Trigger initialized to register protocol handlers
-      const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
-      await initializedHandler();
+      // Protocol handlers are now registered in handleInitialize() before returning
+      // capabilities. Call initialize to trigger handler registration.
+      const initHandler = mockHandlers.initialize as InitializeHandler;
+      await initHandler({
+        capabilities: {},
+        processId: 1,
+        rootUri: null,
+        workspaceFolders: null,
+      } as InitializeParams);
     });
 
     it('should register completion handler on the connection', () => {

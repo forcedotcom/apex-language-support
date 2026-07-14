@@ -922,10 +922,7 @@ function createDispatcher(
             documentVersion: number;
             enrichedSymbolTable: unknown;
             enrichedDetailLevel:
-              | 'public-api'
-              | 'protected'
-              | 'private'
-              | 'full';
+              'public-api' | 'protected' | 'private' | 'full';
             sourceWorkerId: string;
           };
           return callbacks.sendToDataOwner(

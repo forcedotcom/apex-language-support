@@ -21,12 +21,7 @@ import {
  * Task status for tracking processing state
  */
 export type TaskStatus =
-  | 'PENDING'
-  | 'RUNNING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'CANCELLED'
-  | 'UNKNOWN';
+  'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN';
 
 /**
  * Symbol processing options

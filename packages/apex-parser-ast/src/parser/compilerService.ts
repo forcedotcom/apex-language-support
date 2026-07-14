@@ -66,9 +66,7 @@ export interface CompilationResultWithAssociations<
 }
 
 export type RawParseTree =
-  | CompilationUnitContext
-  | TriggerUnitContext
-  | BlockContext;
+  CompilationUnitContext | TriggerUnitContext | BlockContext;
 
 export interface ParseTreeResult {
   fileName: string;

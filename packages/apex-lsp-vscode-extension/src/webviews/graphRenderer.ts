@@ -76,12 +76,7 @@ export interface GraphData {
 }
 
 export type LayoutType =
-  | 'forceatlas2'
-  | 'force'
-  | 'dagre'
-  | 'circular'
-  | 'grid'
-  | 'random';
+  'forceatlas2' | 'force' | 'dagre' | 'circular' | 'grid' | 'random';
 
 export class GraphRenderer {
   private canvas: HTMLCanvasElement;

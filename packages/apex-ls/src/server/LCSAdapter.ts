@@ -1569,6 +1569,12 @@ export class LCSAdapter {
       );
     }
 
+    // Register all protocol handlers synchronously BEFORE returning capabilities.
+    // This ensures handlers like apex/sendWorkspaceBatch are ready when the client
+    // starts sending requests after receiving the initialize response.
+    this.setupProtocolHandlers();
+    this.logger.debug('✅ Protocol handlers registered during initialize');
+
     return {
       capabilities: staticCapabilities,
     };
@@ -1746,8 +1752,8 @@ export class LCSAdapter {
     // NEW: Dynamically register feature capabilities
     await this.registerDynamicCapabilities();
 
-    // Setup protocol handlers after registration
-    this.setupProtocolHandlers();
+    // Note: setupProtocolHandlers() is now called in handleInitialize() before
+    // returning capabilities, ensuring handlers are ready when client sends requests
 
     // Auto-start interactive profiling if enabled
     await this.autoStartInteractiveProfiling();
@@ -1816,6 +1822,10 @@ export class LCSAdapter {
     // during `initialize` (before we return server capabilities) so that
     // topology readiness is part of server readiness — the client is blocked
     // from sending requests until workers are up. See handleInitialize.
+    //
+    // Similarly, protocol handlers are registered in handleInitialize() before
+    // returning capabilities, so the server is ready to handle requests as soon
+    // as the initialize response is sent.
   }
 
   /**

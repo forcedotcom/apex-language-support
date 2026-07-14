@@ -52,3 +52,8 @@ export {
   provideWorkerTracing,
   withExtractedTraceContext,
 } from './workerTracing';
+
+export {
+  getCoordinatorTracerLayer,
+  provideCoordinatorTracing,
+} from './coordinatorEffectTracing';

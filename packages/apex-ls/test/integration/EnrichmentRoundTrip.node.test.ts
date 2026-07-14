@@ -158,9 +158,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
   const runFeature = (
     makeRequest: () =>
-      | DispatchHover
-      | DispatchReferences
-      | DispatchImplementation,
+      DispatchHover | DispatchReferences | DispatchImplementation,
   ) =>
     Effect.gen(function* () {
       const topology = yield* initializeTopology({

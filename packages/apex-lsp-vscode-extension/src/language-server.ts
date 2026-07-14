@@ -1384,6 +1384,10 @@ async function createDesktopLanguageClient(
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 
+  // Server registers all protocol handlers (including apex/sendWorkspaceBatch) in
+  // handleInitialize() before returning capabilities, so handlers are ready as soon
+  // as the client starts. No need to wait for a separate notification.
+
   // If configured, trigger workspace load on startup via service
   try {
     const settings = getWorkspaceSettings();
