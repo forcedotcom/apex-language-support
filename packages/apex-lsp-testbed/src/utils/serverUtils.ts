@@ -16,11 +16,7 @@ import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
 
 // Define server types as a string union
 export type ServerType =
-  | 'demo'
-  | 'jorje'
-  | 'nodeServer'
-  | 'webServer'
-  | 'webWorker';
+  'demo' | 'jorje' | 'nodeServer' | 'webServer' | 'webWorker';
 
 // Define CLI options interface
 export interface CliOptions {

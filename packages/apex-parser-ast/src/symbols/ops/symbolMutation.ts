@@ -16,10 +16,7 @@ import { createFileUri } from '../../types/ProtocolHandler';
 import { extractFilePathFromUri } from '../../types/UriBasedIdGenerator';
 
 type MutationDeps =
-  | SymbolIndexStore
-  | ReferenceStore
-  | CacheStore
-  | FileStateStore;
+  SymbolIndexStore | ReferenceStore | CacheStore | FileStateStore;
 
 /** Remove a file and all its symbols from the graph, cache, and state */
 export const removeFile = (

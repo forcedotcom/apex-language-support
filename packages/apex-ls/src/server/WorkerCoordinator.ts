@@ -922,10 +922,7 @@ function createDispatcher(
             documentVersion: number;
             enrichedSymbolTable: unknown;
             enrichedDetailLevel:
-              | 'public-api'
-              | 'protected'
-              | 'private'
-              | 'full';
+              'public-api' | 'protected' | 'private' | 'full';
             sourceWorkerId: string;
           };
           return callbacks.sendToDataOwner(
@@ -1190,6 +1187,7 @@ function buildLspRequestMessage(
       return new DispatchDefinition({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'signatureHelp': {
       const s = p as PositionBasedParams & { context?: unknown };

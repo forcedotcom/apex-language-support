@@ -68,11 +68,7 @@ export interface SObjectFieldInfo {
   isCustom: boolean;
   // Additional properties for method validation
   category?:
-    | 'REGULAR'
-    | 'RELATIONSHIP'
-    | 'FORMULA'
-    | 'ROLLUP_SUMMARY'
-    | 'VARIABLE';
+    'REGULAR' | 'RELATIONSHIP' | 'FORMULA' | 'ROLLUP_SUMMARY' | 'VARIABLE';
   isColumn?: boolean;
   isSoqlExpression?: boolean;
   hasSafeNavigation?: boolean;

@@ -683,12 +683,22 @@ export function loadSymbolDataForEnrichment(
           }>;
           const classNames = new Set<string>();
           for (const ref of refs) {
-            if (
+            // Unresolved outbound type refs: fetch the owning file so the name
+            // resolves. Skipped once resolved — the resolvedSymbolId already
+            // points at the target for on-demand hover/definition.
+            const isUnresolvedTypeRef =
               !ref.resolvedSymbolId &&
               (ref.context === ReferenceContext.CLASS_REFERENCE ||
                 ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
-                ref.context === ReferenceContext.TYPE_DECLARATION)
-            ) {
+                ref.context === ReferenceContext.TYPE_DECLARATION);
+            // Supertype edges (`extends`/`implements`) must be fetched even when
+            // already resolved: the resolvedSymbolId only names the target, but
+            // goto-definition still needs the declaring file's symbol table
+            // present in this pool worker to produce a location.
+            const isSupertypeRef =
+              ref.context === ReferenceContext.INHERITANCE ||
+              ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
+            if (isUnresolvedTypeRef || isSupertypeRef) {
               classNames.add(ref.name);
             }
           }
@@ -1218,11 +1228,19 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
         // Wire coordinator assistance so the enrichment worker can forward
         // apex/findMissingArtifact to the coordinator (which holds the LSP
         // client connection) rather than silently dropping the request.
+        //
+        // blocking=true: the coordinator mediator must await its handler (drive
+        // the client to open the artifact, which flows to the data-owner via
+        // didOpen) and return the real FindMissingArtifactResult. With
+        // blocking=false it returns {accepted:true} immediately, which the
+        // blocking-resolution caller mis-reads as "resolved" before the artifact
+        // loads. The background caller doesn't await, so blocking=true is
+        // harmless there.
         EnhancedMissingArtifactResolutionService.setAssistanceProxy((params) =>
           requestCoordinatorAssistancePromiseShared(
             'apex/findMissingArtifact',
             params,
-            false,
+            true,
           ),
         );
 
@@ -1646,8 +1664,7 @@ export async function targetSymbolForCursor(
     if (!name) return null;
     const leaf = name.includes('.') ? name.split('.').pop()! : name;
     const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0] as
-      | { name?: string; kind?: unknown }
-      | undefined;
+      { name?: string; kind?: unknown } | undefined;
     return {
       name: named?.name ?? leaf,
       kind: named && typeof named.kind === 'string' ? named.kind : undefined,
@@ -1739,6 +1756,29 @@ const requestHandlers = {
           svc,
           req.textDocument.uri,
           req.content,
+        );
+
+        // The data-owner holds the cursor file at public-api detail only, so
+        // implicit-private fields, locals, and private members are absent and
+        // hover on them resolves to nothing. Recompile locally at full detail
+        // from the live buffer. Runs after loadSymbolDataForEnrichment so the
+        // full-detail table wins while the cross-file dep tables it loaded stay
+        // present for the re-resolve inside recompileCursorFileAtFullDetail.
+        //
+        // DEFERRED perf (W-23408848): this runs on every hover on ALL platforms,
+        // not just web. It is NOT safe to gate on the data-owner's reported
+        // detailLevel (`shouldEnrich(detailLevel, 'full')`): that level reflects
+        // the DATA-OWNER's stored table, not what THIS pool member holds locally,
+        // so a fresh pool worker with detailLevel='full' still lacks the member
+        // symbols and skipping the recompile regresses field/instance-variable
+        // hover+definition (verified: 3 web e2e failures). A correct gate needs a
+        // LOCAL full-detail marker for the uri; deferred until one exists.
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
         );
 
         // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
@@ -1886,6 +1926,22 @@ const requestHandlers = {
         const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
+          // Live buffer so enrichment and the recompile below run on the unsaved
+          // editor text, not the data-owner's last-stored version.
+          req.content,
+        );
+
+        // As in DispatchHover: the data-owner holds only public-api detail, so
+        // definition on a field/local/private member resolves to nothing.
+        // Recompile locally at full detail from the live buffer. See DispatchHover
+        // for why this can't safely be gated on the reported detailLevel
+        // (DEFERRED perf, W-23408848).
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
         );
 
         // Definition requires 'full' detail level per LspRequestPrerequisiteMapping

@@ -124,8 +124,7 @@ describe('ApexSymbolManager', () => {
     const rootScope = symbolTable
       .getAllSymbols()
       .find((s) => isBlockSymbol(s) && s.scopeType === 'file') as
-      | ScopeSymbol
-      | undefined;
+      ScopeSymbol | undefined;
     if (rootScope) {
       collectSymbols(rootScope);
     } else {
@@ -133,8 +132,7 @@ describe('ApexSymbolManager', () => {
       const fileScope = symbolTable
         .getAllSymbols()
         .find((s) => isBlockSymbol(s) && s.scopeType === 'file') as
-        | ScopeSymbol
-        | undefined;
+        ScopeSymbol | undefined;
       if (fileScope) {
         collectSymbols(fileScope);
       }

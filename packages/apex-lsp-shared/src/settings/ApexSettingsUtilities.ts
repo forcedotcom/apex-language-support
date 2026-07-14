@@ -402,8 +402,7 @@ export function mergeWithDefaults(
                     number
                   >),
                   ...(userSettings.apex?.scheduler?.queueCapacity as
-                    | Record<string, number>
-                    | undefined),
+                    Record<string, number> | undefined),
                 },
       },
       deferredReferenceProcessing: baseApex.deferredReferenceProcessing
@@ -516,8 +515,7 @@ export function mergeWithExisting(
                     number
                   >),
                   ...(partialSettings.apex?.scheduler?.queueCapacity as
-                    | Record<string, number>
-                    | undefined),
+                    Record<string, number> | undefined),
                 },
       },
       deferredReferenceProcessing:

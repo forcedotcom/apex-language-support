@@ -92,13 +92,8 @@ class InstanceofCollectorListener extends BaseApexParserListener<
     const literal = ctx.literal?.();
     if (!literal) return;
     let litType:
-      | 'integer'
-      | 'long'
-      | 'decimal'
-      | 'string'
-      | 'boolean'
-      | 'null'
-      | null = null;
+      'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null' | null =
+      null;
     if (literal.IntegerLiteral?.()) litType = 'integer';
     else if (literal.LongLiteral?.()) litType = 'long';
     else if (literal.NumberLiteral?.()) litType = 'decimal';
@@ -179,9 +174,7 @@ export const InstanceofValidator: Validator = {
       let tree: CompilationUnitContext | TriggerUnitContext | BlockContext;
       if (parseTree) {
         tree = parseTree as
-          | CompilationUnitContext
-          | TriggerUnitContext
-          | BlockContext;
+          CompilationUnitContext | TriggerUnitContext | BlockContext;
       } else if (sourceContent) {
         const lexer = ApexParserFactory.createLexer(sourceContent);
         const tokenStream = new CommonTokenStream(lexer);

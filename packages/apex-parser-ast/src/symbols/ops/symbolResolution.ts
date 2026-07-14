@@ -19,10 +19,7 @@ import { ResourceLoaderService } from '../services/ResourceLoaderService';
 import { findByName, findInFile } from './symbolLookup';
 
 type ResolutionDeps =
-  | SymbolIndexStore
-  | CacheStore
-  | FileStateStore
-  | ResourceLoaderService;
+  SymbolIndexStore | CacheStore | FileStateStore | ResourceLoaderService;
 
 /** Resolve a symbol by name with context */
 export const resolveSymbol = (
