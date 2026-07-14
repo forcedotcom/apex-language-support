@@ -156,30 +156,79 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       return 'unsupported';
     }
 
+    // Sanitize once and reuse for every sink (proxy + queue). Both terminate in
+    // a structured-clone postMessage, and symbol-manager class instances
+    // (typeReference, parentContext.*) are not cloneable — an unsanitized
+    // payload throws DataCloneError and silently fails resolution.
+    const safeParams = this.sanitizeParams(params);
+    const timeoutMs = params.timeoutMsHint || this.config.blockingWaitTimeoutMs;
+
     const requestPromise = (async (): Promise<BlockingResult> => {
       try {
+        // Worker context (enrichment/request pool): no LSP connection, so the
+        // local queue can't reach the client and would resolve nothing. Forward
+        // the blocking request through the coordinator assistance proxy and
+        // await it — the coordinator owns the connection, drives the client to
+        // open the artifact (which flows to the data-owner via didOpen), and
+        // returns the result. Awaiting here means the caller's re-query sees the
+        // freshly-loaded artifact.
+        const proxy = EnhancedMissingArtifactResolutionService.assistanceProxy;
+        if (!this.getConnection() && proxy) {
+          this.logger.debug(
+            () =>
+              `Forwarding blocking resolution via assistance proxy for: ${names}`,
+          );
+          // The proxy chain (requestCoordinatorAssistance) has no self-imposed
+          // rejection; without a bound, a lost/errored coordinator response
+          // would hang hover/definition on the hot path forever. Race against
+          // the same budget the queue path uses; a timeout throws and is
+          // handled by the shared catch below (records cooldown, returns
+          // 'timeout').
+          const proxyResult = await this.withTimeout(
+            proxy(safeParams),
+            timeoutMs,
+          );
+          // Reaching here means the proxy resolved without throwing, so any
+          // prior timeout cooldown for this key is stale — clear it.
+          // (mapResultToBlockingResult only yields 'resolved'/'not-found';
+          // timeouts surface as a thrown error handled by the catch below.)
+          const mappedProxy = this.mapResultToBlockingResult(proxyResult);
+          EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
+            key,
+          );
+          if (shouldObserve) {
+            this.logger.debug(
+              () =>
+                `[REQ-HARDEN] missingArtifact blocking end (proxy) kind=${requestKind} ` +
+                `result=${mappedProxy} durationMs=${Date.now() - startedAt}`,
+            );
+          }
+          return mappedProxy;
+        }
+
         // Priority tuning: keep definition responsive, but avoid starving hover/startup
         // with high-priority artifact loads during workspace churn.
         const priority =
           requestKind === 'definition' ? Priority.High : Priority.Normal;
         const result = await this.getQueueManager().submitRequest(
           'findMissingArtifact',
-          params,
+          safeParams,
           {
             priority,
-            timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
+            timeout: timeoutMs,
           },
         );
 
         this.logger.debug(() => `Blocking resolution completed for: ${names}`);
 
-        // Map the result to BlockingResult
+        // Map the result to BlockingResult. Reaching here means the queue
+        // resolved without throwing, so clear any stale timeout cooldown for
+        // this key. (mapResultToBlockingResult only yields
+        // 'resolved'/'not-found'; queue timeouts throw and are handled below.)
         const mapped = this.mapResultToBlockingResult(result);
-        if (mapped !== 'timeout') {
-          EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
-            key,
-          );
-        }
+        EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
+          key,
+        );
         if (shouldObserve) {
           this.logger.debug(
             () =>
@@ -251,25 +300,8 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
     }
 
     try {
-      // Get LSP connection to send request to client
       // Sanitize params before sending via postMessage (structured clone).
-      // Symbol manager class instances (typeReference, parentContext.*) are not
-      // cloneable. Schema.decodeUnknownSync creates a new plain object containing
-      // only the declared wire-schema fields, stripping all class extras.
-      const decodeIdentifier = Schema.decodeUnknownSync(
-        WireIdentifierSpecSchema,
-      );
-      const safeParams = {
-        ...params,
-        identifiers: params.identifiers.map((id) => {
-          try {
-            return decodeIdentifier(id);
-          } catch {
-            // Fallback: name-only if the identifier deviates from the wire schema
-            return { name: id.name };
-          }
-        }),
-      };
+      const safeParams = this.sanitizeParams(params);
 
       const connection = this.getConnection();
       if (!connection) {
@@ -336,6 +368,52 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       );
       // Don't throw - background resolution failures shouldn't block the main flow
     }
+  }
+
+  /**
+   * Sanitize params before sending via postMessage (structured clone).
+   * Symbol manager class instances (typeReference, parentContext.*) are not
+   * cloneable. Schema.decodeUnknownSync creates a new plain object containing
+   * only the declared wire-schema fields, stripping all class extras. Shared by
+   * every sink that forwards params across a worker boundary (proxy + queue).
+   */
+  private sanitizeParams(
+    params: FindMissingArtifactParams,
+  ): FindMissingArtifactParams {
+    const decodeIdentifier = Schema.decodeUnknownSync(WireIdentifierSpecSchema);
+    // Schema.decode yields deeply-readonly values; the runtime object is a
+    // plain structured-clone-safe payload, so cast back to the mutable param
+    // type for the sinks that consume it.
+    return {
+      ...params,
+      identifiers: params.identifiers.map((id) => {
+        try {
+          return decodeIdentifier(id);
+        } catch {
+          // Fallback: name-only if the identifier deviates from the wire schema
+          return { name: id.name };
+        }
+      }),
+    } as FindMissingArtifactParams;
+  }
+
+  /**
+   * Race a promise against a timeout. Rejects with a timeout Error (matched by
+   * the caller's `error.message.includes('timeout')` cooldown handling) if the
+   * budget elapses first.
+   */
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(new Error(`Blocking resolution timeout after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+    });
+    return Promise.race([promise, timeout]).finally(() =>
+      clearTimeout(timer),
+    ) as Promise<T>;
   }
 
   /**

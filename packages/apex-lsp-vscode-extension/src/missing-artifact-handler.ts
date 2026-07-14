@@ -17,6 +17,30 @@ import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
 /** sObject suffix patterns — these types have no .cls file. */
 const SOBJECT_SUFFIX_RE = /__[cCrReEbBmMxX]$/;
 
+/**
+ * Reduce a URI to a scheme-independent path for origin comparison. The
+ * missing-artifact request carries the origin URI in whatever scheme the
+ * client opened it (file, vscode-vfs, vscode-test-web…), while candidate
+ * matches come back from findFiles/walkDirectory. Comparing the decoded
+ * path segment sidesteps scheme/encoding differences.
+ */
+function originPathFor(uri: string | undefined): string | undefined {
+  if (!uri) return undefined;
+  try {
+    return vscode.Uri.parse(uri).path;
+  } catch {
+    return undefined;
+  }
+}
+
+/** True when a candidate URI is the origin file itself. */
+function isOriginFile(
+  candidate: vscode.Uri,
+  originPath: string | undefined,
+): boolean {
+  return originPath !== undefined && candidate.path === originPath;
+}
+
 export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
   _context: vscode.ExtensionContext,
@@ -95,6 +119,13 @@ async function resolveFromWorkspace(
     return { notFound: true };
   }
 
+  // Exclude the origin file from candidates — it's already open, so re-opening
+  // it can never resolve a *missing* artifact. The parentContext.containingType
+  // strategy targets the class enclosing the reference (the origin file itself
+  // for supertype refs like `implements DataProcessor`), which otherwise sorts
+  // highest and short-circuits the loop before the correct target strategy runs.
+  const originPath = originPathFor(params.origin?.uri);
+
   const uniqueSpecs = dedupeByIdentifierName(identifiers);
   const allFiles = new Set<string>();
 
@@ -102,7 +133,8 @@ async function resolveFromWorkspace(
     const searchStrategies = generateSearchStrategiesForSpec(spec);
 
     for (const strategy of searchStrategies) {
-      const files = await searchWithStrategy(strategy, maxCandidates);
+      const found = await searchWithStrategy(strategy, maxCandidates);
+      const files = found.filter((f) => !isOriginFile(f, originPath));
       for (const f of files) {
         allFiles.add(f.toString());
       }

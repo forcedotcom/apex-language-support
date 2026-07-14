@@ -320,17 +320,20 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         wasResolvedFromMissingArtifact,
       };
 
-      // Check for duplicate definitions (same unifiedId)
-      // For duplicate symbols, return all definition locations so users can see all duplicates
-      // This helps users identify duplicate declaration errors
+      // Return all locations for a genuine duplicate declaration so users can
+      // spot the error. Match on kind as well as unifiedId: a real duplicate is
+      // always the same kind (e.g. two fields sharing a name), whereas a field
+      // and a same-named constructor parameter can share a unifiedId today (the
+      // parser collapses a constructor's scope onto its enclosing class) yet are
+      // different kinds and must not be grouped.
       let allSymbols: ApexSymbol[] = [symbol];
       if (symbol.key?.unifiedId) {
-        // Try to find duplicates by getting all symbols in the file and checking for same unifiedId
         const fileSymbols = await this.symbolManager.findSymbolsInFile(
           symbol.fileUri,
         );
         const duplicates = fileSymbols.filter(
-          (s) => s.key?.unifiedId === symbol.key.unifiedId,
+          (s) =>
+            s.key?.unifiedId === symbol.key.unifiedId && s.kind === symbol.kind,
         );
         if (duplicates.length > 1) {
           // Found duplicates - include all of them
@@ -353,13 +356,37 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         locations.push(...symLocations);
       }
 
+      // Collapse locations on the same declaration line. A genuine duplicate
+      // lives on its own line, but layered compilation (public-api load + full
+      // recompile) can leave two same-kind entries for one declaration on the
+      // same line — one on the identifier, one on the type token. Returning both
+      // makes VS Code open a peek instead of jumping, so keep one per (uri, line).
+      //
+      // DEFERRED (W-23408848, do NOT "fix" by adding column to the key): keying
+      // on (uri, line) can also collapse two GENUINE duplicate declarations that
+      // happen to share a line, e.g. a multi-declarator `String a, a;`. That is
+      // a rare, already-degenerate case. Adding startColumn to the key would
+      // separate such duplicates — BUT it would also re-separate the layered
+      // identifier/type-token artifacts above (which differ ONLY by column) and
+      // reintroduce the peek bug this fix removes. If genuine same-line
+      // duplicates must be surfaced later, dedup on (uri, line, unifiedId+kind)
+      // — NOT column.
+      const seen = new Set<string>();
+      const dedupedLocations = locations.filter((loc) => {
+        const lineKey = `${loc.uri}#${loc.range.start.line}`;
+        if (seen.has(lineKey)) {
+          return false;
+        }
+        seen.add(lineKey);
+        return true;
+      });
+
       this.logger.debug(
         () =>
-          `Returning ${locations.length} definition location(s) for: ${symbol?.name ?? 'null'}`,
+          `Returning ${dedupedLocations.length} definition location(s) for: ${symbol?.name ?? 'null'}`,
       );
 
-      // Return the locations array (may contain multiple locations for duplicates)
-      return locations;
+      return dedupedLocations;
     } catch (error) {
       this.logger.error(() => `Error processing definition request: ${error}`);
       return null;
