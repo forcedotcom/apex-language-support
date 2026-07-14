@@ -727,6 +727,12 @@ function createDispatcher(
 } {
   let available = true;
   let dispatchedCount = 0;
+  const sendTracedToDataOwner = (message: DataOwnerRequest) => {
+    injectTraceContextIntoMessage(
+      message as unknown as Record<string, unknown>,
+    );
+    return callbacks.sendToDataOwner(message);
+  };
 
   return {
     isAvailable: () => available,
@@ -850,9 +856,11 @@ function createDispatcher(
             '[WorkerDispatch] → dataOwner: WorkspaceBatchIngest ' +
             `(session=${sessionId}, entries=${entries.length})`,
         );
-        return callbacks.sendBatch(
-          new WorkspaceBatchIngest({ sessionId, entries }),
+        const message = new WorkspaceBatchIngest({ sessionId, entries });
+        injectTraceContextIntoMessage(
+          message as unknown as Record<string, unknown>,
         );
+        return callbacks.sendBatch(message);
       };
     },
 
@@ -863,9 +871,11 @@ function createDispatcher(
             '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
             `(session=${sessionId}, entries=${entries.length})`,
         );
-        return callbacks.sendToCompilation(
-          new WorkspaceBatchCompile({ sessionId, entries }),
-        ) as Promise<{
+        const message = new WorkspaceBatchCompile({ sessionId, entries });
+        injectTraceContextIntoMessage(
+          message as unknown as Record<string, unknown>,
+        );
+        return callbacks.sendToCompilation(message) as Promise<{
           compiledCount: number;
           errorCount: number;
           elapsedMs: number;
@@ -882,6 +892,9 @@ function createDispatcher(
             const msg = new DispatchCrossFileEnrichment({
               textDocument: { uri },
             });
+            injectTraceContextIntoMessage(
+              msg as unknown as Record<string, unknown>,
+            );
             await callbacks.dispatchToPool(msg);
             resolved++;
           } catch {
@@ -896,7 +909,7 @@ function createDispatcher(
       switch (method) {
         case 'QuerySymbolSubset': {
           const pqs = params as { uris?: string[] };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
             }),
@@ -908,7 +921,7 @@ function createDispatcher(
             version?: number;
             timeoutMs?: number;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new AwaitSymbolReadiness({
               uri: par.uri ?? '',
               version: par.version ?? 0,
@@ -925,7 +938,7 @@ function createDispatcher(
               'public-api' | 'protected' | 'private' | 'full';
             sourceWorkerId: string;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new UpdateSymbolSubset({
               uri: pus.uri,
               documentVersion: pus.documentVersion,
@@ -937,7 +950,7 @@ function createDispatcher(
         }
         case 'ResolveDepUris': {
           const prd = params as { classNames?: string[] };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new ResolveDepUris({
               classNames: prd.classNames ?? [],
             }),
@@ -945,7 +958,7 @@ function createDispatcher(
         }
         case 'ResolveDependentUris': {
           const prd = params as { uri: string; symbolName?: string };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new ResolveDependentUris({
               uri: prd.uri,
               symbolName: prd.symbolName,
@@ -954,7 +967,7 @@ function createDispatcher(
         }
         case 'FindOccurrenceCandidates': {
           const pfc = params as { symbolName: string };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new FindOccurrenceCandidates({
               symbolName: pfc.symbolName,
             }),
@@ -966,7 +979,7 @@ function createDispatcher(
             names?: readonly string[];
             namespace?: string;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new DataOwnerQuerySymbolByName({
               name: pqn.name,
               names: pqn.names,
@@ -975,7 +988,7 @@ function createDispatcher(
           );
         }
         case 'DrainDeferredReferences': {
-          return callbacks.sendToDataOwner(new DrainDeferredReferences());
+          return sendTracedToDataOwner(new DrainDeferredReferences());
         }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
@@ -983,7 +996,7 @@ function createDispatcher(
     },
 
     queryGraphData(params): Promise<unknown> {
-      return callbacks.sendToDataOwner(
+      return sendTracedToDataOwner(
         new QueryGraphData({
           type: params.type,
           fileUri: params.fileUri,

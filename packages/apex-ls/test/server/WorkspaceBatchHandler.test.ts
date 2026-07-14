@@ -12,6 +12,7 @@ import {
   clearBatchStorage,
   clearCleanupInterval,
   setBatchIngestionDispatcher,
+  setBatchCompileDispatcher,
   getBatchIngestionDispatcher,
   setBatchDispatcherWaitMs,
   setCrossFileEnrichmentDispatcher,
@@ -45,6 +46,13 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     getInstance: jest.fn(() => ({
       getSettings: mockGetSettings,
     })),
+  },
+  LSP_SPAN_NAMES: {
+    WORKSPACE_LOAD_TOTAL: 'workspace.load.total',
+    WORKSPACE_BATCH_DECODE: 'workspace.batch.decode',
+    WORKSPACE_BATCH_INGEST_CHUNK: 'workspace.batch.ingestChunk',
+    WORKSPACE_BATCH_COMPILE_CHUNK: 'workspace.batch.compileChunk',
+    WORKSPACE_CROSS_FILE_ENRICHMENT: 'workspace.crossFileEnrichment',
   },
   provideCoordinatorTracing: jest.fn(() => (effect: any) => effect),
 }));
@@ -282,6 +290,7 @@ describe('WorkspaceBatchHandler', () => {
 
     afterEach(() => {
       setBatchIngestionDispatcher(null);
+      setBatchCompileDispatcher(null);
       setBatchDispatcherWaitMs(5000);
     });
 
@@ -400,6 +409,52 @@ describe('WorkspaceBatchHandler', () => {
       expect(dispatcher).toHaveBeenCalledTimes(1);
       const [, entries] = dispatcher.mock.calls[0];
       expect(entries).toHaveLength(3);
+    });
+
+    it('dispatches ingest and compile work in traced-size chunks', async () => {
+      const files = Array.from({ length: 201 }, (_, index) => ({
+        uri: `file:///Chunk${index}.cls`,
+        version: 1,
+        content: `class Chunk${index} {}`,
+      }));
+      const ingestionDispatcher = jest
+        .fn()
+        .mockImplementation(
+          async (_sessionId: string, entries: typeof files) => ({
+            processedCount: entries.length,
+          }),
+        );
+      const compileDispatcher = jest
+        .fn()
+        .mockImplementation(
+          async (_sessionId: string, entries: typeof files) => ({
+            compiledCount: entries.length,
+            errorCount: 0,
+            elapsedMs: 1,
+          }),
+        );
+      setBatchIngestionDispatcher(ingestionDispatcher);
+      setBatchCompileDispatcher(compileDispatcher);
+
+      const compressedData = makeCompressedBatch(files);
+      await handleWorkspaceBatchRequest({
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData,
+        fileMetadata: files.map(({ uri, version }) => ({ uri, version })),
+      });
+      await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(ingestionDispatcher).toHaveBeenCalledTimes(3);
+      expect(compileDispatcher).toHaveBeenCalledTimes(3);
+      expect(
+        ingestionDispatcher.mock.calls.map(([, entries]) => entries.length),
+      ).toEqual([100, 100, 1]);
+      expect(
+        compileDispatcher.mock.calls.map(([, entries]) => entries.length),
+      ).toEqual([100, 100, 1]);
     });
 
     it('waits for a dispatcher wired after batches start processing', async () => {

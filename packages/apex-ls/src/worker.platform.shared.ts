@@ -19,7 +19,8 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import { Effect, LogLevel, Schema, Queue, Deferred } from 'effect';
+import { Effect, LogLevel, Schema, Queue, Deferred, Option } from 'effect';
+import type * as Tracer from 'effect/Tracer';
 import {
   WorkerInit,
   PingWorker,
@@ -285,6 +286,13 @@ function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
 export interface DOQueueItem {
   readonly eff: Effect.Effect<unknown, unknown>;
   readonly deferred: Deferred.Deferred<unknown, unknown>;
+  readonly enqueuedAt: number;
+  readonly queueDepth: number;
+  readonly parentSpan: Option.Option<Tracer.AnySpan>;
+  readonly trace?: {
+    readonly spanName: string;
+    readonly attributes?: Readonly<Record<string, unknown>>;
+  };
 }
 
 export interface DOQueues {
@@ -294,7 +302,33 @@ export interface DOQueues {
 
 const processItem = (item: DOQueueItem) =>
   Effect.gen(function* () {
-    const result = yield* Effect.either(item.eff);
+    let execution = item.eff;
+    if (item.trace) {
+      const queueWaitMs = Date.now() - item.enqueuedAt;
+      execution = Effect.gen(function* () {
+        yield* Effect.annotateCurrentSpan({
+          'data_owner.queue_wait_ms': queueWaitMs,
+          'data_owner.queue_depth': item.queueDepth,
+        });
+        return yield* item.eff;
+      }).pipe(
+        Effect.withSpan(item.trace.spanName, {
+          attributes: { ...item.trace.attributes },
+        }),
+      );
+    }
+    if (Option.isSome(item.parentSpan)) {
+      execution = execution.pipe(Effect.withParentSpan(item.parentSpan.value));
+    }
+
+    // The queue loop is a daemon fiber created outside any individual worker
+    // request runtime. Restoring only the parent span preserves IDs, but the
+    // daemon still has the default no-op tracer, so its phase spans are never
+    // exported. Re-provide the initialized worker tracer at the point where
+    // queued work actually executes.
+    execution = execution.pipe(provideWorkerTracing());
+
+    const result = yield* Effect.either(execution);
     if (result._tag === 'Right') {
       yield* Deferred.succeed(item.deferred, result.right);
     } else {
@@ -332,28 +366,47 @@ const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
   }),
 ).pipe(Effect.runSync);
 
+interface DataOwnerQueueTrace {
+  readonly spanName: string;
+  readonly attributes?: Readonly<Record<string, unknown>>;
+}
+
 export const dataOwnerRead = <A, E>(
   eff: Effect.Effect<A, E>,
+  trace?: DataOwnerQueueTrace,
 ): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
+    const queueDepth = yield* Queue.size(queues.read);
+    const parentSpan = yield* Effect.option(Effect.currentSpan);
     yield* Queue.offer(queues.read, {
       eff: eff as Effect.Effect<unknown, unknown>,
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
+      enqueuedAt: Date.now(),
+      queueDepth,
+      parentSpan,
+      trace,
     });
     return yield* Deferred.await(deferred);
   });
 
 export const dataOwnerWrite = <A, E>(
   eff: Effect.Effect<A, E>,
+  trace?: DataOwnerQueueTrace,
 ): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
+    const queueDepth = yield* Queue.size(queues.write);
+    const parentSpan = yield* Effect.option(Effect.currentSpan);
     yield* Queue.offer(queues.write, {
       eff: eff as Effect.Effect<unknown, unknown>,
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
+      enqueuedAt: Date.now(),
+      queueDepth,
+      parentSpan,
+      trace,
     });
     return yield* Deferred.await(deferred);
   });
@@ -518,16 +571,11 @@ export const requestHandler =
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        withExtractedTraceContext(
-          req as { traceContext?: string },
-          Effect.fn(`worker.lspRequest.${tag}`, {
-            attributes: { telemetryIgnore: true },
-          })(function* () {
-            const svc = yield* ensureRequestServices;
-            const result = yield* Effect.promise(() => callService(svc, req));
-            return { result: cloneForWire(result) };
-          })(),
-        ),
+        Effect.gen(function* () {
+          const svc = yield* ensureRequestServices;
+          const result = yield* Effect.promise(() => callService(svc, req));
+          return { result: cloneForWire(result) };
+        }),
       ),
     );
 
@@ -548,16 +596,11 @@ export const effectRequestHandler =
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        withExtractedTraceContext(
-          req as { traceContext?: string },
-          Effect.fn(`worker.lspRequest.${tag}`, {
-            attributes: { telemetryIgnore: true },
-          })(function* () {
-            const svc = yield* ensureRequestServices;
-            const result = yield* callService(svc, req);
-            return { result: cloneForWire(result) };
-          })(),
-        ),
+        Effect.gen(function* () {
+          const svc = yield* ensureRequestServices;
+          const result = yield* callService(svc, req);
+          return { result: cloneForWire(result) };
+        }),
       ),
     );
 
@@ -2229,9 +2272,33 @@ const writeBackMetrics: WriteBackMetrics = {
 // Handlers — one per _tag in AllWorkerRequests
 // ---------------------------------------------------------------------------
 
-export const handlers: WorkerRunner.SerializedRunner.Handlers<
+type SerializedWorkerHandlers = WorkerRunner.SerializedRunner.Handlers<
   Schema.Schema.Type<typeof AllWorkerRequests>
-> = {
+>;
+
+type UntypedWorkerHandler = (
+  request: never,
+) => Effect.Effect<unknown, unknown, never>;
+
+/**
+ * Apply the incoming coordinator context and create one processing span for a
+ * serialized worker request. Keeping this at the runner boundary prevents a
+ * role-specific handler factory from accidentally being the only traced path.
+ */
+export function withWorkerRequestTracing<A, E>(
+  tag: string,
+  request: { readonly traceContext?: string },
+  effect: Effect.Effect<A, E, never>,
+): Effect.Effect<A, E, never> {
+  const role = assignedRole ?? 'unassigned';
+  const tracedEffect = Effect.fn(`worker.${role}.${tag}`, {
+    attributes: { telemetryIgnore: true, 'worker.role': role },
+  })(() => effect)();
+
+  return withExtractedTraceContext(request, tracedEffect);
+}
+
+const untracedHandlers: SerializedWorkerHandlers = {
   WorkerInit: (req) => {
     if (assignedRole !== null) {
       return Effect.die(
@@ -2467,6 +2534,10 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (!currentDoc) {
               writeBackMetrics.rejectedDocumentMissing++;
+              yield* Effect.annotateCurrentSpan(
+                'data_owner.outcome',
+                'rejected-document-missing',
+              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
@@ -2483,6 +2554,10 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (currentDoc.version !== req.documentVersion) {
               writeBackMetrics.rejectedVersionMismatch++;
+              yield* Effect.annotateCurrentSpan({
+                'data_owner.outcome': 'rejected-version-mismatch',
+                'document.current_version': currentDoc.version,
+              });
               yield* Effect.logDebug(
                 '[DATA-OWNER] Write-back rejected: version mismatch ' +
                   `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
@@ -2527,6 +2602,11 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             const sameOrOlderVersion = req.documentVersion <= cachedVersion;
             if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
+              yield* Effect.annotateCurrentSpan({
+                'data_owner.outcome': 'rejected-detail-level',
+                'document.cached_version': cachedVersion,
+                'symbol.current_detail_level': rawLevel ?? 'none',
+              });
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
@@ -2539,26 +2619,50 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             // Deserialize enriched symbol table
-            const { SymbolTable } = yield* Effect.promise(
-              () => import('@salesforce/apex-lsp-parser-ast'),
-            );
-            const enrichedSt = SymbolTable.fromSerializedData(
-              req.enrichedSymbolTable as never,
+            const enrichedSt = yield* Effect.withSpan(
+              'dataOwner.update.deserialize',
+              { attributes: { 'document.uri': req.uri } },
+            )(
+              Effect.gen(function* () {
+                const { SymbolTable } = yield* Effect.promise(
+                  () => import('@salesforce/apex-lsp-parser-ast'),
+                );
+                return SymbolTable.fromSerializedData(
+                  req.enrichedSymbolTable as never,
+                );
+              }),
             );
 
+            const mergedCount = enrichedSt.getAllSymbols().length;
+            const referenceCount = enrichedSt.getAllReferences().length;
+
             // Merge into symbol manager (returns Effect, so yield directly)
-            yield* svc.symbolManager.addSymbolTable(
-              enrichedSt,
-              req.uri,
-              req.documentVersion,
-              false, // hasErrors
+            yield* Effect.withSpan('dataOwner.update.mergeSymbols', {
+              attributes: {
+                'document.uri': req.uri,
+                'document.version': req.documentVersion,
+                'symbol.count': mergedCount,
+                'reference.count': referenceCount,
+              },
+            })(
+              svc.symbolManager.addSymbolTable(
+                enrichedSt,
+                req.uri,
+                req.documentVersion,
+                false, // hasErrors
+              ),
             );
 
             // Populate cross-file incoming edges for this file now that its
             // symbols are merged. Resolves references from this file into the
             // workspace graph (and defers any whose targets aren't ingested yet,
             // to be drained post-batch via DrainDeferredReferences).
-            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+            yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
+              attributes: {
+                'document.uri': req.uri,
+                'reference.count': referenceCount,
+              },
+            })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
 
             // Update cache with new detail level
             cache.merge(req.uri, {
@@ -2567,9 +2671,14 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
               timestamp: Date.now(),
             });
 
-            const mergedCount = enrichedSt.getAllSymbols().length;
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            yield* Effect.annotateCurrentSpan({
+              'data_owner.outcome': 'accepted',
+              'symbol.count': mergedCount,
+              'reference.count': referenceCount,
+            });
 
             // Symbols for this version are now in the graph — release any
             // coordinator request awaiting readiness for this URI/version.
@@ -2589,6 +2698,15 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
               versionMismatch: false,
             };
           }),
+          {
+            spanName: 'dataOwner.update.execute',
+            attributes: {
+              'document.uri': req.uri,
+              'document.version': req.documentVersion,
+              'symbol.detail_level': req.enrichedDetailLevel,
+              'worker.source_id': req.sourceWorkerId,
+            },
+          },
         ),
       ),
     ),
@@ -2627,11 +2745,18 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             const resolved =
               yield* svc.symbolManager.drainAllDeferredReferences();
+            yield* Effect.annotateCurrentSpan(
+              'reference.resolved_count',
+              resolved,
+            );
             yield* Effect.logDebug(
               `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
             );
             return { resolved };
           }),
+          {
+            spanName: 'dataOwner.references.drain',
+          },
         ),
       ),
     ),
@@ -2817,9 +2942,19 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
                 languageId: entry.languageId,
                 version: entry.version,
               };
-              void storage.setDocument(entry.uri, doc as never);
+              // Keep the ingest span open until storage has accepted the
+              // document. Besides making the timing honest, this guarantees
+              // the compilation worker's subsequent write-back cannot race a
+              // still-pending document store and be rejected as missing.
+              yield* Effect.promise(() =>
+                storage.setDocument(entry.uri, doc as never),
+              );
             }
             const elapsed = Date.now() - startTime;
+            yield* Effect.annotateCurrentSpan(
+              'workspace.ingest_elapsed_ms',
+              elapsed,
+            );
             const stats = (yield* Effect.promise(
               () =>
                 (svc.symbolManager as any).getStats?.() ??
@@ -2838,6 +2973,17 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             );
             return { processedCount: req.entries.length };
           }),
+          {
+            spanName: 'dataOwner.batch.ingest',
+            attributes: {
+              'workspace.session_id': req.sessionId,
+              'workspace.file_count': req.entries.length,
+              'workspace.content_chars': req.entries.reduce(
+                (total, entry) => total + entry.content.length,
+                0,
+              ),
+            },
+          },
         ),
       ),
     ),
@@ -2999,6 +3145,15 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           const batchStartTime = Date.now();
           const svc = yield* ensureCompilationServices;
 
+          yield* Effect.annotateCurrentSpan({
+            'workspace.session_id': req.sessionId,
+            'workspace.file_count': req.entries.length,
+            'workspace.content_chars': req.entries.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            ),
+          });
+
           let compiledCount = 0;
           let errorCount = 0;
           const YIELD_INTERVAL = 10;
@@ -3006,16 +3161,68 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           for (let i = 0; i < req.entries.length; i++) {
             const entry = req.entries[i];
             try {
-              const result = svc.compile(entry.content, entry.uri);
-              if (result && result.symbolTable) {
+              const compiled = yield* Effect.withSpan(
+                'workspace.file.compile',
+                {
+                  attributes: {
+                    'workspace.session_id': req.sessionId,
+                    'workspace.file_index': i,
+                    'workspace.file_total': req.entries.length,
+                    'document.uri': entry.uri,
+                    'document.version': entry.version,
+                    'document.content_chars': entry.content.length,
+                  },
+                },
+              )(
+                Effect.gen(function* () {
+                  const compileStart = Date.now();
+                  const result = yield* Effect.try({
+                    try: () => svc.compile(entry.content, entry.uri),
+                    catch: (error) => ({
+                      _tag: 'WorkspaceBatchCompileError' as const,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                    }),
+                  });
+                  const compileMs = Date.now() - compileStart;
+                  const symbolTable = result?.symbolTable as any;
+                  const symbolCount =
+                    symbolTable?.getAllSymbols?.().length ?? 0;
+                  const referenceCount =
+                    symbolTable?.getAllReferences?.().length ?? 0;
+
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.compile_ms': compileMs,
+                    'symbol.count': symbolCount,
+                    'reference.count': referenceCount,
+                  });
+
+                  if (!symbolTable) {
+                    yield* Effect.annotateCurrentSpan(
+                      'workspace.compile_outcome',
+                      'no-symbol-table',
+                    );
+                    return false;
+                  }
+
+                  const writeBackStart = Date.now();
+                  yield* Effect.promise(() =>
+                    writeBackCompiledSymbols(
+                      symbolTable,
+                      entry.uri,
+                      entry.version,
+                    ),
+                  );
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.write_back_ms': Date.now() - writeBackStart,
+                    'workspace.compile_outcome': 'compiled',
+                  });
+                  return true;
+                }),
+              );
+
+              if (compiled) {
                 compiledCount++;
-                yield* Effect.promise(() =>
-                  writeBackCompiledSymbols(
-                    result.symbolTable as any,
-                    entry.uri,
-                    entry.version,
-                  ),
-                );
               } else {
                 errorCount++;
               }
@@ -3049,6 +3256,11 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           );
 
           const elapsedMs = Date.now() - batchStartTime;
+          yield* Effect.annotateCurrentSpan({
+            'workspace.compiled_count': compiledCount,
+            'workspace.error_count': errorCount,
+            'workspace.elapsed_ms': elapsedMs,
+          });
           yield* Effect.logInfo(
             `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
               `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
@@ -3147,3 +3359,23 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 };
+
+/**
+ * Every decoded coordinator request enters through this table. Wrap the whole
+ * table once so data-owner, compilation, resource-loader, and request-pool
+ * workers all extract and use the same parent-context contract.
+ */
+export const handlers = Object.fromEntries(
+  Object.entries(untracedHandlers).map(([tag, untypedHandler]) => {
+    const handler = untypedHandler as unknown as UntypedWorkerHandler;
+    return [
+      tag,
+      (request: unknown) =>
+        withWorkerRequestTracing(
+          tag,
+          request as { readonly traceContext?: string },
+          handler(request as never),
+        ),
+    ];
+  }),
+) as unknown as SerializedWorkerHandlers;

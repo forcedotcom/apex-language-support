@@ -718,6 +718,15 @@ export async function resolveStandardApexClass(
           return symbol;
         }
 
+        // Serialized stdlib tables receive worker-local symbol IDs, so the
+        // process-wide registry ID is not guaranteed to identify a table that
+        // this worker has already hydrated. Fall back to the worker's FQN index
+        // before crossing IPC to load the immutable table again.
+        symbol = await self.findSymbolByFQN(registryEntry.fqn);
+        if (symbol && isStandardApexUri(symbol.fileUri ?? '')) {
+          return symbol;
+        }
+
         const match = registryEntry.fileUri.match(
           /apexlib:\/\/resources\/StandardApexLibrary\/(.+\.cls)$/,
         );

@@ -688,6 +688,26 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('documentSymbolProvider');
     expect(result.capabilities).toHaveProperty('foldingRangeProvider');
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
+    expect(result.capabilities).toHaveProperty('definitionProvider');
+    expect(result.capabilities).toHaveProperty('implementationProvider');
+  });
+
+  it('omits dynamic navigation providers from static initialize capabilities', async () => {
+    const initHandler = mockHandlers.initialize as InitializeHandler;
+    const result = await initHandler({
+      capabilities: {
+        textDocument: {
+          definition: { dynamicRegistration: true },
+          implementation: { dynamicRegistration: true },
+        },
+      },
+      processId: 1,
+      rootUri: null,
+      workspaceFolders: null,
+    } as InitializeParams);
+
+    expect(result.capabilities).not.toHaveProperty('definitionProvider');
+    expect(result.capabilities).not.toHaveProperty('implementationProvider');
   });
 
   it('should handle initialized notification', async () => {

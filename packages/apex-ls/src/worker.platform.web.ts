@@ -36,6 +36,7 @@ import * as BrowserWorkerRunner from '@effect/platform-browser/BrowserWorkerRunn
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
   isAssistanceResponse,
+  getActiveWorkerTraceContext,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -109,6 +110,10 @@ export function requestCoordinatorAssistance(
   params: unknown,
   blocking: boolean,
 ): Effect.Effect<unknown, AssistanceError> {
+  // Capture synchronously while the caller's Effect span is still active.
+  // The Promise adapter below starts a separate Effect runtime.
+  const traceContext = getActiveWorkerTraceContext();
+
   return Effect.gen(function* () {
     ensureAssistanceListener();
 
@@ -132,6 +137,7 @@ export function requestCoordinatorAssistance(
         method,
         params,
         blocking,
+        ...(traceContext ? { traceContext } : {}),
       });
     });
   });

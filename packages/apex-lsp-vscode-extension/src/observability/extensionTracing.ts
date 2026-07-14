@@ -84,6 +84,28 @@ export function injectTraceContextFromActiveSpan<
   return payload;
 }
 
+/**
+ * Inject W3C context from the current Effect span.
+ *
+ * The Salesforce services SDK supplies an Effect-native tracer. Its current
+ * span is not guaranteed to be installed in OpenTelemetry's global
+ * `context.active()`, so the imperative helper above can legitimately see no
+ * active span even while an Effect span is recording. Workspace loading runs
+ * entirely inside that Effect runtime and must use this helper at LSP process
+ * boundaries.
+ */
+export function injectTraceContextFromCurrentEffectSpan<
+  T extends Record<string, unknown>,
+>(payload: T): Effect.Effect<T & { traceContext?: string }> {
+  return Effect.currentSpan.pipe(
+    Effect.map((span) => ({
+      ...payload,
+      traceContext: `00-${span.traceId}-${span.spanId}-${span.sampled ? '01' : '00'}`,
+    })),
+    Effect.catchTag('NoSuchElementException', () => Effect.succeed(payload)),
+  );
+}
+
 /** Effect that resolves the services extension API, activating it if needed. */
 const getServicesApi = Effect.sync(() =>
   vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(SERVICES_EXT_ID),
@@ -236,6 +258,19 @@ export function emitTelemetrySpan(event: Record<string, unknown>): void {
     .catch(() => {
       // Fire-and-forget — telemetry must never disrupt the extension
     });
+}
+
+/**
+ * Run an Effect with the extension-host tracing runtime when it is available.
+ * Falls back to the default runtime so observability never becomes a runtime
+ * dependency of the workspace-loading path.
+ */
+export function runWithExtensionTracing<A, E>(
+  effect: Effect.Effect<A, E, never>,
+): Promise<A> {
+  return extensionTracingRuntime
+    ? extensionTracingRuntime.runPromise(effect)
+    : Effect.runPromise(effect);
 }
 
 /**

@@ -22,9 +22,15 @@ import * as http from 'http';
 import * as Effect from 'effect/Effect';
 import {
   initWorkerTracing,
+  getActiveWorkerTraceContext,
   withExtractedTraceContext,
   shutdownWorkerTracing,
 } from '@salesforce/apex-lsp-shared';
+import {
+  dataOwnerWrite,
+  setAssignedRole,
+  withWorkerRequestTracing,
+} from '../../src/worker.platform.shared';
 
 interface OtlpSpan {
   name: string;
@@ -90,11 +96,13 @@ describe('withExtractedTraceContext()', () => {
     const traceContext = `00-${coordinatorTraceId}-${coordinatorSpanId}-01`;
 
     // Create an Effect.fn that should become a child span
+    let injectedTraceContext: string | undefined;
     const testEffect = Effect.fn(
       'test.child.span',
       {},
     )(function* () {
       yield* Effect.log('Executing child span');
+      injectedTraceContext = yield* Effect.sync(getActiveWorkerTraceContext);
       return 'test result';
     })();
 
@@ -135,6 +143,9 @@ describe('withExtractedTraceContext()', () => {
       // Critical assertions: child span inherits parent's trace ID
       expect(childSpan.traceId).toBe(coordinatorTraceId);
       expect(childSpan.parentSpanId).toBe(coordinatorSpanId);
+      expect(injectedTraceContext).toBe(
+        `00-${childSpan.traceId}-${childSpan.spanId}-01`,
+      );
 
       console.log('✅ Distributed tracing verified:');
       console.log('   Parent (coordinator):');
@@ -177,5 +188,100 @@ describe('withExtractedTraceContext()', () => {
     const orphanSpan = spans.find((s) => s.name === 'test.orphan.span');
     expect(orphanSpan).toBeDefined();
     expect(orphanSpan?.parentSpanId).toBeUndefined(); // No parent
+  }, 30_000);
+
+  it('uses the coordinator parent for every worker role', async () => {
+    const spanCollectorUrl = `http://127.0.0.1:${collectorPort}`;
+    initWorkerTracing(spanCollectorUrl, 'test-all-worker-roles');
+
+    const coordinatorTraceId = 'b4da210590970d819e83f75404da6e0d';
+    const coordinatorSpanId = '435350cc5528d5b7';
+    const traceContext = `00-${coordinatorTraceId}-${coordinatorSpanId}-01`;
+    const cases = [
+      { role: 'dataOwner' as const, tag: 'QuerySymbolSubset' },
+      { role: 'lspRequest' as const, tag: 'DispatchHover' },
+      { role: 'compilation' as const, tag: 'CompileDocument' },
+      { role: 'resourceLoader' as const, tag: 'ResourceLoaderGetFile' },
+    ];
+
+    for (const { role, tag } of cases) {
+      setAssignedRole(role);
+      const result = await Effect.runPromise(
+        withWorkerRequestTracing(tag, { traceContext }, Effect.succeed(tag)),
+      );
+      expect(result).toBe(tag);
+    }
+
+    const expectedNames = cases.map(({ role, tag }) => `worker.${role}.${tag}`);
+    const deadline = Date.now() + 10_000;
+    let spans: OtlpSpan[] = [];
+    while (Date.now() < deadline) {
+      spans = receivedBodies.flatMap((body) => {
+        const exported = JSON.parse(body);
+        return exported.resourceSpans?.flatMap(
+          (resource: { scopeSpans?: Array<{ spans?: OtlpSpan[] }> }) =>
+            resource.scopeSpans?.flatMap((scope) => scope.spans ?? []) ?? [],
+        );
+      });
+      if (
+        expectedNames.every((name) => spans.some((span) => span.name === name))
+      )
+        break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    for (const name of expectedNames) {
+      const span = spans.find((candidate) => candidate.name === name);
+      expect(span).toBeDefined();
+      expect(span?.traceId).toBe(coordinatorTraceId);
+      expect(span?.parentSpanId).toBe(coordinatorSpanId);
+    }
+  }, 30_000);
+
+  it('exports traced work executed by the data-owner daemon queue', async () => {
+    const coordinatorTraceId = 'c4da210590970d819e83f75404da6e0e';
+    const coordinatorSpanId = '535350cc5528d5b8';
+    const traceContext = `00-${coordinatorTraceId}-${coordinatorSpanId}-01`;
+    setAssignedRole('dataOwner');
+
+    const queuedEffect = dataOwnerWrite(Effect.succeed('queued'), {
+      spanName: 'test.dataOwner.queue.execute',
+    });
+    await expect(
+      Effect.runPromise(
+        withWorkerRequestTracing(
+          'QueuedTraceTest',
+          { traceContext },
+          queuedEffect,
+        ),
+      ),
+    ).resolves.toBe('queued');
+
+    const deadline = Date.now() + 10_000;
+    let spans: OtlpSpan[] = [];
+    while (Date.now() < deadline) {
+      spans = receivedBodies.flatMap((body) => {
+        const exported = JSON.parse(body);
+        return exported.resourceSpans?.flatMap(
+          (resource: { scopeSpans?: Array<{ spans?: OtlpSpan[] }> }) =>
+            resource.scopeSpans?.flatMap((scope) => scope.spans ?? []) ?? [],
+        );
+      });
+      if (spans.some((span) => span.name === 'test.dataOwner.queue.execute')) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    const requestSpan = spans.find(
+      (span) => span.name === 'worker.dataOwner.QueuedTraceTest',
+    );
+    const queueSpan = spans.find(
+      (span) => span.name === 'test.dataOwner.queue.execute',
+    );
+    expect(requestSpan).toBeDefined();
+    expect(queueSpan).toBeDefined();
+    expect(queueSpan?.traceId).toBe(coordinatorTraceId);
+    expect(queueSpan?.parentSpanId).toBe(requestSpan?.spanId);
   }, 30_000);
 });

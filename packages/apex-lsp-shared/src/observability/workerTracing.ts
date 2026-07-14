@@ -19,7 +19,7 @@ import * as EffectTracer from '@effect/opentelemetry/Tracer';
 import { layer as FetchHttpClientLayer } from '@effect/platform/FetchHttpClient';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { context, propagation } from '@opentelemetry/api';
+import { context, propagation, trace, TraceFlags } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { getLogger } from '../logger';
@@ -72,11 +72,19 @@ export function initWorkerTracing(url: string, serviceName: string): void {
         serviceName,
       },
       context: (f, span) => {
-        // Bridge Effect's span creation to OTEL's AsyncLocalStorage context.
-        // The 'span' parameter is the Effect span being created. We need to run f()
-        // within the active OTEL context so parent relationships are preserved.
-        const activeContext = context.active();
-        return context.with(activeContext, f);
+        // OtlpTracer uses Effect-native spans rather than SDK Span instances.
+        // Publish the current Effect span as an OTEL SpanContext so imperative
+        // APIs such as propagation.inject() see the correct worker span.
+        const spanContext = {
+          traceId: span.traceId,
+          spanId: span.spanId,
+          traceFlags: span.sampled ? TraceFlags.SAMPLED : TraceFlags.NONE,
+          isRemote: span._tag === 'ExternalSpan',
+        };
+        return context.with(
+          trace.setSpanContext(context.active(), spanContext),
+          f,
+        );
       },
     }).pipe(Layer.provide([FetchHttpClientLayer, OtlpSerializationLayer]));
 
@@ -141,6 +149,19 @@ export function provideWorkerTracing<A, E, R>() {
  */
 export function getCollectorUrl(): string | undefined {
   return collectorUrl;
+}
+
+/**
+ * Return the W3C traceparent for the active worker span, if one exists.
+ *
+ * This is intentionally synchronous: Promise-based assistance adapters must
+ * capture the current span before starting a separate Effect runtime, which
+ * would otherwise lose the submitting fiber's context.
+ */
+export function getActiveWorkerTraceContext(): string | undefined {
+  const carrier: Record<string, string> = {};
+  propagation.inject(context.active(), carrier);
+  return carrier.traceparent;
 }
 
 /**

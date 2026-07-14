@@ -103,6 +103,11 @@ import {
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Fiber, Effect } from 'effect';
+import { context as otelContext } from '@opentelemetry/api';
+import {
+  extractTraceContext,
+  injectTraceContextFromOtelSpan,
+} from './traceContextInjection';
 
 /**
  * Configuration for the LCS Adapter
@@ -146,6 +151,12 @@ export class LCSAdapter {
   };
   private workerPlatformWebUrl: string | undefined;
   private clientCapabilities?: ClientCapabilities;
+  private readonly dynamicNavigationRegistrations = new Map<
+    string,
+    Registration
+  >();
+  private dynamicNavigationRegistrationReady = false;
+  private dynamicNavigationReconciliation = Promise.resolve();
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
   private readonly aggregator = new CommandPerformanceAggregator();
   private readonly getHeapUsedBytes?: () => Promise<number | null>;
@@ -489,7 +500,11 @@ export class LCSAdapter {
 
     this.documents.onDidClose((close) => {
       // Fire-and-forget: LSP notification, no response expected
-      dispatchProcessOnCloseDocument(close);
+      runWithSpan(LSP_SPAN_NAMES.DOCUMENT_CLOSE, () =>
+        dispatchProcessOnCloseDocument(close),
+      ).catch(() => {
+        // Fire-and-forget: swallow errors to avoid unhandled rejection
+      });
     });
   }
 
@@ -638,68 +653,69 @@ export class LCSAdapter {
       );
     }
 
-    if (capabilities.definitionProvider) {
-      this.connection.onDefinition(
-        async (params: DefinitionParams): Promise<Location[] | null> =>
-          this.handleLspRequest(
-            LSP_SPAN_NAMES.DEFINITION,
-            'textDocument/definition',
-            params,
-            (p) => LSPQueueManager.getInstance().submitDefinitionRequest(p),
-            null,
-            {
-              'document.position': `${params.position.line}:${params.position.character}`,
-            },
-          ),
-      );
-      this.logger.debug('✅ Definition handler registered');
-    } else {
-      this.logger.debug(
-        '⚠️ Definition handler not registered (capability disabled)',
-      );
-    }
+    // Keep navigation handlers installed for the lifetime of the server. Their
+    // client-facing registrations can be enabled or disabled dynamically when
+    // the effective capabilities change at runtime.
+    this.connection.onDefinition(
+      async (params: DefinitionParams): Promise<Location[] | null> => {
+        if (
+          !LSPConfigurationManager.getInstance().getCapabilities()
+            .definitionProvider
+        ) {
+          return null;
+        }
+        return this.handleLspRequest(
+          LSP_SPAN_NAMES.DEFINITION,
+          'textDocument/definition',
+          params,
+          (p) => LSPQueueManager.getInstance().submitDefinitionRequest(p),
+          null,
+          {
+            'document.position': `${params.position.line}:${params.position.character}`,
+          },
+        );
+      },
+    );
+    this.logger.debug('✅ Definition handler registered');
 
-    if (capabilities.implementationProvider) {
-      this.connection.onImplementation(
-        async (
-          params: ImplementationParams,
-          token: CancellationToken,
-        ): Promise<Location[] | null> => {
-          // Implementation needs the full workspace graph to find every
-          // implementor; trigger a load here (coordinator) since the search
-          // runs on the request pool with no LSP connection. This guarantees
-          // the dataOwner graph is (being) populated with all workspace classes
-          // before the search asks the dataOwner for inbound implementor tables.
-          // The load is fire-and-forget (the workspace can be large; we must not
-          // block the IDE), so the FIRST cold invocation returns before the
-          // graph is populated and the client renders "No implementations
-          // found". Passing the 'implementation' reason makes the client show an
-          // action-tailored busy status ("Searching workspace for
-          // implementations…") so the user understands work is in progress; a
-          // repeat invocation after the load completes returns the implementors.
-          await this.triggerWorkspaceLoadIfNeeded('implementation');
-          return this.handleLspRequest(
-            LSP_SPAN_NAMES.IMPLEMENTATION,
-            'textDocument/implementation',
-            params,
-            (p) =>
-              LSPQueueManager.getInstance().submitImplementationRequest(
-                p,
-                token,
-              ),
-            null,
-            {
-              'document.position': `${params.position.line}:${params.position.character}`,
-            },
-          );
-        },
-      );
-      this.logger.debug('✅ Implementation handler registered');
-    } else {
-      this.logger.debug(
-        '⚠️ Implementation handler not registered (capability disabled)',
-      );
-    }
+    this.connection.onImplementation(
+      async (
+        params: ImplementationParams,
+        token: CancellationToken,
+      ): Promise<Location[] | null> => {
+        if (
+          !LSPConfigurationManager.getInstance().getCapabilities()
+            .implementationProvider
+        ) {
+          return null;
+        }
+        // Implementation needs the full workspace graph to find every
+        // implementor; trigger a load here (coordinator) since the search
+        // runs on the request pool with no LSP connection. This guarantees
+        // the dataOwner graph is (being) populated with all workspace classes
+        // before the search asks the dataOwner for inbound implementor tables.
+        // The load is fire-and-forget (the workspace can be large; we must not
+        // block the IDE), so the FIRST cold invocation returns before the
+        // graph is populated and the client renders "No implementations
+        // found". Passing the 'implementation' reason makes the client show an
+        // action-tailored busy status ("Searching workspace for
+        // implementations…") so the user understands work is in progress; a
+        // repeat invocation after the load completes returns the implementors.
+        await this.triggerWorkspaceLoadIfNeeded('implementation');
+        return this.handleLspRequest(
+          LSP_SPAN_NAMES.IMPLEMENTATION,
+          'textDocument/implementation',
+          params,
+          (p) =>
+            LSPQueueManager.getInstance().submitImplementationRequest(p, token),
+          null,
+          {
+            'document.position': `${params.position.line}:${params.position.character}`,
+          },
+        );
+      },
+    );
+    this.logger.debug('✅ Implementation handler registered');
 
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
@@ -901,7 +917,14 @@ export class LCSAdapter {
           () => `🔍 apexlib/resolve request received for: ${params.uri}`,
         );
         try {
-          return await dispatchProcessOnResolve(params);
+          return await this.runWithSpanAndRecord(
+            LSP_SPAN_NAMES.RESOLVE_APEXLIB,
+            () => dispatchProcessOnResolve(params),
+            {
+              'lsp.method': 'apexlib/resolve',
+              'document.uri': params.uri,
+            },
+          );
         } catch (error) {
           this.logger.error(
             () => `Error processing apexlib/resolve: ${formattedError(error)}`,
@@ -926,7 +949,19 @@ export class LCSAdapter {
             }/${params.totalBatches} (${params.fileMetadata.length} files)`,
         );
         try {
-          return await handleWorkspaceBatchRequest(params);
+          const parentContext = extractTraceContext(params.traceContext);
+          return await otelContext.with(parentContext, () =>
+            runWithSpan(
+              'workspace.batch.store',
+              () => handleWorkspaceBatchRequest(params),
+              {
+                'workspace.batch_index': params.batchIndex,
+                'workspace.batch_total': params.totalBatches,
+                'workspace.file_count': params.fileMetadata.length,
+                'workspace.compressed_chars': params.compressedData.length,
+              },
+            ),
+          );
         } catch (error) {
           this.logger.error(
             () =>
@@ -953,7 +988,22 @@ export class LCSAdapter {
             `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches`,
         );
         try {
-          return await handleProcessWorkspaceBatchesRequest(params);
+          const parentContext = extractTraceContext(params.traceContext);
+          return await otelContext.with(parentContext, () =>
+            runWithSpan(
+              'workspace.load.serverTrigger',
+              () => {
+                const tracedParams = injectTraceContextFromOtelSpan(
+                  params as ProcessWorkspaceBatchesParams &
+                    Record<string, unknown>,
+                );
+                return handleProcessWorkspaceBatchesRequest(tracedParams);
+              },
+              {
+                'workspace.batch_count': params.totalBatches,
+              },
+            ),
+          );
         } catch (error) {
           this.logger.error(
             () =>
@@ -1502,14 +1552,18 @@ export class LCSAdapter {
         allCapabilities.referencesProvider;
     }
 
-    // Always include definitionProvider in static capabilities for VS Code context menu
-    if (allCapabilities.definitionProvider) {
+    if (
+      allCapabilities.definitionProvider &&
+      !params.capabilities.textDocument?.definition?.dynamicRegistration
+    ) {
       staticCapabilities.definitionProvider =
         allCapabilities.definitionProvider;
     }
 
-    // Always include implementationProvider in static capabilities for VS Code context menu
-    if (allCapabilities.implementationProvider) {
+    if (
+      allCapabilities.implementationProvider &&
+      !params.capabilities.textDocument?.implementation?.dynamicRegistration
+    ) {
       staticCapabilities.implementationProvider =
         allCapabilities.implementationProvider;
     }
@@ -1606,6 +1660,9 @@ export class LCSAdapter {
           ?.dynamicRegistration;
       case 'definition':
         return !!this.clientCapabilities.textDocument?.definition
+          ?.dynamicRegistration;
+      case 'implementation':
+        return !!this.clientCapabilities.textDocument?.implementation
           ?.dynamicRegistration;
       case 'references':
         return !!this.clientCapabilities.textDocument?.references
@@ -1751,6 +1808,12 @@ export class LCSAdapter {
 
     // NEW: Dynamically register feature capabilities
     await this.registerDynamicCapabilities();
+    this.dynamicNavigationRegistrationReady = true;
+    // Configuration notifications can arrive while initialized handling is
+    // still running. Reconcile once after the initial registration using the
+    // latest effective settings, but never register navigation providers from
+    // those notifications concurrently with this bootstrap path.
+    await this.reconcileDynamicNavigationCapabilities();
 
     // Note: setupProtocolHandlers() is now called in handleInitialize() before
     // returning capabilities, ensuring handlers are ready when client sends requests
@@ -1894,6 +1957,10 @@ export class LCSAdapter {
         }
       }
 
+      // A mode change can enable or disable navigation providers. Apply it
+      // before comparing and reconciling the effective capabilities.
+      this.updateServerModeIfNeeded(change);
+
       const newCapabilities = configManager.getCapabilities();
 
       // Check if findMissingArtifact capability changed
@@ -1909,10 +1976,11 @@ export class LCSAdapter {
         );
         // Could send custom notification to client here if needed
       }
-    }
 
-    // Check if we need to update server mode based on client configuration
-    this.updateServerModeIfNeeded(change);
+      if (this.dynamicNavigationRegistrationReady) {
+        await this.reconcileDynamicNavigationCapabilities();
+      }
+    }
 
     const capabilities = configManager.getExtendedServerCapabilities();
     if (capabilities.publishDiagnostics) {
@@ -2123,6 +2191,68 @@ export class LCSAdapter {
       });
     }
 
+    registrations.push(...this.getDynamicNavigationRegistrations());
+
+    if (
+      capabilities.codeLensProvider &&
+      this.supportsDynamicRegistration('codeLens')
+    ) {
+      this.logger.debug(() => 'Registering CodeLens capability dynamically');
+      registrations.push({
+        id: 'apex-codeLens',
+        method: 'textDocument/codeLens',
+        registerOptions: {
+          documentSelector: getDocumentSelectorsFromSettings(
+            'codeLens',
+            settings,
+          ),
+          resolveProvider: capabilities.codeLensProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (registrations.length > 0) {
+      this.logger.debug(
+        () =>
+          `📝 Preparing to register ${registrations.length}` +
+          ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
+      );
+
+      try {
+        await this.connection.sendRequest('client/registerCapability', {
+          registrations,
+        });
+        for (const registration of registrations) {
+          if (this.isNavigationRegistration(registration)) {
+            this.dynamicNavigationRegistrations.set(
+              registration.id,
+              registration,
+            );
+          }
+        }
+        this.logger.debug(
+          () =>
+            `✅ Dynamically registered ${registrations.length}` +
+            ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          () => `❌ Failed to register capabilities: ${formattedError(error)}`,
+        );
+      }
+    } else {
+      this.logger.debug(
+        'No capabilities to dynamically register (all returned statically or disabled)',
+      );
+    }
+  }
+
+  private getDynamicNavigationRegistrations(): Registration[] {
+    const configManager = LSPConfigurationManager.getInstance();
+    const capabilities = configManager.getCapabilities();
+    const settings = configManager.getSettings();
+    const registrations: Registration[] = [];
+
     if (
       capabilities.definitionProvider &&
       this.supportsDynamicRegistration('definition')
@@ -2155,48 +2285,81 @@ export class LCSAdapter {
       });
     }
 
-    if (
-      capabilities.codeLensProvider &&
-      this.supportsDynamicRegistration('codeLens')
-    ) {
-      this.logger.debug(() => 'Registering CodeLens capability dynamically');
-      registrations.push({
-        id: 'apex-codeLens',
-        method: 'textDocument/codeLens',
-        registerOptions: {
-          documentSelector: getDocumentSelectorsFromSettings(
-            'codeLens',
-            settings,
-          ),
-          resolveProvider: capabilities.codeLensProvider.resolveProvider,
-        },
-      });
-    }
+    return registrations;
+  }
 
-    if (registrations.length > 0) {
-      this.logger.debug(
-        () =>
-          `📝 Preparing to register ${registrations.length}` +
-          ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
-      );
+  private isNavigationRegistration(registration: Registration): boolean {
+    return (
+      registration.id === 'apex-definition' ||
+      registration.id === 'apex-implementation'
+    );
+  }
 
-      try {
-        await this.connection.sendRequest('client/registerCapability', {
-          registrations,
-        });
-        this.logger.debug(
-          () =>
-            `✅ Dynamically registered ${registrations.length}` +
-            ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
+  private async reconcileDynamicNavigationCapabilities(): Promise<void> {
+    const reconciliation = this.dynamicNavigationReconciliation.then(() =>
+      this.performDynamicNavigationReconciliation(),
+    );
+    // Keep the serialization chain usable after an unexpected failure while
+    // still returning the real result to the current caller.
+    this.dynamicNavigationReconciliation = reconciliation.catch(() => {});
+    return reconciliation;
+  }
+
+  private async performDynamicNavigationReconciliation(): Promise<void> {
+    const desiredRegistrations = this.getDynamicNavigationRegistrations();
+    const desiredById = new Map(
+      desiredRegistrations.map((registration) => [
+        registration.id,
+        registration,
+      ]),
+    );
+    const unregisterations = Array.from(
+      this.dynamicNavigationRegistrations.values(),
+    )
+      .filter((registered) => {
+        const desired = desiredById.get(registered.id);
+        return (
+          !desired || JSON.stringify(desired) !== JSON.stringify(registered)
         );
+      })
+      .map(({ id, method }) => ({ id, method }));
+
+    if (unregisterations.length > 0) {
+      try {
+        await this.connection.sendRequest('client/unregisterCapability', {
+          // The misspelling is part of the LSP wire protocol.
+          unregisterations,
+        });
+        for (const { id } of unregisterations) {
+          this.dynamicNavigationRegistrations.delete(id);
+        }
       } catch (error) {
         this.logger.error(
-          () => `❌ Failed to register capabilities: ${formattedError(error)}`,
+          () =>
+            `❌ Failed to unregister navigation capabilities: ${formattedError(error)}`,
         );
+        return;
       }
-    } else {
-      this.logger.debug(
-        'No capabilities to dynamically register (all returned statically or disabled)',
+    }
+
+    const registrations = desiredRegistrations.filter(
+      ({ id }) => !this.dynamicNavigationRegistrations.has(id),
+    );
+    if (registrations.length === 0) {
+      return;
+    }
+
+    try {
+      await this.connection.sendRequest('client/registerCapability', {
+        registrations,
+      });
+      for (const registration of registrations) {
+        this.dynamicNavigationRegistrations.set(registration.id, registration);
+      }
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `❌ Failed to register navigation capabilities: ${formattedError(error)}`,
       );
     }
   }

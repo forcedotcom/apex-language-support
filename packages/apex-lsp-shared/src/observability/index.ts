@@ -26,6 +26,7 @@ export {
   runWithSpan,
   runSyncWithSpan,
   runWithCapturedContext,
+  captureActiveTraceContext,
   withTracing,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
@@ -49,6 +50,7 @@ export {
   shutdownWorkerTracing,
   getWorkerTracerLayer,
   getCollectorUrl,
+  getActiveWorkerTraceContext,
   provideWorkerTracing,
   withExtractedTraceContext,
 } from './workerTracing';

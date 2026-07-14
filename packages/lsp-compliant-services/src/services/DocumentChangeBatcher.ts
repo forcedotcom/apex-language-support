@@ -8,7 +8,10 @@
 
 import type { TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
-import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  captureActiveTraceContext,
+  type LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Configuration for per-URI debounce behaviour.
@@ -33,6 +36,19 @@ export type ChangeProcessor = (
   event: TextDocumentChangeEvent<TextDocument>,
 ) => Promise<void>;
 
+type TraceContextRunner = <T>(fn: () => T) => T;
+
+interface PendingChange {
+  readonly event: TextDocumentChangeEvent<TextDocument>;
+  readonly runInTraceContext: TraceContextRunner;
+  readonly resolve: () => void;
+}
+
+interface WaitingInvocation {
+  readonly run: () => void;
+  readonly cancel: () => void;
+}
+
 /**
  * Per-URI debounced batcher for didChange events.
  *
@@ -52,10 +68,7 @@ export class DocumentChangeBatcher {
   private readonly processor: ChangeProcessor;
 
   /** Latest pending event per URI */
-  private readonly pending = new Map<
-    string,
-    TextDocumentChangeEvent<TextDocument>
-  >();
+  private readonly pending = new Map<string, PendingChange>();
 
   /** Active timer handles per URI */
   private readonly timers = new Map<
@@ -67,7 +80,7 @@ export class DocumentChangeBatcher {
   private running = 0;
 
   /** Queue of flush callbacks waiting for a semaphore slot */
-  private readonly waitQueue: Array<() => void> = [];
+  private readonly waitQueue: WaitingInvocation[] = [];
 
   constructor(
     logger: LoggerInterface,
@@ -83,17 +96,29 @@ export class DocumentChangeBatcher {
    * Queue a didChange event. Resets the debounce timer for its URI and
    * keeps only the latest event (newest version).
    */
-  enqueue(event: TextDocumentChangeEvent<TextDocument>): void {
+  enqueue(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
     const uri = event.document.uri;
 
     // Only keep the latest version for a URI
     const existing = this.pending.get(uri);
-    if (existing && existing.document.version >= event.document.version) {
+    if (existing && existing.event.document.version >= event.document.version) {
       // Stale event – ignore
-      return;
+      return Promise.resolve();
     }
 
-    this.pending.set(uri, event);
+    // The superseded notification will never be processed. Settle its promise
+    // so its enclosing LSP span can end instead of remaining open forever.
+    existing?.resolve();
+
+    let resolveProcessing!: () => void;
+    const processing = new Promise<void>((resolve) => {
+      resolveProcessing = resolve;
+    });
+    this.pending.set(uri, {
+      event,
+      runInTraceContext: captureActiveTraceContext(),
+      resolve: resolveProcessing,
+    });
 
     // Reset timer for this URI
     const existingTimer = this.timers.get(uri);
@@ -106,6 +131,7 @@ export class DocumentChangeBatcher {
     }, this.config.debounceMs);
 
     this.timers.set(uri, timer);
+    return processing;
   }
 
   /**
@@ -115,12 +141,14 @@ export class DocumentChangeBatcher {
    */
   private flush(uri: string): void {
     this.timers.delete(uri);
-    const event = this.pending.get(uri);
+    const pending = this.pending.get(uri);
     this.pending.delete(uri);
 
-    if (!event) {
+    if (!pending) {
       return;
     }
+
+    const { event, runInTraceContext, resolve } = pending;
 
     this.logger.debug(
       () =>
@@ -128,24 +156,27 @@ export class DocumentChangeBatcher {
     );
 
     const invoke = (): void => {
-      this.running++;
-      this.processor(event)
-        .catch((error) => {
-          this.logger.error(
-            () =>
-              `[DocumentChangeBatcher] Error processing change for ${uri}: ${error}`,
-          );
-        })
-        .finally(() => {
-          this.running--;
-          this.drainWaitQueue();
-        });
+      runInTraceContext(() => {
+        this.running++;
+        this.processor(event)
+          .catch((error) => {
+            this.logger.error(
+              () =>
+                `[DocumentChangeBatcher] Error processing change for ${uri}: ${error}`,
+            );
+          })
+          .finally(() => {
+            resolve();
+            this.running--;
+            this.drainWaitQueue();
+          });
+      });
     };
 
     if (this.running < this.config.maxConcurrentParses) {
       invoke();
     } else {
-      this.waitQueue.push(invoke);
+      this.waitQueue.push({ run: invoke, cancel: resolve });
     }
   }
 
@@ -158,7 +189,7 @@ export class DocumentChangeBatcher {
       this.running < this.config.maxConcurrentParses
     ) {
       const next = this.waitQueue.shift()!;
-      next();
+      next.run();
     }
   }
 
@@ -181,7 +212,13 @@ export class DocumentChangeBatcher {
       clearTimeout(timer);
     }
     this.timers.clear();
+    for (const pending of this.pending.values()) {
+      pending.resolve();
+    }
     this.pending.clear();
+    for (const waiting of this.waitQueue) {
+      waiting.cancel();
+    }
     this.waitQueue.length = 0;
   }
 

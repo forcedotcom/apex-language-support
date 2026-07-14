@@ -46,7 +46,9 @@ jest.mock('vscode', () => ({
 import * as vscode from 'vscode';
 import {
   initializeExtensionTracing,
+  injectTraceContextFromCurrentEffectSpan,
   emitTelemetrySpan,
+  runWithExtensionTracing,
   shutdownExtensionTracing,
 } from '../src/observability/extensionTracing';
 
@@ -272,6 +274,52 @@ describe('extensionTracing', () => {
       expect(Effect.annotateCurrentSpan).toHaveBeenCalledWith({
         present: 'value',
       });
+    });
+  });
+
+  describe('runWithExtensionTracing', () => {
+    it('uses the default Effect runtime before tracing is initialized', async () => {
+      const { Effect } = require('effect') as typeof import('effect');
+
+      await expect(
+        runWithExtensionTracing(Effect.succeed('fallback')),
+      ).resolves.toBe('fallback');
+      expect(Effect.runPromise).toHaveBeenCalled();
+    });
+
+    it('uses the managed tracing runtime after initialization', async () => {
+      const { Effect, ManagedRuntime } =
+        require('effect') as typeof import('effect');
+      mockGetExtension.mockReturnValue({
+        isActive: true,
+        activate: jest.fn(),
+        exports: mockServicesApi,
+      });
+      await initializeExtensionTracing(mockContext);
+      const rt = (ManagedRuntime.make as jest.Mock).mock.results[0].value;
+      rt.runPromise.mockClear();
+      rt.runPromise.mockResolvedValueOnce('traced');
+
+      await expect(
+        runWithExtensionTracing(Effect.succeed('value')),
+      ).resolves.toBe('traced');
+      expect(rt.runPromise).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('injectTraceContextFromCurrentEffectSpan', () => {
+    it('injects the Effect-native span even without a global OTEL active span', async () => {
+      const actual = jest.requireActual<typeof import('effect')>('effect');
+      const result = await actual.Effect.runPromise(
+        actual.Effect.gen(function* () {
+          return yield* injectTraceContextFromCurrentEffectSpan({ value: 1 });
+        }).pipe(actual.Effect.withSpan('test.extension.context')),
+      );
+
+      expect(result.value).toBe(1);
+      expect(result.traceContext).toMatch(
+        /^00-[0-9a-f]{32}-[0-9a-f]{16}-(?:00|01)$/,
+      );
     });
   });
 

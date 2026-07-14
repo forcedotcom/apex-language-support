@@ -246,9 +246,10 @@ export const dispatchProcessOnChangeDocument = (
       LSPQueueManager.getInstance().submitDocumentChangeNotification(ev),
     );
   }
-  changeBatcher.enqueue(event);
-  // Return immediately - the batcher handles debounce and submission asynchronously
-  return Promise.resolve();
+  // Keep the enclosing notification span open until the retained version has
+  // passed through the queue and worker topology. Superseded versions settle
+  // when the batcher replaces them.
+  return changeBatcher.enqueue(event);
 };
 
 /**
@@ -257,11 +258,8 @@ export const dispatchProcessOnChangeDocument = (
  */
 export const dispatchProcessOnCloseDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): void => {
-  const handler = HandlerFactory.createDidCloseDocumentHandler();
-  // Error handling is done internally in handleDocumentClose
-  handler.handleDocumentClose(event);
-};
+): Promise<void> =>
+  LSPQueueManager.getInstance().submitDocumentCloseNotification(event);
 
 /**
  * Dispatch function for document save events (LSP notification - fire-and-forget)

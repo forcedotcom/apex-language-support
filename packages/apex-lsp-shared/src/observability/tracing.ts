@@ -108,6 +108,18 @@ export const runWithCapturedContext = async <T>(
 };
 
 /**
+ * Capture the current OTEL context for work that will execute later.
+ *
+ * Unlike runWithCapturedContext(), which invokes its callback immediately,
+ * this returns a runner that can be stored with queued work and invoked when
+ * that work is eventually scheduled on another async/fiber context.
+ */
+export const captureActiveTraceContext = (): (<T>(fn: () => T) => T) => {
+  const capturedContext = context.active();
+  return <T>(fn: () => T): T => context.with(capturedContext, fn);
+};
+
+/**
  * Run a synchronous function inside an OTEL span.
  * If tracing is disabled, the function is executed directly with no overhead.
  */
