@@ -568,6 +568,11 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
     payload: {
       textDocument: WireTextDocumentId,
       position: WirePosition,
+      // Live (possibly unsaved) document text. The request worker recompiles it
+      // at full detail so member-level symbols (fields, locals, private members)
+      // — which the dataOwner only stores at public-api detail — exist for
+      // position→declaration resolution. Mirrors DispatchHover.
+      content: Schema.optional(Schema.String),
     },
   },
 ) {}
