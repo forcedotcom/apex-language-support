@@ -227,6 +227,15 @@ export class ApexEditorPage extends BasePage {
       return Number(match[1]);
     }
 
+    // Locale fallback: on non-English VS Code the word "References" is
+    // translated, so the word-anchored regex above misses. The count is still
+    // rendered in parentheses regardless of locale, so extract the last
+    // parenthesized integer from the title before resorting to row counting.
+    const localeMatch = titleText?.match(/\((\d+)\)\s*$/);
+    if (localeMatch) {
+      return Number(localeMatch[1]);
+    }
+
     // Fallback: no parseable title (older VS Code, or a single-result peek that
     // navigates instead of showing a count) — count the rendered result rows.
     const entries = peekWidget.locator(
