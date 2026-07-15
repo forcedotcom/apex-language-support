@@ -14,9 +14,10 @@ language server from any non-VS-Code host.
   `vscode-languageclient`, or `vscode`. Concrete transports plug in via thin
   adapters.
 - **Transport adapters**: `JsonRpcConnection` wraps a `vscode-jsonrpc`
-  `MessageConnection` (1:1 delegation); `createNodeStdioConnection` spawns a
-  server child process over stdio; `createWebWorkerConnection` wraps a Web
-  Worker message channel.
+  `MessageConnection` (1:1 delegation); `LanguageClientConnection` wraps a
+  `vscode-languageclient` `BaseLanguageClient` for VS Code extension hosts;
+  `createNodeStdioConnection` spawns a server child process over stdio;
+  `createWebWorkerConnection` wraps a Web Worker message channel.
 - **Headless host**: `createHeadlessClient` encapsulates the correct
   spawn-then-build-then-listen ordering in a single async call.
 - **LSP lifecycle**: `initialize` sends `initialize` then `initialized`
@@ -37,6 +38,12 @@ language server from any non-VS-Code host.
 
 ```bash
 npm install @salesforce/apex-lsp-client
+```
+
+If using `LanguageClientConnection`, also install the optional peer dependency:
+
+```bash
+npm install vscode-languageclient
 ```
 
 ## Usage
@@ -94,6 +101,27 @@ const { connection, process } = createNodeStdioConnection('/path/to/server.js', 
 const core = await ApexClientCore.create(connection);
 connection.listen();
 ```
+
+For VS Code extensions, `LanguageClientConnection` wraps an existing
+`BaseLanguageClient`. Requires the `vscode-languageclient` peer dependency:
+
+```typescript
+import { LanguageClient } from 'vscode-languageclient/node';
+import { LanguageClientConnection, ApexClientCore } from '@salesforce/apex-lsp-client';
+
+const client = new LanguageClient('apex', 'Apex', serverOptions, clientOptions);
+const connection = new LanguageClientConnection(client);
+
+// Build core BEFORE starting (handlers must register first).
+const core = await ApexClientCore.create(connection);
+
+// BaseLanguageClient.start() launches the server and performs the LSP
+// initialize/initialized handshake internally.
+await client.start();
+```
+
+Note: `LanguageClientConnection` does not support request cancellation via
+`CancellationToken`. See the plan Cancellation decision for rationale.
 
 ### Create a core directly (advanced)
 
@@ -294,6 +322,12 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
 
 - `JsonRpcConnection` — thin adapter wrapping `vscode-jsonrpc` `MessageConnection`
   to satisfy `RpcConnection`. Methods delegate 1:1; `listen()` starts traffic.
+- `LanguageClientConnection` — thin adapter wrapping `vscode-languageclient`
+  `BaseLanguageClient` to satisfy `RpcConnection`. Suitable for VS Code
+  extension hosts where a `LanguageClient` already manages the server process.
+  `onError`/`onClose` are synthesized from `onDidChangeState`. Cancellation via
+  `CancellationToken` is not supported. Requires the `vscode-languageclient`
+  optional peer dependency.
 - `createNodeStdioConnection(serverPath, options?)` — spawn a Node child process
   and return `{ connection: JsonRpcConnection, process: ChildProcess }`.
   - `NodeStdioConnectionOptions` — `nodePath`, `nodeArgs`, `serverArgs`, `env`,
@@ -318,10 +352,11 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
 
 ## Intentional orphan state
 
-As of W-23163191 (2.3) this package ships `JsonRpcConnection`, the Node-stdio
-and Web-Worker connection helpers, and `createHeadlessClient`. It is deliberately
-NOT yet listed in any other package's `dependencies`. TypeScript project
-`references`/`paths` affect compilation only, not runtime consumability. The
-extension consolidation work item (4.1) will add the runtime dependency when the
-existing `LanguageClientConnection` adapter migrates to consume this SDK. The
-absence of a parent consumer here is by design, not an omission.
+As of W-23163195 (4.1) this package ships `JsonRpcConnection`,
+`LanguageClientConnection`, the Node-stdio and Web-Worker connection helpers, and
+`createHeadlessClient`. It is deliberately NOT yet listed in any other package's
+`dependencies`. TypeScript project `references`/`paths` affect compilation only,
+not runtime consumability. A follow-up work item will wire the extension's
+`language-server.ts` to consume `LanguageClientConnection` from this SDK,
+replacing the inline `ClientInterface` implementations. The absence of a parent
+consumer here is by design, not an omission.
