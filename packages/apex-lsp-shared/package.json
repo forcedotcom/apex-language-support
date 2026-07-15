@@ -7,7 +7,8 @@
   "types": "out/index.d.ts",
   "browser": {
     "./out/observability/workerTracing.js": "./out/observability/workerTracing.browser.js",
-    "./out/observability/coordinatorEffectTracing.js": "./out/observability/coordinatorEffectTracing.browser.js"
+    "./out/observability/coordinatorEffectTracing.js": "./out/observability/coordinatorEffectTracing.browser.js",
+    "./out/observability/tracing.js": "./out/observability/tracing.browser.js"
   },
   "exports": {
     ".": {

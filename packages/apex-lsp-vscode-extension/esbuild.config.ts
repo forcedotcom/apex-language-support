@@ -10,6 +10,7 @@ import type { BuildOptions } from 'esbuild';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
 import { copy } from 'esbuild-plugin-copy';
+import { join } from 'node:path';
 import {
   browserBaseConfig,
   forceAntlr4CjsPlugin,
@@ -34,6 +35,26 @@ const OTEL_EXTERNAL = [
   '@effect/opentelemetry',
   'async_hooks',
 ];
+
+// Custom plugin to redirect observability imports to browser stubs in Web build
+const browserStubPlugin = {
+  name: 'browser-stub-plugin',
+  setup(build: any) {
+    // Redirect extension's extensionTracing to browser stub
+    build.onResolve(
+      { filter: /observability\/extensionTracing$/ },
+      (args: any) => {
+        return {
+          path: join(
+            __dirname,
+            'out/observability/extensionTracing.browser.js',
+          ),
+          external: false,
+        };
+      },
+    );
+  },
+};
 
 const builds: BuildOptions[] = [
   {
@@ -115,6 +136,7 @@ const builds: BuildOptions[] = [
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     plugins: [
+      browserStubPlugin,
       stubApexParserCheckPlugin,
       NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
       NodeModulesPolyfillPlugin(),
