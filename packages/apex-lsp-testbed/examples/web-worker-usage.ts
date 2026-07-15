@@ -6,122 +6,105 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  ApexJsonRpcClient,
-  ConsoleLogger,
-  JsonRpcClientOptions,
-} from '../src/client/ApexJsonRpcClient';
-import * as path from 'path';
+import { ApexClientCore } from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
+
+import { ApexLspTestClient } from '../src/test-utils/ApexLspTestClient';
+import { MockRpcConnection } from '../src/test-utils/MockRpcConnection';
 
 /**
- * Example of using ApexJsonRpcClient with web worker
+ * Example of using ApexLspTestClient with MockRpcConnection (SDK-backed).
+ *
+ * In production, web worker transport is handled by the SDK's
+ * `createBrowserClient` (browser entry point). This example demonstrates
+ * the testbed's mock transport for unit/demo testing without a real server.
  */
-async function exampleWebWorkerUsage() {
-  const logger = new ConsoleLogger('WebWorkerExample');
+async function exampleSdkUsage() {
+  console.log('[Example] Starting SDK-backed mock language server...');
 
-  // Configure the client to use web worker
-  const options: JsonRpcClientOptions = {
-    serverType: 'webWorker',
-    serverPath: path.join(__dirname, '../../apex-ls/out/index.js'),
-    webWorkerOptions: {
-      workerUrl: path.join(__dirname, '../../apex-ls/out/index.js'),
-      workerOptions: {
-        name: 'apex-language-server-worker',
-      },
-    },
-    initializeParams: {
-      processId: process.pid,
-      clientInfo: {
-        name: 'Web Worker Example Client',
-        version: '1.0.0',
-      },
-      capabilities: {
-        textDocument: {
-          completion: {
-            dynamicRegistration: true,
-            completionItem: {
-              snippetSupport: true,
-              commitCharactersSupport: true,
-              documentationFormat: ['markdown', 'plaintext'],
-            },
-          },
-          hover: {
-            dynamicRegistration: true,
-            contentFormat: ['markdown', 'plaintext'],
-          },
-          documentSymbol: {
-            dynamicRegistration: true,
-            hierarchicalDocumentSymbolSupport: true,
-          },
-        },
-        workspace: {
-          applyEdit: true,
-          workspaceEdit: {
-            documentChanges: true,
-          },
-        },
-      },
-      rootUri: `file://${process.cwd()}`,
-    },
-  };
+  // Create a mock connection (replaces web worker for demo/test purposes)
+  const mockConn = new MockRpcConnection();
+  const core = await ApexClientCore.create(mockConn);
+  mockConn.listen();
 
-  const client = new ApexJsonRpcClient(options, logger);
+  // Initialize the server with default settings
+  const initResult = await core.initialize(DEFAULT_APEX_SETTINGS);
+  const client = new ApexLspTestClient(core, initResult);
 
   try {
-    logger.info('Starting web worker language server...');
+    console.log('[Example] Server initialized successfully');
 
-    // Start the client (this will start the web worker)
-    await client.start();
-
-    logger.info('Web worker server started successfully');
+    // Show server capabilities
+    const capabilities = client.getServerCapabilities();
+    console.log(
+      `[Example] Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
+    );
 
     // Check if the server is healthy
-    const isHealthy = await client.isHealthy();
-    logger.info(`Server health check: ${isHealthy ? 'OK' : 'FAILED'}`);
+    const isHealthy = client.isHealthy();
+    console.log(
+      `[Example] Server health check: ${isHealthy ? 'OK' : 'FAILED'}`,
+    );
 
     if (isHealthy) {
       // Example: Open a document
       const testDocument = `
 public class TestClass {
     private String name;
-    
+
     public TestClass(String name) {
         this.name = name;
     }
-    
+
     public String getName() {
         return this.name;
     }
 }`;
 
-      await client.openTextDocument('file:///test.cls', testDocument, 'apex');
-
-      logger.info('Document opened successfully');
+      client.openTextDocument('file:///test.cls', testDocument, 'apex');
+      console.log('[Example] Document opened successfully');
 
       // Example: Get document symbols
-      const symbols = await client.documentSymbol('file:///test.cls');
-      logger.info(`Found ${symbols?.length || 0} symbols in document`);
+      const symbols = await client.documentSymbol({
+        textDocument: { uri: 'file:///test.cls' },
+      });
+      console.log(
+        `[Example] Found ${Array.isArray(symbols) ? symbols.length : 0} symbols in document`,
+      );
 
-      // Example: Send a ping
-      await client.ping();
-      logger.info('Ping successful');
+      // Example: Get hover info
+      const hoverResult = await client.hover({
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 10 },
+      });
+      console.log(`[Example] Hover result: ${JSON.stringify(hoverResult)}`);
+
+      // Example: Get completions
+      const completions = await client.completion({
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 5, character: 14 },
+      });
+      console.log(
+        `[Example] Completions: ${Array.isArray(completions) ? completions.length : 0} items`,
+      );
 
       // Close the document
-      await client.closeTextDocument('file:///test.cls');
-      logger.info('Document closed successfully');
+      client.closeTextDocument('file:///test.cls');
+      console.log('[Example] Document closed successfully');
     }
   } catch (error) {
-    logger.error(`Error: ${error}`);
+    console.error(`[Example] Error: ${error}`);
   } finally {
-    // Stop the client
-    await client.stop();
-    logger.info('Web worker server stopped');
+    // Shutdown the server
+    await core.shutdown();
+    await core.dispose();
+    console.log('[Example] Server stopped');
   }
 }
 
 // Run the example if this file is executed directly
 if (require.main === module) {
-  exampleWebWorkerUsage().catch(console.error);
+  exampleSdkUsage().catch(console.error);
 }
 
-export { exampleWebWorkerUsage };
+export { exampleSdkUsage };
