@@ -58,7 +58,8 @@
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
-        "../apex-parser-ast:compile"
+        "../apex-parser-ast:compile",
+        "../apex-lsp-client:compile"
       ],
       "output": [
         "out/**"
@@ -198,6 +199,7 @@
     }
   },
   "dependencies": {
+    "@salesforce/apex-lsp-client": "1.0.0",
     "data-structure-typed": "^2.6.2",
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver": "^9.0.1",
