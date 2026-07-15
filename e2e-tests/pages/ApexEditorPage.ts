@@ -310,8 +310,13 @@ export class ApexEditorPage extends BasePage {
    */
   async openCodeActions(): Promise<string[]> {
     const { expect } = await import('@playwright/test');
-    const actionWidget = this.page.locator('.action-widget');
-    const rows = actionWidget.locator('.actionList .action-item .title');
+    // Monaco keeps more than one `.action-widget` in the DOM (e.g. a hidden
+    // template alongside the live one), so an unscoped locator trips
+    // Playwright strict mode. Scope to the visible widget. The action rows
+    // render as ARIA `option` elements (accessible name = "<title>, <group>"),
+    // not `.action-item .title`, so target them by role.
+    const actionWidget = this.page.locator('.action-widget:visible');
+    const rows = actionWidget.getByRole('option');
 
     let titles: string[] = [];
     await expect(async () => {
@@ -354,19 +359,37 @@ export class ApexEditorPage extends BasePage {
   /**
    * Select and apply an offered code action by (partial) title from the open
    * Code Action widget. Assumes {@link openCodeActions} has been called and the
-   * widget is visible. Clicks the matching `.actionList` row, then waits for the
-   * widget to close (the WorkspaceEdit is applied on accept).
+   * widget is visible.
+   *
+   * The widget is keyboard-driven: a Monaco `.context-view-pointerBlock`
+   * overlay intercepts pointer events, so a direct `.click()` on the row is
+   * unreliable. Instead we arrow-key down to the matching row (each row's
+   * `focused` class tracks the active option) and press Enter to apply — the
+   * interaction the widget's "Enter to Apply" affordance expects. The
+   * WorkspaceEdit is applied on accept and the widget closes.
    *
    * @param titleFragment - Substring of the action title to apply (e.g. "Extract local variable").
    */
   async applyCodeAction(titleFragment: string): Promise<void> {
-    const actionWidget = this.page.locator('.action-widget');
-    const row = actionWidget
-      .locator('.actionList .action-item')
-      .filter({ hasText: titleFragment })
-      .first();
-    await row.waitFor({ state: 'visible', timeout: this.defaultTimeout });
-    await row.click();
+    const actionWidget = this.page.locator('.action-widget:visible');
+    const options = actionWidget.getByRole('option');
+    const target = options.filter({ hasText: titleFragment }).first();
+    await target.waitFor({ state: 'visible', timeout: this.defaultTimeout });
+
+    // Walk focus down until the target row carries Monaco's `focused` class,
+    // then accept. Bounded by the number of offered actions.
+    const count = await options.count();
+    for (let i = 0; i < count; i++) {
+      const focusedLabel = await actionWidget
+        .locator('.monaco-list-row.focused')
+        .getAttribute('aria-label')
+        .catch(() => null);
+      if (focusedLabel && focusedLabel.includes(titleFragment)) {
+        break;
+      }
+      await this.page.keyboard.press('ArrowDown');
+    }
+    await this.page.keyboard.press('Enter');
     await actionWidget
       .waitFor({ state: 'hidden', timeout: this.defaultTimeout })
       .catch(() => {});

@@ -1582,6 +1582,15 @@ export class LCSAdapter {
         allCapabilities.referencesProvider;
     }
 
+    // codeActionProvider must be in the initial response for the Refactor / quick-fix
+    // menus to appear — VS Code gates those UIs on the advertised capability, and (like
+    // references) does not honor dynamic registration for it. Only set in the development
+    // profile, so this stays dev-only until production enablement (W-23389340).
+    if (allCapabilities.codeActionProvider) {
+      staticCapabilities.codeActionProvider =
+        allCapabilities.codeActionProvider;
+    }
+
     if (
       allCapabilities.definitionProvider &&
       !params.capabilities.textDocument?.definition?.dynamicRegistration

@@ -30,23 +30,11 @@ import { test, expect } from '../fixtures/apexFixtures';
  * until type inference lands (a separate story), and the generated name is
  * `v1`/`v2`/… so assertions match on structure, not an exact type or name.
  *
- * KNOWN BLOCKER (test.fixme): the language server returns an empty code-action
- * result over the worker request-pool, so VS Code shows "No refactorings
- * available" and no action ever surfaces. This was isolated during
- * implementation: an unconditional server-side probe action injected into
- * `CodeActionProcessingService.getExtractActions` also failed to reach the
- * editor, while hover / go-to-definition / completion / find-references — which
- * traverse the identical request-pool + wire-schema path — all work. The bug is
- * therefore in the product code-action pool path (a distinct web-pool response
- * regression, NOT the 05.4 capability gating). This is a test-only story, so
- * per its scope the product code was left unchanged and the test is marked
- * `fixme`; remove `test.fixme` once the pool code-action response is fixed.
- *
  * @group code-action
  */
 
 test.describe('Apex Extract Variable Code Action', () => {
-  test.fixme('offers and applies "Extract local variable" for a selected sub-expression', async ({
+  test('offers and applies "Extract local variable" for a selected sub-expression', async ({
     apexEditor,
   }) => {
     await test.step('Open the extract-variable fixture', async () => {
