@@ -67,6 +67,9 @@ const builds: BuildOptions[] = [
     // Node bundle: only externalize VS Code API and Node built-ins
     // OTEL packages are bundled (they're Node-compatible)
     external: ['vscode', 'vm', 'net', 'worker_threads'],
+    // Resolve effect's ESM build so unused submodules (e.g. fast-check via Schema) tree-shake out.
+    // Stays CJS output; esbuild transpiles ESM imports. Matches services extension optimization.
+    conditions: ['import', 'module', 'default'],
     // Node bundle runs in a Node extension host (desktop VS Code + code-server).
     define: { __APEX_LS_TARGET__: '"desktop"' },
     footer: undefined,
@@ -191,14 +194,50 @@ const builds: BuildOptions[] = [
 ];
 
 async function run(watch = false): Promise<void> {
-  await runBuilds(builds, {
-    watch,
-    onError: (error) => {
-      console.error('❌ Rebuild failed', error);
-    },
-    label: 'apex-lsp-vscode-extension',
-    logWatchStart: true,
-  });
+  if (watch) {
+    // Watch mode: use runBuilds helper (no metafile generation)
+    await runBuilds(builds, {
+      watch,
+      onError: (error) => {
+        console.error('❌ Rebuild failed', error);
+      },
+      label: 'apex-lsp-vscode-extension',
+      logWatchStart: true,
+    });
+  } else {
+    // Production build: enable metafile generation for bundle analysis
+    const { build } = await import('esbuild');
+    const { writeFile } = await import('node:fs/promises');
+
+    // Build with metafile enabled
+    const buildsWithMetafile = builds.map((config) => ({
+      ...config,
+      metafile: true,
+    }));
+
+    const results = await Promise.all(
+      buildsWithMetafile.map((config) => build(config)),
+    );
+
+    // Write metafiles for analysis
+    if (results[0]?.metafile) {
+      await writeFile(
+        'dist/extension-node-metafile.json',
+        JSON.stringify(results[0].metafile, null, 2),
+      );
+      console.log('📊 Wrote dist/extension-node-metafile.json');
+    }
+
+    if (results[1]?.metafile) {
+      await writeFile(
+        'dist/extension-web-metafile.json',
+        JSON.stringify(results[1].metafile, null, 2),
+      );
+      console.log('📊 Wrote dist/extension-web-metafile.json');
+    }
+
+    console.log('✅ esbuild build complete for apex-lsp-vscode-extension');
+  }
 }
 
 (async () => {

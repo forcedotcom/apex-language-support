@@ -109,8 +109,8 @@ const builds: BuildOptions[] = [
       'vscode-languageserver-protocol/browser':
         'vscode-languageserver-protocol/node',
     },
-    // Ensure Node.js resolution for vscode-languageserver packages
-    conditions: ['node', 'require', 'default'],
+    // Resolve effect's ESM build for tree-shaking; keep node/require for vscode-languageserver compat
+    conditions: ['node', 'import', 'module', 'require', 'default'],
     mainFields: ['main', 'module'],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     // This embeds the ZIP and gzipped protobuf cache directly into the server bundle
@@ -131,7 +131,8 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: NODE_SERVER_EXTERNAL,
     keepNames: true,
-    conditions: ['node', 'require', 'default'],
+    // Resolve effect's ESM build for tree-shaking; keep node/require for Node.js compat
+    conditions: ['node', 'import', 'module', 'require', 'default'],
     mainFields: ['main', 'module'],
     loader: {
       '.zip': 'dataurl',
