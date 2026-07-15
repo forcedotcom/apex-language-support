@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
+import type { ApexClientMiddleware } from '@salesforce/apex-lsp-client';
+import type { Disposable } from '@salesforce/apex-lsp-shared';
+
+import type { ApexLspTestClient } from './ApexLspTestClient';
 
 /**
  * Represents a captured LSP notification
@@ -18,43 +21,40 @@ export interface CapturedNotification {
 }
 
 /**
- * Middleware for capturing LSP notifications sent from server to client.
- * Useful for integration testing to verify protocol messages over the wire.
+ * SDK-native middleware for capturing LSP notifications sent from server to client.
+ *
+ * Implements `ApexClientMiddleware` so it can be installed via `client.use(mw)`.
+ * Intercepts incoming (server-to-client) notifications to capture them for
+ * integration testing and protocol verification.
  */
-export class NotificationCapturingMiddleware {
+export class NotificationCapturingMiddleware implements ApexClientMiddleware {
   private notifications: CapturedNotification[] = [];
-  private disposables: any[] = [];
+  private disposable: Disposable | null = null;
 
   /**
-   * Install this middleware on an ApexJsonRpcClient to capture notifications
-   * @param client The client to install on
+   * Install this middleware on an ApexLspTestClient.
+   * Returns the Disposable for uninstalling.
    */
-  public installOnClient(client: ApexJsonRpcClient): void {
-    // Register a listener for window/logMessage notifications
-    const disposable = client.onNotification(
-      'window/logMessage',
-      (params: any) => {
-        this.notifications.push({
-          method: 'window/logMessage',
-          params,
-          timestamp: Date.now(),
-        });
-      },
-    );
+  public installOnClient(client: ApexLspTestClient): Disposable {
+    this.disposable = client.use(this);
+    return this.disposable;
+  }
 
-    this.disposables.push(disposable);
+  // --- ApexClientMiddleware implementation ---
 
-    // Also capture $/logMessage if needed
-    const disposable2 = client.onNotification('$/logMessage', (params: any) => {
+  onNotification<P>(method: string, params: P, next: (p: P) => void): void {
+    // Capture window/logMessage and $/logMessage notifications
+    if (method === 'window/logMessage' || method === '$/logMessage') {
       this.notifications.push({
-        method: '$/logMessage',
+        method,
         params,
         timestamp: Date.now(),
       });
-    });
-
-    this.disposables.push(disposable2);
+    }
+    next(params);
   }
+
+  // --- Query methods ---
 
   /**
    * Get all captured notifications
@@ -146,10 +146,10 @@ export class NotificationCapturingMiddleware {
    * Dispose of all registered notification listeners
    */
   public dispose(): void {
-    for (const disposable of this.disposables) {
-      disposable.dispose();
+    if (this.disposable) {
+      this.disposable.dispose();
+      this.disposable = null;
     }
-    this.disposables = [];
     this.notifications = [];
   }
 }
