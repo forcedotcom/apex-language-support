@@ -26,6 +26,9 @@ import {
   DocumentDiagnosticReportKind,
   FoldingRangeParams,
   CodeLensParams,
+  CodeActionParams,
+  CodeAction,
+  Command,
   ClientCapabilities,
   Registration,
   ServerCapabilities,
@@ -739,6 +742,33 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.codeActionProvider) {
+      this.connection.onCodeAction(
+        async (
+          params: CodeActionParams,
+          token: CancellationToken,
+        ): Promise<(Command | CodeAction)[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.CODE_ACTION,
+            'textDocument/codeAction',
+            params,
+            (p) =>
+              LSPQueueManager.getInstance().submitCodeActionRequest(p, token),
+            null,
+            {
+              'document.range':
+                `${params.range.start.line}:${params.range.start.character}` +
+                `-${params.range.end.line}:${params.range.end.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Code action handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Code action handler not registered (capability disabled)',
       );
     }
 
