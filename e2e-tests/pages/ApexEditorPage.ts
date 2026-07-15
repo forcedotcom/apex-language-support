@@ -266,6 +266,113 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Select a range in the editor by positioning at a start line/column and
+   * extending the selection a number of characters to the right.
+   *
+   * Uses Go-to-Line to place the cursor deterministically (same mechanism as
+   * {@link goToPosition}), then Shift+ArrowRight to grow the selection. This
+   * avoids pixel-based click-drag, which is fragile across web/desktop and
+   * varying font metrics.
+   *
+   * @param line - 1-indexed line of the selection start
+   * @param column - 1-indexed column of the selection start
+   * @param length - number of characters to select to the right
+   */
+  async selectRange(
+    line: number,
+    column: number,
+    length: number,
+  ): Promise<void> {
+    await this.goToPosition(line, column);
+    for (let i = 0; i < length; i++) {
+      await this.page.keyboard.press('Shift+ArrowRight');
+    }
+  }
+
+  /**
+   * Open the Code Action (Refactor / Quick Fix) widget at the current
+   * selection and return the titles of the offered actions.
+   *
+   * Triggers the "Refactor..." command via its keyboard shortcut
+   * (Ctrl+Shift+R). The keybinding is used instead of the command palette so
+   * the editor keeps keyboard focus and the active selection — routing through
+   * the palette clicks the workbench and collapses the selection, which yields
+   * "No refactorings available". The action list renders in Monaco's
+   * `.action-widget` (`.actionList`), whose rows carry the action titles.
+   *
+   * Re-triggers until the list is populated: on the web request-pool the
+   * language server may not have loaded the file's symbols on the first
+   * invocation (a transient "No refactorings available"), so a single trigger
+   * can race the pool warm-up. The widget is left OPEN on success so callers
+   * can select an action; dismiss it with Escape when done.
+   *
+   * @returns The trimmed titles of the offered code actions.
+   */
+  async openCodeActions(): Promise<string[]> {
+    const { expect } = await import('@playwright/test');
+    const actionWidget = this.page.locator('.action-widget');
+    const rows = actionWidget.locator('.actionList .action-item .title');
+
+    let titles: string[] = [];
+    await expect(async () => {
+      // Close any lingering Find widget so the editor keeps keyboard focus and
+      // the selection is preserved (same hazard guarded against in
+      // goToDefinition). Also dismiss a prior "No refactorings available"
+      // widget from a previous attempt.
+      const findWidget = this.page.locator('.editor-widget.find-widget');
+      if (await findWidget.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await findWidget
+          .waitFor({ state: 'hidden', timeout: 3000 })
+          .catch(() => {});
+      }
+      if (await actionWidget.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await actionWidget
+          .waitFor({ state: 'hidden', timeout: 1000 })
+          .catch(() => {});
+      }
+
+      await this.page.keyboard.press('Control+Shift+R');
+
+      // A populated list renders at least one `.action-item`; the transient
+      // "No refactorings available" message does not, so poll for the row.
+      await rows.first().waitFor({ state: 'visible', timeout: 3000 });
+
+      const found = (await rows.allTextContents())
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      expect(found.length, 'Expected at least one code action').toBeGreaterThan(
+        0,
+      );
+      titles = found;
+    }).toPass({ timeout: this.defaultTimeout });
+
+    return titles;
+  }
+
+  /**
+   * Select and apply an offered code action by (partial) title from the open
+   * Code Action widget. Assumes {@link openCodeActions} has been called and the
+   * widget is visible. Clicks the matching `.actionList` row, then waits for the
+   * widget to close (the WorkspaceEdit is applied on accept).
+   *
+   * @param titleFragment - Substring of the action title to apply (e.g. "Extract local variable").
+   */
+  async applyCodeAction(titleFragment: string): Promise<void> {
+    const actionWidget = this.page.locator('.action-widget');
+    const row = actionWidget
+      .locator('.actionList .action-item')
+      .filter({ hasText: titleFragment })
+      .first();
+    await row.waitFor({ state: 'visible', timeout: this.defaultTimeout });
+    await row.click();
+    await actionWidget
+      .waitFor({ state: 'hidden', timeout: this.defaultTimeout })
+      .catch(() => {});
+  }
+
+  /**
    * Trigger completion/IntelliSense at the current cursor position.
    * Uses Ctrl+Space keyboard shortcut.
    */
