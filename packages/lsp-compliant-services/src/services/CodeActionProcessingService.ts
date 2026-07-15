@@ -11,15 +11,21 @@ import {
   CodeAction,
   CodeActionKind,
   Range,
+  Position,
   Diagnostic,
+  TextEdit,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { ParserRuleContext } from 'antlr4';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
+  CompilerService,
+  ApexFoldingRangeListener,
+  findExpressionAtRange,
 } from '@salesforce/apex-lsp-parser-ast';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
 
@@ -49,6 +55,11 @@ export interface CodeActionContext {
   currentScope: string;
   isStatic: boolean;
   accessModifier: 'public' | 'private' | 'protected' | 'global';
+  /**
+   * Cached CST for the document, used by the eager Extract Variable / Extract
+   * Constant refactorings. `undefined` when the document could not be parsed.
+   */
+  parseTree?: ParserRuleContext;
 }
 
 /**
@@ -57,12 +68,14 @@ export interface CodeActionContext {
 export class CodeActionProcessingService implements ICodeActionProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private readonly compilerService: CompilerService;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.compilerService = new CompilerService();
   }
 
   /**
@@ -124,6 +137,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     const isStatic = this.isInStaticContext(text, offset);
     const accessModifier = this.getAccessModifierContext(text, offset);
     const currentScope = this.extractCurrentScope(text, offset);
+    const parseTree = this.getParseTree(document);
 
     return {
       document,
@@ -136,7 +150,33 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       currentScope,
       isStatic,
       accessModifier,
+      parseTree,
     };
+  }
+
+  /**
+   * Parse the document into a CST for the eager extract refactorings.
+   *
+   * Uses {@link CompilerService} the same way sibling providers do (e.g. the
+   * folding-range provider): compile with a lightweight listener purely to
+   * obtain `CompilationResult.parseTree`. Returns `undefined` (never throws) on
+   * parse failure so the extract actions simply degrade to "not offered".
+   */
+  private getParseTree(document: TextDocument): ParserRuleContext | undefined {
+    try {
+      const result = this.compilerService.compile(
+        document.getText(),
+        document.uri,
+        new ApexFoldingRangeListener(),
+        { includeComments: false },
+      );
+      return result.parseTree;
+    } catch (error) {
+      this.logger.debug(
+        () => `Unable to parse document for extract actions: ${error}`,
+      );
+      return undefined;
+    }
   }
 
   /**
@@ -177,6 +217,12 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     context: CodeActionContext,
   ): Promise<CodeAction[]> {
     const actions: CodeAction[] = [];
+
+    // Eager (Jorje-parity) extract refactorings. These compute complete
+    // WorkspaceEdits up front (no codeAction/resolve round-trip) and do not
+    // depend on the symbol-manager lookup below, so they run first.
+    const extractActions = this.getExtractActions(context);
+    actions.push(...extractActions);
 
     if (!context.symbolName) {
       return actions;
@@ -232,6 +278,126 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     }
 
     return actions;
+  }
+
+  /**
+   * Build the eager Extract Local Variable and Extract Constant code actions for
+   * the current selection.
+   *
+   * Both are computed against the document CST via the shared
+   * {@link findExpressionAtRange} finder (story 05.0). When the selection is not
+   * a single, well-formed expression inside a method body the finder returns
+   * `null` and the action is not offered.
+   */
+  private getExtractActions(context: CodeActionContext): CodeAction[] {
+    const actions: CodeAction[] = [];
+
+    if (!context.parseTree) {
+      return actions;
+    }
+
+    let found;
+    try {
+      found = findExpressionAtRange(context.parseTree, context.range);
+    } catch (error) {
+      this.logger.debug(() => `Extract finder error: ${error}`);
+      return actions;
+    }
+
+    if (!found) {
+      return actions;
+    }
+
+    const { expression, statementStart, indent } = found;
+    const text = context.document.getText();
+    const exprText = text.substring(
+      expression.start.start,
+      (expression.stop ?? expression.start).stop + 1,
+    );
+    if (!exprText) {
+      return actions;
+    }
+
+    const variableName = this.generateExtractName(text);
+
+    const variableAction = this.buildExtractVariableAction(
+      context,
+      text,
+      statementStart,
+      indent,
+      exprText,
+      variableName,
+    );
+    if (variableAction) {
+      actions.push(variableAction);
+    }
+
+    return actions;
+  }
+
+  /**
+   * Build the Extract Local Variable WorkspaceEdit.
+   *
+   * Produces two TextEdits on the current document:
+   *   1. an insertion of `<indent><T> <name> = <exprText>;\n` at the start of
+   *      the enclosing statement's line, and
+   *   2. a replacement of the selected range with `<name>`.
+   *
+   * Type inference is a separate story (01.1); until then the declared type
+   * falls back to `Object` and a trailing comment documents the limitation.
+   */
+  private buildExtractVariableAction(
+    context: CodeActionContext,
+    text: string,
+    statementStart: number,
+    indent: string,
+    exprText: string,
+    variableName: string,
+  ): CodeAction | null {
+    const insertPosition = context.document.positionAt(statementStart);
+    // Anchor the insertion at the very start of the statement's line so the new
+    // declaration lands above the statement with matching indentation.
+    const lineStart: Position = {
+      line: insertPosition.line,
+      character: 0,
+    };
+
+    const declaration = `${indent}Object ${variableName} = ${exprText}; // TODO: infer type (was Object)\n`;
+
+    const insertEdit: TextEdit = {
+      range: { start: lineStart, end: lineStart },
+      newText: declaration,
+    };
+    const replaceEdit: TextEdit = {
+      range: context.range,
+      newText: variableName,
+    };
+
+    return {
+      title: 'Extract local variable',
+      kind: CodeActionKind.RefactorExtract,
+      edit: {
+        changes: {
+          [context.document.uri]: [insertEdit, replaceEdit],
+        },
+      },
+    };
+  }
+
+  /**
+   * Generate an extracted-symbol name (`v1`, `v2`, …) that does not collide with
+   * an identifier already present in the document. This is a pragmatic,
+   * text-based collision check; precise scope analysis is out of scope here.
+   */
+  private generateExtractName(text: string): string {
+    for (let index = 1; index < 1000; index++) {
+      const candidate = `v${index}`;
+      const wordBoundary = new RegExp(`\\b${candidate}\\b`);
+      if (!wordBoundary.test(text)) {
+        return candidate;
+      }
+    }
+    return `v${Date.now()}`;
   }
 
   /**

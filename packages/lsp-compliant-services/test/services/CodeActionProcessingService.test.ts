@@ -8,6 +8,8 @@
 
 import {
   CodeActionParams,
+  CodeAction,
+  CodeActionKind,
   Range,
   Diagnostic,
 } from 'vscode-languageserver-protocol';
@@ -381,6 +383,110 @@ describe('CodeActionProcessingService', () => {
 
       // Assert
       expect(Array.isArray(actions)).toBe(true);
+    });
+  });
+
+  describe('extract refactorings (eager WorkspaceEdit)', () => {
+    const uri = 'file:///test/Extract.cls';
+
+    /**
+     * Build a real TextDocument (so positionAt/offsetAt behave correctly) and
+     * return the LSP range covering the first occurrence of `selection`.
+     */
+    const setupDocument = (
+      source: string,
+      selection: string,
+    ): { params: CodeActionParams } => {
+      const doc = TextDocument.create(uri, 'apex', 1, source);
+      const startOffset = source.indexOf(selection);
+      const range: Range = {
+        start: doc.positionAt(startOffset),
+        end: doc.positionAt(startOffset + selection.length),
+      };
+      (mockStorage.getDocument as jest.Mock).mockResolvedValue(doc);
+      return {
+        params: {
+          textDocument: { uri },
+          range,
+          context: { diagnostics: [], only: undefined, triggerKind: 1 },
+        },
+      };
+    };
+
+    const findAction = (
+      actions: CodeAction[],
+      title: string,
+    ): CodeAction | undefined => actions.find((a) => a.title === title);
+
+    it('offers Extract local variable for an expression selection', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer total = 1 + 2;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, '1 + 2');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      expect(action).toBeDefined();
+      expect(action?.kind).toBe(CodeActionKind.RefactorExtract);
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits).toHaveLength(2);
+      // First edit inserts a declaration; second replaces the selection.
+      expect(edits?.[0].newText).toMatch(/Object v1 = 1 \+ 2;/);
+      expect(edits?.[0].newText.endsWith('\n')).toBe(true);
+      expect(edits?.[1].newText).toBe('v1');
+      expect(edits?.[1].range).toEqual(params.range);
+    });
+
+    it('does not offer extract actions for a non-expression selection', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer total = 1 + 2;',
+        '  }',
+        '}',
+      ].join('\n');
+      // Select across the whole statement (not a single expression).
+      const { params } = setupDocument(source, 'Integer total = 1 + 2;');
+
+      const result = await service.processCodeAction(params);
+
+      expect(findAction(result, 'Extract local variable')).toBeUndefined();
+      expect(findAction(result, 'Extract constant')).toBeUndefined();
+    });
+
+    it('avoids name collisions with existing identifiers', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer v1 = 10;',
+        '    Integer total = 1 + 2;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, '1 + 2');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      expect(action).toBeDefined();
+      // v1 already exists, so the generated name must skip it.
+      expect(action?.edit?.changes?.[uri]?.[1].newText).toBe('v2');
+    });
+
+    it('does not throw and offers no extract actions on syntax-error input', async () => {
+      const source = 'public class Extract { public void ( { @@@ }';
+      const { params } = setupDocument(source, '@@@');
+
+      const result = await service.processCodeAction(params);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(findAction(result, 'Extract local variable')).toBeUndefined();
+      expect(findAction(result, 'Extract constant')).toBeUndefined();
     });
   });
 
