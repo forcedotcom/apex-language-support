@@ -12,8 +12,7 @@ import {
 } from '@salesforce/apex-lsp-client';
 import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
 
-import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
-import { ServerType } from './serverUtils';
+import { JsonRpcClientOptions, ServerType } from './serverUtils';
 import { ApexLspTestClient } from '../test-utils/ApexLspTestClient';
 import { MockRpcConnection } from '../test-utils/MockRpcConnection';
 
