@@ -49,6 +49,7 @@
       "output": [
         "resources/apex-stdlib.pb.gz",
         "resources/apex-type-registry.pb.gz",
+        "resources/apex-fqn-index.pb.gz",
         "resources/apex-stdlib.sha256"
       ],
       "files": [

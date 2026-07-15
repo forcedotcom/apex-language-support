@@ -183,6 +183,22 @@ async function makeResourceLoaderRemoteLayer() {
   const { ResourceLoaderService } =
     await import('@salesforce/apex-lsp-parser-ast');
   const L = await import('effect/Layer');
+
+  // Load FQN index from embedded artifact for local stdlib class resolution
+  let fqnIndex: Map<string, string> | null = null;
+  try {
+    const { getEmbeddedFqnIndexDataUrl, loadFqnIndexFromGzip } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const dataUrl = getEmbeddedFqnIndexDataUrl();
+    if (dataUrl) {
+      const base64 = dataUrl.split(',')[1];
+      const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      fqnIndex = loadFqnIndexFromGzip(buffer);
+    }
+  } catch {
+    // Expected in unbundled/dev builds; fall through to IPC
+  }
+
   const impl = {
     isStdApexNamespace(ns: string): boolean {
       if (!remoteStdlibNamespaceMap) return false;
@@ -213,6 +229,30 @@ async function makeResourceLoaderRemoteLayer() {
       return result;
     },
     async resolveClassFqn(className: string): Promise<string | null> {
+      // Local resolution from embedded FQN index (zero IPC)
+      if (fqnIndex) {
+        const normalizedInput = className.replace(/\.cls$/i, '');
+        const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
+
+        // Qualified input (namespace.class): try qualified key only
+        if (pathParts.length >= 2) {
+          const qualifiedKey = pathParts.join('.').toLowerCase();
+          const fqn = fqnIndex.get(qualifiedKey);
+          // If user specified a namespace explicitly, respect it — don't fall
+          // through to unqualified. Return fqn or null (miss = wrong namespace).
+          if (fqn) return fqn;
+          // Miss: the specified namespace doesn't have this class (or non-stdlib)
+          // Fall through to IPC for non-stdlib user types or edge cases
+        } else {
+          // Unqualified input: try unqualified key
+          const unqualifiedKey = pathParts[0].toLowerCase();
+          const fqn = fqnIndex.get(unqualifiedKey);
+          if (fqn) return fqn;
+          // Miss: unknown class, fall through to IPC
+        }
+      }
+
+      // Fallback: IPC to resourceLoader worker (unbundled/dev, or unknown class)
       try {
         return (await requestCoordinatorAssistancePromise(
           'resourceLoader:resolveClass',

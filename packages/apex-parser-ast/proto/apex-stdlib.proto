@@ -196,3 +196,20 @@ message TypeRegistry {
   string source_checksum = 2;  // SHA256 of source .cls files
   repeated TypeRegistryEntry entries = 3;
 }
+
+// ============================================================================
+// FQN Index Messages (for local stdlib class resolution without IPC)
+// ============================================================================
+
+// A single FQN index entry mapping a normalized key to a canonical FQN
+message FqnIndexEntry {
+  string key = 1;              // Normalized (lowercased) key: "assert" or "system.assert"
+  string fqn = 2;              // Canonical FQN: "System.Assert"
+}
+
+// Root message for FQN index cache
+message FqnIndex {
+  string generated_at = 1;     // ISO timestamp
+  string source_checksum = 2;  // SHA256 of source .cls files
+  repeated FqnIndexEntry entries = 3;
+}
