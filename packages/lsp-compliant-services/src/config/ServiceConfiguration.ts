@@ -48,7 +48,12 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'definition',
     priority: Priority.High,
-    timeout: 1000,
+    // The request-pool path loads the cursor symbol subset, resolves
+    // dependencies, performs strict/full enrichment, and writes enriched data
+    // back to the data-owner before replying. The former local-service budget
+    // of 1s cancelled correct distributed results while that work was still in
+    // progress, especially when tracing was enabled.
+    timeout: 5000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDefinitionService(),
   },

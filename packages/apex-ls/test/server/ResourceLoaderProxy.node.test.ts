@@ -63,6 +63,20 @@ describe('ResourceLoaderProxy (Step 9)', () => {
     expect(result).not.toBeNull();
   });
 
+  it('reuses completed immutable stdlib loads across callers', async () => {
+    const worker = topology.resourceLoader!;
+    const executeSpy = jest.spyOn(worker, 'executeEffect');
+    const proxy = new ResourceLoaderProxy(worker, logger);
+
+    const first = await proxy.getSymbolTable('System/String.cls');
+    const second = await proxy.getSymbolTable('system/string.cls');
+
+    expect(first).not.toBeNull();
+    expect(second).toBe(first);
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    executeSpy.mockRestore();
+  });
+
   it('getSymbolTable returns null for unknown class', async () => {
     const proxy = new ResourceLoaderProxy(topology.resourceLoader!, logger);
     const result = await proxy.getSymbolTable('Nonexistent/Foo.cls');

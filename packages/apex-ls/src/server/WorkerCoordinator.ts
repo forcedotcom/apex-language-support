@@ -65,6 +65,7 @@ import type {
   WorkerHandle,
   PoolHandle,
 } from '@salesforce/apex-lsp-compliant-services';
+import { injectTraceContextFromOtelSpan } from './traceContextInjection';
 
 // ---------------------------------------------------------------------------
 // Worker Layer factory (Node.js — dynamically imported to avoid bundling
@@ -277,6 +278,8 @@ export interface TopologyConfig {
   readonly logLevel?: string;
   /** Mirrors LSP `apex.environment.serverMode` for worker-side capabilities (e.g. dev hover metrics). */
   readonly serverMode?: 'production' | 'development';
+  /** Span collector URL for worker tracing (desktop only, if provided by extension). */
+  readonly spanCollectorUrl?: string;
   /** Per-role worker layer factory. When provided, each worker spawn uses a role-specific layer
    *  (e.g. with custom execArgv for profiling/debug). When omitted, the caller must provide
    *  Worker.WorkerManager | Worker.Spawner externally (existing behavior). */
@@ -289,12 +292,14 @@ const makeInitMessage = (
   role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
+  spanCollectorUrl?: string,
 ) =>
   new WorkerInit({
     role,
     protocolVersion: WIRE_PROTOCOL_VERSION,
     logLevel,
     serverMode,
+    spanCollectorUrl,
   });
 
 export function clampPoolSize(requested: number): number {
@@ -308,6 +313,28 @@ export function clampPoolSize(requested: number): number {
   const max = Math.max(1, cpuCount - 2);
   return Math.max(1, Math.min(requested, max));
 }
+
+// ---------------------------------------------------------------------------
+// Trace context injection helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Inject trace context into a message payload using OTEL's global active span.
+ * Mutates the message object by adding a traceContext field if a span is active.
+ *
+ * This must be called synchronously within the same call stack as runWithSpan(),
+ * otherwise the OTEL context will be lost.
+ */
+function injectTraceContextIntoMessage(message: Record<string, unknown>): void {
+  const enriched = injectTraceContextFromOtelSpan(message);
+  if ('traceContext' in enriched) {
+    (message as Record<string, unknown>).traceContext = enriched.traceContext;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Topology initialization
+// ---------------------------------------------------------------------------
 
 /**
  * Spawn the full worker topology and return handles.
@@ -339,7 +366,7 @@ export function initializeTopology(
   Worker.WorkerManager | Worker.Spawner | Scope.Scope
 > {
   return Effect.gen(function* () {
-    const { logger, logLevel } = config;
+    const { logger, logLevel, spanCollectorUrl } = config;
     const serverMode = config.serverMode ?? 'production';
     const poolSize = clampPoolSize(config.poolSize);
 
@@ -373,7 +400,12 @@ export function initializeTopology(
             ? withRoleLayer(
                 Worker.makeSerialized<ResourceLoaderRequest>({
                   initialMessage: () =>
-                    makeInitMessage('resourceLoader', logLevel, serverMode),
+                    makeInitMessage(
+                      'resourceLoader',
+                      logLevel,
+                      serverMode,
+                      spanCollectorUrl,
+                    ),
                 }),
                 'resourceLoader',
               )
@@ -381,14 +413,24 @@ export function initializeTopology(
           withRoleLayer(
             Worker.makeSerialized<DataOwnerRequest>({
               initialMessage: () =>
-                makeInitMessage('dataOwner', logLevel, serverMode),
+                makeInitMessage(
+                  'dataOwner',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
             }),
             'dataOwner',
           ),
           withRoleLayer(
             Worker.makeSerialized<CompilationRequest>({
               initialMessage: () =>
-                makeInitMessage('compilation', logLevel, serverMode),
+                makeInitMessage(
+                  'compilation',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
             }),
             'compilation',
           ),
@@ -396,7 +438,12 @@ export function initializeTopology(
             Worker.makePoolSerialized<LspRequestMessage>({
               size: poolSize,
               initialMessage: () =>
-                makeInitMessage('lspRequest', logLevel, serverMode),
+                makeInitMessage(
+                  'lspRequest',
+                  logLevel,
+                  serverMode,
+                  spanCollectorUrl,
+                ),
             }),
             'lspRequest',
           ),
@@ -680,6 +727,12 @@ function createDispatcher(
 } {
   let available = true;
   let dispatchedCount = 0;
+  const sendTracedToDataOwner = (message: DataOwnerRequest) => {
+    injectTraceContextIntoMessage(
+      message as unknown as Record<string, unknown>,
+    );
+    return callbacks.sendToDataOwner(message);
+  };
 
   return {
     isAvailable: () => available,
@@ -736,6 +789,15 @@ function createDispatcher(
       ) {
         const dataOwnerMsg = buildDataOwnerMessage(type, params);
         const compileMsg = buildCompileMessage(type, params);
+
+        // Inject trace context into both messages
+        injectTraceContextIntoMessage(
+          dataOwnerMsg as unknown as Record<string, unknown>,
+        );
+        injectTraceContextIntoMessage(
+          compileMsg as unknown as Record<string, unknown>,
+        );
+
         logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
         // Store the document on the data-owner BEFORE dispatching the compile.
         // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
@@ -758,6 +820,9 @@ function createDispatcher(
 
       if (DATA_OWNER_TYPES.has(type)) {
         const msg = buildDataOwnerMessage(type, params);
+        injectTraceContextIntoMessage(
+          msg as unknown as Record<string, unknown>,
+        );
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
         return callbacks.sendToDataOwner(msg);
       }
@@ -766,6 +831,7 @@ function createDispatcher(
         params,
         callbacks.getDocumentContent,
       );
+      injectTraceContextIntoMessage(msg as unknown as Record<string, unknown>);
       logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
       return (response as { result: unknown }).result;
@@ -790,9 +856,11 @@ function createDispatcher(
             '[WorkerDispatch] → dataOwner: WorkspaceBatchIngest ' +
             `(session=${sessionId}, entries=${entries.length})`,
         );
-        return callbacks.sendBatch(
-          new WorkspaceBatchIngest({ sessionId, entries }),
+        const message = new WorkspaceBatchIngest({ sessionId, entries });
+        injectTraceContextIntoMessage(
+          message as unknown as Record<string, unknown>,
         );
+        return callbacks.sendBatch(message);
       };
     },
 
@@ -803,9 +871,11 @@ function createDispatcher(
             '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
             `(session=${sessionId}, entries=${entries.length})`,
         );
-        return callbacks.sendToCompilation(
-          new WorkspaceBatchCompile({ sessionId, entries }),
-        ) as Promise<{
+        const message = new WorkspaceBatchCompile({ sessionId, entries });
+        injectTraceContextIntoMessage(
+          message as unknown as Record<string, unknown>,
+        );
+        return callbacks.sendToCompilation(message) as Promise<{
           compiledCount: number;
           errorCount: number;
           elapsedMs: number;
@@ -822,6 +892,9 @@ function createDispatcher(
             const msg = new DispatchCrossFileEnrichment({
               textDocument: { uri },
             });
+            injectTraceContextIntoMessage(
+              msg as unknown as Record<string, unknown>,
+            );
             await callbacks.dispatchToPool(msg);
             resolved++;
           } catch {
@@ -836,7 +909,7 @@ function createDispatcher(
       switch (method) {
         case 'QuerySymbolSubset': {
           const pqs = params as { uris?: string[] };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
             }),
@@ -848,7 +921,7 @@ function createDispatcher(
             version?: number;
             timeoutMs?: number;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new AwaitSymbolReadiness({
               uri: par.uri ?? '',
               version: par.version ?? 0,
@@ -865,7 +938,7 @@ function createDispatcher(
               'public-api' | 'protected' | 'private' | 'full';
             sourceWorkerId: string;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new UpdateSymbolSubset({
               uri: pus.uri,
               documentVersion: pus.documentVersion,
@@ -877,7 +950,7 @@ function createDispatcher(
         }
         case 'ResolveDepUris': {
           const prd = params as { classNames?: string[] };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new ResolveDepUris({
               classNames: prd.classNames ?? [],
             }),
@@ -885,7 +958,7 @@ function createDispatcher(
         }
         case 'ResolveDependentUris': {
           const prd = params as { uri: string; symbolName?: string };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new ResolveDependentUris({
               uri: prd.uri,
               symbolName: prd.symbolName,
@@ -894,7 +967,7 @@ function createDispatcher(
         }
         case 'FindOccurrenceCandidates': {
           const pfc = params as { symbolName: string };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new FindOccurrenceCandidates({
               symbolName: pfc.symbolName,
             }),
@@ -906,7 +979,7 @@ function createDispatcher(
             names?: readonly string[];
             namespace?: string;
           };
-          return callbacks.sendToDataOwner(
+          return sendTracedToDataOwner(
             new DataOwnerQuerySymbolByName({
               name: pqn.name,
               names: pqn.names,
@@ -915,7 +988,7 @@ function createDispatcher(
           );
         }
         case 'DrainDeferredReferences': {
-          return callbacks.sendToDataOwner(new DrainDeferredReferences());
+          return sendTracedToDataOwner(new DrainDeferredReferences());
         }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
@@ -923,7 +996,7 @@ function createDispatcher(
     },
 
     queryGraphData(params): Promise<unknown> {
-      return callbacks.sendToDataOwner(
+      return sendTracedToDataOwner(
         new QueryGraphData({
           type: params.type,
           fileUri: params.fileUri,

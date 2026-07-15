@@ -46,7 +46,10 @@ jest.mock('vscode', () => ({
 import * as vscode from 'vscode';
 import {
   initializeExtensionTracing,
+  injectTraceContextFromCurrentEffectSpan,
   emitTelemetrySpan,
+  makeCollectedSpanRuntimeFactory,
+  runWithExtensionTracing,
   shutdownExtensionTracing,
 } from '../src/observability/extensionTracing';
 
@@ -63,7 +66,12 @@ function makeChangeEvent(
 
 describe('extensionTracing', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockServicesApi: { services: { SdkLayerFor: jest.Mock } };
+  let mockServicesApi: {
+    services: {
+      SdkLayerFor: jest.Mock;
+      getSdkLayerConfigFromContext?: jest.Mock;
+    };
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -167,6 +175,44 @@ describe('extensionTracing', () => {
       expect(mockServicesApi.services.SdkLayerFor).toHaveBeenCalledWith(
         mockContext,
       );
+    });
+
+    it('creates collected-span SDK runtimes with the original service identity', () => {
+      const { ManagedRuntime } = require('effect') as typeof import('effect');
+      const fallbackRuntime = {
+        runPromise: jest.fn(),
+      } as unknown as import('effect').ManagedRuntime.ManagedRuntime<
+        never,
+        never
+      >;
+      mockServicesApi.services.getSdkLayerConfigFromContext = jest
+        .fn()
+        .mockReturnValue({
+          extensionName: 'apex-language-server-extension',
+          extensionVersion: '0.9.18',
+          productFeatureId: 'apex-ls',
+        });
+
+      const factory = makeCollectedSpanRuntimeFactory(
+        mockServicesApi as never,
+        mockContext,
+        fallbackRuntime,
+      );
+      factory({
+        serviceName: 'apex-ls-worker-dataOwner',
+        serviceVersion: '1.2.3',
+        attributes: {},
+      });
+
+      expect(
+        mockServicesApi.services.getSdkLayerConfigFromContext,
+      ).toHaveBeenCalledWith(mockContext);
+      expect(mockServicesApi.services.SdkLayerFor).toHaveBeenCalledWith({
+        extensionName: 'apex-ls-worker-dataOwner',
+        extensionVersion: '1.2.3',
+        productFeatureId: 'apex-ls',
+      });
+      expect(ManagedRuntime.make).toHaveBeenCalled();
     });
   });
 
@@ -272,6 +318,52 @@ describe('extensionTracing', () => {
       expect(Effect.annotateCurrentSpan).toHaveBeenCalledWith({
         present: 'value',
       });
+    });
+  });
+
+  describe('runWithExtensionTracing', () => {
+    it('uses the default Effect runtime before tracing is initialized', async () => {
+      const { Effect } = require('effect') as typeof import('effect');
+
+      await expect(
+        runWithExtensionTracing(Effect.succeed('fallback')),
+      ).resolves.toBe('fallback');
+      expect(Effect.runPromise).toHaveBeenCalled();
+    });
+
+    it('uses the managed tracing runtime after initialization', async () => {
+      const { Effect, ManagedRuntime } =
+        require('effect') as typeof import('effect');
+      mockGetExtension.mockReturnValue({
+        isActive: true,
+        activate: jest.fn(),
+        exports: mockServicesApi,
+      });
+      await initializeExtensionTracing(mockContext);
+      const rt = (ManagedRuntime.make as jest.Mock).mock.results[0].value;
+      rt.runPromise.mockClear();
+      rt.runPromise.mockResolvedValueOnce('traced');
+
+      await expect(
+        runWithExtensionTracing(Effect.succeed('value')),
+      ).resolves.toBe('traced');
+      expect(rt.runPromise).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('injectTraceContextFromCurrentEffectSpan', () => {
+    it('injects the Effect-native span even without a global OTEL active span', async () => {
+      const actual = jest.requireActual<typeof import('effect')>('effect');
+      const result = await actual.Effect.runPromise(
+        actual.Effect.gen(function* () {
+          return yield* injectTraceContextFromCurrentEffectSpan({ value: 1 });
+        }).pipe(actual.Effect.withSpan('test.extension.context')),
+      );
+
+      expect(result.value).toBe(1);
+      expect(result.traceContext).toMatch(
+        /^00-[0-9a-f]{32}-[0-9a-f]{16}-(?:00|01)$/,
+      );
     });
   });
 

@@ -101,10 +101,12 @@ describe('ConfigurationSummary', () => {
           server: 'off',
         },
         version: '1.0.0',
-        worker: {
-          logLevel: 'info',
-          enablePerformanceLogs: false,
-          logCategories: [],
+        experimental: {
+          workers: {
+            enabled: true,
+            poolSize: 2,
+            resourceLoader: true,
+          },
         },
       },
       ...overrides,

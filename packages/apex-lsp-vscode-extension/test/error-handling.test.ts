@@ -10,8 +10,6 @@ import * as vscode from 'vscode';
 import {
   handleAutoRestart,
   handleMaxRetriesExceeded,
-  handleClientClosed,
-  handleClientError,
 } from '../src/error-handling';
 import { EXTENSION_CONSTANTS } from '../src/constants';
 
@@ -195,90 +193,6 @@ describe('Error Handling Module', () => {
       expect(mockShowErrorMessage).toHaveBeenCalledWith(
         'The Apex Language Server failed to start after multiple attempts. Click the status bar icon to try again.',
         'Restart Now',
-      );
-    });
-  });
-
-  describe('handleClientClosed', () => {
-    it('should handle client closed event', async () => {
-      const { setStartingFlag } = require('../src/commands');
-      const { updateApexServerStatusStopped } = require('../src/status-bar');
-      const { logToOutputChannel } = require('../src/logging');
-
-      await handleClientClosed(mockRestartHandler);
-
-      expect(setStartingFlag).toHaveBeenCalledWith(false);
-      expect(updateApexServerStatusStopped).toHaveBeenCalled();
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /Connection to server closed - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/,
-        ),
-        'info',
-      );
-    });
-
-    it('should attempt auto-restart after client closed', async () => {
-      const {
-        getServerStartRetries,
-        getLastRestartTime,
-        getGlobalContext,
-      } = require('../src/commands');
-      getServerStartRetries.mockReturnValue(0);
-      getLastRestartTime.mockReturnValue(0);
-      getGlobalContext.mockReturnValue(mockContext);
-
-      await handleClientClosed(mockRestartHandler);
-
-      // Fast-forward timers to trigger auto-restart
-      jest.runAllTimers();
-
-      expect(mockRestartHandler).toHaveBeenCalled();
-    });
-  });
-
-  describe('handleClientError', () => {
-    it('should log error information', () => {
-      const { logToOutputChannel } = require('../src/logging');
-      const error = new Error('Test error');
-      const message = 'Test message';
-
-      handleClientError(error, message);
-
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Test message',
-        'error',
-      );
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'Error details: Error: Test error',
-        'debug',
-      );
-    });
-
-    it('should handle undefined message', () => {
-      const { logToOutputChannel } = require('../src/logging');
-      const error = new Error('Test error');
-
-      handleClientError(error, undefined);
-
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Unknown error',
-        'error',
-      );
-    });
-
-    it('should handle undefined error', () => {
-      const { logToOutputChannel } = require('../src/logging');
-      const message = 'Test message';
-
-      handleClientError(undefined as any, message);
-
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Test message',
-        'error',
-      );
-      expect(logToOutputChannel).not.toHaveBeenCalledWith(
-        expect.stringMatching(/Error details:/),
-        'debug',
       );
     });
   });

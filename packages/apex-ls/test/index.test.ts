@@ -438,6 +438,7 @@ const mockLogger = {
 };
 
 jest.mock('@salesforce/apex-lsp-shared', () => ({
+  formattedError: jest.fn((error: unknown) => String(error)),
   LogMessageType: {
     Error: 1,
     Warning: 2,
@@ -687,6 +688,26 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('documentSymbolProvider');
     expect(result.capabilities).toHaveProperty('foldingRangeProvider');
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
+    expect(result.capabilities).toHaveProperty('definitionProvider');
+    expect(result.capabilities).toHaveProperty('implementationProvider');
+  });
+
+  it('omits dynamic navigation providers from static initialize capabilities', async () => {
+    const initHandler = mockHandlers.initialize as InitializeHandler;
+    const result = await initHandler({
+      capabilities: {
+        textDocument: {
+          definition: { dynamicRegistration: true },
+          implementation: { dynamicRegistration: true },
+        },
+      },
+      processId: 1,
+      rootUri: null,
+      workspaceFolders: null,
+    } as InitializeParams);
+
+    expect(result.capabilities).not.toHaveProperty('definitionProvider');
+    expect(result.capabilities).not.toHaveProperty('implementationProvider');
   });
 
   it('should handle initialized notification', async () => {
@@ -975,9 +996,15 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
   describe('Protocol Handler Integration', () => {
     beforeEach(async () => {
-      // Trigger initialized to register protocol handlers
-      const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
-      await initializedHandler();
+      // Protocol handlers are now registered in handleInitialize() before returning
+      // capabilities. Call initialize to trigger handler registration.
+      const initHandler = mockHandlers.initialize as InitializeHandler;
+      await initHandler({
+        capabilities: {},
+        processId: 1,
+        rootUri: null,
+        workspaceFolders: null,
+      } as InitializeParams);
     });
 
     it('should register completion handler on the connection', () => {

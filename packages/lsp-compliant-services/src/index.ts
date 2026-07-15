@@ -191,10 +191,10 @@ export function initializeLSPQueueManager(
  */
 export const dispatchProcessOnOpenDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): void => {
+): Promise<void> => {
   const queueManager = LSPQueueManager.getInstance();
   // Error handling is done internally in submitDocumentOpenNotification
-  queueManager.submitDocumentOpenNotification(event);
+  return queueManager.submitDocumentOpenNotification(event);
 };
 
 // Singleton DocumentChangeBatcher – created lazily on first didChange event.
@@ -225,7 +225,7 @@ let changeBatcher: DocumentChangeBatcher | null = null;
  */
 export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): void => {
+): Promise<void> => {
   // Store the document immediately so it is available for LSP requests
   // that arrive before the debounce timer fires.
   try {
@@ -239,19 +239,17 @@ export const dispatchProcessOnChangeDocument = (
 
   if (!changeBatcher) {
     const logger = getLogger();
-    changeBatcher = new DocumentChangeBatcher(
-      logger,
-      (ev) =>
-        new Promise<void>((resolve) => {
-          // Per-URI debounce has collapsed rapid typing to the latest version;
-          // submit that version to the queue so the data-owner recompiles it
-          // (or the local handler does, when workers are disabled).
-          LSPQueueManager.getInstance().submitDocumentChangeNotification(ev);
-          resolve();
-        }),
+    changeBatcher = new DocumentChangeBatcher(logger, (ev) =>
+      // Per-URI debounce has collapsed rapid typing to the latest version;
+      // submit that version to the queue so the data-owner recompiles it
+      // (or the local handler does, when workers are disabled).
+      LSPQueueManager.getInstance().submitDocumentChangeNotification(ev),
     );
   }
-  changeBatcher.enqueue(event);
+  // Keep the enclosing notification span open until the retained version has
+  // passed through the queue and worker topology. Superseded versions settle
+  // when the batcher replaces them.
+  return changeBatcher.enqueue(event);
 };
 
 /**
@@ -260,11 +258,8 @@ export const dispatchProcessOnChangeDocument = (
  */
 export const dispatchProcessOnCloseDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): void => {
-  const handler = HandlerFactory.createDidCloseDocumentHandler();
-  // Error handling is done internally in handleDocumentClose
-  handler.handleDocumentClose(event);
-};
+): Promise<void> =>
+  LSPQueueManager.getInstance().submitDocumentCloseNotification(event);
 
 /**
  * Dispatch function for document save events (LSP notification - fire-and-forget)
@@ -280,14 +275,14 @@ export const dispatchProcessOnCloseDocument = (
  */
 export const dispatchProcessOnSaveDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): void => {
+): Promise<void> => {
   try {
     const storage = ApexStorageManager.getInstance().getStorage();
     void storage.setDocument(event.document.uri, event.document);
   } catch {
     // Storage may not be initialised yet during early startup.
   }
-  LSPQueueManager.getInstance().submitDocumentSaveNotification(event);
+  return LSPQueueManager.getInstance().submitDocumentSaveNotification(event);
 };
 
 /**

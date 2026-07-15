@@ -72,6 +72,8 @@ export {
   disableTracing,
   runWithSpan,
   runSyncWithSpan,
+  runWithCapturedContext,
+  captureActiveTraceContext,
   withTracing,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
@@ -354,6 +356,8 @@ export interface SendWorkspaceBatchParams {
   readonly isLastBatch: boolean;
   readonly compressedData: string; // Base64-encoded ZIP file
   readonly fileMetadata: readonly WorkspaceFileMetadata[];
+  /** W3C traceparent for extension-to-server workspace-load tracing. */
+  readonly traceContext?: string;
 }
 
 /**
@@ -373,6 +377,8 @@ export interface SendWorkspaceBatchResult {
  */
 export interface ProcessWorkspaceBatchesParams {
   readonly totalBatches: number;
+  /** W3C traceparent for the detached server-processing span. */
+  readonly traceContext?: string;
 }
 
 /**

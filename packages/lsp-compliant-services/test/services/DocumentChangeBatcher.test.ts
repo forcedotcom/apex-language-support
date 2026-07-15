@@ -69,6 +69,41 @@ describe('DocumentChangeBatcher', () => {
       expect(processor).toHaveBeenCalledTimes(1);
       expect(processor.mock.calls[0][0].document.version).toBe(5);
     });
+
+    it('settles superseded notifications and keeps the retained one open through processing', async () => {
+      let finishProcessing!: () => void;
+      processor.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishProcessing = resolve;
+          }),
+      );
+      batcher = new DocumentChangeBatcher(mockLogger, processor, {
+        debounceMs: 100,
+      });
+
+      let firstSettled = false;
+      let secondSettled = false;
+      void batcher
+        .enqueue(createMockEvent('file:///test.cls', 1))
+        .then(() => (firstSettled = true));
+      const retainedProcessing = batcher
+        .enqueue(createMockEvent('file:///test.cls', 2))
+        .then(() => (secondSettled = true));
+      await Promise.resolve();
+
+      expect(firstSettled).toBe(true);
+      expect(secondSettled).toBe(false);
+
+      jest.advanceTimersByTime(150);
+      await Promise.resolve();
+      expect(processor).toHaveBeenCalledTimes(1);
+      expect(secondSettled).toBe(false);
+
+      finishProcessing();
+      await retainedProcessing;
+      expect(secondSettled).toBe(true);
+    });
   });
 
   describe('Stale version ignored', () => {

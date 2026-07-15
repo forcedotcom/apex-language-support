@@ -182,8 +182,12 @@ export class ProfilingService {
 
       this.logger?.info('CPU profiling started');
     } catch (error) {
-      this.logger?.error(`Failed to start CPU profiling: ${error}`);
-      throw new Error(`Failed to start CPU profiling: ${error}`);
+      this.logger?.error(
+        `Failed to start CPU profiling: ${formattedError(error)}`,
+      );
+      throw new Error(
+        `Failed to start CPU profiling: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -237,8 +241,10 @@ export class ProfilingService {
 
       return filepath;
     } catch (error) {
-      this.logger?.error(`Failed to stop CPU profiling: ${error}`);
-      throw new Error(`Failed to stop CPU profiling: ${error}`);
+      this.logger?.error(
+        `Failed to stop CPU profiling: ${formattedError(error)}`,
+      );
+      throw new Error(`Failed to stop CPU profiling: ${formattedError(error)}`);
     }
   }
 
@@ -272,8 +278,12 @@ export class ProfilingService {
 
       this.logger?.info('Heap profiling started');
     } catch (error) {
-      this.logger?.error(`Failed to start heap profiling: ${error}`);
-      throw new Error(`Failed to start heap profiling: ${error}`);
+      this.logger?.error(
+        `Failed to start heap profiling: ${formattedError(error)}`,
+      );
+      throw new Error(
+        `Failed to start heap profiling: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -364,8 +374,12 @@ export class ProfilingService {
       this.logger?.info(`Heap snapshot saved to: ${filepath}`);
       return filepath;
     } catch (error) {
-      this.logger?.error(`Failed to stop heap profiling: ${error}`);
-      throw new Error(`Failed to stop heap profiling: ${error}`);
+      this.logger?.error(
+        `Failed to stop heap profiling: ${formattedError(error)}`,
+      );
+      throw new Error(
+        `Failed to stop heap profiling: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -407,10 +421,10 @@ export class ProfilingService {
         type,
       };
     } catch (error) {
-      this.logger?.error(`Failed to start profiling: ${error}`);
+      this.logger?.error(`Failed to start profiling: ${formattedError(error)}`);
       return {
         success: false,
-        message: `Failed to start profiling: ${error}`,
+        message: `Failed to start profiling: ${formattedError(error)}`,
       };
     }
   }
@@ -449,10 +463,10 @@ export class ProfilingService {
         files,
       };
     } catch (error) {
-      this.logger?.error(`Failed to stop profiling: ${error}`);
+      this.logger?.error(`Failed to stop profiling: ${formattedError(error)}`);
       return {
         success: false,
-        message: `Failed to stop profiling: ${error}`,
+        message: `Failed to stop profiling: ${formattedError(error)}`,
       };
     }
   }
@@ -492,7 +506,9 @@ export class ProfilingService {
         this.session.disconnect();
         this.logger?.debug('Inspector session disconnected');
       } catch (error) {
-        this.logger?.warn(`Error disconnecting inspector session: ${error}`);
+        this.logger?.warn(
+          `Error disconnecting inspector session: ${formattedError(error)}`,
+        );
       }
       this.session = null;
       this.isConnected = false;
