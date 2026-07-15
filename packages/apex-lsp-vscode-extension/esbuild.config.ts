@@ -64,7 +64,9 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     sourcemap: true,
-    external: ['vscode', 'vm', 'net', 'worker_threads', ...OTEL_EXTERNAL],
+    // Node bundle: only externalize VS Code API and Node built-ins
+    // OTEL packages are bundled (they're Node-compatible)
+    external: ['vscode', 'vm', 'net', 'worker_threads'],
     // Node bundle runs in a Node extension host (desktop VS Code + code-server).
     define: { __APEX_LS_TARGET__: '"desktop"' },
     footer: undefined,

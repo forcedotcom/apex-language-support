@@ -28,6 +28,9 @@ import {
  * since the VSIX doesn't include node_modules.
  *
  * Node built-ins (crypto, fs, path) are resolved from Node.js itself.
+ *
+ * OTEL packages are bundled (they're Node-compatible) because the VSIX
+ * doesn't include node_modules — external OTEL would fail at runtime.
  */
 const NODE_SERVER_EXTERNAL = [
   // Node.js built-ins - always available in Node runtime
@@ -47,16 +50,6 @@ const NODE_SERVER_EXTERNAL = [
   'node:os',
   'node:stream',
   'node:events',
-  // OTEL packages for worker tracing - should not be bundled
-  '@opentelemetry/context-async-hooks',
-  '@opentelemetry/core',
-  '@opentelemetry/api',
-  '@opentelemetry/exporter-trace-otlp-http',
-  '@opentelemetry/resources',
-  '@opentelemetry/sdk-trace-base',
-  '@opentelemetry/sdk-trace-node',
-  '@opentelemetry/sdk-node',
-  '@effect/opentelemetry',
   // node-dir uses fs/path internally, safe to bundle
   // Anything else used at runtime needs to be bundled or use Node built-ins
 ];
