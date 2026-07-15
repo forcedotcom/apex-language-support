@@ -459,6 +459,86 @@ describe('CodeActionProcessingService', () => {
       expect(findAction(result, 'Extract constant')).toBeUndefined();
     });
 
+    it('offers Extract constant for a literal selection', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        "    String greeting = 'hello';",
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hello'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      expect(constant).toBeDefined();
+      expect(constant?.kind).toBe(CodeActionKind.RefactorExtract);
+      const edits = constant?.edit?.changes?.[uri];
+      expect(edits).toHaveLength(2);
+      expect(edits?.[0].newText).toMatch(
+        /private static final Object v1 = 'hello';/,
+      );
+      expect(edits?.[1].newText).toBe('v1');
+    });
+
+    it('offers Extract constant for a prefix-of-literal (negative number)', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer x = -5;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, '-5');
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      expect(constant).toBeDefined();
+      expect(constant?.edit?.changes?.[uri]?.[0].newText).toMatch(
+        /private static final Object v1 = -5;/,
+      );
+    });
+
+    it('does not offer Extract constant for a non-literal expression', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer total = 1 + 2;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, '1 + 2');
+
+      const result = await service.processCodeAction(params);
+
+      // Variable extraction is still offered, but constant is not.
+      expect(findAction(result, 'Extract local variable')).toBeDefined();
+      expect(findAction(result, 'Extract constant')).toBeUndefined();
+    });
+
+    it('uses private final (no static) for inner-class constants', async () => {
+      const source = [
+        'public class Outer {',
+        '  public class Inner {',
+        '    public void doWork() {',
+        "      String greeting = 'hi';",
+        '    }',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hi'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      expect(constant).toBeDefined();
+      const newText = constant?.edit?.changes?.[uri]?.[0].newText ?? '';
+      expect(newText).toMatch(/private final Object v1 = 'hi';/);
+      expect(newText).not.toMatch(/static/);
+    });
+
     it('avoids name collisions with existing identifiers', async () => {
       const source = [
         'public class Extract {',

@@ -18,6 +18,14 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ParserRuleContext } from 'antlr4';
+import {
+  ExpressionContext,
+  PrimaryExpressionContext,
+  LiteralPrimaryContext,
+  PreOpExpressionContext,
+  NegExpressionContext,
+  ClassDeclarationContext,
+} from '@apexdevtools/apex-parser';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -287,7 +295,8 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    * Both are computed against the document CST via the shared
    * {@link findExpressionAtRange} finder (story 05.0). When the selection is not
    * a single, well-formed expression inside a method body the finder returns
-   * `null` and the action is not offered.
+   * `null` and neither action is offered. Extract Constant is additionally gated
+   * to literal (or prefix-of-literal, e.g. `-5`) expressions.
    */
   private getExtractActions(context: CodeActionContext): CodeAction[] {
     const actions: CodeAction[] = [];
@@ -330,6 +339,18 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     );
     if (variableAction) {
       actions.push(variableAction);
+    }
+
+    if (this.isLiteralExpression(expression)) {
+      const constantAction = this.buildExtractConstantAction(
+        context,
+        expression,
+        exprText,
+        variableName,
+      );
+      if (constantAction) {
+        actions.push(constantAction);
+      }
     }
 
     return actions;
@@ -382,6 +403,135 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
         },
       },
     };
+  }
+
+  /**
+   * Build the Extract Constant WorkspaceEdit.
+   *
+   * Inserts `<modifiers> Object <name> = <exprText>;` at class-body level,
+   * directly under the enclosing class declaration's opening brace, and replaces
+   * the selection with `<name>`. Top-level classes use `private static final`;
+   * inner classes use `private final` (Apex/Jorje disallows `static` on inner
+   * members). Returns `null` when the enclosing class body cannot be located.
+   */
+  private buildExtractConstantAction(
+    context: CodeActionContext,
+    expression: ExpressionContext,
+    exprText: string,
+    variableName: string,
+  ): CodeAction | null {
+    const insertion = this.findConstantInsertion(expression);
+    if (!insertion) {
+      return null;
+    }
+
+    const modifiers = insertion.isInner
+      ? 'private final'
+      : 'private static final';
+    const insertPosition = context.document.positionAt(insertion.offset);
+    const declaration =
+      `\n${insertion.indent}${modifiers} Object ${variableName} = ` +
+      `${exprText}; // TODO: infer type (was Object)`;
+
+    const insertEdit: TextEdit = {
+      range: { start: insertPosition, end: insertPosition },
+      newText: declaration,
+    };
+    const replaceEdit: TextEdit = {
+      range: context.range,
+      newText: variableName,
+    };
+
+    return {
+      title: 'Extract constant',
+      kind: CodeActionKind.RefactorExtract,
+      edit: {
+        changes: {
+          [context.document.uri]: [insertEdit, replaceEdit],
+        },
+      },
+    };
+  }
+
+  /**
+   * Determine whether `expression` is a literal or a prefix-of-literal (a unary
+   * `+`/`-`/`~`/`!` applied to a literal, e.g. `-5`). Only such expressions are
+   * eligible for Extract Constant, matching Jorje's rule.
+   */
+  private isLiteralExpression(expression: ExpressionContext): boolean {
+    // Bare literal: `primary -> literal`.
+    if (
+      expression instanceof PrimaryExpressionContext &&
+      expression.primary() instanceof LiteralPrimaryContext
+    ) {
+      return true;
+    }
+
+    // Prefix-of-literal: unary operator applied to a (possibly nested) literal,
+    // e.g. `-5`, `+3`, `!true`, `~0`.
+    if (
+      expression instanceof PreOpExpressionContext ||
+      expression instanceof NegExpressionContext
+    ) {
+      const inner = expression.expression();
+      return inner ? this.isLiteralExpression(inner) : false;
+    }
+
+    return false;
+  }
+
+  /**
+   * Locate the class-body insertion point for an extracted constant.
+   *
+   * Walks the CST parents of `expression` to the nearest enclosing
+   * {@link ClassDeclarationContext}, then returns the character offset just
+   * after that class body's opening `{`, the indentation to use for the new
+   * member, and whether the class is an inner class (nested inside another
+   * class declaration). Returns `null` when no enclosing class is found or its
+   * body brace is unavailable.
+   */
+  private findConstantInsertion(
+    expression: ExpressionContext,
+  ): { offset: number; indent: string; isInner: boolean } | null {
+    let current: ParserRuleContext | undefined = expression.parentCtx;
+    let classDecl: ClassDeclarationContext | undefined;
+    while (current) {
+      if (current instanceof ClassDeclarationContext) {
+        classDecl = current;
+        break;
+      }
+      current = current.parentCtx;
+    }
+
+    if (!classDecl) {
+      return null;
+    }
+
+    const classBody = classDecl.classBody();
+    const openBrace = classBody?.LBRACE();
+    if (!classBody || !openBrace) {
+      return null;
+    }
+
+    // Insert immediately after the class body's opening brace.
+    const offset = openBrace.symbol.stop + 1;
+
+    // An inner class has another class declaration among its ancestors.
+    let ancestor: ParserRuleContext | undefined = classDecl.parentCtx;
+    let isInner = false;
+    while (ancestor) {
+      if (ancestor instanceof ClassDeclarationContext) {
+        isInner = true;
+        break;
+      }
+      ancestor = ancestor.parentCtx;
+    }
+
+    // Indent inner-class members one extra level relative to the class keyword.
+    const classIndent = ' '.repeat(Math.max(0, classDecl.start.column));
+    const indent = `${classIndent}  `;
+
+    return { offset, indent, isInner };
   }
 
   /**
