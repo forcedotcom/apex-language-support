@@ -6,20 +6,20 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ServerType } from '../utils/serverUtils';
-import { WorkspaceConfig } from '../utils/workspaceUtils';
+import * as fs from 'fs';
+import * as path from 'path';
+
+import {
+  createHeadlessClient,
+  ApexClientCore,
+} from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
+import type { ApexLanguageServerSettings } from '@salesforce/apex-lsp-shared';
+
+import { ServerType, createClientOptions } from '../utils/serverUtils';
+import { WorkspaceConfig, prepareWorkspace } from '../utils/workspaceUtils';
 import { ApexLspTestClient } from './ApexLspTestClient';
-
-const fs = require('fs');
-const path = require('path');
-
-const {
-  ApexJsonRpcClient,
-  ConsoleLogger,
-  SilentLogger,
-} = require('../client/ApexJsonRpcClient');
-const { createClientOptions } = require('../utils/serverUtils');
-const { prepareWorkspace } = require('../utils/workspaceUtils');
+import { MockRpcConnection } from './MockRpcConnection';
 
 export interface ServerTestContext {
   client: ApexLspTestClient;
@@ -36,11 +36,14 @@ export interface ServerOptions {
 
 /**
  * Create a temporary test workspace with sample Apex code
- * @param {string} baseDir Base directory for the temporary workspace
- * @param {string} [folderOrGithubUri] Optional folder or GitHub URI
- * @returns {Promise<WorkspaceConfig>} Workspace configuration for the test workspace
+ * @param baseDir Base directory for the temporary workspace
+ * @param folderOrGithubUri Optional folder or GitHub URI
+ * @returns Workspace configuration for the test workspace
  */
-async function createTestWorkspace(baseDir: any, folderOrGithubUri: any) {
+async function createTestWorkspace(
+  baseDir: string,
+  folderOrGithubUri?: string,
+): Promise<WorkspaceConfig> {
   if (folderOrGithubUri) {
     const workspaceConfig = await prepareWorkspace(folderOrGithubUri, {
       baseDir,
@@ -58,11 +61,11 @@ async function createTestWorkspace(baseDir: any, folderOrGithubUri: any) {
   const sampleCode = `
 public class TestClass {
     private String greeting;
-    
+
     public TestClass() {
         this.greeting = 'Hello, World!';
     }
-    
+
     public String getGreeting() {
         return this.greeting;
     }
@@ -81,29 +84,73 @@ public class TestClass {
 }
 
 /**
- * Creates and initializes a language server with workspace for testing
- * One-stop shop for getting a fully configured and running server
- * @param {ServerOptions} options
- * @returns {Promise<ServerTestContext>}
+ * Creates and initializes a language server with workspace for testing.
+ * Uses the SDK's `createHeadlessClient` for real servers and
+ * `MockRpcConnection` + `ApexClientCore.create` for demo mode.
  */
 export async function createTestServer(
   options: ServerOptions,
 ): Promise<ServerTestContext> {
-  // Use silent logger for non-verbose mode to reduce test output noise
-  const logger = options.verbose
-    ? new ConsoleLogger('ApexJsonRpcClient')
-    : new SilentLogger();
-
   // Set up workspace if provided
   const workspace = options.workspacePath
     ? await prepareWorkspace(options.workspacePath)
     : undefined;
 
   if (workspace && options.verbose) {
-    logger.info(`Test workspace initialized at: ${workspace.rootPath}`);
+    console.log(`Test workspace initialized at: ${workspace.rootPath}`);
   }
 
-  // Configure the client options
+  // Build settings for SDK initialize - start from defaults and override mode
+  const serverMode =
+    (options.initOptions?.apex?.environment?.serverMode as
+      'production' | 'development') ?? 'production';
+  const settings: ApexLanguageServerSettings = {
+    ...DEFAULT_APEX_SETTINGS,
+    apex: {
+      ...DEFAULT_APEX_SETTINGS.apex,
+      environment: {
+        ...DEFAULT_APEX_SETTINGS.apex.environment,
+        serverMode,
+      },
+    },
+  };
+
+  // Build initializeParams (rootUri, workspaceFolders, etc.)
+  const initializeParams: Record<string, unknown> = {};
+  if (workspace) {
+    initializeParams.rootUri = workspace.rootUri;
+    initializeParams.rootPath = workspace.rootPath;
+    initializeParams.workspaceFolders = [
+      {
+        uri: workspace.rootUri,
+        name: path.basename(workspace.rootPath),
+      },
+    ];
+  }
+
+  if (options.serverType === 'demo') {
+    // Demo mode: use MockRpcConnection
+    const mockConn = new MockRpcConnection();
+    const core = await ApexClientCore.create(mockConn);
+    mockConn.listen();
+    const initResult = await core.initialize(settings, initializeParams);
+    const client = new ApexLspTestClient(core, initResult);
+
+    return {
+      client,
+      workspace,
+      cleanup: async () => {
+        try {
+          await core.shutdown();
+        } catch (error) {
+          console.warn(`Error during shutdown: ${error}`);
+        }
+        await core.dispose();
+      },
+    };
+  }
+
+  // Real server mode: resolve server path via existing client options helper
   const clientOptions = await createClientOptions(
     options.serverType,
     options.verbose || false,
@@ -112,13 +159,25 @@ export async function createTestServer(
     options.initOptions,
   );
 
-  // Create and start the client
-  const client = new ApexJsonRpcClient(clientOptions, logger);
+  const serverPath = clientOptions.serverPath;
+  const serverArgs = clientOptions.serverArgs || [];
+  const nodeArgs = clientOptions.nodeArgs || [];
 
   try {
-    await client.start();
+    const { core } = await createHeadlessClient(serverPath, {
+      nodeArgs,
+      serverArgs,
+      env: clientOptions.env,
+      coreOptions: {},
+    });
 
-    // Wait for server to be healthy and responsive
+    // Initialize the server
+    const initResult = await core.initialize(settings, initializeParams);
+
+    // Wrap in ApexLspTestClient
+    const client = new ApexLspTestClient(core, initResult);
+
+    // Wait for server to be healthy
     await client.waitForHealthy(120_000);
 
     // Verify server initialized properly
@@ -128,26 +187,25 @@ export async function createTestServer(
     }
 
     if (options.verbose) {
-      logger.info(
+      console.log(
         'Server initialized successfully with capabilities:',
-        capabilities,
+        JSON.stringify(capabilities, null, 2),
       );
     }
 
-    // Return context with cleanup function
     return {
       client,
       workspace,
       cleanup: async () => {
         try {
-          await client.stop();
+          await core.shutdown();
         } catch (error) {
           console.warn(`Error stopping client: ${error}`);
         }
+        await core.dispose();
 
         if (workspace?.isTemporary) {
           try {
-            // Clean up temporary workspace
             await fs.promises.rm(workspace.rootPath, {
               recursive: true,
               force: true,
@@ -159,13 +217,6 @@ export async function createTestServer(
       },
     };
   } catch (error) {
-    // Clean up on failure
-    try {
-      await client.stop();
-    } catch (stopError) {
-      console.warn(`Error stopping client during cleanup: ${stopError}`);
-    }
-
     if (workspace?.isTemporary) {
       try {
         await fs.promises.rm(workspace.rootPath, {
