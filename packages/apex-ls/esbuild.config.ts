@@ -28,6 +28,9 @@ import {
  * since the VSIX doesn't include node_modules.
  *
  * Node built-ins (crypto, fs, path) are resolved from Node.js itself.
+ *
+ * OTEL packages are bundled (they're Node-compatible) because the VSIX
+ * doesn't include node_modules — external OTEL would fail at runtime.
  */
 const NODE_SERVER_EXTERNAL = [
   // Node.js built-ins - always available in Node runtime
@@ -40,6 +43,7 @@ const NODE_SERVER_EXTERNAL = [
   'util',
   'events',
   'assert',
+  'async_hooks', // Used by @opentelemetry/context-async-hooks
   'node:util', // Used by vscode-languageserver/node internally
   'node:fs',
   'node:path',
@@ -67,6 +71,22 @@ const WORKER_EXTERNAL: string[] = [
   '@effect/platform-node/NodeWorker',
   // NOTE: @effect/platform/WorkerError must NOT be external — it is a
   // dependency of @effect/platform-browser/BrowserWorker which runs in browser.
+
+  // Coordinator tracing (Node.js only) - dynamically imported, needs to be external
+  './coordinatorTracing',
+  // Worker and coordinator tracing OTEL packages (Node.js only) - these use Node.js
+  // built-ins like async_hooks and should never be bundled into browser builds.
+  // They're imported by apex-lsp-shared which gets bundled, so mark them external
+  // even for browser builds (dead code elimination will remove their usage).
+  '@opentelemetry/sdk-trace-node',
+  '@opentelemetry/exporter-trace-otlp-http',
+  '@opentelemetry/resources',
+  '@opentelemetry/sdk-trace-base',
+  '@opentelemetry/context-async-hooks',
+  '@opentelemetry/core',
+  '@opentelemetry/sdk-node',
+  '@effect/opentelemetry',
+  'async_hooks',
 ];
 
 const builds: BuildOptions[] = [
@@ -89,8 +109,12 @@ const builds: BuildOptions[] = [
       'vscode-languageserver-protocol/browser':
         'vscode-languageserver-protocol/node',
     },
-    // Ensure Node.js resolution for vscode-languageserver packages
-    conditions: ['node', 'require', 'default'],
+    // NOTE: Do NOT add ESM conditions (['import', 'module', 'default']) to server.node builds.
+    // While they enable tree-shaking for Effect packages, they break server startup in the quality
+    // test environment (packages/apex-lsp-testbed/test/accuracy/*.quality.ts). The extension bundle
+    // can safely use ESM conditions since it runs in the VS Code extension host, but the LSP server
+    // process started by the test suite fails to initialize with ESM-resolved dependencies.
+    // Extension bundle achieved -8.2% with ESM conditions; server bundles remain at baseline size.
     mainFields: ['main', 'module'],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     // This embeds the ZIP and gzipped protobuf cache directly into the server bundle
@@ -111,7 +135,7 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: NODE_SERVER_EXTERNAL,
     keepNames: true,
-    conditions: ['node', 'require', 'default'],
+    // NOTE: Do NOT add ESM conditions here (same reason as server.node - breaks quality tests).
     mainFields: ['main', 'module'],
     loader: {
       '.zip': 'dataurl',
@@ -129,11 +153,15 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     minify: false, // DEBUG: keep unminified for stack trace readability
     metafile: true,
-    external: [],
+    external: WORKER_EXTERNAL, // Mark OTEL packages external even for browser (dead code)
     keepNames: true,
     splitting: false,
     bundle: true,
     treeShaking: true,
+    alias: {
+      '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing':
+        '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing.browser',
+    },
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     loader: {
@@ -158,6 +186,10 @@ const builds: BuildOptions[] = [
     bundle: true,
     outExtension: { '.js': '.web.js' },
     treeShaking: true,
+    alias: {
+      '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing':
+        '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing.browser',
+    },
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs

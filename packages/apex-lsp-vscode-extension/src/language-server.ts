@@ -14,6 +14,7 @@ import type {
   RequestWorkspaceLoadParams,
 } from '@salesforce/apex-lsp-shared';
 import {
+  formattedError,
   getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
@@ -61,6 +62,7 @@ import {
 import {
   emitTelemetrySpan,
   getSalesforceServicesApi,
+  getSpanCollectorUrl,
 } from './observability/extensionTracing';
 import { EXCLUDE_GLOB } from './workspace-loader';
 
@@ -191,6 +193,15 @@ const createEnhancedInitializationOptions = async (
         ).toString()
       : undefined;
 
+  // Get the span collector URL (desktop only, if tracing enabled)
+  const spanCollectorUrl = getSpanCollectorUrl();
+  if (spanCollectorUrl) {
+    logToOutputChannel(
+      `[extension] Passing span collector URL to language server: ${spanCollectorUrl}`,
+      'info',
+    );
+  }
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -203,6 +214,7 @@ const createEnhancedInitializationOptions = async (
         workspaceFileCount,
         apexFileCount,
         workerPlatformWebUrl,
+        spanCollectorUrl,
       },
       resources: {
         ...safeSettings.apex?.resources,
@@ -345,7 +357,14 @@ export const createAndStartClient = async (
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
   } catch (error) {
-    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
+    logToOutputChannel(
+      `❌ Failed to start language server: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
     setStartingFlag(false);
     updateApexServerStatusError();
     throw error;
@@ -398,7 +417,10 @@ async function createWebLanguageClient(
       );
     }
   } catch (error) {
-    logToOutputChannel(`❌ Error checking worker file: ${error}`, 'error');
+    logToOutputChannel(
+      `❌ Error checking worker file: ${formattedError(error)}`,
+      'error',
+    );
   }
 
   // Create worker
@@ -509,7 +531,7 @@ async function createWebLanguageClient(
           const params = args[0];
           const uri = params?.textDocument?.uri || 'unknown';
           logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
             'error',
           );
         }
@@ -520,7 +542,14 @@ async function createWebLanguageClient(
 
     // Workspace state is now managed via Effect Context/Layer
   } catch (error) {
-    logToOutputChannel(`Failed to create Language Client: ${error}`, 'error');
+    logToOutputChannel(
+      `Failed to create Language Client: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
     try {
       logToOutputChannel(
         `Init options: ${JSON.stringify(initOptions, null, 2)}`,
@@ -639,7 +668,11 @@ async function createWebLanguageClient(
         return { capabilities: {} }; // Return basic capabilities
       } catch (error) {
         logToOutputChannel(
-          `❌ Failed to start language client: ${error}`,
+          `❌ Failed to start language client: ${formattedError(error, {
+            includeStack: true,
+            includeProperties: true,
+            maxStackLines: 30,
+          })}`,
           'error',
         );
         throw error;
@@ -686,12 +719,12 @@ async function createWebLanguageClient(
         if (isHoverRequest) {
           const uri = params?.textDocument?.uri || 'unknown';
           logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
             'error',
           );
         } else {
           logToOutputChannel(
-            `Failed to send request ${method}: ${error}`,
+            `Failed to send request ${method}: ${formattedError(error)}`,
             'error',
           );
         }
@@ -740,7 +773,7 @@ async function createWebLanguageClient(
       } catch (error) {
         const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${formattedError(error)}`,
           'error',
         );
         try {
@@ -834,7 +867,7 @@ async function createWebLanguageClient(
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${error}`,
+        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };
@@ -874,7 +907,7 @@ async function createWebLanguageClient(
         );
       } catch (error) {
         logToOutputChannel(
-          `❌ Failed to handle workspace load notification: ${error}`,
+          `❌ Failed to handle workspace load notification: ${formattedError(error)}`,
           'error',
         );
       }
@@ -895,7 +928,11 @@ async function createWebLanguageClient(
     );
   } catch (error) {
     logToOutputChannel(
-      `Failed to create initialization parameters: ${error}`,
+      `Failed to create initialization parameters: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
       'error',
     );
     throw error;
@@ -908,7 +945,14 @@ async function createWebLanguageClient(
     await Client.initialize(initParams);
     logToOutputChannel('Web client initialized successfully', 'debug');
   } catch (error) {
-    logToOutputChannel(`Failed to initialize web client: ${error}`, 'error');
+    logToOutputChannel(
+      `Failed to initialize web client: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
     logToOutputChannel(
       `Init params: ${JSON.stringify(initParams, null, 2)}`,
       'error',
@@ -1009,7 +1053,7 @@ async function createDesktopLanguageClient(
         const params = args[0];
         const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
           'error',
         );
       }
@@ -1034,7 +1078,14 @@ async function createDesktopLanguageClient(
       logToOutputChannel('🟢 Node server process spawned', 'debug');
     });
     rawServerProcess.on('error', (error: unknown) => {
-      logToOutputChannel(`🔴 Node server process error: ${error}`, 'error');
+      logToOutputChannel(
+        `🔴 Node server process error: ${formattedError(error, {
+          includeStack: true,
+          includeProperties: true,
+          maxStackLines: 30,
+        })}`,
+        'error',
+      );
     });
     rawServerProcess.on(
       'exit',
@@ -1127,7 +1178,7 @@ async function createDesktopLanguageClient(
       } catch (error) {
         const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${formattedError(error)}`,
           'error',
         );
         try {
@@ -1188,12 +1239,12 @@ async function createDesktopLanguageClient(
         if (isHoverRequest) {
           const uri = params?.textDocument?.uri || 'unknown';
           logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
             'error',
           );
         } else {
           logToOutputChannel(
-            `Failed to send desktop request ${method}: ${error}`,
+            `Failed to send desktop request ${method}: ${formattedError(error)}`,
             'error',
           );
         }
@@ -1282,7 +1333,7 @@ async function createDesktopLanguageClient(
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${error}`,
+        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };
@@ -1322,7 +1373,7 @@ async function createDesktopLanguageClient(
         );
       } catch (error) {
         logToOutputChannel(
-          `❌ Failed to handle workspace load notification: ${error}`,
+          `❌ Failed to handle workspace load notification: ${formattedError(error)}`,
           'error',
         );
       }
@@ -1332,6 +1383,10 @@ async function createDesktopLanguageClient(
   registerIngestionCompleteHandler(Client);
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
+
+  // Server registers all protocol handlers (including apex/sendWorkspaceBatch) in
+  // handleInitialize() before returning capabilities, so handlers are ready as soon
+  // as the client starts. No need to wait for a separate notification.
 
   // If configured, trigger workspace load on startup via service
   try {
@@ -1372,7 +1427,14 @@ export async function startLanguageServer(
   try {
     await createAndStartClient(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
+    logToOutputChannel(
+      `❌ Failed to start language server: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
     throw error;
   }
 }
@@ -1390,7 +1452,14 @@ export async function restartLanguageServer(
     await stopLanguageServer();
     await startLanguageServer(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(`Failed to restart language server: ${error}`, 'error');
+    logToOutputChannel(
+      `Failed to restart language server: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
     throw error;
   }
 }
@@ -1409,7 +1478,7 @@ export async function stopLanguageServer(): Promise<void> {
       logToOutputChannel('✅ Language server stopped', 'info');
     } catch (error) {
       logToOutputChannel(
-        `⚠️ Error stopping language server: ${error}`,
+        `⚠️ Error stopping language server: ${formattedError(error)}`,
         'warning',
       );
     }

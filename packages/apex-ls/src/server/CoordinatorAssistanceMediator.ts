@@ -27,6 +27,7 @@ import {
   type LoggerInterface,
   type WorkerLogMessage,
 } from '@salesforce/apex-lsp-shared';
+import { context, propagation } from '@opentelemetry/api';
 
 export type {
   AssistanceRequestPayload,
@@ -186,25 +187,42 @@ export class CoordinatorAssistanceMediator {
     req: AssistanceRequestPayload,
     worker: MessagePortLike,
   ): Effect.Effect<void> {
-    const { correlationId, method, params, blocking } = req;
+    const { correlationId, method, params, blocking, traceContext } = req;
     const { handler, effectiveMethod } = this.resolveHandler(method);
+
+    // Extract trace context for distributed tracing
+    let parentContext = context.active();
+    if (traceContext) {
+      try {
+        const carrier = { traceparent: traceContext };
+        parentContext = propagation.extract(context.active(), carrier);
+      } catch (_error) {
+        // Trace context extraction is optional - continue without it
+      }
+    }
+
+    // Run the handler within the extracted context
+    const runInContext = <T>(fn: () => T): T => context.with(parentContext, fn);
 
     return Effect.gen(this, function* () {
       const result = yield* Effect.tryPromise({
-        try: () => {
-          if (blocking) {
-            return this.deduplicatedCall(
-              correlationId,
-              effectiveMethod,
-              params,
-              handler,
-            );
-          }
-          handler(effectiveMethod, params).catch((err) => {
-            this.logger.warn(() => `[AssistanceMediator] BG ${method}: ${err}`);
-          });
-          return Promise.resolve({ accepted: true } as unknown);
-        },
+        try: () =>
+          runInContext(() => {
+            if (blocking) {
+              return this.deduplicatedCall(
+                correlationId,
+                effectiveMethod,
+                params,
+                handler,
+              );
+            }
+            handler(effectiveMethod, params).catch((err) => {
+              this.logger.warn(
+                () => `[AssistanceMediator] BG ${method}: ${err}`,
+              );
+            });
+            return Promise.resolve({ accepted: true } as unknown);
+          }),
         catch: (err) => err,
       });
 

@@ -6,7 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Priority, getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  Priority,
+  getLogger,
+  runWithSpan,
+  runWithCapturedContext,
+  captureActiveTraceContext,
+  LSP_SPAN_NAMES,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -229,6 +236,11 @@ export class LSPQueueManager {
     const logger = this.logger;
     const taskId = this.generateTaskId();
     const workerDispatcher = this.workerDispatcher;
+    // Effect scheduler fibers execute independently of the async context that
+    // submitted the LSP operation. Capture that context now and restore it when
+    // the queued effect actually runs so coordinator/worker spans remain
+    // descendants of the original LSP span.
+    const runInSubmittingTraceContext = captureActiveTraceContext();
 
     return Effect.gen(function* () {
       const fiberDeferred = yield* Deferred.make<
@@ -243,108 +255,130 @@ export class LSPQueueManager {
       // single-writer dataOwner graph). Otherwise — or if dispatch fails —
       // fall back to the local service handler on the coordinator.
       const requestEffect = Effect.tryPromise({
-        try: async () => {
-          // Auto-dispatch to the worker topology when this type routes there:
-          //   - request-pool reads (definition/hover/references/completion/...),
-          //     stateless readers over the dataOwner graph; and
-          //   - data-owner writes / document-lifecycle (documentOpen/Change/
-          //     Save/Close), so the single-writer graph accumulates symbols
-          //     instead of the coordinator compiling locally.
-          // On dispatch failure, fall through to the local handler so a flaky
-          // worker degrades gracefully rather than dropping the request.
-          if (
-            workerDispatcher &&
-            workerDispatcher.isAvailable?.() &&
-            (workerDispatcher.dispatchesToPool?.(type) ||
-              workerDispatcher.dispatchesToDataOwner?.(type))
-          ) {
-            // Cold-read gate: a request-pool READ for a file that's open in the
-            // editor races the compile triggered by its didOpen — the dataOwner
-            // may not hold symbols yet ("No Symbols"). Await the dataOwner's
-            // readiness latch (resolved the instant the write-back merges) and
-            // only then dispatch. The await runs on the coordinator (free-
-            // threaded) and the latch is awaited off the dataOwner's serial
-            // runner, so it cannot deadlock that runner. Skipped entirely when
-            // the file isn't open (no compile coming) or when the dispatcher
-            // doesn't expose the readiness predicates.
-            //
-            // When the latch reports it can't become ready, do NOT dispatch a
-            // doomed empty read. Fall through to the coordinator-local handler,
-            // which compiled the open file and can answer from its own symbol
-            // manager:
-            //   - 'no-compile-pending': nothing is driving a compile for this
-            //     URI on the dataOwner (e.g. a documentOpen that completed
-            //     locally during topology startup was never replayed), so no
-            //     write-back is coming.
-            //   - 'timeout': the write-back never arrived within the fuse.
-            //   - 'stale-version': a newer edit superseded the version awaited.
-            // Dispatching best-effort to an empty graph would return "No
-            // Symbols"; the local fallback returns real results.
-            //
-            // EXCEPTION — self-loading request types (see
-            // SELF_LOADING_REQUEST_TYPES): these recompile the cursor file from
-            // the live in-flight text on the request, so they don't depend on
-            // the dataOwner graph being current. They fire while typing, so the
-            // gate would report 'stale-version'/'timeout' and drop them to the
-            // coordinator-local handler — wrong on web, where the coordinator
-            // holds NO symbols (they live on the dataOwner), so the local read
-            // returns zero results (and completion flags the list isIncomplete,
-            // leaving the suggest widget stuck on "Loading…"). They always
-            // dispatch to the pool and skip the readiness gate entirely.
-            let symbolsReady = true;
-            const uri = requestTargetUri(params);
-            const selfLoadsLiveContent = SELF_LOADING_REQUEST_TYPES.has(type);
+        try: () =>
+          runInSubmittingTraceContext(async () => {
+            // Auto-dispatch to the worker topology when this type routes there:
+            //   - request-pool reads (definition/hover/references/completion/...),
+            //     stateless readers over the dataOwner graph; and
+            //   - data-owner writes / document-lifecycle (documentOpen/Change/
+            //     Save/Close), so the single-writer graph accumulates symbols
+            //     instead of the coordinator compiling locally.
+            // On dispatch failure, fall through to the local handler so a flaky
+            // worker degrades gracefully rather than dropping the request.
             if (
-              !selfLoadsLiveContent &&
-              uri &&
-              workerDispatcher.dispatchesToPool?.(type) &&
-              workerDispatcher.isFileOpen?.(uri) === true &&
-              workerDispatcher.awaitSymbolDataReady
+              workerDispatcher &&
+              workerDispatcher.isAvailable?.() &&
+              (workerDispatcher.dispatchesToPool?.(type) ||
+                workerDispatcher.dispatchesToDataOwner?.(type))
             ) {
-              // Bound the gate wait to a fraction of the request deadline so a
-              // not-ready verdict still leaves room for the local fallback to
-              // run inside the request's own timeout.
-              const gateBudgetMs = Math.max(
-                COLD_READ_GATE_MIN_MS,
-                Math.min(
-                  COLD_READ_GATE_MAX_MS,
-                  Math.floor(timeout * COLD_READ_GATE_FRACTION),
-                ),
-              );
-              const readiness = await workerDispatcher.awaitSymbolDataReady(
-                uri,
-                MATCH_LATEST_VERSION,
-                gateBudgetMs,
-              );
-              if (!readiness.ready) {
-                symbolsReady = false;
-                logger.debug(
-                  () =>
-                    `Cold-read gate not ready for ${type} on ${uri} ` +
-                    `(${readiness.reason ?? 'unknown'}) — ` +
-                    'falling back to local handler',
+              // Cold-read gate: a request-pool READ for a file that's open in the
+              // editor races the compile triggered by its didOpen — the dataOwner
+              // may not hold symbols yet ("No Symbols"). Await the dataOwner's
+              // readiness latch (resolved the instant the write-back merges) and
+              // only then dispatch. The await runs on the coordinator (free-
+              // threaded) and the latch is awaited off the dataOwner's serial
+              // runner, so it cannot deadlock that runner. Skipped entirely when
+              // the file isn't open (no compile coming) or when the dispatcher
+              // doesn't expose the readiness predicates.
+              //
+              // When the latch reports it can't become ready, do NOT dispatch a
+              // doomed empty read. Fall through to the coordinator-local handler,
+              // which compiled the open file and can answer from its own symbol
+              // manager:
+              //   - 'no-compile-pending': nothing is driving a compile for this
+              //     URI on the dataOwner (e.g. a documentOpen that completed
+              //     locally during topology startup was never replayed), so no
+              //     write-back is coming.
+              //   - 'timeout': the write-back never arrived within the fuse.
+              //   - 'stale-version': a newer edit superseded the version awaited.
+              // Dispatching best-effort to an empty graph would return "No
+              // Symbols"; the local fallback returns real results.
+              //
+              // EXCEPTION — self-loading request types (see
+              // SELF_LOADING_REQUEST_TYPES): these recompile the cursor file from
+              // the live in-flight text on the request, so they don't depend on
+              // the dataOwner graph being current. They fire while typing, so the
+              // gate would report 'stale-version'/'timeout' and drop them to the
+              // coordinator-local handler — wrong on web, where the coordinator
+              // holds NO symbols (they live on the dataOwner), so the local read
+              // returns zero results. They always dispatch to the pool and skip
+              // the gate entirely.
+              let symbolsReady = true;
+              const uri = requestTargetUri(params);
+              const selfLoadsLiveContent = SELF_LOADING_REQUEST_TYPES.has(type);
+              if (
+                !selfLoadsLiveContent &&
+                uri &&
+                workerDispatcher.dispatchesToPool?.(type) &&
+                workerDispatcher.isFileOpen?.(uri) === true &&
+                workerDispatcher.awaitSymbolDataReady
+              ) {
+                // Bound the gate wait to a fraction of the request deadline so a
+                // not-ready verdict still leaves room for the local fallback to
+                // run inside the request's own timeout.
+                const gateBudgetMs = Math.max(
+                  COLD_READ_GATE_MIN_MS,
+                  Math.min(
+                    COLD_READ_GATE_MAX_MS,
+                    Math.floor(timeout * COLD_READ_GATE_FRACTION),
+                  ),
                 );
+                const gateStartTime = Date.now();
+                const readiness = await runWithSpan(
+                  LSP_SPAN_NAMES.COLD_READ_GATE_WAIT,
+                  () =>
+                    workerDispatcher.awaitSymbolDataReady!(
+                      uri,
+                      MATCH_LATEST_VERSION,
+                      gateBudgetMs,
+                    ),
+                  {
+                    uri,
+                    budget_ms: gateBudgetMs,
+                    request_type: type,
+                  },
+                );
+                const actualWaitMs = Date.now() - gateStartTime;
+                if (!readiness.ready) {
+                  symbolsReady = false;
+                  logger.debug(
+                    () =>
+                      `Cold-read gate not ready for ${type} on ${uri} ` +
+                      `(${readiness.reason ?? 'unknown'}, waited ${actualWaitMs}ms) — ` +
+                      'falling back to local handler',
+                  );
+                }
+              }
+              if (symbolsReady) {
+                try {
+                  logger.debug(() => `Dispatching ${type} request to worker`);
+                  // Wrap dispatch in a span so trace context injection can access it
+                  return (await runWithSpan(
+                    `lsp.coordinator.${type}`,
+                    () => workerDispatcher.dispatch(type, params),
+                    { request_type: type, uri: requestTargetUri(params) },
+                  )) as T;
+                } catch (dispatchError) {
+                  logger.debug(
+                    () =>
+                      `Worker dispatch failed for ${type}, ` +
+                      `falling back to local handler: ${dispatchError}`,
+                  );
+                }
               }
             }
-            if (symbolsReady) {
-              try {
-                logger.debug(() => `Dispatching ${type} request to worker`);
-                return (await workerDispatcher.dispatch(type, params)) as T;
-              } catch (dispatchError) {
-                logger.debug(
-                  () =>
-                    `Worker dispatch failed for ${type}, ` +
-                    `falling back to local handler: ${dispatchError}`,
-                );
-              }
+            const handler = serviceRegistry.getHandler(type);
+            if (!handler) {
+              throw new Error(
+                `No handler registered for request type: ${type}`,
+              );
             }
-          }
-          const handler = serviceRegistry.getHandler(type);
-          if (!handler) {
-            throw new Error(`No handler registered for request type: ${type}`);
-          }
-          return handler.process(params, symbolManager);
-        },
+            return runWithSpan(
+              `lsp.coordinator.${type}.local`,
+              () => handler.process(params, symbolManager),
+              { request_type: type, uri: requestTargetUri(params) },
+            );
+          }),
         catch: (error) => error as Error,
       }).pipe(
         Effect.timeout(timeout),
@@ -572,7 +606,11 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit a notification (fire-and-forget, doesn't wait for completion)
+   * Submit a notification without blocking the LSP transport.
+   *
+   * The caller may ignore the returned Promise for fire-and-forget behavior,
+   * but the Promise itself settles only after the queued fiber finishes. This
+   * keeps an enclosing trace span alive for the complete worker dispatch.
    * @param type The notification type
    * @param params The notification parameters
    * @param options Optional configuration
@@ -585,15 +623,16 @@ export class LSPQueueManager {
       timeout?: number;
       errorCallback?: (error: Error) => void;
     } = {},
-  ): void {
+  ): Promise<void> {
     if (this.isShutdown) {
       const error = new Error('LSP Queue Manager is shutdown');
       options.errorCallback?.(error);
-      return;
+      return Promise.resolve();
     }
 
-    // Queue the work but don't wait for completion
-    (async () => {
+    // Return the promise to keep the caller's span alive until dispatch completes
+    // Wrap in runWithCapturedContext to preserve OTEL trace context across the async boundary
+    return runWithCapturedContext(async () => {
       try {
         // Ensure scheduler is initialized
         await this.ensureSchedulerInitialized();
@@ -623,24 +662,29 @@ export class LSPQueueManager {
           ),
         );
 
-        // Schedule the task using the priority scheduler (don't wait)
-        await Effect.runPromise(offer(priority, queuedItem));
-
-        // Don't wait for completion - fire and forget
+        // Schedule the task, then keep this Promise alive until the scheduler's
+        // fiber completes. Fiber.await returns an Exit, so request failures are
+        // still reported through requestEffect's existing error callback and
+        // remain non-throwing for notification callers.
+        const scheduledTask = await Effect.runPromise(
+          offer(priority, queuedItem),
+        );
+        const fiber = await Effect.runPromise(scheduledTask.fiber);
+        await Effect.runPromise(Fiber.await(fiber));
       } catch (error) {
         this.logger.error(
           () => `Failed to submit ${type} notification: ${error}`,
         );
         options.errorCallback?.(error as Error);
       }
-    })();
+    });
   }
 
   /**
    * Submit a document open notification (fire-and-forget)
    */
-  submitDocumentOpenNotification(params: any): void {
-    this.submitNotification('documentOpen', params, {
+  submitDocumentOpenNotification(params: any): Promise<void> {
+    return this.submitNotification('documentOpen', params, {
       priority: Priority.High,
     });
   }
@@ -648,8 +692,8 @@ export class LSPQueueManager {
   /**
    * Submit a document save notification (fire-and-forget)
    */
-  submitDocumentSaveNotification(params: any): void {
-    this.submitNotification('documentSave', params, {
+  submitDocumentSaveNotification(params: any): Promise<void> {
+    return this.submitNotification('documentSave', params, {
       priority: Priority.Normal,
     });
   }
@@ -657,8 +701,8 @@ export class LSPQueueManager {
   /**
    * Submit a document change notification (fire-and-forget)
    */
-  submitDocumentChangeNotification(params: any): void {
-    this.submitNotification('documentChange', params, {
+  submitDocumentChangeNotification(params: any): Promise<void> {
+    return this.submitNotification('documentChange', params, {
       priority: Priority.Normal,
     });
   }
@@ -666,8 +710,8 @@ export class LSPQueueManager {
   /**
    * Submit a document close notification (fire-and-forget)
    */
-  submitDocumentCloseNotification(params: any): void {
-    this.submitNotification('documentClose', params, {
+  submitDocumentCloseNotification(params: any): Promise<void> {
+    return this.submitNotification('documentClose', params, {
       priority: Priority.Immediate,
     });
   }

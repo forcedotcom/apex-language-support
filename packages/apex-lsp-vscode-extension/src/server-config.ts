@@ -26,6 +26,7 @@ import {
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { ServerMode } from './utils/serverUtils';
 import {
+  formattedError,
   getDocumentSelectorsFromSettings,
   type ApexLanguageServerSettings,
 } from '@salesforce/apex-lsp-shared';
@@ -394,7 +395,14 @@ const handleClientError = (
     'error',
   );
   if (error) {
-    logToOutputChannel(`Error details: ${error}`, 'debug');
+    logToOutputChannel(
+      `Error details: ${formattedError(error, {
+        includeStack: true,
+        includeProperties: true,
+        maxStackLines: 30,
+      })}`,
+      'error',
+    );
   }
   // Always continue on errors, we handle retries separately
   return { action: ErrorAction.Continue };

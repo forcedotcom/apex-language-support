@@ -896,15 +896,47 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(result).toEqual({ result: 'test' });
     });
 
-    it('should submit document open notification', () => {
+    it('keeps the notification promise pending until queued work completes', async () => {
       const manager = LSPQueueManager.getInstance();
-      // Notifications are fire-and-forget, return void
-      manager.submitDocumentOpenNotification({
+      const serviceRegistry = (manager as any)
+        .serviceRegistry as ServiceRegistry;
+
+      let markStarted!: () => void;
+      let releaseProcessing!: () => void;
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const processingGate = new Promise<void>((resolve) => {
+        releaseProcessing = resolve;
+      });
+
+      serviceRegistry.register({
+        requestType: 'documentOpen' as LSPRequestType,
+        priority: Priority.High,
+        timeout: 1_000,
+        maxRetries: 0,
+        process: jest.fn().mockImplementation(async () => {
+          markStarted();
+          await processingGate;
+          return undefined;
+        }),
+      });
+
+      const notification = manager.submitDocumentOpenNotification({
         textDocument: { uri: 'test', text: 'content' },
       });
 
-      // Verify the notification was submitted (check internal state or wait)
-      expect(manager).toBeDefined();
+      await started;
+      let settled = false;
+      void notification.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      releaseProcessing();
+      await notification;
+      expect(settled).toBe(true);
     });
 
     it('should submit document save notification', () => {

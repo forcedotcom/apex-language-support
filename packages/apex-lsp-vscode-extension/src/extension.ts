@@ -75,14 +75,6 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initialize simple extension logging
   initializeExtensionLogging(context);
 
-  // Set up OTEL tracing in the extension-host process via dx-services.
-  // Fire-and-forget; tracing failure must not block extension activation.
-  initializeExtensionTracing(context).catch((error) => {
-    logToOutputChannel(
-      `Extension tracing init error: ${formattedError(error)}`,
-      'warning',
-    );
-  });
   const extensionMode =
     context.extensionMode === vscode.ExtensionMode.Development
       ? 'Development'
@@ -187,29 +179,43 @@ export function activate(context: vscode.ExtensionContext): void {
     'info',
   );
 
-  // Check if client already exists before starting
-  const { getClient } = require('./language-server');
-  const existingClient = getClient();
-  if (existingClient) {
-    console.log('⚠️ Client already exists, skipping start');
-    logToOutputChannel('Client already exists, skipping start', 'warning');
-    return;
-  }
-
-  // Start the language server
-  console.log('🔧 About to start language server...');
-  logToOutputChannel('🔧 About to start language server...', 'debug');
-  handleStart(context)
-    .then(async () => {
-      logToOutputChannel('✅ Language server started successfully', 'info');
+  // Set up OTEL tracing and span collector BEFORE starting language server.
+  // The language server needs spanCollectorUrl to pass to workers.
+  initializeExtensionTracing(context)
+    .then(() => {
+      logToOutputChannel('Extension tracing initialized', 'debug');
     })
     .catch((error) => {
       logToOutputChannel(
-        `❌ Failed to start language server: ${formattedError(error, {
-          includeStack: true,
-        })}`,
-        'error',
+        `Extension tracing init error: ${formattedError(error)}`,
+        'warning',
       );
+    })
+    .finally(() => {
+      // Start the language server after tracing initialization completes (or fails)
+      const { getClient } = require('./language-server');
+      const existingClient = getClient();
+      if (existingClient) {
+        console.log('⚠️ Client already exists, skipping start');
+        logToOutputChannel('Client already exists, skipping start', 'warning');
+        return;
+      }
+
+      // Start the language server
+      console.log('🔧 About to start language server...');
+      logToOutputChannel('🔧 About to start language server...', 'debug');
+      handleStart(context)
+        .then(async () => {
+          logToOutputChannel('✅ Language server started successfully', 'info');
+        })
+        .catch((error) => {
+          logToOutputChannel(
+            `❌ Failed to start language server: ${formattedError(error, {
+              includeStack: true,
+            })}`,
+            'error',
+          );
+        });
     });
 }
 

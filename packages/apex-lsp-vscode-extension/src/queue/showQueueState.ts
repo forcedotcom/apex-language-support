@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as vscode from 'vscode';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 import { getQueueStateWebviewContent } from '../webviews/queueStateView';
 import { getClient, getLanguageClient } from '../language-server';
 import { logToOutputChannel } from '../logging';
@@ -153,7 +154,7 @@ export async function showQueueState(
               error,
             );
             logToOutputChannel(
-              `[QueueState] Error posting message to webview: ${error}`,
+              `[QueueState] Error posting message to webview: ${formattedError(error)}`,
               'error',
             );
             // If posting fails, panel might be disposed

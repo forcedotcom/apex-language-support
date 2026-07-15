@@ -9,7 +9,18 @@
 import * as vscode from 'vscode';
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
 import { Data, Effect, ManagedRuntime } from 'effect';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from '../logging';
+import {
+  startSpanCollector,
+  stopSpanCollector,
+  getCollectorPort,
+} from './spanCollectorService';
+import type {
+  CollectedSpanResource,
+  SdkSpanRuntimeFactory,
+} from './sdkSpanReplay';
+import { context, propagation, trace } from '@opentelemetry/api';
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
 
@@ -26,12 +37,80 @@ class ServicesExtensionActivationError extends Data.TaggedError(
 
 let extensionTracingRuntime:
   ManagedRuntime.ManagedRuntime<never, never> | undefined;
+const collectedSpanRuntimes = new Set<
+  ManagedRuntime.ManagedRuntime<never, never>
+>();
 
 let salesforceServicesApi: SalesforceVSCodeServicesApi | undefined;
 
 export function getSalesforceServicesApi():
   SalesforceVSCodeServicesApi | undefined {
   return salesforceServicesApi;
+}
+
+/**
+ * Get the span collector port if running (undefined otherwise).
+ * Used by the language server to pass to workers.
+ */
+export function getSpanCollectorUrl(): string | undefined {
+  const port = getCollectorPort();
+  return port ? `http://127.0.0.1:${port}` : undefined;
+}
+
+/**
+ * Inject W3C trace context from the current active span into a payload object.
+ * Returns the payload with an added `traceContext` field containing the traceparent header.
+ *
+ * This is called from LSP client middleware to propagate trace context from extension
+ * spans into LSP requests, so the language server and workers can create child spans.
+ *
+ * @param payload - The request payload (typically LSP params)
+ * @returns The same payload with traceContext field added if a span is active
+ */
+export function injectTraceContextFromActiveSpan<
+  T extends Record<string, unknown>,
+>(payload: T): T & { traceContext?: string } {
+  try {
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      const carrier: Record<string, string> = {};
+      propagation.inject(context.active(), carrier);
+
+      if (carrier.traceparent) {
+        return { ...payload, traceContext: carrier.traceparent };
+      }
+    }
+  } catch (error) {
+    // Trace injection should never break requests - fail silently
+    logToOutputChannel(
+      `[traceContext] Failed to inject trace context: ${error}`,
+      'debug',
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Inject W3C context from the current Effect span.
+ *
+ * The Salesforce services SDK supplies an Effect-native tracer. Its current
+ * span is not guaranteed to be installed in OpenTelemetry's global
+ * `context.active()`, so the imperative helper above can legitimately see no
+ * active span even while an Effect span is recording. Workspace loading runs
+ * entirely inside that Effect runtime and must use this helper at LSP process
+ * boundaries.
+ */
+export function injectTraceContextFromCurrentEffectSpan<
+  T extends Record<string, unknown>,
+>(payload: T): Effect.Effect<T & { traceContext?: string }> {
+  return Effect.currentSpan.pipe(
+    Effect.map((span) => ({
+      ...payload,
+      traceContext: `00-${span.traceId}-${span.spanId}-${span.sampled ? '01' : '00'}`,
+    })),
+    Effect.catchTag('NoSuchElementException', () => Effect.succeed(payload)),
+  );
 }
 
 /** Effect that resolves the services extension API, activating it if needed. */
@@ -52,6 +131,59 @@ const getServicesApi = Effect.sync(() =>
         }),
   ),
 );
+
+/** Check if any tracing setting is enabled. */
+function isTracingEnabled(): boolean {
+  const config = vscode.workspace.getConfiguration(SALESFORCE_DX_SECTION);
+  return (
+    config.get<boolean>('enableFileTraces') === true ||
+    config.get<boolean>('enableConsoleTraces') === true ||
+    config.get<boolean>('enableLocalTraces') === true
+  );
+}
+
+interface SdkLayerConfig {
+  readonly extensionName: string;
+  readonly extensionVersion: string;
+  readonly [key: string]: unknown;
+}
+
+/**
+ * Build SDK runtimes with the original process/worker service identity.
+ * Older services-extension APIs that do not expose their layer config still
+ * use the extension runtime, preserving sink coverage with reduced resource
+ * separation rather than dropping collected spans.
+ */
+export function makeCollectedSpanRuntimeFactory(
+  api: SalesforceVSCodeServicesApi,
+  extensionContext: vscode.ExtensionContext,
+  fallbackRuntime: ManagedRuntime.ManagedRuntime<never, never>,
+): SdkSpanRuntimeFactory {
+  const services = api.services as typeof api.services & {
+    getSdkLayerConfigFromContext?: (
+      context: vscode.ExtensionContext,
+    ) => SdkLayerConfig;
+  };
+  const baseConfig = services.getSdkLayerConfigFromContext?.(extensionContext);
+  if (!baseConfig) return () => fallbackRuntime;
+
+  return (resource: CollectedSpanResource) => {
+    const sdkLayerForConfig = services.SdkLayerFor as unknown as (
+      config: SdkLayerConfig,
+    ) => ReturnType<typeof services.SdkLayerFor>;
+    const sdkLayer = sdkLayerForConfig({
+      ...baseConfig,
+      extensionName: resource.serviceName,
+      extensionVersion:
+        resource.serviceVersion ?? baseConfig.extensionVersion ?? 'unknown',
+    });
+    const runtime = ManagedRuntime.make(
+      sdkLayer,
+    ) as ManagedRuntime.ManagedRuntime<never, never>;
+    collectedSpanRuntimes.add(runtime);
+    return runtime;
+  };
+}
 
 /** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
 async function buildTracingRuntime(
@@ -76,6 +208,17 @@ async function buildTracingRuntime(
               'Extension-host OTEL tracing initialized via salesforcedx-vscode-services',
               'info',
             );
+
+            // Start the span collector if tracing is enabled (desktop only)
+            if (isTracingEnabled()) {
+              await startSpanCollector(
+                makeCollectedSpanRuntimeFactory(
+                  api,
+                  context,
+                  extensionTracingRuntime,
+                ),
+              );
+            }
           },
           catch: (cause) => new ServicesExtensionActivationError({ cause }),
         }),
@@ -91,7 +234,7 @@ async function buildTracingRuntime(
       Effect.catchAll((error) =>
         Effect.sync(() =>
           logToOutputChannel(
-            `Failed to initialize extension-host OTEL tracing: ${error}`,
+            `Failed to initialize extension-host OTEL tracing: ${formattedError(error)}`,
             'warning',
           ),
         ),
@@ -173,10 +316,35 @@ export function emitTelemetrySpan(event: Record<string, unknown>): void {
 }
 
 /**
+ * Run an Effect with the extension-host tracing runtime when it is available.
+ * Falls back to the default runtime so observability never becomes a runtime
+ * dependency of the workspace-loading path.
+ */
+export function runWithExtensionTracing<A, E>(
+  effect: Effect.Effect<A, E, never>,
+): Promise<A> {
+  return extensionTracingRuntime
+    ? extensionTracingRuntime.runPromise(effect)
+    : Effect.runPromise(effect);
+}
+
+/**
  * Gracefully flush and tear down the extension-host tracing runtime.
  * Call this from the extension's deactivate() function.
  */
 export async function shutdownExtensionTracing(): Promise<void> {
+  // Stop the span collector first
+  await stopSpanCollector();
+
+  for (const runtime of collectedSpanRuntimes) {
+    try {
+      await Effect.runPromise(runtime.disposeEffect);
+    } catch {
+      // Best-effort disposal, matching the primary extension runtime.
+    }
+  }
+  collectedSpanRuntimes.clear();
+
   const rt = extensionTracingRuntime;
   extensionTracingRuntime = undefined;
   if (rt) {

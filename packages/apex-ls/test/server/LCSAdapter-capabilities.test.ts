@@ -133,6 +133,146 @@ describe('LCSAdapter Capabilities Alignment', () => {
   });
 
   describe('Dynamic Registration Document Selectors', () => {
+    it('dynamically registers definition and implementation without static duplication', async () => {
+      mockConfigManager.getCapabilities.mockReturnValue({
+        definitionProvider: true,
+        implementationProvider: true,
+        hoverProvider: true,
+      } as ServerCapabilities);
+      (adapter as any).clientCapabilities = {
+        textDocument: {
+          definition: { dynamicRegistration: true },
+          implementation: { dynamicRegistration: true },
+          hover: { dynamicRegistration: true },
+        },
+      } as ClientCapabilities;
+      mockConnection.sendRequest.mockResolvedValue(undefined);
+
+      await (adapter as any).registerDynamicCapabilities();
+
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'client/registerCapability',
+        expect.objectContaining({
+          registrations: expect.arrayContaining([
+            expect.objectContaining({ method: 'textDocument/hover' }),
+          ]),
+        }),
+      );
+      const registrationParams = mockConnection.sendRequest.mock
+        .calls[0][1] as {
+        registrations: Array<{ method: string }>;
+      };
+      expect(
+        registrationParams.registrations.some(
+          ({ method }) => method === 'textDocument/definition',
+        ),
+      ).toBe(true);
+      expect(
+        registrationParams.registrations.some(
+          ({ method }) => method === 'textDocument/implementation',
+        ),
+      ).toBe(true);
+    });
+
+    it('reconciles definition and implementation registrations when capabilities change', async () => {
+      let capabilities: ServerCapabilities = {
+        definitionProvider: true,
+        implementationProvider: true,
+      };
+      mockConfigManager.getCapabilities.mockImplementation(() => capabilities);
+      (adapter as any).clientCapabilities = {
+        textDocument: {
+          definition: { dynamicRegistration: true },
+          implementation: { dynamicRegistration: true },
+        },
+      } as ClientCapabilities;
+      mockConnection.sendRequest.mockResolvedValue(undefined);
+
+      await (adapter as any).registerDynamicCapabilities();
+      mockConnection.sendRequest.mockClear();
+
+      capabilities = {};
+      await (adapter as any).reconcileDynamicNavigationCapabilities();
+
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'client/unregisterCapability',
+        {
+          unregisterations: expect.arrayContaining([
+            {
+              id: 'apex-definition',
+              method: 'textDocument/definition',
+            },
+            {
+              id: 'apex-implementation',
+              method: 'textDocument/implementation',
+            },
+          ]),
+        },
+      );
+
+      mockConnection.sendRequest.mockClear();
+      capabilities = {
+        definitionProvider: true,
+        implementationProvider: true,
+      };
+      await (adapter as any).reconcileDynamicNavigationCapabilities();
+
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'client/registerCapability',
+        expect.objectContaining({
+          registrations: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'apex-definition',
+              method: 'textDocument/definition',
+            }),
+            expect.objectContaining({
+              id: 'apex-implementation',
+              method: 'textDocument/implementation',
+            }),
+          ]),
+        }),
+      );
+    });
+
+    it('serializes concurrent navigation reconciliation without duplicate providers', async () => {
+      mockConfigManager.getCapabilities.mockReturnValue({
+        definitionProvider: true,
+        implementationProvider: true,
+      } as ServerCapabilities);
+      (adapter as any).clientCapabilities = {
+        textDocument: {
+          definition: { dynamicRegistration: true },
+          implementation: { dynamicRegistration: true },
+        },
+      } as ClientCapabilities;
+
+      let completeRegistration!: () => void;
+      const registrationPending = new Promise<void>((resolve) => {
+        completeRegistration = resolve;
+      });
+      mockConnection.sendRequest.mockReturnValue(registrationPending);
+
+      const first = (adapter as any).reconcileDynamicNavigationCapabilities();
+      const second = (adapter as any).reconcileDynamicNavigationCapabilities();
+
+      await Promise.resolve();
+      expect(mockConnection.sendRequest).toHaveBeenCalledTimes(1);
+
+      completeRegistration();
+      await Promise.all([first, second]);
+
+      expect(mockConnection.sendRequest).toHaveBeenCalledTimes(1);
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'client/registerCapability',
+        expect.objectContaining({
+          registrations: expect.arrayContaining([
+            expect.objectContaining({ id: 'apex-definition' }),
+            expect.objectContaining({ id: 'apex-implementation' }),
+          ]),
+        }),
+      );
+    });
+
     it('should use correct document selectors for dynamic registration', () => {
       // Mock capabilities that support dynamic registration
       mockConfigManager.getCapabilities.mockReturnValue({

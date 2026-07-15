@@ -23,40 +23,155 @@ import {
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
+  runWithSpan,
 } from '@salesforce/apex-lsp-shared';
 import type {
   ResourceLoaderRequest,
   LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
+import { injectTraceContextFromOtelSpan } from './traceContextInjection';
 
 export class ResourceLoaderProxy {
+  private readonly symbolTables = new Map<string, Promise<unknown | null>>();
+  private readonly files = new Map<string, Promise<string | undefined>>();
+  private readonly resolvedClasses = new Map<string, Promise<string | null>>();
+  private standardNamespaces?: Promise<Record<string, string[]>>;
+
   constructor(
     private readonly worker: Worker.SerializedWorker<ResourceLoaderRequest>,
     private readonly logger: LoggerInterface,
   ) {}
 
+  private withTraceContext<T extends ResourceLoaderRequest>(message: T): T {
+    const enriched = injectTraceContextFromOtelSpan(
+      message as unknown as Record<string, unknown>,
+    );
+    if ('traceContext' in enriched) {
+      (message as unknown as Record<string, unknown>).traceContext =
+        enriched.traceContext;
+    }
+    return message;
+  }
+
   async getSymbolTable(classPath: string): Promise<unknown | null> {
-    const msg = new ResourceLoaderGetSymbolTable({ classPath });
-    const result = await Effect.runPromise(this.worker.executeEffect(msg));
-    return result.found ? (result.symbolTable ?? null) : null;
+    const key = classPath.toLowerCase();
+    const cacheHit = this.symbolTables.has(key);
+    return runWithSpan(
+      'resourceLoader.proxy.getSymbolTable',
+      async () => {
+        let pending = this.symbolTables.get(key);
+        if (!pending) {
+          pending = (async () => {
+            const msg = this.withTraceContext(
+              new ResourceLoaderGetSymbolTable({ classPath }),
+            );
+            const result = await Effect.runPromise(
+              this.worker.executeEffect(msg),
+            );
+            return result.found ? (result.symbolTable ?? null) : null;
+          })();
+          this.symbolTables.set(key, pending);
+          void pending.catch(() => {
+            if (this.symbolTables.get(key) === pending) {
+              this.symbolTables.delete(key);
+            }
+          });
+        }
+        return pending;
+      },
+      {
+        'resource.class_path': classPath,
+        'resource.cache_hit': cacheHit,
+      },
+    );
   }
 
   async getFile(path: string): Promise<string | undefined> {
-    const msg = new ResourceLoaderGetFile({ path });
-    const result = await Effect.runPromise(this.worker.executeEffect(msg));
-    return result.found ? result.content : undefined;
+    const key = path.toLowerCase();
+    const cacheHit = this.files.has(key);
+    return runWithSpan(
+      'resourceLoader.proxy.getFile',
+      async () => {
+        let pending = this.files.get(key);
+        if (!pending) {
+          pending = (async () => {
+            const msg = this.withTraceContext(
+              new ResourceLoaderGetFile({ path }),
+            );
+            const result = await Effect.runPromise(
+              this.worker.executeEffect(msg),
+            );
+            return result.found ? result.content : undefined;
+          })();
+          this.files.set(key, pending);
+          void pending.catch(() => {
+            if (this.files.get(key) === pending) {
+              this.files.delete(key);
+            }
+          });
+        }
+        return pending;
+      },
+      {
+        'resource.path': path,
+        'resource.cache_hit': cacheHit,
+      },
+    );
   }
 
   resolveStandardClassFqn(className: string): Promise<string | null> {
-    const msg = new ResourceLoaderResolveClass({ className });
-    return Effect.runPromise(this.worker.executeEffect(msg)).then((r) =>
-      r.found ? (r.fqn ?? null) : null,
+    const key = className.toLowerCase();
+    const cacheHit = this.resolvedClasses.has(key);
+    return runWithSpan(
+      'resourceLoader.proxy.resolveClass',
+      async () => {
+        let pending = this.resolvedClasses.get(key);
+        if (!pending) {
+          const msg = this.withTraceContext(
+            new ResourceLoaderResolveClass({ className }),
+          );
+          pending = Effect.runPromise(this.worker.executeEffect(msg)).then(
+            (r) => (r.found ? (r.fqn ?? null) : null),
+          );
+          this.resolvedClasses.set(key, pending);
+          void pending.catch(() => {
+            if (this.resolvedClasses.get(key) === pending) {
+              this.resolvedClasses.delete(key);
+            }
+          });
+        }
+        return pending;
+      },
+      {
+        'resource.class_name': className,
+        'resource.cache_hit': cacheHit,
+      },
     );
   }
 
   async getStandardNamespaces(): Promise<Record<string, string[]>> {
+    const cacheHit = this.standardNamespaces !== undefined;
+    return runWithSpan(
+      'resourceLoader.proxy.getStandardNamespaces',
+      async () => {
+        if (this.standardNamespaces) {
+          return this.standardNamespaces;
+        }
+        this.standardNamespaces = this.loadStandardNamespaces();
+        void this.standardNamespaces.catch(() => {
+          this.standardNamespaces = undefined;
+        });
+        return this.standardNamespaces;
+      },
+      { 'resource.cache_hit': cacheHit },
+    );
+  }
+
+  private async loadStandardNamespaces(): Promise<Record<string, string[]>> {
     try {
-      const msg = new ResourceLoaderGetStandardNamespaces({});
+      const msg = this.withTraceContext(
+        new ResourceLoaderGetStandardNamespaces({}),
+      );
       const result = await Effect.runPromise(this.worker.executeEffect(msg));
       return (
         (result as { namespaces?: Record<string, string[]> }).namespaces ?? {}
