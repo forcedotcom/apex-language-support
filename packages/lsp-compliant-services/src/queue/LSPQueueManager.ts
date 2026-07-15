@@ -576,8 +576,14 @@ export class LSPQueueManager {
   /**
    * Submit a code action request
    */
-  async submitCodeActionRequest(params: any): Promise<any> {
-    return this.submitRequest('codeAction', params, { priority: Priority.Low });
+  async submitCodeActionRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
+    return this.submitRequest('codeAction', params, {
+      priority: Priority.Low,
+      token,
+    });
   }
 
   /**
