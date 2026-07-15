@@ -101,9 +101,9 @@ export async function createTestServer(
   }
 
   // Build settings for SDK initialize - start from defaults and override mode
-  const serverMode =
-    (options.initOptions?.apex?.environment?.serverMode as
-      'production' | 'development') ?? 'production';
+  const rawMode = options.initOptions?.apex?.environment?.serverMode;
+  const serverMode: 'production' | 'development' =
+    rawMode === 'development' ? 'development' : 'production';
   const settings: ApexLanguageServerSettings = {
     ...DEFAULT_APEX_SETTINGS,
     apex: {
@@ -163,13 +163,15 @@ export async function createTestServer(
   const serverArgs = clientOptions.serverArgs || [];
   const nodeArgs = clientOptions.nodeArgs || [];
 
+  let core: ApexClientCore | undefined;
   try {
-    const { core } = await createHeadlessClient(serverPath, {
+    const result = await createHeadlessClient(serverPath, {
       nodeArgs,
       serverArgs,
       env: clientOptions.env,
       coreOptions: {},
     });
+    core = result.core;
 
     // Initialize the server
     const initResult = await core.initialize(settings, initializeParams);
@@ -198,11 +200,11 @@ export async function createTestServer(
       workspace,
       cleanup: async () => {
         try {
-          await core.shutdown();
+          await core!.shutdown();
         } catch (error) {
           console.warn(`Error stopping client: ${error}`);
         }
-        await core.dispose();
+        await core!.dispose();
 
         if (workspace?.isTemporary) {
           try {
@@ -217,6 +219,20 @@ export async function createTestServer(
       },
     };
   } catch (error) {
+    // Shut down the spawned server process to avoid orphans
+    if (core) {
+      try {
+        await core.shutdown();
+      } catch {
+        // Ignore shutdown errors during cleanup
+      }
+      try {
+        await core.dispose();
+      } catch {
+        // Ignore dispose errors during cleanup
+      }
+    }
+
     if (workspace?.isTemporary) {
       try {
         await fs.promises.rm(workspace.rootPath, {

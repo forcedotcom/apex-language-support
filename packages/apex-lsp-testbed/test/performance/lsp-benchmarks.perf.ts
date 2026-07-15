@@ -272,14 +272,7 @@ describe(testTitle, () => {
   afterAll(async () => {
     if (serverContext) {
       try {
-        // Ensure client is disposed
-        await serverContext.client.dispose();
-      } catch (error) {
-        console.warn(`Error stopping client in afterAll: ${error}`);
-      }
-
-      try {
-        // Cleanup workspace and other resources
+        // Cleanup handles shutdown + dispose in correct order
         await serverContext.cleanup();
       } catch (error) {
         console.warn(`Error during cleanup in afterAll: ${error}`);
