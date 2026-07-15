@@ -21,11 +21,12 @@ export interface CapturedNotification {
 }
 
 /**
- * SDK-native middleware for capturing LSP notifications sent from server to client.
+ * SDK-native middleware for capturing log-related LSP notifications
+ * (`window/logMessage` and `$/logMessage`) sent from server to client.
  *
  * Implements `ApexClientMiddleware` so it can be installed via `client.use(mw)`.
- * Intercepts incoming (server-to-client) notifications to capture them for
- * integration testing and protocol verification.
+ * Only captures log message notifications; other notifications are forwarded
+ * without recording.
  */
 export class NotificationCapturingMiddleware implements ApexClientMiddleware {
   private notifications: CapturedNotification[] = [];

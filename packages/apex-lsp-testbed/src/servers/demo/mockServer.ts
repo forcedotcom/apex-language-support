@@ -252,7 +252,7 @@ public class SymbolsTest {
     if (symbolsResult && Array.isArray(symbolsResult)) {
       this.logger.info(`Document symbols: ${symbolsResult.length}`);
       if (symbolsResult.length > 0) {
-        const symbolNames = symbolsResult.map((s: any) => s.name).join(', ');
+        const symbolNames = symbolsResult.map((s) => s.name).join(', ');
         this.logger.info(`Symbol names: ${symbolNames}`);
       }
     } else {

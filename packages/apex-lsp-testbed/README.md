@@ -6,7 +6,7 @@ A testing framework for evaluating and comparing different implementations of Ap
 
 This package provides a unified interface for testing various Apex language server implementations (such as the demo mock server and jorje Java-based server) using the `@salesforce/apex-lsp-client` SDK.
 
-The testbed uses the SDK's `createHeadlessClient` for real server connections and a `MockRpcConnection` + `ApexClientCore` for demo/test mode. All interactions go through the `ApexLspTestClient` wrapper which provides convenience methods for document operations, health checks, and server capabilities.
+Uses SDK's `createHeadlessClient` for real server connections; `MockRpcConnection` + `ApexClientCore` for demo/test mode. All interactions go through the `ApexLspTestClient` wrapper which provides convenience methods for document operations, health checks, and server capabilities.
 
 ## Prerequisites
 

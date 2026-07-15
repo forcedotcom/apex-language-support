@@ -155,10 +155,10 @@ public class HoverTest {
 
   // Log hover results
   if (hoverResult && hoverResult.contents) {
-    const contents = hoverResult.contents as any;
+    const contents = hoverResult.contents;
     if (typeof contents === 'string') {
       console.log(`Hover content: ${contents}`);
-    } else if (contents.kind && contents.value) {
+    } else if ('kind' in contents && 'value' in contents) {
       console.log(`Hover content (${contents.kind}):`);
       console.log(contents.value);
     } else {
@@ -178,6 +178,7 @@ public class HoverTest {
  * Main function
  */
 async function main(): Promise<void> {
+  let core: ApexClientCore | undefined;
   try {
     // Parse command line arguments
     const options = parseArgs();
@@ -211,7 +212,6 @@ async function main(): Promise<void> {
     }
 
     let client: ApexLspTestClient;
-    let core: ApexClientCore;
 
     if (options.serverType === 'demo') {
       // Demo mode: use MockRpcConnection
@@ -255,8 +255,8 @@ async function main(): Promise<void> {
     // Register exit handler
     process.on('SIGINT', async () => {
       console.log('\nShutting down server...');
-      await core.shutdown();
-      await core.dispose();
+      await core!.shutdown();
+      await core!.dispose();
       process.exit(0);
     });
 
@@ -292,15 +292,34 @@ async function main(): Promise<void> {
       );
 
       // Wait a moment before shutting down
-      setTimeout(async () => {
-        await core.shutdown();
-        await core.dispose();
-        console.log('Server stopped');
-        process.exit(0);
+      setTimeout(() => {
+        (async () => {
+          try {
+            await core!.shutdown();
+            await core!.dispose();
+            console.log('Server stopped');
+          } catch (shutdownError) {
+            console.error('Error during shutdown:', shutdownError);
+          }
+          process.exit(0);
+        })();
       }, 1000);
     }
   } catch (error) {
     console.error('Error:', error);
+    // Clean up the server process if it was initialized
+    if (core) {
+      try {
+        await core.shutdown();
+      } catch {
+        // Ignore shutdown errors during error cleanup
+      }
+      try {
+        await core.dispose();
+      } catch {
+        // Ignore dispose errors during error cleanup
+      }
+    }
     process.exit(1);
   }
 }
