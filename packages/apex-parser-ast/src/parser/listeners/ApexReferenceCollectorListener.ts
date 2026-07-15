@@ -876,9 +876,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         const typeList = typeArgs.typeList();
         if (typeList) {
-          const genericTypeRefs = typeList.typeRef();
+          const genericTypeRefs = typeList.typeRef_list();
           for (const genericTypeRef of genericTypeRefs) {
-            const genericTypeNames = genericTypeRef.typeName();
+            const genericTypeNames = genericTypeRef.typeName_list();
             if (!genericTypeNames || genericTypeNames.length === 0) continue;
 
             const genericTypeName = genericTypeNames[0];

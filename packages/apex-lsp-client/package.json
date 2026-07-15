@@ -139,8 +139,17 @@
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver-protocol": "^3.17.5"
   },
+  "peerDependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "peerDependenciesMeta": {
+    "vscode-languageclient": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "^0.1.0",
+    "vscode-languageclient": "^9.0.1"
   }
 }

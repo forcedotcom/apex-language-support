@@ -27,6 +27,7 @@ export type {
   ApexClientInitializeParams,
 } from './apexClientCore';
 export { JsonRpcConnection } from './transports/jsonRpcConnection';
+export { LanguageClientConnection } from './transports/languageClientConnection';
 
 // Browser-only transport adapter.
 export { createWebWorkerConnection } from './transports/createWebWorkerConnection';
