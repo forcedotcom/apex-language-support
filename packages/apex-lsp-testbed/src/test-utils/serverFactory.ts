@@ -8,6 +8,7 @@
 
 import { ServerType } from '../utils/serverUtils';
 import { WorkspaceConfig } from '../utils/workspaceUtils';
+import { ApexLspTestClient } from './ApexLspTestClient';
 
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +22,7 @@ const { createClientOptions } = require('../utils/serverUtils');
 const { prepareWorkspace } = require('../utils/workspaceUtils');
 
 export interface ServerTestContext {
-  client: typeof ApexJsonRpcClient;
+  client: ApexLspTestClient;
   workspace: WorkspaceConfig | undefined;
   cleanup: () => Promise<void>;
 }

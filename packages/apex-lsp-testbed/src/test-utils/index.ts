@@ -11,6 +11,8 @@ export * from './RequestResponseCapturingMiddleware';
 export * from './NotificationCapturingMiddleware';
 export * from './LspTestFixture';
 export * from './LspTestRunner';
+export * from './ApexLspTestClient';
+export * from './MockRpcConnection';
 
 // Export types for test scripts
 export interface LspTestStepBase {
