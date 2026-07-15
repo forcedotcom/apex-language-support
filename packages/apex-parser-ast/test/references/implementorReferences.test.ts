@@ -23,7 +23,11 @@ import { ReferenceType } from '../../src/symbols/ApexSymbolRefManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { VisibilitySymbolListener } from '../../src/parser/listeners/VisibilitySymbolListener';
-import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  enableConsoleLogging,
+  setLogLevel,
+  getLogger,
+} from '@salesforce/apex-lsp-shared';
 import { SymbolKind, type ApexSymbol } from '../../src/types/symbol';
 import { SymbolTable } from '../../src/types/symbol';
 import { ReferenceContext } from '../../src/types/symbolReference';
@@ -259,6 +263,50 @@ describe('implementor reverse references (W-23006798 Phase 1)', () => {
       const ref = refs.find((r) => r.name === 'IBase');
       expect(ref).toBeDefined();
       expect(ref!.context).toBe(ReferenceContext.INTERFACE_IMPLEMENTATION);
+    });
+
+    // Regression for the @apexdevtools/apex-parser 5.1.0 API change. In the
+    // generated parser, `TypeListContext.typeRef(i)` / `TypeRefContext.typeName(i)`
+    // are INDEX accessors: called with no arg they return null (not an array);
+    // the array accessors are `typeRef_list()` / `typeName_list()`. The type
+    // declaration branch of enterTypeRef used the no-arg forms and iterated the
+    // result, so on 5.1.0 `for (... of typeList.typeRef())` threw
+    // "genericTypeRefs is not iterable". That throw is swallowed by the
+    // enterTypeRef try/catch and logged as a warning, so it produces no visible
+    // reference diff (a sibling branch captures the same generics) — the only
+    // observable symptom is the warning. Assert that warning never fires so the
+    // accessor can't silently regress to the index form again.
+    it('processes generic type declarations without an iteration error', () => {
+      const warnSpy = jest.spyOn(getLogger(), 'warn');
+      try {
+        const refs = compileViaWorkerConfig(
+          'public class C { public void m() { Map<Id, Contact> byId; } }',
+          'file:///test/C.cls',
+        );
+
+        // The generic parameters are captured as GENERIC_PARAMETER_TYPE refs.
+        const genericNames = new Set(
+          refs
+            .filter(
+              (r) => r.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+            )
+            .map((r) => r.name),
+        );
+        expect(genericNames.has('Id')).toBe(true);
+        expect(genericNames.has('Contact')).toBe(true);
+
+        // And no "not iterable" warning was swallowed while doing so.
+        const warnings = warnSpy.mock.calls.map((c) => {
+          const arg = c[0];
+          return typeof arg === 'function' ? String(arg()) : String(arg);
+        });
+        const capturedError = warnings.find((w) =>
+          w.includes('Error capturing type declaration reference'),
+        );
+        expect(capturedError).toBeUndefined();
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 
