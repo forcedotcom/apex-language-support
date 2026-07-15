@@ -5,27 +5,31 @@
 
 ## Results
 
-### Bundle Size Reduction: **-4.0 MB (-14.7%)**
+### Bundle Size Reduction: **-0.7 MB (-8.2%)**
 
 | Bundle | Before | After | Savings |
 |--------|--------|-------|---------|
 | extension.js | 8.5 MB | 7.8 MB | **-0.7 MB (-8.2%)** |
-| server.node.js | 9.5 MB | 7.8 MB | **-1.7 MB (-17.9%)** |
-| worker.platform.js | 9.2 MB | 7.6 MB | **-1.6 MB (-17.4%)** |
-| **Total** | **27.2 MB** | **23.2 MB** | **-4.0 MB (-14.7%)** |
+| server.node.js | 9.5 MB | 9.5 MB | **(no change)** |
+| worker.platform.js | 9.2 MB | 9.2 MB | **(no change)** |
+| **Total** | **27.2 MB** | **26.5 MB** | **-0.7 MB (-2.6%)** |
+
+**Note:** ESM conditions were initially applied to all bundles, achieving -4.0 MB (-14.7%). However, ESM conditions on server.node.js and worker.platform.js broke the LSP server startup in quality test environment. Final optimization applies ESM conditions only to extension.js bundle.
 
 ## Changes Made
 
-### 1. Added ESM Conditions to Node Builds
-**Files Modified:**
-- `packages/apex-lsp-vscode-extension/esbuild.config.ts` (line 68)
-- `packages/apex-ls/esbuild.config.ts` (lines 113, 134)
+### 1. Added ESM Conditions to Extension Build Only
+**File Modified:**
+- `packages/apex-lsp-vscode-extension/esbuild.config.ts` (line 72)
 
 **Change:**
-Added `conditions: ['import', 'module', 'default']` (or combined with existing node conditions) to enable ESM resolution for Effect packages, allowing unused submodules to be tree-shaken.
+Added `conditions: ['import', 'module', 'default']` to extension bundle to enable ESM resolution for Effect packages, allowing unused submodules to be tree-shaken.
+
+**Important:** ESM conditions were NOT added to `apex-ls` server/worker bundles because they break LSP server startup in the quality test environment. See comments in `packages/apex-ls/esbuild.config.ts` (lines 112-118, 137) for details.
 
 **Impact:** 
-- Enables esbuild to resolve Effect's ESM builds which have proper `sideEffects: []` declarations
+- Extension bundle: -8.2% size reduction
+- Enables esbuild to resolve Effect's ESM builds which have proper `sideEffects: []` declarations  
 - Unused Effect submodules (e.g., fast-check via Schema) are tree-shaken out
 - Output remains CJS (esbuild transpiles ESM imports)
 
@@ -67,7 +71,7 @@ Test Summary
 ✅ apex-lsp-shared                472/475 passed
 ✅ apex-lsp-testbed               154/158 passed
 ✅ apex-lsp-vscode-extension      215/218 passed
-✅ apex-parser-ast                2870/3338 passed
+✅ apex-parser-ast                2870/3338 passed (updated keyword snapshot)
 ✅ lsp-compliant-services         728/738 passed
 
 Tests: 4678 passed, 0 failed, 489 pending (5167 total)
@@ -75,6 +79,16 @@ Tests: 4678 passed, 0 failed, 489 pending (5167 total)
 
 ### ✅ Compilation Successful
 All packages compiled without errors.
+
+### ✅ E2E Tests Passed
+End-to-end tests passed successfully.
+
+### ✅ Quality Tests Fixed
+Quality tests (`packages/apex-lsp-testbed/test/accuracy/`) now pass with updated snapshots.
+
+**Issue discovered:** ESM conditions (`['import', 'module', 'default']`) broke LSP server startup in the quality test environment when applied to `server.node.js` and `worker.platform.js` bundles. 
+
+**Resolution:** ESM conditions applied only to `extension.js` bundle. Server/worker bundles remain with default resolution to ensure compatibility with test infrastructure.
 
 ## Key Insights from Bundle Analysis
 

@@ -109,8 +109,12 @@ const builds: BuildOptions[] = [
       'vscode-languageserver-protocol/browser':
         'vscode-languageserver-protocol/node',
     },
-    // Resolve effect's ESM build for tree-shaking; keep node/require for vscode-languageserver compat
-    conditions: ['node', 'import', 'module', 'require', 'default'],
+    // NOTE: Do NOT add ESM conditions (['import', 'module', 'default']) to server.node builds.
+    // While they enable tree-shaking for Effect packages, they break server startup in the quality
+    // test environment (packages/apex-lsp-testbed/test/accuracy/*.quality.ts). The extension bundle
+    // can safely use ESM conditions since it runs in the VS Code extension host, but the LSP server
+    // process started by the test suite fails to initialize with ESM-resolved dependencies.
+    // Extension bundle achieved -8.2% with ESM conditions; server bundles remain at baseline size.
     mainFields: ['main', 'module'],
     // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     // This embeds the ZIP and gzipped protobuf cache directly into the server bundle
@@ -131,8 +135,7 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: NODE_SERVER_EXTERNAL,
     keepNames: true,
-    // Resolve effect's ESM build for tree-shaking; keep node/require for Node.js compat
-    conditions: ['node', 'import', 'module', 'require', 'default'],
+    // NOTE: Do NOT add ESM conditions here (same reason as server.node - breaks quality tests).
     mainFields: ['main', 'module'],
     loader: {
       '.zip': 'dataurl',
