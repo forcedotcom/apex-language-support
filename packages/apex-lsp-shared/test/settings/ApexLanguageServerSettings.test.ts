@@ -423,8 +423,12 @@ describe('ApexLanguageServerSettings Validation', () => {
               idleSleepMs: 25,
               queueStateNotificationIntervalMs: 500,
             },
-            worker: {
-              logLevel: 'info',
+            experimental: {
+              workers: {
+                enabled: true,
+                poolSize: 2,
+                resourceLoader: true,
+              },
             },
           },
         },
@@ -554,8 +558,12 @@ describe('ApexLanguageServerSettings Validation', () => {
             timeoutMsHint: 1500,
             enablePerfMarks: false,
           },
-          worker: {
-            logLevel: 'info',
+          experimental: {
+            workers: {
+              enabled: true,
+              poolSize: 2,
+              resourceLoader: true,
+            },
           },
         },
       } as Partial<ApexLanguageServerSettings>;

@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
 import { showGraph } from './graph/showGraph';
@@ -157,7 +158,7 @@ export const registerLogLevelCommands = (
         );
       } catch (error) {
         logToOutputChannel(
-          `Failed to set log level to ${logLevel}: ${error}`,
+          `Failed to set log level to ${logLevel}: ${formattedError(error)}`,
           'error',
         );
         vscode.window.showErrorMessage(
@@ -341,7 +342,7 @@ export const registerProfilingCommands = (
           );
         }
       } catch (error) {
-        const errorMessage = `Error starting profiling: ${error}`;
+        const errorMessage = `Error starting profiling: ${formattedError(error)}`;
         vscode.window.showErrorMessage(errorMessage);
         logToOutputChannel(errorMessage, 'error');
       }
@@ -394,7 +395,7 @@ export const registerProfilingCommands = (
           );
         }
       } catch (error) {
-        const errorMessage = `Error stopping profiling: ${error}`;
+        const errorMessage = `Error stopping profiling: ${formattedError(error)}`;
         vscode.window.showErrorMessage(errorMessage);
         logToOutputChannel(errorMessage, 'error');
       }
@@ -434,7 +435,7 @@ export const registerProfilingCommands = (
           'info',
         );
       } catch (error) {
-        const errorMessage = `Error getting profiling status: ${error}`;
+        const errorMessage = `Error getting profiling status: ${formattedError(error)}`;
         vscode.window.showErrorMessage(errorMessage);
         logToOutputChannel(errorMessage, 'error');
       }

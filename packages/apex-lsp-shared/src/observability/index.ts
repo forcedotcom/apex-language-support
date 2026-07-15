@@ -25,6 +25,8 @@ export {
   disableTracing,
   runWithSpan,
   runSyncWithSpan,
+  runWithCapturedContext,
+  captureActiveTraceContext,
   withTracing,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,

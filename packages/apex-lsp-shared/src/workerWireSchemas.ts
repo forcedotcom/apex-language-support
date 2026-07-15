@@ -53,6 +53,7 @@ export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
       protocolVersion: Schema.Number,
       logLevel: Schema.optional(Schema.String),
       serverMode: Schema.optional(WorkerServerMode),
+      spanCollectorUrl: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -121,6 +122,8 @@ export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()
     }),
     payload: {
       uris: Schema.Array(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -161,6 +164,8 @@ export class AwaitSymbolReadiness extends Schema.TaggedRequest<AwaitSymbolReadin
       version: Schema.Number,
       /** Backstop wait in ms; the latch resolves earlier on the happy path. */
       timeoutMs: Schema.Number,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -211,6 +216,8 @@ export interface AssistanceRequestPayload {
   readonly method: string;
   readonly params: unknown;
   readonly blocking: boolean;
+  /** W3C traceparent for distributed tracing (optional) */
+  readonly traceContext?: string;
 }
 
 export interface AssistanceResponsePayload {
@@ -265,6 +272,8 @@ export class WorkspaceBatchIngest extends Schema.TaggedRequest<WorkspaceBatchIng
           version: Schema.Number,
         }),
       ),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -294,6 +303,8 @@ export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
       languageId: Schema.String,
       version: Schema.Number,
       priority: Schema.Literal('high', 'low'),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -325,6 +336,8 @@ export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCo
           version: Schema.Number,
         }),
       ),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -347,6 +360,8 @@ export class ResourceLoaderGetSymbolTable extends Schema.TaggedRequest<ResourceL
     }),
     payload: {
       classPath: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -372,6 +387,8 @@ export class ResourceLoaderGetFile extends Schema.TaggedRequest<ResourceLoaderGe
     }),
     payload: {
       path: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -393,6 +410,8 @@ export class ResourceLoaderResolveClass extends Schema.TaggedRequest<ResourceLoa
     }),
     payload: {
       className: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -414,7 +433,10 @@ export class ResourceLoaderGetStandardNamespaces extends Schema.TaggedRequest<Re
       _tag: Schema.Literal('ResourceLoaderError'),
       message: Schema.String,
     }),
-    payload: {},
+    payload: {
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -499,6 +521,8 @@ export class DispatchDocumentOpen extends Schema.TaggedRequest<DispatchDocumentO
       languageId: Schema.String,
       version: Schema.Number,
       content: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -518,6 +542,8 @@ export class DispatchDocumentChange extends Schema.TaggedRequest<DispatchDocumen
       // placeholder here silently drops the file out of any text-based scan
       // until the next full workspace ingest (W-23272674).
       content: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -532,6 +558,8 @@ export class DispatchDocumentSave extends Schema.TaggedRequest<DispatchDocumentS
       version: Schema.Number,
       // Full saved document text — see DispatchDocumentChange.content.
       content: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -541,7 +569,11 @@ export class DispatchDocumentClose extends Schema.TaggedRequest<DispatchDocument
   {
     success: Schema.Struct({ accepted: Schema.Boolean }),
     failure: DispatchError,
-    payload: { uri: Schema.String },
+    payload: {
+      uri: Schema.String,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -556,6 +588,8 @@ export class DispatchHover extends Schema.TaggedRequest<DispatchHover>()(
       textDocument: WireTextDocumentId,
       position: WirePosition,
       content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -573,6 +607,8 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
       // — which the dataOwner only stores at public-api detail — exist for
       // position→declaration resolution. Mirrors DispatchHover.
       content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -597,6 +633,8 @@ export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>
           triggerCharacter: Schema.optional(Schema.String),
         }),
       ),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -614,6 +652,8 @@ export class DispatchSignatureHelp extends Schema.TaggedRequest<DispatchSignatur
       content: Schema.optional(Schema.String),
       // SignatureHelpContext is opaque to the wire layer; the service narrows.
       context: Schema.optional(Schema.Unknown),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -631,6 +671,8 @@ export class DispatchCodeAction extends Schema.TaggedRequest<DispatchCodeAction>
       // CodeActionContext (diagnostics + only/triggerKind) is opaque to the
       // wire layer; the service narrows.
       context: Schema.optional(Schema.Unknown),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -653,6 +695,8 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
       // Without it the pool worker's storage misses and find-references returns
       // [] for every cursor — including cross-file usages.
       content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -665,6 +709,8 @@ export class DispatchImplementation extends Schema.TaggedRequest<DispatchImpleme
     payload: {
       textDocument: WireTextDocumentId,
       position: WirePosition,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -683,6 +729,8 @@ export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumen
       // the text. Without it the pool worker's storage has no document and the
       // provider returns an empty outline (the cold-open regression).
       content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -692,7 +740,11 @@ export class DispatchCodeLens extends Schema.TaggedRequest<DispatchCodeLens>()(
   {
     success: Schema.Struct({ result: Schema.Unknown }),
     failure: DispatchError,
-    payload: { textDocument: WireTextDocumentId },
+    payload: {
+      textDocument: WireTextDocumentId,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -701,7 +753,11 @@ export class DispatchDiagnostic extends Schema.TaggedRequest<DispatchDiagnostic>
   {
     success: Schema.Struct({ result: Schema.Unknown }),
     failure: DispatchError,
-    payload: { textDocument: WireTextDocumentId },
+    payload: {
+      textDocument: WireTextDocumentId,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -710,7 +766,11 @@ export class DispatchCrossFileEnrichment extends Schema.TaggedRequest<DispatchCr
   {
     success: Schema.Struct({ result: Schema.Unknown }),
     failure: DispatchError,
-    payload: { textDocument: WireTextDocumentId },
+    payload: {
+      textDocument: WireTextDocumentId,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -727,6 +787,8 @@ export class DispatchGenericLspRequest extends Schema.TaggedRequest<DispatchGene
     payload: {
       requestType: WireLspRequestType,
       params: Schema.Unknown,
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -758,6 +820,8 @@ export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>
         'full',
       ),
       sourceWorkerId: Schema.String, // For debugging/metrics
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -783,6 +847,8 @@ export class ResolveDepUris extends Schema.TaggedRequest<ResolveDepUris>()(
     }),
     payload: {
       classNames: Schema.Array(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -811,6 +877,8 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
       // declared in `uri`. When omitted, dependents of *any* symbol in `uri`
       // are returned. Accepted now to avoid a wire-schema break later.
       symbolName: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -884,7 +952,10 @@ export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredR
       _tag: Schema.Literal('DrainDeferredReferencesError'),
       message: Schema.String,
     }),
-    payload: {},
+    payload: {
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
   },
 ) {}
 
@@ -908,6 +979,8 @@ export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
       symbolType: Schema.optional(Schema.String),
       includeMetadata: Schema.optional(Schema.Boolean),
       includeDiagnostics: Schema.optional(Schema.Boolean),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -965,6 +1038,8 @@ export class DataOwnerQuerySymbolByName extends Schema.TaggedRequest<DataOwnerQu
       // back to all matches (so an inner-class qualifier like `Outer` in
       // `Outer.Inner`, which is not a namespace, does not drop valid results).
       namespace: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}

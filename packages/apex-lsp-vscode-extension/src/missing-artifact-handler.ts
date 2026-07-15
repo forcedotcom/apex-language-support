@@ -11,6 +11,7 @@ import {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
   WireIdentifierSpec,
+  formattedError,
 } from '@salesforce/apex-lsp-shared';
 import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
 
@@ -78,7 +79,7 @@ export async function handleFindMissingArtifact(
     return { notFound: true };
   } catch (error) {
     logToOutputChannel(
-      `❌ Error resolving artifact ${names}: ${error}`,
+      `❌ Error resolving artifact ${names}: ${formattedError(error)}`,
       'error',
     );
     return { notFound: true };
@@ -271,7 +272,7 @@ async function searchWithStrategy(
       }
     } catch (error) {
       logToOutputChannel(
-        `⚠️ Error searching with pattern ${pattern}: ${error}`,
+        `⚠️ Error searching with pattern ${pattern}: ${formattedError(error)}`,
         'debug',
       );
     }
@@ -292,7 +293,7 @@ async function searchWithStrategy(
         }
       } catch (error) {
         logToOutputChannel(
-          `⚠️ Error searching with fallback pattern ${pattern}: ${error}`,
+          `⚠️ Error searching with fallback pattern ${pattern}: ${formattedError(error)}`,
           'debug',
         );
       }
@@ -322,7 +323,7 @@ async function openFiles(
       logToOutputChannel(`✅ Opened file: ${file.toString()}`, 'debug');
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to open file ${file.toString()}: ${error}`,
+        `❌ Failed to open file ${file.toString()}: ${formattedError(error)}`,
         'error',
       );
     }

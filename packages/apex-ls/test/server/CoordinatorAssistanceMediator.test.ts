@@ -14,6 +14,7 @@ import type {
   AssistanceResponsePayload,
 } from '../../src/server/CoordinatorAssistanceMediator';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { context, createContextKey, propagation } from '@opentelemetry/api';
 
 function createSpyLogger(): LoggerInterface {
   const noop = () => {};
@@ -79,6 +80,53 @@ describe('CoordinatorAssistanceMediator', () => {
         result: { opened: ['file:///Foo.cls'] },
       }),
     );
+  });
+
+  it('extracts worker trace context around the assistance handler', async () => {
+    const handler: AssistanceHandler = jest
+      .fn()
+      .mockResolvedValue({ opened: ['file:///Foo.cls'] });
+    const activeContext = context.active();
+    const extractedContext = activeContext.setValue(
+      createContextKey('test-worker-parent'),
+      true,
+    );
+    const extractSpy = jest
+      .spyOn(propagation, 'extract')
+      .mockReturnValue(extractedContext);
+    const withSpy = jest.spyOn(context, 'with');
+
+    try {
+      const mediator = new CoordinatorAssistanceMediator(handler, logger);
+      const worker = makeMockWorker();
+      mediator.attachToWorkers([worker as any]);
+
+      worker.emit(
+        'message',
+        makeRequest({
+          correlationId: 'traced-1',
+          traceContext:
+            '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
+        }),
+      );
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(extractSpy).toHaveBeenCalledWith(activeContext, {
+        traceparent: '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
+      });
+      expect(withSpy).toHaveBeenCalledWith(
+        extractedContext,
+        expect.any(Function),
+      );
+      expect(handler).toHaveBeenCalledWith(
+        'apex/findMissingArtifact',
+        expect.any(Object),
+      );
+    } finally {
+      extractSpy.mockRestore();
+      withSpy.mockRestore();
+    }
   });
 
   it('routes background request as fire-and-forget', async () => {

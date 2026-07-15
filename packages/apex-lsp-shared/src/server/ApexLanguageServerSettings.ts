@@ -126,6 +126,13 @@ export interface EnvironmentSettings {
 
   /** Apex file count in the workspace, passed from the client for telemetry */
   apexFileCount?: number;
+
+  /**
+   * Span collector URL for worker tracing (desktop only).
+   * Workers POST OTLP/JSON spans to this endpoint, which forwards them
+   * through the extension's configured OTEL exporters.
+   */
+  spanCollectorUrl?: string;
 }
 
 /**

@@ -134,6 +134,27 @@ describe('ResourceLoader Integration', () => {
       }
     });
 
+    it('should reuse a worker-local stdlib table after its registry ID changes', async () => {
+      const isolatedManager = new ApexSymbolManager(
+        getResourceLoaderServiceShapeFromSingleton(),
+      );
+      const loadSpy = jest.spyOn(resourceLoader, 'getSymbolTable');
+
+      const first =
+        await isolatedManager['resolveStandardApexClass']('System.RestRequest');
+      const second =
+        await isolatedManager['resolveStandardApexClass']('System.RestRequest');
+
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect(
+        loadSpy.mock.calls.filter(
+          ([classPath]) => classPath.toLowerCase() === 'system/restrequest.cls',
+        ),
+      ).toHaveLength(1);
+      loadSpy.mockRestore();
+    });
+
     it('should identify standard Apex classes with namespace prefixes', () => {
       // Test the isStandardApexClass method for fully qualified names
       expect(symbolManager.isStandardApexClass('System.Assert')).toBe(true);

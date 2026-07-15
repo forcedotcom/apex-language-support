@@ -15,6 +15,8 @@ import {
   type ProgressToken,
   type WorkDoneProgress,
   type SendWorkspaceBatchParams,
+  type SendWorkspaceBatchResult,
+  type ProcessWorkspaceBatchesResult,
   type WorkspaceFileBatch,
   type WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
@@ -30,6 +32,10 @@ import {
   updateApexServerStatusReady,
   startIngestionTimeout,
 } from './status-bar';
+import {
+  injectTraceContextFromCurrentEffectSpan,
+  runWithExtensionTracing,
+} from './observability/extensionTracing';
 
 // --- Configuration ---
 export function getExcludeGlob(includeSfdxToolsCustomObjects: boolean): string {
@@ -141,20 +147,43 @@ export async function loadWorkspaceForServer(
   // Create the Effect fiber
   const loadEffect = Effect.gen(function* (_: any) {
     // Find all matching workspace files
-    const allUris: vscode.Uri[] = [];
-    for (const pattern of filePatterns) {
-      const uris = yield* _(
-        Effect.tryPromise({
-          try: () =>
-            findFilesAcrossWorkspaceFolders(pattern, excludeGlob, maxFileCount),
-          catch: (e: unknown) =>
-            new Error(
-              `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,
-            ),
+    const allUris: vscode.Uri[] = yield* _(
+      Effect.withSpan('workspace.load.client.discoverFiles', {
+        attributes: {
+          'workspace.pattern_count': filePatterns.length,
+        },
+      })(
+        Effect.gen(function* () {
+          const discovered: vscode.Uri[] = [];
+          for (const pattern of filePatterns) {
+            const uris = yield* Effect.tryPromise({
+              try: () =>
+                findFilesAcrossWorkspaceFolders(
+                  pattern,
+                  excludeGlob,
+                  maxFileCount,
+                ),
+              catch: (e: unknown) =>
+                new Error(
+                  `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,
+                ),
+            });
+            discovered.push(...uris);
+          }
+          yield* Effect.annotateCurrentSpan(
+            'workspace.file_count',
+            discovered.length,
+          );
+          return discovered;
         }),
-      );
-      allUris.push(...uris);
-    }
+      ),
+    );
+
+    yield* _(
+      Effect.annotateCurrentSpan({
+        'workspace.file_count': allUris.length,
+      }),
+    );
 
     logToOutputChannel(`📁 Found ${allUris.length} files to load`, 'debug');
 
@@ -175,9 +204,16 @@ export async function loadWorkspaceForServer(
     logToOutputChannel(`📖 Reading ${allUris.length} files...`, 'debug');
 
     const fileDataArray = yield* _(
-      Effect.forEach(allUris, (uri) => readFileContent(uri), {
-        concurrency: maxConcurrency,
-      }),
+      Effect.withSpan('workspace.load.client.readFiles', {
+        attributes: {
+          'workspace.file_count': allUris.length,
+          'workspace.max_concurrency': maxConcurrency,
+        },
+      })(
+        Effect.forEach(allUris, (uri) => readFileContent(uri), {
+          concurrency: maxConcurrency,
+        }),
+      ),
     );
 
     // Filter out any failed reads (they return void on error)
@@ -192,7 +228,12 @@ export async function loadWorkspaceForServer(
 
     // Create batches
     const batches: readonly WorkspaceFileBatch[] = yield* _(
-      createFileBatches(validFiles, batchSize),
+      Effect.withSpan('workspace.load.client.createBatches', {
+        attributes: {
+          'workspace.file_count': validFiles.length,
+          'workspace.batch_size': batchSize,
+        },
+      })(createFileBatches(validFiles, batchSize)),
     );
 
     logToOutputChannel(
@@ -224,36 +265,56 @@ export async function loadWorkspaceForServer(
 
     // Compress and encode all batches in parallel
     const preparedBatches = yield* _(
-      Effect.forEach(
-        batches,
-        (batch, index) =>
-          Effect.gen(function* () {
-            // Compress batch
-            const compressed = yield* _(compressBatch(batch));
+      Effect.withSpan('workspace.load.client.prepareBatches', {
+        attributes: {
+          'workspace.batch_count': totalBatches,
+          'workspace.max_concurrency': maxConcurrency,
+        },
+      })(
+        Effect.forEach(
+          batches,
+          (batch, index) =>
+            Effect.withSpan('workspace.load.client.compressBatch', {
+              attributes: {
+                'workspace.batch_index': batch.batchIndex,
+                'workspace.batch_total': batch.totalBatches,
+                'workspace.file_count': batch.fileMetadata.length,
+              },
+            })(
+              Effect.gen(function* () {
+                // Compress batch
+                const compressed = yield* compressBatch(batch);
 
-            // Encode for transport
-            const encodedData = yield* _(encodeBatchForTransport(compressed));
+                // Encode for transport
+                const encodedData = yield* encodeBatchForTransport(compressed);
 
-            // Update progress during compression (LSP only — status bar phase message set above)
-            const compressionProgress =
-              20 + Math.floor(((index + 1) / totalBatches) * 30);
-            if (workDoneToken) {
-              sendProgressNotification(languageClient, workDoneToken, {
-                kind: 'report',
-                message: `Compressed batch ${index + 1}/${totalBatches}`,
-                percentage: compressionProgress,
-              });
-            }
+                // Update progress during compression (LSP only — status bar phase message set above)
+                const compressionProgress =
+                  20 + Math.floor(((index + 1) / totalBatches) * 30);
+                if (workDoneToken) {
+                  sendProgressNotification(languageClient, workDoneToken, {
+                    kind: 'report',
+                    message: `Compressed batch ${index + 1}/${totalBatches}`,
+                    percentage: compressionProgress,
+                  });
+                }
 
-            return {
-              batchIndex: batch.batchIndex,
-              totalBatches: batch.totalBatches,
-              isLastBatch: batch.isLastBatch,
-              compressedData: encodedData,
-              fileMetadata: batch.fileMetadata,
-            } as SendWorkspaceBatchParams;
-          }),
-        { concurrency: maxConcurrency }, // Parallel compression
+                yield* Effect.annotateCurrentSpan(
+                  'workspace.compressed_chars',
+                  encodedData.length,
+                );
+
+                return {
+                  batchIndex: batch.batchIndex,
+                  totalBatches: batch.totalBatches,
+                  isLastBatch: batch.isLastBatch,
+                  compressedData: encodedData,
+                  fileMetadata: batch.fileMetadata,
+                } as SendWorkspaceBatchParams;
+              }),
+            ),
+          { concurrency: maxConcurrency }, // Parallel compression
+        ),
       ),
     );
 
@@ -273,60 +334,80 @@ export async function loadWorkspaceForServer(
     // This allows hover requests to be interleaved with batch sends
     const batchSendConcurrency = Math.min(2, maxConcurrency);
     yield* _(
-      Effect.forEach(
-        preparedBatches as readonly SendWorkspaceBatchParams[],
-        (batchParams, index) =>
-          Effect.gen(function* () {
-            // Yield before sending to allow event loop to process hover requests
-            yield* Effect.yieldNow();
+      Effect.withSpan('workspace.load.client.sendBatches', {
+        attributes: {
+          'workspace.batch_count': totalBatches,
+          'workspace.max_concurrency': batchSendConcurrency,
+        },
+      })(
+        Effect.forEach(
+          preparedBatches as readonly SendWorkspaceBatchParams[],
+          (batchParams, index) =>
+            Effect.withSpan('workspace.load.client.sendBatch', {
+              attributes: {
+                'workspace.batch_index': batchParams.batchIndex,
+                'workspace.batch_total': batchParams.totalBatches,
+                'workspace.file_count': batchParams.fileMetadata.length,
+                'workspace.compressed_chars': batchParams.compressedData.length,
+              },
+            })(
+              Effect.gen(function* () {
+                // Yield before sending to allow event loop to process hover requests
+                yield* Effect.yieldNow();
 
-            // Send as request - server stores and returns immediately
-            const result = yield* _(
-              Effect.tryPromise({
-                try: () =>
-                  languageClient.sendRequest(
-                    'apex/sendWorkspaceBatch',
-                    batchParams,
-                  ),
-                catch: (err: unknown) =>
-                  new Error(
-                    `Failed to send batch ${batchParams.batchIndex + 1}: ${String(formattedError(err))}`,
-                  ),
+                const tracedBatchParams =
+                  yield* injectTraceContextFromCurrentEffectSpan(
+                    batchParams as SendWorkspaceBatchParams &
+                      Record<string, unknown>,
+                  );
+
+                // Send as request - server stores and returns immediately
+                const result = yield* Effect.tryPromise({
+                  try: () =>
+                    languageClient.sendRequest(
+                      'apex/sendWorkspaceBatch',
+                      tracedBatchParams,
+                    ) as Promise<SendWorkspaceBatchResult>,
+                  catch: (err: unknown) =>
+                    new Error(
+                      `Failed to send batch ${batchParams.batchIndex + 1}: ${String(formattedError(err))}`,
+                    ),
+                });
+
+                if (!result.success) {
+                  logToOutputChannel(
+                    `⚠️ Batch ${batchParams.batchIndex + 1} failed: ${result.error ?? 'Unknown error'}`,
+                    'warning',
+                  );
+                } else {
+                  const receivedCount = result.receivedCount ?? '?';
+                  const total = result.totalBatches ?? batchParams.totalBatches;
+                  logToOutputChannel(
+                    `✅ Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} stored ` +
+                      `(${receivedCount}/${total} received, ` +
+                      `${batchParams.fileMetadata.length} files)`,
+                    'debug',
+                  );
+                }
+
+                // Update progress (LSP only — status bar shows phase message)
+                const sendProgress =
+                  50 + Math.floor(((index + 1) / totalBatches) * 40);
+                if (workDoneToken) {
+                  sendProgressNotification(languageClient, workDoneToken, {
+                    kind: 'report',
+                    message: `Sent batch ${index + 1}/${totalBatches}`,
+                    percentage: sendProgress,
+                  });
+                }
+
+                // Yield after each batch to allow hover requests to be processed
+                // Small delay helps prevent LSP connection saturation
+                yield* Effect.sleep(Duration.millis(10));
               }),
-            );
-
-            if (!result.success) {
-              logToOutputChannel(
-                `⚠️ Batch ${batchParams.batchIndex + 1} failed: ${result.error ?? 'Unknown error'}`,
-                'warning',
-              );
-            } else {
-              const receivedCount = result.receivedCount ?? '?';
-              const total = result.totalBatches ?? batchParams.totalBatches;
-              logToOutputChannel(
-                `✅ Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} stored ` +
-                  `(${receivedCount}/${total} received, ` +
-                  `${batchParams.fileMetadata.length} files)`,
-                'debug',
-              );
-            }
-
-            // Update progress (LSP only — status bar shows phase message)
-            const sendProgress =
-              50 + Math.floor(((index + 1) / totalBatches) * 40);
-            if (workDoneToken) {
-              sendProgressNotification(languageClient, workDoneToken, {
-                kind: 'report',
-                message: `Sent batch ${index + 1}/${totalBatches}`,
-                percentage: sendProgress,
-              });
-            }
-
-            // Yield after each batch to allow hover requests to be processed
-            // Small delay helps prevent LSP connection saturation
-            yield* Effect.sleep(Duration.millis(10));
-          }),
-        { concurrency: batchSendConcurrency }, // Lower concurrency to avoid blocking hover requests
+            ),
+          { concurrency: batchSendConcurrency }, // Lower concurrency to avoid blocking hover requests
+        ),
       ),
     );
 
@@ -337,16 +418,28 @@ export async function loadWorkspaceForServer(
 
     // Trigger processing of all stored batches
     const processResult = yield* _(
-      Effect.tryPromise({
-        try: () =>
-          languageClient.sendRequest('apex/processWorkspaceBatches', {
-            totalBatches,
-          }),
-        catch: (err: unknown) =>
-          new Error(
-            `Failed to trigger batch processing: ${String(formattedError(err))}`,
-          ),
-      }),
+      Effect.withSpan('workspace.load.client.triggerServerProcessing', {
+        attributes: {
+          'workspace.batch_count': totalBatches,
+          'workspace.file_count': validFiles.length,
+        },
+      })(
+        Effect.gen(function* () {
+          const tracedProcessParams =
+            yield* injectTraceContextFromCurrentEffectSpan({ totalBatches });
+          return yield* Effect.tryPromise({
+            try: () =>
+              languageClient.sendRequest(
+                'apex/processWorkspaceBatches',
+                tracedProcessParams,
+              ) as Promise<ProcessWorkspaceBatchesResult>,
+            catch: (err: unknown) =>
+              new Error(
+                `Failed to trigger batch processing: ${String(formattedError(err))}`,
+              ),
+          });
+        }),
+      ),
     );
 
     if (!processResult.success) {
@@ -377,10 +470,20 @@ export async function loadWorkspaceForServer(
       `Ingesting ${allUris.length} files on server...`,
     );
     startIngestionTimeout();
-  });
+  }).pipe(
+    Effect.withSpan('workspace.load.client', {
+      attributes: {
+        'workspace.reason': reason ?? 'startup',
+        'workspace.pattern_count': filePatterns.length,
+        'workspace.max_concurrency': maxConcurrency,
+      },
+    }),
+  );
 
   try {
-    await Effect.runPromise(loadEffect as Effect.Effect<void, never, never>);
+    await runWithExtensionTracing(
+      loadEffect as Effect.Effect<void, never, never>,
+    );
   } catch (error) {
     logToOutputChannel(
       `Error during workspace loading: ${formattedError(error)}`,

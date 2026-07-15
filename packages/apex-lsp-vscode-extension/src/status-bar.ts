@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { getLogLevel } from '@salesforce/apex-lsp-shared';
+import { formattedError, getLogLevel } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from './logging';
 
 /**
@@ -575,7 +575,7 @@ export const registerProfilingToggleCommand = (
             }
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Error stopping profiling: ${error}`,
+              `Error stopping profiling: ${formattedError(error)}`,
             );
           }
         } else {
@@ -605,7 +605,7 @@ export const registerProfilingToggleCommand = (
             }
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Error starting profiling: ${error}`,
+              `Error starting profiling: ${formattedError(error)}`,
             );
           }
         }
@@ -613,7 +613,7 @@ export const registerProfilingToggleCommand = (
         // Update toggle item after action
         await updateProfilingToggleItem();
       } catch (error) {
-        const errorMessage = `Error in profiling toggle: ${error}`;
+        const errorMessage = `Error in profiling toggle: ${formattedError(error)}`;
         vscode.window.showErrorMessage(errorMessage);
       }
     },

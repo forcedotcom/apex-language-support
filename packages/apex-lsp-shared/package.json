@@ -5,11 +5,38 @@
   "main": "out/index.js",
   "module": "out/index.js",
   "types": "out/index.d.ts",
+  "browser": {
+    "./out/observability/workerTracing.js": "./out/observability/workerTracing.browser.js",
+    "./out/observability/coordinatorEffectTracing.js": "./out/observability/coordinatorEffectTracing.browser.js",
+    "./out/observability/tracing.js": "./out/observability/tracing.browser.js"
+  },
   "exports": {
     ".": {
       "types": "./out/index.d.ts",
       "import": "./out/index.js",
       "require": "./out/index.js"
+    },
+    "./observability/workerTracing": {
+      "types": "./out/observability/workerTracing.d.ts",
+      "browser": "./out/observability/workerTracing.browser.js",
+      "import": "./out/observability/workerTracing.js",
+      "require": "./out/observability/workerTracing.js"
+    },
+    "./observability/workerTracing.browser": {
+      "types": "./out/observability/workerTracing.browser.d.ts",
+      "import": "./out/observability/workerTracing.browser.js",
+      "require": "./out/observability/workerTracing.browser.js"
+    },
+    "./observability/coordinatorEffectTracing": {
+      "types": "./out/observability/coordinatorEffectTracing.d.ts",
+      "browser": "./out/observability/coordinatorEffectTracing.browser.js",
+      "import": "./out/observability/coordinatorEffectTracing.js",
+      "require": "./out/observability/coordinatorEffectTracing.js"
+    },
+    "./observability/coordinatorEffectTracing.browser": {
+      "types": "./out/observability/coordinatorEffectTracing.browser.d.ts",
+      "import": "./out/observability/coordinatorEffectTracing.browser.js",
+      "require": "./out/observability/coordinatorEffectTracing.browser.js"
     }
   },
   "sideEffects": false,
@@ -122,7 +149,11 @@
     }
   },
   "dependencies": {
+    "@effect/opentelemetry": "^0.63.0",
+    "@effect/platform": "^0.96.2",
     "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/context-async-hooks": "^2.7.1",
+    "@opentelemetry/core": "^2.9.0",
     "effect": "^3.21.4",
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver": "^9.0.1",

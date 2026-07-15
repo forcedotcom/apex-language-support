@@ -72,12 +72,7 @@ export {
 } from './server-config';
 
 // Export error handling utilities
-export {
-  handleAutoRestart,
-  handleMaxRetriesExceeded,
-  handleClientClosed,
-  handleClientError,
-} from './error-handling';
+export { handleAutoRestart, handleMaxRetriesExceeded } from './error-handling';
 
 // Export language server utilities
 export {

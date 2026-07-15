@@ -95,6 +95,20 @@ export default [
       'import/default': 'error',
       'import/no-duplicates': 'error',
       'max-len': ['error', { code: 120 }],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@effect/platform',
+              message:
+                'Import from a submodule (e.g. @effect/platform/FetchHttpClient) instead of the barrel. ' +
+                'The barrel pulls in HttpApiSwagger (Swagger UI), which esbuild cannot tree-shake — ' +
+                'it bloats bundles ~5.5MB and trips ClamAV scanners. See BUNDLE_SIZE_ANALYSIS.md.',
+            },
+          ],
+        },
+      ],
     },
   },
   {

@@ -19,7 +19,8 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import { Effect, LogLevel, Schema, Queue, Deferred } from 'effect';
+import { Effect, LogLevel, Schema, Queue, Deferred, Option } from 'effect';
+import type * as Tracer from 'effect/Tracer';
 import {
   WorkerInit,
   PingWorker,
@@ -289,6 +290,31 @@ export function requestCoordinatorAssistancePromiseShared(
   return _requestCoordinatorAssistancePromise(method, params, blocking);
 }
 
+type WorkerTracingHooks = {
+  readonly initialize: (url: string, serviceName: string) => void;
+  readonly provide: <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E, R>;
+  readonly withParent: <A, E>(
+    request: { readonly traceContext?: string },
+    effect: Effect.Effect<A, E, never>,
+  ) => Effect.Effect<A, E, never>;
+};
+
+let workerTracingHooks: WorkerTracingHooks = {
+  initialize: () => {},
+  provide: (effect) => effect,
+  withParent: (_request, effect) => effect,
+};
+
+/**
+ * Install Node-only tracing at the platform boundary. The browser worker leaves
+ * the no-op hooks in place, so its bundle never imports OTEL or async_hooks.
+ */
+export function setWorkerTracingHooks(hooks: WorkerTracingHooks): void {
+  workerTracingHooks = hooks;
+}
+
 export let workerId = 'uninitialized';
 
 export function setWorkerId(id: string): void {
@@ -341,6 +367,13 @@ function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
 export interface DOQueueItem {
   readonly eff: Effect.Effect<unknown, unknown>;
   readonly deferred: Deferred.Deferred<unknown, unknown>;
+  readonly enqueuedAt: number;
+  readonly queueDepth: number;
+  readonly parentSpan: Option.Option<Tracer.AnySpan>;
+  readonly trace?: {
+    readonly spanName: string;
+    readonly attributes?: Readonly<Record<string, unknown>>;
+  };
 }
 
 export interface DOQueues {
@@ -350,7 +383,33 @@ export interface DOQueues {
 
 const processItem = (item: DOQueueItem) =>
   Effect.gen(function* () {
-    const result = yield* Effect.either(item.eff);
+    let execution = item.eff;
+    if (item.trace) {
+      const queueWaitMs = Date.now() - item.enqueuedAt;
+      execution = Effect.gen(function* () {
+        yield* Effect.annotateCurrentSpan({
+          'data_owner.queue_wait_ms': queueWaitMs,
+          'data_owner.queue_depth': item.queueDepth,
+        });
+        return yield* item.eff;
+      }).pipe(
+        Effect.withSpan(item.trace.spanName, {
+          attributes: { ...item.trace.attributes },
+        }),
+      );
+    }
+    if (Option.isSome(item.parentSpan)) {
+      execution = execution.pipe(Effect.withParentSpan(item.parentSpan.value));
+    }
+
+    // The queue loop is a daemon fiber created outside any individual worker
+    // request runtime. Restoring only the parent span preserves IDs, but the
+    // daemon still has the default no-op tracer, so its phase spans are never
+    // exported. Re-provide the initialized worker tracer at the point where
+    // queued work actually executes.
+    execution = workerTracingHooks.provide(execution);
+
+    const result = yield* Effect.either(execution);
     if (result._tag === 'Right') {
       yield* Deferred.succeed(item.deferred, result.right);
     } else {
@@ -388,28 +447,47 @@ const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
   }),
 ).pipe(Effect.runSync);
 
+interface DataOwnerQueueTrace {
+  readonly spanName: string;
+  readonly attributes?: Readonly<Record<string, unknown>>;
+}
+
 export const dataOwnerRead = <A, E>(
   eff: Effect.Effect<A, E>,
+  trace?: DataOwnerQueueTrace,
 ): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
+    const queueDepth = yield* Queue.size(queues.read);
+    const parentSpan = yield* Effect.option(Effect.currentSpan);
     yield* Queue.offer(queues.read, {
       eff: eff as Effect.Effect<unknown, unknown>,
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
+      enqueuedAt: Date.now(),
+      queueDepth,
+      parentSpan,
+      trace,
     });
     return yield* Deferred.await(deferred);
   });
 
 export const dataOwnerWrite = <A, E>(
   eff: Effect.Effect<A, E>,
+  trace?: DataOwnerQueueTrace,
 ): Effect.Effect<A, E> =>
   Effect.gen(function* () {
     const queues = yield* initDataOwnerQueues;
     const deferred = yield* Deferred.make<A, E>();
+    const queueDepth = yield* Queue.size(queues.write);
+    const parentSpan = yield* Effect.option(Effect.currentSpan);
     yield* Queue.offer(queues.write, {
       eff: eff as Effect.Effect<unknown, unknown>,
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
+      enqueuedAt: Date.now(),
+      queueDepth,
+      parentSpan,
+      trace,
     });
     return yield* Deferred.await(deferred);
   });
@@ -574,11 +652,46 @@ export const requestHandler =
   (req: R) =>
     guardRole(tag).pipe(
       Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const svc = yield* ensureRequestServices;
-          const result = yield* Effect.promise(() => callService(svc, req));
-          return { result: cloneForWire(result) };
-        }),
+        workerTracingHooks.withParent(
+          req as { traceContext?: string },
+          Effect.fn(`worker.lspRequest.${tag}`, {
+            attributes: { telemetryIgnore: true },
+          })(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* Effect.promise(() => callService(svc, req));
+            return { result: cloneForWire(result) };
+          })(),
+        ),
+      ),
+    );
+
+/**
+ * Effect-returning request handler variant for handlers that need to yield*
+ * Effect-returning helpers (e.g. loadSymbolDataForEnrichment after Part B
+ * conversion). Identical to requestHandler except callService returns an Effect
+ * and is yielded directly instead of wrapped in Effect.promise.
+ */
+export const effectRequestHandler =
+  <R>(
+    tag: string,
+    callService: (
+      svc: RequestServices,
+      req: R,
+    ) => Effect.Effect<unknown, never, never>,
+  ) =>
+  (req: R) =>
+    guardRole(tag).pipe(
+      Effect.flatMap(() =>
+        workerTracingHooks.withParent(
+          req as { traceContext?: string },
+          Effect.fn(`worker.lspRequest.${tag}`, {
+            attributes: { telemetryIgnore: true },
+          })(function* () {
+            const svc = yield* ensureRequestServices;
+            const result = yield* callService(svc, req);
+            return { result: cloneForWire(result) };
+          })(),
+        ),
       ),
     );
 
@@ -621,36 +734,48 @@ export type CodeActionReq = {
  *
  * Returns version and detail level metadata for the loaded URI.
  */
-export async function loadSymbolDataForEnrichment(
+export function loadSymbolDataForEnrichment(
   svc: RequestServices,
   uri: string,
   content?: string,
-): Promise<{ version: number; detailLevel: string }> {
-  if (content) {
-    // Store a document with working offsetAt/positionAt so completion's
-    // analyzeCompletionContext/getWordAtPosition (which call offsetAt) work in
-    // the worker; a bare {getText} object throws and yields zero completions.
-    const doc = makeWorkerDocument(uri, content);
-    svc.storageManager.getStorage().setDocument(uri, doc as never);
-  }
-
+): Effect.Effect<{ version: number; detailLevel: string }, never, never> {
   let version = -1;
   let detailLevel = 'public-api';
 
-  try {
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:QuerySymbolSubset',
-      { uris: [uri] },
-      true,
-    )) as {
+  return Effect.gen(function* () {
+    if (content) {
+      // Completion needs offsetAt/positionAt for live-buffer analysis.
+      const doc = makeWorkerDocument(uri, content);
+      svc.storageManager.getStorage().setDocument(uri, doc as never);
+    }
+
+    const response = (yield* Effect.fn('worker.enrichment.querySymbolSubset', {
+      attributes: { uri },
+    })(function* () {
+      return (yield* Effect.tryPromise({
+        try: () =>
+          requestCoordinatorAssistancePromiseShared(
+            'dataOwner:QuerySymbolSubset',
+            { uris: [uri] },
+            true,
+          ),
+        catch: (cause) => cause,
+      })) as {
+        entries: Record<string, unknown>;
+        versions: Record<string, number>;
+        detailLevels: Record<string, string>;
+      };
+    })()) as {
       entries: Record<string, unknown>;
       versions: Record<string, number>;
       detailLevels: Record<string, string>;
     };
 
     if (response?.entries) {
-      const { SymbolTable, ReferenceContext } =
-        await import('@salesforce/apex-lsp-parser-ast');
+      const { SymbolTable, ReferenceContext } = yield* Effect.tryPromise({
+        try: () => import('@salesforce/apex-lsp-parser-ast'),
+        catch: (cause) => cause,
+      });
       const ingestEntries = (entries: Record<string, unknown>) => {
         const tables: Array<{ fileUri: string; st: any }> = [];
         for (const [fileUri, stData] of Object.entries(entries)) {
@@ -668,7 +793,11 @@ export async function loadSymbolDataForEnrichment(
 
       const loaded = ingestEntries(response.entries);
       for (const { fileUri, st } of loaded) {
-        await Effect.runPromise(svc.symbolManager.addSymbolTable(st, fileUri));
+        yield* Effect.fn('worker.enrichment.addSymbolTable', {
+          attributes: { uri: fileUri },
+        })(function* () {
+          yield* svc.symbolManager.addSymbolTable(st, fileUri);
+        })();
       }
       version = response.versions?.[uri] ?? -1;
       detailLevel = response.detailLevels?.[uri] ?? 'public-api';
@@ -685,18 +814,11 @@ export async function loadSymbolDataForEnrichment(
         }>;
         const classNames = new Set<string>();
         for (const ref of refs) {
-          // Unresolved outbound type refs: fetch the owning file so the name
-          // resolves. Skipped once resolved — the resolvedSymbolId already
-          // points at the target for on-demand hover/definition.
           const isUnresolvedTypeRef =
             !ref.resolvedSymbolId &&
             (ref.context === ReferenceContext.CLASS_REFERENCE ||
               ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
               ref.context === ReferenceContext.TYPE_DECLARATION);
-          // Supertype edges (`extends`/`implements`) must be fetched even when
-          // already resolved: the resolvedSymbolId only names the target, but
-          // goto-definition still needs the declaring file's symbol table
-          // present in this pool worker to produce a location.
           const isSupertypeRef =
             ref.context === ReferenceContext.INHERITANCE ||
             ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
@@ -705,24 +827,26 @@ export async function loadSymbolDataForEnrichment(
           }
         }
         if (classNames.size > 0) {
-          try {
-            const depResponse =
-              (await requestCoordinatorAssistancePromiseShared(
-                'dataOwner:ResolveDepUris',
-                { classNames: [...classNames] },
-                true,
-              )) as { entries: Record<string, unknown> };
-            if (depResponse?.entries) {
-              for (const { fileUri: depUri, st: depSt } of ingestEntries(
-                depResponse.entries,
-              )) {
-                await Effect.runPromise(
-                  svc.symbolManager.addSymbolTable(depSt, depUri),
-                );
-              }
+          const depResponse = yield* Effect.fn(
+            'worker.enrichment.resolveDepUris',
+            { attributes: { uri, depCount: classNames.size } },
+          )(function* () {
+            return (yield* Effect.tryPromise({
+              try: () =>
+                requestCoordinatorAssistancePromiseShared(
+                  'dataOwner:ResolveDepUris',
+                  { classNames: [...classNames] },
+                  true,
+                ),
+              catch: (cause) => cause,
+            })) as { entries: Record<string, unknown> };
+          })().pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+          if (depResponse?.entries) {
+            for (const { fileUri: depUri, st: depSt } of ingestEntries(
+              depResponse.entries,
+            )) {
+              yield* svc.symbolManager.addSymbolTable(depSt, depUri);
             }
-          } catch {
-            // Dep pre-fetch is best-effort; resolution can still work on-demand.
           }
 
           // Cross-worker fallback: ResolveDepUris resolves names that map to a
@@ -732,7 +856,10 @@ export async function loadSymbolDataForEnrichment(
           // (which holds ALL workspace symbols) to resolve the remaining names
           // in one batched query and ingest the owning files' symbol tables.
           // The ingest count is intentionally not captured (see below).
-          await resolveMissingNamesViaDataOwner(svc, [...classNames]);
+          yield* Effect.tryPromise({
+            try: () => resolveMissingNamesViaDataOwner(svc, [...classNames]),
+            catch: (cause) => cause,
+          }).pipe(Effect.catchAll(() => Effect.void));
 
           // Ingestion alone only lands the owning files' SYMBOLS in the local
           // name index (addSymbolTable processes same-file refs only and defers
@@ -750,24 +877,29 @@ export async function loadSymbolDataForEnrichment(
           // resolution), so resolve whenever ANY class dep was requested.
           // resolveCrossFileReferencesForFile is re-entrancy-guarded and
           // addReference de-dupes, so this is near-free when nothing changed.
-          await Effect.runPromise(
-            svc.symbolManager.resolveCrossFileReferencesForFile(uri),
-          );
+          yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
+            attributes: { uri },
+          })(function* () {
+            yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
+          })();
         }
       }
     }
-  } catch (err) {
-    // Subset load failed (assistance channel down, IPC error, or the data-owner
-    // doesn't have the file). The caller proceeds on a partial/empty graph, so
-    // any request built on it (hover/definition/references/…) may silently
-    // return nothing. Warn — not debug — so an empty result has a breadcrumb
-    // distinguishing "real failure" from "genuinely nothing here".
-    getLogger().warn(
-      () => `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${err}`,
-    );
-  }
 
-  return { version, detailLevel };
+    return { version, detailLevel };
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.sync(() => {
+        // Assistance failures are expected during degradation. Preserve the
+        // partial graph and let the LSP request continue.
+        getLogger().warn(
+          () =>
+            `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${String(error)}`,
+        );
+        return { version, detailLevel };
+      }),
+    ),
+  );
 }
 
 /**
@@ -1430,69 +1562,82 @@ export function shouldEnrich(
  * Write back enriched symbol data to the data-owner worker.
  * Returns true if the write-back was accepted, false otherwise.
  */
-export async function writeBackEnrichedSymbols(
+export function writeBackEnrichedSymbols(
   svc: RequestServices,
   uri: string,
   documentVersion: number,
   enrichedDetailLevel: 'public-api' | 'protected' | 'private' | 'full',
-): Promise<boolean> {
+): Effect.Effect<boolean, never, never> {
   const startTime = Date.now();
-  try {
-    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
+  return Effect.gen(function* () {
+    const symbolTable = yield* Effect.tryPromise({
+      try: () => svc.symbolManager.getSymbolTableForFile(uri),
+      catch: (cause) => cause,
+    });
     if (!symbolTable) {
-      await Effect.runPromise(
-        Effect.logDebug(
-          `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
-        ),
+      yield* Effect.logDebug(
+        `[ENRICHMENT] Write-back skipped: no symbol table for ${uri}`,
       );
       return false;
     }
 
-    // Serialize symbol table to wire format
-    const enrichedSymbolTable = {
+    // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
+    // function values (lazy thunks) that structured clone cannot handle — see
+    // writeBackCompiledSymbols for the full rationale.
+    const enrichedSymbolTable = cloneForWire({
       symbols: symbolTable.getAllSymbols(),
       references: symbolTable.getAllReferences(),
       hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
       metadata: symbolTable.getMetadata(),
       fileUri: symbolTable.getFileUri(),
-    };
+    });
 
-    const symbolCount = enrichedSymbolTable.symbols.length;
+    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
+      ? enrichedSymbolTable.symbols.length
+      : 0;
 
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:UpdateSymbolSubset',
-      {
-        uri,
-        documentVersion,
-        enrichedSymbolTable,
-        enrichedDetailLevel,
-        sourceWorkerId: workerId,
-      },
-      true,
-    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+    const response = (yield* Effect.fn('worker.enrichment.updateSymbolSubset', {
+      attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel },
+    })(function* () {
+      return (yield* Effect.tryPromise({
+        try: () =>
+          requestCoordinatorAssistancePromiseShared(
+            'dataOwner:UpdateSymbolSubset',
+            {
+              uri,
+              documentVersion,
+              enrichedSymbolTable,
+              enrichedDetailLevel,
+              sourceWorkerId: workerId,
+            },
+            true,
+          ),
+        catch: (cause) => cause,
+      })) as { accepted: boolean; merged: number; versionMismatch: boolean };
+    })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
 
     const elapsed = Date.now() - startTime;
     const accepted = response?.accepted ?? false;
 
-    await Effect.runPromise(
-      Effect.logDebug(
-        `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
-          `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
-          `(v${documentVersion}, ${elapsed}ms)` +
-          (response?.versionMismatch ? ' [version mismatch]' : ''),
-      ),
+    yield* Effect.logDebug(
+      `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+        `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
+        `(v${documentVersion}, ${elapsed}ms)` +
+        (response?.versionMismatch ? ' [version mismatch]' : ''),
     );
 
     return accepted;
-  } catch (err) {
-    const elapsed = Date.now() - startTime;
-    await Effect.runPromise(
-      Effect.logWarning(
-        `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
-      ),
-    );
-    return false;
-  }
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        const elapsed = Date.now() - startTime;
+        yield* Effect.logWarning(
+          `[ENRICHMENT] Write-back failed: ${uri} (${elapsed}ms) - ${String(error)}`,
+        );
+        return false;
+      }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1732,222 +1877,215 @@ export async function declarationLocationForCursor(
 // ---------------------------------------------------------------------------
 
 const requestHandlers = {
-  DispatchHover: requestHandler<PositionReq>(
+  DispatchHover: effectRequestHandler<PositionReq>(
     'DispatchHover',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // The data-owner holds the cursor file at public-api detail only, so
-      // implicit-private fields, locals, and private members are absent and
-      // hover on them resolves to nothing. Recompile locally at full detail
-      // from the live buffer. Runs after loadSymbolDataForEnrichment so the
-      // full-detail table wins while the cross-file dep tables it loaded stay
-      // present for the re-resolve inside recompileCursorFileAtFullDetail.
-      //
-      // DEFERRED perf (W-23408848): this runs on every hover on ALL platforms,
-      // not just web. It is NOT safe to gate on the data-owner's reported
-      // detailLevel (`shouldEnrich(detailLevel, 'full')`): that level reflects
-      // the DATA-OWNER's stored table, not what THIS pool member holds locally,
-      // so a fresh pool worker with detailLevel='full' still lacks the member
-      // symbols and skipping the recompile regresses field/instance-variable
-      // hover+definition (verified: 3 web e2e failures). A correct gate needs a
-      // LOCAL full-detail marker for the uri; deferred until one exists.
-      await recompileCursorFileAtFullDetail(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // Hover requires 'full' detail level per LspRequestPrerequisiteMapping.
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.hoverService.processHover({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
 
-      return result;
-    },
+        // The data-owner only retains public-api detail. Recompile the live
+        // cursor file locally so private members, fields, and locals exist.
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
+        );
+
+        // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.hoverService.processHover({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchCompletion: requestHandler<CompletionReq>(
+  DispatchCompletion: effectRequestHandler<CompletionReq>(
     'DispatchCompletion',
-    async (svc, req) => {
-      // Completion runs on the in-flight (possibly unsaved) document text, so
-      // load the local subset from that content rather than the data-owner's
-      // last-stored version.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // loadSymbolDataForEnrichment only ingests the data-owner's LAST-COMPILED
-      // symbol table for this file (public-api detail, and a version behind the
-      // keystroke that triggered completion). Completion fires WHILE TYPING, so
-      // that table is missing the symbols the user just typed — most visibly the
-      // receiver of a member-access (`String s = ...; s.` where `s` was just
-      // declared) and any local declared on the current edit. Recompile the file
-      // from its live text so the worker's symbol manager reflects the in-flight
-      // declarations, exactly as documentSymbol and find-references already do
-      // (see recompileCursorFileAtFullDetail / DispatchReferences). Without this
-      // the strategies resolve `s` to nothing and return zero items, so the
-      // suggest widget never appears in web. Best-effort: a missing/uncompilable
-      // document leaves the ingested table in place.
-      await recompileCursorFileAtFullDetail(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // Completion needs full member visibility for member-access suggestions.
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      // triggerKind crosses the wire as a plain number but IS a
-      // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
-      // types, so build the params untyped and let the service narrow.
-      const completionParams = {
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-        ...(req.context ? { context: req.context } : {}),
-      };
-      const result = await svc.completionService.processCompletion(
-        completionParams as Parameters<
-          typeof svc.completionService.processCompletion
-        >[0],
-      );
-
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Completion runs on the in-flight (possibly unsaved) document text, so
+        // load the local subset from that content rather than the data-owner's
+        // last-stored version.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
 
-      return result;
-    },
+        // Completion operates on in-flight declarations, not the data-owner's
+        // previous public-api snapshot.
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
+        );
+
+        // Completion needs full member visibility for member-access suggestions.
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        // triggerKind crosses the wire as a plain number but IS a
+        // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
+        // types, so build the params untyped and let the service narrow.
+        const completionParams = {
+          textDocument: { uri: req.textDocument.uri },
+          position: req.position,
+          ...(req.context ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.completionService.processCompletion(
+            completionParams as Parameters<
+              typeof svc.completionService.processCompletion
+            >[0],
+          ),
+        );
+
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchSignatureHelp: requestHandler<SignatureHelpReq>(
+  DispatchSignatureHelp: effectRequestHandler<SignatureHelpReq>(
     'DispatchSignatureHelp',
-    async (svc, req) => {
-      // Signature help runs on the in-flight document text while typing args.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-      const params = {
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-        ...(req.context !== undefined ? { context: req.context } : {}),
-      };
-      const result = await svc.signatureHelpService.processSignatureHelp(
-        params as Parameters<
-          typeof svc.signatureHelpService.processSignatureHelp
-        >[0],
-      );
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Signature help runs on the in-flight document text while typing args.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
-      return result;
-    },
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        const params = {
+          textDocument: { uri: req.textDocument.uri },
+          position: req.position,
+          ...(req.context !== undefined ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.signatureHelpService.processSignatureHelp(
+            params as Parameters<
+              typeof svc.signatureHelpService.processSignatureHelp
+            >[0],
+          ),
+        );
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+        return result;
+      }),
   ),
-  DispatchCodeAction: requestHandler<CodeActionReq>(
+  DispatchCodeAction: effectRequestHandler<CodeActionReq>(
     'DispatchCodeAction',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-      const params = {
-        textDocument: { uri: req.textDocument.uri },
-        range: req.range,
-        ...(req.context !== undefined ? { context: req.context } : {}),
-      };
-      const result = await svc.codeActionService.processCodeAction(
-        params as Parameters<typeof svc.codeActionService.processCodeAction>[0],
-      );
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
-      return result;
-    },
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        const params = {
+          textDocument: { uri: req.textDocument.uri },
+          range: req.range,
+          ...(req.context !== undefined ? { context: req.context } : {}),
+        };
+        const result = yield* Effect.promise(() =>
+          svc.codeActionService.processCodeAction(
+            params as Parameters<
+              typeof svc.codeActionService.processCodeAction
+            >[0],
+          ),
+        );
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+        return result;
+      }),
   ),
-  DispatchDefinition: requestHandler<PositionReq>(
+  DispatchDefinition: effectRequestHandler<PositionReq>(
     'DispatchDefinition',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-        // Live buffer so enrichment and the recompile below run on the unsaved
-        // editor text, not the data-owner's last-stored version.
-        req.content,
-      );
-
-      // As in DispatchHover: the data-owner holds only public-api detail, so
-      // definition on a field/local/private member resolves to nothing.
-      // Recompile locally at full detail from the live buffer. See DispatchHover
-      // for why this can't safely be gated on the reported detailLevel
-      // (DEFERRED perf, W-23408848).
-      await recompileCursorFileAtFullDetail(
-        svc,
-        req.textDocument.uri,
-        req.content,
-      );
-
-      // Definition requires 'full' detail level per LspRequestPrerequisiteMapping.
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.definitionService.processDefinition({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
+          req.content,
         );
-      }
 
-      return result;
-    },
+        yield* Effect.promise(() =>
+          recompileCursorFileAtFullDetail(
+            svc,
+            req.textDocument.uri,
+            req.content,
+          ),
+        );
+
+        // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.definitionService.processDefinition({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
   DispatchReferences: requestHandler<RefsReq>(
     'DispatchReferences',
@@ -2090,132 +2228,147 @@ const requestHandlers = {
       return locations;
     },
   ),
-  DispatchImplementation: requestHandler<PositionReq>(
+  DispatchImplementation: effectRequestHandler<PositionReq>(
     'DispatchImplementation',
-    async (svc, req) => {
-      // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
-      // EXTENDS direction:
-      //   load symbol data → load inbound implementor/subtype tables →
-      //   resolve cross-file edges → process → write back.
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
-
-      // Go-to-implementation must see every implementor/subtype of the target
-      // type, which live in *other* files. loadDependentsForReferences pulls the
-      // inbound tables (files whose declared symbols reference symbols in this
-      // file) from the data-owner AND resolves each one's cross-file references,
-      // so the implements/extends edges authored on those implementor/subclass
-      // files land in this worker's reverse index — which is what
-      // ImplementationProcessingService.findSubtypes reads.
-      await loadDependentsForReferences(svc, req.textDocument.uri);
-
-      // Also resolve the target file's own cross-file refs (e.g. an interface
-      // that extends another interface) so the full supertype graph is present.
-      await Effect.runPromise(
-        svc.symbolManager.resolveCrossFileReferencesForFile(
-          req.textDocument.uri,
-        ),
-      );
-
-      // Implementor discovery reads interfaces/superClass + method declarations,
-      // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-      const result = await svc.implementationService.processImplementation({
-        textDocument: { uri: req.textDocument.uri },
-        position: req.position,
-      });
-
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
+        // EXTENDS direction:
+        //   load symbol data → load inbound implementor/subtype tables →
+        //   resolve cross-file edges → process → write back.
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
-          version,
-          requiredLevel,
         );
-      }
 
-      return result;
-    },
+        // Go-to-implementation must see every implementor/subtype of the target
+        // type, which live in *other* files. loadDependentsForReferences pulls the
+        // inbound tables (files whose declared symbols reference symbols in this
+        // file) from the data-owner AND resolves each one's cross-file references,
+        // so the implements/extends edges authored on those implementor/subclass
+        // files land in this worker's reverse index — which is what
+        // ImplementationProcessingService.findSubtypes reads.
+        yield* Effect.promise(() =>
+          loadDependentsForReferences(svc, req.textDocument.uri),
+        );
+
+        // Also resolve the target file's own cross-file refs (e.g. an interface
+        // that extends another interface) so the full supertype graph is present.
+        yield* svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        );
+
+        // Implementor discovery reads interfaces/superClass + method declarations,
+        // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+
+        const result = yield* Effect.promise(() =>
+          svc.implementationService.processImplementation({
+            textDocument: { uri: req.textDocument.uri },
+            position: req.position,
+          }),
+        );
+
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
   ),
-  DispatchDocumentSymbol: requestHandler<DocWithContentReq>(
+  DispatchDocumentSymbol: effectRequestHandler<DocWithContentReq>(
     'DispatchDocumentSymbol',
-    async (svc, req) => {
-      // documentSymbol re-compiles the file from its TEXT
-      // (DefaultApexDocumentSymbolProvider parses with
-      // FullSymbolCollectorListener for a complete hierarchy) rather than
-      // reading the dataOwner symbol graph. So the pool worker must have the
-      // document text in local storage: thread req.content into
-      // loadSymbolDataForEnrichment, which stores it before the provider runs.
-      // Without it the provider's storage.getDocument() returns null and the
-      // outline is empty (the cold-open regression).
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri, req.content);
-      return svc.documentSymbolService.processDocumentSymbol({
-        textDocument: { uri: req.textDocument.uri },
-      });
-    },
+    (svc, req) =>
+      Effect.gen(function* () {
+        // documentSymbol re-compiles the file from its TEXT
+        // (DefaultApexDocumentSymbolProvider parses with
+        // FullSymbolCollectorListener for a complete hierarchy) rather than
+        // reading the dataOwner symbol graph. So the pool worker must have the
+        // document text in local storage: thread req.content into
+        // loadSymbolDataForEnrichment, which stores it before the provider runs.
+        // Without it the provider's storage.getDocument() returns null and the
+        // outline is empty (the cold-open regression).
+        yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+          req.content,
+        );
+        return yield* Effect.promise(() =>
+          svc.documentSymbolService.processDocumentSymbol({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
+      }),
   ),
-  DispatchCodeLens: requestHandler<DocOnlyReq>(
+  DispatchCodeLens: effectRequestHandler<DocOnlyReq>(
     'DispatchCodeLens',
-    async (svc, req) => {
-      await loadSymbolDataForEnrichment(svc, req.textDocument.uri);
-      return svc.codeLensService.processCodeLens({
-        textDocument: { uri: req.textDocument.uri },
-      });
-    },
+    (svc, req) =>
+      Effect.gen(function* () {
+        yield* loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+        return yield* Effect.promise(() =>
+          svc.codeLensService.processCodeLens({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
+      }),
   ),
-  DispatchDiagnostic: requestHandler<DocOnlyReq>(
+  DispatchDiagnostic: effectRequestHandler<DocOnlyReq>(
     'DispatchDiagnostic',
-    async (svc, req) => {
-      const { version, detailLevel } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+        );
 
-      // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
-      const requiredLevel = 'full';
-      const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
+        const requiredLevel = 'full';
+        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
 
-      const result = await svc.diagnosticService.processDiagnostic({
-        textDocument: { uri: req.textDocument.uri },
-      });
+        const result = yield* Effect.promise(() =>
+          svc.diagnosticService.processDiagnostic({
+            textDocument: { uri: req.textDocument.uri },
+          }),
+        );
 
-      // Write back enriched symbols if enrichment occurred
-      if (needsEnrichment) {
-        await writeBackEnrichedSymbols(
+        // Write back enriched symbols if enrichment occurred
+        if (needsEnrichment) {
+          yield* writeBackEnrichedSymbols(
+            svc,
+            req.textDocument.uri,
+            version,
+            requiredLevel,
+          );
+        }
+
+        return result;
+      }),
+  ),
+  DispatchCrossFileEnrichment: effectRequestHandler<DocOnlyReq>(
+    'DispatchCrossFileEnrichment',
+    (svc, req) =>
+      Effect.gen(function* () {
+        const { version } = yield* loadSymbolDataForEnrichment(
+          svc,
+          req.textDocument.uri,
+        );
+        yield* svc.symbolManager.resolveCrossFileReferencesForFile(
+          req.textDocument.uri,
+        );
+        yield* writeBackEnrichedSymbols(
           svc,
           req.textDocument.uri,
           version,
-          requiredLevel,
+          'public-api',
         );
-      }
-
-      return result;
-    },
-  ),
-  DispatchCrossFileEnrichment: requestHandler<DocOnlyReq>(
-    'DispatchCrossFileEnrichment',
-    async (svc, req) => {
-      const { version } = await loadSymbolDataForEnrichment(
-        svc,
-        req.textDocument.uri,
-      );
-      await Effect.runPromise(
-        svc.symbolManager.resolveCrossFileReferencesForFile(
-          req.textDocument.uri,
-        ),
-      );
-      await writeBackEnrichedSymbols(
-        svc,
-        req.textDocument.uri,
-        version,
-        'public-api',
-      );
-      return { resolved: true };
-    },
+        return { resolved: true };
+      }),
   ),
 };
 
@@ -2252,9 +2405,33 @@ const writeBackMetrics: WriteBackMetrics = {
 // Handlers — one per _tag in AllWorkerRequests
 // ---------------------------------------------------------------------------
 
-export const handlers: WorkerRunner.SerializedRunner.Handlers<
+type SerializedWorkerHandlers = WorkerRunner.SerializedRunner.Handlers<
   Schema.Schema.Type<typeof AllWorkerRequests>
-> = {
+>;
+
+type UntypedWorkerHandler = (
+  request: never,
+) => Effect.Effect<unknown, unknown, never>;
+
+/**
+ * Apply the incoming coordinator context and create one processing span for a
+ * serialized worker request. Keeping this at the runner boundary prevents a
+ * role-specific handler factory from accidentally being the only traced path.
+ */
+export function withWorkerRequestTracing<A, E>(
+  tag: string,
+  request: { readonly traceContext?: string },
+  effect: Effect.Effect<A, E, never>,
+): Effect.Effect<A, E, never> {
+  const role = assignedRole ?? 'unassigned';
+  const tracedEffect = Effect.fn(`worker.${role}.${tag}`, {
+    attributes: { telemetryIgnore: true, 'worker.role': role },
+  })(() => effect)();
+
+  return workerTracingHooks.withParent(request, tracedEffect);
+}
+
+const untracedHandlers: SerializedWorkerHandlers = {
   WorkerInit: (req) => {
     if (assignedRole !== null) {
       return Effect.die(
@@ -2269,10 +2446,18 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
     ApexCapabilitiesManager.getInstance().setMode(resolvedServerMode);
     (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
       resolvedServerMode;
+
+    // Initialize worker tracing if span collector URL provided (desktop only)
+    if (req.spanCollectorUrl) {
+      const serviceName = `apex-ls-worker-${req.role}`;
+      workerTracingHooks.initialize(req.spanCollectorUrl, serviceName);
+    }
+
     return Effect.gen(function* () {
       yield* Effect.logInfo(
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
-          ` logLevel=${currentWorkerLogLevel}`,
+          ` logLevel=${currentWorkerLogLevel}` +
+          (req.spanCollectorUrl ? ' tracing=enabled' : ''),
       );
     }).pipe(Effect.flatMap(() => handleWorkerInitRole(req)));
   },
@@ -2475,6 +2660,10 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (!currentDoc) {
               writeBackMetrics.rejectedDocumentMissing++;
+              yield* Effect.annotateCurrentSpan(
+                'data_owner.outcome',
+                'rejected-document-missing',
+              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
@@ -2491,6 +2680,10 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
 
             if (currentDoc.version !== req.documentVersion) {
               writeBackMetrics.rejectedVersionMismatch++;
+              yield* Effect.annotateCurrentSpan({
+                'data_owner.outcome': 'rejected-version-mismatch',
+                'document.current_version': currentDoc.version,
+              });
               yield* Effect.logDebug(
                 '[DATA-OWNER] Write-back rejected: version mismatch ' +
                   `(current=${currentDoc.version}, update=${req.documentVersion}) ` +
@@ -2535,6 +2728,11 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             const sameOrOlderVersion = req.documentVersion <= cachedVersion;
             if (sameOrOlderVersion && enrichedOrder <= currentOrder) {
               writeBackMetrics.rejectedDetailLevel++;
+              yield* Effect.annotateCurrentSpan({
+                'data_owner.outcome': 'rejected-detail-level',
+                'document.cached_version': cachedVersion,
+                'symbol.current_detail_level': rawLevel ?? 'none',
+              });
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
                   `(order=${currentOrder}) >= ${req.enrichedDetailLevel} ` +
@@ -2547,26 +2745,50 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             }
 
             // Deserialize enriched symbol table
-            const { SymbolTable } = yield* Effect.promise(
-              () => import('@salesforce/apex-lsp-parser-ast'),
-            );
-            const enrichedSt = SymbolTable.fromSerializedData(
-              req.enrichedSymbolTable as never,
+            const enrichedSt = yield* Effect.withSpan(
+              'dataOwner.update.deserialize',
+              { attributes: { 'document.uri': req.uri } },
+            )(
+              Effect.gen(function* () {
+                const { SymbolTable } = yield* Effect.promise(
+                  () => import('@salesforce/apex-lsp-parser-ast'),
+                );
+                return SymbolTable.fromSerializedData(
+                  req.enrichedSymbolTable as never,
+                );
+              }),
             );
 
+            const mergedCount = enrichedSt.getAllSymbols().length;
+            const referenceCount = enrichedSt.getAllReferences().length;
+
             // Merge into symbol manager (returns Effect, so yield directly)
-            yield* svc.symbolManager.addSymbolTable(
-              enrichedSt,
-              req.uri,
-              req.documentVersion,
-              false, // hasErrors
+            yield* Effect.withSpan('dataOwner.update.mergeSymbols', {
+              attributes: {
+                'document.uri': req.uri,
+                'document.version': req.documentVersion,
+                'symbol.count': mergedCount,
+                'reference.count': referenceCount,
+              },
+            })(
+              svc.symbolManager.addSymbolTable(
+                enrichedSt,
+                req.uri,
+                req.documentVersion,
+                false, // hasErrors
+              ),
             );
 
             // Populate cross-file incoming edges for this file now that its
             // symbols are merged. Resolves references from this file into the
             // workspace graph (and defers any whose targets aren't ingested yet,
             // to be drained post-batch via DrainDeferredReferences).
-            yield* svc.symbolManager.resolveCrossFileReferencesForFile(req.uri);
+            yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
+              attributes: {
+                'document.uri': req.uri,
+                'reference.count': referenceCount,
+              },
+            })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
 
             // Update cache with new detail level
             cache.merge(req.uri, {
@@ -2575,9 +2797,14 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
               timestamp: Date.now(),
             });
 
-            const mergedCount = enrichedSt.getAllSymbols().length;
             writeBackMetrics.accepted++;
             writeBackMetrics.totalSymbolsMerged += mergedCount;
+
+            yield* Effect.annotateCurrentSpan({
+              'data_owner.outcome': 'accepted',
+              'symbol.count': mergedCount,
+              'reference.count': referenceCount,
+            });
 
             // Symbols for this version are now in the graph — release any
             // coordinator request awaiting readiness for this URI/version.
@@ -2597,6 +2824,15 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
               versionMismatch: false,
             };
           }),
+          {
+            spanName: 'dataOwner.update.execute',
+            attributes: {
+              'document.uri': req.uri,
+              'document.version': req.documentVersion,
+              'symbol.detail_level': req.enrichedDetailLevel,
+              'worker.source_id': req.sourceWorkerId,
+            },
+          },
         ),
       ),
     ),
@@ -2635,11 +2871,18 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             const svc = yield* ensureDataOwnerServices;
             const resolved =
               yield* svc.symbolManager.drainAllDeferredReferences();
+            yield* Effect.annotateCurrentSpan(
+              'reference.resolved_count',
+              resolved,
+            );
             yield* Effect.logDebug(
               `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
             );
             return { resolved };
           }),
+          {
+            spanName: 'dataOwner.references.drain',
+          },
         ),
       ),
     ),
@@ -2825,9 +3068,19 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
                 languageId: entry.languageId,
                 version: entry.version,
               };
-              void storage.setDocument(entry.uri, doc as never);
+              // Keep the ingest span open until storage has accepted the
+              // document. Besides making the timing honest, this guarantees
+              // the compilation worker's subsequent write-back cannot race a
+              // still-pending document store and be rejected as missing.
+              yield* Effect.promise(() =>
+                storage.setDocument(entry.uri, doc as never),
+              );
             }
             const elapsed = Date.now() - startTime;
+            yield* Effect.annotateCurrentSpan(
+              'workspace.ingest_elapsed_ms',
+              elapsed,
+            );
             const stats = (yield* Effect.promise(
               () =>
                 (svc.symbolManager as any).getStats?.() ??
@@ -2846,6 +3099,17 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
             );
             return { processedCount: req.entries.length };
           }),
+          {
+            spanName: 'dataOwner.batch.ingest',
+            attributes: {
+              'workspace.session_id': req.sessionId,
+              'workspace.file_count': req.entries.length,
+              'workspace.content_chars': req.entries.reduce(
+                (total, entry) => total + entry.content.length,
+                0,
+              ),
+            },
+          },
         ),
       ),
     ),
@@ -3007,6 +3271,15 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           const batchStartTime = Date.now();
           const svc = yield* ensureCompilationServices;
 
+          yield* Effect.annotateCurrentSpan({
+            'workspace.session_id': req.sessionId,
+            'workspace.file_count': req.entries.length,
+            'workspace.content_chars': req.entries.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            ),
+          });
+
           let compiledCount = 0;
           let errorCount = 0;
           const YIELD_INTERVAL = 10;
@@ -3014,16 +3287,68 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           for (let i = 0; i < req.entries.length; i++) {
             const entry = req.entries[i];
             try {
-              const result = svc.compile(entry.content, entry.uri);
-              if (result && result.symbolTable) {
+              const compiled = yield* Effect.withSpan(
+                'workspace.file.compile',
+                {
+                  attributes: {
+                    'workspace.session_id': req.sessionId,
+                    'workspace.file_index': i,
+                    'workspace.file_total': req.entries.length,
+                    'document.uri': entry.uri,
+                    'document.version': entry.version,
+                    'document.content_chars': entry.content.length,
+                  },
+                },
+              )(
+                Effect.gen(function* () {
+                  const compileStart = Date.now();
+                  const result = yield* Effect.try({
+                    try: () => svc.compile(entry.content, entry.uri),
+                    catch: (error) => ({
+                      _tag: 'WorkspaceBatchCompileError' as const,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                    }),
+                  });
+                  const compileMs = Date.now() - compileStart;
+                  const symbolTable = result?.symbolTable as any;
+                  const symbolCount =
+                    symbolTable?.getAllSymbols?.().length ?? 0;
+                  const referenceCount =
+                    symbolTable?.getAllReferences?.().length ?? 0;
+
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.compile_ms': compileMs,
+                    'symbol.count': symbolCount,
+                    'reference.count': referenceCount,
+                  });
+
+                  if (!symbolTable) {
+                    yield* Effect.annotateCurrentSpan(
+                      'workspace.compile_outcome',
+                      'no-symbol-table',
+                    );
+                    return false;
+                  }
+
+                  const writeBackStart = Date.now();
+                  yield* Effect.promise(() =>
+                    writeBackCompiledSymbols(
+                      symbolTable,
+                      entry.uri,
+                      entry.version,
+                    ),
+                  );
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.write_back_ms': Date.now() - writeBackStart,
+                    'workspace.compile_outcome': 'compiled',
+                  });
+                  return true;
+                }),
+              );
+
+              if (compiled) {
                 compiledCount++;
-                yield* Effect.promise(() =>
-                  writeBackCompiledSymbols(
-                    result.symbolTable as any,
-                    entry.uri,
-                    entry.version,
-                  ),
-                );
               } else {
                 errorCount++;
               }
@@ -3057,6 +3382,11 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
           );
 
           const elapsedMs = Date.now() - batchStartTime;
+          yield* Effect.annotateCurrentSpan({
+            'workspace.compiled_count': compiledCount,
+            'workspace.error_count': errorCount,
+            'workspace.elapsed_ms': elapsedMs,
+          });
           yield* Effect.logInfo(
             `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
               `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
@@ -3155,3 +3485,23 @@ export const handlers: WorkerRunner.SerializedRunner.Handlers<
       ),
     ),
 };
+
+/**
+ * Every decoded coordinator request enters through this table. Wrap the whole
+ * table once so data-owner, compilation, resource-loader, and request-pool
+ * workers all extract and use the same parent-context contract.
+ */
+export const handlers = Object.fromEntries(
+  Object.entries(untracedHandlers).map(([tag, untypedHandler]) => {
+    const handler = untypedHandler as unknown as UntypedWorkerHandler;
+    return [
+      tag,
+      (request: unknown) =>
+        withWorkerRequestTracing(
+          tag,
+          request as { readonly traceContext?: string },
+          handler(request as never),
+        ),
+    ];
+  }),
+) as unknown as SerializedWorkerHandlers;
