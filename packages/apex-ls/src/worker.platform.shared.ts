@@ -791,7 +791,14 @@ export function loadSymbolDataForEnrichment(
         return tables;
       };
 
-      const loaded = ingestEntries(response.entries);
+      const loaded = yield* Effect.fn(
+        'worker.enrichment.deserializeSymbolTables',
+        {
+          attributes: { uri, count: Object.keys(response.entries).length },
+        },
+      )(function* () {
+        return yield* Effect.sync(() => ingestEntries(response.entries));
+      })();
       for (const { fileUri, st } of loaded) {
         yield* Effect.fn('worker.enrichment.addSymbolTable', {
           attributes: { uri: fileUri },
@@ -1422,7 +1429,7 @@ export const ensureCompilationServices: Effect.Effect<CompilationServices> =
 // Compiled-symbol write-back (compilation role)
 // ---------------------------------------------------------------------------
 
-export async function writeBackCompiledSymbols(
+export function writeBackCompiledSymbols(
   symbolTable: {
     getAllSymbols(): unknown[];
     getAllReferences(): unknown[];
@@ -1432,67 +1439,115 @@ export async function writeBackCompiledSymbols(
   },
   uri: string,
   documentVersion: number,
-): Promise<boolean> {
+): Effect.Effect<boolean, never, never> {
   const startTime = Date.now();
-  try {
-    // Sanitize for the wire BEFORE posting. The assistance bus posts this
-    // payload via MessagePort.postMessage, which uses the structured-clone
-    // algorithm — and structured clone THROWS on function values
-    // ("() => null could not be cloned"). A compiled SymbolTable's
-    // getAllSymbols() can carry function-valued properties (lazy thunks), which
-    // appear for real type-referencing Apex but not for trivial self-contained
-    // classes. Without this, the postMessage throws synchronously, the
-    // write-back never reaches the coordinator/data-owner, the readiness latch
-    // is never resolved, and the cold-read gate burns its full budget before
-    // falling back to a local compile — the ~2s cold-start stall.
-    //
-    // cloneForWire (JSON round-trip) is the same sanitizer every other
-    // wire-crossing data-owner payload already uses; it drops functions and
-    // other non-cloneable values, leaving plain JSON the data-owner can merge.
-    const enrichedSymbolTable = cloneForWire({
-      symbols: symbolTable.getAllSymbols(),
-      references: symbolTable.getAllReferences(),
-      hierarchicalReferences:
-        symbolTable.getAllHierarchicalReferences?.() ?? [],
-      metadata: symbolTable.getMetadata(),
-      fileUri: symbolTable.getFileUri(),
-    });
-    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
-      ? enrichedSymbolTable.symbols.length
-      : 0;
+  return Effect.gen(function* () {
+    // Serialize symbol table with instrumentation using Effect span
+    const serializeStart = Date.now();
+    const {
+      enrichedSymbolTable,
+      serializeMs,
+      symbolCount,
+      referenceCount,
+      payloadSizeBytes,
+    } = yield* Effect.fn('worker.compilation.serializeSymbols', {
+      attributes: { uri },
+    })(function* () {
+      const table = cloneForWire({
+        symbols: symbolTable.getAllSymbols(),
+        references: symbolTable.getAllReferences(),
+        hierarchicalReferences:
+          symbolTable.getAllHierarchicalReferences?.() ?? [],
+        metadata: symbolTable.getMetadata(),
+        fileUri: symbolTable.getFileUri(),
+      });
+      const serializeMs = Date.now() - serializeStart;
 
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:UpdateSymbolSubset',
+      const symbolCount = Array.isArray(table?.symbols)
+        ? table.symbols.length
+        : 0;
+      const referenceCount = Array.isArray(table?.references)
+        ? table.references.length
+        : 0;
+
+      // Estimate payload size
+      const payloadSizeBytes = JSON.stringify(table).length;
+
+      return yield* Effect.succeed({
+        enrichedSymbolTable: table,
+        serializeMs,
+        symbolCount,
+        referenceCount,
+        payloadSizeBytes,
+      });
+    })();
+
+    yield* Effect.logDebug(
+      `[COMPILATION] Serialization complete: ${symbolCount} symbols, ` +
+        `${referenceCount} refs, ${payloadSizeBytes} bytes, ${serializeMs}ms for ${uri}`,
+    );
+
+    // IPC call with span and post-IPC cleanup tracking
+    const { response, ipcCallMs } = yield* Effect.fn(
+      'worker.compilation.updateSymbolSubset',
       {
-        uri,
-        documentVersion,
-        enrichedSymbolTable,
-        enrichedDetailLevel: 'public-api',
-        sourceWorkerId: workerId,
+        attributes: {
+          uri,
+          symbolCount,
+          referenceCount,
+          payloadSizeBytes,
+          serializeMs,
+        },
       },
-      true,
-    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+    )(function* () {
+      const ipcCallStart = Date.now();
+      const response = (yield* Effect.promise(() =>
+        requestCoordinatorAssistancePromiseShared(
+          'dataOwner:UpdateSymbolSubset',
+          {
+            uri,
+            documentVersion,
+            enrichedSymbolTable,
+            enrichedDetailLevel: 'public-api',
+            sourceWorkerId: workerId,
+          },
+          true,
+        ),
+      )) as { accepted: boolean; merged: number; versionMismatch: boolean };
+      const ipcCallMs = Date.now() - ipcCallStart;
+
+      // Track post-IPC cleanup/overhead
+      yield* Effect.fn('worker.compilation.postIpcCleanup', {
+        attributes: { uri, ipcCallMs },
+      })(function* () {
+        // Explicit cleanup marker - any work here contributes to post-IPC gap
+        return yield* Effect.succeed(undefined);
+      })();
+
+      return yield* Effect.succeed({ response, ipcCallMs });
+    })();
 
     const elapsed = Date.now() - startTime;
     const accepted = response?.accepted ?? false;
 
-    await Effect.runPromise(
-      Effect.logDebug(
-        `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
-          `${symbolCount} symbols for ${uri} (v${documentVersion}, ${elapsed}ms)` +
-          (response?.versionMismatch ? ' [version mismatch]' : ''),
-      ),
+    yield* Effect.logDebug(
+      `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
+        `${symbolCount} symbols for ${uri} (v${documentVersion}, ${elapsed}ms total, ` +
+        `${serializeMs}ms serialize, ${ipcCallMs}ms IPC, ${payloadSizeBytes} bytes)` +
+        (response?.versionMismatch ? ' [version mismatch]' : ''),
     );
     return accepted;
-  } catch (err) {
-    const elapsed = Date.now() - startTime;
-    await Effect.runPromise(
-      Effect.logWarning(
-        `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
-      ),
-    );
-    return false;
-  }
+  }).pipe(
+    Effect.catchAll((err) =>
+      Effect.gen(function* () {
+        const elapsed = Date.now() - startTime;
+        yield* Effect.logWarning(
+          `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms total) - ${err}`,
+        );
+        return false;
+      }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1581,25 +1636,50 @@ export function writeBackEnrichedSymbols(
       return false;
     }
 
-    // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
-    // function values (lazy thunks) that structured clone cannot handle — see
-    // writeBackCompiledSymbols for the full rationale.
-    const enrichedSymbolTable = cloneForWire({
-      symbols: symbolTable.getAllSymbols(),
-      references: symbolTable.getAllReferences(),
-      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
-      metadata: symbolTable.getMetadata(),
-      fileUri: symbolTable.getFileUri(),
-    });
+    // Serialize symbol table to wire format with instrumentation
+    const { enrichedSymbolTable, serializeMs, payloadSizeBytes } =
+      yield* Effect.fn('worker.enrichment.serializeSymbols', {
+        attributes: { uri },
+      })(function* () {
+        const serializeStart = Date.now();
+        const table = cloneForWire({
+          symbols: symbolTable.getAllSymbols(),
+          references: symbolTable.getAllReferences(),
+          hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+          metadata: symbolTable.getMetadata(),
+          fileUri: symbolTable.getFileUri(),
+        });
+        const serializeMs = Date.now() - serializeStart;
+
+        // Estimate payload size (approximate via JSON serialization)
+        const payloadSizeBytes = JSON.stringify(table).length;
+
+        return yield* Effect.succeed({
+          enrichedSymbolTable: table,
+          serializeMs,
+          payloadSizeBytes,
+        });
+      })();
 
     const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
       ? enrichedSymbolTable.symbols.length
       : 0;
+    const referenceCount = Array.isArray(enrichedSymbolTable?.references)
+      ? enrichedSymbolTable.references.length
+      : 0;
 
     const response = (yield* Effect.fn('worker.enrichment.updateSymbolSubset', {
-      attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel },
+      attributes: {
+        uri,
+        symbolCount,
+        referenceCount,
+        detailLevel: enrichedDetailLevel,
+        payloadSizeBytes,
+        serializeMs,
+      },
     })(function* () {
-      return (yield* Effect.tryPromise({
+      const ipcCallStart = Date.now();
+      const result = (yield* Effect.tryPromise({
         try: () =>
           requestCoordinatorAssistancePromiseShared(
             'dataOwner:UpdateSymbolSubset',
@@ -1614,6 +1694,18 @@ export function writeBackEnrichedSymbols(
           ),
         catch: (cause) => cause,
       })) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+      const ipcCallMs = Date.now() - ipcCallStart;
+
+      // Track post-IPC cleanup/overhead
+      yield* Effect.fn('worker.enrichment.postIpcCleanup', {
+        attributes: { uri, ipcCallMs },
+      })(function* () {
+        // Explicit cleanup marker - any work here contributes to post-IPC gap
+        return yield* Effect.succeed(undefined);
+      })();
+
+      return result;
     })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
 
     const elapsed = Date.now() - startTime;
@@ -2311,11 +2403,15 @@ const requestHandlers = {
     (svc, req) =>
       Effect.gen(function* () {
         yield* loadSymbolDataForEnrichment(svc, req.textDocument.uri);
-        return yield* Effect.promise(() =>
-          svc.codeLensService.processCodeLens({
-            textDocument: { uri: req.textDocument.uri },
-          }),
-        );
+        return yield* Effect.fn('worker.lspRequest.processCodeLens', {
+          attributes: { uri: req.textDocument.uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.codeLensService.processCodeLens({
+              textDocument: { uri: req.textDocument.uri },
+            }),
+          );
+        })();
       }),
   ),
   DispatchDiagnostic: effectRequestHandler<DocOnlyReq>(
@@ -3245,12 +3341,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
           let compiledCount = 0;
           if (result && result.symbolTable) {
             compiledCount = 1;
-            yield* Effect.promise(() =>
-              writeBackCompiledSymbols(
-                result.symbolTable as any,
-                req.uri,
-                req.version,
-              ),
+            yield* writeBackCompiledSymbols(
+              result.symbolTable as any,
+              req.uri,
+              req.version,
             );
           }
 
@@ -3332,12 +3426,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   }
 
                   const writeBackStart = Date.now();
-                  yield* Effect.promise(() =>
-                    writeBackCompiledSymbols(
-                      symbolTable,
-                      entry.uri,
-                      entry.version,
-                    ),
+                  yield* writeBackCompiledSymbols(
+                    symbolTable,
+                    entry.uri,
+                    entry.version,
                   );
                   yield* Effect.annotateCurrentSpan({
                     'workspace.write_back_ms': Date.now() - writeBackStart,

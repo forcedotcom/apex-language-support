@@ -174,6 +174,7 @@ export class LCSAdapter {
     string,
     Promise<DocumentDiagnosticReport>
   >();
+  private readonly inFlightCodeLensByUri = new HashMap<string, Promise<any>>();
 
   private readonly onExit: () => void;
 
@@ -861,15 +862,45 @@ export class LCSAdapter {
     }
 
     if (capabilities.codeLensProvider) {
-      this.connection.onCodeLens(async (params: CodeLensParams) =>
-        this.handleLspRequest(
-          LSP_SPAN_NAMES.CODE_LENS,
-          'textDocument/codeLens',
-          params,
-          (p) => LSPQueueManager.getInstance().submitCodeLensRequest(p),
-          [],
-        ),
-      );
+      this.connection.onCodeLens(async (params: CodeLensParams) => {
+        const uri = params.textDocument.uri;
+        const existing = this.inFlightCodeLensByUri.get(uri);
+        if (existing) {
+          this.logger.debug(
+            () => `🔍 CodeLens request deduplicated for URI: ${uri}`,
+          );
+          return await existing;
+        }
+        this.logger.debug(() => `🔍 CodeLens request for URI: ${uri}`);
+        const processingPromise = (async () => {
+          try {
+            const result = await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.CODE_LENS,
+              () => LSPQueueManager.getInstance().submitCodeLensRequest(params),
+              {
+                'lsp.method': 'textDocument/codeLens',
+                'document.uri': uri,
+              },
+            );
+            return result;
+          } catch (error) {
+            if (error instanceof RequestCancelledError) {
+              this.logger.debug(() => 'textDocument/codeLens cancelled');
+              return [];
+            }
+            this.logger.error(
+              () => `Error processing codeLens: ${formattedError(error)}`,
+            );
+            return [];
+          }
+        })();
+        this.inFlightCodeLensByUri.set(uri, processingPromise);
+        try {
+          return await processingPromise;
+        } finally {
+          this.inFlightCodeLensByUri.delete(uri);
+        }
+      });
       this.logger.debug('CodeLens handler registered');
     } else {
       this.logger.debug(
