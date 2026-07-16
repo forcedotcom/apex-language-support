@@ -264,7 +264,9 @@ const DEFAULT_WORKER_SCRIPT =
 // ---------------------------------------------------------------------------
 
 export interface WorkerTopology {
-  readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
+  readonly dataOwner:
+    | Worker.SerializedWorker<DataOwnerRequest>
+    | Worker.SerializedWorkerPool<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
@@ -411,7 +413,7 @@ export function initializeTopology(
               )
             : Effect.succeed(null),
           withRoleLayer(
-            Worker.makeSerialized<DataOwnerRequest>({
+            Worker.makePoolSerialized<DataOwnerRequest>({
               initialMessage: () =>
                 makeInitMessage(
                   'dataOwner',
@@ -419,6 +421,8 @@ export function initializeTopology(
                   serverMode,
                   spanCollectorUrl,
                 ),
+              size: 1, // Single worker instance
+              concurrency: 10, // Allow up to 10 concurrent requests to the worker
             }),
             'dataOwner',
           ),
