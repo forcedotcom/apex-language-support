@@ -449,6 +449,88 @@ describe('CodeActionProcessingService', () => {
       expect(edits?.[1].range).toEqual(params.range);
     });
 
+    /**
+     * The core invariant the extract fix guarantees: the range replaced by the
+     * generated name must be exactly the expression captured in the inserted
+     * declaration. If they diverge, applying both edits corrupts the statement.
+     */
+    const assertReplaceMatchesDeclaration = (
+      source: string,
+      action: CodeAction | undefined,
+    ): string => {
+      expect(action).toBeDefined();
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits).toHaveLength(2);
+      const declaration = edits![0].newText;
+      const captured = declaration.match(
+        /Object v\d+ = ([\s\S]+?); \/\/ TODO/,
+      )?.[1];
+      expect(captured).toBeDefined();
+      expect(edits![1].newText).toBe('v1');
+      const doc = TextDocument.create(uri, 'apex', 1, source);
+      const start = doc.offsetAt(edits![1].range.start);
+      const end = doc.offsetAt(edits![1].range.end);
+      // The replaced source text is exactly the captured expression.
+      expect(source.substring(start, end)).toBe(captured);
+      return captured!;
+    };
+
+    it('replaces the whole enclosing expression for a sub-selection', async () => {
+      // Regression (#2): the finder returns the tightest expression ENCLOSING
+      // the selection. `1 + 2` is not a subtree of `1 + 2 * 3` (precedence
+      // binds `2 * 3` first), so the minimal enclosing expression is the whole
+      // `1 + 2 * 3`. The replacement must span that whole expression, not the
+      // `1 + 2` the user highlighted — else the statement becomes `= v1 * 3;`.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer total = 1 + 2 * 3;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, '1 + 2');
+
+      const result = await service.processCodeAction(params);
+      const captured = assertReplaceMatchesDeclaration(
+        source,
+        findAction(result, 'Extract local variable'),
+      );
+      // Proves we exercised the enclosing case: the captured expression is
+      // strictly larger than the raw `1 + 2` selection.
+      expect(captured).toBe('1 + 2 * 3');
+    });
+
+    it('replaces the whole expression for a zero-width (cursor) selection', async () => {
+      // Regression (#2): a cursor-only invocation (start === end) must not leave
+      // the expression in place and merely insert the name — the replace range
+      // must be the (non-empty) expression the declaration captures.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Integer total = 1 + 2 * 3;',
+        '  }',
+        '}',
+      ].join('\n');
+      const doc = TextDocument.create(uri, 'apex', 1, source);
+      const caretOffset = source.indexOf('2 * 3') + 1;
+      const caret = doc.positionAt(caretOffset);
+      (mockStorage.getDocument as jest.Mock).mockResolvedValue(doc);
+      const params: CodeActionParams = {
+        textDocument: { uri },
+        range: { start: caret, end: caret },
+        context: { diagnostics: [], only: undefined, triggerKind: 1 },
+      };
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      assertReplaceMatchesDeclaration(source, action);
+      // The replacement range must be non-empty (a zero-width range would
+      // duplicate the expression instead of replacing it).
+      const replaceRange = action?.edit?.changes?.[uri]?.[1].range;
+      expect(replaceRange).not.toEqual({ start: caret, end: caret });
+    });
+
     it('does not offer extract actions for a non-expression selection', async () => {
       const source = [
         'public class Extract {',
@@ -741,6 +823,65 @@ describe('CodeActionProcessingService', () => {
       // Uses the document (caller) but writes into Target — no reliance on
       // reading the (unloaded) target document.
       expect(document.uri).toBe(CALLER_URI);
+    });
+
+    it('inserts the stub before the closing brace, inside the class body', async () => {
+      // Regression: symbolRange.endColumn points one past the `}`, so inserting
+      // at endColumn emitted the stub AFTER the closing brace (invalid Apex).
+      // Apply the edit to the target source and assert the stub lands inside
+      // the class body, before the final `}`.
+      const callerSource = [
+        'public class Caller {',
+        '  public void run() {',
+        '    Target t = new Target();',
+        '    Integer r = t.computeValue(42);',
+        '  }',
+        '}',
+      ].join('\n');
+      const callRange = rangeOf(callerSource, 'computeValue');
+
+      const { service } = await buildService(callerSource, [
+        { uri: TARGET_URI, source: TARGET_SOURCE },
+        { uri: CALLER_URI, source: callerSource },
+      ]);
+
+      const actions = await service.processCodeAction({
+        textDocument: { uri: CALLER_URI },
+        range: callRange,
+        context: {
+          diagnostics: [methodNotFoundDiagnostic(callRange)],
+          triggerKind: 1,
+        },
+      });
+
+      const declare = actions.find((a) =>
+        a.title.startsWith("Declare method 'computeValue'"),
+      );
+      expect(declare).toBeDefined();
+
+      const edit = (declare!.edit?.documentChanges as any[])[0].edits[0];
+      // Apply the single TextEdit to the Target source.
+      const targetDoc = TextDocument.create(
+        TARGET_URI,
+        'apex',
+        1,
+        TARGET_SOURCE,
+      );
+      const applied = TextDocument.applyEdits(targetDoc, [edit]);
+
+      // The generated stub must sit INSIDE the class body, i.e. at brace depth
+      // >= 1. The bug inserted it one char past the closing `}`, placing it at
+      // depth 0 (outside the class). Depth = (opens - closes) before the stub.
+      const methodIndex = applied.indexOf('computeValue');
+      expect(methodIndex).toBeGreaterThan(-1);
+      const before = applied.slice(0, methodIndex);
+      const depth =
+        (before.match(/\{/g) || []).length - (before.match(/\}/g) || []).length;
+      expect(depth).toBeGreaterThanOrEqual(1);
+      // Overall braces stay balanced after the insert.
+      const opens = (applied.match(/\{/g) || []).length;
+      const closes = (applied.match(/\}/g) || []).length;
+      expect(opens).toBe(closes);
     });
 
     it('marks the stub static when the call is on the type name', async () => {

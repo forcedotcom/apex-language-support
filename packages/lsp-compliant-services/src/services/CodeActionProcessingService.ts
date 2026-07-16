@@ -39,8 +39,6 @@ import {
   TypeSymbol,
   SymbolKind,
   SymbolVisibility,
-  SymbolTable,
-  FullSymbolCollectorListener,
   findMethodCallAtRange,
   MethodCallAtRange,
   ErrorCodes,
@@ -360,13 +358,23 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     const { expression, statementStart, indent } = found;
     const text = context.document.getText();
-    const exprText = text.substring(
-      expression.start.start,
-      (expression.stop ?? expression.start).stop + 1,
-    );
+    const exprStart = expression.start.start;
+    const exprEnd = (expression.stop ?? expression.start).stop + 1;
+    const exprText = text.substring(exprStart, exprEnd);
     if (!exprText) {
       return actions;
     }
+
+    // Replace the whole matched expression, NOT the user's raw selection. The
+    // finder returns the tightest expression that *encloses* the selection, so
+    // the selection can be a strict subset (or a zero-width cursor). Replacing
+    // context.range while inserting the full expression text would corrupt the
+    // statement (leave a fragment, or duplicate the expression). Anchor the
+    // replacement to the expression's own span so the two edits stay consistent.
+    const exprRange: Range = {
+      start: context.document.positionAt(exprStart),
+      end: context.document.positionAt(exprEnd),
+    };
 
     const variableName = this.generateExtractName(text);
 
@@ -377,6 +385,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       indent,
       exprText,
       variableName,
+      exprRange,
     );
     if (variableAction) {
       actions.push(variableAction);
@@ -388,6 +397,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
         expression,
         exprText,
         variableName,
+        exprRange,
       );
       if (constantAction) {
         actions.push(constantAction);
@@ -415,6 +425,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     indent: string,
     exprText: string,
     variableName: string,
+    exprRange: Range,
   ): CodeAction | null {
     const insertPosition = context.document.positionAt(statementStart);
     // Anchor the insertion at the very start of the statement's line so the new
@@ -431,7 +442,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       newText: declaration,
     };
     const replaceEdit: TextEdit = {
-      range: context.range,
+      range: exprRange,
       newText: variableName,
     };
 
@@ -460,6 +471,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     expression: ExpressionContext,
     exprText: string,
     variableName: string,
+    exprRange: Range,
   ): CodeAction | null {
     const insertion = this.findConstantInsertion(expression);
     if (!insertion) {
@@ -479,7 +491,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       newText: declaration,
     };
     const replaceEdit: TextEdit = {
-      range: context.range,
+      range: exprRange,
       newText: variableName,
     };
 
@@ -751,7 +763,11 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     context: CodeActionContext,
     diagnostics: Diagnostic[],
   ): Promise<MethodCallAtRange | null> {
-    const parseTree = this.compileDocument(context.document);
+    // Reuse the CST already parsed in analyzeCodeActionContext rather than
+    // recompiling the document. findMethodCallAtRange only walks the parse
+    // tree, which is grammar-equivalent regardless of the listener used to
+    // build it, so the shared context.parseTree is sufficient.
+    const parseTree = context.parseTree;
     if (!parseTree) {
       return null;
     }
@@ -765,33 +781,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       }
     }
     return null;
-  }
-
-  /**
-   * Parse document text into a CST parse tree. Returns null on failure so all
-   * callers degrade gracefully (never throw on syntax-error input).
-   */
-  private compileDocument(
-    document: TextDocument,
-  ): ReturnType<CompilerService['compile']>['parseTree'] {
-    try {
-      const compilerService = new CompilerService();
-      const table = new SymbolTable();
-      // We only need the parse tree here (not enriched symbols), so a plain
-      // full-collector listener is sufficient and cheapest.
-      const listener = new FullSymbolCollectorListener(table);
-      const result = compilerService.compile(
-        document.getText(),
-        document.uri,
-        listener,
-      );
-      return result.parseTree;
-    } catch (error) {
-      this.logger.debug(
-        () => `Error compiling document for code action: ${error}`,
-      );
-      return undefined;
-    }
   }
 
   /**
@@ -982,10 +971,14 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   }
 
   /**
-   * Compute the insertion point: the start of the line holding the target
-   * type's closing brace, so the stub lands as the last member of the class.
-   * `symbolRange.endLine`/`endColumn` point at the closing `}` (1-based line,
-   * 0-based column).
+   * Compute the insertion point: immediately before the target type's closing
+   * brace, so the stub lands as the last member of the class.
+   *
+   * `symbolRange.endColumn` is computed as `stopToken.column + stopToken.length`
+   * (see `ApexSymbolCollectorListener.getLocation`), i.e. it points *past* the
+   * `}` rather than at it. Inserting there would emit the member *after* the
+   * closing brace — outside the class body — producing invalid Apex. Subtract
+   * the brace's own width (1 char) to land just before it.
    */
   private async computeInsertPosition(
     target: TargetClass,
@@ -994,10 +987,10 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     if (!range) {
       return null;
     }
-    // Insert on the line of the closing brace, at its column, so the new member
-    // precedes the brace. LSP lines are 0-based; symbolRange lines are 1-based.
+    // LSP lines are 0-based; symbolRange lines are 1-based. endColumn is one
+    // past the `}`, so endColumn - 1 is the brace's own column.
     const line = Math.max(0, range.endLine - 1);
-    return { line, character: Math.max(0, range.endColumn) };
+    return { line, character: Math.max(0, range.endColumn - 1) };
   }
 
   /**
