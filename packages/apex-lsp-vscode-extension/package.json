@@ -639,6 +639,20 @@
               "type": "boolean",
               "default": true,
               "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.description%"
+            },
+            "dataOwnerConcurrency": {
+              "type": "number",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50,
+              "description": "%configuration.apex-ls-ts.experimental.workers.dataOwnerConcurrency.description%"
+            },
+            "compilationConcurrency": {
+              "type": "number",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 20,
+              "description": "%configuration.apex-ls-ts.experimental.workers.compilationConcurrency.description%"
             }
           }
         }

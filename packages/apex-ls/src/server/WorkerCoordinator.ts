@@ -264,13 +264,11 @@ const DEFAULT_WORKER_SCRIPT =
 // ---------------------------------------------------------------------------
 
 export interface WorkerTopology {
-  readonly dataOwner:
-    | Worker.SerializedWorker<DataOwnerRequest>
-    | Worker.SerializedWorkerPool<DataOwnerRequest>;
+  readonly dataOwner: Worker.SerializedWorkerPool<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly requestPoolSize: number;
-  readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
-  readonly compilation: Worker.SerializedWorker<CompilationRequest>;
+  readonly resourceLoader: Worker.SerializedWorkerPool<ResourceLoaderRequest> | null;
+  readonly compilation: Worker.SerializedWorkerPool<CompilationRequest>;
 }
 
 export interface TopologyConfig {
@@ -288,6 +286,13 @@ export interface TopologyConfig {
   readonly workerLayerFactory?: (
     role: WorkerRole,
   ) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>;
+  /** Maximum concurrent requests to the dataOwner worker. Default: 10.
+   *  Higher values allow more UpdateSymbolSubset calls to dispatch concurrently,
+   *  reducing IPC serialization overhead during workspace load. */
+  readonly dataOwnerConcurrency?: number;
+  /** Maximum concurrent requests to the compilation worker. Default: 1 (serial).
+   *  Higher values allow multiple files to compile concurrently on a single worker. */
+  readonly compilationConcurrency?: number;
 }
 
 const makeInitMessage = (
@@ -400,7 +405,7 @@ export function initializeTopology(
         [
           config.enableResourceLoader
             ? withRoleLayer(
-                Worker.makeSerialized<ResourceLoaderRequest>({
+                Worker.makePoolSerialized<ResourceLoaderRequest>({
                   initialMessage: () =>
                     makeInitMessage(
                       'resourceLoader',
@@ -408,6 +413,8 @@ export function initializeTopology(
                       serverMode,
                       spanCollectorUrl,
                     ),
+                  size: 1,
+                  concurrency: 1, // Serial processing for resource loading
                 }),
                 'resourceLoader',
               )
@@ -422,12 +429,12 @@ export function initializeTopology(
                   spanCollectorUrl,
                 ),
               size: 1, // Single worker instance
-              concurrency: 10, // Allow up to 10 concurrent requests to the worker
+              concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker
             }),
             'dataOwner',
           ),
           withRoleLayer(
-            Worker.makeSerialized<CompilationRequest>({
+            Worker.makePoolSerialized<CompilationRequest>({
               initialMessage: () =>
                 makeInitMessage(
                   'compilation',
@@ -435,6 +442,8 @@ export function initializeTopology(
                   serverMode,
                   spanCollectorUrl,
                 ),
+              size: 1, // Single worker instance (shared symbol graph)
+              concurrency: config.compilationConcurrency ?? 1, // Serial by default
             }),
             'compilation',
           ),

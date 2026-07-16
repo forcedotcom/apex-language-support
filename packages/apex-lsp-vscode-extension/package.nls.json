@@ -92,6 +92,8 @@
   "configuration.apex-ls-ts.experimental.workers.enabled.description": "Enable internal worker threads for parallel LSP processing. When false (default), all processing happens on the coordinator thread as before.",
   "configuration.apex-ls-ts.experimental.workers.poolSize.description": "Number of enrichment/search worker threads (1–cpus-2, default 2). A data-owner worker is always spawned separately. Higher values increase parallelism but consume more memory.",
   "configuration.apex-ls-ts.experimental.workers.resourceLoader.description": "Spawn a dedicated resource-loader worker for stdlib/library loading. Disable to reduce memory when stdlib loading latency is acceptable.",
+  "configuration.apex-ls-ts.experimental.workers.dataOwnerConcurrency.description": "Maximum concurrent symbol update requests to the dataOwner worker (1–50, default 10). Higher values reduce IPC serialization overhead during workspace load but may increase memory pressure.",
+  "configuration.apex-ls-ts.experimental.workers.compilationConcurrency.description": "Maximum concurrent compilation requests to the compilation worker (1–20, default 1). Increase to parallelize file compilation, but requires thread-safe compilation implementation.",
   "configuration.apex.title": "Apex Language Server",
   "viewsContainers.apex-explorer.title": "Apex-LS-TS Explorer"
 }

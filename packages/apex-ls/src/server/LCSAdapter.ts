@@ -2551,6 +2551,8 @@ export class LCSAdapter {
         logLevel: mainLogLevel,
         serverMode,
         spanCollectorUrl,
+        dataOwnerConcurrency: workerCfg?.dataOwnerConcurrency,
+        compilationConcurrency: workerCfg?.compilationConcurrency,
       };
 
       const isNodeJs =

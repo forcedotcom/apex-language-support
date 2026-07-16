@@ -327,6 +327,18 @@ export interface WorkerTopologySettings {
 
   /** Run the resource loader in a dedicated worker (default: true) */
   resourceLoader: boolean;
+
+  /**
+   * Maximum concurrent requests to the dataOwner worker (default: 10).
+   * Higher values reduce IPC serialization overhead during workspace load.
+   */
+  dataOwnerConcurrency?: number;
+
+  /**
+   * Maximum concurrent requests to the compilation worker (default: 1).
+   * Increase to parallelize file compilation (requires thread-safe implementation).
+   */
+  compilationConcurrency?: number;
 }
 
 /**
