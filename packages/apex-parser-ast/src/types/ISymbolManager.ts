@@ -237,4 +237,25 @@ export interface ISymbolManager extends SymbolProvider {
   ): Effect.Effect<T | null, never, never>;
 
   isStandardLibraryType(name: string): Promise<boolean>;
+
+  /**
+   * Begin a workspace load session - defers cross-file resolution
+   * until endWorkspaceSession() is called. All addSymbolTable operations
+   * during this session will queue resolution instead of executing immediately.
+   * @param sessionId Unique identifier for this workspace load session
+   */
+  beginWorkspaceSession(sessionId: string): void;
+
+  /**
+   * End workspace load session and process all deferred resolutions.
+   * @param sessionId Must match the session started with beginWorkspaceSession
+   * @returns Promise that resolves to the count of files resolved
+   */
+  endWorkspaceSession(sessionId: string): Promise<number>;
+
+  /**
+   * Check if a workspace load session is currently active.
+   * @returns true if beginWorkspaceSession was called and endWorkspaceSession has not
+   */
+  isWorkspaceSessionActive(): boolean;
 }

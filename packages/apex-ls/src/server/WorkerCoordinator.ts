@@ -1013,7 +1013,12 @@ function createDispatcher(
           );
         }
         case 'DrainDeferredReferences': {
-          return sendTracedToDataOwner(new DrainDeferredReferences());
+          const drainParams = params as { sessionId?: string } | undefined;
+          return sendTracedToDataOwner(
+            new DrainDeferredReferences({
+              sessionId: drainParams?.sessionId,
+            }),
+          );
         }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);

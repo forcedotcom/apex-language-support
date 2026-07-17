@@ -286,6 +286,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     new Map();
   // Track files in cross-file resolution to skip concurrent/redundant calls (e.g. multiple LSP requests)
   private resolvingCrossFileRefs: Set<string> = new Set();
+  // Workspace session tracking for deferred resolution during batch load
+  private workspaceSessionId: string | null = null;
+  private deferredResolutions: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
   // Batch size for initial reference processing
@@ -1222,6 +1225,57 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       lastCleanup: Date.now(),
       memoryOptimizationLevel: 'OPTIMAL' as string,
     };
+  }
+
+  /**
+   * Begin a workspace load session - defers cross-file resolution
+   * until endWorkspaceSession() is called.
+   */
+  beginWorkspaceSession(sessionId: string): void {
+    this.logger.info(
+      () => `[SYMBOL-MANAGER] Begin workspace session: ${sessionId}`,
+    );
+    this.workspaceSessionId = sessionId;
+    this.deferredResolutions.clear();
+  }
+
+  /**
+   * End workspace load session and process all deferred resolutions.
+   * Returns count of files resolved.
+   */
+  async endWorkspaceSession(sessionId: string): Promise<number> {
+    if (this.workspaceSessionId !== sessionId) {
+      this.logger.warn(
+        () =>
+          `[SYMBOL-MANAGER] Session mismatch: active=${this.workspaceSessionId}, end=${sessionId}`,
+      );
+      return 0;
+    }
+
+    const filesCount = this.deferredResolutions.size;
+    this.logger.info(
+      () =>
+        `[SYMBOL-MANAGER] End workspace session ${sessionId}: ` +
+        `resolving ${filesCount} deferred files`,
+    );
+
+    // Resolve all deferred files in parallel
+    const resolutions = Array.from(this.deferredResolutions).map((uri) =>
+      Effect.runPromise(this.resolveCrossFileReferencesForFile(uri)),
+    );
+
+    this.workspaceSessionId = null;
+    this.deferredResolutions.clear();
+
+    await Promise.all(resolutions);
+    return filesCount;
+  }
+
+  /**
+   * Check if a workspace load session is currently active.
+   */
+  isWorkspaceSessionActive(): boolean {
+    return this.workspaceSessionId !== null;
   }
 
   /**
@@ -2195,7 +2249,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
         );
       if (hasUnresolvedSupertypeEdge) {
-        yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+        if (self.isWorkspaceSessionActive()) {
+          // Defer resolution until workspace load completes
+          self.deferredResolutions.add(normalizedUri);
+          self.logger.debug(
+            () =>
+              `[SYMBOL-MANAGER] Deferred resolution for ${normalizedUri} ` +
+              '(workspace session active)',
+          );
+        } else {
+          // Immediate resolution for interactive operations
+          yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+        }
       }
 
       self.lastProcessedTableStateByFile.set(

@@ -2986,12 +2986,27 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
-  DrainDeferredReferences: () =>
+  DrainDeferredReferences: (req) =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
         dataOwnerWrite(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
+
+            // End workspace session and resolve all deferred files (if sessionId provided)
+            let processedCount = 0;
+            if (req.sessionId) {
+              const sessionId = req.sessionId; // Capture for type narrowing
+              processedCount = yield* Effect.promise(() =>
+                svc.symbolManager.endWorkspaceSession(sessionId),
+              );
+              yield* Effect.logInfo(
+                `[DATA-OWNER] DrainDeferredReferences: session=${sessionId}, ` +
+                  `resolved=${processedCount} deferred files`,
+              );
+            }
+
+            // Drain remaining deferred references (legacy behavior)
             const resolved =
               yield* svc.symbolManager.drainAllDeferredReferences();
             yield* Effect.annotateCurrentSpan(
@@ -2999,12 +3014,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
               resolved,
             );
             yield* Effect.logDebug(
-              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
+              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} additional edge(s)`,
             );
-            return { resolved };
+            return { resolved, processedCount };
           }),
           {
             spanName: 'dataOwner.references.drain',
+            attributes: req.sessionId
+              ? { 'workspace.session_id': req.sessionId }
+              : {},
           },
         ),
       ),
@@ -3183,6 +3201,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
           Effect.gen(function* () {
             const startTime = Date.now();
             const svc = yield* ensureDataOwnerServices;
+
+            // Begin workspace session - defers cross-file resolution
+            svc.symbolManager.beginWorkspaceSession(req.sessionId);
+
             const storage = svc.storageManager.getStorage();
             for (const entry of req.entries) {
               const doc: WorkerDocument = {
@@ -3480,13 +3502,14 @@ const untracedHandlers: SerializedWorkerHandlers = {
 
           // Post-batch: ask the data-owner to drain deferred cross-file
           // references into graph edges now that every file in the batch has
-          // been written back and had its references resolved. Best-effort:
-          // a drain failure must not fail the batch compile.
+          // been written back and had its references resolved. Pass sessionId
+          // to trigger endWorkspaceSession and resolve all deferred files.
+          // Best-effort: a drain failure must not fail the batch compile.
           yield* Effect.tryPromise({
             try: () =>
               requestCoordinatorAssistancePromiseShared(
                 'dataOwner:DrainDeferredReferences',
-                {},
+                { sessionId: req.sessionId },
                 true,
               ),
             catch: (e) => e,

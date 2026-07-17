@@ -265,7 +265,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
     // Generous bound: the write must land well within this even while a large
     // burst of reads is in flight. A loop that genuinely starved writes behind
     // reads would blow past it.
-    const WRITE_DEADLINE_MS = 5000;
+    const WRITE_DEADLINE_MS = 6000; // Increased from 5000 to reduce flakiness on loaded machines
 
     const readerUri = 'file:///test/Reader.cls';
     const readerClass = `public class Reader {

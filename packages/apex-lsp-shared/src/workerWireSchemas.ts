@@ -949,12 +949,15 @@ export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredR
   {
     success: Schema.Struct({
       resolved: Schema.Number, // Count of deferred references turned into edges
+      processedCount: Schema.Number, // Count of files resolved (from endWorkspaceSession)
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('DrainDeferredReferencesError'),
       message: Schema.String,
     }),
     payload: {
+      /** Session ID for workspace load (optional for backward compatibility) */
+      sessionId: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },

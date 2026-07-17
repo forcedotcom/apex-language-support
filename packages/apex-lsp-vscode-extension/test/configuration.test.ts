@@ -204,7 +204,7 @@ describe('Configuration Module', () => {
                 concurrency: 10,
               },
               compilation: {
-                concurrency: 1,
+                concurrency: 8,
               },
               resourceLoader: {
                 enabled: true,
