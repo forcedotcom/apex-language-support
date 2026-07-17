@@ -338,6 +338,8 @@ export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCo
       ),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
+      /** Per-file loop concurrency (optional, defaults to 1 for serial) */
+      concurrency: Schema.optional(Schema.Number),
     },
   },
 ) {}
@@ -1094,6 +1096,7 @@ export type LspRequestTag = (typeof LspRequestTags)[number];
 export const ResourceLoaderTags = [
   'WorkerInit',
   'PingWorker',
+  'WorkerRemoteStdlibWarmup',
   'ResourceLoaderGetSymbolTable',
   'ResourceLoaderGetFile',
   'ResourceLoaderResolveClass',
@@ -1168,6 +1171,7 @@ export type LspRequestMessage =
 export type ResourceLoaderRequest =
   | WorkerInit
   | PingWorker
+  | WorkerRemoteStdlibWarmup
   | ResourceLoaderGetSymbolTable
   | ResourceLoaderGetFile
   | ResourceLoaderResolveClass

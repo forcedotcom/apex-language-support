@@ -269,6 +269,7 @@ export interface WorkerTopology {
   readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorkerPool<ResourceLoaderRequest> | null;
   readonly compilation: Worker.SerializedWorkerPool<CompilationRequest>;
+  readonly compilationConcurrency: number;
 }
 
 export interface TopologyConfig {
@@ -443,7 +444,7 @@ export function initializeTopology(
                   spanCollectorUrl,
                 ),
               size: 1, // Single worker instance (shared symbol graph)
-              concurrency: config.compilationConcurrency ?? 1, // Serial by default
+              concurrency: config.compilationConcurrency ?? 8, // Parallel by default to overlap write-back IPC
             }),
             'compilation',
           ),
@@ -481,6 +482,7 @@ export function initializeTopology(
       requestPoolSize: poolSize,
       resourceLoader,
       compilation,
+      compilationConcurrency: config.compilationConcurrency ?? 8,
     } as WorkerTopology;
   });
 }
@@ -540,6 +542,7 @@ export interface TransportTopology {
   readonly requestPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
   readonly compilation: WorkerHandle;
+  readonly compilationConcurrency: number;
 }
 
 /**
@@ -582,6 +585,7 @@ export const initializeTransportTopology = (
       requestPool,
       resourceLoader,
       compilation,
+      compilationConcurrency: config.compilationConcurrency ?? 8,
     };
   });
 
@@ -605,6 +609,7 @@ export const runRemoteStdlibWarmupPhase = (
     yield* Effect.all(
       [
         topology.dataOwner.executeEffect(req),
+        topology.resourceLoader.executeEffect(req),
         ...Array.from({ length: n }, () =>
           topology.requestPool.executeEffect(req),
         ),
@@ -702,6 +707,7 @@ interface DispatcherCallbacks {
   ) => Promise<{ processedCount: number }>;
   readonly poolSize: number;
   readonly hasResourceLoader: boolean;
+  readonly compilationConcurrency: number;
   readonly getDocumentContent?: (uri: string) => string | undefined;
 }
 
@@ -879,12 +885,18 @@ function createDispatcher(
 
     createBatchCompileDispatcher() {
       return async (sessionId: string, entries: BatchIngestEntry[]) => {
+        const concurrency = callbacks.compilationConcurrency ?? 8;
         logger.debug(
           () =>
             '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
-            `(session=${sessionId}, entries=${entries.length})`,
+            `(session=${sessionId}, entries=${entries.length}, concurrency=${concurrency}, ` +
+            `callbacks.value=${callbacks.compilationConcurrency})`,
         );
-        const message = new WorkspaceBatchCompile({ sessionId, entries });
+        const message = new WorkspaceBatchCompile({
+          sessionId,
+          entries,
+          concurrency,
+        });
         injectTraceContextIntoMessage(
           message as unknown as Record<string, unknown>,
         );
@@ -1063,6 +1075,7 @@ export function makeWorkerDispatcher(
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
       poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
+      compilationConcurrency: topology.compilationConcurrency,
       getDocumentContent,
     },
     logger,
@@ -1093,6 +1106,7 @@ export function makeTransportDispatcher(
         ) as Promise<{ processedCount: number }>,
       poolSize: topology.requestPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
+      compilationConcurrency: topology.compilationConcurrency,
       getDocumentContent,
     },
     logger,

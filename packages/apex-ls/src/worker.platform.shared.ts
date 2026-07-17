@@ -2567,18 +2567,45 @@ const untracedHandlers: SerializedWorkerHandlers = {
         Effect.gen(function* () {
           if (assignedRole === 'dataOwner') {
             yield* ensureDataOwnerServices;
+            yield* Effect.tryPromise({
+              try: () => warmRemoteStdlibNamespaceCacheShared(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
           } else if (assignedRole === 'lspRequest') {
             yield* ensureRequestServices;
+            yield* Effect.tryPromise({
+              try: () => warmRemoteStdlibNamespaceCacheShared(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
           } else if (assignedRole === 'compilation') {
             yield* ensureCompilationServices;
+            yield* Effect.tryPromise({
+              try: () => warmRemoteStdlibNamespaceCacheShared(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
+          } else if (assignedRole === 'resourceLoader') {
+            // resourceLoader IS the stdlib source - warm it by initializing ResourceLoader
+            // which triggers stdlib protobuf loading and namespace indexing
+            const { ResourceLoader } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            yield* Effect.tryPromise({
+              try: () => ResourceLoader.getInstance().initialize(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
           }
-          yield* Effect.tryPromise({
-            try: () => warmRemoteStdlibNamespaceCacheShared(),
-            catch: (e) => ({
-              _tag: 'WorkerRemoteStdlibWarmupError' as const,
-              message: e instanceof Error ? e.message : String(e),
-            }),
-          });
           return { ok: true as const };
         }),
       ),
@@ -3365,6 +3392,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
           const batchStartTime = Date.now();
           const svc = yield* ensureCompilationServices;
 
+          const concurrency = (req as any).concurrency ?? 1;
           yield* Effect.annotateCurrentSpan({
             'workspace.session_id': req.sessionId,
             'workspace.file_count': req.entries.length,
@@ -3372,28 +3400,25 @@ const untracedHandlers: SerializedWorkerHandlers = {
               (total, entry) => total + entry.content.length,
               0,
             ),
+            'workspace.concurrency': concurrency,
           });
 
-          let compiledCount = 0;
-          let errorCount = 0;
-          const YIELD_INTERVAL = 10;
-
-          for (let i = 0; i < req.entries.length; i++) {
-            const entry = req.entries[i];
-            try {
-              const compiled = yield* Effect.withSpan(
-                'workspace.file.compile',
-                {
-                  attributes: {
-                    'workspace.session_id': req.sessionId,
-                    'workspace.file_index': i,
-                    'workspace.file_total': req.entries.length,
-                    'document.uri': entry.uri,
-                    'document.version': entry.version,
-                    'document.content_chars': entry.content.length,
-                  },
+          // Compile files with bounded concurrency to overlap write-back IPC round-trips.
+          // The dataOwner still processes writes serially, but keeping its queue non-empty
+          // eliminates idle-wait cycles and maximizes throughput.
+          const results = yield* Effect.forEach(
+            req.entries,
+            (entry, i) =>
+              Effect.withSpan('workspace.file.compile', {
+                attributes: {
+                  'workspace.session_id': req.sessionId,
+                  'workspace.file_index': i,
+                  'workspace.file_total': req.entries.length,
+                  'document.uri': entry.uri,
+                  'document.version': entry.version,
+                  'document.content_chars': entry.content.length,
                 },
-              )(
+              })(
                 Effect.gen(function* () {
                   const compileStart = Date.now();
                   const result = yield* Effect.try({
@@ -3422,7 +3447,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                       'workspace.compile_outcome',
                       'no-symbol-table',
                     );
-                    return false;
+                    return { outcome: 'error' as const };
                   }
 
                   const writeBackStart = Date.now();
@@ -3435,23 +3460,23 @@ const untracedHandlers: SerializedWorkerHandlers = {
                     'workspace.write_back_ms': Date.now() - writeBackStart,
                     'workspace.compile_outcome': 'compiled',
                   });
-                  return true;
+                  return { outcome: 'compiled' as const };
                 }),
-              );
+              ).pipe(
+                // Per-entry error containment: never fail, resolve to error outcome instead
+                Effect.catchAll(() =>
+                  Effect.succeed({ outcome: 'error' as const }),
+                ),
+              ),
+            { concurrency },
+          );
 
-              if (compiled) {
-                compiledCount++;
-              } else {
-                errorCount++;
-              }
-            } catch {
-              errorCount++;
-            }
-
-            if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < req.entries.length) {
-              yield* Effect.yieldNow();
-            }
-          }
+          const compiledCount = results.filter(
+            (r) => r.outcome === 'compiled',
+          ).length;
+          const errorCount = results.filter(
+            (r) => r.outcome === 'error',
+          ).length;
 
           // Post-batch: ask the data-owner to drain deferred cross-file
           // references into graph edges now that every file in the batch has

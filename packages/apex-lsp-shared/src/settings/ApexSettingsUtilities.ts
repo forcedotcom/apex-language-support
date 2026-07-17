@@ -133,8 +133,18 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     experimental: {
       workers: {
         enabled: true,
-        poolSize: 2,
-        resourceLoader: true,
+        lspRequest: {
+          poolSize: 2,
+        },
+        dataOwner: {
+          concurrency: 10,
+        },
+        compilation: {
+          concurrency: 8,
+        },
+        resourceLoader: {
+          enabled: true,
+        },
       },
     },
 

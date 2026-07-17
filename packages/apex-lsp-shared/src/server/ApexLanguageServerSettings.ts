@@ -307,6 +307,20 @@ export interface SymbolGraphSettings {
 }
 
 /**
+ * Per-worker configuration for worker threads.
+ */
+export interface WorkerConfig {
+  /** Number of worker processes (memory isolation) */
+  poolSize?: number;
+
+  /** Maximum concurrent requests (async dispatch) */
+  concurrency?: number;
+
+  /** Enable this worker (optional, for toggling specific workers) */
+  enabled?: boolean;
+}
+
+/**
  * Worker topology settings (internal language-server worker pool).
  *
  * The worker topology is fully internal to the server process; the LSP client
@@ -319,26 +333,21 @@ export interface WorkerTopologySettings {
   /** Enable the internal worker topology (default: true) */
   enabled: boolean;
 
-  /**
-   * Number of enrichment workers in the pool.
-   * Bounded by the client manifest to [1, cpus-2]; default: 2.
-   */
-  poolSize: number;
+  /** LSP request worker pool configuration */
+  lspRequest?: WorkerConfig;
 
-  /** Run the resource loader in a dedicated worker (default: true) */
-  resourceLoader: boolean;
+  /** DataOwner worker configuration */
+  dataOwner?: WorkerConfig;
 
-  /**
-   * Maximum concurrent requests to the dataOwner worker (default: 10).
-   * Higher values reduce IPC serialization overhead during workspace load.
-   */
-  dataOwnerConcurrency?: number;
+  /** Compilation worker configuration */
+  compilation?: WorkerConfig;
 
-  /**
-   * Maximum concurrent requests to the compilation worker (default: 1).
-   * Increase to parallelize file compilation (requires thread-safe implementation).
-   */
-  compilationConcurrency?: number;
+  /** Resource loader worker configuration */
+  resourceLoader?: WorkerConfig;
+
+  // Backward compatibility (deprecated, will be removed in future release)
+  /** @deprecated Use lspRequest.poolSize instead */
+  poolSize?: number;
 }
 
 /**

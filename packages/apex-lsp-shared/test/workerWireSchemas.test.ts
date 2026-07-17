@@ -390,11 +390,11 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('compilation', 'PingWorker')).toBe(true);
     });
 
-    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and compilation', () => {
+    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, resourceLoader, and compilation', () => {
       expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
-        false,
+        true,
       );
       expect(isAllowedTag('compilation', 'WorkerRemoteStdlibWarmup')).toBe(
         true,

@@ -2501,7 +2501,18 @@ export class LCSAdapter {
         LSPConfigurationManager.getInstance().getSettings().apex;
       const workerCfg = apexSettings.experimental?.workers;
 
-      const enableResourceLoader = workerCfg?.resourceLoader !== false;
+      // Read from nested structure with backward compatibility for flat structure
+      const poolSize =
+        workerCfg?.lspRequest?.poolSize ?? workerCfg?.poolSize ?? 2;
+      const enableResourceLoader = workerCfg?.resourceLoader?.enabled ?? true;
+      const dataOwnerConcurrency = workerCfg?.dataOwner?.concurrency;
+      const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 8;
+
+      this.logger.alwaysLog(
+        `[LCSAdapter] compilationConcurrency: final=${compilationConcurrency}, ` +
+          `fromSettings=${workerCfg?.compilation?.concurrency}, ` +
+          `workerCfg.compilation=${JSON.stringify(workerCfg?.compilation)}`,
+      );
 
       const serverMode = LSPConfigurationManager.getInstance()
         .getCapabilitiesManager()
@@ -2545,14 +2556,14 @@ export class LCSAdapter {
       }
 
       const config = {
-        poolSize: workerCfg?.poolSize ?? 2,
+        poolSize,
         enableResourceLoader,
         logger: this.logger,
         logLevel: mainLogLevel,
         serverMode,
         spanCollectorUrl,
-        dataOwnerConcurrency: workerCfg?.dataOwnerConcurrency,
-        compilationConcurrency: workerCfg?.compilationConcurrency,
+        dataOwnerConcurrency,
+        compilationConcurrency,
       };
 
       const isNodeJs =
@@ -2680,7 +2691,10 @@ export class LCSAdapter {
 
       this.logger.alwaysLog(
         '[WorkerCoordinator] Topology active — ' +
-          'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
+          'queue dispatch, batch ingestion, assistance mediation, stdlib warm; ' +
+          `config: poolSize=${poolSize}, enableResourceLoader=${enableResourceLoader}, ` +
+          `dataOwnerConcurrency=${dataOwnerConcurrency ?? 'default'}, ` +
+          `compilationConcurrency=${compilationConcurrency}`,
       );
 
       // No pre-topology document replay is needed: the topology is brought up
