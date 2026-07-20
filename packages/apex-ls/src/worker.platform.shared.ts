@@ -2903,15 +2903,21 @@ const untracedHandlers: SerializedWorkerHandlers = {
             );
 
             // Populate cross-file incoming edges for this file now that its
-            // symbols are merged. Resolves references from this file into the
-            // workspace graph (and defers any whose targets aren't ingested yet,
-            // to be drained post-batch via DrainDeferredReferences).
-            yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
-              attributes: {
-                'document.uri': req.uri,
-                'reference.count': referenceCount,
-              },
-            })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
+            // symbols are merged. During workspace batch load the session is active
+            // and we skip eager full per-file resolution — addSymbolTable already
+            // deferred supertype edges to deferredResolutions (drained at session
+            // end), and ordinary cross-file refs resolve on-demand via
+            // PrerequisiteOrchestrationService. After session end, single-file
+            // didOpen/didChange write-backs (session inactive) still resolve eagerly
+            // for that one file — bounded, correct interactive behavior.
+            if (!svc.symbolManager.isWorkspaceSessionActive()) {
+              yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
+                attributes: {
+                  'document.uri': req.uri,
+                  'reference.count': referenceCount,
+                },
+              })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
+            }
 
             // Update cache with new detail level
             cache.merge(req.uri, {

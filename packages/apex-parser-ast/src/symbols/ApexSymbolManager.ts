@@ -1230,6 +1230,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Begin a workspace load session - defers cross-file resolution
    * until endWorkspaceSession() is called.
+   *
+   * NOTE: This is called per-chunk (CHUNK_SIZE=100) during batch ingest and
+   * clears deferredResolutions each time. This is safe ONLY because all ingest
+   * chunks run before any compile/write-back (processViaDataOwner orchestration
+   * in WorkspaceBatchHandler), and ingest itself defers nothing. If
+   * ingest/compile ever interleave, the repeated clear would lose deferrals.
    */
   beginWorkspaceSession(sessionId: string): void {
     this.logger.info(
@@ -1259,11 +1265,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         `resolving ${filesCount} deferred files`,
     );
 
-    // Resolve all deferred files in parallel
+    // Resolve ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION) for
+    // deferred files in parallel. This populates the reverse index for
+    // go-to-implementation (findSubtypes) at ~1-5ms/file instead of ~85ms/file
+    // for full resolution. Ordinary cross-file refs are resolved lazily on-demand
+    // via PrerequisiteOrchestrationService per LSP request.
     const resolutions = Array.from(this.deferredResolutions).map((uri) =>
-      Effect.runPromise(this.resolveCrossFileReferencesForFile(uri)),
+      Effect.runPromise(this.resolveSupertypeEdgesForFile(uri)),
     );
 
+    // CRITICAL: Clear session state BEFORE awaiting resolutions. If the Promise.all
+    // throws (and the batch-compile drain's catchAll swallows it), the session is
+    // still closed — subsequent interactive write-backs will resolve eagerly again
+    // (fallback to eager when session inactive). Without this, a failed drain leaves
+    // workspaceSessionId non-null and all future write-backs skip resolution silently.
     this.workspaceSessionId = null;
     this.deferredResolutions.clear();
 
@@ -3207,6 +3222,69 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           symbolTable,
           normalizedUri,
         );
+      } finally {
+        self.resolvingCrossFileRefs.delete(normalizedUri);
+      }
+    });
+  }
+
+  /**
+   * Resolve ONLY supertype (INHERITANCE/INTERFACE_IMPLEMENTATION) edges for a file.
+   * Used at workspace session end to populate the reverse index for go-to-implementation
+   * (findSubtypes) without the cost of full cross-file resolution. Ordinary cross-file
+   * refs are resolved lazily on-demand via PrerequisiteOrchestrationService.
+   *
+   * @param fileUri The file URI to resolve supertype edges for
+   * @returns Effect that resolves only supertype edges for the file
+   */
+  resolveSupertypeEdgesForFile(
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const properUri = createFileUri(fileUri);
+      const normalizedUri = extractFilePathFromUri(properUri);
+
+      // Skip if already resolving this file (prevents redundant work)
+      if (self.resolvingCrossFileRefs.has(normalizedUri)) {
+        self.logger.debug(
+          () =>
+            `Skipping supertype edge resolution for ${normalizedUri} (already in progress)`,
+        );
+        return;
+      }
+
+      self.resolvingCrossFileRefs.add(normalizedUri);
+      try {
+        const symbolTable =
+          self.symbolRefManager.getSymbolTableForFile(normalizedUri);
+        if (!symbolTable) {
+          self.logger.debug(
+            () =>
+              `No SymbolTable found for ${normalizedUri}, skipping supertype edge resolution`,
+          );
+          return;
+        }
+
+        // Process ONLY supertype edges — INHERITANCE/INTERFACE_IMPLEMENTATION.
+        // This builds exactly the graph edges that findSubtypes/findSupertypes
+        // walk, without the cost of resolving all refs or walking the superclass
+        // chain for inherited method calls.
+        const supertypeRefs = symbolTable
+          .getAllReferences()
+          .filter(
+            (r) =>
+              r.context === ReferenceContext.INHERITANCE ||
+              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION,
+          );
+
+        for (const ref of supertypeRefs) {
+          yield* self.processSymbolReferenceToGraphEffect(
+            ref,
+            normalizedUri,
+            symbolTable,
+          );
+        }
       } finally {
         self.resolvingCrossFileRefs.delete(normalizedUri);
       }
