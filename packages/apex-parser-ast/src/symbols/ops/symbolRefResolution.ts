@@ -666,13 +666,11 @@ export async function resolveStandardLibraryType(
         };
       }
 
-      const fqn = await self.findFQNForStandardClass(name);
-      if (fqn) {
-        const standardClass = await resolveStandardApexClass(self, fqn);
-        if (standardClass) {
-          return standardClass;
-        }
-      }
+      // Skip redundant findFQNForStandardClass call here — isStandardApexClass
+      // (line 630) already checked all stdlib namespaces via findNamespaceForClass.
+      // Calling findFQNForStandardClass again on every unresolved identifier
+      // (method names, variables, fields) triggers wasteful FQN index misses +
+      // IPC fallbacks. If isStandard was false, the name isn't in stdlib.
     }
 
     const scalarKeywordFallback = await self.findScalarKeywordType(name);
