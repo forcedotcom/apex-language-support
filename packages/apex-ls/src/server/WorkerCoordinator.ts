@@ -29,6 +29,7 @@ import {
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
@@ -735,6 +736,10 @@ function createDispatcher(
   createCrossFileEnrichmentDispatcher(): (
     fileUris: string[],
   ) => Promise<{ resolved: number; failed: number }>;
+  createWorkspaceLoadSessionDispatcher(): (msg: {
+    _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
+    sessionId?: string;
+  }) => Promise<unknown>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
   queryGraphData(params: {
     type: 'all' | 'file' | 'type';
@@ -927,6 +932,24 @@ function createDispatcher(
           }
         }
         return { resolved, failed };
+      };
+    },
+
+    createWorkspaceLoadSessionDispatcher() {
+      return async (msg: {
+        _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
+        sessionId?: string;
+      }) => {
+        if (msg._tag === 'BeginWorkspaceLoadSession' && msg.sessionId) {
+          return sendTracedToDataOwner(
+            new BeginWorkspaceLoadSession({ sessionId: msg.sessionId }),
+          );
+        } else if (msg._tag === 'DrainDeferredReferences') {
+          return sendTracedToDataOwner(
+            new DrainDeferredReferences({ sessionId: msg.sessionId }),
+          );
+        }
+        return Promise.resolve();
       };
     },
 

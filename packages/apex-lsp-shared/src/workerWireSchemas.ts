@@ -938,6 +938,24 @@ export class EnsureWorkspaceLoaded extends Schema.TaggedRequest<EnsureWorkspaceL
 ) {}
 
 // ---------------------------------------------------------------------------
+// BeginWorkspaceLoadSession — coordinator asks the data-owner to begin a workspace
+// load session. This activates deferred cross-file resolution mode for all
+// subsequent UpdateSymbolSubset write-backs until DrainDeferredReferences ends
+// the session. Sent once before the first workspace batch ingest chunk.
+// ---------------------------------------------------------------------------
+
+export class BeginWorkspaceLoadSession extends Schema.TaggedRequest<BeginWorkspaceLoadSession>()(
+  'BeginWorkspaceLoadSession',
+  {
+    success: Schema.Struct({ ok: Schema.Literal(true) }),
+    failure: Schema.Never,
+    payload: {
+      sessionId: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // DrainDeferredReferences — coordinator asks the data-owner to synchronously
 // drain its deferred cross-file references into graph edges. Sent once after a
 // batch compile/ingest completes so cross-file incoming edges are fully
@@ -1065,6 +1083,7 @@ export const DataOwnerTags = [
   'ResolveDependentUris',
   'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
+  'BeginWorkspaceLoadSession',
   'DrainDeferredReferences',
   'QueryGraphData',
   'DataOwnerQuerySymbolByName',
@@ -1144,6 +1163,7 @@ export type DataOwnerRequest =
   | ResolveDependentUris
   | FindOccurrenceCandidates
   | WorkspaceBatchIngest
+  | BeginWorkspaceLoadSession
   | DrainDeferredReferences
   | QueryGraphData
   | DataOwnerQuerySymbolByName

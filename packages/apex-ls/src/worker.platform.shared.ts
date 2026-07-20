@@ -31,6 +31,7 @@ import {
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   CompileDocument,
   WorkspaceBatchCompile,
@@ -86,6 +87,7 @@ export const AllWorkerRequests = Schema.Union(
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
@@ -2903,14 +2905,14 @@ const untracedHandlers: SerializedWorkerHandlers = {
             );
 
             // Populate cross-file incoming edges for this file now that its
-            // symbols are merged. During workspace batch load the session is active
-            // and we skip eager full per-file resolution — addSymbolTable already
-            // deferred supertype edges to deferredResolutions (drained at session
-            // end), and ordinary cross-file refs resolve on-demand via
-            // PrerequisiteOrchestrationService. After session end, single-file
-            // didOpen/didChange write-backs (session inactive) still resolve eagerly
-            // for that one file — bounded, correct interactive behavior.
-            if (!svc.symbolManager.isWorkspaceSessionActive()) {
+            // symbols are merged. During workspace batch load the workspace load
+            // session is active and we skip eager full per-file resolution —
+            // addSymbolTable already deferred supertype edges to deferredResolutions
+            // (drained at session end), and ordinary cross-file refs resolve on-demand
+            // via PrerequisiteOrchestrationService. After the workspace load session
+            // ends, single-file didOpen/didChange write-backs (session inactive) still
+            // resolve eagerly for that one file — bounded, correct interactive behavior.
+            if (!svc.symbolManager.isWorkspaceLoadSessionActive()) {
               yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
                 attributes: {
                   'document.uri': req.uri,
@@ -2999,15 +3001,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
 
-            // End workspace session and resolve all deferred files (if sessionId provided)
+            // End workspace load session and resolve all deferred files (if sessionId provided)
             let processedCount = 0;
             if (req.sessionId) {
               const sessionId = req.sessionId; // Capture for type narrowing
               processedCount = yield* Effect.promise(() =>
-                svc.symbolManager.endWorkspaceSession(sessionId),
+                svc.symbolManager.endWorkspaceLoadSession(sessionId),
               );
               yield* Effect.logInfo(
-                `[DATA-OWNER] DrainDeferredReferences: session=${sessionId}, ` +
+                `[DATA-OWNER] End workspace load session: ${sessionId}, ` +
                   `resolved=${processedCount} deferred files`,
               );
             }
@@ -3200,6 +3202,22 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
+  BeginWorkspaceLoadSession: (req) =>
+    guardRole('BeginWorkspaceLoadSession').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            svc.symbolManager.beginWorkspaceLoadSession(req.sessionId);
+            yield* Effect.logInfo(
+              `[DATA-OWNER] Begin workspace load session: ${req.sessionId}`,
+            );
+            return { ok: true as const };
+          }),
+        ),
+      ),
+    ),
+
   WorkspaceBatchIngest: (req) =>
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
@@ -3207,9 +3225,6 @@ const untracedHandlers: SerializedWorkerHandlers = {
           Effect.gen(function* () {
             const startTime = Date.now();
             const svc = yield* ensureDataOwnerServices;
-
-            // Begin workspace session - defers cross-file resolution
-            svc.symbolManager.beginWorkspaceSession(req.sessionId);
 
             const storage = svc.storageManager.getStorage();
             for (const entry of req.entries) {
@@ -3505,27 +3520,6 @@ const untracedHandlers: SerializedWorkerHandlers = {
           const errorCount = results.filter(
             (r) => r.outcome === 'error',
           ).length;
-
-          // Post-batch: ask the data-owner to drain deferred cross-file
-          // references into graph edges now that every file in the batch has
-          // been written back and had its references resolved. Pass sessionId
-          // to trigger endWorkspaceSession and resolve all deferred files.
-          // Best-effort: a drain failure must not fail the batch compile.
-          yield* Effect.tryPromise({
-            try: () =>
-              requestCoordinatorAssistancePromiseShared(
-                'dataOwner:DrainDeferredReferences',
-                { sessionId: req.sessionId },
-                true,
-              ),
-            catch: (e) => e,
-          }).pipe(
-            Effect.catchAll((e) =>
-              Effect.logWarning(
-                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
-              ),
-            ),
-          );
 
           const elapsedMs = Date.now() - batchStartTime;
           yield* Effect.annotateCurrentSpan({

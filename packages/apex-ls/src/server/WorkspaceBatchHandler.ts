@@ -319,6 +319,27 @@ export function getBatchCompileDispatcher(): BatchCompileDispatcher | null {
   return batchCompileDispatcher;
 }
 
+export type WorkspaceLoadSessionDispatcher = (msg: {
+  _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
+  sessionId?: string;
+}) => Promise<unknown>;
+
+let workspaceLoadSessionDispatcher: WorkspaceLoadSessionDispatcher | null =
+  null;
+
+export function setWorkspaceLoadSessionDispatcher(
+  dispatcher: WorkspaceLoadSessionDispatcher | null,
+): void {
+  workspaceLoadSessionDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Workspace load session dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getWorkspaceLoadSessionDispatcher(): WorkspaceLoadSessionDispatcher | null {
+  return workspaceLoadSessionDispatcher;
+}
+
 export type CrossFileEnrichmentDispatcher = (
   fileUris: string[],
 ) => Promise<{ resolved: number; failed: number }>;
@@ -752,6 +773,22 @@ function processViaDataOwner(
   return Effect.gen(function* () {
     const CHUNK_SIZE = 100;
 
+    // Begin workspace load session - activates deferred cross-file resolution mode
+    // on the data-owner for all subsequent UpdateSymbolSubset write-backs until
+    // DrainDeferredReferences is called after all chunks complete.
+    const sessionDispatcher = workspaceLoadSessionDispatcher;
+    if (sessionDispatcher) {
+      yield* Effect.tryPromise({
+        try: () =>
+          sessionDispatcher({
+            _tag: 'BeginWorkspaceLoadSession',
+            sessionId,
+          }),
+        catch: (e) => e as Error,
+      });
+      logger.info(() => `[BATCH] Begin workspace load session: ${sessionId}`);
+    }
+
     yield* Effect.withSpan('workspace.batch.ingest', {
       attributes: {
         'workspace.session_id': sessionId,
@@ -884,6 +921,30 @@ function processViaDataOwner(
               `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
               `(${throughput} files/sec)`,
           );
+
+          // End workspace load session and drain deferred resolutions.
+          // This resolves ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION)
+          // for go-to-implementation support. Ordinary cross-file refs are resolved
+          // on-demand via PrerequisiteOrchestrationService per LSP request.
+          if (sessionDispatcher) {
+            yield* Effect.tryPromise({
+              try: () =>
+                sessionDispatcher({
+                  _tag: 'DrainDeferredReferences',
+                  sessionId,
+                }),
+              catch: (e) => e as Error,
+            }).pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(
+                  `[BATCH] DrainDeferredReferences failed: ${e}`,
+                ),
+              ),
+            );
+            logger.info(
+              () => `[BATCH] End workspace load session: ${sessionId}`,
+            );
+          }
         }),
       );
     }

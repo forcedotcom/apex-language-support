@@ -287,7 +287,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Track files in cross-file resolution to skip concurrent/redundant calls (e.g. multiple LSP requests)
   private resolvingCrossFileRefs: Set<string> = new Set();
   // Workspace session tracking for deferred resolution during batch load
-  private workspaceSessionId: string | null = null;
+  private workspaceLoadSessionId: string | null = null;
   private deferredResolutions: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
@@ -1228,20 +1228,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Begin a workspace load session - defers cross-file resolution
-   * until endWorkspaceSession() is called.
-   *
-   * NOTE: This is called per-chunk (CHUNK_SIZE=100) during batch ingest and
-   * clears deferredResolutions each time. This is safe ONLY because all ingest
-   * chunks run before any compile/write-back (processViaDataOwner orchestration
-   * in WorkspaceBatchHandler), and ingest itself defers nothing. If
-   * ingest/compile ever interleave, the repeated clear would lose deferrals.
+   * Begin a workspace load session - defers cross-file resolution for all
+   * subsequent UpdateSymbolSubset write-backs until endWorkspaceLoadSession()
+   * is called. Called once by the coordinator before the first ingest chunk.
    */
-  beginWorkspaceSession(sessionId: string): void {
+  beginWorkspaceLoadSession(sessionId: string): void {
     this.logger.info(
-      () => `[SYMBOL-MANAGER] Begin workspace session: ${sessionId}`,
+      () => `[SYMBOL-MANAGER] Begin workspace load session: ${sessionId}`,
     );
-    this.workspaceSessionId = sessionId;
+    this.workspaceLoadSessionId = sessionId;
     this.deferredResolutions.clear();
   }
 
@@ -1249,11 +1244,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * End workspace load session and process all deferred resolutions.
    * Returns count of files resolved.
    */
-  async endWorkspaceSession(sessionId: string): Promise<number> {
-    if (this.workspaceSessionId !== sessionId) {
+  async endWorkspaceLoadSession(sessionId: string): Promise<number> {
+    if (this.workspaceLoadSessionId !== sessionId) {
       this.logger.warn(
         () =>
-          `[SYMBOL-MANAGER] Session mismatch: active=${this.workspaceSessionId}, end=${sessionId}`,
+          `[SYMBOL-MANAGER] Workspace load session mismatch: active=${this.workspaceLoadSessionId}, end=${sessionId}`,
       );
       return 0;
     }
@@ -1261,7 +1256,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const filesCount = this.deferredResolutions.size;
     this.logger.info(
       () =>
-        `[SYMBOL-MANAGER] End workspace session ${sessionId}: ` +
+        `[SYMBOL-MANAGER] End workspace load session ${sessionId}: ` +
         `resolving ${filesCount} deferred files`,
     );
 
@@ -1278,8 +1273,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // throws (and the batch-compile drain's catchAll swallows it), the session is
     // still closed — subsequent interactive write-backs will resolve eagerly again
     // (fallback to eager when session inactive). Without this, a failed drain leaves
-    // workspaceSessionId non-null and all future write-backs skip resolution silently.
-    this.workspaceSessionId = null;
+    // workspaceLoadSessionId non-null and all future write-backs skip resolution silently.
+    this.workspaceLoadSessionId = null;
     this.deferredResolutions.clear();
 
     await Promise.all(resolutions);
@@ -1289,8 +1284,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Check if a workspace load session is currently active.
    */
-  isWorkspaceSessionActive(): boolean {
-    return this.workspaceSessionId !== null;
+  isWorkspaceLoadSessionActive(): boolean {
+    return this.workspaceLoadSessionId !== null;
   }
 
   /**
@@ -2264,13 +2259,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
         );
       if (hasUnresolvedSupertypeEdge) {
-        if (self.isWorkspaceSessionActive()) {
+        if (self.isWorkspaceLoadSessionActive()) {
           // Defer resolution until workspace load completes
           self.deferredResolutions.add(normalizedUri);
           self.logger.debug(
             () =>
               `[SYMBOL-MANAGER] Deferred resolution for ${normalizedUri} ` +
-              '(workspace session active)',
+              '(workspace load session active)',
           );
         } else {
           // Immediate resolution for interactive operations
@@ -3230,7 +3225,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Resolve ONLY supertype (INHERITANCE/INTERFACE_IMPLEMENTATION) edges for a file.
-   * Used at workspace session end to populate the reverse index for go-to-implementation
+   * Used at workspace load session end to populate the reverse index for go-to-implementation
    * (findSubtypes) without the cost of full cross-file resolution. Ordinary cross-file
    * refs are resolved lazily on-demand via PrerequisiteOrchestrationService.
    *

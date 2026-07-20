@@ -91,6 +91,7 @@ import {
   setBatchIngestionDispatcher,
   setBatchCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
+  setWorkspaceLoadSessionDispatcher,
   setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
 import { createPrimaryAssistanceHandler } from './CoordinatorPrimaryAssistanceHandler';
@@ -2654,6 +2655,9 @@ export class LCSAdapter {
       setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
       setCrossFileEnrichmentDispatcher(
         dispatcher.createCrossFileEnrichmentDispatcher(),
+      );
+      setWorkspaceLoadSessionDispatcher(
+        dispatcher.createWorkspaceLoadSessionDispatcher(),
       );
 
       if (topology.resourceLoader) {

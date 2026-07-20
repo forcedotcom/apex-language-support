@@ -166,9 +166,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       drainAllDeferredReferences: jest.fn(),
       findSubtypes: jest.fn(),
       findSupertypes: jest.fn(),
-      beginWorkspaceSession: jest.fn(),
-      endWorkspaceSession: jest.fn(),
-      isWorkspaceSessionActive: jest.fn(),
+      beginWorkspaceLoadSession: jest.fn(),
+      endWorkspaceLoadSession: jest.fn(),
+      isWorkspaceLoadSessionActive: jest.fn(),
     };
 
     // Mock ApexSettingsManager

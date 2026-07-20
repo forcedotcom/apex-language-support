@@ -240,22 +240,22 @@ export interface ISymbolManager extends SymbolProvider {
 
   /**
    * Begin a workspace load session - defers cross-file resolution
-   * until endWorkspaceSession() is called. All addSymbolTable operations
+   * until endWorkspaceLoadSession() is called. All addSymbolTable operations
    * during this session will queue resolution instead of executing immediately.
    * @param sessionId Unique identifier for this workspace load session
    */
-  beginWorkspaceSession(sessionId: string): void;
+  beginWorkspaceLoadSession(sessionId: string): void;
 
   /**
    * End workspace load session and process all deferred resolutions.
-   * @param sessionId Must match the session started with beginWorkspaceSession
+   * @param sessionId Must match the session started with beginWorkspaceLoadSession
    * @returns Promise that resolves to the count of files resolved
    */
-  endWorkspaceSession(sessionId: string): Promise<number>;
+  endWorkspaceLoadSession(sessionId: string): Promise<number>;
 
   /**
    * Check if a workspace load session is currently active.
-   * @returns true if beginWorkspaceSession was called and endWorkspaceSession has not
+   * @returns true if beginWorkspaceLoadSession was called and endWorkspaceLoadSession has not
    */
-  isWorkspaceSessionActive(): boolean;
+  isWorkspaceLoadSessionActive(): boolean;
 }

@@ -474,6 +474,7 @@ export {
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
