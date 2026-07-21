@@ -58,7 +58,9 @@ import {
 import {
   CompilationWorkerPool,
   fromSerializedWorkerPool,
+  makeSerializedWorkerPoolReadiness,
   unavailableCompilationWorkerPool,
+  withCompilationWorkerStartupTimeout,
 } from './compiler/CompilationWorkerPool';
 
 // ---------------------------------------------------------------------------
@@ -419,14 +421,24 @@ function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
 
   return Layer.scoped(
     CompilationWorkerPool,
-    Worker.makePoolSerialized<CompilationWorkerRequest>({
-      size: poolSize,
-      concurrency,
-      initialMessage: () => new InitializeCompilationWorker({}),
+    Effect.gen(function* () {
+      const readiness = yield* makeSerializedWorkerPoolReadiness(poolSize);
+      return yield* withCompilationWorkerStartupTimeout(
+        Effect.gen(function* () {
+          const pool =
+            yield* Worker.makePoolSerialized<CompilationWorkerRequest>({
+              size: poolSize,
+              concurrency,
+              initialMessage: () => new InitializeCompilationWorker({}),
+              onCreate: readiness.onCreate,
+            });
+          yield* readiness.awaitReady;
+          return fromSerializedWorkerPool(pool, poolSize, concurrency);
+        }),
+        readiness.initialized,
+        poolSize,
+      );
     }).pipe(
-      Effect.map((pool) =>
-        fromSerializedWorkerPool(pool, poolSize, concurrency),
-      ),
       Effect.provide(BrowserWorker.layer(() => new W(compilerWorkerUrl))),
     ),
   );
@@ -443,7 +455,6 @@ export {
   scanCandidatesForOccurrences,
   targetSymbolForCursor,
   declarationLocationForCursor,
-  writeBackCompiledSymbols,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 

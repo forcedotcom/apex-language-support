@@ -25,8 +25,11 @@
 - [x] Enforced authoritative document-version validation before graph mutation.
 - [x] Removed coordinator-local workspace compilation fallback from the worker workspace-load route.
 - [x] Added Node integration coverage for configured worker count, graph commit, missing documents, and stale versions.
-- [ ] Add worker startup/crash/interruption assertions and explicit topology-readiness signaling.
-- [ ] Route interactive compilation through the persistent pool.
+- [x] Require every configured compiler worker to initialize before topology readiness, with bounded startup failure and scoped-shutdown coverage.
+- [x] Add runtime worker crash and in-flight request interruption assertions.
+- [x] Route `didOpen`, `didChange`, and `didSave` compilation through the persistent pool with storage-before-compile ordering and local data-owner commits.
+- [x] Added interruptible high/low pool admission so interactive requests receive the next released worker before queued or newly submitted workspace work.
+- [x] Removed the obsolete top-level compilation worker, legacy batch protocol, and compiler-to-coordinator write-back path.
 - [x] Add the browser compiler entrypoint and data-owner-owned nested Web Worker pool.
 - [x] Exercise the portable protocol through a real two-worker nested pool in headless Chromium.
 - [ ] Validate worker bundle URLs, Blob behavior, and CSP in the supported VS Code web-extension host.
@@ -521,7 +524,7 @@ Avoid labeling the full `UpdateSymbolSubset` duration as transport overhead. It 
 2. Preserve storage-before-compilation ordering.
 3. Preserve readiness-latch behavior.
 4. Prioritize active-editor work over background workspace work.
-5. Remove the old top-level compilation worker after parity is demonstrated.
+5. Remove the old top-level compilation worker after parity is demonstrated. **Complete.**
 
 **Exit criteria:** Workspace and interactive compilation use one pool without regressing cold-open correctness or editor responsiveness.
 
@@ -605,7 +608,7 @@ After the new topology reaches parity:
 - Remove `compileThreadMode` and its thrown-string exit.
 - Remove `threadCount` terminology.
 - Remove silent workspace compilation fallback branches.
-- Remove the old top-level compilation worker topology if interactive compilation has migrated.
+- [x] Remove the old top-level compilation worker topology after interactive compilation migrates.
 - Remove obsolete settings and compatibility aliases after the planned deprecation period.
 - Update topology documentation and diagrams.
 

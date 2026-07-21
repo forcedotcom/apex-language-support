@@ -32,11 +32,16 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolKind, type ApexSymbol } from '../../src/types/symbol';
+import {
+  SymbolKind,
+  type ApexSymbol,
+  type SymbolTable,
+} from '../../src/types/symbol';
 import {
   resolveMemberInContext,
   resolveQualifiedReferenceFromChain,
 } from '../../src/symbols/ops/chainResolution';
+import { loadAndRegisterStdlibSymbolTable } from '../../src/symbols/ops/symbolRefResolution';
 import type { SymbolManagerOps } from '../../src/symbols/services/symbolResolver';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
@@ -120,6 +125,190 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
 
   const ops = (): SymbolManagerOps =>
     symbolManager as unknown as SymbolManagerOps;
+
+  it('does not fetch or re-register an already-installed stdlib table', async () => {
+    const installed = {} as SymbolTable;
+    const getSymbolTableForFile = jest.fn(() => installed);
+    const fetchSymbolTable = jest.fn(async () => ({}) as SymbolTable);
+    const addSymbolTableAsync = jest.fn(async () => undefined);
+    const fakeOps = {
+      symbolRefManager: { getSymbolTableForFile },
+      stdlibProvider: { getSymbolTable: fetchSymbolTable },
+      addSymbolTableAsync,
+      inFlightStdlibHydration: new Map(),
+    } as unknown as SymbolManagerOps;
+
+    const result = await loadAndRegisterStdlibSymbolTable(
+      fakeOps,
+      'apexlib://resources/StandardApexLibrary/System/Map.cls',
+      'System/Map.cls',
+    );
+
+    expect(result).toBe(installed);
+    expect(fetchSymbolTable).not.toHaveBeenCalled();
+    expect(addSymbolTableAsync).not.toHaveBeenCalled();
+  });
+
+  it('resolves a warmed Map keySet member without re-fetching stdlib tables', async () => {
+    const uri = 'file:///test/CollectionHover.cls';
+    const source = `public class CollectionHover {
+  void run(Map<Id, String> values) {
+    for (Id key : values.keySet()) {
+    }
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    // Establish the same worker-local stdlib state seen after the first
+    // collection hover, then observe only the member-resolution request.
+    await symbolManager.resolveStandardApexClass('Map');
+    await symbolManager.resolveStandardApexClass('List');
+    await symbolManager.resolveStandardApexClass('Object');
+    const provider = (symbolManager as any).stdlibProvider;
+    const getSymbolTable = jest.spyOn(provider, 'getSymbolTable');
+    getSymbolTable.mockClear();
+
+    const lineText = source.split('\n')[2];
+    const references = await symbolManager.getReferencesAtPosition(uri, {
+      line: 3,
+      character: lineText.indexOf('keySet') + 1,
+    });
+    const chainedReference = references.find(
+      (reference: any) => reference.chainNodes?.length === 2,
+    );
+    const directResolution = await resolveQualifiedReferenceFromChain(
+      ops(),
+      'values',
+      'keySet',
+      ReferenceContext.METHOD_CALL,
+      uri,
+      undefined,
+      chainedReference,
+      (symbolManager as any).symbolRefManager.getSymbolTableForFile(uri),
+    );
+    expect((directResolution as any)?.returnType?.originalTypeString).toBe(
+      'Set<Id>',
+    );
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: lineText.indexOf('keySet') + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Method);
+    expect(resolved?.name.toLowerCase()).toBe('keyset');
+    expect((resolved as any)?.returnType?.typeParameters?.[0]?.name).toBe('Id');
+    expect((resolved as any)?.returnType?.originalTypeString).toBe('Set<Id>');
+    expect(getSymbolTable).not.toHaveBeenCalled();
+  });
+
+  it('resolves the base and generic argument of a collection cast separately', async () => {
+    const uri = 'file:///test/CollectionCastHover.cls';
+    const source = `public class CollectionCastHover {
+  void run(Object input) {
+    List<String> values = (List<String>) input;
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const castLine = source.split('\n')[2];
+    const castStart = castLine.indexOf('(List<String>)') + 1;
+    const stringStart = castLine.indexOf('String', castStart);
+    const castRefs = await symbolManager.getReferencesAtPosition(uri, {
+      line: 3,
+      character: castStart + 1,
+    });
+    const genericRefs = await symbolManager.getReferencesAtPosition(uri, {
+      line: 3,
+      character: stringStart + 1,
+    });
+
+    expect(castRefs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'List',
+          context: ReferenceContext.CAST_TYPE_REFERENCE,
+        }),
+      ]),
+    );
+    expect(castRefs.some((ref) => ref.name === 'List<String>')).toBe(false);
+    expect(genericRefs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'String',
+          context: ReferenceContext.GENERIC_PARAMETER_TYPE,
+        }),
+      ]),
+    );
+
+    const listSymbol = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: castStart + 1 },
+      'precise',
+    );
+    const stringSymbol = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: stringStart + 1 },
+      'precise',
+    );
+
+    expect(listSymbol?.kind).toBe(SymbolKind.Class);
+    expect(listSymbol?.name).toBe('List');
+    expect(stringSymbol?.kind).toBe(SymbolKind.Class);
+    expect(stringSymbol?.name).toBe('String');
+  });
+
+  it('resolves a declaration type token before its variable symbol', async () => {
+    const uri = 'file:///test/DeclarationTypeHover.cls';
+    const source = `public class DeclarationTypeHover {
+  void run() {
+    Http http = new Http();
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const declarationLine = source.split('\n')[2];
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: declarationLine.indexOf('Http') + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Class);
+    expect(resolved?.name).toBe('Http');
+  });
+
+  it('resolves an explicitly typed enhanced-for variable as that variable', async () => {
+    const uri = 'file:///test/EnhancedForHover.cls';
+    const source = `public class EnhancedForHover {
+  void run(Map<Id, String> values) {
+    for (Id recordTypeId : values.keySet()) {
+      String copy = recordTypeId;
+    }
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const symbols = await symbolManager.findSymbolsInFile(uri);
+    const loopVariable = symbols.find(
+      (symbol) =>
+        symbol.kind === SymbolKind.Variable && symbol.name === 'recordTypeId',
+    ) as any;
+    expect(loopVariable).toBeDefined();
+    expect(loopVariable.type?.name).toBe('Id');
+
+    const declarationLine = source.split('\n')[2];
+    const declarationStart = declarationLine.indexOf('recordTypeId');
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: declarationStart + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Variable);
+    expect(resolved?.name).toBe('recordTypeId');
+    expect((resolved as any)?.type?.name).toBe('Id');
+  });
 
   it('resolveMemberInContext does not leak a property to an unrelated class', async () => {
     // `Other` declares property `widget`; `Foo` declares no members. Resolving

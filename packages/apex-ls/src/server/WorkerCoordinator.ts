@@ -35,7 +35,6 @@ import {
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   CompileDocument,
-  WorkspaceBatchCompile,
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
@@ -57,7 +56,6 @@ import {
   type DataOwnerRequest,
   type LspRequestMessage,
   type ResourceLoaderRequest,
-  type CompilationRequest,
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import type {
@@ -345,7 +343,7 @@ export interface WorkerTopology {
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly requestPoolSize: number;
   readonly resourceLoader: Worker.SerializedWorkerPool<ResourceLoaderRequest> | null;
-  readonly compilation: Worker.SerializedWorkerPool<CompilationRequest>;
+  readonly compilationPoolSize: number;
   readonly compilationConcurrency: number;
 }
 
@@ -368,15 +366,14 @@ export interface TopologyConfig {
    *  Higher values allow more UpdateSymbolSubset calls to dispatch concurrently,
    *  reducing IPC serialization overhead during workspace load. */
   readonly dataOwnerConcurrency?: number;
-  /** Maximum concurrent requests to the compilation worker. Default: 1 (serial).
-   *  Higher values allow multiple files to compile concurrently on a single worker. */
+  /** Concurrent Effect Worker requests admitted per backing compiler worker. */
   readonly compilationConcurrency?: number;
   /** Number of backing compiler workers owned by the data owner. */
   readonly compilationPoolSize?: number;
 }
 
 const makeInitMessage = (
-  role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
+  role: WorkerRole,
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
   spanCollectorUrl?: string,
@@ -484,78 +481,68 @@ export function initializeTopology(
         : eff;
 
     // Spawn all workers in parallel for faster initialization
-    const [resourceLoader, dataOwner, compilation, requestPool] =
-      yield* Effect.all(
-        [
-          config.enableResourceLoader
-            ? withRoleLayer(
-                Worker.makePoolSerialized<ResourceLoaderRequest>({
-                  initialMessage: () =>
-                    makeInitMessage(
-                      'resourceLoader',
-                      logLevel,
-                      serverMode,
-                      spanCollectorUrl,
-                    ),
-                  size: 1,
-                  concurrency: 1, // Serial processing for resource loading
-                }),
-                'resourceLoader',
-              )
-            : Effect.succeed(null),
-          withRoleLayer(
-            Worker.makePoolSerialized<DataOwnerRequest>({
-              initialMessage: () =>
-                makeInitMessage(
-                  'dataOwner',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                  config.compilationPoolSize,
-                  config.compilationConcurrency,
-                ),
-              size: 1, // Single worker instance
-              concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker
-            }),
-            'dataOwner',
-          ),
-          withRoleLayer(
-            Worker.makePoolSerialized<CompilationRequest>({
-              initialMessage: () =>
-                makeInitMessage(
-                  'compilation',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                ),
-              size: 1, // Single worker instance (shared symbol graph)
-              concurrency: config.compilationConcurrency ?? 1,
-            }),
-            'compilation',
-          ),
-          withRoleLayer(
-            Worker.makePoolSerialized<LspRequestMessage>({
-              size: poolSize,
-              initialMessage: () =>
-                makeInitMessage(
-                  'lspRequest',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                ),
-            }),
-            'lspRequest',
-          ),
-        ],
-        { concurrency: 'unbounded' },
-      );
+    const [resourceLoader, dataOwner, requestPool] = yield* Effect.all(
+      [
+        config.enableResourceLoader
+          ? withRoleLayer(
+              Worker.makePoolSerialized<ResourceLoaderRequest>({
+                initialMessage: () =>
+                  makeInitMessage(
+                    'resourceLoader',
+                    logLevel,
+                    serverMode,
+                    spanCollectorUrl,
+                  ),
+                size: 1,
+                concurrency: 1, // Serial processing for resource loading
+              }),
+              'resourceLoader',
+            )
+          : Effect.succeed(null),
+        withRoleLayer(
+          Worker.makePoolSerialized<DataOwnerRequest>({
+            initialMessage: () =>
+              makeInitMessage(
+                'dataOwner',
+                logLevel,
+                serverMode,
+                spanCollectorUrl,
+                config.compilationPoolSize,
+                config.compilationConcurrency,
+              ),
+            size: 1, // Single worker instance
+            concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker
+          }),
+          'dataOwner',
+        ),
+        withRoleLayer(
+          Worker.makePoolSerialized<LspRequestMessage>({
+            size: poolSize,
+            initialMessage: () =>
+              makeInitMessage(
+                'lspRequest',
+                logLevel,
+                serverMode,
+                spanCollectorUrl,
+              ),
+          }),
+          'lspRequest',
+        ),
+      ],
+      { concurrency: 'unbounded' },
+    );
 
     // Log after all are initialized
     if (resourceLoader) {
       logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
-    logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
+    logger.alwaysLog(
+      () =>
+        '[WorkerCoordinator] Compilation pool initialized ' +
+        `(owner=dataOwner, size=${config.compilationPoolSize ?? 2}, ` +
+        `concurrencyPerWorker=${config.compilationConcurrency ?? 1})`,
+    );
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -566,7 +553,7 @@ export function initializeTopology(
       requestPool,
       requestPoolSize: poolSize,
       resourceLoader,
-      compilation,
+      compilationPoolSize: config.compilationPoolSize ?? 2,
       compilationConcurrency: config.compilationConcurrency ?? 1,
     } as WorkerTopology;
   });
@@ -626,7 +613,7 @@ export interface TransportTopology {
   readonly dataOwner: WorkerHandle;
   readonly requestPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
-  readonly compilation: WorkerHandle;
+  readonly compilationPoolSize: number;
   readonly compilationConcurrency: number;
 }
 
@@ -652,10 +639,11 @@ export const initializeTransportTopology = (
 
     const dataOwner = yield* transport.spawn('dataOwner');
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized (transport)');
-
-    const compilation = yield* transport.spawn('compilation');
     logger.alwaysLog(
-      '[WorkerCoordinator] Compilation worker initialized (transport)',
+      () =>
+        '[WorkerCoordinator] Compilation pool configured ' +
+        `(owner=dataOwner, size=${config.compilationPoolSize ?? 2}, ` +
+        `concurrencyPerWorker=${config.compilationConcurrency ?? 1})`,
     );
 
     const requestPool = yield* transport.makePool('lspRequest', poolSize);
@@ -669,7 +657,7 @@ export const initializeTransportTopology = (
       dataOwner,
       requestPool,
       resourceLoader,
-      compilation,
+      compilationPoolSize: config.compilationPoolSize ?? 2,
       compilationConcurrency: config.compilationConcurrency ?? 1,
     };
   });
@@ -786,13 +774,12 @@ export interface BatchIngestEntry {
 interface DispatcherCallbacks {
   readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
   readonly dispatchToPool: (msg: LspRequestMessage) => Promise<unknown>;
-  readonly sendToCompilation: (msg: CompilationRequest) => Promise<unknown>;
   readonly sendBatch: (
     msg: WorkspaceBatchIngest,
   ) => Promise<{ processedCount: number }>;
   readonly poolSize: number;
   readonly hasResourceLoader: boolean;
-  readonly compilationConcurrency: number;
+  readonly compilationPoolSize: number;
   readonly getDocumentContent?: (uri: string) => string | undefined;
 }
 
@@ -809,14 +796,6 @@ function createDispatcher(
     sessionId: string,
     entries: BatchIngestEntry[],
   ) => Promise<{ processedCount: number }>;
-  createBatchCompileDispatcher(): (
-    sessionId: string,
-    entries: BatchIngestEntry[],
-  ) => Promise<{
-    compiledCount: number;
-    errorCount: number;
-    elapsedMs: number;
-  }>;
   createCrossFileEnrichmentDispatcher(): (
     fileUris: string[],
   ) => Promise<{ resolved: number; failed: number }>;
@@ -921,24 +900,16 @@ function createDispatcher(
           compileMsg as unknown as Record<string, unknown>,
         );
 
-        logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
-        // Store the document on the data-owner BEFORE dispatching the compile.
-        // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
-        // which is rejected ("document not found") if the document hasn't been
-        // stored yet. Racing the two (fire-and-forget store + concurrent
-        // compile) drops the write-back on a cold open — the compile finishes
-        // before the store lands — so the data-owner graph stays empty and
-        // request-pool reads see "No Symbols". Sequencing guarantees the
-        // document is present when the write-back arrives. A failed store still
-        // lets the compile proceed (best-effort), matching the prior behavior.
-        try {
-          await callbacks.sendToDataOwner(dataOwnerMsg);
-        } catch (err) {
-          logger.error(
-            () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
-          );
-        }
-        return callbacks.sendToCompilation(compileMsg);
+        logger.debug(
+          () => `[WorkerDispatch] → dataOwner store→pool compile: ${type}`,
+        );
+        // Store the document on the data-owner BEFORE asking it to compile and
+        // commit through its persistent pool. Version validation rejects a
+        // result if a newer mutation wins while compilation is in flight.
+        // A failed store is terminal for this dispatch: compiling content the
+        // authoritative owner did not accept cannot produce a valid commit.
+        await callbacks.sendToDataOwner(dataOwnerMsg);
+        return callbacks.sendToDataOwner(compileMsg);
       }
 
       if (DATA_OWNER_TYPES.has(type)) {
@@ -967,7 +938,10 @@ function createDispatcher(
       resourceLoader: callbacks.hasResourceLoader
         ? { active: available }
         : null,
-      compilation: { active: available },
+      compilation: {
+        active: available,
+        poolSize: callbacks.compilationPoolSize,
+      },
       dispatchedCount,
       coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
     }),
@@ -984,31 +958,6 @@ function createDispatcher(
           message as unknown as Record<string, unknown>,
         );
         return callbacks.sendBatch(message);
-      };
-    },
-
-    createBatchCompileDispatcher() {
-      return async (sessionId: string, entries: BatchIngestEntry[]) => {
-        const concurrency = callbacks.compilationConcurrency ?? 1;
-        logger.debug(
-          () =>
-            '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
-            `(session=${sessionId}, entries=${entries.length}, concurrency=${concurrency}, ` +
-            `callbacks.value=${callbacks.compilationConcurrency})`,
-        );
-        const message = new WorkspaceBatchCompile({
-          sessionId,
-          entries,
-          concurrency,
-        });
-        injectTraceContextIntoMessage(
-          message as unknown as Record<string, unknown>,
-        );
-        return callbacks.sendToCompilation(message) as Promise<{
-          compiledCount: number;
-          errorCount: number;
-          elapsedMs: number;
-        }>;
       };
     },
 
@@ -1213,19 +1162,11 @@ export function makeWorkerDispatcher(
         >;
         return Effect.runPromise(eff);
       },
-      sendToCompilation: (msg) => {
-        const eff = topology.compilation.executeEffect(msg) as Effect.Effect<
-          unknown,
-          unknown,
-          never
-        >;
-        return Effect.runPromise(eff);
-      },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
       poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
-      compilationConcurrency: topology.compilationConcurrency,
+      compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
     },
     logger,
@@ -1248,15 +1189,13 @@ export function makeTransportDispatcher(
         Effect.runPromise(
           topology.transport.dispatch(topology.requestPool, msg),
         ),
-      sendToCompilation: (msg) =>
-        Effect.runPromise(topology.transport.send(topology.compilation, msg)),
       sendBatch: (msg) =>
         Effect.runPromise(
           topology.transport.send(topology.dataOwner, msg),
         ) as Promise<{ processedCount: number }>,
       poolSize: topology.requestPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
-      compilationConcurrency: topology.compilationConcurrency,
+      compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
     },
     logger,
@@ -1339,7 +1278,7 @@ function buildDataOwnerMessage(
 function buildCompileMessage(
   type: LSPRequestType,
   params: unknown,
-): CompilationRequest {
+): CompileDocument {
   const p = params as DocumentEventParams;
   const uri = p.document?.uri ?? p.textDocument?.uri ?? '';
   const content = p.document?.getText?.() ?? p.text ?? '';

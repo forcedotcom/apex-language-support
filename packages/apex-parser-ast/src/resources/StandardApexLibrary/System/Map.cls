@@ -63,9 +63,9 @@ global class Map {
 
   /**
    * Returns a set that contains all of the keys in the map.
-   * @return Set<Object>
+   * @return Set<K>
    */
-  global Set<Object> keySet() {}
+  global Set<K> keySet() {}
 
   /**
    * Associates the specified value with the specified key in the map.

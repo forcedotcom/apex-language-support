@@ -52,7 +52,9 @@ import {
 import {
   CompilationWorkerPool,
   fromSerializedWorkerPool,
+  makeSerializedWorkerPoolReadiness,
   unavailableCompilationWorkerPool,
+  withCompilationWorkerStartupTimeout,
 } from './compiler/CompilationWorkerPool';
 
 import * as path from 'node:path';
@@ -452,18 +454,29 @@ const CompilationWorkerPoolLive =
   runtimeWorkerData?.role === 'dataOwner'
     ? Layer.scoped(
         CompilationWorkerPool,
-        Worker.makePoolSerialized<CompilationWorkerRequest>({
-          size: compilationPoolSize,
-          concurrency: compilationConcurrency,
-          initialMessage: () => new InitializeCompilationWorker({}),
+        Effect.gen(function* () {
+          const readiness =
+            yield* makeSerializedWorkerPoolReadiness(compilationPoolSize);
+          return yield* withCompilationWorkerStartupTimeout(
+            Effect.gen(function* () {
+              const pool =
+                yield* Worker.makePoolSerialized<CompilationWorkerRequest>({
+                  size: compilationPoolSize,
+                  concurrency: compilationConcurrency,
+                  initialMessage: () => new InitializeCompilationWorker({}),
+                  onCreate: readiness.onCreate,
+                });
+              yield* readiness.awaitReady;
+              return fromSerializedWorkerPool(
+                pool,
+                compilationPoolSize,
+                compilationConcurrency,
+              );
+            }),
+            readiness.initialized,
+            compilationPoolSize,
+          );
         }).pipe(
-          Effect.map((pool) =>
-            fromSerializedWorkerPool(
-              pool,
-              compilationPoolSize,
-              compilationConcurrency,
-            ),
-          ),
           Effect.provide(
             NodeWorker.layer(
               () =>
@@ -487,7 +500,6 @@ export {
   scanCandidatesForOccurrences,
   targetSymbolForCursor,
   declarationLocationForCursor,
-  writeBackCompiledSymbols,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 

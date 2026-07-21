@@ -392,6 +392,32 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         expect(process).not.toHaveBeenCalled();
       });
 
+      it('skips a hover request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue(null);
+        serviceRegistry.register({
+          requestType: 'hover' as LSPRequestType,
+          priority: Priority.Immediate,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitHoverRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
+      });
+
       it('interrupts an in-flight references request when cancelled', async () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)

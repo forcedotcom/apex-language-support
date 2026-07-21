@@ -262,31 +262,6 @@ export function getBatchIngestionDispatcher(): BatchIngestionDispatcher | null {
   return batchIngestionDispatcher;
 }
 
-export type BatchCompileDispatcher = (
-  sessionId: string,
-  entries: Array<{
-    uri: string;
-    content: string;
-    languageId: string;
-    version: number;
-  }>,
-) => Promise<{ compiledCount: number; errorCount: number; elapsedMs: number }>;
-
-let batchCompileDispatcher: BatchCompileDispatcher | null = null;
-
-export function setBatchCompileDispatcher(
-  dispatcher: BatchCompileDispatcher | null,
-): void {
-  batchCompileDispatcher = dispatcher;
-  getLogger().debug(
-    () => `Batch compile dispatcher ${dispatcher ? 'set' : 'cleared'}`,
-  );
-}
-
-export function getBatchCompileDispatcher(): BatchCompileDispatcher | null {
-  return batchCompileDispatcher;
-}
-
 export type WorkspaceLoadSessionDispatcher = (msg: {
   _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
   sessionId?: string;

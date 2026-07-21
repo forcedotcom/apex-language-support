@@ -89,7 +89,6 @@ import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
   setBatchIngestionDispatcher,
-  setBatchCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
   setWorkspaceLoadSessionDispatcher,
   setDataOwnerCompileDispatcher,
@@ -146,7 +145,7 @@ export class LCSAdapter {
       dataOwner: { active: boolean };
       requestPool: { size: number; active: boolean };
       resourceLoader: { active: boolean } | null;
-      compilation: { active: boolean };
+      compilation: { active: boolean; poolSize: number };
       dispatchedCount: number;
       coordinatorOnlyTypes: readonly string[];
     };
@@ -2677,7 +2676,6 @@ export class LCSAdapter {
       this.workerDispatcher = dispatcher;
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
-      setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
       setCrossFileEnrichmentDispatcher(
         dispatcher.createCrossFileEnrichmentDispatcher(),
       );
@@ -2726,6 +2724,7 @@ export class LCSAdapter {
           'queue dispatch, batch ingestion, assistance mediation, stdlib warm; ' +
           `config: poolSize=${poolSize}, enableResourceLoader=${enableResourceLoader}, ` +
           `dataOwnerConcurrency=${dataOwnerConcurrency ?? 'default'}, ` +
+          `compilationPoolSize=${compilationPoolSize}, ` +
           `compilationConcurrency=${compilationConcurrency}`,
       );
 
@@ -2781,12 +2780,15 @@ export class LCSAdapter {
     }
 
     this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> =>
+      async (
+        params: HoverParams,
+        token: CancellationToken,
+      ): Promise<Hover | null> =>
         this.handleLspRequest(
           LSP_SPAN_NAMES.HOVER,
           'textDocument/hover',
           params,
-          (p) => LSPQueueManager.getInstance().submitHoverRequest(p),
+          (p) => LSPQueueManager.getInstance().submitHoverRequest(p, token),
           null,
           {
             'document.position': `${params.position.line}:${params.position.character}`,

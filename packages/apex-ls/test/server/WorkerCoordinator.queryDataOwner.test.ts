@@ -13,7 +13,7 @@ import {
   QuerySymbolSubset,
   DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
-  WorkspaceBatchCompile,
+  WorkspaceBatchCompileOnDataOwner,
   WorkspaceBatchIngest,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
@@ -43,7 +43,6 @@ function createSpyLogger(): LoggerInterface {
 
 function makeFakeTopology() {
   const sent: unknown[] = [];
-  const compiled: unknown[] = [];
   const pooled: unknown[] = [];
   const topology: WorkerTopology = {
     dataOwner: {
@@ -58,19 +57,11 @@ function makeFakeTopology() {
         return Effect.succeed({ result: null });
       },
     } as any,
-    compilation: {
-      executeEffect: (msg: unknown) => {
-        compiled.push(msg);
-        return Effect.succeed({
-          compiledCount: 1,
-          errorCount: 0,
-          elapsedMs: 1,
-        });
-      },
-    } as any,
     resourceLoader: null,
+    compilationPoolSize: 2,
+    compilationConcurrency: 1,
   } as unknown as WorkerTopology;
-  return { topology, sent, compiled, pooled };
+  return { topology, sent, pooled };
 }
 
 describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
@@ -194,7 +185,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
 
   it('propagates trace context through workspace batch dispatchers', async () => {
     const logger = createSpyLogger();
-    const { topology, sent, compiled } = makeFakeTopology();
+    const { topology, sent } = makeFakeTopology();
     const dispatcher = makeWorkerDispatcher(topology, logger);
     const entries = [
       {
@@ -206,14 +197,17 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     ];
 
     await dispatcher.createBatchIngestionDispatcher()('session-1', entries);
-    await dispatcher.createBatchCompileDispatcher()('session-1', entries);
+    await dispatcher.createDataOwnerCompileDispatcher()({
+      sessionId: 'session-1',
+      entries,
+    });
 
     expect(sent[0]).toBeInstanceOf(WorkspaceBatchIngest);
-    expect(compiled[0]).toBeInstanceOf(WorkspaceBatchCompile);
+    expect(sent[1]).toBeInstanceOf(WorkspaceBatchCompileOnDataOwner);
     expect((sent[0] as WorkspaceBatchIngest).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
-    expect((compiled[0] as WorkspaceBatchCompile).traceContext).toBe(
+    expect((sent[1] as WorkspaceBatchCompileOnDataOwner).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
   });

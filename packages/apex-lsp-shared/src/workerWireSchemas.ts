@@ -31,7 +31,6 @@ export const WorkerRole = Schema.Literal(
   'dataOwner',
   'lspRequest',
   'resourceLoader',
-  'compilation',
 );
 export type WorkerRole = Schema.Schema.Type<typeof WorkerRole>;
 
@@ -287,7 +286,8 @@ export type WorkspaceBatchIngestSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
-// CompileDocument — coordinator sends a single file to compilation worker
+// CompileDocument — coordinator asks the data owner to compile one interactive
+// document through its persistent compiler pool and commit the result locally
 // ---------------------------------------------------------------------------
 
 export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
@@ -314,46 +314,9 @@ export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
 ) {}
 
 // ---------------------------------------------------------------------------
-// WorkspaceBatchCompile — coordinator sends a batch of files to compilation
-// worker for public-api compilation after workspace load ingest completes
-// ---------------------------------------------------------------------------
-
-export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCompile>()(
-  'WorkspaceBatchCompile',
-  {
-    success: Schema.Struct({
-      compiledCount: Schema.Number,
-      errorCount: Schema.Number,
-      elapsedMs: Schema.Number,
-    }),
-    failure: Schema.Struct({
-      _tag: Schema.Literal('WorkspaceBatchCompileError'),
-      message: Schema.String,
-    }),
-    payload: {
-      sessionId: Schema.String,
-      entries: Schema.Array(
-        Schema.Struct({
-          uri: Schema.String,
-          content: Schema.String,
-          languageId: Schema.String,
-          version: Schema.Number,
-        }),
-      ),
-      /** W3C traceparent for distributed tracing (optional) */
-      traceContext: Schema.optional(Schema.String),
-      /** Per-file loop concurrency (optional, defaults to 1 for serial) */
-      concurrency: Schema.optional(Schema.Number),
-    },
-  },
-) {}
-
-// ---------------------------------------------------------------------------
 // WorkspaceBatchCompileOnDataOwner — during workspace load session, compile
-// files directly on the data-owner worker to eliminate UpdateSymbolSubset IPC
-// overhead. The data owner compiles locally and writes symbols directly to its
-// own symbol manager, avoiding 653 × 263ms IPC round-trips. Only used during
-// workspace load session; interactive edits still use compilation workers.
+// files through the data-owner-managed Effect Worker pool, then commit results
+// directly to the authoritative symbol manager.
 // ---------------------------------------------------------------------------
 
 export class WorkspaceBatchCompileOnDataOwner extends Schema.TaggedRequest<WorkspaceBatchCompileOnDataOwner>()(
@@ -1133,6 +1096,7 @@ export const DataOwnerTags = [
   'DispatchDocumentChange',
   'DispatchDocumentSave',
   'DispatchDocumentClose',
+  'CompileDocument',
 ] as const;
 export type DataOwnerTag = (typeof DataOwnerTags)[number];
 
@@ -1168,24 +1132,9 @@ export const ResourceLoaderTags = [
 ] as const;
 export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
 
-/** Tags accepted by a compilation worker */
-export const CompilationTags = [
-  'WorkerInit',
-  'PingWorker',
-  'WorkerRemoteStdlibWarmup',
-  'CompileDocument',
-  'WorkspaceBatchCompile',
-] as const;
-export type CompilationTag = (typeof CompilationTags)[number];
-
 /** All known worker request tags */
 export const AllWorkerTags = [
-  ...new Set([
-    ...DataOwnerTags,
-    ...LspRequestTags,
-    ...ResourceLoaderTags,
-    ...CompilationTags,
-  ]),
+  ...new Set([...DataOwnerTags, ...LspRequestTags, ...ResourceLoaderTags]),
 ] as const;
 export type WorkerTag = (typeof AllWorkerTags)[number];
 
@@ -1213,7 +1162,8 @@ export type DataOwnerRequest =
   | DispatchDocumentOpen
   | DispatchDocumentChange
   | DispatchDocumentSave
-  | DispatchDocumentClose;
+  | DispatchDocumentClose
+  | CompileDocument;
 
 /** Request types the coordinator may send to an LSP-request pool worker */
 export type LspRequestMessage =
@@ -1243,16 +1193,8 @@ export type ResourceLoaderRequest =
   | ResourceLoaderResolveClass
   | ResourceLoaderGetStandardNamespaces;
 
-/** Request types the coordinator may send to a compilation worker */
-export type CompilationRequest =
-  | WorkerInit
-  | PingWorker
-  | WorkerRemoteStdlibWarmup
-  | CompileDocument
-  | WorkspaceBatchCompile;
-
 /** Current wire protocol version — bump on breaking schema changes */
-export const WIRE_PROTOCOL_VERSION = 1;
+export const WIRE_PROTOCOL_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Side-channel messages (plain objects via postMessage, not Schema requests)
@@ -1279,7 +1221,5 @@ export function isAllowedTag(role: WorkerRole, tag: string): boolean {
       return (LspRequestTags as readonly string[]).includes(tag);
     case 'resourceLoader':
       return (ResourceLoaderTags as readonly string[]).includes(tag);
-    case 'compilation':
-      return (CompilationTags as readonly string[]).includes(tag);
   }
 }

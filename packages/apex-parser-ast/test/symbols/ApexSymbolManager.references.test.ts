@@ -306,6 +306,89 @@ describe('ApexSymbolManager Reference Processing', () => {
   });
 
   describe('Invalid Identifier Validation', () => {
+    it('does not load unqualified value and member names as Apex classes', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            missingMethod();
+            this.locateMissingService().doThing();
+            locateMissingService().doThing();
+            Object value = missingValue;
+          }
+
+          private Object locateMissingService() {
+            return null;
+          }
+        }
+      `;
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      // Reproduce the interactive public-api table: the private lexical method
+      // is intentionally absent until enrichment, but must not be treated as a
+      // package-level class while resolving the public method body.
+      const listener = new ApexSymbolCollectorListener(undefined, 'public-api');
+      const result = compilerService.compile(sourceCode, fileUri, listener);
+      expect(result.result).toBeDefined();
+
+      const resolutionTarget = symbolManager as unknown as {
+        resolveStandardApexClass(name: string): Promise<unknown>;
+      };
+      const classLoadSpy = jest.spyOn(
+        resolutionTarget,
+        'resolveStandardApexClass',
+      );
+      const stdlibProvider = (
+        symbolManager as unknown as {
+          stdlibProvider: {
+            resolveClassFqn(name: string): Promise<string | null>;
+          };
+        }
+      ).stdlibProvider;
+      const resolveClassFqnSpy = jest.spyOn(stdlibProvider, 'resolveClassFqn');
+
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(fileUri),
+      );
+
+      // Exercise the hover/definition-style position resolver as well as graph
+      // materialization. Its former final fallback tried every unresolved
+      // method reference as a standard Apex class.
+      const locateReferences = result
+        .result!.getAllReferences()
+        .filter((reference) => reference.name === 'locateMissingService');
+      expect(locateReferences.length).toBeGreaterThanOrEqual(2);
+      for (const locateReference of locateReferences) {
+        await symbolManager.getSymbolAtPositionWithinScope(fileUri, {
+          line: locateReference.location.identifierRange.startLine,
+          character: locateReference.location.identifierRange.startColumn,
+        });
+      }
+      const missingValueReference = result
+        .result!.getAllReferences()
+        .find(
+          (reference) =>
+            reference.name === 'missingValue' &&
+            reference.context === ReferenceContext.VARIABLE_USAGE,
+        );
+      expect(missingValueReference).toBeDefined();
+      await symbolManager.getSymbolAtPositionWithinScope(fileUri, {
+        line: missingValueReference!.location.identifierRange.startLine,
+        character: missingValueReference!.location.identifierRange.startColumn,
+      });
+
+      expect(classLoadSpy).not.toHaveBeenCalledWith('missingMethod');
+      expect(classLoadSpy).not.toHaveBeenCalledWith('locateMissingService');
+      expect(classLoadSpy).not.toHaveBeenCalledWith('missingValue');
+      expect(resolveClassFqnSpy).not.toHaveBeenCalledWith('missingMethod');
+      expect(resolveClassFqnSpy).not.toHaveBeenCalledWith(
+        'locateMissingService',
+      );
+      expect(resolveClassFqnSpy).not.toHaveBeenCalledWith('missingValue');
+    });
+
     it('should not trigger ResourceLoader lookup for array access contacts[0]', async () => {
       const sourceCode = `
         public class TestClass {

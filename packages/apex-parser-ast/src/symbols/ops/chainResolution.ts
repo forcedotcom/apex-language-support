@@ -62,6 +62,19 @@ import type {
   SymbolManagerOps,
 } from '../services/symbolResolver';
 
+function canFirstChainNodeNameType(reference: SymbolReference): boolean {
+  const name = reference.name.toLowerCase();
+  if (name === 'this' || name === 'super') {
+    return false;
+  }
+  return (
+    reference.context !== ReferenceContext.METHOD_CALL &&
+    reference.context !== ReferenceContext.FIELD_ACCESS &&
+    reference.context !== ReferenceContext.VARIABLE_USAGE &&
+    reference.context !== ReferenceContext.PROPERTY_REFERENCE
+  );
+}
+
 // ---------------------------------------------------------------------------
 // resolveChainedSymbolReference
 // ---------------------------------------------------------------------------
@@ -163,13 +176,15 @@ export async function resolveChainedSymbolReference(
             }
           }
 
-          const firstNodeSymbol = await resolveFirstNodeAsClass(
-            self,
-            firstNode.name,
-            true,
-          );
-          if (firstNodeSymbol) {
-            return firstNodeSymbol;
+          if (canFirstChainNodeNameType(firstNode)) {
+            const firstNodeSymbol = await resolveFirstNodeAsClass(
+              self,
+              firstNode.name,
+              true,
+            );
+            if (firstNodeSymbol) {
+              return firstNodeSymbol;
+            }
           }
           // If first node resolution failed, fall through to chain member resolution
         }
@@ -191,6 +206,36 @@ export async function resolveChainedSymbolReference(
                   `Resolved chain member "${chainMember.member.name}" at index ${chainMember.index}`,
               );
               return resolvedSymbol;
+            }
+          }
+          if (chainMember.index === 1 && chainNodes.length === 2) {
+            const receiverSymbol = chainNodes[0].resolvedSymbolId
+              ? await self.getSymbol(chainNodes[0].resolvedSymbolId)
+              : null;
+            const receiverType =
+              receiverSymbol &&
+              (receiverSymbol.kind === SymbolKind.Variable ||
+                receiverSymbol.kind === SymbolKind.Parameter ||
+                receiverSymbol.kind === SymbolKind.Field ||
+                receiverSymbol.kind === SymbolKind.Property)
+                ? (receiverSymbol as VariableSymbol).type
+                : undefined;
+            if (createGenericTypeSubstitutionMap(receiverType)) {
+              const qualifiedMember = await resolveQualifiedReferenceFromChain(
+                self,
+                chainNodes[0].name,
+                chainMember.member.name,
+                chainMember.member.context,
+                fileUri,
+                undefined,
+                typeReference,
+                fileUri
+                  ? self.symbolRefManager.getSymbolTableForFile(fileUri)
+                  : undefined,
+              );
+              if (qualifiedMember) {
+                return qualifiedMember;
+              }
             }
           }
           // If chain member not pre-resolved, it will be handled by the code below
@@ -296,13 +341,15 @@ export async function resolveChainedSymbolReference(
               }
             }
             // If we get here, first node resolution failed - try class resolution
-            const firstNodeSymbol = await resolveFirstNodeAsClass(
-              self,
-              chainNodes[0].name,
-              false,
-            );
-            if (firstNodeSymbol) {
-              return firstNodeSymbol;
+            if (canFirstChainNodeNameType(firstNode)) {
+              const firstNodeSymbol = await resolveFirstNodeAsClass(
+                self,
+                firstNode.name,
+                false,
+              );
+              if (firstNodeSymbol) {
+                return firstNodeSymbol;
+              }
             }
           }
 
@@ -319,6 +366,7 @@ export async function resolveChainedSymbolReference(
           // try to resolve the qualifier as a class symbol
           if (
             chainMember.index === 0 &&
+            canFirstChainNodeNameType(chainNodes[0]) &&
             resolvedContext &&
             (resolvedContext.type === 'namespace' ||
               resolvedContext.type === 'global')
@@ -1264,6 +1312,14 @@ export async function tryResolveAsMember(
 
   const stepName = step.name;
   const stepContext = step.context;
+  const contextSymbol = currentContext.symbol;
+  const typeSubstitutions =
+    contextSymbol.kind === SymbolKind.Variable ||
+    contextSymbol.kind === SymbolKind.Parameter ||
+    contextSymbol.kind === SymbolKind.Field ||
+    contextSymbol.kind === SymbolKind.Property
+      ? createGenericTypeSubstitutionMap((contextSymbol as VariableSymbol).type)
+      : null;
 
   // Try as method if context suggests it
   if (stepContext === ReferenceContext.METHOD_CALL) {
@@ -1271,6 +1327,7 @@ export async function tryResolveAsMember(
       currentContext,
       stepName,
       'method',
+      typeSubstitutions,
     );
     if (methodSymbol) {
       return methodSymbol;
@@ -1283,6 +1340,7 @@ export async function tryResolveAsMember(
       currentContext,
       stepName,
       'property',
+      typeSubstitutions,
     );
     if (propertySymbol) {
       return propertySymbol;
@@ -1295,6 +1353,7 @@ export async function tryResolveAsMember(
       currentContext,
       stepName,
       'method',
+      typeSubstitutions,
     );
     if (methodSymbol) {
       return methodSymbol;
@@ -1304,6 +1363,7 @@ export async function tryResolveAsMember(
       currentContext,
       stepName,
       'property',
+      typeSubstitutions,
     );
     if (propertySymbol) {
       return propertySymbol;
@@ -1782,6 +1842,8 @@ export async function resolveMemberInContext(
           const typeInfo = variableSymbol.type;
 
           if (typeInfo) {
+            const receiverTypeSubstitutions =
+              typeSubstitutions ?? createGenericTypeSubstitutionMap(typeInfo);
             if (typeInfo.resolvedSymbol) {
               const typeSymbol = typeInfo.resolvedSymbol;
               const resolvedMember = await resolveMemberInContext(
@@ -1789,6 +1851,7 @@ export async function resolveMemberInContext(
                 { type: 'symbol', symbol: typeSymbol },
                 memberName,
                 memberType,
+                receiverTypeSubstitutions,
               );
               if (resolvedMember) {
                 return resolvedMember;
@@ -1798,7 +1861,13 @@ export async function resolveMemberInContext(
                 (typeSymbol.fileUri && isStandardApexUri(typeSymbol.fileUri))
               ) {
                 const classPath = extractApexLibPath(typeSymbol.fileUri);
-                if (classPath) {
+                if (
+                  classPath &&
+                  typeSymbol.fileUri &&
+                  !self.symbolRefManager.getSymbolTableForFile(
+                    typeSymbol.fileUri,
+                  )
+                ) {
                   try {
                     const st =
                       await self.stdlibProvider.getSymbolTable(classPath);
@@ -1809,6 +1878,7 @@ export async function resolveMemberInContext(
                         { type: 'symbol', symbol: typeSymbol },
                         memberName,
                         memberType,
+                        receiverTypeSubstitutions,
                       );
                       if (retryResult) {
                         return retryResult;
@@ -1843,6 +1913,7 @@ export async function resolveMemberInContext(
                     { type: 'symbol', symbol: standardClassSymbol },
                     memberName,
                     memberType,
+                    receiverTypeSubstitutions,
                   );
                   if (resolvedMember) {
                     self.logger.debug(
@@ -1863,7 +1934,12 @@ export async function resolveMemberInContext(
                     const classPath = extractApexLibPath(
                       standardClassSymbol.fileUri,
                     );
-                    if (classPath) {
+                    if (
+                      classPath &&
+                      !self.symbolRefManager.getSymbolTableForFile(
+                        standardClassSymbol.fileUri,
+                      )
+                    ) {
                       try {
                         self.logger.debug(
                           () =>
@@ -1885,6 +1961,7 @@ export async function resolveMemberInContext(
                             { type: 'symbol', symbol: standardClassSymbol },
                             memberName,
                             memberType,
+                            receiverTypeSubstitutions,
                           );
                           if (retryResult) {
                             self.logger.debug(
@@ -1949,6 +2026,7 @@ export async function resolveMemberInContext(
                   { type: 'symbol', symbol: typeClassSymbol },
                   memberName,
                   memberType,
+                  receiverTypeSubstitutions,
                 );
                 if (resolvedMember) {
                   return resolvedMember;
@@ -1958,7 +2036,12 @@ export async function resolveMemberInContext(
                   isStandardApexUri(typeClassSymbol.fileUri)
                 ) {
                   const classPath = extractApexLibPath(typeClassSymbol.fileUri);
-                  if (classPath) {
+                  if (
+                    classPath &&
+                    !self.symbolRefManager.getSymbolTableForFile(
+                      typeClassSymbol.fileUri,
+                    )
+                  ) {
                     try {
                       const st =
                         await self.stdlibProvider.getSymbolTable(classPath);
@@ -1972,6 +2055,7 @@ export async function resolveMemberInContext(
                           { type: 'symbol', symbol: typeClassSymbol },
                           memberName,
                           memberType,
+                          receiverTypeSubstitutions,
                         );
                         if (retryResult) {
                           return retryResult;
@@ -2012,6 +2096,7 @@ export async function resolveMemberInContext(
                   { type: 'symbol', symbol: builtInTypeSymbol },
                   memberName,
                   memberType,
+                  receiverTypeSubstitutions,
                 );
                 if (resolvedMember) {
                   return resolvedMember;
@@ -2026,6 +2111,7 @@ export async function resolveMemberInContext(
                   { type: 'symbol', symbol: standardClassSymbol2 },
                   memberName,
                   memberType,
+                  receiverTypeSubstitutions,
                 );
                 if (resolvedMember) {
                   return resolvedMember;
@@ -2037,7 +2123,12 @@ export async function resolveMemberInContext(
                   const classPath = extractApexLibPath(
                     standardClassSymbol2.fileUri,
                   );
-                  if (classPath) {
+                  if (
+                    classPath &&
+                    !self.symbolRefManager.getSymbolTableForFile(
+                      standardClassSymbol2.fileUri,
+                    )
+                  ) {
                     try {
                       const st =
                         await self.stdlibProvider.getSymbolTable(classPath);
@@ -2051,6 +2142,7 @@ export async function resolveMemberInContext(
                           { type: 'symbol', symbol: standardClassSymbol2 },
                           memberName,
                           memberType,
+                          receiverTypeSubstitutions,
                         );
                         if (retryResult) {
                           return retryResult;
@@ -2388,7 +2480,12 @@ export async function resolveMemberInContext(
             isStandardApexUri(contextSymbol.fileUri)
           ) {
             const classPath = extractApexLibPath(contextSymbol.fileUri);
-            if (classPath) {
+            if (
+              classPath &&
+              !self.symbolRefManager.getSymbolTableForFile(
+                contextSymbol.fileUri,
+              )
+            ) {
               try {
                 const normalizedUri = extractFilePathFromUri(
                   contextSymbol.fileUri,
@@ -2703,7 +2800,35 @@ export async function resolveQualifiedReferenceFromChain(
 
     let qualifierSymbols = await self.findSymbolByName(qualifier);
 
-    if (qualifierSymbols.length === 0) {
+    const qualifierLower = qualifier.toLowerCase();
+    const firstChainNode =
+      originalTypeRef && isChainedSymbolReference(originalTypeRef)
+        ? originalTypeRef.chainNodes[0]
+        : undefined;
+    const isValueContext = (reference: SymbolReference): boolean =>
+      reference.context === ReferenceContext.METHOD_CALL ||
+      reference.context === ReferenceContext.FIELD_ACCESS ||
+      reference.context === ReferenceContext.VARIABLE_USAGE ||
+      reference.context === ReferenceContext.PROPERTY_REFERENCE;
+    const qualifierIsLexicalValue =
+      qualifierLower === 'this' ||
+      qualifierLower === 'super' ||
+      (firstChainNode != null && isValueContext(firstChainNode)) ||
+      (symbolTable?.getAllReferences().some((reference) => {
+        const range = reference.location.identifierRange;
+        const originalRange = originalTypeRef?.location.identifierRange;
+        return (
+          isValueContext(reference) &&
+          reference.name.toLowerCase() === qualifierLower &&
+          reference.parentContext === originalTypeRef?.parentContext &&
+          (originalRange == null ||
+            (range.startLine === originalRange.startLine &&
+              range.startColumn <= originalRange.startColumn))
+        );
+      }) ??
+        false);
+
+    if (qualifierSymbols.length === 0 && !qualifierIsLexicalValue) {
       let qualifierRef: SymbolReference;
       if (
         originalTypeRef &&
@@ -2739,7 +2864,7 @@ export async function resolveQualifiedReferenceFromChain(
       }
     }
 
-    if (qualifierSymbols.length === 0) {
+    if (qualifierSymbols.length === 0 && !qualifierIsLexicalValue) {
       const stdClassStart = Date.now();
       const standardClass = await self.resolveStandardApexClass(qualifier);
       if (resolverStats) {
@@ -2880,7 +3005,21 @@ export async function resolveQualifiedReferenceFromChain(
       context === ReferenceContext.METHOD_CALL || chainIndicatesMethod
         ? 'method'
         : 'property';
-    const memberCacheKey = `${memberResolutionContext.symbol.id}|${memberTypeForLookup}|${member.toLowerCase()}`;
+    const substitutionCacheKey = memberTypeSubstitutions
+      ? [...memberTypeSubstitutions.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(
+            ([genericType, concreteType]) =>
+              `${genericType.toLowerCase()}=${concreteType.toLowerCase()}`,
+          )
+          .join(',')
+      : '';
+    const memberCacheKey = [
+      memberResolutionContext.symbol.id,
+      memberTypeForLookup,
+      member.toLowerCase(),
+      substitutionCacheKey,
+    ].join('|');
     const cachedMember = memberResolutionCache?.get(memberCacheKey);
     if (cachedMember !== undefined) {
       if (resolverStats) {
@@ -3208,7 +3347,11 @@ export async function resolveSymbolReferenceToSymbol(
       return null;
     }
 
-    if (typeReference.resolvedSymbolId) {
+    const isDeclaredTypeReference =
+      typeReference.context === ReferenceContext.TYPE_DECLARATION ||
+      typeReference.context === ReferenceContext.PARAMETER_TYPE ||
+      typeReference.context === ReferenceContext.RETURN_TYPE;
+    if (typeReference.resolvedSymbolId && !isDeclaredTypeReference) {
       let shouldSkipFastPath = false;
       if (position && isChainedSymbolReference(typeReference)) {
         const chainMember = findChainMember(typeReference, position);
@@ -3300,7 +3443,20 @@ export async function resolveSymbolReferenceToSymbol(
       }
     }
 
-    if (typeReference.context !== ReferenceContext.VARIABLE_DECLARATION) {
+    const canNameType =
+      typeReference.context === ReferenceContext.CLASS_REFERENCE ||
+      typeReference.context === ReferenceContext.TYPE_DECLARATION ||
+      typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+      typeReference.context === ReferenceContext.PARAMETER_TYPE ||
+      typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+      typeReference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+      typeReference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+      typeReference.context === ReferenceContext.CHAIN_STEP ||
+      typeReference.context === ReferenceContext.NAMESPACE ||
+      typeReference.context === ReferenceContext.RETURN_TYPE ||
+      typeReference.context === ReferenceContext.INHERITANCE ||
+      typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
+    if (canNameType) {
       const builtInSymbol =
         await self.resolveStandardLibraryType(typeReference);
       if (builtInSymbol) {
@@ -3346,12 +3502,22 @@ export async function resolveSymbolReferenceToSymbol(
       const hasClassMatch = candidates.some(
         (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
       );
-      variableUsageLooksLikeClass = hasClassMatch || candidates.length === 0;
+      // Some legacy listener paths emit a genuine type token as
+      // VARIABLE_USAGE. Preserve that compatibility only when the graph
+      // already proves a class/interface with this name exists. Treating every
+      // unresolved value name as a possible class caused method/local names to
+      // fall through to ResourceLoader and become bogus artifact requests.
+      variableUsageLooksLikeClass = hasClassMatch;
     }
     const isClassReferenceContext =
       typeReference.context === ReferenceContext.CLASS_REFERENCE ||
+      typeReference.context === ReferenceContext.TYPE_DECLARATION ||
+      typeReference.context === ReferenceContext.PARAMETER_TYPE ||
+      typeReference.context === ReferenceContext.RETURN_TYPE ||
       typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
       typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+      typeReference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+      typeReference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);
     if (isClassReferenceContext) {

@@ -380,23 +380,18 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('dataOwner', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerInit')).toBe(true);
-      expect(isAllowedTag('compilation', 'WorkerInit')).toBe(true);
     });
 
     it('should allow PingWorker for all roles', () => {
       expect(isAllowedTag('dataOwner', 'PingWorker')).toBe(true);
       expect(isAllowedTag('lspRequest', 'PingWorker')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'PingWorker')).toBe(true);
-      expect(isAllowedTag('compilation', 'PingWorker')).toBe(true);
     });
 
-    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, resourceLoader, and compilation', () => {
+    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and resourceLoader', () => {
       expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
-        true,
-      );
-      expect(isAllowedTag('compilation', 'WorkerRemoteStdlibWarmup')).toBe(
         true,
       );
     });
@@ -405,7 +400,6 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('dataOwner', 'QuerySymbolSubset')).toBe(true);
       expect(isAllowedTag('lspRequest', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
-      expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
     });
 
     it('should restrict ResolveDependentUris to dataOwner', () => {
@@ -414,7 +408,6 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('resourceLoader', 'ResolveDependentUris')).toBe(
         false,
       );
-      expect(isAllowedTag('compilation', 'ResolveDependentUris')).toBe(false);
     });
 
     it('should restrict WorkspaceBatchIngest to dataOwner', () => {
@@ -423,7 +416,6 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('resourceLoader', 'WorkspaceBatchIngest')).toBe(
         false,
       );
-      expect(isAllowedTag('compilation', 'WorkspaceBatchIngest')).toBe(false);
     });
 
     it('should restrict ResourceLoaderGetSymbolTable to resourceLoader', () => {
@@ -468,20 +460,16 @@ describe('workerWireSchemas', () => {
       }
     });
 
-    it('should route compilation tags to compilation only', () => {
-      for (const tag of ['CompileDocument', 'WorkspaceBatchCompile']) {
-        expect(isAllowedTag('compilation', tag)).toBe(true);
-        expect(isAllowedTag('dataOwner', tag)).toBe(false);
-        expect(isAllowedTag('lspRequest', tag)).toBe(false);
-        expect(isAllowedTag('resourceLoader', tag)).toBe(false);
-      }
+    it('should route interactive compilation to the data owner only', () => {
+      expect(isAllowedTag('dataOwner', 'CompileDocument')).toBe(true);
+      expect(isAllowedTag('lspRequest', 'CompileDocument')).toBe(false);
+      expect(isAllowedTag('resourceLoader', 'CompileDocument')).toBe(false);
     });
 
     it('should reject unknown tags', () => {
       expect(isAllowedTag('dataOwner', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('lspRequest', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'UnknownTag')).toBe(false);
-      expect(isAllowedTag('compilation', 'UnknownTag')).toBe(false);
     });
   });
 });

@@ -26,7 +26,6 @@ import {
   queuePendingReferencesForSymbol,
   processDeferredReference,
   processPendingDeferredReference,
-  processDeferredReferencesBatchEffect,
   retryPendingDeferredReferencesBatchEffect,
   logDeferredProcessingSummary,
   type DeferredReference,
@@ -40,6 +39,7 @@ import {
   extractFilePathFromUri,
 } from '../types/UriBasedIdGenerator';
 import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
+import type { SymbolReference } from '../types/symbolReference';
 
 import {
   ApexSymbol,
@@ -283,6 +283,9 @@ interface BatchProcessingResult {
   needsRetry: boolean;
   reason: string;
   remainingCount?: number;
+  boundReferenceCount?: number;
+  boundSourceFileCount?: number;
+  boundSourceFileUris?: string[];
 }
 
 /**
@@ -373,6 +376,7 @@ export class ApexSymbolRefManager {
   private deferredReferences: CaseInsensitiveHashMap<
     Array<{
       sourceSymbol: ApexSymbol;
+      sourceReference?: SymbolReference;
       referenceType: EnumValue<typeof ReferenceType>;
       location: SymbolLocation;
       // Resolved target fileUri (when known at enqueue time), so the processor
@@ -3706,6 +3710,7 @@ export class ApexSymbolRefManager {
       argumentTypes?: string[];
     },
     targetFileUri?: string,
+    sourceReference?: SymbolReference,
   ): void {
     if (!sourceSymbol.fileUri) {
       this.logger.warn(
@@ -3717,6 +3722,7 @@ export class ApexSymbolRefManager {
     const existing = this.deferredReferences.get(targetSymbolName) || [];
     existing.push({
       sourceSymbol,
+      sourceReference,
       referenceType,
       location,
       targetFileUri,
@@ -3916,6 +3922,7 @@ export class ApexSymbolRefManager {
       argumentTypes?: string[];
     },
     targetFileUri?: string,
+    sourceReference?: SymbolReference,
   ): void {
     if (!sourceSymbol.fileUri) {
       this.logger.warn(
@@ -3959,6 +3966,7 @@ export class ApexSymbolRefManager {
       location,
       context,
       targetFileUri ? extractFilePathFromUri(targetFileUri) : undefined,
+      sourceReference,
     );
   }
 
@@ -4186,17 +4194,213 @@ export class ApexSymbolRefManager {
   public processDeferredReferencesBatchEffect(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
-    // Sync class fields to Refs before processing
-    this.syncRefsToClassFields();
-    return processDeferredReferencesBatchEffect(symbolName).pipe(
-      Effect.provide(this.deferredProcessorLayer),
-      Effect.tap(() =>
-        Effect.sync(() => {
-          // Sync Refs back to class fields after processing
-          this.syncClassFieldsFromRefs();
-        }),
-      ),
+    return Effect.sync(() => {
+      this.syncClassFieldsFromRefs();
+      const deferred = this.deferredReferences.get(symbolName);
+      if (!deferred || deferred.length === 0) {
+        return {
+          needsRetry: false,
+          reason: 'success',
+          boundReferenceCount: 0,
+          boundSourceFileCount: 0,
+          boundSourceFileUris: [],
+        };
+      }
+
+      const targetCandidates = this.findSymbolByName(symbolName);
+      if (targetCandidates.length === 0) {
+        return {
+          needsRetry: true,
+          reason: 'target_not_found',
+          remainingCount: deferred.length,
+          boundReferenceCount: 0,
+          boundSourceFileCount: 0,
+          boundSourceFileUris: [],
+        };
+      }
+
+      const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, deferred.length);
+      const batch = deferred.slice(0, batchSize);
+      const remaining = deferred.slice(batchSize);
+      const satisfied: typeof deferred = [];
+
+      for (const entry of batch) {
+        const sourceFileUri = entry.sourceSymbol.fileUri;
+        if (!sourceFileUri) {
+          continue;
+        }
+
+        const sourceInGraph = this.findSymbolInFileByName(
+          sourceFileUri,
+          entry.sourceSymbol.name,
+        );
+        if (!sourceInGraph) {
+          remaining.push(entry);
+          continue;
+        }
+
+        const targetSymbol = this.pickDeferredTargetForEntry(
+          targetCandidates,
+          sourceInGraph,
+          entry.targetFileUri,
+          entry.context?.namespace,
+          symbolName,
+        );
+        const sourceId = this.getSymbolId(sourceInGraph, sourceInGraph.fileUri);
+        const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
+        const added = this.createAndAddReference(
+          sourceInGraph.fileUri,
+          sourceId,
+          targetSymbol.fileUri,
+          targetId,
+          entry.referenceType,
+          entry.location,
+          entry.context,
+        );
+        if (added) {
+          this.memoryStats.totalEdges++;
+        }
+        satisfied.push(entry);
+      }
+
+      if (remaining.length === 0) {
+        this.deferredReferences.delete(symbolName);
+      } else {
+        this.deferredReferences.set(symbolName, remaining);
+      }
+      Effect.runSync(
+        Ref.set(this.deferredReferencesRef, this.deferredReferences),
+      );
+
+      const binding = this.bindProcessedDeferredReferences(
+        symbolName,
+        satisfied,
+      );
+      return {
+        needsRetry: remaining.length > 0,
+        reason: remaining.length > 0 ? 'partial_processing' : 'success',
+        remainingCount: remaining.length || undefined,
+        boundReferenceCount: binding.referenceCount,
+        boundSourceFileCount: binding.sourceFileCount,
+        boundSourceFileUris: binding.sourceFileUris,
+      };
+    });
+  }
+
+  private pickDeferredTargetForEntry(
+    targetCandidates: ApexSymbol[],
+    sourceInGraph: ApexSymbol,
+    targetFileUri: string | undefined,
+    namespace: string | undefined,
+    symbolName: string,
+  ): ApexSymbol {
+    if (targetFileUri) {
+      const normalizedTargetUri = extractFilePathFromUri(targetFileUri);
+      const exactTarget = targetCandidates.find(
+        (candidate) =>
+          candidate.fileUri &&
+          extractFilePathFromUri(candidate.fileUri) === normalizedTargetUri,
+      );
+      if (exactTarget) return exactTarget;
+    }
+    return this.pickDeferredTarget(
+      targetCandidates,
+      sourceInGraph,
+      namespace,
+      symbolName,
     );
+  }
+
+  /**
+   * Apply successfully processed deferred targets directly to references in
+   * this manager's current SymbolTable instances. This preserves enrichment
+   * isolation between workers while avoiding an O(all references) source-file
+   * resolution pass for every target artifact that becomes available.
+   */
+  private bindProcessedDeferredReferences(
+    symbolName: string,
+    deferredEntries: Array<{
+      sourceSymbol: ApexSymbol;
+      sourceReference?: SymbolReference;
+      referenceType: EnumValue<typeof ReferenceType>;
+      location: SymbolLocation;
+      targetFileUri?: string;
+      context?: {
+        methodName?: string;
+        parameterIndex?: number;
+        isStatic?: boolean;
+        namespace?: string;
+        argumentCount?: number;
+        argumentTypes?: string[];
+      };
+    }>,
+  ): {
+    referenceCount: number;
+    sourceFileCount: number;
+    sourceFileUris: string[];
+  } {
+    const targetCandidates = this.findSymbolByName(symbolName);
+    if (targetCandidates.length === 0 || deferredEntries.length === 0) {
+      return { referenceCount: 0, sourceFileCount: 0, sourceFileUris: [] };
+    }
+
+    let referenceCount = 0;
+    const sourceFiles = new Set<string>();
+    const normalizedName = symbolName.toLowerCase();
+
+    for (const entry of deferredEntries) {
+      const sourceFileUri = entry.sourceSymbol.fileUri;
+      if (!sourceFileUri) continue;
+
+      const normalizedSourceUri = extractFilePathFromUri(sourceFileUri);
+      const sourceTable = this.getSymbolTableForFile(normalizedSourceUri);
+      if (!sourceTable) continue;
+
+      const sourceCandidates = this.findSymbolByName(entry.sourceSymbol.name);
+      const sourceInGraph = sourceCandidates.find(
+        (candidate) =>
+          candidate.fileUri &&
+          extractFilePathFromUri(candidate.fileUri) === normalizedSourceUri,
+      );
+      if (!sourceInGraph) continue;
+
+      const targetSymbol = this.pickDeferredTargetForEntry(
+        targetCandidates,
+        sourceInGraph,
+        entry.targetFileUri,
+        entry.context?.namespace,
+        symbolName,
+      );
+
+      if (entry.sourceReference) {
+        entry.sourceReference.resolvedSymbolId = targetSymbol.id;
+        referenceCount++;
+        sourceFiles.add(normalizedSourceUri);
+        continue;
+      }
+
+      const wantedRange = entry.location.identifierRange;
+      for (const reference of sourceTable.getAllReferences()) {
+        const range = reference.location.identifierRange;
+        if (
+          reference.name.toLowerCase() === normalizedName &&
+          range.startLine === wantedRange.startLine &&
+          range.startColumn === wantedRange.startColumn &&
+          range.endLine === wantedRange.endLine &&
+          range.endColumn === wantedRange.endColumn
+        ) {
+          reference.resolvedSymbolId = targetSymbol.id;
+          referenceCount++;
+          sourceFiles.add(normalizedSourceUri);
+        }
+      }
+    }
+
+    return {
+      referenceCount,
+      sourceFileCount: sourceFiles.size,
+      sourceFileUris: Array.from(sourceFiles),
+    };
   }
   /**
    * Retry pending deferred references when source symbol is added (Effect-based)

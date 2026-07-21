@@ -90,6 +90,24 @@ describe('genericTypeSubstitution', () => {
     expect(substituted.parameters[1]?.type.name).toBe('Integer');
   });
 
+  it('specializes the generic Map.keySet return type', () => {
+    const method = {
+      kind: SymbolKind.Method,
+      name: 'keySet',
+      returnType: createCollectionType('Set', [createPrimitiveType('K')]),
+      parameters: [],
+    } as unknown as MethodSymbol;
+    const substitutions = new Map([
+      ['K', 'Id'],
+      ['V', 'String'],
+    ]);
+
+    const substituted = applyMethodTypeSubstitutions(method, substitutions);
+
+    expect(substituted.returnType.typeParameters?.[0]?.name).toBe('Id');
+    expect(substituted.returnType.originalTypeString).toBe('Set<Id>');
+  });
+
   it('leaves method signature unchanged without substitutions', () => {
     const method = {
       kind: SymbolKind.Method,

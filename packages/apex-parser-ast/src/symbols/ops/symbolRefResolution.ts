@@ -1014,6 +1014,18 @@ export async function loadAndRegisterStdlibSymbolTable(
   fileUri: string,
   classPath: string,
 ): Promise<SymbolTable | null> {
+  // Standard-library tables are immutable. Once this worker has installed the
+  // table, fetching another serialized copy and registering it again is both
+  // redundant and expensive: addSymbolTable processes the stdlib table's own
+  // references, which can recursively hydrate Map/List/Object during a single
+  // collection-member lookup. Identity cannot be used here because a remote
+  // ResourceLoader deserializes a fresh instance for every response; the
+  // normalized file URI is the stable ownership key.
+  const installed = self.symbolRefManager.getSymbolTableForFile(fileUri);
+  if (installed) {
+    return installed;
+  }
+
   const inFlight = self.inFlightStdlibHydration.get(fileUri);
   if (inFlight) {
     return inFlight;

@@ -9,6 +9,14 @@
 import { getPrerequisitesForLspRequestType } from '../../src/services/LspRequestPrerequisiteMapping';
 
 describe('LspRequestPrerequisiteMapping hardening contracts', () => {
+  it('keeps hover cursor-scoped instead of materializing the whole file graph', () => {
+    const hover = getPrerequisitesForLspRequestType('hover');
+
+    expect(hover.requiredDetailLevel).toBe('full');
+    expect(hover.requiresReferenceResolution).toBe(true);
+    expect(hover.requiresCrossFileResolution).toBe(false);
+  });
+
   it('keeps definition and signatureHelp strict blocking during workspace load', () => {
     const definition = getPrerequisitesForLspRequestType('definition');
     const signatureHelp = getPrerequisitesForLspRequestType('signatureHelp');
