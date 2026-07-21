@@ -630,7 +630,7 @@
             },
             "poolSize": {
               "type": "number",
-              "default": 2,
+              "default": 3,
               "minimum": 1,
               "maximum": 14,
               "description": "%configuration.apex-ls-ts.experimental.workers.poolSize.description%"

@@ -133,7 +133,12 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     experimental: {
       workers: {
         enabled: true,
-        poolSize: 2,
+        // Shared request pool for hover/definition/completion/codeAction/etc.
+        // codeAction bursts (VS Code re-requests on every cursor move) can
+        // occupy every slot with full-detail recompiles, starving latency-
+        // critical reads. 3 gives those reads headroom; clampPoolSize still
+        // bounds it to [1, cpus-2] so low-core machines are unaffected.
+        poolSize: 3,
         resourceLoader: true,
       },
     },

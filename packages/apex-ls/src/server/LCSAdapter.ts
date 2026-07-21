@@ -2553,7 +2553,9 @@ export class LCSAdapter {
       }
 
       const config = {
-        poolSize: workerCfg?.poolSize ?? 2,
+        // Default kept in sync with ApexSettingsUtilities; clampPoolSize bounds
+        // this to [1, cpus-2]. See the pool-starvation note there.
+        poolSize: workerCfg?.poolSize ?? 3,
         enableResourceLoader,
         logger: this.logger,
         logLevel: mainLogLevel,
