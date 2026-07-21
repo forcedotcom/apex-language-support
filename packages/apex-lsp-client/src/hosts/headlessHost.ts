@@ -11,8 +11,8 @@ import { ApexClientCore, type ApexClientCoreOptions } from '../apexClientCore';
 import {
   createNodeStdioConnection,
   type NodeStdioConnectionOptions,
+  type NodeStdioJsonRpcConnection,
 } from '../transports/createNodeStdioConnection';
-import type { JsonRpcConnection } from '../transports/jsonRpcConnection';
 
 /**
  * Options for {@link createHeadlessClient}.
@@ -28,8 +28,8 @@ export interface HeadlessClientOptions extends NodeStdioConnectionOptions {
 export interface HeadlessClientResult {
   /** The initialized `ApexClientCore` instance. */
   readonly core: ApexClientCore;
-  /** The underlying `JsonRpcConnection` (for advanced use / testing). */
-  readonly connection: JsonRpcConnection;
+  /** The underlying `NodeStdioJsonRpcConnection` (for advanced use / testing). */
+  readonly connection: NodeStdioJsonRpcConnection;
   /** The spawned server child process (for advanced use / testing). */
   readonly process: ChildProcess;
 }
