@@ -294,7 +294,7 @@ describe(testTitle, () => {
       const results: Record<string, Benchmark.Target> = {};
 
       // Ensure client is healthy
-      if (!serverContext.client.isHealthy()) {
+      if (!(await serverContext.client.isHealthy())) {
         throw new Error('Server is not healthy, cannot run benchmarks');
       }
 

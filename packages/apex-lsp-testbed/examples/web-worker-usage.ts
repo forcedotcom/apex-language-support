@@ -41,7 +41,7 @@ async function exampleSdkUsage() {
     );
 
     // Check if the server is healthy
-    const isHealthy = client.isHealthy();
+    const isHealthy = await client.isHealthy();
     console.log(
       `[Example] Server health check: ${isHealthy ? 'OK' : 'FAILED'}`,
     );
