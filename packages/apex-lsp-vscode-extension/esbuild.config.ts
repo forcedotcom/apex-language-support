@@ -124,6 +124,14 @@ const builds: BuildOptions[] = [
             from: ['../apex-ls/dist/worker.platform.web.js.map'],
             to: ['./dist/worker.platform.web.js.map'],
           },
+          {
+            from: ['../apex-ls/dist/compiler.worker.web.js'],
+            to: ['./dist/compiler.worker.web.js'],
+          },
+          {
+            from: ['../apex-ls/dist/compiler.worker.web.js.map'],
+            to: ['./dist/compiler.worker.web.js.map'],
+          },
         ],
         watch: true,
         verbose: true,

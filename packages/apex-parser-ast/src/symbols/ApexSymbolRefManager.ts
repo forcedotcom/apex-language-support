@@ -84,6 +84,19 @@ export interface ResolutionContext {
 }
 
 /**
+ * Constant-time graph counters for hot paths and lightweight telemetry.
+ * Unlike getStats(), reading these values does not analyze graph topology.
+ */
+export interface ApexSymbolGraphCounts {
+  totalSymbols: number;
+  totalFiles: number;
+  totalReferences: number;
+  totalVertices: number;
+  totalEdges: number;
+  deferredReferences: number;
+}
+
+/**
  * Result of a symbol lookup with confidence scoring
  */
 export interface SymbolLookupResult {
@@ -2747,20 +2760,35 @@ export class ApexSymbolRefManager {
   }
 
   /**
-   * Get overall statistics
+   * Get graph counts without running graph analysis.
+   *
+   * This method is safe to call from mutation hot paths. All values come from
+   * maintained indexes or counters, so the cost does not grow with graph size.
    */
-  getStats() {
+  getCounts(): ApexSymbolGraphCounts {
     return {
       // Derive from authoritative index to avoid drift/negative counts.
       totalSymbols: this.symbolIdIndex.size,
       totalFiles: this.fileIndex.size, // Count actual files, not just SymbolTables
       totalReferences: this.memoryStats.totalEdges,
-      circularDependencies: this.detectCircularDependencies().length,
-      cacheHitRate: 0, // Not applicable in optimized architecture
       // Backward compatibility fields
       totalVertices: this.memoryStats.totalVertices,
       totalEdges: this.memoryStats.totalEdges,
       deferredReferences: this.deferredReferences.size,
+    };
+  }
+
+  /**
+   * Get detailed graph statistics.
+   *
+   * This deliberately includes full circular-dependency analysis and should be
+   * reserved for explicit diagnostics. Use getCounts() for hot-path metrics.
+   */
+  getStats() {
+    return {
+      ...this.getCounts(),
+      circularDependencies: this.detectCircularDependencies().length,
+      cacheHitRate: 0, // Not applicable in optimized architecture
       deferredQueueSize: this.getDeferredQueueSize(),
       failedReferencesCount: this.getFailedReferencesCount(),
     };

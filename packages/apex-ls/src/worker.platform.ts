@@ -20,10 +20,14 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
+import * as Worker from '@effect/platform/Worker';
 import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
+import * as NodeWorker from '@effect/platform-node/NodeWorker';
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
+  InitializeCompilationWorker,
   isAssistanceResponse,
+  type CompilationWorkerRequest,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -45,6 +49,19 @@ import {
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
+import {
+  CompilationWorkerPool,
+  fromSerializedWorkerPool,
+  unavailableCompilationWorkerPool,
+} from './compiler/CompilationWorkerPool';
+
+import * as path from 'node:path';
+import { availableParallelism } from 'node:os';
+import {
+  parentPort,
+  workerData,
+  Worker as NodeWorkerThread,
+} from 'node:worker_threads';
 
 // ---------------------------------------------------------------------------
 // Worker ID for write-back tracking
@@ -61,8 +78,6 @@ const workerId = `worker-${process.pid}-${Date.now()}-${++workerIdCounter}`;
 // CoordinatorAssistanceMediator listens for these messages and
 // responds with WorkerAssistanceResponse carrying the same correlationId.
 // ---------------------------------------------------------------------------
-
-import { parentPort, workerData } from 'node:worker_threads';
 
 // Dedicated port for assistance requests — avoids polluting the main
 // Worker channel that @effect/platform uses for its wire protocol.
@@ -408,6 +423,59 @@ const WorkerLoggerLayer = Layer.merge(
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
+const runtimeWorkerData = workerData as
+  | {
+      role?: string;
+      compilationPoolSize?: number;
+      compilationConcurrency?: number;
+    }
+  | undefined;
+const requestedCompilationPoolSize = Math.max(
+  1,
+  Math.floor(runtimeWorkerData?.compilationPoolSize ?? 2),
+);
+const compilationPoolSize = Math.min(
+  requestedCompilationPoolSize,
+  Math.max(1, availableParallelism() - 2),
+);
+const compilationConcurrency = Math.max(
+  1,
+  Math.floor(runtimeWorkerData?.compilationConcurrency ?? 1),
+);
+const runningFromTypeScript = __filename.endsWith('.ts');
+const compilerWorkerEntry = path.join(
+  __dirname,
+  runningFromTypeScript ? 'compiler.worker.node.ts' : 'compiler.worker.node.js',
+);
+
+const CompilationWorkerPoolLive =
+  runtimeWorkerData?.role === 'dataOwner'
+    ? Layer.scoped(
+        CompilationWorkerPool,
+        Worker.makePoolSerialized<CompilationWorkerRequest>({
+          size: compilationPoolSize,
+          concurrency: compilationConcurrency,
+          initialMessage: () => new InitializeCompilationWorker({}),
+        }).pipe(
+          Effect.map((pool) =>
+            fromSerializedWorkerPool(
+              pool,
+              compilationPoolSize,
+              compilationConcurrency,
+            ),
+          ),
+          Effect.provide(
+            NodeWorker.layer(
+              () =>
+                new NodeWorkerThread(compilerWorkerEntry, {
+                  execArgv: runningFromTypeScript ? ['--import', 'tsx'] : [],
+                }),
+            ),
+          ),
+        ),
+      )
+    : Layer.succeed(CompilationWorkerPool, unavailableCompilationWorkerPool);
+
 // ---------------------------------------------------------------------------
 // Re-export shared functions for testing
 // ---------------------------------------------------------------------------
@@ -423,7 +491,9 @@ export {
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 
-WorkerRunner.launch(Layer.provide(runnerLayer, NodeWorkerRunner.layer)).pipe(
-  Effect.provide(WorkerLoggerLayer),
-  Effect.runFork,
-);
+WorkerRunner.launch(
+  Layer.provide(
+    runnerLayer,
+    Layer.merge(NodeWorkerRunner.layer, CompilationWorkerPoolLive),
+  ),
+).pipe(Effect.provide(WorkerLoggerLayer), Effect.runFork);

@@ -528,8 +528,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (symbolWasAdded && !skipPostAddBookkeeping) {
       // Sync totalSymbols from graph to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = this.symbolRefManager.getStats();
-      this.memoryStats.totalSymbols = graphStats.totalSymbols;
+      const graphCounts = this.symbolRefManager.getCounts();
+      this.memoryStats.totalSymbols = graphCounts.totalSymbols;
 
       // Update file metadata
       const existing = this.fileMetadata.get(properUri);
@@ -1332,8 +1332,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.symbolRefManager.removeFile(normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
-    const graphStats = this.symbolRefManager.getStats();
-    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+    const graphCounts = this.symbolRefManager.getCounts();
+    this.memoryStats.totalSymbols = graphCounts.totalSymbols;
 
     // Remove from file metadata (normalized key)
     this.fileMetadata.delete(normalizedUri);
@@ -1988,6 +1988,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
+      const inputSymbols = symbolTable.getAllSymbols();
+      const inputReferences = symbolTable.getAllReferences();
+      const unresolvedReferenceCount = inputReferences.reduce(
+        (count, reference) => count + (reference.resolvedSymbolId ? 0 : 1),
+        0,
+      );
+      const supertypeReferenceCount = inputReferences.reduce(
+        (count, reference) =>
+          count +
+          (reference.context === ReferenceContext.INHERITANCE ||
+          reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION
+            ? 1
+            : 0),
+        0,
+      );
+      const nestedSymbolCount = inputSymbols.reduce(
+        (count, symbol) =>
+          count +
+          (symbol.parentId !== null &&
+          symbol.parentId !== undefined &&
+          symbol.parentId !== 'null'
+            ? 1
+            : 0),
+        0,
+      );
+      const cacheEntriesBefore = self.unifiedCache.getStats().totalEntries;
+
+      yield* Effect.annotateCurrentSpan({
+        'symbol_manager.input.symbol_count': inputSymbols.length,
+        'symbol_manager.input.nested_symbol_count': nestedSymbolCount,
+        'symbol_manager.input.reference_count': inputReferences.length,
+        'symbol_manager.input.unresolved_reference_count':
+          unresolvedReferenceCount,
+        'symbol_manager.input.supertype_reference_count':
+          supertypeReferenceCount,
+        'symbol_manager.state.files_before': self.fileMetadata.size,
+        'symbol_manager.state.symbols_before': self.memoryStats.totalSymbols,
+        'symbol_manager.state.cache_entries_before': cacheEntriesBefore,
+        'symbol_manager.workspace_session_active':
+          self.isWorkspaceLoadSessionActive(),
+      });
+
       const existingMetadata = symbolTable.getMetadata();
       const metadataUpdate: {
         fileUri: string;
@@ -2003,13 +2045,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
       symbolTable.setMetadata(metadataUpdate);
 
-      const registration = yield* self.registerSymbolTableForFile(
-        symbolTable,
-        normalizedUri,
+      const registration = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.register',
         {
+          attributes: {
+            'symbol.count': inputSymbols.length,
+            'reference.count': inputReferences.length,
+          },
+        },
+      )(
+        self.registerSymbolTableForFile(symbolTable, normalizedUri, {
           mergeReferences: false,
           hasErrors,
-        },
+        }),
       );
 
       if (registration.decision === 'rejected-stale') {
@@ -2035,7 +2083,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Rebuild per-file reference edges from the canonical table selected by registration.
-      self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.clearReferenceState',
+      )(
+        Effect.sync(() =>
+          self.symbolRefManager.clearReferenceStateForFile(normalizedUri),
+        ),
+      );
 
       // After registration, get the canonical symbol table (may have been merged)
       const finalSymbolTable = registration.canonicalTable;
@@ -2056,26 +2110,46 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Update all symbols to use the normalized URI
       // Process in batches with yields for large symbol tables to prevent blocking
       const batchSize = 100;
-      const symbolNamesAdded = new Set<string>();
-      let yieldsPerformed = 0;
-      for (let i = 0; i < symbols.length; i++) {
-        const symbol = symbols[i];
-        // Update the symbol's fileUri to match the normalized URI
-        symbol.fileUri = normalizedUri;
+      const { symbolNamesAdded, yieldsPerformed } = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.insertSymbols',
+        {
+          attributes: {
+            'symbol.count': symbols.length,
+            'symbol.batch_size': batchSize,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          const namesAdded = new Set<string>();
+          let yieldCount = 0;
+          for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            // Update the symbol's fileUri to match the normalized URI
+            symbol.fileUri = normalizedUri;
 
-        // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
-        // Pass the registered SymbolTable to avoid creating a new one
-        yield* Effect.promise(() =>
-          self.addSymbol(symbol, normalizedUri, finalSymbolTable, true),
-        );
-        symbolNamesAdded.add(symbol.name);
+            // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
+            // Pass the registered SymbolTable to avoid creating a new one
+            yield* Effect.promise(() =>
+              self.addSymbol(symbol, normalizedUri, finalSymbolTable, true),
+            );
+            namesAdded.add(symbol.name);
 
-        // Yield every batchSize symbols to allow other tasks to run
-        if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-          yieldsPerformed++;
-          yield* yieldToEventLoop; // Yield to event loop using setImmediate
-        }
-      }
+            // Yield every batchSize symbols to allow other tasks to run
+            if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+              yieldCount++;
+              yield* yieldToEventLoop; // Yield to event loop using setImmediate
+            }
+          }
+          yield* Effect.annotateCurrentSpan({
+            'symbol.unique_name_count': namesAdded.size,
+            'symbol.event_loop_yield_count': yieldCount,
+          });
+          return {
+            symbolNamesAdded: namesAdded,
+            yieldsPerformed: yieldCount,
+          };
+        }),
+      );
 
       const addDuration = Date.now() - addStartTime;
       if (addDuration > 50 || yieldsPerformed > 0) {
@@ -2110,54 +2184,87 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
 
-      // Invalidate cache for all symbol names that were added
-      // This ensures that findSymbolByName() will see the newly added symbols
-      for (const symbolName of symbolNamesAdded) {
-        // Normalize to lowercase to match cache key format in findSymbolByName()
-        const normalizedName = symbolName.toLowerCase();
-        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-      }
+      yield* Effect.withSpan('symbolManager.addSymbolTable.invalidateCache')(
+        Effect.gen(function* () {
+          let invalidationCalls = 0;
+          let entriesExamined = 0;
+          let entriesInvalidated = 0;
+          const invalidate = (pattern: string): void => {
+            // invalidatePattern scans every current key. Capture that work at
+            // each call rather than only reporting the number of deleted keys.
+            entriesExamined += self.unifiedCache.getStats().totalEntries;
+            invalidationCalls++;
+            entriesInvalidated += self.unifiedCache.invalidatePattern(pattern);
+          };
 
-      // Invalidate file-based cache when symbols are added to a file
-      // This ensures that findSymbolsInFile() will see the newly added symbols
-      self.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+          // Invalidate cache for all symbol names that were added
+          // This ensures that findSymbolByName() will see the newly added symbols
+          for (const symbolName of symbolNamesAdded) {
+            // Normalize to lowercase to match cache key format in findSymbolByName()
+            const normalizedName = symbolName.toLowerCase();
+            invalidate(`symbol_name_${normalizedName}`);
+          }
 
-      // Also invalidate name-based cache to ensure findSymbolByName works correctly
-      for (const symbolName of symbolNamesAdded) {
-        const normalizedName = symbolName.toLowerCase();
-        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-      }
+          // Invalidate file-based cache when symbols are added to a file
+          // This ensures that findSymbolsInFile() will see the newly added symbols
+          invalidate(`file_symbols_${normalizedUri}`);
 
-      // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
-      // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
-      // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
-      // another file), so the affected target is not knowable from
-      // symbolNamesAdded alone. findReferencesTo/From cache by target name and
-      // were never invalidated here, so an interface queried while only its
-      // first implementor was loaded stayed pinned to that one implementor even
-      // after more were added (the live "only the first implementor resolves"
-      // bug). These results are a cheap indexed reverse-index lookup, so a
-      // wholesale invalidation of the family is correct and cheap to rebuild.
-      self.unifiedCache.invalidatePattern('^refs_(to|from)_');
+          // Also invalidate name-based cache to ensure findSymbolByName works correctly
+          for (const symbolName of symbolNamesAdded) {
+            const normalizedName = symbolName.toLowerCase();
+            invalidate(`symbol_name_${normalizedName}`);
+          }
+
+          // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
+          // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
+          // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
+          // another file), so the affected target is not knowable from
+          // symbolNamesAdded alone. findReferencesTo/From cache by target name and
+          // were never invalidated here, so an interface queried while only its
+          // first implementor was loaded stayed pinned to that one implementor even
+          // after more were added (the live "only the first implementor resolves"
+          // bug). These results are a cheap indexed reverse-index lookup, so a
+          // wholesale invalidation of the family is correct and cheap to rebuild.
+          invalidate('^refs_(to|from)_');
+
+          yield* Effect.annotateCurrentSpan({
+            'cache.entries_before': cacheEntriesBefore,
+            'cache.invalidation_call_count': invalidationCalls,
+            'cache.entries_examined': entriesExamined,
+            'cache.entries_invalidated': entriesInvalidated,
+            'cache.entries_after': self.unifiedCache.getStats().totalEntries,
+          });
+        }),
+      );
 
       // Derive positional argumentTypes for call references BEFORE building any
       // graph edges: the reverse-index edges copy each reference's argumentTypes
       // into their context, so the signature key (used to separate same-arity
       // overloads, W-23182862) must be populated first or it never reaches the
       // edge. File-local and synchronous, so this is the natural place.
-      yield* self.resolveArgumentTypesEffect(finalSymbolTable);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.resolveArgumentTypes',
+        { attributes: { 'reference.count': inputReferences.length } },
+      )(self.resolveArgumentTypesEffect(finalSymbolTable));
 
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
-      yield* self.processSameFileReferencesToGraphEffect(
-        finalSymbolTable,
-        normalizedUri,
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.processSameFileReferences',
+        { attributes: { 'reference.count': inputReferences.length } },
+      )(
+        self.processSameFileReferencesToGraphEffect(
+          finalSymbolTable,
+          normalizedUri,
+        ),
       );
 
       // Sync memory stats with the graph's stats to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = self.symbolRefManager.getStats();
-      self.memoryStats.totalSymbols = graphStats.totalSymbols;
+      const graphCounts = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.collectGraphCounts',
+      )(Effect.sync(() => self.symbolRefManager.getCounts()));
+      self.memoryStats.totalSymbols = graphCounts.totalSymbols;
       // Preserve file-level bookkeeping that per-symbol path normally updates.
       // Bulk add skips per-symbol bookkeeping for performance, so we update once.
       if (symbols.length > 0) {
@@ -2185,53 +2292,79 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           symbolTableForRegistry,
           normalizedUri,
         );
-        yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+        yield* Effect.withSpan(
+          'symbolManager.addSymbolTable.updateGlobalTypeRegistry',
+          { attributes: { 'symbol.count': symbols.length } },
+        )(Effect.provide(registerEffect, GlobalTypeRegistryLive));
       }
 
       // Process deferred references for types that were just added
       // This ensures that when a new file (like Foo.cls) is added, deferred references
       // in other files (like Bar.cls) that reference those types get resolved
-      const sourceFilesToReResolve = new Set<string>();
-      for (const symbolName of symbolNamesAdded) {
-        // Check if there are deferred references waiting for this type
-        const deferredRefs =
-          self.symbolRefManager.getDeferredReferences(symbolName);
-        if (deferredRefs && deferredRefs.length > 0) {
-          // Collect source file URIs from deferred references
-          for (const deferredRef of deferredRefs) {
-            if (deferredRef.sourceSymbol?.fileUri) {
-              sourceFilesToReResolve.add(deferredRef.sourceSymbol.fileUri);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.processDeferredReferences',
+        {
+          attributes: {
+            'symbol.unique_name_count': symbolNamesAdded.size,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          const sourceFilesToReResolve = new Set<string>();
+          let matchedSymbolNameCount = 0;
+          let matchedReferenceCount = 0;
+          for (const symbolName of symbolNamesAdded) {
+            // Check if there are deferred references waiting for this type
+            const deferredRefs =
+              self.symbolRefManager.getDeferredReferences(symbolName);
+            if (deferredRefs && deferredRefs.length > 0) {
+              matchedSymbolNameCount++;
+              matchedReferenceCount += deferredRefs.length;
+              // Collect source file URIs from deferred references
+              for (const deferredRef of deferredRefs) {
+                if (deferredRef.sourceSymbol?.fileUri) {
+                  sourceFilesToReResolve.add(deferredRef.sourceSymbol.fileUri);
+                }
+              }
+
+              // Process deferred references for this type
+              // Use Effect.tryPromise to handle the async operation and catch errors
+              yield* Effect.tryPromise({
+                try: () =>
+                  Effect.runPromise(
+                    self.symbolRefManager
+                      .processDeferredReferencesBatchEffect(symbolName)
+                      .pipe(
+                        Effect.catchAll(() =>
+                          Effect.succeed({
+                            needsRetry: false,
+                            reason: 'success' as const,
+                          }),
+                        ),
+                      ),
+                  ),
+                catch: () => ({
+                  needsRetry: false,
+                  reason: 'success' as const,
+                }),
+              }).pipe(
+                Effect.catchAll(() => Effect.succeed(undefined)),
+                Effect.asVoid,
+              );
             }
           }
-
-          // Process deferred references for this type
-          // Use Effect.tryPromise to handle the async operation and catch errors
-          yield* Effect.tryPromise({
-            try: () =>
-              Effect.runPromise(
-                self.symbolRefManager
-                  .processDeferredReferencesBatchEffect(symbolName)
-                  .pipe(
-                    Effect.catchAll(() =>
-                      Effect.succeed({
-                        needsRetry: false,
-                        reason: 'success' as const,
-                      }),
-                    ),
-                  ),
-              ),
-            catch: () => ({ needsRetry: false, reason: 'success' as const }),
-          }).pipe(
-            Effect.catchAll(() => Effect.succeed(undefined)),
-            Effect.asVoid,
-          );
-        }
-      }
-      // Re-run cross-file resolution for source files that had deferred references
-      // This updates SymbolReference objects with resolvedSymbolId
-      for (const sourceFileUri of sourceFilesToReResolve) {
-        yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
-      }
+          // Re-run cross-file resolution for source files that had deferred references
+          // This updates SymbolReference objects with resolvedSymbolId
+          for (const sourceFileUri of sourceFilesToReResolve) {
+            yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
+          }
+          yield* Effect.annotateCurrentSpan({
+            'deferred.matched_symbol_name_count': matchedSymbolNameCount,
+            'deferred.matched_reference_count': matchedReferenceCount,
+            'deferred.source_file_count': sourceFilesToReResolve.size,
+          });
+        }),
+      );
 
       // Eagerly resolve this file's own SUPERTYPE edges (extends / implements).
       // processSameFileReferencesToGraphEffect (run above) deliberately SKIPS
@@ -2250,33 +2383,67 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // addReference de-dupes, so this stays near-free on repeated write-backs.
       // (Targets must already be in the graph — the common cold-open-interface-
       // then-load-implementor ordering; reverse ordering remains lazy.)
-      const hasUnresolvedSupertypeEdge = finalSymbolTable
-        .getAllReferences()
-        .some(
-          (r) =>
-            !r.resolvedSymbolId &&
-            (r.context === ReferenceContext.INHERITANCE ||
-              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
-        );
-      if (hasUnresolvedSupertypeEdge) {
-        if (self.isWorkspaceLoadSessionActive()) {
-          // Defer resolution until workspace load completes
-          self.deferredResolutions.add(normalizedUri);
-          self.logger.debug(
-            () =>
-              `[SYMBOL-MANAGER] Deferred resolution for ${normalizedUri} ` +
-              '(workspace load session active)',
-          );
-        } else {
-          // Immediate resolution for interactive operations
-          yield* self.resolveCrossFileReferencesForFile(normalizedUri);
-        }
-      }
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.handleSupertypeReferences',
+        {
+          attributes: {
+            'reference.supertype_count': supertypeReferenceCount,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          const unresolvedSupertypeReferenceCount = finalSymbolTable
+            .getAllReferences()
+            .reduce(
+              (count, reference) =>
+                count +
+                (!reference.resolvedSymbolId &&
+                (reference.context === ReferenceContext.INHERITANCE ||
+                  reference.context ===
+                    ReferenceContext.INTERFACE_IMPLEMENTATION)
+                  ? 1
+                  : 0),
+              0,
+            );
+          if (unresolvedSupertypeReferenceCount > 0) {
+            if (self.isWorkspaceLoadSessionActive()) {
+              // Defer resolution until workspace load completes
+              self.deferredResolutions.add(normalizedUri);
+              self.logger.debug(
+                () =>
+                  `[SYMBOL-MANAGER] Deferred resolution for ${normalizedUri} ` +
+                  '(workspace load session active)',
+              );
+            } else {
+              // Immediate resolution for interactive operations
+              yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+            }
+          }
+          yield* Effect.annotateCurrentSpan({
+            'reference.unresolved_supertype_count':
+              unresolvedSupertypeReferenceCount,
+            'reference.resolution_deferred':
+              unresolvedSupertypeReferenceCount > 0 &&
+              self.isWorkspaceLoadSessionActive(),
+          });
+        }),
+      );
 
       self.lastProcessedTableStateByFile.set(
         normalizedUri,
         self.getSymbolTableStateSignature(finalSymbolTable),
       );
+
+      yield* Effect.annotateCurrentSpan({
+        'symbol_manager.state.files_after': graphCounts.totalFiles,
+        'symbol_manager.state.symbols_after': graphCounts.totalSymbols,
+        'symbol_manager.state.references_after': graphCounts.totalReferences,
+        'symbol_manager.state.deferred_references_after':
+          graphCounts.deferredReferences,
+        'symbol_manager.state.cache_entries_after':
+          self.unifiedCache.getStats().totalEntries,
+        'symbol_manager.add_duration_ms': Date.now() - addStartTime,
+      });
     });
   }
 
@@ -2525,6 +2692,45 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             yield* Effect.yieldNow();
           }
         }
+
+        yield* Effect.annotateCurrentSpan({
+          'reference.count': typeReferences.length,
+          'reference.batch_size': batchSize,
+          'reference.event_loop_yield_count': Math.max(
+            0,
+            Math.ceil(typeReferences.length / batchSize) - 1,
+          ),
+          'reference.literal_skip_count': stats.literalSkips,
+          'reference.cross_file_skip_count': stats.crossFileSkips,
+          'reference.unresolved_skip_count': stats.unresolvedSkips,
+          'reference.declaration_skip_count': stats.declarationSkips,
+          'reference.graph_lookup_count': stats.graphLookupCalls,
+          'reference.graph_edge_added_count': stats.graphEdgesAdded,
+          'reference.resolve_target_ms': stats.resolveTargetMs,
+          'reference.graph_lookup_ms': stats.graphLookupMs,
+          'reference.add_edge_ms': stats.addReferenceMs,
+          'reference.resolver_call_count': stats.resolverCalls,
+          'reference.resolver_qualified_call_count':
+            stats.resolverQualifiedCalls,
+          'reference.resolver_qualified_ms': stats.resolverQualifiedMs,
+          'reference.resolver_scope_hierarchy_ms':
+            stats.resolverScopeHierarchyMs,
+          'reference.resolver_scope_search_ms': stats.resolverScopeSearchMs,
+          'reference.resolver_direct_lookup_ms': stats.resolverDirectLookupMs,
+          'reference.resolver_builtin_ms': stats.resolverBuiltInMs,
+          'reference.resolver_pre_resolved_hit_count':
+            stats.resolverPreResolvedHits,
+          'reference.resolver_qualified_cache_hit_count':
+            stats.resolverQualifiedCacheHits,
+          'reference.resolver_qualified_cache_miss_count':
+            stats.resolverQualifiedCacheMisses,
+          'reference.resolver_member_cache_hit_count':
+            stats.resolverMemberContextCacheHits,
+          'reference.resolver_member_cache_miss_count':
+            stats.resolverMemberContextCacheMisses,
+          'reference.unresolved_unique_name_count': unresolvedByName.size,
+          'reference.unique_name_count': refsByName.size,
+        });
       } catch (error) {
         self.logger.error(
           () =>
@@ -4690,6 +4896,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Estimate usage including symbols and cache entries
   getMemoryUsage(): MemoryUsageStats {
     const cacheStats = this.unifiedCache.getStats();
+    const graphCounts = this.symbolRefManager.getCounts();
     const estimatedMemoryUsage =
       this.memoryStats.totalSymbols * 1024 + cacheStats.totalEntries * 256;
     const fileMetadataSize = this.fileMetadata.size * 256;
@@ -4704,8 +4911,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       cacheEfficiency,
       recommendations: this.generateMemoryOptimizationRecommendations(),
       memoryPoolStats: {
-        totalReferences: this.symbolRefManager.getStats().totalReferences,
-        activeReferences: this.symbolRefManager.getStats().totalReferences,
+        totalReferences: graphCounts.totalReferences,
+        activeReferences: graphCounts.totalReferences,
         referenceEfficiency: 0.85,
         poolSize: estimatedMemoryUsage,
       },

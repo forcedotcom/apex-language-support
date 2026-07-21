@@ -31,10 +31,12 @@ import {
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   CompileDocument,
   WorkspaceBatchCompile,
+  CompileApexFile,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
@@ -71,6 +73,12 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  CompilationWorkerPool,
+  type CompilationWorkerPoolService,
+} from './compiler/CompilationWorkerPool';
+import { reconstructCompiledSymbolTable } from './compiler/CompilationWorkerHandler';
+import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -87,6 +95,7 @@ export const AllWorkerRequests = Schema.Union(
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
@@ -1558,7 +1567,7 @@ export function writeBackCompiledSymbols(
 
 export const handleWorkerInitRole = (
   req: Schema.Schema.Type<typeof WorkerInit>,
-): Effect.Effect<{ ready: boolean }> => {
+): Effect.Effect<{ ready: boolean }, never, CompilationWorkerPoolService> => {
   if (req.role === 'resourceLoader') {
     return Effect.gen(function* () {
       const { ResourceLoader } = yield* Effect.promise(
@@ -1572,6 +1581,20 @@ export const handleWorkerInitRole = (
   if (req.role === 'dataOwner') {
     return Effect.gen(function* () {
       yield* ensureDataOwnerServices;
+      const compilationPool = yield* CompilationWorkerPool;
+      if (compilationPool.available) {
+        yield* Effect.logInfo(
+          `[DATA-OWNER] compilation pool ready (size=${compilationPool.size}, ` +
+            `concurrencyPerWorker=${compilationPool.concurrency})`,
+        );
+      } else {
+        // Some focused worker topologies do not install workspace-compilation
+        // infrastructure. They may still serve ordinary data-owner requests;
+        // WorkspaceBatchCompileOnDataOwner fails explicitly if invoked.
+        yield* Effect.logDebug(
+          '[DATA-OWNER] workspace compilation capability is not installed',
+        );
+      }
       return { ready: true };
     });
   }
@@ -3214,6 +3237,160 @@ const untracedHandlers: SerializedWorkerHandlers = {
             );
             return { ok: true as const };
           }),
+        ),
+      ),
+    ),
+
+  WorkspaceBatchCompileOnDataOwner: (req) =>
+    guardRole('WorkspaceBatchCompileOnDataOwner').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const pool = yield* CompilationWorkerPool;
+          if (!pool.available) {
+            return yield* Effect.fail(
+              new Error(
+                'Workspace compilation requires the data-owner-managed compilation pool',
+              ),
+            );
+          }
+
+          yield* Effect.logInfo(
+            '[DATA-OWNER] WorkspaceBatchCompileOnDataOwner received: ' +
+              `${req.entries.length} files, poolSize=${pool.size}, ` +
+              `workerConcurrency=${pool.concurrency}`,
+          );
+          const batchStartTime = Date.now();
+          const svc = yield* ensureDataOwnerServices;
+          // CPU parallelism comes from distinct Effect Workers. The worker's
+          // own Effect concurrency controls request scheduling, not additional
+          // CPU execution within that worker.
+          const compilationParallelism = Math.max(1, pool.size);
+          const resultBufferCapacity = Math.max(1, pool.size * 4);
+
+          yield* Effect.annotateCurrentSpan({
+            'workspace.session_id': req.sessionId,
+            'workspace.file_count': req.entries.length,
+            'workspace.content_chars': req.entries.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            ),
+            'workspace.worker_count': pool.size,
+            'workspace.concurrency_per_worker': pool.concurrency,
+            'workspace.compile_parallelism': compilationParallelism,
+            'workspace.result_buffer_capacity': resultBufferCapacity,
+            'workspace.compile_location': 'data-owner-effect-worker-pool',
+          });
+
+          const results = yield* runWorkspaceCompilationPipeline({
+            entries: req.entries,
+            parallelism: compilationParallelism,
+            bufferCapacity: resultBufferCapacity,
+            compile: (entry) =>
+              pool.execute(
+                new CompileApexFile({
+                  uri: entry.uri,
+                  content: entry.content,
+                  languageId: entry.languageId,
+                  version: entry.version,
+                  detailLevel: 'public-api',
+                  collectReferences: true,
+                  traceContext: req.traceContext,
+                }),
+              ),
+            commit: (compiled, entry, index) =>
+              dataOwnerWrite(
+                Effect.gen(function* () {
+                  const storage = svc.storageManager.getStorage();
+                  const currentDocument = yield* Effect.promise(() =>
+                    storage.getDocument(entry.uri),
+                  );
+                  if (
+                    !currentDocument ||
+                    currentDocument.version !== entry.version
+                  ) {
+                    yield* Effect.annotateCurrentSpan({
+                      'workspace.merge_outcome': !currentDocument
+                        ? 'rejected-document-missing'
+                        : 'rejected-version-mismatch',
+                      'document.current_version':
+                        currentDocument?.version ?? -1,
+                    });
+                    resolveReadiness(entry.uri, entry.version);
+                    return { outcome: 'rejected' as const };
+                  }
+
+                  const deserializeStart = Date.now();
+                  const symbolTable = reconstructCompiledSymbolTable(compiled);
+                  const deserializeMs = Date.now() - deserializeStart;
+
+                  const mergeStart = Date.now();
+                  yield* svc.symbolManager.addSymbolTable(
+                    symbolTable,
+                    entry.uri,
+                    entry.version,
+                    compiled.parserDiagnostics.length > 0,
+                  );
+                  const mergeMs = Date.now() - mergeStart;
+                  getDocumentStateCache().merge(entry.uri, {
+                    documentVersion: entry.version,
+                    detailLevel: 'public-api',
+                    timestamp: Date.now(),
+                  });
+                  resolveReadiness(entry.uri, entry.version);
+
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.compile_ms': compiled.metrics.compileMs,
+                    'workspace.serialize_ms': compiled.metrics.serializeMs,
+                    'workspace.payload_size_bytes':
+                      compiled.metrics.payloadSizeBytes,
+                    'workspace.deserialize_ms': deserializeMs,
+                    'workspace.merge_ms': mergeMs,
+                    'workspace.merge_outcome': 'compiled',
+                    'symbol.count': compiled.metrics.symbolCount,
+                    'reference.count': compiled.metrics.referenceCount,
+                  });
+                  return { outcome: 'compiled' as const };
+                }),
+                {
+                  spanName: 'workspace.file.commit',
+                  attributes: {
+                    'workspace.session_id': req.sessionId,
+                    'workspace.file_index': index,
+                    'workspace.file_total': req.entries.length,
+                    'document.uri': entry.uri,
+                    'document.version': entry.version,
+                  },
+                },
+              ),
+          });
+
+          const compiledCount = results.filter(
+            (result) => result.outcome === 'compiled',
+          ).length;
+          const errorCount = req.entries.length - compiledCount;
+          const elapsedMs = Date.now() - batchStartTime;
+
+          yield* Effect.annotateCurrentSpan({
+            'workspace.compiled_count': compiledCount,
+            'workspace.error_count': errorCount,
+            'workspace.elapsed_ms': elapsedMs,
+          });
+          yield* Effect.logInfo(
+            `[DATA-OWNER] Effect Worker batch compile: ${compiledCount} compiled, ` +
+              `${errorCount} errors, ${elapsedMs}ms (${pool.size} workers)`,
+          );
+
+          return {
+            compiledCount,
+            errorCount,
+            elapsedMs,
+            workerCount: pool.size,
+          };
+        }).pipe(
+          Effect.mapError((error) => ({
+            _tag: 'WorkspaceBatchCompileOnDataOwnerError' as const,
+            message: error instanceof Error ? error.message : String(error),
+          })),
         ),
       ),
     ),

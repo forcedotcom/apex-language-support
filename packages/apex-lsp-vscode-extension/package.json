@@ -109,6 +109,9 @@
       },
       {
         "uri": "./dist/worker.platform.web.js"
+      },
+      {
+        "uri": "./dist/compiler.worker.web.js"
       }
     ],
     "configuration": {
@@ -672,13 +675,14 @@
               "properties": {
                 "poolSize": {
                   "type": "number",
+                  "default": 2,
                   "minimum": 1,
                   "maximum": 14,
                   "description": "%configuration.apex-ls-ts.experimental.workers.compilation.poolSize.description%"
                 },
                 "concurrency": {
                   "type": "number",
-                  "default": 8,
+                  "default": 1,
                   "minimum": 1,
                   "maximum": 20,
                   "description": "%configuration.apex-ls-ts.experimental.workers.compilation.concurrency.description%"

@@ -32,10 +32,14 @@ import { Buffer } from 'buffer';
 (globalThis as any).global = globalThis;
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
+import * as Worker from '@effect/platform/Worker';
+import * as BrowserWorker from '@effect/platform-browser/BrowserWorker';
 import * as BrowserWorkerRunner from '@effect/platform-browser/BrowserWorkerRunner';
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
+  InitializeCompilationWorker,
   isAssistanceResponse,
+  type CompilationWorkerRequest,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -51,6 +55,11 @@ import {
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
+import {
+  CompilationWorkerPool,
+  fromSerializedWorkerPool,
+  unavailableCompilationWorkerPool,
+} from './compiler/CompilationWorkerPool';
 
 // ---------------------------------------------------------------------------
 // Worker ID (no process.pid in browser)
@@ -364,6 +373,65 @@ const WorkerLoggerLayer = Layer.merge(
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
+type WorkerPortsInit = {
+  readonly _tag: 'WorkerPortsInit';
+  readonly effectPort: MessagePort;
+  readonly assistPort: MessagePort;
+  readonly role?: string;
+  readonly compilationPoolSize?: number;
+  readonly compilationConcurrency?: number;
+  readonly compilerWorkerUrl?: string;
+};
+
+function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
+  if (data.role !== 'dataOwner') {
+    return Layer.succeed(
+      CompilationWorkerPool,
+      unavailableCompilationWorkerPool,
+    );
+  }
+  if (!data.compilerWorkerUrl) {
+    return Layer.effect(
+      CompilationWorkerPool,
+      Effect.fail(
+        new Error(
+          'Browser data-owner startup requires a compiler worker bundle URL',
+        ),
+      ),
+    );
+  }
+
+  const requestedPoolSize = Math.max(
+    1,
+    Math.floor(data.compilationPoolSize ?? 2),
+  );
+  const hardwareConcurrency = Math.max(
+    1,
+    Math.floor(globalThis.navigator?.hardwareConcurrency ?? requestedPoolSize),
+  );
+  const poolSize = Math.min(
+    requestedPoolSize,
+    Math.max(1, hardwareConcurrency - 2),
+  );
+  const concurrency = Math.max(1, Math.floor(data.compilationConcurrency ?? 1));
+  const compilerWorkerUrl = data.compilerWorkerUrl;
+  const W = globalThis.Worker;
+
+  return Layer.scoped(
+    CompilationWorkerPool,
+    Worker.makePoolSerialized<CompilationWorkerRequest>({
+      size: poolSize,
+      concurrency,
+      initialMessage: () => new InitializeCompilationWorker({}),
+    }).pipe(
+      Effect.map((pool) =>
+        fromSerializedWorkerPool(pool, poolSize, concurrency),
+      ),
+      Effect.provide(BrowserWorker.layer(() => new W(compilerWorkerUrl))),
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Re-export shared functions for testing
 // ---------------------------------------------------------------------------
@@ -380,7 +448,7 @@ export {
 } from './worker.platform.shared.ts';
 
 self.addEventListener('message', (event: MessageEvent) => {
-  const data = event.data as Record<string, unknown> | null;
+  const data = event.data as WorkerPortsInit | null;
   if (!data || data._tag !== 'WorkerPortsInit') return;
 
   const effectPort = data.effectPort as MessagePort;
@@ -394,7 +462,10 @@ self.addEventListener('message', (event: MessageEvent) => {
   WorkerRunner.launch(
     Layer.provide(
       runnerLayer,
-      BrowserWorkerRunner.layerMessagePort(effectPort),
+      Layer.merge(
+        BrowserWorkerRunner.layerMessagePort(effectPort),
+        makeCompilationWorkerPoolLayer(data),
+      ),
     ),
   ).pipe(Effect.provide(WorkerLoggerLayer), Effect.runFork);
 });

@@ -8,8 +8,6 @@
 
 import { Effect } from 'effect';
 import { unzipSync } from 'fflate';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import type { TextDocumentChangeEvent } from 'vscode-languageserver';
 import type {
   ProcessWorkspaceBatchesParams,
   SendWorkspaceBatchParams,
@@ -21,13 +19,6 @@ import {
   LSP_SPAN_NAMES,
 } from '@salesforce/apex-lsp-shared';
 import { provideCoordinatorTracing } from '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing';
-import {
-  createQueuedItem,
-  offer,
-  Priority,
-  SchedulerInitializationService,
-} from '@salesforce/apex-lsp-parser-ast';
-import { DocumentProcessingService } from '@salesforce/apex-lsp-compliant-services';
 import { context as otelContext } from '@opentelemetry/api';
 import { extractTraceContext } from './traceContextInjection';
 
@@ -52,10 +43,24 @@ class WorkspaceBatchStorage {
    * Store a batch for a workspace load session
    */
   storeBatch(params: SendWorkspaceBatchParams): string {
-    // Use batchIndex 0 to determine session (first batch creates session)
-    // For simplicity, we'll use a session ID based on totalBatches and timestamp
-    // In practice, batches from same workspace load will have same totalBatches
-    const sessionId = this.getSessionId(params);
+    const sessionId = params.sessionId.trim();
+    if (!sessionId) {
+      throw new Error('Workspace batch sessionId must not be empty');
+    }
+    if (!Number.isInteger(params.totalBatches) || params.totalBatches < 1) {
+      throw new Error(
+        `Invalid totalBatches ${params.totalBatches} for session ${sessionId}`,
+      );
+    }
+    if (
+      !Number.isInteger(params.batchIndex) ||
+      params.batchIndex < 0 ||
+      params.batchIndex >= params.totalBatches
+    ) {
+      throw new Error(
+        `Invalid batchIndex ${params.batchIndex} for ${params.totalBatches} batches`,
+      );
+    }
 
     let session = this.sessions.get(sessionId);
     if (!session) {
@@ -71,6 +76,11 @@ class WorkspaceBatchStorage {
       this.logger.debug(
         () =>
           `[BATCH-STORAGE] Created new session ${sessionId} for ${params.totalBatches} batches`,
+      );
+    } else if (session.totalBatches !== params.totalBatches) {
+      throw new Error(
+        `Workspace session ${sessionId} expected ${session.totalBatches} batches, ` +
+          `received ${params.totalBatches}`,
       );
     }
 
@@ -110,22 +120,6 @@ class WorkspaceBatchStorage {
   }
 
   /**
-   * Find session ID by totalBatches that has all batches received
-   * Used for processing trigger
-   */
-  findCompleteSession(totalBatches: number): string | null {
-    for (const [id, session] of this.sessions.entries()) {
-      if (
-        session.totalBatches === totalBatches &&
-        this.areAllBatchesReceived(id)
-      ) {
-        return id;
-      }
-    }
-    return null;
-  }
-
-  /**
    * Get all batches for a session, sorted by batchIndex
    */
   getBatches(sessionId: string): SendWorkspaceBatchParams[] {
@@ -161,32 +155,6 @@ class WorkspaceBatchStorage {
         this.sessions.delete(sessionId);
       }
     }
-  }
-
-  /**
-   * Generate session ID from batch params
-   * Uses totalBatches and finds or creates a matching session
-   * If multiple workspace loads happen simultaneously, this could create separate sessions
-   */
-  private getSessionId(params: SendWorkspaceBatchParams): string {
-    // Find existing session with matching totalBatches that's not complete
-    // This handles the case where batches arrive out of order
-    for (const [sessionId, session] of this.sessions.entries()) {
-      if (
-        session.totalBatches === params.totalBatches &&
-        !this.areAllBatchesReceived(sessionId)
-      ) {
-        // Check if this batch index is already in this session
-        if (!session.receivedBatches.has(params.batchIndex)) {
-          return sessionId;
-        }
-      }
-    }
-
-    // No matching session found - create new one
-    // Use timestamp + totalBatches + random to ensure uniqueness
-    const sessionId = `workspace-load-${Date.now()}-${params.totalBatches}-${Math.random().toString(36).slice(2, 9)}`;
-    return sessionId;
   }
 }
 
@@ -340,6 +308,32 @@ export function getWorkspaceLoadSessionDispatcher(): WorkspaceLoadSessionDispatc
   return workspaceLoadSessionDispatcher;
 }
 
+export type DataOwnerCompileDispatcher = (params: {
+  sessionId: string;
+  entries: Array<{
+    uri: string;
+    content: string;
+    languageId: string;
+    version: number;
+  }>;
+  traceContext?: string;
+}) => Promise<{ compiledCount: number; errorCount: number; elapsedMs: number }>;
+
+let dataOwnerCompileDispatcher: DataOwnerCompileDispatcher | null = null;
+
+export function setDataOwnerCompileDispatcher(
+  dispatcher: DataOwnerCompileDispatcher | null,
+): void {
+  dataOwnerCompileDispatcher = dispatcher;
+  getLogger().debug(
+    () => `Data owner compile dispatcher ${dispatcher ? 'set' : 'cleared'}`,
+  );
+}
+
+export function getDataOwnerCompileDispatcher(): DataOwnerCompileDispatcher | null {
+  return dataOwnerCompileDispatcher;
+}
+
 export type CrossFileEnrichmentDispatcher = (
   fileUris: string[],
 ) => Promise<{ resolved: number; failed: number }>;
@@ -421,170 +415,16 @@ function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
 }
 
 /**
- * Background Effect that decompresses and processes a workspace batch
- * This runs asynchronously via the scheduler to avoid blocking the LSP request handler
- *
- * @param params Batch request parameters
- * @param compressedDataBase64 Base64-encoded compressed data (passed separately to avoid blocking decode)
- * @returns Effect that processes the batch
- */
-function processWorkspaceBatchBackground(
-  params: SendWorkspaceBatchParams,
-  compressedDataBase64: string,
-): Effect.Effect<void, never, never> {
-  const logger = getLogger();
-
-  return Effect.gen(function* () {
-    logger.debug(
-      () =>
-        `[BACKGROUND] Processing workspace batch ${params.batchIndex + 1}/${
-          params.totalBatches
-        } (${params.fileMetadata.length} files)`,
-    );
-
-    // Decode base64 to Uint8Array
-    const compressedData = yield* Effect.try({
-      try: () => decodeBase64(compressedDataBase64),
-      catch: (error) =>
-        new Error(
-          `Failed to decode base64 data: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        ),
-    });
-
-    // Decompress ZIP archive (CPU-intensive, now in background)
-    const decompressedFiles = yield* Effect.try({
-      try: () => unzipSync(compressedData),
-      catch: (error) =>
-        new Error(
-          `Failed to decompress batch: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        ),
-    });
-
-    // Extract metadata
-    const metadataEntry = decompressedFiles['__metadata.json'];
-    if (!metadataEntry) {
-      logger.error(
-        () =>
-          `Missing metadata entry in compressed batch ${params.batchIndex + 1}/${params.totalBatches}`,
-      );
-      return;
-    }
-
-    // Parse metadata
-    const metadata = yield* Effect.try({
-      try: () => {
-        const decoder = new TextDecoder();
-        const metadataJson = decoder.decode(metadataEntry);
-        return JSON.parse(metadataJson) as {
-          batchIndex: number;
-          totalBatches: number;
-          isLastBatch: boolean;
-          fileMetadata: Array<{ uri: string; version: number }>;
-        };
-      },
-      catch: (error) =>
-        new Error(
-          `Failed to parse metadata: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        ),
-    });
-
-    // Collect all document open events from the batch
-    const didOpenEvents: TextDocumentChangeEvent<TextDocument>[] = [];
-
-    yield* Effect.forEach(
-      metadata.fileMetadata,
-      (fileMeta) =>
-        Effect.gen(function* () {
-          // Get file content from decompressed files
-          const fileContent = decompressedFiles[fileMeta.uri];
-          if (!fileContent) {
-            logger.warn(
-              () => `File content not found in batch for URI: ${fileMeta.uri}`,
-            );
-            return;
-          }
-
-          // Decode file content
-          const decoder = new TextDecoder();
-          const content = decoder.decode(fileContent);
-
-          // Create TextDocument instance
-          const document = TextDocument.create(
-            fileMeta.uri,
-            'apex',
-            fileMeta.version,
-            content,
-          );
-
-          // Create didOpen event
-          const didOpenEvent: TextDocumentChangeEvent<TextDocument> = {
-            document,
-          };
-
-          didOpenEvents.push(didOpenEvent);
-        }),
-      { concurrency: 1 }, // Sequential processing to collect events
-    );
-
-    // Process batch via DocumentProcessingService
-    if (didOpenEvents.length > 0) {
-      const documentProcessingService = new DocumentProcessingService(logger);
-      yield* Effect.promise(() =>
-        documentProcessingService.processDocumentOpenBatch(didOpenEvents),
-      );
-      logger.debug(
-        () =>
-          `[BACKGROUND] Successfully processed workspace batch ${params.batchIndex + 1}/${params.totalBatches}: ` +
-          `${didOpenEvents.length} files processed`,
-      );
-    }
-  }).pipe(
-    Effect.catchAll((error: unknown) =>
-      Effect.gen(function* () {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logger.error(
-          () =>
-            '[BACKGROUND] Error processing workspace batch ' +
-            `${params.batchIndex + 1}/${params.totalBatches}: ${errorMessage}`,
-        );
-        // Errors are logged but don't fail the Effect
-        return undefined;
-      }),
-    ),
-  );
-}
-
-/**
  * Process all stored batches for a session.
  *
- * Pipeline: decode → ingest+compile → schedule deferred ref processing.
- *
- * When a BatchIngestionDispatcher is set, decoded entries are dispatched
- * to the data-owner worker for storage and the compilation worker for
- * public-api compilation. When no dispatcher is set, falls back to local
- * processing via the priority scheduler.
- */
-/**
- * Wait up to {@link timeoutMs} for the worker batch-ingestion dispatcher to be
- * wired before processing batches. The worker topology sets the dispatcher
- * asynchronously during bootstrap, and a workspace batch can land before that
- * completes. Without this wait, an early batch races past `batchIngestionDispatcher`
- * while it is still null and is processed coordinator-locally — defeating the
- * offload. Polls every {@link pollMs}; returns the dispatcher once set, or null
- * if the timeout elapses (caller then falls through to local processing).
+ * Pipeline: decode → data-owner ingest → Effect Worker compilation →
+ * data-owner commit and deferred-reference drain.
  */
 function waitForBatchIngestionDispatcher(
   logger: ReturnType<typeof getLogger>,
   timeoutMs = batchDispatcherWaitMs,
   pollMs = 50,
-): Effect.Effect<BatchIngestionDispatcher | null, never, never> {
+): Effect.Effect<BatchIngestionDispatcher, Error, never> {
   return Effect.gen(function* () {
     if (batchIngestionDispatcher) {
       return batchIngestionDispatcher;
@@ -599,16 +439,11 @@ function waitForBatchIngestionDispatcher(
         return batchIngestionDispatcher;
       }
     }
-    // Timing out here means the batch falls back to coordinator-local
-    // processing — a safe path, but one that silently defeats the worker
-    // offload. Log at info (not debug) so a missed optimization is visible
-    // rather than buried with routine flow.
-    logger.info(
-      () =>
-        '[BATCH-PROCESSING] Worker dispatcher not available after ' +
-        `${timeoutMs}ms; falling through to coordinator-local processing`,
+    return yield* Effect.fail(
+      new Error(
+        `Worker batch ingestion dispatcher unavailable after ${timeoutMs}ms`,
+      ),
     );
-    return null;
   });
 }
 
@@ -637,17 +472,13 @@ function processStoredBatches(
             `[BATCH-PROCESSING] Processing ${batches.length} stored batches for session ${sessionId}`,
         );
 
-        let fileUris: string[] = [];
-
-        if (dispatcher) {
-          const entries = yield* decodeBatches(batches, logger);
-          yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
-          fileUris = entries.map((e) => e.uri);
-        } else {
-          yield* processLocally(sessionId, batches, logger);
-        }
-
+        const entries = yield* decodeBatches(batches, logger);
+        // The decoded entries now own the source content. Release the now
+        // redundant base64/ZIP session payload before compilation begins.
         batchStorage.removeSession(sessionId);
+        yield* processViaDataOwner(sessionId, entries, dispatcher, logger);
+        const fileUris = entries.map((e) => e.uri);
+
         const totalElapsed = Date.now() - batchStartTime;
         const actualFiles = totalFiles || batches.length * 100;
         const throughput =
@@ -777,17 +608,24 @@ function processViaDataOwner(
     // on the data-owner for all subsequent UpdateSymbolSubset write-backs until
     // DrainDeferredReferences is called after all chunks complete.
     const sessionDispatcher = workspaceLoadSessionDispatcher;
-    if (sessionDispatcher) {
-      yield* Effect.tryPromise({
-        try: () =>
-          sessionDispatcher({
-            _tag: 'BeginWorkspaceLoadSession',
-            sessionId,
-          }),
-        catch: (e) => e as Error,
-      });
-      logger.info(() => `[BATCH] Begin workspace load session: ${sessionId}`);
+    const dataOwnerCompile = dataOwnerCompileDispatcher;
+    if (!sessionDispatcher || !dataOwnerCompile) {
+      return yield* Effect.fail(
+        new Error(
+          'Worker workspace load requires session and data-owner compilation dispatchers',
+        ),
+      );
     }
+
+    yield* Effect.tryPromise({
+      try: () =>
+        sessionDispatcher({
+          _tag: 'BeginWorkspaceLoadSession',
+          sessionId,
+        }),
+      catch: (e) => e as Error,
+    });
+    logger.info(() => `[BATCH] Begin workspace load session: ${sessionId}`);
 
     yield* Effect.withSpan('workspace.batch.ingest', {
       attributes: {
@@ -840,145 +678,100 @@ function processViaDataOwner(
       }),
     );
 
-    const compileDispatcher = batchCompileDispatcher;
-    if (compileDispatcher) {
-      yield* Effect.withSpan('workspace.batch.compile', {
-        attributes: {
-          'workspace.session_id': sessionId,
-          'workspace.total_files': entries.length,
-        },
-      })(
-        Effect.gen(function* () {
-          const CHUNK_SIZE = 100;
-          const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
+    yield* Effect.withSpan('workspace.batch.compile', {
+      attributes: {
+        'workspace.session_id': sessionId,
+        'workspace.total_files': entries.length,
+      },
+    })(
+      Effect.gen(function* () {
+        const CHUNK_SIZE = 100;
+        const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
 
-          logger.info(
-            () =>
-              `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
-              `${entries.length} files in ${totalChunks} chunks`,
+        logger.info(
+          () =>
+            `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
+            `${entries.length} files in ${totalChunks} chunks`,
+        );
+
+        const compileStartTime = Date.now();
+        let totalCompiled = 0;
+        let totalErrors = 0;
+
+        for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+          const chunk = entries.slice(i, i + CHUNK_SIZE);
+          const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
+          const contentChars = chunk.reduce(
+            (total, entry) => total + entry.content.length,
+            0,
           );
-
-          const compileStartTime = Date.now();
-          let totalCompiled = 0;
-          let totalErrors = 0;
-
-          for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-            const chunk = entries.slice(i, i + CHUNK_SIZE);
-            const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
-            const contentChars = chunk.reduce(
-              (total, entry) => total + entry.content.length,
-              0,
-            );
-            try {
-              const result = yield* Effect.withSpan(
-                LSP_SPAN_NAMES.WORKSPACE_BATCH_COMPILE_CHUNK,
-                {
-                  attributes: {
-                    'workspace.session_id': sessionId,
-                    'workspace.chunk_index': chunkIdx - 1,
-                    'workspace.chunk_total': totalChunks,
-                    'workspace.file_count': chunk.length,
-                    'workspace.content_chars': contentChars,
-                  },
+          try {
+            const result = yield* Effect.withSpan(
+              LSP_SPAN_NAMES.WORKSPACE_BATCH_COMPILE_CHUNK,
+              {
+                attributes: {
+                  'workspace.session_id': sessionId,
+                  'workspace.chunk_index': chunkIdx - 1,
+                  'workspace.chunk_total': totalChunks,
+                  'workspace.file_count': chunk.length,
+                  'workspace.content_chars': contentChars,
                 },
-              )(
-                Effect.gen(function* () {
-                  const dispatched = yield* Effect.tryPromise({
-                    try: () => compileDispatcher(sessionId, chunk),
-                    catch: (e) => e as Error,
-                  });
-                  yield* Effect.annotateCurrentSpan({
-                    'workspace.compiled_count': dispatched.compiledCount,
-                    'workspace.error_count': dispatched.errorCount,
-                    'workspace.worker_elapsed_ms': dispatched.elapsedMs,
-                  });
-                  return dispatched;
-                }),
-              );
-              totalCompiled += result.compiledCount;
-              totalErrors += result.errorCount;
-              logger.debug(
-                () =>
-                  `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
-                  `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
-              );
-            } catch (err) {
-              logger.error(
-                () =>
-                  `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks} failed: ${err}`,
-              );
-            }
-          }
-
-          const totalElapsed = Date.now() - compileStartTime;
-          const throughput =
-            totalElapsed > 0
-              ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
-              : '∞';
-          logger.info(
-            () =>
-              `[BATCH-COMPILE] Completed session ${sessionId}: ` +
-              `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
-              `(${throughput} files/sec)`,
-          );
-
-          // End workspace load session and drain deferred resolutions.
-          // This resolves ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION)
-          // for go-to-implementation support. Ordinary cross-file refs are resolved
-          // on-demand via PrerequisiteOrchestrationService per LSP request.
-          if (sessionDispatcher) {
-            yield* Effect.tryPromise({
-              try: () =>
-                sessionDispatcher({
-                  _tag: 'DrainDeferredReferences',
-                  sessionId,
-                }),
-              catch: (e) => e as Error,
-            }).pipe(
-              Effect.catchAll((e) =>
-                Effect.logWarning(
-                  `[BATCH] DrainDeferredReferences failed: ${e}`,
-                ),
-              ),
+              },
+            )(
+              Effect.gen(function* () {
+                const dispatched = yield* Effect.tryPromise({
+                  try: () => dataOwnerCompile({ sessionId, entries: chunk }),
+                  catch: (e) => e as Error,
+                });
+                yield* Effect.annotateCurrentSpan({
+                  'workspace.compiled_count': dispatched.compiledCount,
+                  'workspace.error_count': dispatched.errorCount,
+                  'workspace.worker_elapsed_ms': dispatched.elapsedMs,
+                });
+                return dispatched;
+              }),
             );
-            logger.info(
-              () => `[BATCH] End workspace load session: ${sessionId}`,
+            totalCompiled += result.compiledCount;
+            totalErrors += result.errorCount;
+            logger.debug(
+              () =>
+                `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
+                `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+            );
+          } catch (err) {
+            return yield* Effect.fail(
+              err instanceof Error ? err : new Error(String(err)),
             );
           }
-        }),
-      );
-    }
-  });
-}
+        }
 
-function processLocally(
-  _sessionId: string,
-  batches: SendWorkspaceBatchParams[],
-  logger: ReturnType<typeof getLogger>,
-): Effect.Effect<void, Error, never> {
-  return Effect.gen(function* () {
-    const schedulerService = SchedulerInitializationService.getInstance();
-    yield* Effect.promise(() => schedulerService.ensureInitialized());
+        const totalElapsed = Date.now() - compileStartTime;
+        const throughput =
+          totalElapsed > 0
+            ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
+            : '∞';
+        logger.info(
+          () =>
+            `[BATCH-COMPILE] Completed session ${sessionId}: ` +
+            `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
+            `(${throughput} files/sec)`,
+        );
 
-    for (const batchParams of batches) {
-      const backgroundProcessingEffect = processWorkspaceBatchBackground(
-        batchParams,
-        batchParams.compressedData,
-      );
-
-      const queuedItem = yield* createQueuedItem(
-        backgroundProcessingEffect,
-        'workspace-batch',
-      );
-      yield* offer(Priority.Low, queuedItem);
-
-      logger.debug(
-        () =>
-          '[BATCH-PROCESSING] Enqueued batch ' +
-          `${batchParams.batchIndex + 1}/${batchParams.totalBatches} ` +
-          `(${batchParams.fileMetadata.length} files) for local processing`,
-      );
-    }
+        // End workspace load session and drain deferred resolutions.
+        // This resolves ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION)
+        // for go-to-implementation support. Ordinary cross-file refs are resolved
+        // on-demand via PrerequisiteOrchestrationService per LSP request.
+        yield* Effect.tryPromise({
+          try: () =>
+            sessionDispatcher({
+              _tag: 'DrainDeferredReferences',
+              sessionId,
+            }),
+          catch: (e) => e as Error,
+        });
+        logger.info(() => `[BATCH] End workspace load session: ${sessionId}`);
+      }),
+    );
   });
 }
 
@@ -1050,17 +843,21 @@ export async function handleProcessWorkspaceBatchesRequest(
   const logger = getLogger();
 
   try {
-    // Find session with matching totalBatches that has all batches
-    const sessionId = batchStorage.findCompleteSession(params.totalBatches);
+    const sessionId = params.sessionId.trim();
 
-    if (!sessionId) {
+    if (
+      !sessionId ||
+      !batchStorage.areAllBatchesReceived(sessionId) ||
+      batchStorage.getBatches(sessionId).length !== params.totalBatches
+    ) {
       logger.warn(
         () =>
-          `[BATCH-PROCESSING] No complete session found for ${params.totalBatches} batches`,
+          `[BATCH-PROCESSING] Session ${sessionId || '<empty>'} is incomplete ` +
+          `for ${params.totalBatches} batches`,
       );
       return {
         success: false,
-        error: `No complete batch session found for ${params.totalBatches} batches`,
+        error: `Workspace batch session ${sessionId || '<empty>'} is incomplete`,
       };
     }
 

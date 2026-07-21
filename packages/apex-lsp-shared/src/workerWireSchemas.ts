@@ -54,6 +54,10 @@ export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
       logLevel: Schema.optional(Schema.String),
       serverMode: Schema.optional(WorkerServerMode),
       spanCollectorUrl: Schema.optional(Schema.String),
+      /** Backing compiler workers owned by the data owner. */
+      compilationPoolSize: Schema.optional(Schema.Number),
+      /** Concurrent Effect Worker requests admitted per compiler worker. */
+      compilationConcurrency: Schema.optional(Schema.Number),
     },
   },
 ) {}
@@ -340,6 +344,43 @@ export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCo
       traceContext: Schema.optional(Schema.String),
       /** Per-file loop concurrency (optional, defaults to 1 for serial) */
       concurrency: Schema.optional(Schema.Number),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
+// WorkspaceBatchCompileOnDataOwner — during workspace load session, compile
+// files directly on the data-owner worker to eliminate UpdateSymbolSubset IPC
+// overhead. The data owner compiles locally and writes symbols directly to its
+// own symbol manager, avoiding 653 × 263ms IPC round-trips. Only used during
+// workspace load session; interactive edits still use compilation workers.
+// ---------------------------------------------------------------------------
+
+export class WorkspaceBatchCompileOnDataOwner extends Schema.TaggedRequest<WorkspaceBatchCompileOnDataOwner>()(
+  'WorkspaceBatchCompileOnDataOwner',
+  {
+    success: Schema.Struct({
+      compiledCount: Schema.Number,
+      errorCount: Schema.Number,
+      elapsedMs: Schema.Number,
+      workerCount: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('WorkspaceBatchCompileOnDataOwnerError'),
+      message: Schema.String,
+    }),
+    payload: {
+      sessionId: Schema.String,
+      entries: Schema.Array(
+        Schema.Struct({
+          uri: Schema.String,
+          content: Schema.String,
+          languageId: Schema.String,
+          version: Schema.Number,
+        }),
+      ),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
     },
   },
 ) {}
@@ -1083,6 +1124,7 @@ export const DataOwnerTags = [
   'ResolveDependentUris',
   'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
+  'WorkspaceBatchCompileOnDataOwner',
   'BeginWorkspaceLoadSession',
   'DrainDeferredReferences',
   'QueryGraphData',
@@ -1163,6 +1205,7 @@ export type DataOwnerRequest =
   | ResolveDependentUris
   | FindOccurrenceCandidates
   | WorkspaceBatchIngest
+  | WorkspaceBatchCompileOnDataOwner
   | BeginWorkspaceLoadSession
   | DrainDeferredReferences
   | QueryGraphData

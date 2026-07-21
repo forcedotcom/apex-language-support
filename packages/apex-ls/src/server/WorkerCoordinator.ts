@@ -29,6 +29,7 @@ import {
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
@@ -185,6 +186,40 @@ export interface BrowserMessagePort {
  */
 const browserAssistancePorts: BrowserMessagePort[] = [];
 
+export interface BrowserWorkerBootstrapOptions {
+  readonly role?: WorkerRole;
+  readonly compilationPoolSize?: number;
+  readonly compilationConcurrency?: number;
+  readonly compilerWorkerUrl?: string;
+}
+
+function browserWorkerLayer(
+  blobUrl: string,
+  bootstrap: BrowserWorkerBootstrapOptions,
+  BrowserWorker: typeof import('@effect/platform-browser/BrowserWorker'),
+  W: new (url: string | URL) => BrowserWorkerLike,
+  MC: new () => { port1: BrowserMessagePort; port2: BrowserMessagePort },
+): Layer.Layer<Worker.WorkerManager | Worker.Spawner> {
+  return BrowserWorker.layer((_id: number) => {
+    const rawWorker = new W(blobUrl);
+    const mcEffect = new MC();
+    const mcAssist = new MC();
+
+    rawWorker.postMessage(
+      {
+        _tag: 'WorkerPortsInit',
+        effectPort: mcEffect.port2,
+        assistPort: mcAssist.port2,
+        ...bootstrap,
+      },
+      [mcEffect.port2, mcAssist.port2],
+    );
+    browserAssistancePorts.push(mcAssist.port1);
+
+    return mcEffect.port1 as never;
+  });
+}
+
 /**
  * Create a browser worker layer using native Web Worker API.
  *
@@ -198,6 +233,7 @@ const browserAssistancePorts: BrowserMessagePort[] = [];
  */
 export async function makeBrowserWorkerLayer(
   workerScriptUrl: string,
+  bootstrap: BrowserWorkerBootstrapOptions = {},
 ): Promise<Layer.Layer<Worker.WorkerManager | Worker.Spawner>> {
   const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
 
@@ -205,7 +241,13 @@ export async function makeBrowserWorkerLayer(
   // origin as the parent (server.web.js). Direct HTTP URLs fail with a
   // SecurityError when the parent runs from a different-origin blob context
   // (e.g. VS Code web extension subdomain isolation).
-  const scriptText = await fetch(workerScriptUrl).then((r) => r.text());
+  const response = await fetch(workerScriptUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Unable to load browser worker bundle ${workerScriptUrl}: ${response.status} ${response.statusText}`,
+    );
+  }
+  const scriptText = await response.text();
   const blobUrl = URL.createObjectURL(
     new Blob([scriptText], { type: 'application/javascript' }),
   );
@@ -218,33 +260,67 @@ export async function makeBrowserWorkerLayer(
     port1: BrowserMessagePort;
     port2: BrowserMessagePort;
   };
-  return BrowserWorker.layer((_id: number) => {
-    const rawWorker = new W(blobUrl);
+  return browserWorkerLayer(blobUrl, bootstrap, BrowserWorker, W, MC);
+}
 
-    // Two dedicated channels per worker:
-    //   mcEffect — Effect protocol (coordinator ↔ worker)
-    //   mcAssist — side-channel for logs + assistance RPC
-    const mcEffect = new MC();
-    const mcAssist = new MC();
-
-    // Transfer both port2s to the worker via rawWorker.postMessage on `self`.
-    // The worker listens on `self` for this one-time init message and never
-    // starts Effect's BrowserWorkerRunner on `self`, so there is no collision.
-    rawWorker.postMessage(
-      {
-        _tag: 'WorkerPortsInit',
-        effectPort: mcEffect.port2,
-        assistPort: mcAssist.port2,
-      },
-      [mcEffect.port2, mcAssist.port2],
+export async function makeBrowserWorkerLayerFactory(
+  workerScriptUrl: string,
+  compilerWorkerScriptUrl: string,
+  options: {
+    readonly compilationPoolSize: number;
+    readonly compilationConcurrency: number;
+  },
+): Promise<
+  (role: WorkerRole) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>
+> {
+  const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
+  const [workerResponse, compilerResponse] = await Promise.all([
+    fetch(workerScriptUrl),
+    fetch(compilerWorkerScriptUrl),
+  ]);
+  if (!workerResponse.ok) {
+    throw new Error(
+      `Unable to load browser worker bundle ${workerScriptUrl}: ${workerResponse.status} ${workerResponse.statusText}`,
     );
-    browserAssistancePorts.push(mcAssist.port1);
+  }
+  if (!compilerResponse.ok) {
+    throw new Error(
+      `Unable to load browser compiler bundle ${compilerWorkerScriptUrl}: ` +
+        `${compilerResponse.status} ${compilerResponse.statusText}`,
+    );
+  }
 
-    // Return the Effect protocol port to BrowserWorker.layer.
-    // Effect will call port1Effect.postMessage([requestId, payload]) and listen
-    // for responses on it — never touching self.
-    return mcEffect.port1 as never;
-  });
+  const [workerScript, compilerScript] = await Promise.all([
+    workerResponse.text(),
+    compilerResponse.text(),
+  ]);
+  const workerBlobUrl = URL.createObjectURL(
+    new Blob([workerScript], { type: 'application/javascript' }),
+  );
+  const compilerBlobUrl = URL.createObjectURL(
+    new Blob([compilerScript], { type: 'application/javascript' }),
+  );
+  const W = (globalThis as any).Worker as new (
+    url: string | URL,
+  ) => BrowserWorkerLike;
+  const MC = (globalThis as any).MessageChannel as new () => {
+    port1: BrowserMessagePort;
+    port2: BrowserMessagePort;
+  };
+
+  return (role) =>
+    browserWorkerLayer(
+      workerBlobUrl,
+      {
+        role,
+        compilationPoolSize: options.compilationPoolSize,
+        compilationConcurrency: options.compilationConcurrency,
+        ...(role === 'dataOwner' ? { compilerWorkerUrl: compilerBlobUrl } : {}),
+      },
+      BrowserWorker,
+      W,
+      MC,
+    );
 }
 
 export function getBrowserAssistancePorts(): BrowserMessagePort[] {
@@ -295,6 +371,8 @@ export interface TopologyConfig {
   /** Maximum concurrent requests to the compilation worker. Default: 1 (serial).
    *  Higher values allow multiple files to compile concurrently on a single worker. */
   readonly compilationConcurrency?: number;
+  /** Number of backing compiler workers owned by the data owner. */
+  readonly compilationPoolSize?: number;
 }
 
 const makeInitMessage = (
@@ -302,6 +380,8 @@ const makeInitMessage = (
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
   spanCollectorUrl?: string,
+  compilationPoolSize?: number,
+  compilationConcurrency?: number,
 ) =>
   new WorkerInit({
     role,
@@ -309,6 +389,8 @@ const makeInitMessage = (
     logLevel,
     serverMode,
     spanCollectorUrl,
+    compilationPoolSize,
+    compilationConcurrency,
   });
 
 export function clampPoolSize(requested: number): number {
@@ -429,6 +511,8 @@ export function initializeTopology(
                   logLevel,
                   serverMode,
                   spanCollectorUrl,
+                  config.compilationPoolSize,
+                  config.compilationConcurrency,
                 ),
               size: 1, // Single worker instance
               concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker
@@ -445,7 +529,7 @@ export function initializeTopology(
                   spanCollectorUrl,
                 ),
               size: 1, // Single worker instance (shared symbol graph)
-              concurrency: config.compilationConcurrency ?? 8, // Parallel by default to overlap write-back IPC
+              concurrency: config.compilationConcurrency ?? 1,
             }),
             'compilation',
           ),
@@ -483,7 +567,7 @@ export function initializeTopology(
       requestPoolSize: poolSize,
       resourceLoader,
       compilation,
-      compilationConcurrency: config.compilationConcurrency ?? 8,
+      compilationConcurrency: config.compilationConcurrency ?? 1,
     } as WorkerTopology;
   });
 }
@@ -586,7 +670,7 @@ export const initializeTransportTopology = (
       requestPool,
       resourceLoader,
       compilation,
-      compilationConcurrency: config.compilationConcurrency ?? 8,
+      compilationConcurrency: config.compilationConcurrency ?? 1,
     };
   });
 
@@ -740,6 +824,21 @@ function createDispatcher(
     _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
     sessionId?: string;
   }) => Promise<unknown>;
+  createDataOwnerCompileDispatcher(): (entries: {
+    sessionId: string;
+    entries: Array<{
+      uri: string;
+      content: string;
+      languageId: string;
+      version: number;
+    }>;
+    traceContext?: string;
+  }) => Promise<{
+    compiledCount: number;
+    errorCount: number;
+    elapsedMs: number;
+    workerCount: number;
+  }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
   queryGraphData(params: {
     type: 'all' | 'file' | 'type';
@@ -890,7 +989,7 @@ function createDispatcher(
 
     createBatchCompileDispatcher() {
       return async (sessionId: string, entries: BatchIngestEntry[]) => {
-        const concurrency = callbacks.compilationConcurrency ?? 8;
+        const concurrency = callbacks.compilationConcurrency ?? 1;
         logger.debug(
           () =>
             '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
@@ -950,6 +1049,29 @@ function createDispatcher(
           );
         }
         return Promise.resolve();
+      };
+    },
+
+    createDataOwnerCompileDispatcher() {
+      return async (params: {
+        sessionId: string;
+        entries: Array<{
+          uri: string;
+          content: string;
+          languageId: string;
+          version: number;
+        }>;
+        traceContext?: string;
+      }) => {
+        const result = await sendTracedToDataOwner(
+          new WorkspaceBatchCompileOnDataOwner(params),
+        );
+        return result as {
+          compiledCount: number;
+          errorCount: number;
+          elapsedMs: number;
+          workerCount: number;
+        };
       };
     },
 

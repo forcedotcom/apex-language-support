@@ -315,8 +315,9 @@ describe('ApexLanguageServerSettings Validation', () => {
         true,
       );
       expect(result.apex.experimental?.workers.dataOwner?.concurrency).toBe(10);
+      expect(result.apex.experimental?.workers.compilation?.poolSize).toBe(2);
       expect(result.apex.experimental?.workers.compilation?.concurrency).toBe(
-        8,
+        1,
       );
     });
 
@@ -325,6 +326,10 @@ describe('ApexLanguageServerSettings Validation', () => {
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
       expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.compilation).toEqual({
+        poolSize: 2,
+        concurrency: 1,
+      });
     });
 
     it('should preserve user-supplied experimental.workers overrides', () => {

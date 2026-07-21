@@ -310,10 +310,10 @@ export interface SymbolGraphSettings {
  * Per-worker configuration for worker threads.
  */
 export interface WorkerConfig {
-  /** Number of worker processes (memory isolation) */
+  /** Number of backing workers (Node worker threads or browser Web Workers) */
   poolSize?: number;
 
-  /** Maximum concurrent requests (async dispatch) */
+  /** Concurrent Effect Worker requests admitted per backing worker */
   concurrency?: number;
 
   /** Enable this worker (optional, for toggling specific workers) */

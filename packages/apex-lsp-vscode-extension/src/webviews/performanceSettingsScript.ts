@@ -1052,8 +1052,8 @@ class PerformanceSettingsUI {
                   <td>
                     <input type="number" class="setting-input table-input"
                            data-path="experimental.workers.compilation.poolSize"
-                           value="${compilation.poolSize ?? ''}" min="1" max="14"
-                           placeholder="1">
+                           value="${compilation.poolSize ?? 2}" min="1" max="14"
+                           placeholder="2">
                   </td>
                   <td>
                     <input type="number" class="setting-input table-input"

@@ -92,6 +92,7 @@ import {
   setBatchCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
   setWorkspaceLoadSessionDispatcher,
+  setDataOwnerCompileDispatcher,
   setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
 import { createPrimaryAssistanceHandler } from './CoordinatorPrimaryAssistanceHandler';
@@ -978,7 +979,7 @@ export class LCSAdapter {
           () =>
             `📦 apex/sendWorkspaceBatch request received: batch ${
               params.batchIndex + 1
-            }/${params.totalBatches} (${params.fileMetadata.length} files)`,
+            }/${params.totalBatches} (${params.fileMetadata.length} files, session=${params.sessionId})`,
         );
         try {
           const parentContext = extractTraceContext(params.traceContext);
@@ -987,6 +988,7 @@ export class LCSAdapter {
               'workspace.batch.store',
               () => handleWorkspaceBatchRequest(params),
               {
+                'workspace.session_id': params.sessionId,
                 'workspace.batch_index': params.batchIndex,
                 'workspace.batch_total': params.totalBatches,
                 'workspace.file_count': params.fileMetadata.length,
@@ -1017,7 +1019,8 @@ export class LCSAdapter {
       ): Promise<ProcessWorkspaceBatchesResult> => {
         this.logger.debug(
           () =>
-            `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches`,
+            `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches ` +
+            `(session=${params.sessionId})`,
         );
         try {
           const parentContext = extractTraceContext(params.traceContext);
@@ -1032,6 +1035,7 @@ export class LCSAdapter {
                 return handleProcessWorkspaceBatchesRequest(tracedParams);
               },
               {
+                'workspace.session_id': params.sessionId,
                 'workspace.batch_count': params.totalBatches,
               },
             ),
@@ -2484,7 +2488,7 @@ export class LCSAdapter {
       const {
         initializeTopology,
         makeNodeWorkerLayer,
-        makeBrowserWorkerLayer,
+        makeBrowserWorkerLayerFactory,
         makeWorkerDispatcher,
         getRawWorkers,
         getBrowserAssistancePorts,
@@ -2507,7 +2511,8 @@ export class LCSAdapter {
         workerCfg?.lspRequest?.poolSize ?? workerCfg?.poolSize ?? 2;
       const enableResourceLoader = workerCfg?.resourceLoader?.enabled ?? true;
       const dataOwnerConcurrency = workerCfg?.dataOwner?.concurrency;
-      const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 8;
+      const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 1;
+      const compilationPoolSize = workerCfg?.compilation?.poolSize ?? 2;
 
       this.logger.alwaysLog(
         `[LCSAdapter] compilationConcurrency: final=${compilationConcurrency}, ` +
@@ -2565,6 +2570,7 @@ export class LCSAdapter {
         spanCollectorUrl,
         dataOwnerConcurrency,
         compilationConcurrency,
+        compilationPoolSize,
       };
 
       const isNodeJs =
@@ -2601,6 +2607,11 @@ export class LCSAdapter {
           makeNodeWorkerLayer(workerScript, {
             name: `apex-worker-${role}`,
             execArgv: buildWorkerExecArgv({ role }).execArgv,
+            workerData: {
+              role,
+              compilationPoolSize,
+              compilationConcurrency,
+            },
           });
 
         topology = yield* Effect.provideService(
@@ -2617,27 +2628,41 @@ export class LCSAdapter {
         // fall back to the coordinator-local path, and references — an empty
         // stub there — returns nothing). When href is unusable as a base, use
         // the client-injected absolute worker URL, then a file:// placeholder.
-        // makeBrowserWorkerLayer re-wraps the fetched script in a SAME-ORIGIN
+        // The browser layer factory re-wraps fetched scripts in SAME-ORIGIN
         // blob regardless, so the sub-worker always shares the parent's origin.
-        const resolveWorkerUrl = (base: string) =>
-          new URL('./worker.platform.web.js', base).href;
+        const resolveWorkerUrl = (fileName: string, base: string) =>
+          new URL(`./${fileName}`, base).href;
         const rawHref = (globalThis as any).location?.href;
         const workerUrl =
           typeof rawHref === 'string' && !rawHref.startsWith('blob:')
-            ? resolveWorkerUrl(rawHref)
+            ? resolveWorkerUrl('worker.platform.web.js', rawHref)
             : // `||` (not `??`): an empty string is as unusable a base as
               // undefined, so fall through to the placeholder in both cases.
               this.workerPlatformWebUrl ||
-              resolveWorkerUrl('file:///server.web.js');
+              resolveWorkerUrl(
+                'worker.platform.web.js',
+                'file:///server.web.js',
+              );
+        const compilerWorkerUrl = resolveWorkerUrl(
+          'compiler.worker.web.js',
+          workerUrl,
+        );
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
-        const browserLayer = yield* Effect.promise(() =>
-          makeBrowserWorkerLayer(workerUrl),
+        this.logger.alwaysLog(
+          () =>
+            `[WorkerCoordinator] Compiler worker script (browser): ${compilerWorkerUrl}`,
+        );
+        const workerLayerFactory = yield* Effect.promise(() =>
+          makeBrowserWorkerLayerFactory(workerUrl, compilerWorkerUrl, {
+            compilationPoolSize,
+            compilationConcurrency,
+          }),
         );
 
         topology = yield* Effect.provideService(
-          initializeTopology(config).pipe(Effect.provide(browserLayer as any)),
+          initializeTopology({ ...config, workerLayerFactory }),
           Scope.Scope,
           scope,
         );
@@ -2658,6 +2683,9 @@ export class LCSAdapter {
       );
       setWorkspaceLoadSessionDispatcher(
         dispatcher.createWorkspaceLoadSessionDispatcher(),
+      );
+      setDataOwnerCompileDispatcher(
+        dispatcher.createDataOwnerCompileDispatcher(),
       );
 
       if (topology.resourceLoader) {

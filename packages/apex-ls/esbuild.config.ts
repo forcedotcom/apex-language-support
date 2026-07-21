@@ -50,6 +50,7 @@ const NODE_SERVER_EXTERNAL = [
   'node:os',
   'node:stream',
   'node:events',
+  'node:worker_threads', // Used by CompilationThreadPool
   // node-dir uses fs/path internally, safe to bundle
   // Anything else used at runtime needs to be bundled or use Node built-ins
 ];
@@ -129,7 +130,10 @@ const builds: BuildOptions[] = [
   // Step 9: resource-loader role imports ResourceLoader which needs .zip/.gz loaders
   {
     ...nodeBaseConfig,
-    entryPoints: { 'worker.platform': 'src/worker.platform.ts' },
+    entryPoints: {
+      'worker.platform': 'src/worker.platform.ts',
+      'compiler.worker.node': 'src/compiler.worker.node.ts',
+    },
     outdir: 'dist',
     format: 'cjs',
     sourcemap: true,
@@ -145,7 +149,10 @@ const builds: BuildOptions[] = [
   // Browser internal worker build — spawned by WorkerCoordinator in web extension
   // IIFE format for nested Worker context; polyfills and BrowserWorkerRunner included
   {
-    entryPoints: { 'worker.platform.web': 'src/worker.platform.web.ts' },
+    entryPoints: {
+      'worker.platform.web': 'src/worker.platform.web.ts',
+      'compiler.worker.web': 'src/compiler.worker.web.ts',
+    },
     outdir: 'dist',
     platform: 'browser',
     format: 'iife',

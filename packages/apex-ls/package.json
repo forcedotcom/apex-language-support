@@ -31,7 +31,8 @@
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit",
     "typecheck": "wireit",
-    "rebuild": "wireit"
+    "rebuild": "wireit",
+    "proto:dataowner-threads": "tsc --project scripts/proto-dataowner-threads/tsconfig.json && node scripts/proto-dataowner-threads/harness.js"
   },
   "wireit": {
     "compile": {
