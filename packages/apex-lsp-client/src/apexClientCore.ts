@@ -18,6 +18,7 @@ import {
   type GraphDataResult,
   type InitializeParams,
   type InitializeResult,
+  type PingResponse,
   type ProcessWorkspaceBatchesParams,
   type ProcessWorkspaceBatchesResult,
   type ProfilingStartParams,
@@ -111,6 +112,7 @@ interface CoreHandle {
   readonly use: (mw: ApexClientMiddleware) => Disposable;
   readonly request: <R>(method: string, params?: unknown) => Promise<R>;
   readonly notify: (method: string, params?: unknown) => void;
+  readonly ping: () => Promise<PingResponse>;
   readonly isDisposed: () => boolean;
   readonly dispose: () => Promise<void>;
 
@@ -307,6 +309,26 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     runtime,
   });
 
+  // Register LSP log notification handlers so they flow through middleware.
+  // Default no-op handlers allow middleware to capture without requiring user
+  // registration. These are the standard LSP logging notifications that servers
+  // send to clients; both must be registered for test suites to capture them.
+  const windowLogDisposable = _registerIncomingNotification(
+    'window/logMessage',
+    () => {
+      /* no-op: middleware captures if installed */
+    },
+  );
+  yield* Ref.update(cleanupRef, (ds) => [...ds, windowLogDisposable]);
+
+  const dollarLogDisposable = _registerIncomingNotification(
+    '$/logMessage',
+    () => {
+      /* no-op: middleware captures if installed */
+    },
+  );
+  yield* Ref.update(cleanupRef, (ds) => [...ds, dollarLogDisposable]);
+
   // Register handler/middleware cleanup LAST so LIFO runs it FIRST (before the
   // transport is torn down).
   yield* Effect.addFinalizer(() =>
@@ -469,6 +491,18 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     sendNotificationThroughChain(method, params);
   };
 
+  /**
+   * Send `$/ping` health check request. Returns a promise that resolves with
+   * server status. This is a functional liveness probe that verifies the server
+   * process is responsive. Guards against use-after-dispose.
+   */
+  const ping = (): Promise<PingResponse> => {
+    if (Runtime.runSync(runtime)(Ref.get(disposedRef))) {
+      return Promise.reject(new ApexClientDisposedError('ping'));
+    }
+    return sendRequestThroughChain<PingResponse>('$/ping', undefined);
+  };
+
   // `Ref.get` is synchronous, so the disposed state can be read at the boundary
   // with `Runtime.runSync` — `isDisposed()` stays a plain `boolean` (matching
   // the shared `ClientInterface` contract) while the state still lives in a Ref.
@@ -481,6 +515,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     use,
     request,
     notify,
+    ping,
     isDisposed,
     disposedRef,
     apexSurface,
@@ -568,6 +603,7 @@ export class ApexClientCore {
       use: built.use,
       request: built.request,
       notify: built.notify,
+      ping: built.ping,
       isDisposed: built.isDisposed,
       dispose: closeScope,
       // Typed apex/* senders
@@ -641,6 +677,15 @@ export class ApexClientCore {
    */
   notify(method: string, params?: unknown): void {
     this.handle.notify(method, params);
+  }
+
+  /**
+   * Send `$/ping` health check request to verify server responsiveness.
+   * Returns a promise that resolves with server status information.
+   * Rejects with {@link ApexClientDisposedError} if called after `dispose()`.
+   */
+  ping(): Promise<PingResponse> {
+    return this.handle.ping();
   }
 
   /**

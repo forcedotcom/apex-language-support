@@ -134,7 +134,7 @@ describe('LanguageClientConnection', () => {
 
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith(expect.any(Error));
-      expect(handler.mock.calls[0][0].message).toBe(
+      expect((handler.mock.calls[0][0] as Error).message).toBe(
         'Language client stopped unexpectedly',
       );
     });

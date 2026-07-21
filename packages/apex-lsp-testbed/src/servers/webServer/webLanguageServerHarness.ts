@@ -10,12 +10,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import {
-  ApexJsonRpcClient,
-  ConsoleLogger,
-  JsonRpcClientOptions,
-} from '../../client/ApexJsonRpcClient';
-import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware';
-import { ServerType } from '../../utils/serverUtils';
+  createHeadlessClient,
+  ApexClientCore,
+} from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
+
+import { ApexLspTestClient } from '../../test-utils/ApexLspTestClient';
 
 // Determine project root directory
 const findProjectRoot = () => {
@@ -38,12 +38,32 @@ const findProjectRoot = () => {
 };
 
 /**
- * Harness for testing the Node.js web-apex-ls language server
+ * Simple console logger for the harness
+ */
+class ConsoleLogger {
+  private prefix: string;
+
+  constructor(prefix: string) {
+    this.prefix = prefix;
+  }
+
+  info(message: string): void {
+    console.log(`[${this.prefix}] ${message}`);
+  }
+
+  error(message: string): void {
+    console.error(`[${this.prefix}] ERROR: ${message}`);
+  }
+}
+
+/**
+ * Harness for testing the Node.js web-apex-ls language server.
+ * Uses the SDK's `createHeadlessClient` to spawn and communicate with the server.
  */
 export class WebLanguageServerHarness {
-  private client: ApexJsonRpcClient;
+  private client: ApexLspTestClient | undefined;
+  private core: ApexClientCore | undefined;
   private logger: ConsoleLogger;
-  private middleware: RequestResponseCapturingMiddleware;
   private projectRoot: string;
 
   /**
@@ -51,25 +71,7 @@ export class WebLanguageServerHarness {
    */
   constructor() {
     this.logger = new ConsoleLogger('WebLanguageServerHarness');
-    this.middleware = new RequestResponseCapturingMiddleware();
     this.projectRoot = findProjectRoot();
-
-    // Find the server module path
-    const serverPath = this.findServerPath();
-
-    // Configure the client
-    const clientOptions: JsonRpcClientOptions = {
-      serverPath,
-      nodeArgs: ['--nolazy'],
-      env: process.env,
-      serverType: 'webServer' as ServerType,
-    };
-
-    // Create the client
-    this.client = new ApexJsonRpcClient(clientOptions, this.logger);
-
-    // Install the middleware
-    this.middleware.installOnClient(this.client);
   }
 
   /**
@@ -103,17 +105,33 @@ export class WebLanguageServerHarness {
   }
 
   /**
+   * Initialize the SDK client with the real server
+   */
+  private async initializeClient(): Promise<void> {
+    const serverPath = this.findServerPath();
+
+    const result = await createHeadlessClient(serverPath, {
+      nodeArgs: ['--nolazy'],
+      env: process.env,
+    });
+    this.core = result.core;
+
+    const initResult = await this.core.initialize(DEFAULT_APEX_SETTINGS);
+    this.client = new ApexLspTestClient(this.core, initResult);
+  }
+
+  /**
    * Run tests against the language server
    */
   async runTests(): Promise<void> {
     try {
       this.logger.info('Starting Web Apex Language Server tests...');
 
-      // Start the client
-      await this.client.start();
+      // Initialize the client
+      await this.initializeClient();
 
       // Get server capabilities
-      const capabilities = this.client.getServerCapabilities();
+      const capabilities = this.client!.getServerCapabilities();
       this.logger.info(
         `Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
       );
@@ -127,8 +145,9 @@ export class WebLanguageServerHarness {
       // Run hover test
       await this.testHover();
 
-      // Stop the client
-      await this.client.stop();
+      // Shutdown
+      await this.core!.shutdown();
+      await this.core!.dispose();
 
       this.logger.info('All tests completed successfully');
     } catch (error) {
@@ -136,15 +155,15 @@ export class WebLanguageServerHarness {
 
       // Ensure client is stopped
       try {
-        await this.client.stop();
+        if (this.core) {
+          await this.core.shutdown();
+          await this.core.dispose();
+        }
       } catch (_) {
         // Ignore errors during shutdown
       }
 
       process.exit(1);
-    } finally {
-      // Uninstall the middleware
-      this.middleware.uninstall();
     }
   }
 
@@ -160,12 +179,12 @@ export class WebLanguageServerHarness {
 public class TestClass {
     private Integer count;
     private String name;
-    
+
     public TestClass() {
         this.count = 0;
         this.name = 'Test';
     }
-    
+
     public void incrementCount() {
         this.count++;
     }
@@ -173,11 +192,7 @@ public class TestClass {
 
     // Open document
     this.logger.info(`Opening document: ${testDocumentUri}`);
-    await this.client.openTextDocument(
-      testDocumentUri,
-      documentContent,
-      'apex',
-    );
+    this.client!.openTextDocument(testDocumentUri, documentContent, 'apex');
 
     // Update document
     this.logger.info('Updating document content');
@@ -185,11 +200,11 @@ public class TestClass {
       'this.count++;',
       'this.count += 2;',
     );
-    await this.client.updateTextDocument(testDocumentUri, updatedContent, 2);
+    this.client!.updateTextDocument(testDocumentUri, updatedContent, 2);
 
     // Close document
     this.logger.info('Closing document');
-    await this.client.closeTextDocument(testDocumentUri);
+    this.client!.closeTextDocument(testDocumentUri);
 
     this.logger.info('Basic document operations completed successfully\n');
   }
@@ -210,30 +225,23 @@ public class CompletionTest {
 }`;
 
     // Open document
-    await this.client.openTextDocument(
-      testDocumentUri,
-      documentContent,
-      'apex',
-    );
+    this.client!.openTextDocument(testDocumentUri, documentContent, 'apex');
 
     // Request completion
     this.logger.info('Requesting completion at line 3, character 13');
-    const completionResult = await this.client.completion(
-      testDocumentUri,
-      3,
-      13,
-    );
+    const completionResult = await this.client!.completion({
+      textDocument: { uri: testDocumentUri },
+      position: { line: 3, character: 13 },
+    });
 
     // Log completion results
     if (
       completionResult &&
-      completionResult.items &&
-      completionResult.items.length > 0
+      Array.isArray(completionResult) &&
+      completionResult.length > 0
     ) {
-      this.logger.info(
-        `Received ${completionResult.items.length} completion items`,
-      );
-      completionResult.items.forEach((item: any) => {
+      this.logger.info(`Received ${completionResult.length} completion items`);
+      completionResult.forEach((item: any) => {
         this.logger.info(` - ${item.label} (${item.kind})`);
       });
     } else {
@@ -241,7 +249,7 @@ public class CompletionTest {
     }
 
     // Close document
-    await this.client.closeTextDocument(testDocumentUri);
+    this.client!.closeTextDocument(testDocumentUri);
 
     this.logger.info('Completion test completed\n');
   }
@@ -257,41 +265,39 @@ public class CompletionTest {
     const documentContent = `
 public class HoverTest {
     private Integer count;
-    
+
     public void testMethod() {
         this.count = 10;
     }
 }`;
 
     // Open document
-    await this.client.openTextDocument(
-      testDocumentUri,
-      documentContent,
-      'apex',
-    );
+    this.client!.openTextDocument(testDocumentUri, documentContent, 'apex');
 
     // Request hover
     this.logger.info('Requesting hover at line 5, character 14');
-    const hoverResult = await this.client.hover(testDocumentUri, 5, 14);
+    const hoverResult = await this.client!.hover({
+      textDocument: { uri: testDocumentUri },
+      position: { line: 5, character: 14 },
+    });
 
     // Log hover results
     if (hoverResult && hoverResult.contents) {
-      if (typeof hoverResult.contents === 'string') {
-        this.logger.info(`Hover content: ${hoverResult.contents}`);
-      } else if (hoverResult.contents.kind && hoverResult.contents.value) {
-        this.logger.info(`Hover content (${hoverResult.contents.kind}):`);
-        this.logger.info(hoverResult.contents.value);
+      const contents = hoverResult.contents;
+      if (typeof contents === 'string') {
+        this.logger.info(`Hover content: ${contents}`);
+      } else if ('kind' in contents && 'value' in contents) {
+        this.logger.info(`Hover content (${contents.kind}):`);
+        this.logger.info(contents.value);
       } else {
-        this.logger.info(
-          `Hover content: ${JSON.stringify(hoverResult.contents)}`,
-        );
+        this.logger.info(`Hover content: ${JSON.stringify(contents)}`);
       }
     } else {
       this.logger.info('No hover information received');
     }
 
     // Close document
-    await this.client.closeTextDocument(testDocumentUri);
+    this.client!.closeTextDocument(testDocumentUri);
 
     this.logger.info('Hover test completed\n');
   }
