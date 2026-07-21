@@ -201,7 +201,6 @@
       "command": "node scripts/test-summary.js",
       "dependencies": [
         "compile",
-        "sync:testbed-fixtures",
         "./packages/apex-ls:test",
         "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",

@@ -231,10 +231,10 @@ describe('Span Collection Integration', () => {
   });
 
   it('should collect worker initialization spans', () => {
-    // Look for worker initialization spans
+    // Look for worker initialization spans (actual naming uses PascalCase 'WorkerInit')
     const initSpans = receivedSpans.filter((span) => {
       const name = span.name || '';
-      return name.includes('worker.init');
+      return name.includes('WorkerInit');
     });
 
     // We should have worker initialization spans from the 3 worker roles

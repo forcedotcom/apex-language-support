@@ -76,10 +76,19 @@ export class ApexLspTestClient {
   }
 
   /**
-   * Simplified health check: returns true if the core has not been disposed.
+   * Functional health check: sends `$/ping` to verify server responsiveness.
+   * Returns true if the server responds successfully, false otherwise.
    */
-  isHealthy(): boolean {
-    return !this.core.isDisposed();
+  async isHealthy(): Promise<boolean> {
+    if (this.core.isDisposed()) {
+      return false;
+    }
+    try {
+      await this.core.ping();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -90,7 +99,7 @@ export class ApexLspTestClient {
     let delay = 100;
 
     while (Date.now() - startTime < timeoutMs) {
-      if (this.isHealthy()) {
+      if (await this.isHealthy()) {
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, delay));

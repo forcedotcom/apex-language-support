@@ -283,10 +283,10 @@ public class HoverTest {
 
     // Log hover results
     if (hoverResult && hoverResult.contents) {
-      const contents = hoverResult.contents as any;
+      const contents = hoverResult.contents;
       if (typeof contents === 'string') {
         this.logger.info(`Hover content: ${contents}`);
-      } else if (contents.kind && contents.value) {
+      } else if ('kind' in contents && 'value' in contents) {
         this.logger.info(`Hover content (${contents.kind}):`);
         this.logger.info(contents.value);
       } else {

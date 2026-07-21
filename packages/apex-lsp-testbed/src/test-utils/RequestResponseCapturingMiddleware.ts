@@ -88,16 +88,17 @@ export class RequestResponseCapturingMiddleware implements ApexClientMiddleware 
   }
 
   sendNotification<P>(method: string, params: P, next: (p: P) => void): void {
-    const id = Date.now() + Math.random();
-    const timestamp = Date.now();
+    // Call next() first, then record - consistent with request path ordering
+    next(params);
+
+    // Record the notification after it's sent (notifications have no response)
     const pair: RequestResponsePair = {
-      id,
+      id: Date.now() + Math.random(),
       method,
       request: params,
-      timestamp,
+      timestamp: Date.now(),
     };
     this.capturedRequests.push(pair);
-    next(params);
   }
 
   // --- Query methods ---

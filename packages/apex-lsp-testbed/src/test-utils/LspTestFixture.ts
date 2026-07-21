@@ -196,7 +196,7 @@ export class LspTestFixture {
   ): Promise<LspTestResult['steps'][0]> {
     try {
       // Check if client is still healthy before sending request
-      if (!this.client!.isHealthy()) {
+      if (!(await this.client!.isHealthy())) {
         throw new Error('Server is not healthy, cannot execute test step');
       }
 

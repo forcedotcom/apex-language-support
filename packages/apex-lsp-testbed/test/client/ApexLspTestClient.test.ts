@@ -42,8 +42,8 @@ describe('ApexLspTestClient', () => {
       expect(capabilities?.completionProvider).toBeDefined();
     });
 
-    it('should report healthy after initialization', () => {
-      expect(client.isHealthy()).toBe(true);
+    it('should report healthy after initialization', async () => {
+      expect(await client.isHealthy()).toBe(true);
     });
   });
 
@@ -138,12 +138,12 @@ describe('ApexLspTestClient', () => {
       const tempInit = await tempCore.initialize(DEFAULT_APEX_SETTINGS);
       const tempClient = new ApexLspTestClient(tempCore, tempInit);
 
-      expect(tempClient.isHealthy()).toBe(true);
+      expect(await tempClient.isHealthy()).toBe(true);
 
       await tempCore.shutdown();
       await tempCore.dispose();
 
-      expect(tempClient.isHealthy()).toBe(false);
+      expect(await tempClient.isHealthy()).toBe(false);
       expect(tempClient.isDisposed()).toBe(true);
     });
 
