@@ -643,6 +643,22 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         ).rejects.toThrow(RequestCancelledError);
         expect(process).not.toHaveBeenCalled();
       });
+
+      it('drains requests still in the debounce window on shutdown', async () => {
+        const { manager, process } = installCodeActionSpy();
+
+        // A request that is still waiting in its debounce window when shutdown
+        // is called must be rejected (not left to fire its timer later) and
+        // must never dispatch.
+        const pending = manager.submitCodeActionRequest(
+          codeActionParams('file:///Draining.cls'),
+        );
+
+        await manager.shutdown();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
+      });
     });
 
     describe('worker dispatcher consultation', () => {

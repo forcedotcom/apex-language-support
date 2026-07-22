@@ -371,6 +371,7 @@ export class ApexEditorPage extends BasePage {
    * @param titleFragment - Substring of the action title to apply (e.g. "Extract local variable").
    */
   async applyCodeAction(titleFragment: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
     const actionWidget = this.page.locator('.action-widget:visible');
     const options = actionWidget.getByRole('option');
     const target = options.filter({ hasText: titleFragment }).first();
@@ -379,16 +380,25 @@ export class ApexEditorPage extends BasePage {
     // Walk focus down until the target row carries Monaco's `focused` class,
     // then accept. Bounded by the number of offered actions.
     const count = await options.count();
+    let matched = false;
     for (let i = 0; i < count; i++) {
       const focusedLabel = await actionWidget
         .locator('.monaco-list-row.focused')
         .getAttribute('aria-label')
         .catch(() => null);
       if (focusedLabel && focusedLabel.includes(titleFragment)) {
+        matched = true;
         break;
       }
       await this.page.keyboard.press('ArrowDown');
     }
+    // Never press Enter on an unmatched selection — that would silently apply
+    // whatever action happens to be focused. Fail loudly instead so a broken
+    // focus walk surfaces as a clear test failure rather than a wrong edit.
+    expect(
+      matched,
+      `Code action "${titleFragment}" was offered but focus never landed on it`,
+    ).toBe(true);
     await this.page.keyboard.press('Enter');
     await actionWidget
       .waitFor({ state: 'hidden', timeout: this.defaultTimeout })

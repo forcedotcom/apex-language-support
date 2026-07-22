@@ -1073,6 +1073,15 @@ export class LSPQueueManager {
 
     this.isShutdown = true;
 
+    // Drain any code-action requests still waiting in the debounce window.
+    // supersede() clears each entry's timer, disposes its token subscription,
+    // removes its map slot, and rejects the pending promise with
+    // RequestCancelledError (mapped to null by the adapter). Snapshot first —
+    // supersede() mutates pendingCodeActions as it deletes each slot.
+    for (const entry of [...this.pendingCodeActions.values()]) {
+      entry.supersede();
+    }
+
     if (this.schedulerInitialized) {
       await Effect.runPromise(shutdown());
       this.schedulerInitialized = false;

@@ -933,6 +933,14 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    * `}` rather than at it. Inserting there would emit the member *after* the
    * closing brace — outside the class body — producing invalid Apex. Subtract
    * the brace's own width (1 char) to land just before it.
+   *
+   * CAVEAT: this position comes from the *indexed* symbol (`symbolManager`),
+   * not the live target file. For a multi-file Declare-Missing-Method fix the
+   * target class is typically not the open document, so if that file has been
+   * edited since it was last indexed the recorded `symbolRange` can be stale
+   * and the stub may land at the wrong offset. Acceptable for the dev-only
+   * steel thread; before production enablement (05.4) this should re-read the
+   * target file (or reparse) to anchor the insertion against current content.
    */
   private async computeInsertPosition(
     target: TargetClass,
