@@ -9,7 +9,14 @@
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
+import {
+  createHeadlessClient,
+  ApexClientCore,
+} from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
+
+import { ApexLspTestClient } from './ApexLspTestClient';
+import { MockRpcConnection } from './MockRpcConnection';
 import {
   RequestResponseCapturingMiddleware,
   RequestResponsePair,
@@ -47,13 +54,17 @@ export interface LspTestResult {
 }
 
 /**
- * A fixture for running LSP tests with middleware capturing requests and responses
+ * A fixture for running LSP tests with middleware capturing requests and responses.
+ * Uses the SDK's `createHeadlessClient` / `ApexClientCore` for lifecycle management.
  */
 export class LspTestFixture {
-  private client: ApexJsonRpcClient;
+  private client: ApexLspTestClient | undefined;
+  private core: ApexClientCore | undefined;
   private middleware: RequestResponseCapturingMiddleware;
   private snapshotDir: string;
   private updateSnapshots: boolean;
+  private serverPath: string;
+  private serverArgs: string[];
 
   /**
    * Create a new LSP test fixture
@@ -68,12 +79,8 @@ export class LspTestFixture {
       serverArgs?: string[];
     } = {},
   ) {
-    this.client = new ApexJsonRpcClient({
-      serverPath,
-      serverArgs: options.serverArgs || [],
-      serverType: 'demo',
-    });
-
+    this.serverPath = serverPath;
+    this.serverArgs = options.serverArgs || [];
     this.middleware = new RequestResponseCapturingMiddleware();
     this.snapshotDir =
       options.snapshotDir || path.join(process.cwd(), '__snapshots__');
@@ -86,16 +93,33 @@ export class LspTestFixture {
   }
 
   /**
-   * Setup the fixture before running tests
+   * Setup the fixture before running tests.
+   * Uses MockRpcConnection for demo-mode (serverPath === 'demo-mode')
+   * or createHeadlessClient for real servers.
    */
   public async setup(): Promise<void> {
     try {
-      await this.client.start();
+      if (this.serverPath === 'demo-mode') {
+        // Demo mode
+        const mockConn = new MockRpcConnection();
+        this.core = await ApexClientCore.create(mockConn);
+        mockConn.listen();
+        const initResult = await this.core.initialize(DEFAULT_APEX_SETTINGS);
+        this.client = new ApexLspTestClient(this.core, initResult);
+      } else {
+        // Real server mode
+        const result = await createHeadlessClient(this.serverPath, {
+          serverArgs: this.serverArgs,
+        });
+        this.core = result.core;
+        const initResult = await this.core.initialize(DEFAULT_APEX_SETTINGS);
+        this.client = new ApexLspTestClient(this.core, initResult);
 
-      // Wait for server to be healthy
-      await this.client.waitForHealthy(30000);
+        // Wait for server to be healthy
+        await this.client.waitForHealthy(30000);
+      }
 
-      // Install middleware after client is started
+      // Install middleware after client is created
       this.middleware.installOnClient(this.client);
     } catch (error) {
       console.error('Failed to setup LSP test fixture:', error);
@@ -108,7 +132,14 @@ export class LspTestFixture {
    */
   public async teardown(): Promise<void> {
     this.middleware.uninstall();
-    await this.client.stop();
+    if (this.core) {
+      try {
+        await this.core.shutdown();
+      } catch (_) {
+        // Ignore shutdown errors
+      }
+      await this.core.dispose();
+    }
   }
 
   /**
@@ -165,12 +196,12 @@ export class LspTestFixture {
   ): Promise<LspTestResult['steps'][0]> {
     try {
       // Check if client is still healthy before sending request
-      if (!(await this.client.isHealthy())) {
+      if (!(await this.client!.isHealthy())) {
         throw new Error('Server is not healthy, cannot execute test step');
       }
 
       // Send the request via the client
-      await this.client.sendRequest(step.method, step.params);
+      await this.client!.sendRequest(step.method, step.params);
 
       // Get the captured request-response pair
       const pair = this.middleware.getLastCapturedRequest();
@@ -282,7 +313,6 @@ export class LspTestFixture {
       );
 
       // Compare captured requests with snapshot
-      // This is a simplified comparison - you may need more sophisticated comparison
       const currentRequests = capturedRequests.map(
         (req: RequestResponsePair) => ({
           method: req.method,

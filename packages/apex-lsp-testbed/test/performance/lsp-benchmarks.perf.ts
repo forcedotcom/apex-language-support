@@ -272,14 +272,7 @@ describe(testTitle, () => {
   afterAll(async () => {
     if (serverContext) {
       try {
-        // Ensure client is stopped (stop() is safe to call multiple times)
-        await serverContext.client.stop();
-      } catch (error) {
-        console.warn(`Error stopping client in afterAll: ${error}`);
-      }
-
-      try {
-        // Cleanup workspace and other resources
+        // Cleanup handles shutdown + dispose in correct order
         await serverContext.cleanup();
       } catch (error) {
         console.warn(`Error during cleanup in afterAll: ${error}`);
@@ -300,9 +293,9 @@ describe(testTitle, () => {
       const requestTimeout = 2_000; // 2 second timeout per request
       const results: Record<string, Benchmark.Target> = {};
 
-      // Ensure client is started
-      if (!serverContext.client._isRunning) {
-        await serverContext.client.start();
+      // Ensure client is healthy
+      if (!(await serverContext.client.isHealthy())) {
+        throw new Error('Server is not healthy, cannot run benchmarks');
       }
 
       if (testData.length === 0) {

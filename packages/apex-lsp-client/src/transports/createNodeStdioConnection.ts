@@ -44,7 +44,7 @@ export interface NodeStdioConnectionResult {
  * `JsonRpcConnection` subclass that manages a Node child process lifecycle.
  * Overrides `dispose()` to kill the child process and wait for clean exit.
  */
-class NodeStdioJsonRpcConnection extends JsonRpcConnection {
+export class NodeStdioJsonRpcConnection extends JsonRpcConnection {
   constructor(
     connection: MessageConnection,
     private readonly child: ChildProcess,

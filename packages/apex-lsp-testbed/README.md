@@ -4,7 +4,9 @@ A testing framework for evaluating and comparing different implementations of Ap
 
 ## Overview
 
-This package provides a unified interface for testing various Apex language server implementations (such as the demo mock server and jorje Java-based server) using the JSON-RPC protocol.
+This package provides a unified interface for testing various Apex language server implementations (such as the demo mock server and jorje Java-based server) using the `@salesforce/apex-lsp-client` SDK.
+
+Uses SDK's `createHeadlessClient` for real server connections; `MockRpcConnection` + `ApexClientCore` for demo/test mode. All interactions go through the `ApexLspTestClient` wrapper which provides convenience methods for document operations, health checks, and server capabilities.
 
 ## Prerequisites
 
@@ -98,20 +100,49 @@ Workspace Examples:
   --workspace https://github.com/username/repo.git
 ```
 
-## Interactive Mode
+## SDK Architecture
 
-When running in interactive mode (the default), the following commands are available:
+The testbed uses the `@salesforce/apex-lsp-client` SDK for all server communication:
 
-- `open` - Open a test document
-- `update` - Update the test document
-- `close` - Close the test document
-- `completion` - Request completion at a position
-- `hover` - Request hover information
-- `symbols` - Request document symbols
-- `format` - Request document formatting
-- `capabilities` - Show server capabilities
-- `exit/quit` - Exit the program
-- `help` - Show this help
+### Key Components
+
+- **`ApexLspTestClient`** - Convenience wrapper around `ApexClientCore` that adds testbed-specific methods: `openTextDocument`, `closeTextDocument`, `updateTextDocument`, `isHealthy`, `waitForHealthy`, `getServerCapabilities`.
+- **`MockRpcConnection`** - In-memory `RpcConnection` implementation for demo/test mode. Handles mock responses for common LSP methods.
+- **`RequestResponseCapturingMiddleware`** - Implements `ApexClientMiddleware` to intercept and record all requests/responses for test verification.
+- **`NotificationCapturingMiddleware`** - Implements `ApexClientMiddleware` to capture incoming server notifications for protocol compliance testing.
+
+### Lifecycle
+
+```typescript
+// Real server mode
+import { createHeadlessClient } from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
+import { ApexLspTestClient } from './test-utils/ApexLspTestClient';
+
+const { core } = await createHeadlessClient(serverPath, { serverArgs: ['--stdio'] });
+const initResult = await core.initialize(DEFAULT_APEX_SETTINGS);
+const client = new ApexLspTestClient(core, initResult);
+
+// Use the client
+client.openTextDocument(uri, content, 'apex');
+const result = await client.hover({ textDocument: { uri }, position: { line: 0, character: 10 } });
+
+// Shutdown
+await core.shutdown();
+await core.dispose();
+```
+
+```typescript
+// Demo/test mode
+import { ApexClientCore } from '@salesforce/apex-lsp-client';
+import { MockRpcConnection } from './test-utils/MockRpcConnection';
+
+const mockConn = new MockRpcConnection();
+const core = await ApexClientCore.create(mockConn);
+mockConn.listen();
+const initResult = await core.initialize(DEFAULT_APEX_SETTINGS);
+const client = new ApexLspTestClient(core, initResult);
+```
 
 ## Development
 
@@ -148,7 +179,7 @@ When started with the `--suspend` flag, the Java process will wait for a debugge
 ### Debugging with IntelliJ IDEA
 
 1. Run the server with suspend: `npm run start:jorje:debug`
-2. In IntelliJ IDEA, go to Run → Debug... → Remote JVM Debug
+2. In IntelliJ IDEA, go to Run -> Debug... -> Remote JVM Debug
 3. Configure the connection with host `localhost` and port `2739`
 4. Click "Debug" to connect to the suspended Java process
 
@@ -170,10 +201,11 @@ When started with the `--suspend` flag, the Java process will wait for a debugge
 
 ## Features
 
-- Connect to different Apex Language Server implementations
+- Connect to different Apex Language Server implementations via the SDK
 - Measure performance metrics of language server operations
 - Compare different server implementations
 - Support for standard LSP features like code completion, hover information, etc.
+- SDK middleware chain for request/response capturing and protocol verification
 - Automatic handling of server communication
 
 ## Configuration Options
@@ -191,12 +223,12 @@ The following configuration options are available:
 | `logLevel`                   | Log level (ERROR, WARN, INFO, DEBUG)          | ERROR                                 |
 | `suspendStartup`             | Whether to suspend on startup (for debugging) | false                                 |
 
-## Advanced JSON-RPC Client
+## SDK Client
 
-This package includes a lightweight JSON-RPC client for direct communication with the Apex Language Server. See the `ApexJsonRpcClient` class for more details.
+This package uses `@salesforce/apex-lsp-client` for all server communication. The `ApexLspTestClient` wrapper provides a convenient testing API:
 
 ```typescript
-import { ApexJsonRpcClient } from '@salesforce/apex-lsp-testbed';
+import { ApexLspTestClient } from '@salesforce/apex-lsp-testbed';
 ```
 
 ## License

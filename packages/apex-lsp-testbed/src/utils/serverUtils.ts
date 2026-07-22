@@ -9,10 +9,38 @@
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
 import { WorkspaceConfig } from './workspaceUtils';
 import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils';
 import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
+
+/**
+ * Options for configuring the LSP client connection.
+ * Previously defined in ApexJsonRpcClient; retained here for use by
+ * `createClientOptions` and downstream callers.
+ */
+export interface JsonRpcClientOptions {
+  /** Path to server script */
+  serverPath: string;
+  /** Arguments to pass to Node */
+  nodeArgs?: string[];
+  /** Arguments to pass to the server */
+  serverArgs?: string[];
+  /** Environment variables to set */
+  env?: NodeJS.ProcessEnv;
+  /** Timeout for requests in milliseconds */
+  requestTimeout?: number;
+  /** Initialization params for the language server */
+  initializeParams?: any;
+  /** The type of server to use */
+  serverType: ServerType;
+  /** Web worker options (used for webWorker serverType) */
+  webWorkerOptions?: {
+    workerUrl?: string;
+    workerOptions?: { name?: string; credentials?: string; type?: string };
+  };
+  /** Optional workspace path */
+  workspacePath?: string;
+}
 
 // Define server types as a string union
 export type ServerType =
