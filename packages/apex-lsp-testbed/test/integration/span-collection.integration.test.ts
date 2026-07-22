@@ -10,7 +10,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import * as http from 'http';
-import { ApexJsonRpcClient } from '../../src/client/ApexJsonRpcClient';
+import {
+  createHeadlessClient,
+  type ApexClientCore,
+} from '@salesforce/apex-lsp-client';
+import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';
 
 /**
  * Integration test to verify that OTEL spans are collected end-to-end:
@@ -20,7 +24,7 @@ import { ApexJsonRpcClient } from '../../src/client/ApexJsonRpcClient';
  * - Parent-child relationships maintained
  */
 describe('Span Collection Integration', () => {
-  let client: ApexJsonRpcClient;
+  let client: ApexClientCore | undefined;
   let spanCollectorServer: http.Server;
   let collectorPort: number;
   let receivedSpans: any[] = [];
@@ -98,24 +102,8 @@ describe('Span Collection Integration', () => {
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://localhost:${collectorPort}`;
     process.env.APEX_LS_ENABLE_TRACING = 'true';
 
-    client = new ApexJsonRpcClient({
-      serverPath,
-      serverType: 'nodeServer',
+    const result = await createHeadlessClient(serverPath, {
       serverArgs: ['--stdio'],
-      initializeParams: {
-        rootUri: workspaceUri,
-        initializationOptions: {
-          logLevel: 'DEBUG',
-          apex: {
-            logLevel: 'DEBUG',
-            experimental: {
-              workers: {
-                enabled: true,
-              },
-            },
-          },
-        },
-      },
       env: {
         ...process.env,
         OTEL_EXPORTER_OTLP_ENDPOINT: `http://localhost:${collectorPort}`,
@@ -124,8 +112,28 @@ describe('Span Collection Integration', () => {
       },
     });
 
-    // Start the server
-    await client.start();
+    client = result.core;
+
+    // Initialize the client
+    await client.initialize(
+      {
+        ...DEFAULT_APEX_SETTINGS,
+        apex: {
+          ...DEFAULT_APEX_SETTINGS.apex,
+          logLevel: 'DEBUG',
+          experimental: {
+            workers: {
+              enabled: true,
+              poolSize: 2,
+              resourceLoader: true,
+            },
+          },
+        },
+      },
+      {
+        rootUri: workspaceUri,
+      },
+    );
 
     // Wait for initialization and workspace load to complete
     // Also wait for spans to be exported (SimpleSpanProcessor exports immediately,
@@ -135,7 +143,8 @@ describe('Span Collection Integration', () => {
 
   afterAll(async () => {
     if (client) {
-      await client.stop();
+      await client.shutdown();
+      await client.dispose();
     }
     if (spanCollectorServer) {
       await new Promise<void>((resolve) => {
@@ -222,10 +231,10 @@ describe('Span Collection Integration', () => {
   });
 
   it('should collect worker initialization spans', () => {
-    // Look for worker initialization spans
+    // Look for worker initialization spans (actual naming uses PascalCase 'WorkerInit')
     const initSpans = receivedSpans.filter((span) => {
       const name = span.name || '';
-      return name.includes('worker.init');
+      return name.includes('WorkerInit');
     });
 
     // We should have worker initialization spans from the 3 worker roles

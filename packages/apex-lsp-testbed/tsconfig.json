@@ -13,6 +13,7 @@
     { "path": "../apex-lsp-shared" },
     { "path": "../apex-parser-ast" },
     { "path": "../lsp-compliant-services" },
-    { "path": "../apex-ls" }
+    { "path": "../apex-ls" },
+    { "path": "../apex-lsp-client" }
   ]
 }

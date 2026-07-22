@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { MessageConnection } from 'vscode-jsonrpc';
+import type { ApexClientMiddleware } from '@salesforce/apex-lsp-client';
+import type { Disposable } from '@salesforce/apex-lsp-shared';
+
+import type { ApexLspTestClient } from './ApexLspTestClient';
 
 export interface RequestResponsePair {
   id: string | number;
@@ -19,43 +22,86 @@ export interface RequestResponsePair {
 }
 
 /**
- * Middleware for capturing LSP requests and responses for testing purposes
+ * SDK-native middleware for capturing LSP requests and responses for testing.
+ *
+ * Implements `ApexClientMiddleware` so it can be installed via `client.use(mw)`.
+ * Captures both outgoing requests (with their eventual responses/errors)
+ * and outgoing notifications as fire-and-forget entries.
  */
-export class RequestResponseCapturingMiddleware {
+export class RequestResponseCapturingMiddleware implements ApexClientMiddleware {
   private capturedRequests: RequestResponsePair[] = [];
   private pendingRequests = new Map<string | number, RequestResponsePair>();
-  private connection: MessageConnection | null = null;
-  private originalSendRequest: Function | null = null;
+  private disposable: Disposable | null = null;
 
   /**
-   * Initialize the middleware with a connection
-   * @param connection The LSP message connection to instrument
+   * Install this middleware on an ApexLspTestClient.
+   * Returns the Disposable for uninstalling.
    */
-  public install(connection: MessageConnection): void {
-    if (this.connection) {
-      throw new Error('Middleware already installed on a connection');
-    }
-
-    this.connection = connection;
-    this.originalSendRequest = connection.sendRequest;
-    // Replace the sendRequest method with our instrumented version
-    connection.sendRequest =
-      this.createInstrumentedSendRequest() as typeof connection.sendRequest;
+  public installOnClient(client: ApexLspTestClient): Disposable {
+    this.disposable = client.use(this);
+    return this.disposable;
   }
 
   /**
-   * Uninstall the middleware, restoring the original sendRequest method
+   * Uninstall the middleware (dispose the registration).
    */
   public uninstall(): void {
-    if (!this.connection || !this.originalSendRequest) {
-      return;
+    if (this.disposable) {
+      this.disposable.dispose();
+      this.disposable = null;
     }
-
-    this.connection.sendRequest = this
-      .originalSendRequest as typeof this.connection.sendRequest;
-    this.connection = null;
-    this.originalSendRequest = null;
   }
+
+  // --- ApexClientMiddleware implementation ---
+
+  sendRequest<P, R>(
+    method: string,
+    params: P,
+    next: (p: P) => Promise<R>,
+  ): Promise<R> {
+    const id = Date.now() + Math.random();
+    const timestamp = Date.now();
+    const pair: RequestResponsePair = {
+      id,
+      method,
+      request: params,
+      timestamp,
+    };
+    this.pendingRequests.set(id, pair);
+
+    return next(params).then(
+      (response) => {
+        pair.response = response;
+        pair.duration = Date.now() - timestamp;
+        this.capturedRequests.push(pair);
+        this.pendingRequests.delete(id);
+        return response;
+      },
+      (error) => {
+        pair.error = error;
+        pair.duration = Date.now() - timestamp;
+        this.capturedRequests.push(pair);
+        this.pendingRequests.delete(id);
+        throw error;
+      },
+    );
+  }
+
+  sendNotification<P>(method: string, params: P, next: (p: P) => void): void {
+    // Call next() first, then record - consistent with request path ordering
+    next(params);
+
+    // Record the notification after it's sent (notifications have no response)
+    const pair: RequestResponsePair = {
+      id: Date.now() + Math.random(),
+      method,
+      request: params,
+      timestamp: Date.now(),
+    };
+    this.capturedRequests.push(pair);
+  }
+
+  // --- Query methods ---
 
   /**
    * Reset the captured requests
@@ -87,112 +133,5 @@ export class RequestResponseCapturingMiddleware {
     return this.capturedRequests.length > 0
       ? this.capturedRequests[this.capturedRequests.length - 1]
       : undefined;
-  }
-
-  /**
-   * Create an instrumented version of the sendRequest method that captures requests and responses
-   */
-  private createInstrumentedSendRequest(): Function {
-    // Store the original for use in the instrumented version
-    const originalSendRequest = this.originalSendRequest!;
-    const middleware = this;
-
-    return function (
-      this: MessageConnection,
-      method: string,
-      params?: any,
-      ...additionalArgs: any[]
-    ) {
-      const id = typeof params?.id === 'number' ? params.id : Date.now();
-      const timestamp = Date.now();
-
-      // Create request-response pair and store it
-      const requestResponsePair: RequestResponsePair = {
-        id,
-        method,
-        request: params,
-        timestamp,
-      };
-
-      middleware.pendingRequests.set(id, requestResponsePair);
-
-      // Call the original sendRequest
-      return originalSendRequest
-        .call(this, method, params, ...additionalArgs)
-        .then((response: any) => {
-          // Record the response
-          if (middleware.pendingRequests.has(id)) {
-            const pendingRequest = middleware.pendingRequests.get(id)!;
-            pendingRequest.response = response;
-            pendingRequest.duration = Date.now() - timestamp;
-            middleware.pendingRequests.delete(id);
-            middleware.capturedRequests.push(pendingRequest);
-          }
-          return response;
-        })
-        .catch((error: any) => {
-          // Record the error
-          if (middleware.pendingRequests.has(id)) {
-            const pendingRequest = middleware.pendingRequests.get(id)!;
-            pendingRequest.error = error;
-            pendingRequest.duration = Date.now() - timestamp;
-            middleware.pendingRequests.delete(id);
-            middleware.capturedRequests.push(pendingRequest);
-          }
-          throw error;
-        });
-    };
-  }
-
-  /**
-   * Install the middleware on an ApexJsonRpcClient (json-rpc-2.0 based)
-   * This wraps sendRequest and sendNotification to capture requests/responses
-   */
-  public installOnClient(client: any): void {
-    // Patch sendRequest
-    const origSendRequest = client.sendRequest?.bind(client);
-    if (origSendRequest) {
-      client.sendRequest = async (method: string, params: any) => {
-        const id = Date.now() + Math.random();
-        const timestamp = Date.now();
-        const pair: RequestResponsePair = {
-          id,
-          method,
-          request: params,
-          timestamp,
-        };
-        this.pendingRequests.set(id, pair);
-        try {
-          const response = await origSendRequest(method, params);
-          pair.response = response;
-          pair.duration = Date.now() - timestamp;
-          this.capturedRequests.push(pair);
-          this.pendingRequests.delete(id);
-          return response;
-        } catch (error) {
-          pair.error = error;
-          pair.duration = Date.now() - timestamp;
-          this.capturedRequests.push(pair);
-          this.pendingRequests.delete(id);
-          throw error;
-        }
-      };
-    }
-    // Patch sendNotification (capture as fire-and-forget)
-    const origSendNotification = client.sendNotification?.bind(client);
-    if (origSendNotification) {
-      client.sendNotification = (method: string, params: any) => {
-        const id = Date.now() + Math.random();
-        const timestamp = Date.now();
-        const pair: RequestResponsePair = {
-          id,
-          method,
-          request: params,
-          timestamp,
-        };
-        this.capturedRequests.push(pair);
-        origSendNotification(method, params);
-      };
-    }
   }
 }
