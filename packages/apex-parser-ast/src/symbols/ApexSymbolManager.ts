@@ -5987,6 +5987,172 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return symContainedWithin(innerSymbol, outerSymbol);
   }
 
+  private getContainingTypeAtPosition(
+    symbolTable: SymbolTable,
+    position: { line: number; character: number },
+  ): TypeSymbol | undefined {
+    const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+    const allSymbols = symbolTable.getAllSymbols();
+    const symbolsById = new Map(
+      allSymbols.map((symbol) => [symbol.id, symbol]),
+    );
+    let current: ApexSymbol | undefined = scopeHierarchy.at(-1);
+    const visited = new Set<string>();
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      if (
+        current.kind === SymbolKind.Class ||
+        current.kind === SymbolKind.Interface
+      ) {
+        return current as TypeSymbol;
+      }
+      current = current.parentId
+        ? symbolsById.get(current.parentId)
+        : undefined;
+    }
+    return undefined;
+  }
+
+  public async getReceiverKeywordTargetAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol | null> {
+    const references = await this.getReferencesAtPosition(fileUri, position);
+    const receiverReference = references.find((reference) => {
+      const name = reference.name.toLowerCase();
+      return (
+        (name === 'this' || name === 'super') &&
+        this.isPositionInIdentifierRange(
+          position,
+          reference.location.identifierRange,
+        )
+      );
+    });
+    if (!receiverReference) return null;
+
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+    const containingType = this.getContainingTypeAtPosition(
+      symbolTable,
+      position,
+    );
+    if (!containingType) return null;
+    return receiverReference.name.toLowerCase() === 'super'
+      ? this.resolveSuperclassSymbol(containingType)
+      : containingType;
+  }
+
+  /**
+   * Resolve a member call whose receiver is the current Apex instance. The
+   * listener deliberately omits the pseudo-values `this` and `super` from
+   * chainNodes, so generic chain resolution cannot infer their type. Resolve
+   * them from the lexical containing class instead, including its superclass
+   * chain. An omitted receiver follows the same path after lexical lookup.
+   */
+  private async resolveInstanceReceiverMemberAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+    references: SymbolReference[],
+  ): Promise<ApexSymbol | null> {
+    const memberReferences = references.filter((reference) => {
+      // Chained containers carry the whole expression as their name. Resolve
+      // the standalone leaf reference at the cursor instead.
+      if (isChainedSymbolReference(reference)) return false;
+      if (
+        reference.context !== ReferenceContext.METHOD_CALL &&
+        reference.context !== ReferenceContext.FIELD_ACCESS &&
+        reference.context !== ReferenceContext.PROPERTY_REFERENCE
+      ) {
+        return false;
+      }
+      return this.isPositionInIdentifierRange(
+        position,
+        reference.location.identifierRange,
+      );
+    });
+    if (memberReferences.length === 0) return null;
+
+    const relevantChains = references.filter(
+      (reference) =>
+        isChainedSymbolReference(reference) &&
+        this.isPositionInIdentifierRange(
+          position,
+          reference.location.identifierRange,
+        ),
+    );
+    const relevantChain =
+      relevantChains.find((reference) => {
+        const name = reference.name.trim().toLowerCase();
+        return name.startsWith('this.') || name.startsWith('super.');
+      }) ?? relevantChains[0];
+    const chainName = relevantChain?.name.trim().toLowerCase();
+    const receiver = chainName?.startsWith('super.')
+      ? 'super'
+      : chainName?.startsWith('this.')
+        ? 'this'
+        : relevantChain
+          ? null
+          : 'this';
+    // A real qualifier such as `service.run()` is not an implicit receiver.
+    if (receiver === null) return null;
+
+    // Prefer the semantic target already attached by same-file resolution.
+    // This must run before broad synthetic CLASS_REFERENCE entries such as the
+    // collector's unresolved-return-type placeholder (`unknown`). A `super.`
+    // receiver deliberately bypasses a same-file override.
+    if (receiver !== 'super') {
+      for (const reference of memberReferences) {
+        if (!reference.resolvedSymbolId) continue;
+        const resolved = await this.getSymbol(reference.resolvedSymbolId);
+        const expectedKind =
+          reference.context === ReferenceContext.METHOD_CALL
+            ? SymbolKind.Method
+            : reference.context === ReferenceContext.FIELD_ACCESS
+              ? SymbolKind.Field
+              : SymbolKind.Property;
+        if (resolved?.kind === expectedKind) return resolved;
+      }
+    }
+
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+    const containingType = this.getContainingTypeAtPosition(
+      symbolTable,
+      position,
+    );
+    if (!containingType) return null;
+
+    const receiverType =
+      receiver === 'super'
+        ? await this.resolveSuperclassSymbol(containingType)
+        : containingType;
+    if (!receiverType) return null;
+
+    const methodReference = memberReferences.find(
+      (reference) => reference.context === ReferenceContext.METHOD_CALL,
+    );
+    if (methodReference) {
+      return this.resolveMemberInContext(
+        { type: 'symbol', symbol: receiverType },
+        methodReference.name,
+        'method',
+      );
+    }
+
+    const memberName = memberReferences[0].name;
+    const field = await this.resolveMemberInContext(
+      { type: 'symbol', symbol: receiverType },
+      memberName,
+      'field',
+    );
+    if (field) return field;
+    return this.resolveMemberInContext(
+      { type: 'symbol', symbol: receiverType },
+      memberName,
+      'property',
+    );
+  }
+
   /**
    * Get symbol at position with precise resolution (exact position matches only)
    * This is used for hover, definition, and references requests where we want exact matches
@@ -6087,6 +6253,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (typeReferences.length > 0) {
+        // Generic symbol consumers (references, rename, etc.) must not turn a
+        // language keyword into a class target. Hover and definition opt in
+        // through getReceiverKeywordTargetAtPosition instead.
+        const keywordAtPosition = typeReferences.some(
+          (reference) =>
+            isApexKeyword(reference.name) &&
+            this.isPositionInIdentifierRange(
+              position,
+              reference.location.identifierRange,
+            ),
+        );
+        if (keywordAtPosition) return null;
+
+        const receiverMember =
+          await this.resolveInstanceReceiverMemberAtPosition(
+            fileUri,
+            position,
+            typeReferences,
+          );
+        if (receiverMember) return receiverMember;
+
         // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
         // These should be resolved as classes/types, not variables or methods
         const genericParamRefs = typeReferences.filter(
@@ -6980,7 +7167,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async resolveMemberInContext(
     context: ChainResolutionContext,
     memberName: string,
-    memberType: 'property' | 'method' | 'class',
+    memberType: 'property' | 'field' | 'method' | 'class',
     typeSubstitutions: GenericTypeSubstitutionMap | null = null,
   ): Promise<ApexSymbol | null> {
     return resolveMemberInCtxOp(

@@ -781,6 +781,7 @@ interface DispatcherCallbacks {
   readonly hasResourceLoader: boolean;
   readonly compilationPoolSize: number;
   readonly getDocumentContent?: (uri: string) => string | undefined;
+  readonly getDocumentVersion?: (uri: string) => number | undefined;
 }
 
 /**
@@ -924,6 +925,7 @@ function createDispatcher(
         type,
         params,
         callbacks.getDocumentContent,
+        callbacks.getDocumentVersion,
       );
       injectTraceContextIntoMessage(msg as unknown as Record<string, unknown>);
       logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
@@ -1027,10 +1029,14 @@ function createDispatcher(
     async queryDataOwner(method: string, params: unknown): Promise<unknown> {
       switch (method) {
         case 'QuerySymbolSubset': {
-          const pqs = params as { uris?: string[] };
+          const pqs = params as {
+            uris?: string[];
+            includeEntries?: boolean;
+          };
           return sendTracedToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
+              includeEntries: pqs.includeEntries,
             }),
           );
         }
@@ -1143,6 +1149,7 @@ export function makeWorkerDispatcher(
   topology: WorkerTopology,
   logger: LoggerInterface,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ) {
   return createDispatcher(
     {
@@ -1168,6 +1175,7 @@ export function makeWorkerDispatcher(
       hasResourceLoader: topology.resourceLoader !== null,
       compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
+      getDocumentVersion,
     },
     logger,
   );
@@ -1180,6 +1188,7 @@ export function makeTransportDispatcher(
   topology: TransportTopology,
   logger: LoggerInterface,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ) {
   return createDispatcher(
     {
@@ -1197,6 +1206,7 @@ export function makeTransportDispatcher(
       hasResourceLoader: topology.resourceLoader !== null,
       compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
+      getDocumentVersion,
     },
     logger,
   );
@@ -1292,14 +1302,17 @@ function buildLspRequestMessage(
   type: LSPRequestType,
   params: unknown,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ): LspRequestMessage {
   const p = params as EnrichmentParams;
+  const documentVersion = getDocumentVersion?.(p.textDocument.uri);
   switch (type) {
     case 'hover':
       return new DispatchHover({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
+        documentVersion,
       });
     case 'completion': {
       const c = p as PositionBasedParams & {
@@ -1309,6 +1322,7 @@ function buildLspRequestMessage(
         textDocument: { uri: c.textDocument.uri },
         position: c.position,
         content: getDocumentContent?.(c.textDocument.uri),
+        documentVersion,
         ...(c.context ? { context: c.context } : {}),
       });
     }
@@ -1317,6 +1331,7 @@ function buildLspRequestMessage(
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
+        documentVersion,
       });
     case 'signatureHelp': {
       const s = p as PositionBasedParams & { context?: unknown };
@@ -1324,6 +1339,7 @@ function buildLspRequestMessage(
         textDocument: { uri: s.textDocument.uri },
         position: s.position,
         content: getDocumentContent?.(s.textDocument.uri),
+        documentVersion,
         ...(s.context !== undefined ? { context: s.context } : {}),
       });
     }
@@ -1362,6 +1378,7 @@ function buildLspRequestMessage(
       return new DispatchImplementation({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'documentSymbol':
       return new DispatchDocumentSymbol({
@@ -1380,6 +1397,7 @@ function buildLspRequestMessage(
     case 'diagnostics':
       return new DispatchDiagnostic({
         textDocument: { uri: p.textDocument.uri },
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'crossFileEnrichment':
       return new DispatchCrossFileEnrichment({

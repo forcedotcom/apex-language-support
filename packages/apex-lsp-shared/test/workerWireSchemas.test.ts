@@ -100,13 +100,16 @@ describe('workerWireSchemas', () => {
     it('should encode and decode round-trip', () => {
       const query = new QuerySymbolSubset({
         uris: ['file:///a.cls', 'file:///b.cls'],
+        includeEntries: false,
       });
       expect(query._tag).toBe('QuerySymbolSubset');
       expect(query.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+      expect(query.includeEntries).toBe(false);
 
       const encoded = Schema.encodeSync(QuerySymbolSubset)(query);
       const decoded = Schema.decodeSync(QuerySymbolSubset)(encoded);
       expect(decoded.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+      expect(decoded.includeEntries).toBe(false);
     });
   });
 

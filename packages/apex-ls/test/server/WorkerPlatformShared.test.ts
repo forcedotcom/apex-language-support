@@ -18,6 +18,7 @@ import {
   workerId,
   resolveMissingNamesViaDataOwner,
   loadSymbolDataForEnrichment,
+  prepareLspRequestCursor,
   writeBackEnrichedSymbols,
 } from '../../src/worker.platform.shared';
 
@@ -95,6 +96,239 @@ describe('worker.platform.shared', () => {
     ).resolves.toEqual({ version: -1, detailLevel: 'public-api' });
   });
 
+  it('preserves empty live document content in worker storage', async () => {
+    setAssistanceTransport(async () => ({
+      entries: {},
+      versions: {},
+      detailLevels: {},
+    }));
+    const setDocument = jest.fn();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument }) },
+      symbolManager: {},
+    } as unknown as Parameters<typeof loadSymbolDataForEnrichment>[0];
+
+    await Effect.runPromise(
+      loadSymbolDataForEnrichment(svc, 'file:///Empty.cls', ''),
+    );
+
+    expect(setDocument).toHaveBeenCalledTimes(1);
+    expect(setDocument.mock.calls[0][1].getText()).toBe('');
+  });
+
+  it('reuses cursor preparation across different request types', async () => {
+    setAssistanceTransport(async () => ({
+      entries: {},
+      versions: {},
+      detailLevels: {},
+    }));
+    let currentTable: unknown;
+    const addSymbolTable = jest.fn((table: unknown) => {
+      currentTable = table;
+      return Effect.void;
+    });
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: jest.fn() }),
+      },
+      symbolManager: {
+        addSymbolTable,
+        getSymbolTableForFile: jest.fn(async () => currentTable),
+        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+      },
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const content = 'public class SharedCursor {}';
+
+    const hover = await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'hover',
+        'file:///SharedCursor.cls',
+        content,
+      ),
+    );
+    const completion = await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'completion',
+        'file:///SharedCursor.cls',
+        content,
+      ),
+    );
+
+    expect(hover.cacheHit).toBe(false);
+    expect(completion.cacheHit).toBe(true);
+    expect(hover.ready).toBe(true);
+    expect(completion.ready).toBe(true);
+    expect(addSymbolTable).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads only the dependency referenced at the cursor', async () => {
+    const assistance = jest.fn(async (method: string, _params: unknown) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return { entries: {}, versions: {}, detailLevels: {} };
+      }
+      return { entries: {} };
+    });
+    setAssistanceTransport(assistance);
+
+    type TestSymbol = { id: string; name: string };
+    type TestTable = { getAllSymbols: () => TestSymbol[] };
+    let currentTable: TestTable | undefined;
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: jest.fn() }),
+      },
+      symbolManager: {
+        addSymbolTable: jest.fn((table: TestTable) => {
+          currentTable = table;
+          return Effect.void;
+        }),
+        getSymbolTableForFile: jest.fn(async () => currentTable),
+        getSymbol: jest.fn(async (id: string) =>
+          currentTable?.getAllSymbols().find((symbol) => symbol.id === id),
+        ),
+        findSymbolByName: jest.fn(async (name: string) =>
+          (currentTable?.getAllSymbols() ?? []).filter(
+            (symbol) => symbol.name.toLowerCase() === name.toLowerCase(),
+          ),
+        ),
+        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+      },
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const content = [
+      'public class CursorTarget {',
+      '  public void run() {',
+      '    RelatedType selected;',
+      '    UnrelatedType ignored;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'hover',
+        'file:///CursorTarget.cls',
+        content,
+        { line: 2, character: 8 },
+      ),
+    );
+
+    const dependencyRequests = assistance.mock.calls.filter(
+      ([method]) => method === 'dataOwner:ResolveDepUris',
+    );
+    const symbolSubsetRequests = assistance.mock.calls.filter(
+      ([method]) => method === 'dataOwner:QuerySymbolSubset',
+    );
+    expect(symbolSubsetRequests).toHaveLength(1);
+    expect(symbolSubsetRequests[0][1]).toEqual({
+      uris: ['file:///CursorTarget.cls'],
+      includeEntries: false,
+    });
+    expect(dependencyRequests).toHaveLength(1);
+    expect(dependencyRequests[0][1]).toEqual({
+      classNames: ['RelatedType'],
+    });
+  });
+
+  it('reuses a version-matched local cursor without querying the owner', async () => {
+    const assistance = jest.fn(async (method: string, _params: unknown) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return {
+          entries: {},
+          versions: { 'file:///CursorTarget.cls': 7 },
+          detailLevels: {},
+        };
+      }
+      return { entries: {} };
+    });
+    setAssistanceTransport(assistance);
+
+    type TestSymbol = { id: string; name: string; fileUri: string };
+    type TestTable = { getAllSymbols: () => TestSymbol[] };
+    let currentTable: TestTable | undefined;
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: jest.fn() }),
+      },
+      symbolManager: {
+        addSymbolTable: jest.fn((table: TestTable) => {
+          currentTable = table;
+          return Effect.void;
+        }),
+        getSymbolTableForFile: jest.fn(async () => currentTable),
+        getSymbol: jest.fn(async (id: string) =>
+          currentTable?.getAllSymbols().find((symbol) => symbol.id === id),
+        ),
+        findSymbolByName: jest.fn(async (name: string) =>
+          (currentTable?.getAllSymbols() ?? []).filter(
+            (symbol) => symbol.name.toLowerCase() === name.toLowerCase(),
+          ),
+        ),
+        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+      },
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const content = [
+      'public class CursorTarget {',
+      '  private class LocalType {}',
+      '  public void run() {',
+      '    LocalType selected;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'definition',
+        'file:///CursorTarget.cls',
+        content,
+        { line: 3, character: 8 },
+        7,
+      ),
+    );
+
+    const repeated = await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'hover',
+        'file:///CursorTarget.cls',
+        content,
+        { line: 3, character: 8 },
+        7,
+      ),
+    );
+
+    expect(
+      assistance.mock.calls.filter(
+        ([method]) => method === 'dataOwner:ResolveDepUris',
+      ),
+    ).toHaveLength(0);
+    expect(repeated.cacheHit).toBe(true);
+    expect(
+      assistance.mock.calls.filter(
+        ([method]) => method === 'dataOwner:QuerySymbolSubset',
+      ),
+    ).toHaveLength(1);
+
+    await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'hover',
+        'file:///CursorTarget.cls',
+        content,
+        { line: 3, character: 8 },
+        8,
+      ),
+    );
+    expect(
+      assistance.mock.calls.filter(
+        ([method]) => method === 'dataOwner:QuerySymbolSubset',
+      ),
+    ).toHaveLength(2);
+  });
+
   it('returns false when write-back assistance rejects', async () => {
     setAssistanceTransport(async () => {
       throw new Error('assistance unavailable');
@@ -105,6 +339,7 @@ describe('worker.platform.shared', () => {
       getAllHierarchicalReferences: () => [],
       getMetadata: () => ({}),
       getFileUri: () => 'file:///Broken.cls',
+      getDetailLevel: () => 'full',
     };
     const svc = {
       symbolManager: {
@@ -117,5 +352,30 @@ describe('worker.platform.shared', () => {
         writeBackEnrichedSymbols(svc, 'file:///Broken.cls', 1, 'full'),
       ),
     ).resolves.toBe(false);
+  });
+
+  it('rejects write-back when the table did not achieve the claimed detail', async () => {
+    const assistance = jest.fn(async () => ({ accepted: true }));
+    setAssistanceTransport(assistance);
+    const symbolTable = {
+      getAllSymbols: () => [],
+      getAllReferences: () => [],
+      getAllHierarchicalReferences: () => [],
+      getMetadata: () => ({}),
+      getFileUri: () => 'file:///Partial.cls',
+      getDetailLevel: () => 'public-api',
+    };
+    const svc = {
+      symbolManager: {
+        getSymbolTableForFile: async () => symbolTable,
+      },
+    } as unknown as Parameters<typeof writeBackEnrichedSymbols>[0];
+
+    await expect(
+      Effect.runPromise(
+        writeBackEnrichedSymbols(svc, 'file:///Partial.cls', 1, 'full'),
+      ),
+    ).resolves.toBe(false);
+    expect(assistance).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,9 @@ import {
   QuerySymbolSubset,
   DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
+  DispatchDiagnostic,
+  DispatchHover,
+  DispatchImplementation,
   WorkspaceBatchCompileOnDataOwner,
   WorkspaceBatchIngest,
 } from '@salesforce/apex-lsp-shared';
@@ -65,6 +68,50 @@ function makeFakeTopology() {
 }
 
 describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
+  it('carries live document version for cursor dispatch', async () => {
+    const logger = createSpyLogger();
+    const { topology, pooled } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(
+      topology,
+      logger,
+      () => 'public class LiveBuffer {}',
+      () => 7,
+    );
+
+    await dispatcher.dispatch('hover', {
+      textDocument: { uri: 'file:///workspace/LiveBuffer.cls' },
+      position: { line: 0, character: 0 },
+    });
+
+    expect(pooled).toHaveLength(1);
+    expect(pooled[0]).toBeInstanceOf(DispatchHover);
+    expect((pooled[0] as { documentVersion?: number }).documentVersion).toBe(7);
+  });
+
+  it.each([
+    ['implementation', DispatchImplementation],
+    ['diagnostics', DispatchDiagnostic],
+  ] as const)('carries live content for %s dispatch', async (type, Message) => {
+    const logger = createSpyLogger();
+    const { topology, pooled } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(
+      topology,
+      logger,
+      () => 'public class LiveBuffer {}',
+    );
+
+    await dispatcher.dispatch(type, {
+      textDocument: { uri: 'file:///workspace/LiveBuffer.cls' },
+      position: { line: 0, character: 0 },
+    });
+
+    expect(pooled).toHaveLength(1);
+    expect(pooled[0]).toBeInstanceOf(Message);
+    expect((pooled[0] as { content?: string }).content).toBe(
+      'public class LiveBuffer {}',
+    );
+  });
+
   it('forwards ResolveDependentUris with uri + symbolName as a typed schema instance', async () => {
     const logger = createSpyLogger();
     const { topology, sent } = makeFakeTopology();
@@ -107,6 +154,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     });
     await dispatcher.queryDataOwner('QuerySymbolSubset', {
       uris: ['file:///A.cls'],
+      includeEntries: false,
     });
 
     expect(sent[0]).toBeInstanceOf(ResolveDepUris);
@@ -117,6 +165,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     expect((sent[1] as QuerySymbolSubset).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
+    expect((sent[1] as QuerySymbolSubset).includeEntries).toBe(false);
   });
 
   it('forwards QuerySymbolByName with name + optional namespace as a typed schema instance', async () => {

@@ -125,6 +125,12 @@ export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()
     }),
     payload: {
       uris: Schema.Array(Schema.String),
+      /**
+       * Whether serialized symbol-table entries should be returned. Defaults
+       * to true for compatibility. Live cursor requests can request metadata
+       * only because they compile their current source locally.
+       */
+      includeEntries: Schema.optional(Schema.Boolean),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -594,6 +600,7 @@ export class DispatchHover extends Schema.TaggedRequest<DispatchHover>()(
       textDocument: WireTextDocumentId,
       position: WirePosition,
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -613,6 +620,7 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
       // — which the dataOwner only stores at public-api detail — exist for
       // position→declaration resolution. Mirrors DispatchHover.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -631,6 +639,7 @@ export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>
       // edits, so the request worker compiles this rather than the dataOwner's
       // last-stored version.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       // CompletionContext: triggerKind (1=Invoked, 2=TriggerCharacter,
       // 3=TriggerForIncompleteCompletions) + optional triggerCharacter.
       context: Schema.optional(
@@ -656,6 +665,7 @@ export class DispatchSignatureHelp extends Schema.TaggedRequest<DispatchSignatur
       // Live (possibly unsaved) document text — signature help runs on in-flight
       // edits while typing call arguments.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       // SignatureHelpContext is opaque to the wire layer; the service narrows.
       context: Schema.optional(Schema.Unknown),
       /** W3C traceparent for distributed tracing (optional) */
@@ -715,6 +725,9 @@ export class DispatchImplementation extends Schema.TaggedRequest<DispatchImpleme
     payload: {
       textDocument: WireTextDocumentId,
       position: WirePosition,
+      // Live text is required when implementation is requested on a symbol in
+      // a method body; the public-API workspace table omits that cursor data.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -761,6 +774,9 @@ export class DispatchDiagnostic extends Schema.TaggedRequest<DispatchDiagnostic>
     failure: DispatchError,
     payload: {
       textDocument: WireTextDocumentId,
+      // Diagnostics must validate the current editor buffer, not a potentially
+      // older data-owner snapshot.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },

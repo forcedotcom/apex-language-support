@@ -2671,6 +2671,7 @@ export class LCSAdapter {
         topology,
         this.logger,
         (uri: string) => this.getDocumentTextForWorker(uri),
+        (uri: string) => this.documents.get(uri)?.version,
       );
       LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
       this.workerDispatcher = dispatcher;

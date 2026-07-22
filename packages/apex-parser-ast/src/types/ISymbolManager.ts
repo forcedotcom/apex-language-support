@@ -199,6 +199,12 @@ export interface ISymbolManager extends SymbolProvider {
     strategy?: SymbolResolutionStrategy,
   ): Promise<ApexSymbol | null>;
 
+  /** Resolve the semantic receiver represented by an exact `this`/`super`. */
+  getReceiverKeywordTargetAtPosition?(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol | null>;
+
   getSymbolAtPositionWithinScope(
     fileUri: string,
     position: { line: number; character: number },

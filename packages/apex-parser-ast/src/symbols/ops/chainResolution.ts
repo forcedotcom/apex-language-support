@@ -1757,7 +1757,7 @@ export async function resolveMemberInContext(
   self: SymbolManagerOps,
   context: ChainResolutionContext,
   memberName: string,
-  memberType: 'property' | 'method' | 'class',
+  memberType: 'property' | 'field' | 'method' | 'class',
   typeSubstitutions: GenericTypeSubstitutionMap | null = null,
 ): Promise<ApexSymbol | null> {
   if (context?.type === 'symbol') {
@@ -2264,7 +2264,7 @@ export async function resolveMemberInContext(
           const classSymbolInTable = allSymbols.find(
             (s) =>
               s.kind === SymbolKind.Class &&
-              s.name === contextSymbol.name &&
+              s.name?.toLowerCase() === contextSymbol.name.toLowerCase() &&
               s.fileUri === contextSymbol.fileUri,
           );
           const classSymbolId = classSymbolInTable?.id || contextSymbol.id;
@@ -2291,7 +2291,8 @@ export async function resolveMemberInContext(
             );
             const classSymbols = allSymbols.filter(
               (s) =>
-                s.kind === SymbolKind.Class && s.name === contextSymbol.name,
+                s.kind === SymbolKind.Class &&
+                s.name?.toLowerCase() === contextSymbol.name.toLowerCase(),
             );
             self.logger.debug(
               () =>
@@ -2404,7 +2405,7 @@ export async function resolveMemberInContext(
             const matchingMembers = classMembers.filter(
               (s) =>
                 !isBlockSymbol(s) &&
-                s.name === memberName &&
+                s.name?.toLowerCase() === memberName.toLowerCase() &&
                 s.kind === memberType &&
                 s.fileUri === contextSymbol.fileUri,
             );
@@ -2416,7 +2417,9 @@ export async function resolveMemberInContext(
             );
             if (matchingMembers.length === 0) {
               const methodsWithName = classMembers.filter(
-                (s) => !isBlockSymbol(s) && s.name === memberName,
+                (s) =>
+                  !isBlockSymbol(s) &&
+                  s.name?.toLowerCase() === memberName.toLowerCase(),
               );
               const methodsWithKind = classMembers.filter(
                 (s) => !isBlockSymbol(s) && s.kind === memberType,
@@ -2518,7 +2521,8 @@ export async function resolveMemberInContext(
                           const matchingMembers2 = classMembers2.filter(
                             (s) =>
                               !isBlockSymbol(s) &&
-                              s.name === memberName &&
+                              s.name?.toLowerCase() ===
+                                memberName.toLowerCase() &&
                               s.kind === memberType &&
                               s.fileUri === contextSymbol.fileUri &&
                               s.parentId === classBlock2.id,
@@ -2600,7 +2604,9 @@ export async function resolveMemberInContext(
         const allSymbols = symbolTable.getAllSymbols();
 
         const contextMembers = allSymbols.filter(
-          (s) => s.name === memberName && s.kind === memberType,
+          (s) =>
+            s.name?.toLowerCase() === memberName.toLowerCase() &&
+            s.kind === memberType,
         );
 
         if (contextMembers.length > 0) {
@@ -2614,7 +2620,7 @@ export async function resolveMemberInContext(
           return contextMember;
         } else {
           const _sameNameSymbols = allSymbols.filter(
-            (s) => s.name === memberName,
+            (s) => s.name?.toLowerCase() === memberName.toLowerCase(),
           );
         }
       }
@@ -2622,7 +2628,9 @@ export async function resolveMemberInContext(
   } else if (context?.type === 'namespace') {
     const namespaceSymbols = await findSymsInNsOp(self, context.name);
     const matchingSymbol = namespaceSymbols.find(
-      (s) => s.kind === memberType && s.name === memberName,
+      (s) =>
+        s.kind === memberType &&
+        s.name?.toLowerCase() === memberName.toLowerCase(),
     );
 
     if (matchingSymbol) {

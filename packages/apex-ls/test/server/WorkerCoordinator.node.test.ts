@@ -136,6 +136,21 @@ describe('WorkerCoordinator', () => {
         expect(result.detailLevels['file:///a.cls']).toBe('public-api');
       });
 
+      it('returns metadata without symbol entries when requested', async () => {
+        const result = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new QuerySymbolSubset({
+              uris: ['file:///a.cls'],
+              includeEntries: false,
+            }),
+          ),
+        );
+
+        expect(result.entries).toEqual({});
+        expect(result.versions['file:///a.cls']).toBe(-1);
+        expect(result.detailLevels['file:///a.cls']).toBe('public-api');
+      });
+
       it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
         const result = await Effect.runPromise(
           topology.dataOwner.executeEffect(
