@@ -197,7 +197,7 @@ describe('Configuration Module', () => {
           experimental: {
             workers: {
               enabled: true,
-              poolSize: 2,
+              poolSize: 3,
               resourceLoader: true,
             },
           },

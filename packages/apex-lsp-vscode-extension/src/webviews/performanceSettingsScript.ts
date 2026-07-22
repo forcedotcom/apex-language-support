@@ -934,7 +934,7 @@ class PerformanceSettingsUI {
     const workers: ExperimentalWorkersSettings =
       experimentalSettings?.workers || {
         enabled: true,
-        poolSize: 2,
+        poolSize: 3,
         resourceLoader: true,
       };
 
