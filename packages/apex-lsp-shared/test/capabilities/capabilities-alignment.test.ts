@@ -307,18 +307,28 @@ describe('Capabilities Alignment Tests', () => {
       );
     });
 
-    it('should advertise codeActionProvider only in development', () => {
-      // Production enablement is a separate story (W-23389340); production
-      // must continue to report no codeActionProvider.
-      expect(PRODUCTION_CAPABILITIES.codeActionProvider).toBeUndefined();
-
-      // Development advertises quick-fix + refactor.extract kinds.
-      expect(DEVELOPMENT_CAPABILITIES.codeActionProvider).toEqual({
+    it('should advertise codeActionProvider in both production and development', () => {
+      // Production enablement shipped with W-23389340. A future regression that
+      // silently drops the production capability must fail loudly here.
+      const expectedCodeAction = {
         codeActionKinds: [
           CodeActionKind.QuickFix,
           CodeActionKind.RefactorExtract,
         ],
-      });
+      };
+
+      // Production advertises quick-fix + refactor.extract kinds.
+      expect(PRODUCTION_CAPABILITIES.codeActionProvider).toEqual(
+        expectedCodeAction,
+      );
+
+      // Development inherits the identical capability from production.
+      expect(DEVELOPMENT_CAPABILITIES.codeActionProvider).toEqual(
+        expectedCodeAction,
+      );
+      expect(DEVELOPMENT_CAPABILITIES.codeActionProvider).toEqual(
+        PRODUCTION_CAPABILITIES.codeActionProvider,
+      );
     });
   });
 

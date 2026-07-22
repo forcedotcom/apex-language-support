@@ -98,7 +98,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return production capabilities in production mode: capabilities-manager-production 1`] = `
 {
   "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
+  "codeActionProvider": {
+    "codeActionKinds": [
+      "quickfix",
+      "refactor.extract",
+    ],
+  },
   "codeLensProvider": undefined,
   "colorProvider": undefined,
   "completionProvider": undefined,
@@ -192,7 +197,12 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
     "hoverProvider": true,
   },
   "production": {
-    "codeActionProvider": undefined,
+    "codeActionProvider": {
+      "codeActionKinds": [
+        "quickfix",
+        "refactor.extract",
+      ],
+    },
     "completionProvider": undefined,
     "diagnosticProvider": undefined,
     "documentSymbolProvider": true,
@@ -1432,7 +1442,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
     },
     "expectedServer": {
       "callHierarchyProvider": undefined,
-      "codeActionProvider": undefined,
+      "codeActionProvider": {
+        "codeActionKinds": [
+          "quickfix",
+          "refactor.extract",
+        ],
+      },
       "codeLensProvider": undefined,
       "colorProvider": undefined,
       "completionProvider": undefined,
@@ -2587,7 +2602,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       },
       "production": {
         "callHierarchyProvider": undefined,
-        "codeActionProvider": undefined,
+        "codeActionProvider": {
+          "codeActionKinds": [
+            "quickfix",
+            "refactor.extract",
+          ],
+        },
         "codeLensProvider": undefined,
         "colorProvider": undefined,
         "completionProvider": undefined,
@@ -2766,7 +2786,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     },
     "production": {
       "callHierarchyProvider": undefined,
-      "codeActionProvider": undefined,
+      "codeActionProvider": {
+        "codeActionKinds": [
+          "quickfix",
+          "refactor.extract",
+        ],
+      },
       "codeLensProvider": undefined,
       "colorProvider": undefined,
       "completionProvider": undefined,
@@ -2983,7 +3008,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   },
   "production": {
     "callHierarchyProvider": undefined,
-    "codeActionProvider": undefined,
+    "codeActionProvider": {
+      "codeActionKinds": [
+        "quickfix",
+        "refactor.extract",
+      ],
+    },
     "codeLensProvider": undefined,
     "colorProvider": undefined,
     "completionProvider": undefined,
@@ -3166,7 +3196,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 exports[`Capabilities Alignment Tests Server Capabilities Configuration should have consistent production capabilities: production-server-capabilities 1`] = `
 {
   "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
+  "codeActionProvider": {
+    "codeActionKinds": [
+      "quickfix",
+      "refactor.extract",
+    ],
+  },
   "codeLensProvider": undefined,
   "colorProvider": undefined,
   "completionProvider": undefined,

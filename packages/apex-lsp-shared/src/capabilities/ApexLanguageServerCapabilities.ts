@@ -182,7 +182,13 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   },
   completionProvider: undefined, // Not ready for production
   referencesProvider: true, // ENABLED: References implementation
-  codeActionProvider: undefined,
+  // ENABLED: code action steel thread (W-22629623) shipped Extract Local
+  // Variable + Extract Constant (refactor.extract) and Declare Missing Method
+  // (quickfix). Production enablement is W-23389340. Mirrors Jorje's
+  // CodeActionOptions([QuickFix, RefactorExtract]).
+  codeActionProvider: {
+    codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
+  },
   renameProvider: undefined,
 
   // Not supported features - not planned for implementation
@@ -244,9 +250,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   definitionProvider: true,
   implementationProvider: true,
   referencesProvider: true,
-  codeActionProvider: {
-    codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
-  },
+  // codeActionProvider inherited from PRODUCTION_CAPABILITIES (identical kinds).
   codeLensProvider: {
     resolveProvider: false,
   },
