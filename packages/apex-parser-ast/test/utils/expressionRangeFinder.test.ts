@@ -9,6 +9,7 @@
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
+  findConstantExtraction,
   findExpressionAtRange,
   LspRange,
 } from '../../src/utils/expressionRangeFinder';
@@ -204,5 +205,136 @@ describe('findExpressionAtRange', () => {
   it('returns null when the parse tree is missing', () => {
     expect(findExpressionAtRange(undefined, range(0, 0, 0, 0))).toBeNull();
     expect(findExpressionAtRange(null, range(0, 0, 0, 0))).toBeNull();
+  });
+});
+
+describe('findConstantExtraction', () => {
+  let compilerService: CompilerService;
+
+  beforeEach(() => {
+    compilerService = new CompilerService();
+  });
+
+  const compile = (source: string, fileName = 'Const.cls') => {
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    return compilerService.compile(source, fileName, listener);
+  };
+
+  /** Resolve the expression at `needle`, then its constant-extraction descriptor. */
+  const extractionFor = (source: string, needle: string) => {
+    const result = compile(source);
+    const found = findExpressionAtRange(
+      result.parseTree,
+      rangeOf(source, needle),
+    );
+    expect(found).not.toBeNull();
+    return findConstantExtraction(found!.expression);
+  };
+
+  it('uses the class line indent + one unit for a top-level `public class`', () => {
+    const source = [
+      'public class Const {',
+      '  public void run() {',
+      "    String greeting = 'hello';",
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, "'hello'");
+
+    expect(extraction).not.toBeNull();
+    // Top-level class sits at column 0, so members indent one unit (two spaces).
+    expect(extraction!.indent).toBe('  ');
+    expect(extraction!.isInner).toBe(false);
+    expect(extraction!.isLiteral).toBe(true);
+  });
+
+  it('ignores sharing/visibility modifiers before `class` (physical indent)', () => {
+    // `class` sits ~column 18 here; deriving indent from its column would emit
+    // ~20 spaces. The physical line indent is 0, so members indent one unit.
+    const source = [
+      'public with sharing class Const {',
+      '  public void run() {',
+      "    String greeting = 'hello';",
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, "'hello'");
+
+    expect(extraction).not.toBeNull();
+    expect(extraction!.indent).toBe('  ');
+    expect(extraction!.isInner).toBe(false);
+  });
+
+  it('indents inner-class members relative to the inner class line', () => {
+    const source = [
+      'public class Outer {',
+      '  public class Inner {',
+      '    public void run() {',
+      "      String greeting = 'hi';",
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, "'hi'");
+
+    expect(extraction).not.toBeNull();
+    // Inner class line is indented two spaces; members add one more unit.
+    expect(extraction!.indent).toBe('    ');
+    expect(extraction!.isInner).toBe(true);
+    expect(extraction!.isLiteral).toBe(true);
+  });
+
+  it('marks the insert offset just after the class body opening brace', () => {
+    const source = [
+      'public class Const {',
+      '  public void run() {',
+      "    String greeting = 'hello';",
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, "'hello'");
+
+    expect(extraction).not.toBeNull();
+    // The char immediately before the insert offset is the class body's `{`.
+    expect(source.charAt(extraction!.insertOffset - 1)).toBe('{');
+  });
+
+  it('reports isLiteral false for a non-literal (arithmetic) expression', () => {
+    const source = [
+      'public class Const {',
+      '  public void run() {',
+      '    Integer total = 1 + 2;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, '1 + 2');
+
+    expect(extraction).not.toBeNull();
+    expect(extraction!.isLiteral).toBe(false);
+  });
+
+  it('reports isLiteral true for a prefix-of-literal (negative number)', () => {
+    const source = [
+      'public class Const {',
+      '  public void run() {',
+      '    Integer x = -5;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, '-5');
+
+    expect(extraction).not.toBeNull();
+    expect(extraction!.isLiteral).toBe(true);
+  });
+
+  it('returns null when no enclosing class / missing expression', () => {
+    expect(findConstantExtraction(null)).toBeNull();
+    expect(findConstantExtraction(undefined)).toBeNull();
   });
 });

@@ -19,14 +19,6 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ParserRuleContext } from 'antlr4';
-import {
-  ExpressionContext,
-  PrimaryExpressionContext,
-  LiteralPrimaryContext,
-  PreOpExpressionContext,
-  NegExpressionContext,
-  ClassDeclarationContext,
-} from '@apexdevtools/apex-parser';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -35,6 +27,8 @@ import {
   CompilerService,
   ApexFoldingRangeListener,
   findExpressionAtRange,
+  findConstantExtraction,
+  ConstantExtraction,
   ApexSymbol,
   TypeSymbol,
   SymbolKind,
@@ -345,10 +339,15 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       actions.push(variableAction);
     }
 
-    if (this.isLiteralExpression(expression)) {
+    // The class-body insertion point, member indentation, inner-class flag, and
+    // literal eligibility are all computed in apex-parser-ast so the LS layer
+    // never touches ANTLR types. Extract Constant is gated to literal (or
+    // prefix-of-literal, e.g. `-5`) expressions, matching Jorje's rule.
+    const constantExtraction = findConstantExtraction(expression);
+    if (constantExtraction?.isLiteral) {
       const constantAction = this.buildExtractConstantAction(
         context,
-        expression,
+        constantExtraction,
         exprText,
         variableName,
         exprRange,
@@ -422,20 +421,15 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    */
   private buildExtractConstantAction(
     context: CodeActionContext,
-    expression: ExpressionContext,
+    insertion: ConstantExtraction,
     exprText: string,
     variableName: string,
     exprRange: Range,
   ): CodeAction | null {
-    const insertion = this.findConstantInsertion(expression);
-    if (!insertion) {
-      return null;
-    }
-
     const modifiers = insertion.isInner
       ? 'private final'
       : 'private static final';
-    const insertPosition = context.document.positionAt(insertion.offset);
+    const insertPosition = context.document.positionAt(insertion.insertOffset);
     const declaration =
       `\n${insertion.indent}${modifiers} Object ${variableName} = ` +
       `${exprText}; // TODO: infer type (was Object)`;
@@ -458,87 +452,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
         },
       },
     };
-  }
-
-  /**
-   * Determine whether `expression` is a literal or a prefix-of-literal (a unary
-   * `+`/`-`/`~`/`!` applied to a literal, e.g. `-5`). Only such expressions are
-   * eligible for Extract Constant, matching Jorje's rule.
-   */
-  private isLiteralExpression(expression: ExpressionContext): boolean {
-    // Bare literal: `primary -> literal`.
-    if (
-      expression instanceof PrimaryExpressionContext &&
-      expression.primary() instanceof LiteralPrimaryContext
-    ) {
-      return true;
-    }
-
-    // Prefix-of-literal: unary operator applied to a (possibly nested) literal,
-    // e.g. `-5`, `+3`, `!true`, `~0`.
-    if (
-      expression instanceof PreOpExpressionContext ||
-      expression instanceof NegExpressionContext
-    ) {
-      const inner = expression.expression();
-      return inner ? this.isLiteralExpression(inner) : false;
-    }
-
-    return false;
-  }
-
-  /**
-   * Locate the class-body insertion point for an extracted constant.
-   *
-   * Walks the CST parents of `expression` to the nearest enclosing
-   * {@link ClassDeclarationContext}, then returns the character offset just
-   * after that class body's opening `{`, the indentation to use for the new
-   * member, and whether the class is an inner class (nested inside another
-   * class declaration). Returns `null` when no enclosing class is found or its
-   * body brace is unavailable.
-   */
-  private findConstantInsertion(
-    expression: ExpressionContext,
-  ): { offset: number; indent: string; isInner: boolean } | null {
-    let current: ParserRuleContext | undefined = expression.parentCtx;
-    let classDecl: ClassDeclarationContext | undefined;
-    while (current) {
-      if (current instanceof ClassDeclarationContext) {
-        classDecl = current;
-        break;
-      }
-      current = current.parentCtx;
-    }
-
-    if (!classDecl) {
-      return null;
-    }
-
-    const classBody = classDecl.classBody();
-    const openBrace = classBody?.LBRACE();
-    if (!classBody || !openBrace) {
-      return null;
-    }
-
-    // Insert immediately after the class body's opening brace.
-    const offset = openBrace.symbol.stop + 1;
-
-    // An inner class has another class declaration among its ancestors.
-    let ancestor: ParserRuleContext | undefined = classDecl.parentCtx;
-    let isInner = false;
-    while (ancestor) {
-      if (ancestor instanceof ClassDeclarationContext) {
-        isInner = true;
-        break;
-      }
-      ancestor = ancestor.parentCtx;
-    }
-
-    // Indent inner-class members one extra level relative to the class keyword.
-    const classIndent = ' '.repeat(Math.max(0, classDecl.start.column));
-    const indent = `${classIndent}  `;
-
-    return { offset, indent, isInner };
   }
 
   /**
