@@ -266,63 +266,17 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     const actions: CodeAction[] = [];
 
     // Eager (Jorje-parity) extract refactorings. These compute complete
-    // WorkspaceEdits up front (no codeAction/resolve round-trip) and do not
-    // depend on the symbol-manager lookup below, so they run first.
+    // WorkspaceEdits up front (no codeAction/resolve round-trip).
+    //
+    // NOTE: This intentionally does NOT offer command-backed Rename / Extract
+    // Method / Move-to-File actions. Those were speculative stubs bound to
+    // client commands (`apex.renameSymbol` / `apex.extractMethod` /
+    // `apex.moveToFile`) that are registered nowhere, so invoking them failed
+    // with "command not found". Symbol rename is tracked separately as a real
+    // LSP feature (textDocument/rename, W-22629631); the other two have no
+    // committed work. They are omitted rather than shipped half-working.
     const extractActions = this.getExtractActions(context);
     actions.push(...extractActions);
-
-    if (!context.symbolName) {
-      return actions;
-    }
-
-    try {
-      // Find symbol in ApexSymbolManager
-      const symbols = await this.symbolManager.findSymbolByName(
-        context.symbolName,
-      );
-
-      for (const symbol of symbols) {
-        // Rename symbol action
-        const renameAction: CodeAction = {
-          title: `Rename ${symbol.kind} '${symbol.name}'`,
-          kind: CodeActionKind.Refactor,
-          command: {
-            title: `Rename ${symbol.kind}`,
-            command: 'apex.renameSymbol',
-            arguments: [symbol.name, context.document.uri, context.range],
-          },
-        };
-        actions.push(renameAction);
-
-        // Extract method action (if it's a method)
-        if (symbol.kind === 'method') {
-          const extractAction: CodeAction = {
-            title: `Extract method '${symbol.name}'`,
-            kind: CodeActionKind.RefactorExtract,
-            command: {
-              title: 'Extract method',
-              command: 'apex.extractMethod',
-              arguments: [symbol.name, context.document.uri, context.range],
-            },
-          };
-          actions.push(extractAction);
-        }
-
-        // Move to file action
-        const moveAction: CodeAction = {
-          title: `Move ${symbol.kind} '${symbol.name}' to separate file`,
-          kind: CodeActionKind.Refactor,
-          command: {
-            title: 'Move to file',
-            command: 'apex.moveToFile',
-            arguments: [symbol.name, context.document.uri],
-          },
-        };
-        actions.push(moveAction);
-      }
-    } catch (error) {
-      this.logger.debug(() => `Error getting refactoring actions: ${error}`);
-    }
 
     return actions;
   }

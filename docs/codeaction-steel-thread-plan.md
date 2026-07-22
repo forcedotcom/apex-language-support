@@ -7,12 +7,18 @@
 
 ## Goal
 
-Make `textDocument/codeAction` reachable from clients end-to-end and ship one
-Jorje-parity refactor — **Extract Local Variable** — behind the development
-capability profile. Prove the transport→service→edit round trip with unit +
-integration tests. Everything beyond that (Extract Constant, Declare Missing
-Method, e2e, production enablement) is split into sibling stories and is out of
-scope here.
+Make `textDocument/codeAction` reachable from clients end-to-end and ship the
+Jorje-parity quick fixes behind the development capability profile. Prove the
+transport→service→edit round trip with unit + integration tests.
+
+> **Scope update (as shipped in PR #557).** The steel thread originally planned
+> to deliver only **Extract Local Variable** and split the rest into sibling
+> stories. In practice the sibling work landed together on this branch, so the
+> PR delivers **Extract Local Variable, Extract Constant, and Declare Missing
+> Method** plus the 05.0 CST finder and the 05.3 e2e spec. Those sub-stories
+> (05.0 / 05.1 / 05.2 / 05.3) were closed as duplicates of W-22629623. Only
+> **production enablement (05.4 / W-23389340)** remains out of scope — the
+> capability is advertised in the development profile only.
 
 ## Context — what already exists vs. what's missing
 
@@ -48,9 +54,14 @@ because the two client-facing switches are off. Verified file:line anchors:
 
 Jorje ships code actions in two kinds via `CodeActionOptions([QuickFix, RefactorExtract])`,
 **all edits computed eagerly — no `codeAction/resolve`**:
-- **Extract Local Variable** (`refactor.extract.variable`) — select expression → insert typed local above the enclosing statement, replace the expression. AST-based. **← the one this steel thread delivers.**
-- **Extract Constant** (`refactor.extract.constant`) — literal/prefix-of-literal → class-level `static final`. → split to **05.1 / W-23389335**.
-- **Declare Missing Method** (quickfix) — undeclared call → generated stub with inferred signature; multi-file. → split to **05.2 / W-23389336**.
+- **Extract Local Variable** (`refactor.extract.variable`) — select expression → insert typed local above the enclosing statement, replace the expression. AST-based. **← delivered.**
+- **Extract Constant** (`refactor.extract.constant`) — literal/prefix-of-literal → class-level `static final`. **← delivered** (absorbed from 05.1 / W-23389335).
+- **Declare Missing Method** (quickfix) — undeclared call → generated stub with inferred signature; multi-file. **← delivered** (absorbed from 05.2 / W-23389336).
+
+> Command-backed Rename / Extract Method / Move-to-File actions are
+> intentionally **not** offered: they were speculative stubs bound to
+> unregistered client commands. Symbol rename is tracked separately as real LSP
+> `textDocument/rename` (W-22629631).
 
 ## Dependencies
 
@@ -111,19 +122,27 @@ Commit: `feat(lsp-compliant-services): eager Extract Local Variable code action 
   (`packages/apex-ls/test/server/...`) asserting a `codeAction` request returns
   the expected `WorkspaceEdit`, exercising `WorkerCoordinator.ts:1141` →
   `worker.platform.shared.ts:1879` → service.
-- Steel thread stops at unit + integration — **e2e is 05.3 / W-23389338**.
+- The e2e spec (originally 05.3 / W-23389338) also landed on this branch:
+  `e2e-tests/tests/apex-extract-variable.spec.ts`.
 
 Commit: `test(lsp-compliant-services): validate Extract Variable end-to-end - W-22629623`
 
-## Explicitly out of scope (tracked elsewhere)
+## Scope disposition
 
-| Story | Scope |
-|-------|-------|
-| 05.0 / W-23389392 | CST expression-at-range + enclosing-statement finder (dependency) |
-| 05.1 / W-23389335 | Extract Constant (`refactor.extract.constant`) |
-| 05.2 / W-23389336 | Declare Missing Method (quickfix, multi-file) |
-| 05.3 / W-23389338 | Playwright e2e for Extract Variable |
-| 05.4 / W-23389340 | Enable `codeActionProvider` in production capabilities |
+Delivered on this branch and closed as duplicates of W-22629623:
+
+| Story | Scope | Status |
+|-------|-------|--------|
+| 05.0 / W-23389392 | CST expression-at-range + enclosing-statement finder (dependency) | delivered |
+| 05.1 / W-23389335 | Extract Constant (`refactor.extract.constant`) | delivered |
+| 05.2 / W-23389336 | Declare Missing Method (quickfix, multi-file) | delivered |
+| 05.3 / W-23389338 | Playwright e2e for Extract Variable | delivered |
+
+Still out of scope (open):
+
+| Story | Scope | Status |
+|-------|-------|--------|
+| 05.4 / W-23389340 | Enable `codeActionProvider` in production capabilities | open |
 
 ## Skills to apply
 
