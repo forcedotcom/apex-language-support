@@ -7,15 +7,18 @@
  */
 
 import { makeBrowserWorkerLayerFactory } from '../../src/server/WorkerCoordinator';
+import { Effect, Layer } from 'effect';
 
 describe('browser worker layer factory', () => {
   const workerUrl = 'https://example.test/dist/worker.platform.web.js';
   const originalFetch = globalThis.fetch;
   const originalCreateObjectUrl = URL.createObjectURL;
+  const originalRevokeObjectUrl = URL.revokeObjectURL;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
     URL.createObjectURL = originalCreateObjectUrl;
+    URL.revokeObjectURL = originalRevokeObjectUrl;
     jest.restoreAllMocks();
   });
 
@@ -35,6 +38,24 @@ describe('browser worker layer factory', () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(factory('dataOwner')).toBeDefined();
     expect(factory('lspRequest')).toBeDefined();
+  });
+
+  it('revokes the common worker blob when the worker layer scope closes', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () => '/* worker */',
+    }) as typeof fetch;
+    URL.createObjectURL = jest.fn().mockReturnValueOnce('blob:worker');
+    URL.revokeObjectURL = jest.fn();
+
+    const factory = await makeBrowserWorkerLayerFactory(workerUrl, {
+      compilationPoolSize: 1,
+      compilationConcurrency: 1,
+    });
+
+    await Effect.runPromise(Effect.scoped(Layer.build(factory('lspRequest'))));
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worker');
   });
 
   it('fails topology preparation when the common bundle is unavailable', async () => {

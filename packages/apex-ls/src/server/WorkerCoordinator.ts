@@ -219,6 +219,24 @@ function browserWorkerLayer(
   });
 }
 
+function withBlobUrlCleanup(
+  layer: Layer.Layer<Worker.WorkerManager | Worker.Spawner>,
+  blobUrls: ReadonlyArray<string>,
+): Layer.Layer<Worker.WorkerManager | Worker.Spawner> {
+  return Layer.merge(
+    layer,
+    Layer.scopedDiscard(
+      Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          for (const blobUrl of blobUrls) {
+            URL.revokeObjectURL(blobUrl);
+          }
+        }),
+      ),
+    ),
+  );
+}
+
 /**
  * Create a browser worker layer using native Web Worker API.
  *
@@ -259,7 +277,10 @@ export async function makeBrowserWorkerLayer(
     port1: BrowserMessagePort;
     port2: BrowserMessagePort;
   };
-  return browserWorkerLayer(blobUrl, bootstrap, BrowserWorker, W, MC);
+  return withBlobUrlCleanup(
+    browserWorkerLayer(blobUrl, bootstrap, BrowserWorker, W, MC),
+    [blobUrl],
+  );
 }
 
 export async function makeBrowserWorkerLayerFactory(
@@ -292,17 +313,20 @@ export async function makeBrowserWorkerLayerFactory(
   };
 
   return (role) =>
-    browserWorkerLayer(
-      workerBlobUrl,
-      {
-        role,
-        compilationPoolSize: options.compilationPoolSize,
-        compilationConcurrency: options.compilationConcurrency,
-        ...(role === 'dataOwner' ? { workerPlatformUrl: workerBlobUrl } : {}),
-      },
-      BrowserWorker,
-      W,
-      MC,
+    withBlobUrlCleanup(
+      browserWorkerLayer(
+        workerBlobUrl,
+        {
+          role,
+          compilationPoolSize: options.compilationPoolSize,
+          compilationConcurrency: options.compilationConcurrency,
+          ...(role === 'dataOwner' ? { workerPlatformUrl: workerBlobUrl } : {}),
+        },
+        BrowserWorker,
+        W,
+        MC,
+      ),
+      [workerBlobUrl],
     );
 }
 
@@ -362,8 +386,6 @@ const makeInitMessage = (
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
   spanCollectorUrl?: string,
-  compilationPoolSize?: number,
-  compilationConcurrency?: number,
 ) =>
   new WorkerInit({
     role,
@@ -371,8 +393,6 @@ const makeInitMessage = (
     logLevel,
     serverMode,
     spanCollectorUrl,
-    compilationPoolSize,
-    compilationConcurrency,
   });
 
 export function clampPoolSize(requested: number): number {
@@ -492,8 +512,6 @@ export function initializeTopology(
                 logLevel,
                 serverMode,
                 spanCollectorUrl,
-                config.compilationPoolSize,
-                config.compilationConcurrency,
               ),
             size: 1, // Single worker instance
             concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker

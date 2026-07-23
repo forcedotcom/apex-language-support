@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Deferred, Effect, Exit, Fiber, Ref } from 'effect';
+import { Deferred, Effect, Fiber, Ref } from 'effect';
 import { runWorkspaceCompilationPipeline } from '../../src/compiler/WorkspaceCompilationPipeline';
 
 describe('WorkspaceCompilationPipeline', () => {
@@ -56,26 +56,30 @@ describe('WorkspaceCompilationPipeline', () => {
     });
 
     const result = await Effect.runPromise(program);
-    expect(result.results).toEqual([0, 1, 2]);
+    expect(result.results.results).toEqual([0, 1, 2]);
+    expect(result.results.failures).toEqual([]);
     expect(result.commitOrder).toEqual(expect.arrayContaining([0, 1, 2]));
   });
 
-  it('propagates compilation failure without invoking a fallback', async () => {
+  it('isolates compilation failure without invoking a fallback', async () => {
     let commitCalls = 0;
-    const result = await Effect.runPromiseExit(
+    const result = await Effect.runPromise(
       runWorkspaceCompilationPipeline({
-        entries: [0],
-        parallelism: 1,
-        bufferCapacity: 1,
-        compile: () => Effect.fail('compile failed'),
-        commit: () => {
+        entries: [0, 1, 2],
+        parallelism: 2,
+        bufferCapacity: 2,
+        compile: (entry) =>
+          entry === 1 ? Effect.fail('compile failed') : Effect.succeed(entry),
+        commit: (compiled) => {
           commitCalls++;
-          return Effect.succeed('committed');
+          return Effect.succeed(`committed-${compiled}`);
         },
       }),
     );
 
-    expect(Exit.isFailure(result)).toBe(true);
-    expect(commitCalls).toBe(0);
+    expect(result.results).toEqual(['committed-0', 'committed-2']);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]).toMatchObject({ entry: 1, index: 1 });
+    expect(commitCalls).toBe(2);
   });
 });

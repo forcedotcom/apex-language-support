@@ -108,6 +108,28 @@ describe('genericTypeSubstitution', () => {
     expect(substituted.returnType.originalTypeString).toBe('Set<Id>');
   });
 
+  it('specializes Map value methods and their key/value parameters', () => {
+    const method = {
+      kind: SymbolKind.Method,
+      name: 'put',
+      returnType: createPrimitiveType('V'),
+      parameters: [
+        { type: createPrimitiveType('K') },
+        { type: createPrimitiveType('V') },
+      ],
+    } as unknown as MethodSymbol;
+    const substitutions = new Map([
+      ['K', 'Id'],
+      ['V', 'Account'],
+    ]);
+
+    const substituted = applyMethodTypeSubstitutions(method, substitutions);
+
+    expect(substituted.returnType.name).toBe('Account');
+    expect(substituted.parameters[0]?.type.name).toBe('Id');
+    expect(substituted.parameters[1]?.type.name).toBe('Account');
+  });
+
   it('leaves method signature unchanged without substitutions', () => {
     const method = {
       kind: SymbolKind.Method,

@@ -54,10 +54,6 @@ export class WorkerInit extends Schema.TaggedRequest<WorkerInit>()(
       logLevel: Schema.optional(Schema.String),
       serverMode: Schema.optional(WorkerServerMode),
       spanCollectorUrl: Schema.optional(Schema.String),
-      /** Backing compiler workers owned by the data owner. */
-      compilationPoolSize: Schema.optional(Schema.Number),
-      /** Concurrent Effect Worker requests admitted per compiler worker. */
-      compilationConcurrency: Schema.optional(Schema.Number),
     },
   },
 ) {}

@@ -202,6 +202,35 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     expect(getSymbolTable).not.toHaveBeenCalled();
   });
 
+  it('specializes Map value-returning methods from the receiver type', async () => {
+    const uri = 'file:///test/MapValueHover.cls';
+    const source = `public class MapValueHover {
+  void run(Map<Id, Account> values) {
+    Account value = values.get(null);
+    List<Account> allValues = values.values();
+  }
+}`;
+    await compileAndAdd(source, uri);
+    await symbolManager.resolveStandardApexClass('Map');
+
+    const lines = source.split('\n');
+    const getSymbol = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: lines[2].indexOf('get') + 1 },
+      'precise',
+    );
+    const valuesSymbol = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: lines[3].lastIndexOf('values') + 1 },
+      'precise',
+    );
+
+    expect((getSymbol as any)?.returnType?.name).toBe('Account');
+    expect((valuesSymbol as any)?.returnType?.originalTypeString).toBe(
+      'List<Account>',
+    );
+  });
+
   it('resolves the base and generic argument of a collection cast separately', async () => {
     const uri = 'file:///test/CollectionCastHover.cls';
     const source = `public class CollectionCastHover {

@@ -602,91 +602,45 @@ function processViaDataOwner(
     });
     logger.info(() => `[BATCH] Begin workspace load session: ${sessionId}`);
 
-    yield* Effect.withSpan('workspace.batch.ingest', {
-      attributes: {
-        'workspace.session_id': sessionId,
-        'workspace.total_files': entries.length,
-        'workspace.chunk_size': CHUNK_SIZE,
-      },
-    })(
-      Effect.gen(function* () {
-        for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-          const chunk = entries.slice(i, i + CHUNK_SIZE);
-          const chunkIndex = Math.floor(i / CHUNK_SIZE);
-          const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
-          const contentChars = chunk.reduce(
-            (total, entry) => total + entry.content.length,
-            0,
-          );
-          const t0 = Date.now();
-          const result = yield* Effect.withSpan(
-            LSP_SPAN_NAMES.WORKSPACE_BATCH_INGEST_CHUNK,
-            {
-              attributes: {
-                'workspace.session_id': sessionId,
-                'workspace.chunk_index': chunkIndex,
-                'workspace.chunk_total': totalChunks,
-                'workspace.file_count': chunk.length,
-                'workspace.content_chars': contentChars,
-              },
-            },
-          )(
-            Effect.gen(function* () {
-              const dispatched = yield* Effect.tryPromise({
-                try: () => dispatcher(sessionId, chunk),
-                catch: (e) => e as Error,
-              });
-              yield* Effect.annotateCurrentSpan({
-                'workspace.processed_count': dispatched.processedCount,
-              });
-              return dispatched;
-            }),
-          );
-          const ingestMs = Date.now() - t0;
-
-          logger.debug(
-            () =>
-              `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
-              `${result.processedCount} files (${ingestMs}ms)`,
-          );
-        }
-      }),
+    const closeSession = Effect.tryPromise({
+      try: () =>
+        sessionDispatcher({
+          _tag: 'DrainDeferredReferences',
+          sessionId,
+        }),
+      catch: (e) => e as Error,
+    }).pipe(
+      Effect.tap(() =>
+        Effect.sync(() =>
+          logger.info(() => `[BATCH] End workspace load session: ${sessionId}`),
+        ),
+      ),
     );
 
-    yield* Effect.withSpan('workspace.batch.compile', {
-      attributes: {
-        'workspace.session_id': sessionId,
-        'workspace.total_files': entries.length,
-      },
-    })(
-      Effect.gen(function* () {
-        const CHUNK_SIZE = 100;
-        const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
-
-        logger.info(
-          () =>
-            `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
-            `${entries.length} files in ${totalChunks} chunks`,
-        );
-
-        const compileStartTime = Date.now();
-        let totalCompiled = 0;
-        let totalErrors = 0;
-
-        for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-          const chunk = entries.slice(i, i + CHUNK_SIZE);
-          const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
-          const contentChars = chunk.reduce(
-            (total, entry) => total + entry.content.length,
-            0,
-          );
-          try {
+    yield* Effect.gen(function* () {
+      yield* Effect.withSpan('workspace.batch.ingest', {
+        attributes: {
+          'workspace.session_id': sessionId,
+          'workspace.total_files': entries.length,
+          'workspace.chunk_size': CHUNK_SIZE,
+        },
+      })(
+        Effect.gen(function* () {
+          for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+            const chunk = entries.slice(i, i + CHUNK_SIZE);
+            const chunkIndex = Math.floor(i / CHUNK_SIZE);
+            const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
+            const contentChars = chunk.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            );
+            const t0 = Date.now();
             const result = yield* Effect.withSpan(
-              LSP_SPAN_NAMES.WORKSPACE_BATCH_COMPILE_CHUNK,
+              LSP_SPAN_NAMES.WORKSPACE_BATCH_INGEST_CHUNK,
               {
                 attributes: {
                   'workspace.session_id': sessionId,
-                  'workspace.chunk_index': chunkIdx - 1,
+                  'workspace.chunk_index': chunkIndex,
                   'workspace.chunk_total': totalChunks,
                   'workspace.file_count': chunk.length,
                   'workspace.content_chars': contentChars,
@@ -695,58 +649,107 @@ function processViaDataOwner(
             )(
               Effect.gen(function* () {
                 const dispatched = yield* Effect.tryPromise({
-                  try: () => dataOwnerCompile({ sessionId, entries: chunk }),
+                  try: () => dispatcher(sessionId, chunk),
                   catch: (e) => e as Error,
                 });
                 yield* Effect.annotateCurrentSpan({
-                  'workspace.compiled_count': dispatched.compiledCount,
-                  'workspace.error_count': dispatched.errorCount,
-                  'workspace.worker_elapsed_ms': dispatched.elapsedMs,
+                  'workspace.processed_count': dispatched.processedCount,
                 });
                 return dispatched;
               }),
             );
-            totalCompiled += result.compiledCount;
-            totalErrors += result.errorCount;
+            const ingestMs = Date.now() - t0;
+
             logger.debug(
               () =>
-                `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
-                `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
-            );
-          } catch (err) {
-            return yield* Effect.fail(
-              err instanceof Error ? err : new Error(String(err)),
+                `[BATCH-INGEST] Chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ` +
+                `${result.processedCount} files (${ingestMs}ms)`,
             );
           }
-        }
+        }),
+      );
 
-        const totalElapsed = Date.now() - compileStartTime;
-        const throughput =
-          totalElapsed > 0
-            ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
-            : '∞';
-        logger.info(
-          () =>
-            `[BATCH-COMPILE] Completed session ${sessionId}: ` +
-            `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
-            `(${throughput} files/sec)`,
-        );
+      yield* Effect.withSpan('workspace.batch.compile', {
+        attributes: {
+          'workspace.session_id': sessionId,
+          'workspace.total_files': entries.length,
+        },
+      })(
+        Effect.gen(function* () {
+          const CHUNK_SIZE = 100;
+          const totalChunks = Math.ceil(entries.length / CHUNK_SIZE);
 
-        // End workspace load session and drain deferred resolutions.
-        // This resolves ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION)
-        // for go-to-implementation support. Ordinary cross-file refs are resolved
-        // on-demand via PrerequisiteOrchestrationService per LSP request.
-        yield* Effect.tryPromise({
-          try: () =>
-            sessionDispatcher({
-              _tag: 'DrainDeferredReferences',
-              sessionId,
-            }),
-          catch: (e) => e as Error,
-        });
-        logger.info(() => `[BATCH] End workspace load session: ${sessionId}`);
-      }),
-    );
+          logger.info(
+            () =>
+              `[BATCH-COMPILE] Starting post-ingest compilation for session ${sessionId}: ` +
+              `${entries.length} files in ${totalChunks} chunks`,
+          );
+
+          const compileStartTime = Date.now();
+          let totalCompiled = 0;
+          let totalErrors = 0;
+
+          for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+            const chunk = entries.slice(i, i + CHUNK_SIZE);
+            const chunkIdx = Math.floor(i / CHUNK_SIZE) + 1;
+            const contentChars = chunk.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            );
+            try {
+              const result = yield* Effect.withSpan(
+                LSP_SPAN_NAMES.WORKSPACE_BATCH_COMPILE_CHUNK,
+                {
+                  attributes: {
+                    'workspace.session_id': sessionId,
+                    'workspace.chunk_index': chunkIdx - 1,
+                    'workspace.chunk_total': totalChunks,
+                    'workspace.file_count': chunk.length,
+                    'workspace.content_chars': contentChars,
+                  },
+                },
+              )(
+                Effect.gen(function* () {
+                  const dispatched = yield* Effect.tryPromise({
+                    try: () => dataOwnerCompile({ sessionId, entries: chunk }),
+                    catch: (e) => e as Error,
+                  });
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.compiled_count': dispatched.compiledCount,
+                    'workspace.error_count': dispatched.errorCount,
+                    'workspace.worker_elapsed_ms': dispatched.elapsedMs,
+                  });
+                  return dispatched;
+                }),
+              );
+              totalCompiled += result.compiledCount;
+              totalErrors += result.errorCount;
+              logger.debug(
+                () =>
+                  `[BATCH-COMPILE] Chunk ${chunkIdx}/${totalChunks}: ` +
+                  `compiled=${result.compiledCount}, errors=${result.errorCount}, ${result.elapsedMs}ms`,
+              );
+            } catch (err) {
+              return yield* Effect.fail(
+                err instanceof Error ? err : new Error(String(err)),
+              );
+            }
+          }
+
+          const totalElapsed = Date.now() - compileStartTime;
+          const throughput =
+            totalElapsed > 0
+              ? ((totalCompiled / totalElapsed) * 1000).toFixed(0)
+              : '∞';
+          logger.info(
+            () =>
+              `[BATCH-COMPILE] Completed session ${sessionId}: ` +
+              `compiled=${totalCompiled}, errors=${totalErrors}, ${totalElapsed}ms ` +
+              `(${throughput} files/sec)`,
+          );
+        }),
+      );
+    }).pipe(Effect.ensuring(Effect.orDie(closeSession)));
   });
 }
 

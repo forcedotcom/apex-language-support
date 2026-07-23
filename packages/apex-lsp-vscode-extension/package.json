@@ -638,12 +638,6 @@
                   "minimum": 1,
                   "maximum": 14,
                   "description": "%configuration.apex-ls-ts.experimental.workers.lspRequest.poolSize.description%"
-                },
-                "concurrency": {
-                  "type": "number",
-                  "minimum": 1,
-                  "maximum": 50,
-                  "description": "%configuration.apex-ls-ts.experimental.workers.lspRequest.concurrency.description%"
                 }
               }
             },
@@ -651,12 +645,6 @@
               "type": "object",
               "description": "%configuration.apex-ls-ts.experimental.workers.dataOwner.description%",
               "properties": {
-                "poolSize": {
-                  "type": "number",
-                  "minimum": 1,
-                  "maximum": 14,
-                  "description": "%configuration.apex-ls-ts.experimental.workers.dataOwner.poolSize.description%"
-                },
                 "concurrency": {
                   "type": "number",
                   "default": 10,
@@ -694,18 +682,6 @@
                   "type": "boolean",
                   "default": true,
                   "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.enabled.description%"
-                },
-                "poolSize": {
-                  "type": "number",
-                  "minimum": 1,
-                  "maximum": 14,
-                  "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.poolSize.description%"
-                },
-                "concurrency": {
-                  "type": "number",
-                  "minimum": 1,
-                  "maximum": 50,
-                  "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.concurrency.description%"
                 }
               }
             }

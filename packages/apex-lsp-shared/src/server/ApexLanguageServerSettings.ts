@@ -334,16 +334,16 @@ export interface WorkerTopologySettings {
   enabled: boolean;
 
   /** LSP request worker pool configuration */
-  lspRequest?: WorkerConfig;
+  lspRequest?: Pick<WorkerConfig, 'poolSize'>;
 
   /** DataOwner worker configuration */
-  dataOwner?: WorkerConfig;
+  dataOwner?: Pick<WorkerConfig, 'concurrency'>;
 
   /** Compilation worker configuration */
-  compilation?: WorkerConfig;
+  compilation?: Pick<WorkerConfig, 'poolSize' | 'concurrency'>;
 
   /** Resource loader worker configuration */
-  resourceLoader?: WorkerConfig;
+  resourceLoader?: Pick<WorkerConfig, 'enabled'>;
 
   // Backward compatibility (deprecated, will be removed in future release)
   /** @deprecated Use lspRequest.poolSize instead */

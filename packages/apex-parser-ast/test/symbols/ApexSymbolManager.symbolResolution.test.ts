@@ -265,6 +265,69 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       ).resolves.toBeNull();
     });
 
+    it('resolves receiver keywords when the member chain spans lines', async () => {
+      const fileUri = 'file:///test/MultilineReceiver.cls';
+      const source = [
+        'public class MultilineReceiver {',
+        '  String value;',
+        '  void run() {',
+        '    this',
+        '      .value = super',
+        '      .toString();',
+        '  }',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const lines = source.split('\n');
+      const thisTarget = await symbolManager.getReceiverKeywordTargetAtPosition(
+        fileUri,
+        { line: 4, character: lines[3].indexOf('this') + 2 },
+      );
+
+      expect(thisTarget?.name).toBe('MultilineReceiver');
+    });
+
+    it('prefers a scoped value over a same-named enum for variable usage', async () => {
+      const fileUri = 'file:///test/EnumShadow.cls';
+      const source = [
+        'public class EnumShadow {',
+        '  enum Status { OPEN, CLOSED }',
+        '  void run() {',
+        '    Status Status = null;',
+        '    System.debug(Status);',
+        '  }',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const usageLine = source.split('\n')[4];
+      const resolved = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 5, character: usageLine.lastIndexOf('Status') + 2 },
+        'precise',
+      );
+
+      expect(resolved?.name).toBe('Status');
+      expect(resolved?.kind).toBe('variable');
+    });
+
     it('resolves an inner enum at both its declaration and same-file usage', async () => {
       const fileUri = 'file:///test/InnerEnum.cls';
       const source = [

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Exit, Fiber, Queue } from 'effect';
+import { Cause, Effect, Exit, Fiber, Queue } from 'effect';
 
 export interface WorkspaceCompilationPipelineOptions<
   Entry,
@@ -37,10 +37,28 @@ type CompilationQueueItem<Entry, Compiled, CompileError> = {
   readonly result: Exit.Exit<Compiled, CompileError>;
 };
 
+export interface WorkspaceCompilationFailure<Entry, CompileError> {
+  readonly entry: Entry;
+  readonly index: number;
+  readonly cause: Cause.Cause<CompileError>;
+}
+
+export interface WorkspaceCompilationPipelineResult<
+  Entry,
+  Result,
+  CompileError,
+> {
+  readonly results: ReadonlyArray<Result>;
+  readonly failures: ReadonlyArray<
+    WorkspaceCompilationFailure<Entry, CompileError>
+  >;
+}
+
 /**
  * Keep bounded compilation producers independent from the serialized commit
- * consumer. Compilation failures retain their full Cause and interrupt the
- * scoped producer fiber; no alternate compilation path is used.
+ * consumer. Per-file compilation failures retain their full Cause while other
+ * entries continue through the pipeline; no alternate compilation path is
+ * used. Infrastructure and commit failures still fail the whole pipeline.
  */
 export const runWorkspaceCompilationPipeline = <
   Entry,
@@ -61,8 +79,8 @@ export const runWorkspaceCompilationPipeline = <
     CommitRequirements
   >,
 ): Effect.Effect<
-  ReadonlyArray<Result>,
-  CompileError | CommitError,
+  WorkspaceCompilationPipelineResult<Entry, Result, CompileError>,
+  CommitError,
   CompileRequirements | CommitRequirements
 > =>
   Effect.scoped(
@@ -131,7 +149,11 @@ export const runWorkspaceCompilationPipeline = <
         },
       })(
         Effect.gen(function* () {
-          const committed = new Array<Result>(options.entries.length);
+          const committed = new Array<
+            { readonly index: number; readonly result: Result } | undefined
+          >(options.entries.length);
+          const failures: WorkspaceCompilationFailure<Entry, CompileError>[] =
+            [];
           let takeFromEmptyCount = 0;
           let totalTakeWaitMs = 0;
           let maxTakeWaitMs = 0;
@@ -150,20 +172,34 @@ export const runWorkspaceCompilationPipeline = <
             totalTakeWaitMs += takeWaitMs;
             maxTakeWaitMs = Math.max(maxTakeWaitMs, takeWaitMs);
             if (Exit.isFailure(item.result)) {
-              return yield* Effect.failCause(item.result.cause);
+              failures.push({
+                entry: item.entry,
+                index: item.index,
+                cause: item.result.cause,
+              });
+              continue;
             }
-            committed[item.index] = yield* options.commit(
-              item.result.value,
-              item.entry,
-              item.index,
-            );
+            committed[item.index] = {
+              index: item.index,
+              result: yield* options.commit(
+                item.result.value,
+                item.entry,
+                item.index,
+              ),
+            };
           }
           yield* Effect.annotateCurrentSpan({
             'workspace.queue.take_from_empty_count': takeFromEmptyCount,
             'workspace.queue.take_wait_ms': totalTakeWaitMs,
             'workspace.queue.max_take_wait_ms': maxTakeWaitMs,
+            'workspace.compile_failure_count': failures.length,
           });
-          return committed;
+          return {
+            results: committed.flatMap((item) =>
+              item === undefined ? [] : [item.result],
+            ),
+            failures,
+          };
         }),
       );
 

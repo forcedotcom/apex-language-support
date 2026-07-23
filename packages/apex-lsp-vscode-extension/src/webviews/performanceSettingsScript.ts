@@ -72,10 +72,10 @@ interface WorkerConfig {
 
 interface ExperimentalWorkersSettings {
   enabled: boolean;
-  lspRequest?: WorkerConfig;
-  dataOwner?: WorkerConfig;
-  compilation?: WorkerConfig;
-  resourceLoader?: WorkerConfig;
+  lspRequest?: Pick<WorkerConfig, 'poolSize'>;
+  dataOwner?: Pick<WorkerConfig, 'concurrency'>;
+  compilation?: Pick<WorkerConfig, 'poolSize' | 'concurrency'>;
+  resourceLoader?: Pick<WorkerConfig, 'enabled'>;
 }
 
 interface ExperimentalSettings {
@@ -1020,10 +1020,7 @@ class PerformanceSettingsUI {
                            placeholder="3">
                   </td>
                   <td>
-                    <input type="number" class="setting-input table-input"
-                           data-path="experimental.workers.lspRequest.concurrency"
-                           value="${lspRequest.concurrency ?? ''}" min="1" max="50"
-                           placeholder="∞">
+                    <span title="Managed internally by Effect Worker">managed</span>
                   </td>
                   <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
                     CPU-bound operations (documentSymbol, hover, etc.)
@@ -1032,10 +1029,7 @@ class PerformanceSettingsUI {
                 <tr>
                   <td><strong>DataOwner</strong></td>
                   <td>
-                    <input type="number" class="setting-input table-input"
-                           data-path="experimental.workers.dataOwner.poolSize"
-                           value="${dataOwner.poolSize ?? ''}" min="1" max="14"
-                           placeholder="1">
+                    <span title="Single authoritative graph owner">1 (fixed)</span>
                   </td>
                   <td>
                     <input type="number" class="setting-input table-input"
@@ -1076,16 +1070,10 @@ class PerformanceSettingsUI {
                     </label>
                   </td>
                   <td>
-                    <input type="number" class="setting-input table-input"
-                           data-path="experimental.workers.resourceLoader.poolSize"
-                           value="${resourceLoader.poolSize ?? ''}" min="1" max="14"
-                           placeholder="1">
+                    <span title="Single resource owner">1 (fixed)</span>
                   </td>
                   <td>
-                    <input type="number" class="setting-input table-input"
-                           data-path="experimental.workers.resourceLoader.concurrency"
-                           value="${resourceLoader.concurrency ?? ''}" min="1" max="50"
-                           placeholder="∞">
+                    <span title="Resource loading is serialized">1 (fixed)</span>
                   </td>
                   <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
                     Standard library and metadata loading
@@ -1094,7 +1082,7 @@ class PerformanceSettingsUI {
               </tbody>
             </table>
             <div class="setting-help" style="margin-top: 8px;">
-              Pool Size: number of worker processes. Concurrency: max in-flight requests per worker. Empty = default.
+              Pool Size: number of worker processes. Concurrency: max in-flight requests per worker.
             </div>
           </div>
         </div>

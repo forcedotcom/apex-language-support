@@ -19,7 +19,15 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import { Effect, LogLevel, Schema, Queue, Deferred, Option } from 'effect';
+import {
+  Cause,
+  Effect,
+  LogLevel,
+  Schema,
+  Queue,
+  Deferred,
+  Option,
+} from 'effect';
 import type * as Tracer from 'effect/Tracer';
 import {
   WorkerInit,
@@ -3912,7 +3920,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
             'workspace.compile_location': 'data-owner-effect-worker-pool',
           });
 
-          const results = yield* runWorkspaceCompilationPipeline({
+          const pipeline = yield* runWorkspaceCompilationPipeline({
             entries: req.entries,
             parallelism: compilationParallelism,
             bufferCapacity: resultBufferCapacity,
@@ -3996,7 +4004,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
               ),
           });
 
-          const compiledCount = results.filter(
+          for (const failure of pipeline.failures) {
+            resolveReadiness(failure.entry.uri, failure.entry.version);
+            yield* Effect.logWarning(
+              `[DATA-OWNER] Workspace compilation failed for ${failure.entry.uri}: ` +
+                Cause.pretty(failure.cause),
+            );
+          }
+
+          const compiledCount = pipeline.results.filter(
             (result) => result.outcome === 'compiled',
           ).length;
           const errorCount = req.entries.length - compiledCount;

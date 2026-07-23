@@ -6037,7 +6037,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (!qualifiedReference && recordedWidth > name.length) return false;
 
     return (
-      range.startLine === range.endLine &&
       position.line === range.startLine &&
       position.character >= range.startColumn &&
       position.character < range.startColumn + name.length

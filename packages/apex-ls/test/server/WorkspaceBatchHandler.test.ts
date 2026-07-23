@@ -526,6 +526,42 @@ describe('WorkspaceBatchHandler', () => {
       ).toEqual([100, 100, 1]);
     });
 
+    it('ends the workspace session when compilation fails fatally', async () => {
+      const sessionDispatcher = jest.fn().mockResolvedValue({});
+      setWorkspaceLoadSessionDispatcher(sessionDispatcher);
+      setBatchIngestionDispatcher(
+        jest.fn().mockResolvedValue({ processedCount: 1 }),
+      );
+      setDataOwnerCompileDispatcher(
+        jest.fn().mockRejectedValue(new Error('compile transport failed')),
+      );
+
+      const files = [
+        {
+          uri: 'file:///Failure.cls',
+          version: 1,
+          content: 'class Failure {}',
+        },
+      ];
+      await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData: makeCompressedBatch(files),
+        fileMetadata: files.map(({ uri, version }) => ({ uri, version })),
+      });
+      await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
+        totalBatches: 1,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(
+        sessionDispatcher.mock.calls.map(([request]) => request._tag),
+      ).toEqual(['BeginWorkspaceLoadSession', 'DrainDeferredReferences']);
+    });
+
     it('waits for a dispatcher wired after batches start processing', async () => {
       const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
         offer: jest.Mock;

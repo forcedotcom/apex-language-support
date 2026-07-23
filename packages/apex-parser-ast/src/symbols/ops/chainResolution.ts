@@ -3504,6 +3504,24 @@ export async function resolveSymbolReferenceToSymbol(
       // Let it continue to scope resolution
     }
 
+    if (typeReference.context === ReferenceContext.VARIABLE_USAGE && position) {
+      const scopedValue = resolveUnqualRefByScopeOp(
+        self,
+        typeReference,
+        sourceFile,
+        position,
+      );
+      if (
+        scopedValue !== null &&
+        (scopedValue.kind === SymbolKind.Variable ||
+          scopedValue.kind === SymbolKind.Parameter ||
+          scopedValue.kind === SymbolKind.Field ||
+          scopedValue.kind === SymbolKind.Property)
+      ) {
+        return scopedValue;
+      }
+    }
+
     let variableUsageLooksLikeClass = false;
     if (typeReference.context === ReferenceContext.VARIABLE_USAGE) {
       const candidates = await self.findSymbolByName(typeReference.name);

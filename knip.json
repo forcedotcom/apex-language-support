@@ -12,6 +12,8 @@
         "src/server/webWorkerServer.ts",
         "src/worker.platform.ts",
         "src/worker.platform.web.ts",
+        "test/jest-setup.ts",
+        "test/setup-web.js",
         "test/fixtures/browserCompilationPoolHarness.ts",
         "test/fixtures/compilerLifecycleWorker.ts"
       ],
