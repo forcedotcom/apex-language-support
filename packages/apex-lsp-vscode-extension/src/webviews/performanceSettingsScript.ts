@@ -1016,8 +1016,8 @@ class PerformanceSettingsUI {
                   <td>
                     <input type="number" class="setting-input table-input"
                            data-path="experimental.workers.lspRequest.poolSize"
-                           value="${lspRequest.poolSize ?? 2}" min="1" max="14"
-                           placeholder="2">
+                           value="${lspRequest.poolSize ?? 3}" min="1" max="14"
+                           placeholder="3">
                   </td>
                   <td>
                     <input type="number" class="setting-input table-input"

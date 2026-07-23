@@ -266,6 +266,146 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Select a range in the editor by positioning at a start line/column and
+   * extending the selection a number of characters to the right.
+   *
+   * Uses Go-to-Line to place the cursor deterministically (same mechanism as
+   * {@link goToPosition}), then Shift+ArrowRight to grow the selection. This
+   * avoids pixel-based click-drag, which is fragile across web/desktop and
+   * varying font metrics.
+   *
+   * @param line - 1-indexed line of the selection start
+   * @param column - 1-indexed column of the selection start
+   * @param length - number of characters to select to the right
+   */
+  async selectRange(
+    line: number,
+    column: number,
+    length: number,
+  ): Promise<void> {
+    await this.goToPosition(line, column);
+    for (let i = 0; i < length; i++) {
+      await this.page.keyboard.press('Shift+ArrowRight');
+    }
+  }
+
+  /**
+   * Open the Code Action (Refactor / Quick Fix) widget at the current
+   * selection and return the titles of the offered actions.
+   *
+   * Triggers the "Refactor..." command via its keyboard shortcut
+   * (Ctrl+Shift+R). The keybinding is used instead of the command palette so
+   * the editor keeps keyboard focus and the active selection — routing through
+   * the palette clicks the workbench and collapses the selection, which yields
+   * "No refactorings available". The action list renders in Monaco's
+   * `.action-widget` (`.actionList`), whose rows carry the action titles.
+   *
+   * Re-triggers until the list is populated: on the web request-pool the
+   * language server may not have loaded the file's symbols on the first
+   * invocation (a transient "No refactorings available"), so a single trigger
+   * can race the pool warm-up. The widget is left OPEN on success so callers
+   * can select an action; dismiss it with Escape when done.
+   *
+   * @returns The trimmed titles of the offered code actions.
+   */
+  async openCodeActions(): Promise<string[]> {
+    const { expect } = await import('@playwright/test');
+    // Monaco keeps more than one `.action-widget` in the DOM (e.g. a hidden
+    // template alongside the live one), so an unscoped locator trips
+    // Playwright strict mode. Scope to the visible widget. The action rows
+    // render as ARIA `option` elements (accessible name = "<title>, <group>"),
+    // not `.action-item .title`, so target them by role.
+    const actionWidget = this.page.locator('.action-widget:visible');
+    const rows = actionWidget.getByRole('option');
+
+    let titles: string[] = [];
+    await expect(async () => {
+      // Close any lingering Find widget so the editor keeps keyboard focus and
+      // the selection is preserved (same hazard guarded against in
+      // goToDefinition). Also dismiss a prior "No refactorings available"
+      // widget from a previous attempt.
+      const findWidget = this.page.locator('.editor-widget.find-widget');
+      if (await findWidget.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await findWidget
+          .waitFor({ state: 'hidden', timeout: 3000 })
+          .catch(() => {});
+      }
+      if (await actionWidget.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await actionWidget
+          .waitFor({ state: 'hidden', timeout: 1000 })
+          .catch(() => {});
+      }
+
+      await this.page.keyboard.press('Control+Shift+R');
+
+      // A populated list renders at least one `.action-item`; the transient
+      // "No refactorings available" message does not, so poll for the row.
+      await rows.first().waitFor({ state: 'visible', timeout: 3000 });
+
+      const found = (await rows.allTextContents())
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      expect(found.length, 'Expected at least one code action').toBeGreaterThan(
+        0,
+      );
+      titles = found;
+    }).toPass({ timeout: this.defaultTimeout });
+
+    return titles;
+  }
+
+  /**
+   * Select and apply an offered code action by (partial) title from the open
+   * Code Action widget. Assumes {@link openCodeActions} has been called and the
+   * widget is visible.
+   *
+   * The widget is keyboard-driven: a Monaco `.context-view-pointerBlock`
+   * overlay intercepts pointer events, so a direct `.click()` on the row is
+   * unreliable. Instead we arrow-key down to the matching row (each row's
+   * `focused` class tracks the active option) and press Enter to apply — the
+   * interaction the widget's "Enter to Apply" affordance expects. The
+   * WorkspaceEdit is applied on accept and the widget closes.
+   *
+   * @param titleFragment - Substring of the action title to apply (e.g. "Extract local variable").
+   */
+  async applyCodeAction(titleFragment: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
+    const actionWidget = this.page.locator('.action-widget:visible');
+    const options = actionWidget.getByRole('option');
+    const target = options.filter({ hasText: titleFragment }).first();
+    await target.waitFor({ state: 'visible', timeout: this.defaultTimeout });
+
+    // Walk focus down until the target row carries Monaco's `focused` class,
+    // then accept. Bounded by the number of offered actions.
+    const count = await options.count();
+    let matched = false;
+    for (let i = 0; i < count; i++) {
+      const focusedLabel = await actionWidget
+        .locator('.monaco-list-row.focused')
+        .getAttribute('aria-label')
+        .catch(() => null);
+      if (focusedLabel && focusedLabel.includes(titleFragment)) {
+        matched = true;
+        break;
+      }
+      await this.page.keyboard.press('ArrowDown');
+    }
+    // Never press Enter on an unmatched selection — that would silently apply
+    // whatever action happens to be focused. Fail loudly instead so a broken
+    // focus walk surfaces as a clear test failure rather than a wrong edit.
+    expect(
+      matched,
+      `Code action "${titleFragment}" was offered but focus never landed on it`,
+    ).toBe(true);
+    await this.page.keyboard.press('Enter');
+    await actionWidget
+      .waitFor({ state: 'hidden', timeout: this.defaultTimeout })
+      .catch(() => {});
+  }
+
+  /**
    * Trigger completion/IntelliSense at the current cursor position.
    * Uses Ctrl+Space keyboard shortcut.
    */

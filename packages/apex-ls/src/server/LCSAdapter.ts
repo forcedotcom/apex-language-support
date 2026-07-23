@@ -26,6 +26,9 @@ import {
   DocumentDiagnosticReportKind,
   FoldingRangeParams,
   CodeLensParams,
+  CodeActionParams,
+  CodeAction,
+  Command,
   ClientCapabilities,
   Registration,
   ServerCapabilities,
@@ -741,6 +744,33 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.codeActionProvider) {
+      this.connection.onCodeAction(
+        async (
+          params: CodeActionParams,
+          token: CancellationToken,
+        ): Promise<(Command | CodeAction)[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.CODE_ACTION,
+            'textDocument/codeAction',
+            params,
+            (p) =>
+              LSPQueueManager.getInstance().submitCodeActionRequest(p, token),
+            null,
+            {
+              'document.range':
+                `${params.range.start.line}:${params.range.start.character}` +
+                `-${params.range.end.line}:${params.range.end.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Code action handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Code action handler not registered (capability disabled)',
       );
     }
 
@@ -1585,6 +1615,15 @@ export class LCSAdapter {
     if (allCapabilities.referencesProvider) {
       staticCapabilities.referencesProvider =
         allCapabilities.referencesProvider;
+    }
+
+    // codeActionProvider must be in the initial response for the Refactor / quick-fix
+    // menus to appear — VS Code gates those UIs on the advertised capability, and (like
+    // references) does not honor dynamic registration for it. Only set in the development
+    // profile, so this stays dev-only until production enablement (W-23389340).
+    if (allCapabilities.codeActionProvider) {
+      staticCapabilities.codeActionProvider =
+        allCapabilities.codeActionProvider;
     }
 
     if (
@@ -2507,7 +2546,7 @@ export class LCSAdapter {
 
       // Read from nested structure with backward compatibility for flat structure
       const poolSize =
-        workerCfg?.lspRequest?.poolSize ?? workerCfg?.poolSize ?? 2;
+        workerCfg?.lspRequest?.poolSize ?? workerCfg?.poolSize ?? 3;
       const enableResourceLoader = workerCfg?.resourceLoader?.enabled ?? true;
       const dataOwnerConcurrency = workerCfg?.dataOwner?.concurrency;
       const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 1;

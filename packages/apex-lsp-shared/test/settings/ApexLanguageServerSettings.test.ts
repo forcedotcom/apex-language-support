@@ -310,7 +310,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'desktop');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(3);
       expect(result.apex.experimental?.workers.resourceLoader?.enabled).toBe(
         true,
       );
@@ -325,7 +325,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'web');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(3);
       expect(result.apex.experimental?.workers.compilation).toEqual({
         poolSize: 2,
         concurrency: 1,

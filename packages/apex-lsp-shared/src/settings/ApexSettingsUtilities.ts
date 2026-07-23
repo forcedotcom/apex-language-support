@@ -133,8 +133,12 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     experimental: {
       workers: {
         enabled: true,
+        // Shared request pool for hover/definition/completion/codeAction/etc.
+        // CodeAction bursts can occupy the pool with full-detail recompiles,
+        // so desktop hosts use a third worker to preserve headroom for
+        // latency-critical reads. Web clamps this to cpus-2 (currently 2).
         lspRequest: {
-          poolSize: 2,
+          poolSize: 3,
         },
         dataOwner: {
           concurrency: 10,

@@ -91,7 +91,7 @@
   "configuration.apex-ls-ts.experimental.workers.description": "Experimental: offload LSP processing to internal worker threads. Improves responsiveness for large workspaces at the cost of additional memory. Settings take effect on server restart.",
   "configuration.apex-ls-ts.experimental.workers.enabled.description": "Enable internal worker threads for parallel LSP processing. When false, all processing happens on the coordinator thread.",
   "configuration.apex-ls-ts.experimental.workers.lspRequest.description": "LSP request worker pool configuration for CPU-bound operations (documentSymbol, hover, etc.)",
-  "configuration.apex-ls-ts.experimental.workers.lspRequest.poolSize.description": "Number of LSP request worker processes (1–cpus-2, default 2). Higher values increase parallelism but consume more memory.",
+  "configuration.apex-ls-ts.experimental.workers.lspRequest.poolSize.description": "Number of LSP request worker processes (1–cpus-2, default 3 on desktop and clamped to 2 on web). Higher values increase parallelism but consume more memory.",
   "configuration.apex-ls-ts.experimental.workers.lspRequest.concurrency.description": "Maximum concurrent requests per LSP request worker (1–50, default: unlimited). Limits in-flight requests to prevent queue buildup.",
   "configuration.apex-ls-ts.experimental.workers.dataOwner.description": "DataOwner worker configuration for symbol graph management",
   "configuration.apex-ls-ts.experimental.workers.dataOwner.poolSize.description": "Number of DataOwner worker processes (1–cpus-2, default 1). Multiple workers enable parallel symbol updates.",

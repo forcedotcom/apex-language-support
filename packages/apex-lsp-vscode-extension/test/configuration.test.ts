@@ -198,7 +198,7 @@ describe('Configuration Module', () => {
             workers: {
               enabled: true,
               lspRequest: {
-                poolSize: 2,
+                poolSize: 3,
               },
               dataOwner: {
                 concurrency: 10,

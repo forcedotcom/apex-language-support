@@ -131,6 +131,14 @@ const COLD_READ_GATE_MAX_MS = 3_000;
 const MATCH_LATEST_VERSION = -1;
 
 /**
+ * Debounce window (ms) for coalescing bursts of `textDocument/codeAction`
+ * requests per URI. Long enough to collapse the rapid re-requests VS Code fires
+ * during a single cursor move / selection drag, short enough that the surviving
+ * request still feels immediate when the light-bulb / Refactor menu opens.
+ */
+const CODE_ACTION_COALESCE_MS = 150;
+
+/**
  * Pool request types whose worker handler recompiles the cursor file from the
  * live in-flight text carried on the request (DispatchCompletion / Hover /
  * Definition / SignatureHelp / CodeAction / DocumentSymbol all thread
@@ -188,6 +196,30 @@ export class LSPQueueManager {
   private readonly serviceRegistry: ServiceRegistry;
   private schedulerInitialized = false;
   private isShutdown = false;
+
+  /**
+   * Per-URI coalescing state for code-action requests. VS Code re-requests
+   * `textDocument/codeAction` on nearly every cursor move / selection change,
+   * so a single interaction can fire dozens of requests for one file in under a
+   * second. Each request forces a full-detail recompile on a worker-pool slot,
+   * and the worker runs it to completion even after the client supersedes it —
+   * the LSP cancellation token is a coordinator-side object and never crosses
+   * into the worker. Left unchecked, the storm saturates the shared request
+   * pool and starves latency-critical reads (hover/definition) until they hit
+   * their 5s timeout.
+   *
+   * To break the storm at the source, we hold each incoming code-action request
+   * for a short debounce window. If a newer request for the same URI arrives
+   * (or the client cancels) before the window elapses, the older one is
+   * superseded and rejected with {@link RequestCancelledError} WITHOUT ever
+   * dispatching to the pool — only the latest request in a burst does real
+   * work. The adapter maps that rejection to the empty/null result the client
+   * already expects for a cancelled request.
+   */
+  private readonly pendingCodeActions = new Map<
+    string,
+    { supersede: () => void }
+  >();
 
   private constructor(dependencies?: LSPQueueManagerDependencies) {
     // Initialize the service registry
@@ -578,10 +610,75 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit a code action request
+   * Submit a code action request.
+   *
+   * Requests are coalesced per URI over a short debounce window
+   * ({@link CODE_ACTION_COALESCE_MS}) so a burst of client re-requests for the
+   * same file collapses to a single worker dispatch — see
+   * {@link pendingCodeActions}. A request superseded by a newer one for the same
+   * URI (or cancelled via `token`) rejects with {@link RequestCancelledError}
+   * before it ever reaches the pool; the adapter turns that into the null
+   * result the client already expects for a cancelled code-action request.
    */
-  async submitCodeActionRequest(params: any): Promise<any> {
-    return this.submitRequest('codeAction', params, { priority: Priority.Low });
+  async submitCodeActionRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
+    const uri: string | undefined = params?.textDocument?.uri;
+
+    // Without a URI to key on we cannot coalesce; fall back to a plain submit.
+    if (!uri) {
+      return this.submitRequest('codeAction', params, {
+        priority: Priority.Low,
+        token,
+      });
+    }
+
+    // Supersede any request still waiting in the debounce window for this URI.
+    this.pendingCodeActions.get(uri)?.supersede();
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (fn: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        tokenSub?.dispose();
+        // Only clear the map slot if it still points at THIS request; a newer
+        // request may have already replaced it.
+        if (this.pendingCodeActions.get(uri) === entry) {
+          this.pendingCodeActions.delete(uri);
+        }
+        fn();
+      };
+
+      const entry = {
+        supersede: () =>
+          finish(() => reject(new RequestCancelledError('codeAction'))),
+      };
+      this.pendingCodeActions.set(uri, entry);
+
+      // Client-driven cancellation (e.g. the editor moved on) drops the request
+      // before it dispatches, exactly like a supersede.
+      const tokenSub = token?.onCancellationRequested(() =>
+        finish(() => reject(new RequestCancelledError('codeAction'))),
+      );
+
+      const timer = setTimeout(() => finish(resolve), CODE_ACTION_COALESCE_MS);
+
+      // A token already tripped before we subscribed: bail immediately.
+      if (token?.isCancellationRequested) {
+        finish(() => reject(new RequestCancelledError('codeAction')));
+      }
+    });
+
+    // Survived the debounce window as the latest request for this URI.
+    return this.submitRequest('codeAction', params, {
+      priority: Priority.Low,
+      token,
+    });
   }
 
   /**
@@ -979,6 +1076,15 @@ export class LSPQueueManager {
     this.logger.debug(() => 'Shutting down LSP Queue Manager');
 
     this.isShutdown = true;
+
+    // Drain any code-action requests still waiting in the debounce window.
+    // supersede() clears each entry's timer, disposes its token subscription,
+    // removes its map slot, and rejects the pending promise with
+    // RequestCancelledError (mapped to null by the adapter). Snapshot first —
+    // supersede() mutates pendingCodeActions as it deletes each slot.
+    for (const entry of [...this.pendingCodeActions.values()]) {
+      entry.supersede();
+    }
 
     if (this.schedulerInitialized) {
       await Effect.runPromise(shutdown());
