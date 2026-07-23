@@ -2683,19 +2683,11 @@ export class LCSAdapter {
                 'worker.platform.web.js',
                 'file:///server.web.js',
               );
-        const compilerWorkerUrl = resolveWorkerUrl(
-          'compiler.worker.web.js',
-          workerUrl,
-        );
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
-        this.logger.alwaysLog(
-          () =>
-            `[WorkerCoordinator] Compiler worker script (browser): ${compilerWorkerUrl}`,
-        );
         const workerLayerFactory = yield* Effect.promise(() =>
-          makeBrowserWorkerLayerFactory(workerUrl, compilerWorkerUrl, {
+          makeBrowserWorkerLayerFactory(workerUrl, {
             compilationPoolSize,
             compilationConcurrency,
           }),

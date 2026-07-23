@@ -49,6 +49,7 @@ import {
   handlers,
   AllWorkerRequests,
   setAssistanceTransport,
+  setAssignedRole,
   setWorkerId,
   setResourceLoaderLayerFactory,
   setWarmRemoteStdlibNamespaceCache,
@@ -384,7 +385,7 @@ type WorkerPortsInit = {
   readonly role?: string;
   readonly compilationPoolSize?: number;
   readonly compilationConcurrency?: number;
-  readonly compilerWorkerUrl?: string;
+  readonly workerPlatformUrl?: string;
 };
 
 function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
@@ -394,12 +395,12 @@ function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
       unavailableCompilationWorkerPool,
     );
   }
-  if (!data.compilerWorkerUrl) {
+  if (!data.workerPlatformUrl) {
     return Layer.effect(
       CompilationWorkerPool,
       Effect.fail(
         new Error(
-          'Browser data-owner startup requires a compiler worker bundle URL',
+          'Browser data-owner startup requires the common worker bundle URL',
         ),
       ),
     );
@@ -418,8 +419,28 @@ function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
     Math.max(1, hardwareConcurrency - 2),
   );
   const concurrency = Math.max(1, Math.floor(data.compilationConcurrency ?? 1));
-  const compilerWorkerUrl = data.compilerWorkerUrl;
+  const workerPlatformUrl = data.workerPlatformUrl;
   const W = globalThis.Worker;
+
+  const spawnCompilerWorker = () => {
+    const rawWorker = new W(workerPlatformUrl);
+    const effectChannel = new MessageChannel();
+    const assistChannel = new MessageChannel();
+    assistChannel.port1.addEventListener('message', (event: MessageEvent) => {
+      assistPort?.postMessage(event.data);
+    });
+    assistChannel.port1.start();
+    rawWorker.postMessage(
+      {
+        _tag: 'WorkerPortsInit',
+        effectPort: effectChannel.port2,
+        assistPort: assistChannel.port2,
+        role: 'compiler',
+      },
+      [effectChannel.port2, assistChannel.port2],
+    );
+    return effectChannel.port1;
+  };
 
   return Layer.scoped(
     CompilationWorkerPool,
@@ -440,9 +461,7 @@ function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
         readiness.initialized,
         poolSize,
       );
-    }).pipe(
-      Effect.provide(BrowserWorker.layer(() => new W(compilerWorkerUrl))),
-    ),
+    }).pipe(Effect.provide(BrowserWorker.layer(spawnCompilerWorker))),
   );
 }
 
@@ -467,6 +486,9 @@ self.addEventListener('message', (event: MessageEvent) => {
   const effectPort = data.effectPort as MessagePort;
   assistPort = data.assistPort as MessagePort;
   assistPort.start();
+  if (data.role === 'compiler') {
+    setAssignedRole('compiler');
+  }
 
   // Flush any logs buffered before the port arrived
   for (const msg of preAssistBuffer) assistPort.postMessage(msg);

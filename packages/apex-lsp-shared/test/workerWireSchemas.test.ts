@@ -413,10 +413,11 @@ describe('workerWireSchemas', () => {
   });
 
   describe('isAllowedTag', () => {
-    it('should allow WorkerInit for all roles', () => {
+    it('should allow WorkerInit for coordinator-managed roles', () => {
       expect(isAllowedTag('dataOwner', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('compiler', 'WorkerInit')).toBe(false);
     });
 
     it('should allow PingWorker for all roles', () => {
@@ -527,10 +528,20 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('resourceLoader', 'CompileDocument')).toBe(false);
     });
 
+    it('should restrict pure compilation requests to compiler workers', () => {
+      for (const tag of ['InitializeCompilationWorker', 'CompileApexFile']) {
+        expect(isAllowedTag('compiler', tag)).toBe(true);
+        expect(isAllowedTag('dataOwner', tag)).toBe(false);
+        expect(isAllowedTag('lspRequest', tag)).toBe(false);
+        expect(isAllowedTag('resourceLoader', tag)).toBe(false);
+      }
+    });
+
     it('should reject unknown tags', () => {
       expect(isAllowedTag('dataOwner', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('lspRequest', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('compiler', 'UnknownTag')).toBe(false);
     });
   });
 });

@@ -7,7 +7,10 @@
  */
 
 import * as path from 'node:path';
-import { Worker as NodeWorkerThread } from 'node:worker_threads';
+import {
+  MessageChannel,
+  Worker as NodeWorkerThread,
+} from 'node:worker_threads';
 import * as Worker from '@effect/platform/Worker';
 import * as NodeWorker from '@effect/platform-node/NodeWorker';
 import { Cause, Effect, Exit, Fiber } from 'effect';
@@ -24,10 +27,7 @@ import {
 } from '../../src/compiler/CompilationWorkerPool';
 import { runWorkspaceCompilationPipeline } from '../../src/compiler/WorkspaceCompilationPipeline';
 
-const WORKER_ENTRY = path.resolve(
-  __dirname,
-  '../../src/compiler.worker.node.ts',
-);
+const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const LIFECYCLE_WORKER_ENTRY = path.resolve(
   __dirname,
   '../fixtures/compilerLifecycleWorker.ts',
@@ -42,6 +42,18 @@ const compileRequest = (content: string, version = 1) =>
     detailLevel: 'public-api',
     collectReferences: true,
   });
+
+const spawnCompilerWorker = (): NodeWorkerThread => {
+  const assist = new MessageChannel();
+  assist.port1.on('message', () => undefined);
+  const worker = new NodeWorkerThread(WORKER_ENTRY, {
+    workerData: { role: 'compiler', assistPort: assist.port2 },
+    transferList: [assist.port2],
+    execArgv: ['--import', 'tsx'],
+  });
+  worker.once('exit', () => assist.port1.close());
+  return worker;
+};
 
 describe('dedicated Effect compilation worker', () => {
   it('fails pool acquisition when a backing worker cannot start', async () => {
@@ -99,9 +111,7 @@ describe('dedicated Effect compilation worker', () => {
     ).pipe(
       Effect.provide(
         NodeWorker.layer(() => {
-          const worker = new NodeWorkerThread(WORKER_ENTRY, {
-            execArgv: ['--import', 'tsx'],
-          });
+          const worker = spawnCompilerWorker();
           workers.push(worker);
           return worker;
         }),
@@ -328,16 +338,7 @@ describe('dedicated Effect compilation worker', () => {
           }),
         );
       }),
-    ).pipe(
-      Effect.provide(
-        NodeWorker.layer(
-          () =>
-            new NodeWorkerThread(WORKER_ENTRY, {
-              execArgv: ['--import', 'tsx'],
-            }),
-        ),
-      ),
-    );
+    ).pipe(Effect.provide(NodeWorker.layer(spawnCompilerWorker)));
 
     const result = await Effect.runPromise(program);
     const table = reconstructCompiledSymbolTable(result);

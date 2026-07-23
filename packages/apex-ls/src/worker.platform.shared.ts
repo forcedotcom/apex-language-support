@@ -37,6 +37,7 @@ import {
   DrainDeferredReferences,
   CompileDocument,
   CompileApexFile,
+  InitializeCompilationWorker,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
@@ -88,7 +89,10 @@ import {
   CompilationWorkerPool,
   type CompilationWorkerPoolService,
 } from './compiler/CompilationWorkerPool.ts';
-import { reconstructCompiledSymbolTable } from './compiler/CompilationWorkerHandler.ts';
+import {
+  createCompilationWorkerHandlers,
+  reconstructCompiledSymbolTable,
+} from './compiler/CompilationWorkerHandler.ts';
 import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline.ts';
 
 // ---------------------------------------------------------------------------
@@ -135,6 +139,8 @@ export const AllWorkerRequests = Schema.Union(
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
+  InitializeCompilationWorker,
+  CompileApexFile,
 );
 
 // ---------------------------------------------------------------------------
@@ -3129,7 +3135,21 @@ export function withWorkerRequestTracing<A, E>(
   return workerTracingHooks.withParent(request, tracedEffect);
 }
 
+const compilationHandlers = createCompilationWorkerHandlers();
+
 const untracedHandlers: SerializedWorkerHandlers = {
+  InitializeCompilationWorker: (req) =>
+    guardRole('InitializeCompilationWorker').pipe(
+      Effect.flatMap(() =>
+        compilationHandlers.InitializeCompilationWorker(req),
+      ),
+    ),
+
+  CompileApexFile: (req) =>
+    guardRole('CompileApexFile').pipe(
+      Effect.flatMap(() => compilationHandlers.CompileApexFile(req)),
+    ),
+
   WorkerInit: (req) => {
     if (assignedRole !== null) {
       return Effect.die(

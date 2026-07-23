@@ -189,7 +189,7 @@ export interface BrowserWorkerBootstrapOptions {
   readonly role?: WorkerRole;
   readonly compilationPoolSize?: number;
   readonly compilationConcurrency?: number;
-  readonly compilerWorkerUrl?: string;
+  readonly workerPlatformUrl?: string;
 }
 
 function browserWorkerLayer(
@@ -264,7 +264,6 @@ export async function makeBrowserWorkerLayer(
 
 export async function makeBrowserWorkerLayerFactory(
   workerScriptUrl: string,
-  compilerWorkerScriptUrl: string,
   options: {
     readonly compilationPoolSize: number;
     readonly compilationConcurrency: number;
@@ -273,31 +272,16 @@ export async function makeBrowserWorkerLayerFactory(
   (role: WorkerRole) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>
 > {
   const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
-  const [workerResponse, compilerResponse] = await Promise.all([
-    fetch(workerScriptUrl),
-    fetch(compilerWorkerScriptUrl),
-  ]);
+  const workerResponse = await fetch(workerScriptUrl);
   if (!workerResponse.ok) {
     throw new Error(
       `Unable to load browser worker bundle ${workerScriptUrl}: ${workerResponse.status} ${workerResponse.statusText}`,
     );
   }
-  if (!compilerResponse.ok) {
-    throw new Error(
-      `Unable to load browser compiler bundle ${compilerWorkerScriptUrl}: ` +
-        `${compilerResponse.status} ${compilerResponse.statusText}`,
-    );
-  }
 
-  const [workerScript, compilerScript] = await Promise.all([
-    workerResponse.text(),
-    compilerResponse.text(),
-  ]);
+  const workerScript = await workerResponse.text();
   const workerBlobUrl = URL.createObjectURL(
     new Blob([workerScript], { type: 'application/javascript' }),
-  );
-  const compilerBlobUrl = URL.createObjectURL(
-    new Blob([compilerScript], { type: 'application/javascript' }),
   );
   const W = (globalThis as any).Worker as new (
     url: string | URL,
@@ -314,7 +298,7 @@ export async function makeBrowserWorkerLayerFactory(
         role,
         compilationPoolSize: options.compilationPoolSize,
         compilationConcurrency: options.compilationConcurrency,
-        ...(role === 'dataOwner' ? { compilerWorkerUrl: compilerBlobUrl } : {}),
+        ...(role === 'dataOwner' ? { workerPlatformUrl: workerBlobUrl } : {}),
       },
       BrowserWorker,
       W,

@@ -31,6 +31,7 @@ export const WorkerRole = Schema.Literal(
   'dataOwner',
   'lspRequest',
   'resourceLoader',
+  'compiler',
 );
 export type WorkerRole = Schema.Schema.Type<typeof WorkerRole>;
 
@@ -1201,9 +1202,21 @@ export const ResourceLoaderTags = [
 ] as const;
 export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
 
+/** Tags accepted by a compiler worker */
+export const CompilerTags = [
+  'InitializeCompilationWorker',
+  'CompileApexFile',
+] as const;
+export type CompilerTag = (typeof CompilerTags)[number];
+
 /** All known worker request tags */
 export const AllWorkerTags = [
-  ...new Set([...DataOwnerTags, ...LspRequestTags, ...ResourceLoaderTags]),
+  ...new Set([
+    ...DataOwnerTags,
+    ...LspRequestTags,
+    ...ResourceLoaderTags,
+    ...CompilerTags,
+  ]),
 ] as const;
 export type WorkerTag = (typeof AllWorkerTags)[number];
 
@@ -1292,5 +1305,7 @@ export function isAllowedTag(role: WorkerRole, tag: string): boolean {
       return (LspRequestTags as readonly string[]).includes(tag);
     case 'resourceLoader':
       return (ResourceLoaderTags as readonly string[]).includes(tag);
+    case 'compiler':
+      return (CompilerTags as readonly string[]).includes(tag);
   }
 }

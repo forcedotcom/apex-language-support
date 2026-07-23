@@ -75,8 +75,8 @@ async function bundle(entryPoint: string): Promise<string> {
 
 describe('browser Effect compilation pool', () => {
   it('compiles through real nested Web Workers', async () => {
-    const [compilerSource, harnessSource] = await Promise.all([
-      bundle(path.resolve(__dirname, '../../src/compiler.worker.web.ts')),
+    const [workerSource, harnessSource] = await Promise.all([
+      bundle(path.resolve(__dirname, '../../src/worker.platform.web.ts')),
       bundle(
         path.resolve(__dirname, '../fixtures/browserCompilationPoolHarness.ts'),
       ),
@@ -86,7 +86,7 @@ describe('browser Effect compilation pool', () => {
     try {
       const page = await browser.newPage();
       const response = await page.evaluate(
-        ({ compilerSource, harnessSource }) =>
+        ({ workerSource, harnessSource }) =>
           new Promise<{
             ok: boolean;
             error?: string;
@@ -116,9 +116,9 @@ describe('browser Effect compilation pool', () => {
               URL.revokeObjectURL(harnessUrl);
               reject(new Error(event.message));
             };
-            worker.postMessage({ compilerSource });
+            worker.postMessage({ workerSource });
           }),
-        { compilerSource, harnessSource },
+        { workerSource, harnessSource },
       );
 
       expect(response).toEqual({

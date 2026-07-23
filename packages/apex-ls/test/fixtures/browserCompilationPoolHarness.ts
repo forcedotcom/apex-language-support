@@ -22,12 +22,30 @@ import {
 
 self.addEventListener(
   'message',
-  (event: MessageEvent<{ compilerSource: string }>) => {
-    const compilerUrl = URL.createObjectURL(
-      new Blob([event.data.compilerSource], {
+  (event: MessageEvent<{ workerSource: string }>) => {
+    const workerUrl = URL.createObjectURL(
+      new Blob([event.data.workerSource], {
         type: 'application/javascript',
       }),
     );
+
+    const spawnCompilerWorker = () => {
+      const rawWorker = new globalThis.Worker(workerUrl);
+      const effectChannel = new MessageChannel();
+      const assistChannel = new MessageChannel();
+      assistChannel.port1.addEventListener('message', () => undefined);
+      assistChannel.port1.start();
+      rawWorker.postMessage(
+        {
+          _tag: 'WorkerPortsInit',
+          effectPort: effectChannel.port2,
+          assistPort: assistChannel.port2,
+          role: 'compiler',
+        },
+        [effectChannel.port2, assistChannel.port2],
+      );
+      return effectChannel.port1;
+    };
 
     const program = Effect.gen(function* () {
       const pool = yield* Worker.makePoolSerialized<CompilationWorkerRequest>({
@@ -58,14 +76,12 @@ self.addEventListener(
       );
     }).pipe(
       Effect.scoped,
-      Effect.provide(
-        BrowserWorker.layer(() => new globalThis.Worker(compilerUrl)),
-      ),
+      Effect.provide(BrowserWorker.layer(spawnCompilerWorker)),
     );
 
     Effect.runPromise(program).then(
       (results) => {
-        URL.revokeObjectURL(compilerUrl);
+        URL.revokeObjectURL(workerUrl);
         self.postMessage({
           ok: true,
           results: results.map((result) => ({
@@ -76,7 +92,7 @@ self.addEventListener(
         });
       },
       (error) => {
-        URL.revokeObjectURL(compilerUrl);
+        URL.revokeObjectURL(workerUrl);
         self.postMessage({
           ok: false,
           error: error instanceof Error ? error.message : String(error),

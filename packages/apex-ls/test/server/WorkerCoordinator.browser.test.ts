@@ -10,7 +10,6 @@ import { makeBrowserWorkerLayerFactory } from '../../src/server/WorkerCoordinato
 
 describe('browser worker layer factory', () => {
   const workerUrl = 'https://example.test/dist/worker.platform.web.js';
-  const compilerUrl = 'https://example.test/dist/compiler.worker.web.js';
   const originalFetch = globalThis.fetch;
   const originalCreateObjectUrl = URL.createObjectURL;
 
@@ -20,53 +19,36 @@ describe('browser worker layer factory', () => {
     jest.restoreAllMocks();
   });
 
-  it('loads both bundles before exposing role-specific layers', async () => {
-    globalThis.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => '/* worker */',
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => '/* compiler */',
-      }) as typeof fetch;
-    URL.createObjectURL = jest
-      .fn()
-      .mockReturnValueOnce('blob:worker')
-      .mockReturnValueOnce('blob:compiler');
+  it('loads one common bundle before exposing role-specific layers', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () => '/* worker */',
+    }) as typeof fetch;
+    URL.createObjectURL = jest.fn().mockReturnValueOnce('blob:worker');
 
-    const factory = await makeBrowserWorkerLayerFactory(
-      workerUrl,
-      compilerUrl,
-      { compilationPoolSize: 3, compilationConcurrency: 2 },
-    );
+    const factory = await makeBrowserWorkerLayerFactory(workerUrl, {
+      compilationPoolSize: 3,
+      compilationConcurrency: 2,
+    });
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(1, workerUrl);
-    expect(globalThis.fetch).toHaveBeenNthCalledWith(2, compilerUrl);
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(factory('dataOwner')).toBeDefined();
     expect(factory('lspRequest')).toBeDefined();
   });
 
-  it('fails topology preparation when the compiler bundle is unavailable', async () => {
-    globalThis.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => '/* worker */',
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-      }) as typeof fetch;
+  it('fails topology preparation when the common bundle is unavailable', async () => {
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    }) as typeof fetch;
 
     await expect(
-      makeBrowserWorkerLayerFactory(workerUrl, compilerUrl, {
+      makeBrowserWorkerLayerFactory(workerUrl, {
         compilationPoolSize: 1,
         compilationConcurrency: 1,
       }),
-    ).rejects.toThrow('Unable to load browser compiler bundle');
+    ).rejects.toThrow('Unable to load browser worker bundle');
   });
 });

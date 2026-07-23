@@ -132,7 +132,6 @@ const builds: BuildOptions[] = [
     ...nodeBaseConfig,
     entryPoints: {
       'worker.platform': 'src/worker.platform.ts',
-      'compiler.worker.node': 'src/compiler.worker.node.ts',
     },
     outdir: 'dist',
     format: 'cjs',
@@ -151,7 +150,6 @@ const builds: BuildOptions[] = [
   {
     entryPoints: {
       'worker.platform.web': 'src/worker.platform.web.ts',
-      'compiler.worker.web': 'src/compiler.worker.web.ts',
     },
     outdir: 'dist',
     platform: 'browser',

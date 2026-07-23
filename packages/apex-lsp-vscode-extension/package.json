@@ -109,9 +109,6 @@
       },
       {
         "uri": "./dist/worker.platform.web.js"
-      },
-      {
-        "uri": "./dist/compiler.worker.web.js"
       }
     ],
     "configuration": {

@@ -42,6 +42,7 @@ import {
   handlers,
   AllWorkerRequests,
   setAssistanceTransport,
+  setAssignedRole,
   setWorkerId,
   setResourceLoaderLayerFactory,
   setWorkerTracingHooks,
@@ -57,9 +58,9 @@ import {
   withCompilationWorkerStartupTimeout,
 } from './compiler/CompilationWorkerPool.ts';
 
-import * as path from 'node:path';
 import { availableParallelism } from 'node:os';
 import {
+  MessageChannel,
   parentPort,
   workerData,
   Worker as NodeWorkerThread,
@@ -432,6 +433,9 @@ const runtimeWorkerData = workerData as
       compilationConcurrency?: number;
     }
   | undefined;
+if (runtimeWorkerData?.role === 'compiler') {
+  setAssignedRole('compiler');
+}
 const requestedCompilationPoolSize = Math.max(
   1,
   Math.floor(runtimeWorkerData?.compilationPoolSize ?? 2),
@@ -445,10 +449,23 @@ const compilationConcurrency = Math.max(
   Math.floor(runtimeWorkerData?.compilationConcurrency ?? 1),
 );
 const runningFromTypeScript = __filename.endsWith('.ts');
-const compilerWorkerEntry = path.join(
-  __dirname,
-  runningFromTypeScript ? 'compiler.worker.node.ts' : 'compiler.worker.node.js',
-);
+
+const spawnCompilerWorker = (): NodeWorkerThread => {
+  const compilerAssist = new MessageChannel();
+  compilerAssist.port1.on('message', (message: unknown) => {
+    assistPort?.postMessage(message);
+  });
+  const worker = new NodeWorkerThread(__filename, {
+    workerData: {
+      role: 'compiler',
+      assistPort: compilerAssist.port2,
+    },
+    transferList: [compilerAssist.port2],
+    execArgv: runningFromTypeScript ? ['--import', 'tsx'] : [],
+  });
+  worker.once('exit', () => compilerAssist.port1.close());
+  return worker;
+};
 
 const CompilationWorkerPoolLive =
   runtimeWorkerData?.role === 'dataOwner'
@@ -476,16 +493,7 @@ const CompilationWorkerPoolLive =
             readiness.initialized,
             compilationPoolSize,
           );
-        }).pipe(
-          Effect.provide(
-            NodeWorker.layer(
-              () =>
-                new NodeWorkerThread(compilerWorkerEntry, {
-                  execArgv: runningFromTypeScript ? ['--import', 'tsx'] : [],
-                }),
-            ),
-          ),
-        ),
+        }).pipe(Effect.provide(NodeWorker.layer(spawnCompilerWorker))),
       )
     : Layer.succeed(CompilationWorkerPool, unavailableCompilationWorkerPool);
 
