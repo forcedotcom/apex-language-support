@@ -332,10 +332,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       );
 
       // Fire READ_BURST concurrent reads against the seeded file, and — in the
-      // same tick — one write-back for a different file. Measure how long the
-      // write takes to be accepted while the reads are contending.
-      const writeStart = yield* Effect.sync(() => Date.now());
-
+      // same tick — one write-back for a different file.
       const reads = Array.from({ length: READ_BURST }, () =>
         Effect.promise(() =>
           dispatcher.queryDataOwner('QuerySymbolSubset', { uris: [readerUri] }),
@@ -361,14 +358,25 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         }),
       );
 
-      // Run reads + the write concurrently; the write must resolve promptly.
-      const writeResult = (yield* Effect.all([writeBack, ...reads], {
-        concurrency: 'unbounded',
-      }).pipe(Effect.map((all) => all[0]))) as {
+      // Start the read burst independently so the write timer observes only
+      // write acceptance, not completion of all 1,000 reads. The previous
+      // Effect.all([write, ...reads]) measurement stopped its clock only after
+      // every read completed and therefore measured total burst duration.
+      const readsFiber = yield* Effect.fork(
+        Effect.all(reads, { concurrency: 'unbounded' }),
+      );
+      yield* Effect.yieldNow();
+
+      const writeStart = yield* Effect.sync(() => Date.now());
+      const writeResult = (yield* writeBack) as {
         accepted: boolean;
         versionMismatch: boolean;
       };
       const writeMs = (yield* Effect.sync(() => Date.now())) - writeStart;
+
+      // Keep the topology alive until the read requests have drained so the
+      // test does not leak in-flight assistance messages into teardown.
+      yield* Fiber.join(readsFiber);
 
       return { writeResult, writeMs };
     }).pipe(Effect.scoped);

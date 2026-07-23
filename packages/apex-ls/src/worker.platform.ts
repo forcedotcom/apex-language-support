@@ -55,7 +55,7 @@ import {
   makeSerializedWorkerPoolReadiness,
   unavailableCompilationWorkerPool,
   withCompilationWorkerStartupTimeout,
-} from './compiler/CompilationWorkerPool';
+} from './compiler/CompilationWorkerPool.ts';
 
 import * as path from 'node:path';
 import { availableParallelism } from 'node:os';

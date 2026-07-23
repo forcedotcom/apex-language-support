@@ -18,7 +18,7 @@ import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
 import { Effect, Layer } from 'effect';
 import { CompilationWorkerRequests } from '@salesforce/apex-lsp-shared';
-import { createCompilationWorkerHandlers } from './compiler/CompilationWorkerHandler';
+import { createCompilationWorkerHandlers } from './compiler/CompilationWorkerHandler.js';
 
 const runnerLayer = WorkerRunner.layerSerialized(
   CompilationWorkerRequests,

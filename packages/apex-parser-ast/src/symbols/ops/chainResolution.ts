@@ -3508,7 +3508,10 @@ export async function resolveSymbolReferenceToSymbol(
     if (typeReference.context === ReferenceContext.VARIABLE_USAGE) {
       const candidates = await self.findSymbolByName(typeReference.name);
       const hasClassMatch = candidates.some(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        (s) =>
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum,
       );
       // Some legacy listener paths emit a genuine type token as
       // VARIABLE_USAGE. Preserve that compatibility only when the graph
@@ -3532,7 +3535,10 @@ export async function resolveSymbolReferenceToSymbol(
       const candidates = await self.findSymbolByName(typeReference.name);
 
       let classCandidates = candidates.filter(
-        (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        (s) =>
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum,
       );
 
       if (classCandidates.length === 0) {
@@ -3543,7 +3549,9 @@ export async function resolveSymbolReferenceToSymbol(
           classCandidates = allSymbols.filter(
             (s) =>
               s.name === typeReference.name &&
-              (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum),
           );
         }
 

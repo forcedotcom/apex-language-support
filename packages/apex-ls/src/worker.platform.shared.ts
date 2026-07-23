@@ -87,9 +87,9 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   CompilationWorkerPool,
   type CompilationWorkerPoolService,
-} from './compiler/CompilationWorkerPool';
-import { reconstructCompiledSymbolTable } from './compiler/CompilationWorkerHandler';
-import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline';
+} from './compiler/CompilationWorkerPool.ts';
+import { reconstructCompiledSymbolTable } from './compiler/CompilationWorkerHandler.ts';
+import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests

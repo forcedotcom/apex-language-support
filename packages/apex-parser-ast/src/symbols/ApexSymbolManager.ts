@@ -6013,6 +6013,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return undefined;
   }
 
+  private isPositionOnReceiverKeyword(
+    references: SymbolReference[],
+    receiverReference: SymbolReference,
+    position: { line: number; character: number },
+  ): boolean {
+    const name = receiverReference.name.trim().toLowerCase();
+    const qualifiedReference = references.find((reference) => {
+      const candidate = reference.name.trim().toLowerCase();
+      return (
+        isChainedSymbolReference(reference) && candidate.startsWith(`${name}.`)
+      );
+    });
+    const range =
+      qualifiedReference?.location.identifierRange ??
+      receiverReference.location.identifierRange;
+    const recordedWidth = range.endColumn - range.startColumn;
+
+    // Without the containing chain, accept only a token-sized reference.
+    // Collector variants sometimes attach a `this` reference to the member's
+    // range; treating that as the keyword is what made `this.field` resolve to
+    // the containing class.
+    if (!qualifiedReference && recordedWidth > name.length) return false;
+
+    return (
+      range.startLine === range.endLine &&
+      position.line === range.startLine &&
+      position.character >= range.startColumn &&
+      position.character < range.startColumn + name.length
+    );
+  }
+
   public async getReceiverKeywordTargetAtPosition(
     fileUri: string,
     position: { line: number; character: number },
@@ -6022,10 +6053,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const name = reference.name.toLowerCase();
       return (
         (name === 'this' || name === 'super') &&
-        this.isPositionInIdentifierRange(
-          position,
-          reference.location.identifierRange,
-        )
+        this.isPositionOnReceiverKeyword(references, reference, position)
       );
     });
     if (!receiverReference) return null;
@@ -6054,24 +6082,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
     references: SymbolReference[],
   ): Promise<ApexSymbol | null> {
-    const memberReferences = references.filter((reference) => {
-      // Chained containers carry the whole expression as their name. Resolve
-      // the standalone leaf reference at the cursor instead.
-      if (isChainedSymbolReference(reference)) return false;
-      if (
-        reference.context !== ReferenceContext.METHOD_CALL &&
-        reference.context !== ReferenceContext.FIELD_ACCESS &&
-        reference.context !== ReferenceContext.PROPERTY_REFERENCE
-      ) {
-        return false;
-      }
-      return this.isPositionInIdentifierRange(
-        position,
-        reference.location.identifierRange,
+    const broadReceiverReference = references.find((reference) => {
+      const name = reference.name.trim().toLowerCase();
+      return (
+        (name === 'this' || name === 'super') &&
+        this.isPositionInIdentifierRange(
+          position,
+          reference.location.identifierRange,
+        )
       );
     });
-    if (memberReferences.length === 0) return null;
-
     const relevantChains = references.filter(
       (reference) =>
         isChainedSymbolReference(reference) &&
@@ -6086,13 +6106,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return name.startsWith('this.') || name.startsWith('super.');
       }) ?? relevantChains[0];
     const chainName = relevantChain?.name.trim().toLowerCase();
-    const receiver = chainName?.startsWith('super.')
-      ? 'super'
-      : chainName?.startsWith('this.')
-        ? 'this'
-        : relevantChain
-          ? null
-          : 'this';
+    const explicitReceiver =
+      broadReceiverReference?.name.trim().toLowerCase() ??
+      (chainName?.startsWith('super.')
+        ? 'super'
+        : chainName?.startsWith('this.')
+          ? 'this'
+          : null);
+
+    const memberReferences = references.filter((reference) => {
+      // Chained containers carry the whole expression as their name. Resolve
+      // the standalone leaf reference at the cursor instead.
+      if (isChainedSymbolReference(reference)) return false;
+      if (
+        reference.context !== ReferenceContext.METHOD_CALL &&
+        reference.context !== ReferenceContext.FIELD_ACCESS &&
+        reference.context !== ReferenceContext.PROPERTY_REFERENCE &&
+        !(
+          reference.context === ReferenceContext.VARIABLE_USAGE &&
+          explicitReceiver !== null
+        )
+      ) {
+        return false;
+      }
+      return this.isPositionInIdentifierRange(
+        position,
+        reference.location.identifierRange,
+      );
+    });
+    if (memberReferences.length === 0) return null;
+
+    const receiver = explicitReceiver ?? (relevantChain ? null : 'this');
     // A real qualifier such as `service.run()` is not an implicit receiver.
     if (receiver === null) return null;
 
@@ -6104,13 +6148,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       for (const reference of memberReferences) {
         if (!reference.resolvedSymbolId) continue;
         const resolved = await this.getSymbol(reference.resolvedSymbolId);
-        const expectedKind =
+        const matchesExpectedKind =
           reference.context === ReferenceContext.METHOD_CALL
-            ? SymbolKind.Method
+            ? resolved?.kind === SymbolKind.Method
             : reference.context === ReferenceContext.FIELD_ACCESS
-              ? SymbolKind.Field
-              : SymbolKind.Property;
-        if (resolved?.kind === expectedKind) return resolved;
+              ? resolved?.kind === SymbolKind.Field
+              : reference.context === ReferenceContext.PROPERTY_REFERENCE
+                ? resolved?.kind === SymbolKind.Property
+                : resolved?.kind === SymbolKind.Field ||
+                  resolved?.kind === SymbolKind.Property;
+        if (matchesExpectedKind) return resolved;
       }
     }
 
@@ -6131,6 +6178,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const methodReference = memberReferences.find(
       (reference) => reference.context === ReferenceContext.METHOD_CALL,
     );
+    // `this` and omitted receivers are guaranteed to use the current file.
+    // Resolve them through the bounded same-file index first. The generic
+    // member resolver is optimized for type/stdlib traversal and can lose a
+    // field behind a same-named lexical parameter when the collector reports
+    // the leaf as VARIABLE_USAGE.
+    if (receiver !== 'super') {
+      const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
+      const localMember = this.findSameFileMember(
+        receiverType,
+        methodReference?.name ?? memberReferences[0].name,
+        methodReference ?? memberReferences[0],
+        sameFileIndex,
+      );
+      if (localMember) return localMember;
+    }
+
     if (methodReference) {
       return this.resolveMemberInContext(
         { type: 'symbol', symbol: receiverType },
@@ -6167,6 +6230,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Only match if position is exactly on a declaration identifier (not method calls or chained expressions)
       const symbolsInFile = await this.findSymbolsInFile(fileUri);
       for (const symbol of symbolsInFile) {
+        // Scope blocks are structural implementation details. Some class/enum
+        // blocks share the declaration identifier range with their semantic
+        // type, so returning the block makes hover/definition miss the type.
+        if (isBlockSymbol(symbol)) continue;
         if (
           symbol.location?.identifierRange &&
           this.isPositionInIdentifierRange(
@@ -6256,14 +6323,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Generic symbol consumers (references, rename, etc.) must not turn a
         // language keyword into a class target. Hover and definition opt in
         // through getReceiverKeywordTargetAtPosition instead.
-        const keywordAtPosition = typeReferences.some(
-          (reference) =>
-            isApexKeyword(reference.name) &&
-            this.isPositionInIdentifierRange(
+        const keywordAtPosition = typeReferences.some((reference) => {
+          if (!isApexKeyword(reference.name)) return false;
+          const name = reference.name.toLowerCase();
+          if (name === 'this' || name === 'super') {
+            return this.isPositionOnReceiverKeyword(
+              typeReferences,
+              reference,
               position,
-              reference.location.identifierRange,
-            ),
-        );
+            );
+          }
+          return this.isPositionInIdentifierRange(
+            position,
+            reference.location.identifierRange,
+          );
+        });
         if (keywordAtPosition) return null;
 
         const receiverMember =

@@ -174,6 +174,10 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       ].join('\n');
       const childSource = [
         'public class ReceiverChild extends ReceiverBase {',
+        '  private String instanceId;',
+        '  ReceiverChild(String instanceId) {',
+        '    this.instanceId = instanceId;',
+        '  }',
         '  protected override void inheritedWork() {}',
         '  void run() {',
         '    this.INHERITEDWORK();',
@@ -209,16 +213,21 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
           'precise',
         );
 
-      const explicitThis = await resolveOnLine(3, 'INHERITEDWORK');
-      const explicitSuper = await resolveOnLine(4, 'inheritedWork');
-      const omittedThis = await resolveOnLine(5, 'inheritedWork');
+      const explicitThis = await resolveOnLine(7, 'INHERITEDWORK');
+      const explicitSuper = await resolveOnLine(8, 'inheritedWork');
+      const omittedThis = await resolveOnLine(9, 'inheritedWork');
+      const explicitField = await resolveOnLine(3, 'instanceId');
       const thisPosition = {
-        line: 4,
-        character: childLines[3].indexOf('this') + 2,
+        line: 8,
+        character: childLines[7].indexOf('this') + 2,
       };
       const superPosition = {
-        line: 5,
-        character: childLines[4].indexOf('super') + 2,
+        line: 9,
+        character: childLines[8].indexOf('super') + 2,
+      };
+      const fieldPosition = {
+        line: 4,
+        character: childLines[3].indexOf('instanceId') + 2,
       };
       const thisKeyword =
         await symbolManager.getReceiverKeywordTargetAtPosition(
@@ -237,6 +246,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       expect(explicitSuper?.name).toBe('inheritedWork');
       expect(omittedThis?.fileUri).toBe(childUri);
       expect(omittedThis?.name).toBe('inheritedWork');
+      expect(explicitField?.kind).toBe('field');
       expect(thisKeyword?.fileUri).toBe(childUri);
       expect(thisKeyword?.name).toBe('ReceiverChild');
       expect(superKeyword?.fileUri).toBe(baseUri);
@@ -247,6 +257,46 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       await expect(
         symbolManager.getSymbolAtPosition(childUri, superPosition, 'precise'),
       ).resolves.toBeNull();
+      await expect(
+        symbolManager.getReceiverKeywordTargetAtPosition(
+          childUri,
+          fieldPosition,
+        ),
+      ).resolves.toBeNull();
+    });
+
+    it('resolves an inner enum at both its declaration and same-file usage', async () => {
+      const fileUri = 'file:///test/InnerEnum.cls';
+      const source = [
+        'public class InnerEnum {',
+        '  public enum StatusType { ACTIVE, INACTIVE }',
+        '  public void update(StatusType status) {}',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const declaration = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 2, character: 16 },
+        'precise',
+      );
+      const usage = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 3, character: 24 },
+        'precise',
+      );
+
+      expect(declaration?.name).toBe('StatusType');
+      expect(declaration?.kind).toBe('enum');
+      expect(usage?.id).toBe(declaration?.id);
     });
 
     it('should resolve method name in this.methodName() expression', async () => {
