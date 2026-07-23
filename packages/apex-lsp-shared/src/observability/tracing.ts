@@ -191,6 +191,7 @@ export const LSP_SPAN_NAMES = {
   DIAGNOSTICS: 'extension.command.diagnostics',
   FOLDING_RANGE: 'extension.command.foldingRange',
   CODE_LENS: 'extension.command.codeLens',
+  CODE_ACTION: 'extension.command.codeAction',
   EXECUTE_COMMAND: 'extension.command.executeCommand',
 
   // Custom operations

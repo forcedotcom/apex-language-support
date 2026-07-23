@@ -310,7 +310,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'desktop');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.poolSize).toBe(3);
       expect(result.apex.experimental?.workers.resourceLoader).toBe(true);
     });
 
@@ -318,7 +318,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'web');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.poolSize).toBe(3);
     });
 
     it('should preserve user-supplied experimental.workers overrides', () => {

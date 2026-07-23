@@ -72,6 +72,8 @@ export * from './utils/FQNUtils';
 export * from './utils/ApexKeywords';
 export * from './utils/effectUtils';
 export * from './utils/UnifiedCache';
+export * from './utils/expressionRangeFinder';
+export * from './utils/methodCallAtRange';
 
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';

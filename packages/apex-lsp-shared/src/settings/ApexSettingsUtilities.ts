@@ -133,7 +133,17 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     experimental: {
       workers: {
         enabled: true,
-        poolSize: 2,
+        // Shared request pool for hover/definition/completion/codeAction/etc.
+        // codeAction bursts (VS Code re-requests on every cursor move) can
+        // occupy every slot with full-detail recompiles, starving latency-
+        // critical reads. 3 gives those reads headroom on desktop.
+        //
+        // NOTE: clampPoolSize bounds this to [1, cpus-2]. On web (and any host
+        // where `node:os` is unavailable) cpuCount falls back to 4, so this is
+        // clamped back to 2 — the bump only takes effect on desktops with >=5
+        // logical cores. On web, the per-URI codeAction coalescing in
+        // LSPQueueManager is what relieves the pool, not this value.
+        poolSize: 3,
         resourceLoader: true,
       },
     },

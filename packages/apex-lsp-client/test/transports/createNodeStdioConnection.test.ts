@@ -123,7 +123,8 @@ describe('createNodeStdioConnection', () => {
 
     // Mock 'once' to immediately call the callback (simulating immediate exit).
     (mockChildProcess.once as jest.Mock).mockImplementation(
-      (event, callback) => {
+      (...args: unknown[]) => {
+        const [event, callback] = args as [string, () => void];
         if (event === 'exit') {
           callback();
         }
