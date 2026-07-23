@@ -264,7 +264,9 @@ through a hover-shaped dependency strategy.
 - [x] Implementation.
 - [ ] Diagnostics. Live content and verified write-back are complete, but the
       diagnostic-owned compilation path intentionally remains specialized.
-- [ ] Document symbol and code lens where preparation is applicable.
+- [x] Code lens loads only the owning file's symbols, without dependency
+      prefetch or whole-file cross-file materialization.
+- [ ] Document symbol where shared preparation is applicable.
 - [ ] References cursor preparation without changing its candidate scan.
 - [ ] Rename if and when it moves to the request-worker topology.
 

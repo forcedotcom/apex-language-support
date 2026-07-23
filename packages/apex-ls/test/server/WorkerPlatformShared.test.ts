@@ -8,6 +8,11 @@
 
 import { Effect, LogLevel } from 'effect';
 import {
+  CompilerService,
+  SymbolTable,
+  VisibilitySymbolListener,
+} from '@salesforce/apex-lsp-parser-ast';
+import {
   cloneForWire,
   setWorkerLogLevel,
   currentWorkerLogLevel,
@@ -17,10 +22,31 @@ import {
   setWorkerId,
   workerId,
   resolveMissingNamesViaDataOwner,
+  loadCodeLensSymbolData,
   loadSymbolDataForEnrichment,
   prepareLspRequestCursor,
   writeBackEnrichedSymbols,
 } from '../../src/worker.platform.shared';
+
+const compileToWireSymbolTable = (content: string, uri: string): unknown => {
+  const table = new SymbolTable();
+  const listener = new VisibilitySymbolListener('public-api', table);
+  const result = new CompilerService().compile(content, uri, listener, {
+    collectReferences: true,
+    resolveReferences: true,
+  });
+  const compiled =
+    result?.result instanceof SymbolTable ? result.result : table;
+  return JSON.parse(
+    JSON.stringify({
+      symbols: compiled.getAllSymbols(),
+      references: compiled.getAllReferences(),
+      hierarchicalReferences: compiled.getAllHierarchicalReferences(),
+      metadata: compiled.getMetadata(),
+      fileUri: compiled.getFileUri(),
+    }),
+  );
+};
 
 describe('worker.platform.shared', () => {
   it('cloneForWire deep-clones and drops functions', () => {
@@ -114,6 +140,47 @@ describe('worker.platform.shared', () => {
 
     expect(setDocument).toHaveBeenCalledTimes(1);
     expect(setDocument.mock.calls[0][1].getText()).toBe('');
+  });
+
+  it('loads Code Lens symbols without dependency or cross-file preparation', async () => {
+    const uri = 'file:///CodeLensTarget.cls';
+    const wireTable = compileToWireSymbolTable(
+      'public class CodeLensTarget { RelatedType value; }',
+      uri,
+    );
+    const assistance = jest.fn(async (method: string) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return {
+          entries: { [uri]: wireTable },
+          versions: { [uri]: 1 },
+          detailLevels: { [uri]: 'public-api' },
+        };
+      }
+      return { entries: {} };
+    });
+    setAssistanceTransport(assistance);
+
+    const resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
+    const svc = {
+      symbolManager: {
+        addSymbolTable: jest.fn(() => Effect.void),
+        resolveCrossFileReferencesForFile,
+      },
+    } as unknown as Parameters<typeof loadCodeLensSymbolData>[0];
+
+    await Effect.runPromise(loadCodeLensSymbolData(svc, uri));
+
+    expect(
+      assistance.mock.calls.filter(
+        ([method]) => method === 'dataOwner:QuerySymbolSubset',
+      ),
+    ).toHaveLength(1);
+    expect(
+      assistance.mock.calls.filter(
+        ([method]) => method === 'dataOwner:ResolveDepUris',
+      ),
+    ).toHaveLength(0);
+    expect(resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
   });
 
   it('reuses cursor preparation across different request types', async () => {

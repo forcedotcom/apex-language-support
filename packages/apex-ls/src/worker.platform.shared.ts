@@ -1075,6 +1075,25 @@ export function loadSymbolDataForEnrichment(
   );
 }
 
+/**
+ * Code Lens only inspects symbols declared in the requested file. It does not
+ * resolve types, references, or members, so loading dependencies and
+ * materializing cross-file edges cannot affect its result.
+ */
+export function loadCodeLensSymbolData(
+  svc: RequestServices,
+  uri: string,
+): Effect.Effect<
+  { version: number; detailLevel: string; localDetailLevel?: string },
+  never,
+  never
+> {
+  return loadSymbolDataForEnrichment(svc, uri, undefined, {
+    materializeCrossFileReferences: false,
+    deferDependencyPrefetch: true,
+  });
+}
+
 interface CursorTargetDependencyTelemetry {
   candidateCount: number;
   localHitCount: number;
@@ -2864,7 +2883,7 @@ const requestHandlers = {
     'DispatchCodeLens',
     (svc, req) =>
       Effect.gen(function* () {
-        yield* loadSymbolDataForEnrichment(svc, req.textDocument.uri);
+        yield* loadCodeLensSymbolData(svc, req.textDocument.uri);
         return yield* Effect.fn('worker.lspRequest.processCodeLens', {
           attributes: { uri: req.textDocument.uri },
         })(function* () {
