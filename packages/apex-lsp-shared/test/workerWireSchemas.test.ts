@@ -11,11 +11,13 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   ResolveDependentUris,
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -93,6 +95,23 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(WorkerRemoteStdlibWarmup)(req);
       const decoded = Schema.decodeSync(WorkerRemoteStdlibWarmup)(encoded);
       expect(decoded._tag).toBe('WorkerRemoteStdlibWarmup');
+    });
+  });
+
+  describe('DataOwnerPreloadStandardNamespaces', () => {
+    it('should encode and decode configured namespaces', () => {
+      const req = new DataOwnerPreloadStandardNamespaces({
+        namespaces: ['Database', 'System'],
+      });
+
+      const encoded = Schema.encodeSync(DataOwnerPreloadStandardNamespaces)(
+        req,
+      );
+      const decoded = Schema.decodeSync(DataOwnerPreloadStandardNamespaces)(
+        encoded,
+      );
+
+      expect(decoded.namespaces).toEqual(['Database', 'System']);
     });
   });
 
@@ -201,6 +220,21 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(ResourceLoaderGetSymbolTable)(req);
       const decoded = Schema.decodeSync(ResourceLoaderGetSymbolTable)(encoded);
       expect(decoded.classPath).toBe('System/String.cls');
+    });
+  });
+
+  describe('ResourceLoaderGetSymbolTables', () => {
+    it('should encode and decode a bulk lookup round-trip', () => {
+      const req = new ResourceLoaderGetSymbolTables({
+        classPaths: ['Database/Batchable.cls', 'System/Assert.cls'],
+      });
+
+      const encoded = Schema.encodeSync(ResourceLoaderGetSymbolTables)(req);
+      const decoded = Schema.decodeSync(ResourceLoaderGetSymbolTables)(encoded);
+      expect(decoded.classPaths).toEqual([
+        'Database/Batchable.cls',
+        'System/Assert.cls',
+      ]);
     });
   });
 
@@ -399,6 +433,18 @@ describe('workerWireSchemas', () => {
       );
     });
 
+    it('should restrict stdlib namespace preloading to dataOwner', () => {
+      expect(
+        isAllowedTag('dataOwner', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(true);
+      expect(
+        isAllowedTag('lspRequest', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(false);
+      expect(
+        isAllowedTag('resourceLoader', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(false);
+    });
+
     it('should restrict QuerySymbolSubset to dataOwner', () => {
       expect(isAllowedTag('dataOwner', 'QuerySymbolSubset')).toBe(true);
       expect(isAllowedTag('lspRequest', 'QuerySymbolSubset')).toBe(false);
@@ -430,6 +476,18 @@ describe('workerWireSchemas', () => {
       );
       expect(
         isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTable'),
+      ).toBe(true);
+    });
+
+    it('should restrict ResourceLoaderGetSymbolTables to resourceLoader', () => {
+      expect(isAllowedTag('dataOwner', 'ResourceLoaderGetSymbolTables')).toBe(
+        false,
+      );
+      expect(isAllowedTag('lspRequest', 'ResourceLoaderGetSymbolTables')).toBe(
+        false,
+      );
+      expect(
+        isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTables'),
       ).toBe(true);
     });
 

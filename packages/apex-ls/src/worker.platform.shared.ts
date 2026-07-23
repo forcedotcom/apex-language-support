@@ -25,6 +25,7 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
@@ -37,6 +38,7 @@ import {
   CompileDocument,
   CompileApexFile,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -77,6 +79,10 @@ import type {
   DetailLevel,
   SerializedSymbolTableData,
 } from '@salesforce/apex-lsp-parser-ast';
+import {
+  STANDARD_APEX_LIBRARY_URI,
+  SymbolTable,
+} from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   CompilationWorkerPool,
@@ -94,6 +100,7 @@ export const AllWorkerRequests = Schema.Union(
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
@@ -108,6 +115,7 @@ export const AllWorkerRequests = Schema.Union(
   FindOccurrenceCandidates,
   CompileDocument,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -368,6 +376,113 @@ export function setWarmRemoteStdlibNamespaceCache(
 
 function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
   return _warmRemoteStdlibNamespaceCache();
+}
+
+export interface StandardNamespacePreloadResult {
+  readonly namespaces: readonly string[];
+  readonly loadedClasses: number;
+  readonly totalClasses: number;
+  readonly missingNamespaces: readonly string[];
+  readonly failedClasses: readonly string[];
+}
+
+/**
+ * Load configured stdlib namespaces into the DataOwner's authoritative graph.
+ *
+ * The ResourceLoaderService namespace map must already be warm. Keeping this
+ * operation in the DataOwner avoids populating a coordinator-local graph that
+ * worker-backed LSP requests never read.
+ */
+export async function preloadStandardNamespaces(
+  svc: DataOwnerServices,
+  configuredNamespaces: readonly string[],
+): Promise<StandardNamespacePreloadResult> {
+  const available = svc.stdlibProvider.getStandardNamespaces();
+  const availableByLowerName = new Map(
+    [...available.entries()].map(([namespace, classes]) => [
+      namespace.toLowerCase(),
+      { namespace, classes },
+    ]),
+  );
+
+  const requested =
+    configuredNamespaces.includes('*') && available.size > 0
+      ? [...available.keys()]
+      : configuredNamespaces;
+  const selected = new Map<string, { namespace: string; classes: string[] }>();
+  const missingNamespaces: string[] = [];
+
+  for (const requestedNamespace of requested) {
+    const match = availableByLowerName.get(requestedNamespace.toLowerCase());
+    if (!match) {
+      missingNamespaces.push(requestedNamespace);
+      continue;
+    }
+    selected.set(match.namespace.toLowerCase(), match);
+  }
+
+  if (configuredNamespaces.includes('*') && available.size === 0) {
+    missingNamespaces.push('*');
+  }
+
+  let loadedClasses = 0;
+  let totalClasses = 0;
+  const failedClasses: string[] = [];
+  const classesToLoad: Array<{
+    classPath: string;
+    fqn: string;
+  }> = [];
+
+  for (const { namespace, classes } of selected.values()) {
+    for (const classFile of classes) {
+      if (!classFile.toLowerCase().endsWith('.cls')) {
+        continue;
+      }
+      const className = classFile.replace(/\.cls$/i, '');
+      classesToLoad.push({
+        classPath: `${namespace}/${classFile}`,
+        fqn: `${namespace}.${className}`,
+      });
+    }
+  }
+
+  totalClasses = classesToLoad.length;
+  const serializedTables =
+    classesToLoad.length === 0
+      ? {}
+      : ((await requestCoordinatorAssistancePromiseShared(
+          'resourceLoader:getSymbolTables',
+          { classPaths: classesToLoad.map(({ classPath }) => classPath) },
+          true,
+        )) as Record<string, unknown | null>);
+
+  for (const { classPath, fqn } of classesToLoad) {
+    const serialized = serializedTables[classPath];
+    if (!serialized) {
+      failedClasses.push(fqn);
+      continue;
+    }
+    try {
+      const table = SymbolTable.fromJSON(serialized);
+      await Effect.runPromise(
+        svc.symbolManager.addSymbolTable(
+          table,
+          `${STANDARD_APEX_LIBRARY_URI}/${classPath}`,
+        ),
+      );
+      loadedClasses++;
+    } catch {
+      failedClasses.push(fqn);
+    }
+  }
+
+  return {
+    namespaces: [...selected.values()].map(({ namespace }) => namespace),
+    loadedClasses,
+    totalClasses,
+    missingNamespaces,
+    failedClasses,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3097,6 +3212,35 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
+  DataOwnerPreloadStandardNamespaces: (req) =>
+    guardRole('DataOwnerPreloadStandardNamespaces').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const result = yield* Effect.tryPromise({
+              try: () => preloadStandardNamespaces(svc, req.namespaces),
+              catch: (e) => ({
+                _tag: 'DataOwnerPreloadStandardNamespacesError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
+            yield* Effect.logInfo(
+              `[DATA-OWNER] stdlib preload: ${result.loadedClasses}/${result.totalClasses} classes ` +
+                `from [${result.namespaces.join(', ')}]`,
+            );
+            return {
+              namespaces: [...result.namespaces],
+              loadedClasses: result.loadedClasses,
+              totalClasses: result.totalClasses,
+              missingNamespaces: [...result.missingNamespaces],
+              failedClasses: [...result.failedClasses],
+            };
+          }),
+        ),
+      ),
+    ),
+
   // -- Data-owner handlers (routed through internal tiered queue) ------------
 
   QuerySymbolSubset: (req) =>
@@ -4204,6 +4348,28 @@ const untracedHandlers: SerializedWorkerHandlers = {
           );
           if (!st) return { found: false };
           return { found: true, symbolTable: cloneForWire(st) };
+        }),
+      ),
+    ),
+
+  ResourceLoaderGetSymbolTables: (req) =>
+    guardRole('ResourceLoaderGetSymbolTables').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const loader = ResourceLoader.getInstance();
+          const entries: Record<string, unknown> = {};
+          for (const classPath of req.classPaths) {
+            const symbolTable = yield* Effect.promise(() =>
+              loader.getSymbolTable(classPath),
+            );
+            if (symbolTable) {
+              entries[classPath] = cloneForWire(symbolTable);
+            }
+          }
+          return { entries };
         }),
       ),
     ),

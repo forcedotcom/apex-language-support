@@ -176,10 +176,12 @@ async function warmRemoteStdlibNamespaceCache(): Promise<void> {
       'resourceLoader:getStandardNamespaces',
       {},
       true,
-    )) as { namespaces: Record<string, string[]> } | null;
-    if (!raw?.namespaces) return;
-    remoteStdlibNamespaceMap = new Map();
-    for (const [ns, classes] of Object.entries(raw.namespaces)) {
+    )) as Record<string, string[]> | null;
+    if (!raw || typeof raw !== 'object') return;
+    if (!remoteStdlibNamespaceMap) {
+      remoteStdlibNamespaceMap = new Map();
+    }
+    for (const [ns, classes] of Object.entries(raw)) {
       remoteStdlibNamespaceMap.set(
         ns.toLowerCase(),
         new Set(classes.map((c) => c.toLowerCase())),

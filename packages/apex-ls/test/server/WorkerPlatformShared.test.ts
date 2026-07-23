@@ -25,6 +25,7 @@ import {
   loadCodeLensSymbolData,
   loadSymbolDataForEnrichment,
   prepareLspRequestCursor,
+  preloadStandardNamespaces,
   writeBackEnrichedSymbols,
 } from '../../src/worker.platform.shared';
 
@@ -106,6 +107,89 @@ describe('worker.platform.shared', () => {
     } as unknown as Parameters<typeof resolveMissingNamesViaDataOwner>[0];
     const count = await resolveMissingNamesViaDataOwner(svc, ['Foo']);
     expect(typeof count).toBe('number');
+  });
+
+  it('preloads configured stdlib namespaces through DataOwner services', async () => {
+    const assistance = jest.fn(async () => ({
+      'database/batchable.cls': compileToWireSymbolTable(
+        'global class Batchable {}',
+        'apexlib://resources/StandardApexLibrary/database/batchable.cls',
+      ),
+      'system/assert.cls': compileToWireSymbolTable(
+        'global class Assert {}',
+        'apexlib://resources/StandardApexLibrary/system/assert.cls',
+      ),
+      'system/missing.cls': null,
+    }));
+    setAssistanceTransport(assistance);
+    const addSymbolTable = jest.fn(() => Effect.void);
+    const svc = {
+      stdlibProvider: {
+        getStandardNamespaces: () =>
+          new Map([
+            ['database', ['batchable.cls']],
+            ['system', ['assert.cls', 'missing.cls', 'metadata.json']],
+          ]),
+      },
+      symbolManager: { addSymbolTable },
+    } as unknown as Parameters<typeof preloadStandardNamespaces>[0];
+
+    const result = await preloadStandardNamespaces(svc, [
+      'Database',
+      'SYSTEM',
+      'Unknown',
+    ]);
+
+    expect(assistance).toHaveBeenCalledTimes(1);
+    expect(assistance).toHaveBeenCalledWith(
+      'resourceLoader:getSymbolTables',
+      {
+        classPaths: [
+          'database/batchable.cls',
+          'system/assert.cls',
+          'system/missing.cls',
+        ],
+      },
+      true,
+    );
+    expect(addSymbolTable).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      namespaces: ['database', 'system'],
+      loadedClasses: 2,
+      totalClasses: 3,
+      missingNamespaces: ['Unknown'],
+      failedClasses: ['system.missing'],
+    });
+  });
+
+  it('expands wildcard stdlib preloading without duplicating namespaces', async () => {
+    setAssistanceTransport(async () => ({
+      'Database/Batchable.cls': compileToWireSymbolTable(
+        'global class Batchable {}',
+        'apexlib://resources/StandardApexLibrary/Database/Batchable.cls',
+      ),
+      'System/Assert.cls': compileToWireSymbolTable(
+        'global class Assert {}',
+        'apexlib://resources/StandardApexLibrary/System/Assert.cls',
+      ),
+    }));
+    const addSymbolTable = jest.fn(() => Effect.void);
+    const svc = {
+      stdlibProvider: {
+        getStandardNamespaces: () =>
+          new Map([
+            ['Database', ['Batchable.cls']],
+            ['System', ['Assert.cls']],
+          ]),
+      },
+      symbolManager: { addSymbolTable },
+    } as unknown as Parameters<typeof preloadStandardNamespaces>[0];
+
+    const result = await preloadStandardNamespaces(svc, ['*', 'System']);
+
+    expect(result.namespaces).toEqual(['Database', 'System']);
+    expect(result.loadedClasses).toBe(2);
+    expect(addSymbolTable).toHaveBeenCalledTimes(2);
   });
 
   it('degrades gracefully when symbol-subset assistance rejects', async () => {

@@ -1938,22 +1938,21 @@ export class LCSAdapter {
       this.logger.debug(() => `Failed to send startup snapshot: ${e}`);
     }
 
-    // Initialize ResourceLoader with standard library
-    // Requests ZIP from client via apex/provideStandardLibrary
-    // Client uses vscode.workspace.fs to read from virtual file system
-    this.initializeResourceLoader().catch((error) => {
-      this.logger.error(
-        () =>
-          `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
-      );
-    });
-
-    // Pre-populate symbol graph with configured namespaces
-    this.prePopulateSymbolGraph().catch((error) => {
-      this.logger.error(
-        () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
-      );
-    });
+    // Worker mode initializes stdlib in the dedicated resource-loader worker
+    // and preloads configured namespaces into the authoritative DataOwner
+    // during topology startup. Only the coordinator-local path needs this
+    // legacy initialization, and its two phases must remain sequential.
+    if (!this.workerDispatcher) {
+      void (async () => {
+        await this.initializeResourceLoader();
+        await this.prePopulateSymbolGraph();
+      })().catch((error) => {
+        this.logger.error(
+          () =>
+            `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
+        );
+      });
+    }
 
     // NOTE: the worker topology is no longer started here. It is brought up
     // during `initialize` (before we return server capabilities) so that
@@ -2551,6 +2550,9 @@ export class LCSAdapter {
       const dataOwnerConcurrency = workerCfg?.dataOwner?.concurrency;
       const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 1;
       const compilationPoolSize = workerCfg?.compilation?.poolSize ?? 2;
+      const preloadNamespaces = apexSettings.symbolGraph?.enabled
+        ? (apexSettings.symbolGraph.preloadNamespaces ?? [])
+        : [];
 
       this.logger.alwaysLog(
         `[LCSAdapter] compilationConcurrency: final=${compilationConcurrency}, ` +
@@ -2757,7 +2759,30 @@ export class LCSAdapter {
         mediator.attachToBrowserAssistancePorts(getBrowserAssistancePorts());
       }
 
-      yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
+      const preloadResult = yield* runRemoteStdlibWarmupPhase(
+        topology,
+        config.poolSize,
+        preloadNamespaces,
+      );
+      if (preloadResult) {
+        this.logger.alwaysLog(
+          '[WorkerCoordinator] DataOwner stdlib preloaded ' +
+            `${preloadResult.loadedClasses}/${preloadResult.totalClasses} classes ` +
+            `from [${preloadResult.namespaces.join(', ')}]`,
+        );
+        if (preloadResult.missingNamespaces.length > 0) {
+          this.logger.warn(
+            'Configured stdlib namespaces not found: ' +
+              preloadResult.missingNamespaces.join(', '),
+          );
+        }
+        if (preloadResult.failedClasses.length > 0) {
+          this.logger.warn(
+            `Failed to preload ${preloadResult.failedClasses.length} stdlib classes: ` +
+              preloadResult.failedClasses.slice(0, 10).join(', '),
+          );
+        }
+      }
 
       this.logger.alwaysLog(
         '[WorkerCoordinator] Topology active — ' +

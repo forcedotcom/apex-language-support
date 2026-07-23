@@ -226,6 +226,38 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       return response;
     }).pipe(Effect.scoped) as Effect.Effect<{ result: unknown }, never, never>;
 
+  it('preloads configured stdlib namespaces into the DataOwner graph', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger);
+      wireProductionMediator(topology, dispatcher, logger);
+
+      return yield* runRemoteStdlibWarmupPhase(topology, 1, [
+        'Database',
+        'System',
+      ]);
+    }).pipe(Effect.scoped);
+
+    const result = await Effect.runPromise(program);
+
+    expect(result).toBeDefined();
+    expect(
+      result?.namespaces.map((namespace) => namespace.toLowerCase()),
+    ).toEqual(expect.arrayContaining(['database', 'system']));
+    expect(result?.missingNamespaces).toEqual([]);
+    expect(result?.loadedClasses).toBeGreaterThan(0);
+    expect(result?.failedClasses).toEqual([]);
+    expect(result?.loadedClasses).toBe(result?.totalClasses);
+  }, 120_000);
+
   it('completes a hover round-trip end-to-end', async () => {
     const response = await Effect.runPromise(
       runFeature(

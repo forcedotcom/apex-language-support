@@ -21,6 +21,7 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
@@ -671,11 +672,12 @@ export const initializeTransportTopology = (
 export const runRemoteStdlibWarmupPhase = (
   topology: WorkerTopology,
   poolSize: number,
+  preloadNamespaces: readonly string[] = [],
 ) => {
   const req = new WorkerRemoteStdlibWarmup({});
   return Effect.gen(function* () {
     if (!topology.resourceLoader) {
-      return;
+      return undefined;
     }
     const n = clampPoolSize(poolSize);
     // Warm all workers in parallel — each is independent
@@ -688,6 +690,16 @@ export const runRemoteStdlibWarmupPhase = (
         ),
       ],
       { concurrency: 'unbounded' },
+    );
+
+    if (preloadNamespaces.length === 0) {
+      return undefined;
+    }
+
+    return yield* topology.dataOwner.executeEffect(
+      new DataOwnerPreloadStandardNamespaces({
+        namespaces: [...preloadNamespaces],
+      }),
     );
   });
 };

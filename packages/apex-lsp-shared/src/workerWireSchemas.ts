@@ -102,6 +102,31 @@ export class WorkerRemoteStdlibWarmup extends Schema.TaggedRequest<WorkerRemoteS
 ) {}
 
 // ---------------------------------------------------------------------------
+// DataOwnerPreloadStandardNamespaces — populate the authoritative symbol graph
+// with configured stdlib namespaces after the remote namespace cache is warm
+// ---------------------------------------------------------------------------
+
+export class DataOwnerPreloadStandardNamespaces extends Schema.TaggedRequest<DataOwnerPreloadStandardNamespaces>()(
+  'DataOwnerPreloadStandardNamespaces',
+  {
+    success: Schema.Struct({
+      namespaces: Schema.Array(Schema.String),
+      loadedClasses: Schema.Number,
+      totalClasses: Schema.Number,
+      missingNamespaces: Schema.Array(Schema.String),
+      failedClasses: Schema.Array(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DataOwnerPreloadStandardNamespacesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      namespaces: Schema.Array(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QuerySymbolSubset — enrichment worker asks data-owner for symbol tables
 // ---------------------------------------------------------------------------
 
@@ -381,6 +406,32 @@ export class ResourceLoaderGetSymbolTable extends Schema.TaggedRequest<ResourceL
 export type ResourceLoaderGetSymbolTableSuccess = Schema.Schema.Type<
   (typeof ResourceLoaderGetSymbolTable)['success']
 >;
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderGetSymbolTables — bulk stdlib symbol-table lookup
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetSymbolTables extends Schema.TaggedRequest<ResourceLoaderGetSymbolTables>()(
+  'ResourceLoaderGetSymbolTables',
+  {
+    success: Schema.Struct({
+      /** Class path to JSON-encoded symbol table; missing paths are omitted. */
+      entries: Schema.Record({
+        key: Schema.String,
+        value: Schema.Unknown,
+      }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classPaths: Schema.Array(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
 
 // ---------------------------------------------------------------------------
 // ResourceLoaderGetFile — source code for goto-definition
@@ -1096,6 +1147,7 @@ export const DataOwnerTags = [
   'WorkerInit',
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
+  'DataOwnerPreloadStandardNamespaces',
   'QuerySymbolSubset',
   'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
@@ -1142,6 +1194,7 @@ export const ResourceLoaderTags = [
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
   'ResourceLoaderGetSymbolTable',
+  'ResourceLoaderGetSymbolTables',
   'ResourceLoaderGetFile',
   'ResourceLoaderResolveClass',
   'ResourceLoaderGetStandardNamespaces',
@@ -1163,6 +1216,7 @@ export type DataOwnerRequest =
   | WorkerInit
   | PingWorker
   | WorkerRemoteStdlibWarmup
+  | DataOwnerPreloadStandardNamespaces
   | QuerySymbolSubset
   | AwaitSymbolReadiness
   | UpdateSymbolSubset
@@ -1205,6 +1259,7 @@ export type ResourceLoaderRequest =
   | PingWorker
   | WorkerRemoteStdlibWarmup
   | ResourceLoaderGetSymbolTable
+  | ResourceLoaderGetSymbolTables
   | ResourceLoaderGetFile
   | ResourceLoaderResolveClass
   | ResourceLoaderGetStandardNamespaces;
