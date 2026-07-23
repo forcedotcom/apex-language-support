@@ -155,7 +155,7 @@ jobs:
 
       - name: Calculate artifact name
         id: calc-artifact-name
-        uses: salesforcecli/github-workflows/.github/actions/calculate-artifact-name@ms/shared-ci-actions
+        uses: salesforcecli/github-workflows/.github/actions/calculate-artifact-name@main
         with:
           artifact-name: ${{ inputs.artifact-name }}
           dry-run: ${{ inputs.dry-run }}
