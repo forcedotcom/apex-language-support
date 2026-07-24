@@ -979,9 +979,16 @@ export class LCSAdapter {
           () => `🔍 apexlib/resolve request received for: ${params.uri}`,
         );
         try {
+          const resourceLoaderProxy = this.resourceLoaderProxy;
           return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.RESOLVE_APEXLIB,
-            () => dispatchProcessOnResolve(params),
+            () =>
+              dispatchProcessOnResolve(
+                params,
+                resourceLoaderProxy
+                  ? (path) => resourceLoaderProxy.getFile(path)
+                  : undefined,
+              ),
             {
               'lsp.method': 'apexlib/resolve',
               'document.uri': params.uri,

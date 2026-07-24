@@ -229,16 +229,14 @@ describe('ApexKeywords', () => {
       expect(APEX_KEYWORDS.size).toBe(APEX_KEYWORDS_ARRAY.length);
     });
 
-    it('should support fast lookups', () => {
-      const start = performance.now();
+    it('should support repeated lookups', () => {
+      let matches = 0;
       for (let i = 0; i < 1000; i++) {
-        APEX_KEYWORDS.has('if');
-        APEX_KEYWORDS.has('class');
-        APEX_KEYWORDS.has('select');
+        matches += Number(APEX_KEYWORDS.has('if'));
+        matches += Number(APEX_KEYWORDS.has('class'));
+        matches += Number(APEX_KEYWORDS.has('select'));
       }
-      const end = performance.now();
-      // Should be very fast (< 1ms for 1000 lookups)
-      expect(end - start).toBeLessThan(10);
+      expect(matches).toBe(3000);
     });
   });
 

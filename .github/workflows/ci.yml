@@ -142,13 +142,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser compilation integration test
-        run: >-
-          npx jest
-          --config packages/apex-ls/jest.config.cjs
-          --runInBand
-          --testPathIgnorePatterns=/node_modules/
-          --runTestsByPath
-          packages/apex-ls/test/integration/BrowserCompilationPool.browser.node.test.ts
+        run: npm run test:browser-compilation --workspace=packages/apex-ls
 
   package:
     name: Package
