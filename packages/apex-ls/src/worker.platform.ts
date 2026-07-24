@@ -431,6 +431,7 @@ const runtimeWorkerData = workerData as
       role?: string;
       compilationPoolSize?: number;
       compilationConcurrency?: number;
+      workerScript?: string;
     }
   | undefined;
 if (runtimeWorkerData?.role === 'compiler') {
@@ -448,20 +449,26 @@ const compilationConcurrency = Math.max(
   1,
   Math.floor(runtimeWorkerData?.compilationConcurrency ?? 1),
 );
-const runningFromTypeScript = __filename.endsWith('.ts');
+const workerScript =
+  typeof __filename !== 'undefined'
+    ? __filename
+    : runtimeWorkerData?.workerScript;
 
 const spawnCompilerWorker = (): NodeWorkerThread => {
+  if (!workerScript) {
+    throw new Error('Worker script path is required to spawn compiler workers');
+  }
   const compilerAssist = new MessageChannel();
   compilerAssist.port1.on('message', (message: unknown) => {
     assistPort?.postMessage(message);
   });
-  const worker = new NodeWorkerThread(__filename, {
+  const worker = new NodeWorkerThread(workerScript, {
     workerData: {
       role: 'compiler',
       assistPort: compilerAssist.port2,
     },
     transferList: [compilerAssist.port2],
-    execArgv: runningFromTypeScript ? ['--import', 'tsx'] : [],
+    execArgv: workerScript.endsWith('.ts') ? ['--import', 'tsx'] : [],
   });
   worker.once('exit', () => compilerAssist.port1.close());
   return worker;

@@ -13,7 +13,8 @@ import {
   CompilationWorkerRequests,
   CompileApexFile,
 } from '@salesforce/apex-lsp-shared';
-import { createCompilationWorkerHandlers } from '../../src/compiler/CompilationWorkerHandler';
+// @ts-ignore - .ts extension is required when this fixture runs through tsx.
+import { createCompilationWorkerHandlers } from '../../src/compiler/CompilationWorkerHandler.ts';
 
 const baseHandlers = createCompilationWorkerHandlers();
 const handlers = {

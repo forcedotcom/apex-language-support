@@ -109,6 +109,7 @@ export const makeNodeWorkerLayer = (
       ...workerOptions,
       workerData: {
         ...(workerOptions?.workerData as object | undefined),
+        workerScript,
         assistPort: assistChannel.port1,
       },
       transferList: [
