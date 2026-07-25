@@ -18,22 +18,21 @@ import {
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { ParserRuleContext } from 'antlr4';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
-  CompilerService,
-  ApexFoldingRangeListener,
-  findExpressionAtRange,
-  findConstantExtraction,
+  parseForCodeActions,
+  findExpressionForCodeAction,
+  findConstantExtractionForCodeAction,
+  findMethodCallForCodeAction,
+  CodeActionParseContext,
   ConstantExtraction,
   ApexSymbol,
   TypeSymbol,
   SymbolKind,
   SymbolVisibility,
-  findMethodCallAtRange,
   MethodCallAtRange,
   ErrorCodes,
   inTypeSymbolGroup,
@@ -97,10 +96,13 @@ export interface CodeActionContext {
   isStatic: boolean;
   accessModifier: 'public' | 'private' | 'protected' | 'global';
   /**
-   * Cached CST for the document, used by the eager Extract Variable / Extract
-   * Constant refactorings. `undefined` when the document could not be parsed.
+   * Opaque, parsed-once handle from apex-parser-ast, used by the eager Extract
+   * Variable / Extract Constant refactorings and the Declare-Missing-Method
+   * finder. `undefined` when the document could not be parsed. The parse tree it
+   * wraps stays private to apex-parser-ast; this layer only passes it to the
+   * `*ForCodeAction` accessors.
    */
-  parseTree?: ParserRuleContext;
+  parseContext?: CodeActionParseContext;
 }
 
 /**
@@ -109,14 +111,12 @@ export interface CodeActionContext {
 export class CodeActionProcessingService implements ICodeActionProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
-  private readonly compilerService: CompilerService;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
-    this.compilerService = new CompilerService();
   }
 
   /**
@@ -178,7 +178,10 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     const isStatic = this.isInStaticContext(text, offset);
     const accessModifier = this.getAccessModifierContext(text, offset);
     const currentScope = this.extractCurrentScope(text, offset);
-    const parseTree = this.getParseTree(document);
+    // apex-parser-ast owns the parse: it constructs the CompilerService, chooses
+    // the listener, and applies the compile options, returning an opaque handle
+    // the finders consume. Parsed once here and reused across all finders.
+    const parseContext = parseForCodeActions(text, document.uri) ?? undefined;
 
     return {
       document,
@@ -191,33 +194,8 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       currentScope,
       isStatic,
       accessModifier,
-      parseTree,
+      parseContext,
     };
-  }
-
-  /**
-   * Parse the document into a CST for the eager extract refactorings.
-   *
-   * Uses {@link CompilerService} the same way sibling providers do (e.g. the
-   * folding-range provider): compile with a lightweight listener purely to
-   * obtain `CompilationResult.parseTree`. Returns `undefined` (never throws) on
-   * parse failure so the extract actions simply degrade to "not offered".
-   */
-  private getParseTree(document: TextDocument): ParserRuleContext | undefined {
-    try {
-      const result = this.compilerService.compile(
-        document.getText(),
-        document.uri,
-        new ApexFoldingRangeListener(),
-        { includeComments: false },
-      );
-      return result.parseTree;
-    } catch (error) {
-      this.logger.debug(
-        () => `Unable to parse document for extract actions: ${error}`,
-      );
-      return undefined;
-    }
   }
 
   /**
@@ -280,7 +258,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    * the current selection.
    *
    * Both are computed against the document CST via the shared
-   * {@link findExpressionAtRange} finder (story 05.0). When the selection is not
+   * {@link findExpressionForCodeAction} accessor (story 05.0). When the selection is not
    * a single, well-formed expression inside a method body the finder returns
    * `null` and neither action is offered. Extract Constant is additionally gated
    * to literal (or prefix-of-literal, e.g. `-5`) expressions.
@@ -288,13 +266,13 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   private getExtractActions(context: CodeActionContext): CodeAction[] {
     const actions: CodeAction[] = [];
 
-    if (!context.parseTree) {
+    if (!context.parseContext) {
       return actions;
     }
 
     let found;
     try {
-      found = findExpressionAtRange(context.parseTree, context.range);
+      found = findExpressionForCodeAction(context.parseContext, context.range);
     } catch (error) {
       this.logger.debug(() => `Extract finder error: ${error}`);
       return actions;
@@ -304,11 +282,16 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       return actions;
     }
 
-    const { expression, statementStart, indent } = found;
+    // Character span + verbatim text of the expression are computed inside
+    // apex-parser-ast, so this layer never touches ANTLR token internals.
+    const {
+      statementStart,
+      indent,
+      expressionStart,
+      expressionEnd,
+      expressionText: exprText,
+    } = found;
     const text = context.document.getText();
-    const exprStart = expression.start.start;
-    const exprEnd = (expression.stop ?? expression.start).stop + 1;
-    const exprText = text.substring(exprStart, exprEnd);
     if (!exprText) {
       return actions;
     }
@@ -320,8 +303,8 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     // statement (leave a fragment, or duplicate the expression). Anchor the
     // replacement to the expression's own span so the two edits stay consistent.
     const exprRange: Range = {
-      start: context.document.positionAt(exprStart),
-      end: context.document.positionAt(exprEnd),
+      start: context.document.positionAt(expressionStart),
+      end: context.document.positionAt(expressionEnd),
     };
 
     const variableName = this.generateExtractName(text);
@@ -343,7 +326,10 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     // literal eligibility are all computed in apex-parser-ast so the LS layer
     // never touches ANTLR types. Extract Constant is gated to literal (or
     // prefix-of-literal, e.g. `-5`) expressions, matching Jorje's rule.
-    const constantExtraction = findConstantExtraction(expression);
+    const constantExtraction = findConstantExtractionForCodeAction(
+      context.parseContext,
+      context.range,
+    );
     if (constantExtraction?.isLiteral) {
       const constantAction = this.buildExtractConstantAction(
         context,
@@ -631,18 +617,18 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     diagnostics: Diagnostic[],
   ): Promise<MethodCallAtRange | null> {
     // Reuse the CST already parsed in analyzeCodeActionContext rather than
-    // recompiling the document. findMethodCallAtRange only walks the parse
-    // tree, which is grammar-equivalent regardless of the listener used to
-    // build it, so the shared context.parseTree is sufficient.
-    const parseTree = context.parseTree;
-    if (!parseTree) {
+    // recompiling the document. The finder only walks the parse tree, which is
+    // grammar-equivalent regardless of the listener used to build it, so the
+    // shared parse context is sufficient.
+    const parseContext = context.parseContext;
+    if (!parseContext) {
       return null;
     }
 
     // Prefer the code-action request range, then each diagnostic range.
     const ranges: Range[] = [context.range, ...diagnostics.map((d) => d.range)];
     for (const range of ranges) {
-      const call = findMethodCallAtRange(parseTree, range);
+      const call = findMethodCallForCodeAction(parseContext, range);
       if (call) {
         return call;
       }

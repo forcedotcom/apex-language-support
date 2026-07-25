@@ -116,6 +116,30 @@ describe('findExpressionAtRange', () => {
     expect(charAtStart).toBe('I');
   });
 
+  it('reports the expression char span and verbatim text', () => {
+    const source = [
+      'public class Finder {',
+      '  public void run() {',
+      '    Integer total = 1 + 2 * 3;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const result = compile(source);
+    const finding = findExpressionAtRange(
+      result.parseTree,
+      rangeOf(source, '2 * 3'),
+    );
+
+    expect(finding).not.toBeNull();
+    // The char span points at the expression's own source offsets, and the
+    // verbatim text preserves the author's whitespace (unlike getText()).
+    expect(
+      source.substring(finding!.expressionStart, finding!.expressionEnd),
+    ).toBe('2 * 3');
+    expect(finding!.expressionText).toBe('2 * 3');
+  });
+
   it('preserves tab indentation', () => {
     const source = [
       'public class Finder {',

@@ -59,6 +59,25 @@ export interface ExpressionAtRange {
   statementStart: number;
   /** Leading whitespace (spaces/tabs) preceding the enclosing statement. */
   indent: string;
+  /**
+   * 0-based character offset (into the source) of the first character of the
+   * enclosing expression. Computed here so the LS layer never reads ANTLR
+   * token internals (`expression.start.start`).
+   */
+  expressionStart: number;
+  /**
+   * 0-based character offset (into the source) just past the last character of
+   * the enclosing expression (exclusive end), i.e. `expression.stop.stop + 1`.
+   */
+  expressionEnd: number;
+  /**
+   * The verbatim source text of the enclosing expression (whitespace
+   * preserved), read from the shared `CharStream`. This is the text an extract
+   * refactoring substitutes for the generated symbol name — it must retain the
+   * author's spacing (e.g. `1 + 2 * 3`), unlike `expression.getText()` which
+   * collapses whitespace.
+   */
+  expressionText: string;
 }
 
 /**
@@ -276,6 +295,38 @@ const leadingIndentOf = (statement: StatementContext): string =>
   physicalLineIndentAt(statement, statement.start.start);
 
 /**
+ * 0-based character offset of the expression's first character in the source.
+ */
+const expressionStartOffset = (expression: ExpressionContext): number =>
+  expression.start.start;
+
+/**
+ * 0-based character offset just past the expression's last character (exclusive
+ * end). Falls back to the start token when the stop token is unavailable (as on
+ * a partially-parsed expression).
+ */
+const expressionEndOffset = (expression: ExpressionContext): number =>
+  (expression.stop ?? expression.start).stop + 1;
+
+/**
+ * Read the verbatim source text of `expression` from the shared `CharStream`,
+ * preserving the author's whitespace. Returns `''` when the stream/offsets are
+ * unavailable. Unlike `expression.getText()`, this does not collapse spaces, so
+ * an extracted `1 + 2 * 3` keeps its original formatting.
+ */
+const expressionTextOf = (
+  expression: ExpressionContext,
+  start: number,
+  end: number,
+): string => {
+  const stream = expression.start.getInputStream();
+  if (!stream || end <= start) {
+    return '';
+  }
+  return stream.getText(start, end - 1);
+};
+
+/**
  * Given a parse tree and an LSP selection range, find the minimal expression the
  * selection encloses, its enclosing statement's start offset, and that
  * statement's leading indentation.
@@ -315,10 +366,20 @@ export const findExpressionAtRange = (
       return null;
     }
 
+    const expressionStart = expressionStartOffset(expression);
+    const expressionEnd = expressionEndOffset(expression);
+
     return {
       expression,
       statementStart: statement.start.start,
       indent: leadingIndentOf(statement),
+      expressionStart,
+      expressionEnd,
+      expressionText: expressionTextOf(
+        expression,
+        expressionStart,
+        expressionEnd,
+      ),
     };
   } catch {
     // Syntax-error resilient: degrade to null, never throw.
