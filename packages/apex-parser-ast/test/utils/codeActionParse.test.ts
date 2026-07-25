@@ -8,6 +8,7 @@
 
 import {
   findConstantExtractionForCodeAction,
+  findConstantExtractionFromExpression,
   findExpressionForCodeAction,
   findMethodCallForCodeAction,
   parseForCodeActions,
@@ -87,6 +88,37 @@ describe('parseForCodeActions', () => {
     expect(findConstantExtractionForCodeAction(null, range)).toBeNull();
     expect(findMethodCallForCodeAction(null, range)).toBeNull();
     expect(findExpressionForCodeAction(undefined, range)).toBeNull();
+    // The from-expression accessor also tolerates a null/undefined handle.
+    expect(findConstantExtractionFromExpression(null)).toBeNull();
+    expect(findConstantExtractionFromExpression(undefined)).toBeNull();
+  });
+
+  it('derives the constant extraction from an already-found expression (no re-walk)', () => {
+    const source = [
+      'public class Sample {',
+      '  public void run() {',
+      "    String greeting = 'hello';",
+      '  }',
+      '}',
+    ].join('\n');
+
+    const context = parseForCodeActions(source, uri);
+    const found = findExpressionForCodeAction(
+      context,
+      rangeOf(source, "'hello'"),
+    );
+    expect(found).not.toBeNull();
+
+    // Reusing `found` yields the same descriptor the range-based accessor would,
+    // without walking the tree a second time.
+    const fromExpression = findConstantExtractionFromExpression(found);
+    const fromRange = findConstantExtractionForCodeAction(
+      context,
+      rangeOf(source, "'hello'"),
+    );
+    expect(fromExpression).toEqual(fromRange);
+    expect(fromExpression!.isLiteral).toBe(true);
+    expect(fromExpression!.isInner).toBe(false);
   });
 
   it('reuses a single parse across all three finders (one context, no reparse)', () => {

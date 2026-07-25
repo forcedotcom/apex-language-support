@@ -25,7 +25,7 @@ import {
   ISymbolManager,
   parseForCodeActions,
   findExpressionForCodeAction,
-  findConstantExtractionForCodeAction,
+  findConstantExtractionFromExpression,
   findMethodCallForCodeAction,
   CodeActionParseContext,
   ConstantExtraction,
@@ -324,12 +324,10 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     // The class-body insertion point, member indentation, inner-class flag, and
     // literal eligibility are all computed in apex-parser-ast so the LS layer
-    // never touches ANTLR types. Extract Constant is gated to literal (or
-    // prefix-of-literal, e.g. `-5`) expressions, matching Jorje's rule.
-    const constantExtraction = findConstantExtractionForCodeAction(
-      context.parseContext,
-      context.range,
-    );
+    // never touches ANTLR types. Reuse the expression already located above
+    // (`found`) rather than re-walking the tree. Extract Constant is gated to
+    // literal (or prefix-of-literal, e.g. `-5`) expressions, matching Jorje's rule.
+    const constantExtraction = findConstantExtractionFromExpression(found);
     if (constantExtraction?.isLiteral) {
       const constantAction = this.buildExtractConstantAction(
         context,

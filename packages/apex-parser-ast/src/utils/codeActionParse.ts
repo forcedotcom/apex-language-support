@@ -76,19 +76,37 @@ export const findExpressionForCodeAction = (
   context ? findExpressionAtRange(context.parseTree, range) : null;
 
 /**
+ * Compute the class-body constant-extraction descriptor from an
+ * {@link ExpressionAtRange} already obtained via
+ * {@link findExpressionForCodeAction}. Prefer this when the caller has already
+ * located the expression (the Extract path does): it reuses that result instead
+ * of walking the tree again. The `ExpressionAtRange` handle stays opaque to the
+ * caller — only this module reads its private `expression`. Returns `null` when
+ * `found` is null or has no eligible enclosing class.
+ */
+export const findConstantExtractionFromExpression = (
+  found: ExpressionAtRange | null | undefined,
+): ConstantExtraction | null =>
+  found ? findConstantExtraction(found.expression) : null;
+
+/**
  * Compute the class-body constant-extraction descriptor for the expression
  * enclosing `range` in a previously parsed context. Resolves the expression
  * internally (reusing the single parse — no reparse) so the caller never holds
  * an ANTLR `ExpressionContext`. Returns `null` when there is no eligible
  * enclosing class.
+ *
+ * When the caller has already called {@link findExpressionForCodeAction} for the
+ * same range, prefer {@link findConstantExtractionFromExpression} to avoid a
+ * redundant tree walk.
  */
 export const findConstantExtractionForCodeAction = (
   context: CodeActionParseContext | null | undefined,
   range: LspRange,
-): ConstantExtraction | null => {
-  const found = findExpressionForCodeAction(context, range);
-  return found ? findConstantExtraction(found.expression) : null;
-};
+): ConstantExtraction | null =>
+  findConstantExtractionFromExpression(
+    findExpressionForCodeAction(context, range),
+  );
 
 /**
  * Locate and describe the method call at (or overlapping) `range` in a
