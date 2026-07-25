@@ -14,7 +14,12 @@ const EXCLUDE_ID_TOKENS = new Set(['Identifier', 'IntegralCurrencyLiteral']);
 
 // Grammar erroneously treats system.runas as single token; runAsStatement is System.runAs.
 // Exclude until grammar owners fix. See runAsStatement rule.
-const EXCLUDE_LEXER_KEYWORDS = new Set(['SYSTEMRUNAS']);
+//
+// FORMULA is a SOQL date-function token in the apex-parser grammar, not an Apex
+// language keyword. Emitting it in APEX_KEYWORDS caused `formula` to be treated
+// as a reserved word (and drift the keyword snapshot). Exclude it so the
+// generated keyword list matches the maintained snapshot.
+const EXCLUDE_LEXER_KEYWORDS = new Set(['SYSTEMRUNAS', 'FORMULA']);
 
 /**
  * Read @apexdevtools/apex-parser version. Prefer package-lock.json (exact resolved);
