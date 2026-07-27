@@ -182,6 +182,16 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     // the listener, and applies the compile options, returning an opaque handle
     // the finders consume. Parsed once here and reused across all finders.
     const parseContext = parseForCodeActions(text, document.uri) ?? undefined;
+    if (!parseContext) {
+      // parseForCodeActions is best-effort and swallows parse failures to stay
+      // logger-free; preserve the diagnostic signal here (the LS layer owns the
+      // logger) so a document that fails to parse leaves a debug trail rather
+      // than silently offering no code actions.
+      this.logger.debug(
+        () =>
+          `Unable to parse document for code actions: ${document.uri} — expression-based actions will be unavailable`,
+      );
+    }
 
     return {
       document,
