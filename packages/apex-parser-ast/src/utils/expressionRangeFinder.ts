@@ -9,9 +9,21 @@
 import { ParserRuleContext } from 'antlr4';
 import {
   BlockContext,
+  ClassDeclarationContext,
   ExpressionContext,
+  LiteralPrimaryContext,
+  NegExpressionContext,
+  PreOpExpressionContext,
+  PrimaryExpressionContext,
   StatementContext,
 } from '@apexdevtools/apex-parser';
+
+/**
+ * One level of member indentation for generated declarations. The Extract
+ * family emits two-space indent units (matching the Extract Variable path); do
+ * not introduce tabs here.
+ */
+const INDENT_UNIT = '  ';
 
 /**
  * Minimal LSP-style position (0-based line, 0-based character).
@@ -38,8 +50,13 @@ export interface LspRange {
  * a selection, plus the anchor needed to insert a statement above it.
  */
 export interface ExpressionAtRange {
-  /** The minimal `ExpressionContext` whose span encloses the selection. */
-  expression: ExpressionContext;
+  /**
+   * @internal The minimal `ExpressionContext` whose span encloses the
+   * selection; not for consumption outside this package's accessors. Kept only
+   * so same-package finders (e.g. `findConstantExtraction`) can reuse the
+   * located node — the LS layer treats this handle as opaque.
+   */
+  readonly expression: ExpressionContext;
   /**
    * 0-based character offset (into the source) of the first character of the
    * enclosing statement. This is the insertion point for an extracted local.
@@ -47,6 +64,57 @@ export interface ExpressionAtRange {
   statementStart: number;
   /** Leading whitespace (spaces/tabs) preceding the enclosing statement. */
   indent: string;
+  /**
+   * 0-based character offset (into the source) of the first character of the
+   * enclosing expression. Computed here so the LS layer never reads ANTLR
+   * token internals (`expression.start.start`).
+   */
+  expressionStart: number;
+  /**
+   * 0-based character offset (into the source) just past the last character of
+   * the enclosing expression (exclusive end), i.e. `expression.stop.stop + 1`.
+   */
+  expressionEnd: number;
+  /**
+   * The verbatim source text of the enclosing expression (whitespace
+   * preserved), read from the shared `CharStream`. This is the text an extract
+   * refactoring substitutes for the generated symbol name — it must retain the
+   * author's spacing (e.g. `1 + 2 * 3`), unlike `expression.getText()` which
+   * collapses whitespace.
+   */
+  expressionText: string;
+}
+
+/**
+ * Result of {@link findConstantExtraction}: everything the LS layer needs to
+ * insert an extracted constant at class-body level, expressed in NEUTRAL terms
+ * (no ANTLR types cross the package boundary).
+ */
+export interface ConstantExtraction {
+  /**
+   * 0-based character offset (into the source) where the new class-body member
+   * line should be inserted — immediately after the enclosing class body's
+   * opening `{`.
+   */
+  insertOffset: number;
+  /**
+   * Physical indentation for the new member: the actual leading whitespace of
+   * the enclosing class declaration's line plus exactly one indent unit. Read
+   * from the char stream (never derived from a token column) so it survives
+   * visibility/sharing modifiers preceding the `class` keyword.
+   */
+  indent: string;
+  /**
+   * True when the target is an inner (nested) class. Apex/Jorje disallows
+   * `static` on inner members, so callers emit `private final` rather than
+   * `private static final`.
+   */
+  isInner: boolean;
+  /**
+   * True when the selected expression is a literal (or prefix-of-literal, e.g.
+   * `-5`) — the Extract Constant eligibility rule.
+   */
+  isLiteral: boolean;
 }
 
 /**
@@ -177,32 +245,90 @@ const hasEnclosingBlock = (ctx: ParserRuleContext): boolean => {
 };
 
 /**
- * Extract the leading whitespace (spaces/tabs) that precedes `statement` on its
- * own line, using the shared source `CharStream`. Returns `''` when the
- * statement is not indented or the offsets are unavailable.
+ * Compute the PHYSICAL leading whitespace (spaces/tabs) of the source line that
+ * contains `offset`, using the shared source `CharStream`. Returns `''` when the
+ * line is not indented or the offsets/stream are unavailable.
+ *
+ * Unlike a token's `.column`, this reflects the true line indentation even when
+ * the token at `offset` is preceded on its line by other tokens — e.g. the
+ * `class` keyword in `public with sharing class`, whose column is ~18 but whose
+ * line indentation is 0. It walks back to the start of the line, then measures
+ * the run of leading whitespace from there.
  */
-const leadingIndentOf = (statement: StatementContext): string => {
-  const startOffset = statement.start.start;
-  const stream = statement.start.getInputStream();
-  if (!stream || startOffset <= 0) {
+const physicalLineIndentAt = (
+  ctx: ParserRuleContext,
+  offset: number,
+): string => {
+  const stream = ctx.start.getInputStream();
+  if (!stream || offset <= 0) {
     return '';
   }
 
-  let index = startOffset - 1;
-  while (index >= 0) {
+  // Walk back to the first character of the line (just past the newline).
+  let lineStart = offset;
+  while (lineStart > 0) {
+    const char = stream.getText(lineStart - 1, lineStart - 1);
+    if (char === '\n' || char === '\r') {
+      break;
+    }
+    lineStart--;
+  }
+
+  // Measure the run of leading whitespace from the line start.
+  let index = lineStart;
+  while (index < offset) {
     const char = stream.getText(index, index);
     if (char === ' ' || char === '\t') {
-      index--;
+      index++;
     } else {
       break;
     }
   }
 
-  const indentStart = index + 1;
-  if (indentStart > startOffset - 1) {
+  if (index <= lineStart) {
     return '';
   }
-  return stream.getText(indentStart, startOffset - 1);
+  return stream.getText(lineStart, index - 1);
+};
+
+/**
+ * Extract the leading whitespace (spaces/tabs) that precedes `statement` on its
+ * own line, using the shared source `CharStream`. Returns `''` when the
+ * statement is not indented or the offsets are unavailable.
+ */
+const leadingIndentOf = (statement: StatementContext): string =>
+  physicalLineIndentAt(statement, statement.start.start);
+
+/**
+ * 0-based character offset of the expression's first character in the source.
+ */
+const expressionStartOffset = (expression: ExpressionContext): number =>
+  expression.start.start;
+
+/**
+ * 0-based character offset just past the expression's last character (exclusive
+ * end). Falls back to the start token when the stop token is unavailable (as on
+ * a partially-parsed expression).
+ */
+const expressionEndOffset = (expression: ExpressionContext): number =>
+  (expression.stop ?? expression.start).stop + 1;
+
+/**
+ * Read the verbatim source text of `expression` from the shared `CharStream`,
+ * preserving the author's whitespace. Returns `''` when the stream/offsets are
+ * unavailable. Unlike `expression.getText()`, this does not collapse spaces, so
+ * an extracted `1 + 2 * 3` keeps its original formatting.
+ */
+const expressionTextOf = (
+  expression: ExpressionContext,
+  start: number,
+  end: number,
+): string => {
+  const stream = expression.start.getInputStream();
+  if (!stream || end <= start) {
+    return '';
+  }
+  return stream.getText(start, end - 1);
 };
 
 /**
@@ -245,10 +371,124 @@ export const findExpressionAtRange = (
       return null;
     }
 
+    const expressionStart = expressionStartOffset(expression);
+    const expressionEnd = expressionEndOffset(expression);
+
     return {
       expression,
       statementStart: statement.start.start,
       indent: leadingIndentOf(statement),
+      expressionStart,
+      expressionEnd,
+      expressionText: expressionTextOf(
+        expression,
+        expressionStart,
+        expressionEnd,
+      ),
+    };
+  } catch {
+    // Syntax-error resilient: degrade to null, never throw.
+    return null;
+  }
+};
+
+/**
+ * Determine whether `expression` is a literal or a prefix-of-literal (a unary
+ * `+`/`-`/`~`/`!` applied to a literal, e.g. `-5`). Only such expressions are
+ * eligible for Extract Constant, matching Jorje's rule.
+ *
+ * The `instanceof` checks are safe here (unlike a cross-package check): the CST
+ * nodes and these context classes both come from this package's bundled
+ * `@apexdevtools/apex-parser`.
+ */
+const isLiteralExpression = (expression: ExpressionContext): boolean => {
+  // Bare literal: `primary -> literal`.
+  if (
+    expression instanceof PrimaryExpressionContext &&
+    expression.primary() instanceof LiteralPrimaryContext
+  ) {
+    return true;
+  }
+
+  // Prefix-of-literal: unary operator applied to a (possibly nested) literal,
+  // e.g. `-5`, `+3`, `!true`, `~0`.
+  if (
+    expression instanceof PreOpExpressionContext ||
+    expression instanceof NegExpressionContext
+  ) {
+    const inner = expression.expression();
+    return inner ? isLiteralExpression(inner) : false;
+  }
+
+  return false;
+};
+
+/** Walk up from `ctx` to the nearest enclosing `ClassDeclarationContext`, or null. */
+const findEnclosingClass = (
+  ctx: ParserRuleContext,
+): ClassDeclarationContext | null => {
+  let current: ParserRuleContext | undefined = ctx.parentCtx;
+  while (current) {
+    if (current instanceof ClassDeclarationContext) {
+      return current;
+    }
+    current = current.parentCtx;
+  }
+  return null;
+};
+
+/** True when `classDecl` is nested inside another class declaration. */
+const isInnerClass = (classDecl: ClassDeclarationContext): boolean =>
+  findEnclosingClass(classDecl) !== null;
+
+/**
+ * Given an expression (from {@link findExpressionAtRange}), compute the neutral
+ * insertion descriptor for extracting it to a class-body constant: the offset
+ * just after the enclosing class body's opening `{`, the physical member
+ * indentation (class-line indent + one unit), whether the class is inner, and
+ * whether the expression is literal-eligible.
+ *
+ * Returns `null` (never throws) when there is no enclosing class or its body
+ * brace / offsets are unavailable. Keeping this alongside
+ * {@link findExpressionAtRange} means the LS layer never touches ANTLR types.
+ *
+ * @param expression The minimal enclosing expression to extract.
+ */
+export const findConstantExtraction = (
+  expression: ExpressionContext | null | undefined,
+): ConstantExtraction | null => {
+  try {
+    if (!expression) {
+      return null;
+    }
+
+    const classDecl = findEnclosingClass(expression);
+    if (!classDecl) {
+      return null;
+    }
+
+    const classBody = classDecl.classBody();
+    const openBrace = classBody?.LBRACE();
+    if (!classBody || !openBrace) {
+      return null;
+    }
+
+    // Insert immediately after the class body's opening brace.
+    const insertOffset = openBrace.symbol.stop + 1;
+
+    // Physical indent of the class declaration's line + one member level.
+    // `classDecl.start` points at the `class` keyword (modifiers live in a
+    // parent context), so we measure the line's actual indentation from the
+    // char stream rather than the keyword's column — the latter shifts with
+    // visibility/sharing modifiers (e.g. `public with sharing class`).
+    const indent =
+      physicalLineIndentAt(classDecl, classDecl.start.start) + INDENT_UNIT;
+
+    return {
+      insertOffset,
+      indent,
+      isInner: isInnerClass(classDecl),
+      isLiteral: isLiteralExpression(expression),
     };
   } catch {
     // Syntax-error resilient: degrade to null, never throw.
