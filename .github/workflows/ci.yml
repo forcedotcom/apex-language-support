@@ -39,7 +39,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Run linting
         run: npm run lint
@@ -112,7 +112,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Run quality tests
         run: npm run test:quality
