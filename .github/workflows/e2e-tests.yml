@@ -35,6 +35,8 @@ jobs:
         test_file:
           - apex-capability-gating.spec.ts
           - apex-extension-core.spec.ts
+          - apex-extract-constant.spec.ts
+          - apex-extract-variable.spec.ts
           - apex-goto-definition.spec.ts
           - apex-hover.spec.ts
           - apex-hover-stdlib.spec.ts
@@ -275,6 +277,8 @@ jobs:
           EXPECTED_SPECS=(
             "apex-capability-gating.spec.ts"
             "apex-extension-core.spec.ts"
+            "apex-extract-constant.spec.ts"
+            "apex-extract-variable.spec.ts"
             "apex-goto-definition.spec.ts"
             "apex-hover.spec.ts"
             "apex-hover-stdlib.spec.ts"
