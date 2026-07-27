@@ -443,10 +443,52 @@ describe('CodeActionProcessingService', () => {
       const edits = action?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
       // First edit inserts a declaration; second replaces the selection.
-      expect(edits?.[0].newText).toMatch(/Object v1 = 1 \+ 2;/);
+      // Type is inferred (story 01.1): `1 + 2` promotes to Integer.
+      expect(edits?.[0].newText).toMatch(/Integer v1 = 1 \+ 2;/);
       expect(edits?.[0].newText.endsWith('\n')).toBe(true);
       expect(edits?.[1].newText).toBe('v1');
       expect(edits?.[1].range).toEqual(params.range);
+    });
+
+    it('infers a constructed (new) type for Extract local variable', async () => {
+      // Story 01.1: `new Account()` -> Account, replacing the Object placeholder.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Account a = new Account();',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, 'new Account()');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits?.[0].newText).toMatch(/Account v1 = new Account\(\);/);
+      // The old Object placeholder / TODO comment is gone.
+      expect(edits?.[0].newText).not.toMatch(/Object/);
+      expect(edits?.[0].newText).not.toMatch(/TODO/);
+    });
+
+    it('falls back to Object when the type cannot be inferred', async () => {
+      // Story 01.1: a chained/qualified access is deferred to the cross-file
+      // seam (absent in this same-file test) -> Object fallback, no TODO noise.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Object x = foo.bar.baz;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, 'foo.bar.baz');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits?.[0].newText).toMatch(/Object v1 = foo\.bar\.baz;/);
+      expect(edits?.[0].newText).not.toMatch(/TODO/);
     });
 
     /**
@@ -462,9 +504,9 @@ describe('CodeActionProcessingService', () => {
       const edits = action?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
       const declaration = edits![0].newText;
-      const captured = declaration.match(
-        /Object v\d+ = ([\s\S]+?); \/\/ TODO/,
-      )?.[1];
+      // Declaration is `<indent><Type> v<n> = <expr>;\n`; capture <expr>.
+      // <Type> is the inferred Apex type (story 01.1), no longer always Object.
+      const captured = declaration.match(/^\s*\S+ v\d+ = ([\s\S]+?);\s*$/)?.[1];
       expect(captured).toBeDefined();
       expect(edits![1].newText).toBe('v1');
       const doc = TextDocument.create(uri, 'apex', 1, source);
@@ -565,8 +607,9 @@ describe('CodeActionProcessingService', () => {
       expect(constant?.kind).toBe(CodeActionKind.RefactorExtract);
       const edits = constant?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
+      // Type is inferred (story 01.1): a string literal -> String.
       expect(edits?.[0].newText).toMatch(
-        /private static final Object v1 = 'hello';/,
+        /private static final String v1 = 'hello';/,
       );
       expect(edits?.[1].newText).toBe('v1');
     });
@@ -585,8 +628,9 @@ describe('CodeActionProcessingService', () => {
       const constant = findAction(result, 'Extract constant');
 
       expect(constant).toBeDefined();
+      // `-5` is a prefix-of-literal integer -> Integer (story 01.1).
       expect(constant?.edit?.changes?.[uri]?.[0].newText).toMatch(
-        /private static final Object v1 = -5;/,
+        /private static final Integer v1 = -5;/,
       );
     });
 
@@ -695,7 +739,8 @@ describe('CodeActionProcessingService', () => {
 
       expect(constant).toBeDefined();
       const newText = constant?.edit?.changes?.[uri]?.[0].newText ?? '';
-      expect(newText).toMatch(/private final Object v1 = 'hi';/);
+      // Type is inferred (story 01.1): a string literal -> String.
+      expect(newText).toMatch(/private final String v1 = 'hi';/);
       expect(newText).not.toMatch(/static/);
     });
 
