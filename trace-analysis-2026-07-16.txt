@@ -1,0 +1,276 @@
+═══════════════════════════════════════════════════════════════════════════════
+APEX-LS WORKSPACE LOAD PERFORMANCE ANALYSIS
+Trace File: 2026-07-16T13-09-25-234Z.jsonl
+Total Workspace Load Time: 4026ms
+Files Compiled: 99 files
+═══════════════════════════════════════════════════════════════════════════════
+
+EXECUTIVE SUMMARY
+─────────────────────────────────────────────────────────────────────────────
+After FQN index and CodeLens deduplication fixes, the next major bottleneck is:
+
+🎯 STANDARD OBJECT SYMBOL RESOLUTION via IPC
+
+Total Impact: ~650ms (16% of workspace load time)
+Root Cause: Cross-worker IPC overhead for resolving standard object symbols
+Evidence: 220ms IPC call vs 0.3ms actual work = 730x overhead
+
+═══════════════════════════════════════════════════════════════════════════════
+TOP 10 SLOWEST OPERATIONS (Cumulative Time)
+═══════════════════════════════════════════════════════════════════════════════
+
+ 4025.74 ms  ×1     workspace.load.total
+ 3291.68 ms  ×1     workspace.batch.compile
+ 3139.32 ms  ×99    workspace.file.compile
+ 2555.27 ms  ×6     worker.lspRequest.DispatchDocumentSymbol
+ 2502.26 ms  ×12    worker.dataOwner.UpdateSymbolSubset
+ 1434.48 ms  ×3     extension.command.documentSymbol
+ 1390.89 ms  ×3     lsp.coordinator.documentSymbol
+ 1320.77 ms  ×4     extension.command.codeLens
+ 1105.15 ms  ×132   dataOwner.update.execute
+ 1051.79 ms  ×110   dataOwner.update.resolveCrossFile
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPILATION VS ENRICHMENT TIME BREAKDOWN
+═══════════════════════════════════════════════════════════════════════════════
+
+Actual Apex Parsing/Compilation:        173 ms  (5.5% of write-back time)
+Symbol Write-back & Enrichment:        2964 ms  (94.5% of write-back time)
+
+Ratio: 17:1 (write-back dominates compilation)
+
+Per-file averages (9 workspace files):
+  - Compilation:    19 ms/file
+  - Write-back:    329 ms/file
+
+Top offenders by write-back time:
+  1711 ms  GeocodingServiceTest.cls     (163 refs, 23ms compile)
+   406 ms  FileUtilitiesTest.cls        (75 refs,   5ms compile)
+   225 ms  TestPropertyController.cls   (145 refs, 52ms compile)
+
+═══════════════════════════════════════════════════════════════════════════════
+🔥 HOTSPOT #1: RESOURCE LOADER IPC OVERHEAD
+═══════════════════════════════════════════════════════════════════════════════
+
+Total Time: 432ms in resourceLoader.proxy.resolveClass (252 calls)
+Cache Hit Rate: 91.7% (231 hits, 21 misses)
+Cache Miss Impact: 428ms across 21 misses = 20ms average per miss
+
+⚠️  IPC OVERHEAD ANALYSIS:
+    Proxy call:     220.87 ms  (contentDocumentLink)
+    Worker actual:    0.31 ms  (actual work in resourceLoader worker)
+    Overhead:       220.56 ms  (730x slower than actual work!)
+
+Top cache misses (all standard objects, all during resolveCrossFile):
+  220.87 ms  contentDocumentLink
+   24.41 ms  standardUserProfile  
+   23.80 ms  ps
+   23.08 ms  SampleDataController
+   22.86 ms  properties
+   12.26 ms  documents
+   12.01 ms  property
+    9.74 ms  picture
+    9.00 ms  link
+    8.60 ms  contentVersion
+
+Pattern: Standard objects (lowercase names) from System namespace are the worst.
+
+ROOT CAUSE:
+  - resolveCrossFile needs full symbol definitions, not just FQN index
+  - Each standard object lookup requires IPC to resourceLoader worker
+  - Worker does the work in <1ms, but IPC overhead is 20-220ms per call
+  - Cache misses happen early in workspace load (cold start)
+
+═══════════════════════════════════════════════════════════════════════════════
+🔥 HOTSPOT #2: SYMBOL TABLE CACHE MISSES  
+═══════════════════════════════════════════════════════════════════════════════
+
+Operation: resourceLoader.proxy.getSymbolTable
+Total Time: 196ms (14 calls)
+Cache Hit Rate: 14.3% (2 hits, 12 misses)
+Average Miss Time: 16ms
+
+Impact: 196ms with terrible hit rate
+Potential Savings: ~170ms if hit rate improved to 90%
+
+═══════════════════════════════════════════════════════════════════════════════
+🔥 HOTSPOT #3: WRITE-BACK SERIALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+Pattern Analysis:
+  - File compiles happen sequentially (inherent to batch processing)
+  - UpdateSymbolSubset operations show partial overlap but mostly sequential
+  - Most time spent in resolveCrossFile (95% of execute time: 1052/1105ms)
+
+Evidence of serialization:
+  - 9 file compiles complete in 3140ms
+  - But 12 UpdateSymbolSubset operations span similar timeframe
+  - Some parallelism but not fully pipelined
+
+Blocking point: dataOwner.update.resolveCrossFile
+  - Takes 501ms for slowest instance
+  - Dominated by resourceLoader.proxy.resolveClass calls (220ms single call!)
+
+═══════════════════════════════════════════════════════════════════════════════
+OTHER OBSERVATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+DocumentSymbol Operations (post-load):
+  - 2555ms total across 6 requests (~430ms each)
+  - Triggered after workspace load completes
+  - Not blocking workspace load itself
+
+CodeLens Operations (post-load):
+  - 1321ms total across 4 requests (~330ms each)
+  - coldReadGate waits: 524ms total (largest: 373ms)
+  - Triggered after workspace load completes
+
+DataOwnerQuerySymbolByName:
+  - 110ms across 9 calls (~12ms each)
+  - Minor compared to resolveClass overhead
+
+═══════════════════════════════════════════════════════════════════════════════
+RECOMMENDATIONS (Prioritized by Impact)
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 #1: PRE-LOAD STANDARD OBJECT SYMBOLS (Highest Impact)
+───────────────────────────────────────────────────────────────────────────
+Impact: ~400-600ms savings (10-15% of workspace load)
+Effort: Medium
+
+PROBLEM:
+  Standard objects (contentDocumentLink, etc.) trigger 220ms IPC calls because:
+  - They're not in cache initially
+  - Each lookup goes through resourceLoader worker
+  - IPC overhead is 730x the actual work
+
+SOLUTION:
+  Pre-load standard object symbol tables during worker initialization:
+  
+  a) Identify high-frequency standard objects (top 20-30)
+  b) Load their symbol tables during resourceLoader.WorkerInit
+  c) Populate cache before workspace load begins
+  
+  Alternative: Batch resolve operations to reduce IPC round-trips
+  - Collect all needed FQNs during compilation
+  - Single IPC call to resolve batch
+  - 20 round-trips → 1 batch call = ~400ms savings
+
+EVIDENCE:
+  - 21 cache misses × 20ms average = 420ms
+  - Worst case (contentDocumentLink): 220ms for single lookup
+  - Worker actual work: <1ms per lookup
+  - 91.7% hit rate means caching works, just starts cold
+
+
+🎯 #2: IMPROVE SYMBOL TABLE CACHE HIT RATE
+───────────────────────────────────────────────────────────────────────────
+Impact: ~170ms savings
+Effort: Low-Medium
+
+PROBLEM:
+  getSymbolTable has 14.3% cache hit rate (vs 91.7% for resolveClass)
+  
+SOLUTION:
+  - Investigate why hit rate is so low
+  - Are cache keys consistent?
+  - Is cache being invalidated too aggressively?
+  - Should symbol tables be pre-loaded like standard objects?
+
+
+🎯 #3: BATCH/PIPELINE RESOLVECROSSFILE OPERATIONS
+───────────────────────────────────────────────────────────────────────────
+Impact: ~500-1000ms potential savings
+Effort: High (architectural change)
+
+PROBLEM:
+  - Write-back takes 17x longer than compilation (2964ms vs 173ms)
+  - resolveCrossFile is 95% of update.execute time
+  - Operations are mostly sequential with small overlaps
+  
+SOLUTION:
+  a) Batch cross-file resolution:
+     - Collect all cross-file references per file
+     - Resolve in parallel batches
+     - Reduce IPC round-trips
+     
+  b) Pipeline compilation → write-back:
+     - Don't wait for full write-back before next compile
+     - Stream results to dataOwner
+     - Allow parallel resolveCrossFile operations
+     
+  c) Speculative resolution:
+     - Start resolving known standard objects before needed
+     - Pre-warm cache based on file analysis
+
+
+🎯 #4: REDUCE IPC OVERHEAD FOR COMMON OPERATIONS
+───────────────────────────────────────────────────────────────────────────
+Impact: ~200-400ms potential savings
+Effort: Medium-High
+
+PROBLEM:
+  - Single resolveClass call: 220ms IPC vs 0.3ms actual work
+  - 730x overhead is unacceptable
+  
+ROOT CAUSE INVESTIGATION NEEDED:
+  - Is this Node.js worker_threads IPC overhead?
+  - Is serialization/deserialization the bottleneck?
+  - Are we sending too much data per IPC call?
+  - Should we use SharedArrayBuffer for common lookups?
+  
+POTENTIAL SOLUTIONS:
+  a) SharedArrayBuffer for FQN→symbol mapping
+  b) In-memory cache in calling worker (duplicate cache)
+  c) Batch IPC calls to reduce round-trips
+  d) Profile IPC implementation to find bottleneck
+
+
+═══════════════════════════════════════════════════════════════════════════════
+NEXT STEPS
+═══════════════════════════════════════════════════════════════════════════════
+
+IMMEDIATE (This Week):
+1. Profile one 220ms resolveClass IPC call in detail
+   - Add timing spans for: serialize, send, receive, deserialize
+   - Measure actual message size
+   - Compare to worker processing time
+
+2. Implement standard object pre-loading prototype
+   - Start with top 10 most expensive lookups
+   - Measure impact on workspace load time
+   - Should see ~200-300ms improvement
+
+SHORT-TERM (Next Sprint):
+3. Investigate getSymbolTable cache miss rate
+   - Why only 14% hit rate?
+   - Compare cache keys across calls
+   - Fix cache invalidation if needed
+
+4. Design batched cross-file resolution
+   - Prototype batch API for resourceLoader
+   - Measure IPC overhead reduction
+
+LONG-TERM (Next Quarter):
+5. Architectural review of worker communication
+   - Consider SharedArrayBuffer for hot paths
+   - Evaluate in-process caching strategies
+   - Profile full IPC stack
+
+═══════════════════════════════════════════════════════════════════════════════
+TRACE FILE STATISTICS
+═══════════════════════════════════════════════════════════════════════════════
+
+Total spans analyzed:      539 apex-ls spans
+Workspace load duration:   4026 ms
+Files compiled:            99 files
+Compilation time:          173 ms (actual parsing)
+Write-back time:          2964 ms (symbol enrichment)
+IPC overhead:             ~650 ms (estimated)
+
+Worker breakdown:
+  - apex-language-server-extension:  Client coordination
+  - apex-ls-worker-dataOwner:        Symbol storage & resolution  
+  - apex-ls-worker-compilation:      Apex parsing
+  - apex-ls-worker-resourceLoader:   Standard object lookup
+

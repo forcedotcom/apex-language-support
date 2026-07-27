@@ -304,6 +304,58 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       expect(initResourceLoaderSpy).toHaveBeenCalled();
     });
 
+    it('should initialize the local ResourceLoader before local graph preloading', async () => {
+      mockConfigManager.getCapabilities.mockReturnValue({
+        documentSymbolProvider: { resolveProvider: false },
+      } as Partial<ServerCapabilities> as ServerCapabilities);
+
+      let releaseInitialization!: () => void;
+      const initializationPending = new Promise<void>((resolve) => {
+        releaseInitialization = resolve;
+      });
+      const initResourceLoaderSpy = jest
+        .spyOn(adapter as any, 'initializeResourceLoader')
+        .mockReturnValue(initializationPending);
+      const prePopulateSpy = jest
+        .spyOn(adapter as any, 'prePopulateSymbolGraph')
+        .mockResolvedValue(undefined);
+
+      const onInitializedHandler =
+        mockConnection.onInitialized.mock.calls[0][0];
+      await onInitializedHandler();
+
+      expect(initResourceLoaderSpy).toHaveBeenCalledTimes(1);
+      expect(prePopulateSpy).not.toHaveBeenCalled();
+
+      releaseInitialization();
+      await initializationPending;
+      await Promise.resolve();
+
+      expect(prePopulateSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not initialize coordinator-local stdlib when worker topology is active', async () => {
+      mockConfigManager.getCapabilities.mockReturnValue({
+        documentSymbolProvider: { resolveProvider: false },
+      } as Partial<ServerCapabilities> as ServerCapabilities);
+      (adapter as any).workerDispatcher = {};
+      const initResourceLoaderSpy = jest.spyOn(
+        adapter as any,
+        'initializeResourceLoader',
+      );
+      const prePopulateSpy = jest.spyOn(
+        adapter as any,
+        'prePopulateSymbolGraph',
+      );
+
+      const onInitializedHandler =
+        mockConnection.onInitialized.mock.calls[0][0];
+      await onInitializedHandler();
+
+      expect(initResourceLoaderSpy).not.toHaveBeenCalled();
+      expect(prePopulateSpy).not.toHaveBeenCalled();
+    });
+
     it('should handle ResourceLoader initialization successfully', async () => {
       const mockLogger = {
         debug: jest.fn(),

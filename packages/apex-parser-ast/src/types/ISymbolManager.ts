@@ -199,6 +199,12 @@ export interface ISymbolManager extends SymbolProvider {
     strategy?: SymbolResolutionStrategy,
   ): Promise<ApexSymbol | null>;
 
+  /** Resolve the semantic receiver represented by an exact `this`/`super`. */
+  getReceiverKeywordTargetAtPosition?(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol | null>;
+
   getSymbolAtPositionWithinScope(
     fileUri: string,
     position: { line: number; character: number },
@@ -237,4 +243,25 @@ export interface ISymbolManager extends SymbolProvider {
   ): Effect.Effect<T | null, never, never>;
 
   isStandardLibraryType(name: string): Promise<boolean>;
+
+  /**
+   * Begin a workspace load session - defers cross-file resolution
+   * until endWorkspaceLoadSession() is called. All addSymbolTable operations
+   * during this session will queue resolution instead of executing immediately.
+   * @param sessionId Unique identifier for this workspace load session
+   */
+  beginWorkspaceLoadSession(sessionId: string): void;
+
+  /**
+   * End workspace load session and process all deferred resolutions.
+   * @param sessionId Must match the session started with beginWorkspaceLoadSession
+   * @returns Promise that resolves to the count of files resolved
+   */
+  endWorkspaceLoadSession(sessionId: string): Promise<number>;
+
+  /**
+   * Check if a workspace load session is currently active.
+   * @returns true if beginWorkspaceLoadSession was called and endWorkspaceLoadSession has not
+   */
+  isWorkspaceLoadSessionActive(): boolean;
 }

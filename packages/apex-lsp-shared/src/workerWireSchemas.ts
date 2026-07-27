@@ -31,7 +31,7 @@ export const WorkerRole = Schema.Literal(
   'dataOwner',
   'lspRequest',
   'resourceLoader',
-  'compilation',
+  'compiler',
 );
 export type WorkerRole = Schema.Schema.Type<typeof WorkerRole>;
 
@@ -99,6 +99,31 @@ export class WorkerRemoteStdlibWarmup extends Schema.TaggedRequest<WorkerRemoteS
 ) {}
 
 // ---------------------------------------------------------------------------
+// DataOwnerPreloadStandardNamespaces — populate the authoritative symbol graph
+// with configured stdlib namespaces after the remote namespace cache is warm
+// ---------------------------------------------------------------------------
+
+export class DataOwnerPreloadStandardNamespaces extends Schema.TaggedRequest<DataOwnerPreloadStandardNamespaces>()(
+  'DataOwnerPreloadStandardNamespaces',
+  {
+    success: Schema.Struct({
+      namespaces: Schema.Array(Schema.String),
+      loadedClasses: Schema.Number,
+      totalClasses: Schema.Number,
+      missingNamespaces: Schema.Array(Schema.String),
+      failedClasses: Schema.Array(Schema.String),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('DataOwnerPreloadStandardNamespacesError'),
+      message: Schema.String,
+    }),
+    payload: {
+      namespaces: Schema.Array(Schema.String),
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // QuerySymbolSubset — enrichment worker asks data-owner for symbol tables
 // ---------------------------------------------------------------------------
 
@@ -122,6 +147,12 @@ export class QuerySymbolSubset extends Schema.TaggedRequest<QuerySymbolSubset>()
     }),
     payload: {
       uris: Schema.Array(Schema.String),
+      /**
+       * Whether serialized symbol-table entries should be returned. Defaults
+       * to true for compatibility. Live cursor requests can request metadata
+       * only because they compile their current source locally.
+       */
+      includeEntries: Schema.optional(Schema.Boolean),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -283,7 +314,8 @@ export type WorkspaceBatchIngestSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
-// CompileDocument — coordinator sends a single file to compilation worker
+// CompileDocument — coordinator asks the data owner to compile one interactive
+// document through its persistent compiler pool and commit the result locally
 // ---------------------------------------------------------------------------
 
 export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
@@ -310,20 +342,22 @@ export class CompileDocument extends Schema.TaggedRequest<CompileDocument>()(
 ) {}
 
 // ---------------------------------------------------------------------------
-// WorkspaceBatchCompile — coordinator sends a batch of files to compilation
-// worker for public-api compilation after workspace load ingest completes
+// WorkspaceBatchCompileOnDataOwner — during workspace load session, compile
+// files through the data-owner-managed Effect Worker pool, then commit results
+// directly to the authoritative symbol manager.
 // ---------------------------------------------------------------------------
 
-export class WorkspaceBatchCompile extends Schema.TaggedRequest<WorkspaceBatchCompile>()(
-  'WorkspaceBatchCompile',
+export class WorkspaceBatchCompileOnDataOwner extends Schema.TaggedRequest<WorkspaceBatchCompileOnDataOwner>()(
+  'WorkspaceBatchCompileOnDataOwner',
   {
     success: Schema.Struct({
       compiledCount: Schema.Number,
       errorCount: Schema.Number,
       elapsedMs: Schema.Number,
+      workerCount: Schema.Number,
     }),
     failure: Schema.Struct({
-      _tag: Schema.Literal('WorkspaceBatchCompileError'),
+      _tag: Schema.Literal('WorkspaceBatchCompileOnDataOwnerError'),
       message: Schema.String,
     }),
     payload: {
@@ -369,6 +403,32 @@ export class ResourceLoaderGetSymbolTable extends Schema.TaggedRequest<ResourceL
 export type ResourceLoaderGetSymbolTableSuccess = Schema.Schema.Type<
   (typeof ResourceLoaderGetSymbolTable)['success']
 >;
+
+// ---------------------------------------------------------------------------
+// ResourceLoaderGetSymbolTables — bulk stdlib symbol-table lookup
+// ---------------------------------------------------------------------------
+
+export class ResourceLoaderGetSymbolTables extends Schema.TaggedRequest<ResourceLoaderGetSymbolTables>()(
+  'ResourceLoaderGetSymbolTables',
+  {
+    success: Schema.Struct({
+      /** Class path to JSON-encoded symbol table; missing paths are omitted. */
+      entries: Schema.Record({
+        key: Schema.String,
+        value: Schema.Unknown,
+      }),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResourceLoaderError'),
+      message: Schema.String,
+    }),
+    payload: {
+      classPaths: Schema.Array(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
 
 // ---------------------------------------------------------------------------
 // ResourceLoaderGetFile — source code for goto-definition
@@ -588,6 +648,7 @@ export class DispatchHover extends Schema.TaggedRequest<DispatchHover>()(
       textDocument: WireTextDocumentId,
       position: WirePosition,
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -607,6 +668,7 @@ export class DispatchDefinition extends Schema.TaggedRequest<DispatchDefinition>
       // — which the dataOwner only stores at public-api detail — exist for
       // position→declaration resolution. Mirrors DispatchHover.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -625,6 +687,7 @@ export class DispatchCompletion extends Schema.TaggedRequest<DispatchCompletion>
       // edits, so the request worker compiles this rather than the dataOwner's
       // last-stored version.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       // CompletionContext: triggerKind (1=Invoked, 2=TriggerCharacter,
       // 3=TriggerForIncompleteCompletions) + optional triggerCharacter.
       context: Schema.optional(
@@ -650,6 +713,7 @@ export class DispatchSignatureHelp extends Schema.TaggedRequest<DispatchSignatur
       // Live (possibly unsaved) document text — signature help runs on in-flight
       // edits while typing call arguments.
       content: Schema.optional(Schema.String),
+      documentVersion: Schema.optional(Schema.Number),
       // SignatureHelpContext is opaque to the wire layer; the service narrows.
       context: Schema.optional(Schema.Unknown),
       /** W3C traceparent for distributed tracing (optional) */
@@ -709,6 +773,9 @@ export class DispatchImplementation extends Schema.TaggedRequest<DispatchImpleme
     payload: {
       textDocument: WireTextDocumentId,
       position: WirePosition,
+      // Live text is required when implementation is requested on a symbol in
+      // a method body; the public-API workspace table omits that cursor data.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -755,6 +822,9 @@ export class DispatchDiagnostic extends Schema.TaggedRequest<DispatchDiagnostic>
     failure: DispatchError,
     payload: {
       textDocument: WireTextDocumentId,
+      // Diagnostics must validate the current editor buffer, not a potentially
+      // older data-owner snapshot.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -936,6 +1006,24 @@ export class EnsureWorkspaceLoaded extends Schema.TaggedRequest<EnsureWorkspaceL
 ) {}
 
 // ---------------------------------------------------------------------------
+// BeginWorkspaceLoadSession — coordinator asks the data-owner to begin a workspace
+// load session. This activates deferred cross-file resolution mode for all
+// subsequent UpdateSymbolSubset write-backs until DrainDeferredReferences ends
+// the session. Sent once before the first workspace batch ingest chunk.
+// ---------------------------------------------------------------------------
+
+export class BeginWorkspaceLoadSession extends Schema.TaggedRequest<BeginWorkspaceLoadSession>()(
+  'BeginWorkspaceLoadSession',
+  {
+    success: Schema.Struct({ ok: Schema.Literal(true) }),
+    failure: Schema.Never,
+    payload: {
+      sessionId: Schema.String,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // DrainDeferredReferences — coordinator asks the data-owner to synchronously
 // drain its deferred cross-file references into graph edges. Sent once after a
 // batch compile/ingest completes so cross-file incoming edges are fully
@@ -947,12 +1035,15 @@ export class DrainDeferredReferences extends Schema.TaggedRequest<DrainDeferredR
   {
     success: Schema.Struct({
       resolved: Schema.Number, // Count of deferred references turned into edges
+      processedCount: Schema.Number, // Count of files resolved (from endWorkspaceSession)
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('DrainDeferredReferencesError'),
       message: Schema.String,
     }),
     payload: {
+      /** Session ID for workspace load (optional for backward compatibility) */
+      sessionId: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -1053,6 +1144,7 @@ export const DataOwnerTags = [
   'WorkerInit',
   'PingWorker',
   'WorkerRemoteStdlibWarmup',
+  'DataOwnerPreloadStandardNamespaces',
   'QuerySymbolSubset',
   'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
@@ -1060,6 +1152,8 @@ export const DataOwnerTags = [
   'ResolveDependentUris',
   'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
+  'WorkspaceBatchCompileOnDataOwner',
+  'BeginWorkspaceLoadSession',
   'DrainDeferredReferences',
   'QueryGraphData',
   'DataOwnerQuerySymbolByName',
@@ -1067,6 +1161,7 @@ export const DataOwnerTags = [
   'DispatchDocumentChange',
   'DispatchDocumentSave',
   'DispatchDocumentClose',
+  'CompileDocument',
 ] as const;
 export type DataOwnerTag = (typeof DataOwnerTags)[number];
 
@@ -1094,22 +1189,21 @@ export type LspRequestTag = (typeof LspRequestTags)[number];
 export const ResourceLoaderTags = [
   'WorkerInit',
   'PingWorker',
+  'WorkerRemoteStdlibWarmup',
   'ResourceLoaderGetSymbolTable',
+  'ResourceLoaderGetSymbolTables',
   'ResourceLoaderGetFile',
   'ResourceLoaderResolveClass',
   'ResourceLoaderGetStandardNamespaces',
 ] as const;
 export type ResourceLoaderTag = (typeof ResourceLoaderTags)[number];
 
-/** Tags accepted by a compilation worker */
-export const CompilationTags = [
-  'WorkerInit',
-  'PingWorker',
-  'WorkerRemoteStdlibWarmup',
-  'CompileDocument',
-  'WorkspaceBatchCompile',
+/** Tags accepted by a compiler worker */
+export const CompilerTags = [
+  'InitializeCompilationWorker',
+  'CompileApexFile',
 ] as const;
-export type CompilationTag = (typeof CompilationTags)[number];
+export type CompilerTag = (typeof CompilerTags)[number];
 
 /** All known worker request tags */
 export const AllWorkerTags = [
@@ -1117,7 +1211,7 @@ export const AllWorkerTags = [
     ...DataOwnerTags,
     ...LspRequestTags,
     ...ResourceLoaderTags,
-    ...CompilationTags,
+    ...CompilerTags,
   ]),
 ] as const;
 export type WorkerTag = (typeof AllWorkerTags)[number];
@@ -1131,6 +1225,7 @@ export type DataOwnerRequest =
   | WorkerInit
   | PingWorker
   | WorkerRemoteStdlibWarmup
+  | DataOwnerPreloadStandardNamespaces
   | QuerySymbolSubset
   | AwaitSymbolReadiness
   | UpdateSymbolSubset
@@ -1138,13 +1233,16 @@ export type DataOwnerRequest =
   | ResolveDependentUris
   | FindOccurrenceCandidates
   | WorkspaceBatchIngest
+  | WorkspaceBatchCompileOnDataOwner
+  | BeginWorkspaceLoadSession
   | DrainDeferredReferences
   | QueryGraphData
   | DataOwnerQuerySymbolByName
   | DispatchDocumentOpen
   | DispatchDocumentChange
   | DispatchDocumentSave
-  | DispatchDocumentClose;
+  | DispatchDocumentClose
+  | CompileDocument;
 
 /** Request types the coordinator may send to an LSP-request pool worker */
 export type LspRequestMessage =
@@ -1168,21 +1266,15 @@ export type LspRequestMessage =
 export type ResourceLoaderRequest =
   | WorkerInit
   | PingWorker
+  | WorkerRemoteStdlibWarmup
   | ResourceLoaderGetSymbolTable
+  | ResourceLoaderGetSymbolTables
   | ResourceLoaderGetFile
   | ResourceLoaderResolveClass
   | ResourceLoaderGetStandardNamespaces;
 
-/** Request types the coordinator may send to a compilation worker */
-export type CompilationRequest =
-  | WorkerInit
-  | PingWorker
-  | WorkerRemoteStdlibWarmup
-  | CompileDocument
-  | WorkspaceBatchCompile;
-
 /** Current wire protocol version — bump on breaking schema changes */
-export const WIRE_PROTOCOL_VERSION = 1;
+export const WIRE_PROTOCOL_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Side-channel messages (plain objects via postMessage, not Schema requests)
@@ -1209,7 +1301,7 @@ export function isAllowedTag(role: WorkerRole, tag: string): boolean {
       return (LspRequestTags as readonly string[]).includes(tag);
     case 'resourceLoader':
       return (ResourceLoaderTags as readonly string[]).includes(tag);
-    case 'compilation':
-      return (CompilationTags as readonly string[]).includes(tag);
+    case 'compiler':
+      return (CompilerTags as readonly string[]).includes(tag);
   }
 }

@@ -136,6 +136,21 @@ describe('WorkerCoordinator', () => {
         expect(result.detailLevels['file:///a.cls']).toBe('public-api');
       });
 
+      it('returns metadata without symbol entries when requested', async () => {
+        const result = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new QuerySymbolSubset({
+              uris: ['file:///a.cls'],
+              includeEntries: false,
+            }),
+          ),
+        );
+
+        expect(result.entries).toEqual({});
+        expect(result.versions['file:///a.cls']).toBe(-1);
+        expect(result.detailLevels['file:///a.cls']).toBe('public-api');
+      });
+
       it('data-owner handles UpdateSymbolSubset and rejects when document not found', async () => {
         const result = await Effect.runPromise(
           topology.dataOwner.executeEffect(
@@ -473,13 +488,12 @@ describe('WorkerCoordinator', () => {
       expect(topology.dataOwner._tag).toBe('WorkerHandle');
       expect(topology.requestPool._tag).toBe('PoolHandle');
       expect(topology.resourceLoader).not.toBeNull();
-      expect(topology.compilation._tag).toBe('WorkerHandle');
+      expect(topology.compilationPoolSize).toBe(2);
       expect(transport.spawnCalls).toContain('dataOwner');
       expect(transport.spawnCalls).toContain('resourceLoader');
-      expect(transport.spawnCalls).toContain('compilation');
+      expect(transport.spawnCalls).not.toContain('compilation');
       expect(transport.spawnCalls[0]).toBe('resourceLoader');
       expect(transport.spawnCalls[1]).toBe('dataOwner');
-      expect(transport.spawnCalls[2]).toBe('compilation');
       expect(
         transport.spawnCalls.find((s) => s.startsWith('pool:')),
       ).toBeDefined();
@@ -498,7 +512,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -507,54 +522,60 @@ describe('WorkerCoordinator', () => {
       expect(dispatcher.canDispatch('completion')).toBe(true);
       expect(dispatcher.canDispatch('rename')).toBe(false);
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
-    });
-
-    it('makeTransportDispatcher routes documentOpen to both data-owner and compilation', async () => {
-      const transport = new MockWorkerTransport();
-      const logger = createSpyLogger();
-      const dataOwner: WorkerHandle = {
-        _tag: 'WorkerHandle',
-        role: 'dataOwner',
-      };
-      const compilation: WorkerHandle = {
-        _tag: 'WorkerHandle',
-        role: 'compilation',
-      };
-      const dispatcher = makeTransportDispatcher(
-        {
-          transport,
-          dataOwner,
-          requestPool: {
-            _tag: 'PoolHandle',
-            role: 'lspRequest',
-            size: 2,
-          },
-          resourceLoader: null,
-          compilation,
-        },
-        logger,
-      );
-
-      await dispatcher.dispatch('documentOpen', {
-        document: {
-          uri: 'file:///Test.cls',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'public class Test {}',
-        },
+      expect(dispatcher.getTopologyStatus?.().compilation).toEqual({
+        active: true,
+        poolSize: 2,
       });
-
-      expect(transport.sendCalls.length).toBe(2);
-      const roles = transport.sendCalls.map((c: { role: string }) => c.role);
-      expect(roles).toContain('dataOwner');
-      expect(roles).toContain('compilation');
-      // The data-owner store MUST be sent before the compile. The compile
-      // writes its symbols back via dataOwner:UpdateSymbolSubset, which the
-      // data-owner rejects ("document not found") if the document isn't stored
-      // yet. Sequencing store→compile prevents the cold-open write-back drop
-      // that left the symbol graph empty ("No Symbols" on first open).
-      expect(roles).toEqual(['dataOwner', 'compilation']);
     });
+
+    it.each([
+      ['documentOpen', 'DispatchDocumentOpen'],
+      ['documentChange', 'DispatchDocumentChange'],
+      ['documentSave', 'DispatchDocumentSave'],
+    ] as const)(
+      'makeTransportDispatcher routes %s storage and compilation to the data owner',
+      async (requestType, storageTag) => {
+        const transport = new MockWorkerTransport();
+        const logger = createSpyLogger();
+        const dataOwner: WorkerHandle = {
+          _tag: 'WorkerHandle',
+          role: 'dataOwner',
+        };
+        const dispatcher = makeTransportDispatcher(
+          {
+            transport,
+            dataOwner,
+            requestPool: {
+              _tag: 'PoolHandle',
+              role: 'lspRequest',
+              size: 2,
+            },
+            resourceLoader: null,
+            compilationPoolSize: 2,
+            compilationConcurrency: 1,
+          },
+          logger,
+        );
+
+        await dispatcher.dispatch(requestType, {
+          document: {
+            uri: 'file:///Test.cls',
+            languageId: 'apex',
+            version: 1,
+            getText: () => 'public class Test {}',
+          },
+        });
+
+        expect(transport.sendCalls.length).toBe(2);
+        const roles = transport.sendCalls.map((c: { role: string }) => c.role);
+        expect(roles).toEqual(['dataOwner', 'dataOwner']);
+        expect(
+          transport.sendCalls.map(
+            (call: { request: { _tag: string } }) => call.request._tag,
+          ),
+        ).toEqual([storageTag, 'CompileDocument']);
+      },
+    );
 
     it('makeTransportDispatcher awaits the data-owner store before dispatching the compile', async () => {
       // Stronger than ordering of recorded calls: prove the compile send does
@@ -573,14 +594,15 @@ describe('WorkerCoordinator', () => {
           request: R,
         ): Effect.Effect<unknown, TransportSendError> {
           this.sendCalls.push({ role: handle.role, request });
-          if (handle.role === 'dataOwner') {
+          const tag = (request as { _tag?: string })._tag;
+          if (tag === 'DispatchDocumentOpen') {
             return Effect.promise(async () => {
               await dataOwnerGate;
-              order.push('dataOwner');
+              order.push('store');
               return { accepted: true };
             });
           }
-          order.push('compilation');
+          order.push(tag === 'CompileDocument' ? 'compile' : handle.role);
           return Effect.succeed({ accepted: true });
         }
       }
@@ -592,7 +614,8 @@ describe('WorkerCoordinator', () => {
           dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
           requestPool: { _tag: 'PoolHandle', role: 'lspRequest', size: 2 },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -616,7 +639,51 @@ describe('WorkerCoordinator', () => {
       await dispatched;
 
       // Store resolved first, then the compile was sent.
-      expect(order).toEqual(['dataOwner', 'compilation']);
+      expect(order).toEqual(['store', 'compile']);
+    });
+
+    it('does not compile when the authoritative document store fails', async () => {
+      class FailingStoreTransport extends MockWorkerTransport {
+        send<R>(
+          handle: WorkerHandle,
+          request: R,
+        ): Effect.Effect<unknown, TransportSendError> {
+          this.sendCalls.push({ role: handle.role, request });
+          return Effect.fail({
+            _tag: 'TransportSendError',
+            message: 'store failed',
+            cause: new Error('store failed'),
+          });
+        }
+      }
+
+      const transport = new FailingStoreTransport();
+      const dispatcher = makeTransportDispatcher(
+        {
+          transport,
+          dataOwner: { _tag: 'WorkerHandle', role: 'dataOwner' },
+          requestPool: { _tag: 'PoolHandle', role: 'lspRequest', size: 2 },
+          resourceLoader: null,
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
+        },
+        createSpyLogger(),
+      );
+
+      await expect(
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: 'file:///Test.cls',
+            languageId: 'apex',
+            version: 1,
+            getText: () => 'public class Test {}',
+          },
+        }),
+      ).rejects.toThrow('store failed');
+      expect(transport.sendCalls).toHaveLength(1);
+      expect((transport.sendCalls[0].request as { _tag: string })._tag).toBe(
+        'DispatchDocumentOpen',
+      );
     });
 
     it('makeTransportDispatcher routes enrichment types through transport.dispatch', async () => {
@@ -632,7 +699,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -659,7 +727,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -692,7 +761,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -723,7 +793,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );
@@ -754,7 +825,8 @@ describe('WorkerCoordinator', () => {
             size: 2,
           },
           resourceLoader: null,
-          compilation: { _tag: 'WorkerHandle', role: 'compilation' },
+          compilationPoolSize: 2,
+          compilationConcurrency: 1,
         },
         logger,
       );

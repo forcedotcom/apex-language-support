@@ -52,6 +52,10 @@ export function getExcludeGlob(includeSfdxToolsCustomObjects: boolean): string {
 }
 export const EXCLUDE_GLOB = getExcludeGlob(false);
 
+function createWorkspaceLoadSessionId(): string {
+  return `workspace-load-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 // --- Effect-wrapped VSCode API ---
 /**
  * Read file contents from URI
@@ -114,6 +118,7 @@ export async function loadWorkspaceForServer(
 
   // Get settings from configuration
   const settings = getWorkspaceSettings();
+  const sessionId = createWorkspaceLoadSessionId();
   const maxConcurrency = settings.apex.loadWorkspace.maxConcurrency;
   const excludeGlob = getExcludeGlob(
     settings.apex.loadWorkspace.includeSfdxToolsCustomObjects ?? false,
@@ -305,6 +310,7 @@ export async function loadWorkspaceForServer(
                 );
 
                 return {
+                  sessionId,
                   batchIndex: batch.batchIndex,
                   totalBatches: batch.totalBatches,
                   isLastBatch: batch.isLastBatch,
@@ -426,7 +432,10 @@ export async function loadWorkspaceForServer(
       })(
         Effect.gen(function* () {
           const tracedProcessParams =
-            yield* injectTraceContextFromCurrentEffectSpan({ totalBatches });
+            yield* injectTraceContextFromCurrentEffectSpan({
+              sessionId,
+              totalBatches,
+            });
           return yield* Effect.tryPromise({
             try: () =>
               languageClient.sendRequest(
@@ -474,6 +483,7 @@ export async function loadWorkspaceForServer(
     Effect.withSpan('workspace.load.client', {
       attributes: {
         'workspace.reason': reason ?? 'startup',
+        'workspace.session_id': sessionId,
         'workspace.pattern_count': filePatterns.length,
         'workspace.max_concurrency': maxConcurrency,
       },
