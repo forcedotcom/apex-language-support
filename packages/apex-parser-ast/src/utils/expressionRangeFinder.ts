@@ -50,8 +50,13 @@ export interface LspRange {
  * a selection, plus the anchor needed to insert a statement above it.
  */
 export interface ExpressionAtRange {
-  /** The minimal `ExpressionContext` whose span encloses the selection. */
-  expression: ExpressionContext;
+  /**
+   * @internal The minimal `ExpressionContext` whose span encloses the
+   * selection; not for consumption outside this package's accessors. Kept only
+   * so same-package finders (e.g. `findConstantExtraction`) can reuse the
+   * located node — the LS layer treats this handle as opaque.
+   */
+  readonly expression: ExpressionContext;
   /**
    * 0-based character offset (into the source) of the first character of the
    * enclosing statement. This is the insertion point for an extracted local.
