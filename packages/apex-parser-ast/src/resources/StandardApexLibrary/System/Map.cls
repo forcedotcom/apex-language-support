@@ -39,9 +39,9 @@ global class Map {
   /**
    * Returns the value to which the specified key is mapped, or null if the map contains no value for this key.
    * @param key 
-   * @return Object
+   * @return V
    */
-  global Object get(Object key) {}
+  global V get(K key) {}
 
   /**
    * Returns the token of the sObject type that makes up the map values.
@@ -63,17 +63,17 @@ global class Map {
 
   /**
    * Returns a set that contains all of the keys in the map.
-   * @return Set<Object>
+   * @return Set<K>
    */
-  global Set<Object> keySet() {}
+  global Set<K> keySet() {}
 
   /**
    * Associates the specified value with the specified key in the map.
    * @param key 
    * @param value 
-   * @return Object
+   * @return V
    */
-  global Object put(Object key, Object value) {}
+  global V put(K key, V value) {}
 
   /**
    * Copies all of the mappings from the specified map to the original map.
@@ -90,9 +90,9 @@ global class Map {
   /**
    * Removes the mapping for the specified key from the map, if present, and returns the corresponding value.
    * @param key 
-   * @return Object
+   * @return V
    */
-  global Object remove(Key key) {}
+  global V remove(K key) {}
 
   /**
    * Returns the number of key-value pairs in the map.
@@ -108,8 +108,8 @@ global class Map {
 
   /**
    * Returns a list that contains all the values in the map.
-   * @return List<Object>
+   * @return List<V>
    */
-  global List<Object> values() {}
+  global List<V> values() {}
 
 }

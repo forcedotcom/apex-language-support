@@ -630,6 +630,19 @@ export class LSPConfigurationManager {
         }
       }
 
+      // Worker topology is constructed during server initialization, before the
+      // first didChangeConfiguration notification can be processed. Apply the
+      // initial experimental settings here so topology creation observes the
+      // client-provided worker configuration instead of the defaults.
+      if (apexSettings.experimental) {
+        this.settingsManager.updateSettings({
+          apex: {
+            experimental: apexSettings.experimental,
+          },
+        } as Partial<ApexLanguageServerSettings>);
+        hasChanges = true;
+      }
+
       if (hasChanges) {
         this.logger.debug('Initial settings applied with changes detected');
       } else {

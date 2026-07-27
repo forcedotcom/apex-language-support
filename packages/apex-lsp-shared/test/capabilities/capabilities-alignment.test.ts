@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { CodeActionKind } from 'vscode-languageserver-protocol';
+
 import {
   PRODUCTION_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
@@ -288,6 +290,7 @@ describe('Capabilities Alignment Tests', () => {
           foldingRangeProvider: productionServer.foldingRangeProvider,
           diagnosticProvider: productionServer.diagnosticProvider,
           completionProvider: productionServer.completionProvider,
+          codeActionProvider: productionServer.codeActionProvider,
         },
         development: {
           documentSymbolProvider: developmentServer.documentSymbolProvider,
@@ -295,12 +298,27 @@ describe('Capabilities Alignment Tests', () => {
           foldingRangeProvider: developmentServer.foldingRangeProvider,
           diagnosticProvider: developmentServer.diagnosticProvider,
           completionProvider: developmentServer.completionProvider,
+          codeActionProvider: developmentServer.codeActionProvider,
         },
       };
 
       expect(providerComparison).toMatchSnapshot(
         'provider-capabilities-comparison',
       );
+    });
+
+    it('should advertise codeActionProvider only in development', () => {
+      // Production enablement is a separate story (W-23389340); production
+      // must continue to report no codeActionProvider.
+      expect(PRODUCTION_CAPABILITIES.codeActionProvider).toBeUndefined();
+
+      // Development advertises quick-fix + refactor.extract kinds.
+      expect(DEVELOPMENT_CAPABILITIES.codeActionProvider).toEqual({
+        codeActionKinds: [
+          CodeActionKind.QuickFix,
+          CodeActionKind.RefactorExtract,
+        ],
+      });
     });
   });
 

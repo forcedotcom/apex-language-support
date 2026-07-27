@@ -192,6 +192,29 @@ describe('LSPConfigurationManager', () => {
     configurationManager = new LSPConfigurationManager();
   });
 
+  describe('setInitialSettings', () => {
+    it('applies experimental worker settings before server initialization', () => {
+      const experimental = {
+        workers: {
+          enabled: true,
+          compilation: {
+            poolSize: 1,
+            concurrency: 1,
+          },
+        },
+      };
+
+      const result = configurationManager.setInitialSettings({
+        apex: { experimental },
+      } as Partial<ApexLanguageServerSettings>);
+
+      expect(result).toBe(true);
+      expect(mockSettingsManager.updateSettings).toHaveBeenCalledWith({
+        apex: { experimental },
+      });
+    });
+  });
+
   describe('getExtendedCapabilities', () => {
     it('should return extended capabilities from capabilities manager', () => {
       const result = configurationManager.getExtendedServerCapabilities();

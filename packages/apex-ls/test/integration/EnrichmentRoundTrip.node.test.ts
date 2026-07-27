@@ -51,15 +51,27 @@ import {
   DispatchHover,
   DispatchReferences,
   DispatchImplementation,
+  DispatchCodeAction,
   getLogger,
   enableConsoleLogging,
   setLogLevel,
+  type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
 const LOG_LEVEL = 'error';
+const COMPILATION_POOL_SIZE = 2;
+const workerLayerFactory = (role: WorkerRole) =>
+  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
+    ...TSX_OPTIONS,
+    workerData: {
+      role,
+      compilationPoolSize: COMPILATION_POOL_SIZE,
+      compilationConcurrency: 1,
+    },
+  });
 
 // A class with an interface + implementor in one file, so go-to-implementation
 // and references have real edges to resolve, while staying self-contained
@@ -158,7 +170,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
   const runFeature = (
     makeRequest: () =>
-      DispatchHover | DispatchReferences | DispatchImplementation,
+      | DispatchHover
+      | DispatchReferences
+      | DispatchImplementation
+      | DispatchCodeAction,
+    // Some features (codeAction extract refactorings) need a self-contained,
+    // cleanly-parsing source rather than the interface+implementor SAMPLE
+    // (which intentionally carries cross-file edges for hover/references and
+    // does not parse error-free). Override the opened document per test.
+    opened: { uri: string; source: string } = { uri: URI, source: SAMPLE },
   ) =>
     Effect.gen(function* () {
       const topology = yield* initializeTopology({
@@ -166,8 +186,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
-      const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => opened.source,
+      );
       wireProductionMediator(topology, dispatcher, logger);
       // Prime the pool worker's remote-stdlib namespace cache (LCSAdapter runs
       // this after attaching the mediator). Without it, the first stdlib lookup
@@ -179,13 +206,13 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       yield* Effect.promise(() =>
         dispatcher.dispatch('documentOpen', {
           document: {
-            uri: URI,
+            uri: opened.uri,
             languageId: 'apex',
             version: 1,
-            getText: () => SAMPLE,
+            getText: () => opened.source,
           },
-          textDocument: { uri: URI },
-          text: SAMPLE,
+          textDocument: { uri: opened.uri },
+          text: opened.source,
         }),
       );
 
@@ -197,10 +224,39 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         makeRequest() as never,
       ) as Effect.Effect<unknown, never, never>) as { result: unknown };
       return response;
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    ) as Effect.Effect<{ result: unknown }, never, never>;
+    }).pipe(Effect.scoped) as Effect.Effect<{ result: unknown }, never, never>;
+
+  it('preloads configured stdlib namespaces into the DataOwner graph', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger);
+      wireProductionMediator(topology, dispatcher, logger);
+
+      return yield* runRemoteStdlibWarmupPhase(topology, 1, [
+        'Database',
+        'System',
+      ]);
+    }).pipe(Effect.scoped);
+
+    const result = await Effect.runPromise(program);
+
+    expect(result).toBeDefined();
+    expect(
+      result?.namespaces.map((namespace) => namespace.toLowerCase()),
+    ).toEqual(expect.arrayContaining(['database', 'system']));
+    expect(result?.missingNamespaces).toEqual([]);
+    expect(result?.loadedClasses).toBeGreaterThan(0);
+    expect(result?.failedClasses).toEqual([]);
+    expect(result?.loadedClasses).toBe(result?.totalClasses);
+  }, 120_000);
 
   it('completes a hover round-trip end-to-end', async () => {
     const response = await Effect.runPromise(
@@ -260,6 +316,63 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     expect('result' in response).toBe(true);
   }, 120_000);
 
+  // Phase 4 integration coverage (W-22629623): prove the codeAction request
+  // travels WorkerCoordinator → worker.platform.shared (DispatchCodeAction) →
+  // CodeActionProcessingService and returns real WorkspaceEdits, not just a
+  // settled (possibly null) result. The extract refactorings compute their
+  // edits off the local CST parse, so they produce edits deterministically —
+  // this is an edit assertion, not merely a "did it come back" check.
+  it('completes a codeAction round-trip end-to-end with a WorkspaceEdit', async () => {
+    // Self-contained, cleanly-parsing class with a single extractable
+    // expression (`1 + 2 * 3`) in a local-variable declaration.
+    const EXTRACT_URI = 'file:///test/Extract.cls';
+    const EXTRACT_SOURCE = [
+      'public class Extract {',
+      '  public void run() {',
+      '    Integer total = 1 + 2 * 3;',
+      '  }',
+      '}',
+    ].join('\n');
+    // 0-based line/character of `2 * 3` on line 3.
+    const exprCol = EXTRACT_SOURCE.split('\n')[2].indexOf('2 * 3');
+
+    const response = await Effect.runPromise(
+      runFeature(
+        () =>
+          new DispatchCodeAction({
+            textDocument: { uri: EXTRACT_URI },
+            range: {
+              start: { line: 2, character: exprCol },
+              end: { line: 2, character: exprCol + '2 * 3'.length },
+            },
+            content: EXTRACT_SOURCE,
+            context: { diagnostics: [] },
+          }),
+        { uri: EXTRACT_URI, source: EXTRACT_SOURCE },
+      ),
+    );
+
+    logger.debug(
+      `[round-trip:codeAction] completed result=${JSON.stringify(response.result)}`,
+    );
+    expect(response).toBeDefined();
+    expect('result' in response).toBe(true);
+
+    // The service returns an array of CodeActions; the extract refactorings
+    // carry an eager `edit` (WorkspaceEdit) with no resolve round-trip.
+    const actions = response.result as Array<{
+      title?: string;
+      edit?: { changes?: Record<string, unknown[]> };
+    }>;
+    expect(Array.isArray(actions)).toBe(true);
+    const withEdit = actions.filter((a) => a.edit?.changes);
+    expect(withEdit.length).toBeGreaterThan(0);
+    // Every produced edit targets the requested document.
+    for (const action of withEdit) {
+      expect(Object.keys(action.edit!.changes!)).toContain(EXTRACT_URI);
+    }
+  }, 120_000);
+
   /**
    * CONCURRENT ENRICHMENT FROM MULTIPLE POOL WORKERS (activated from a former
    * WriteBackProtocol it.skip).
@@ -290,6 +403,9 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
       wireProductionMediator(topology, dispatcher, logger);
@@ -331,10 +447,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       };
 
       return { results, query };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { results, query } = await Effect.runPromise(program);
 
@@ -387,6 +500,9 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       // getDocumentContent serves whichever file is asked for (the coordinator's
       // TextDocuments would do this live); documentSymbol/implementation thread
@@ -420,13 +536,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       //    write-back lands at public-api; addSymbolTable must now resolve its
       //    implements edge into the data-owner reverse index.
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       const entries = [
         { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
         { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
       ];
       yield* Effect.promise(() => ingest('wf-impl-test', entries));
-      yield* Effect.promise(() => compile('wf-impl-test', entries));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-impl-test', entries }),
+      );
 
       // 3. Go-to-implementation on the interface method `run` (line 1).
       const result = yield* Effect.promise(() =>
@@ -437,10 +555,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       );
 
       return { result };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { result } = await Effect.runPromise(program);
 
@@ -484,6 +599,9 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const sources: Record<string, string> = { [IFACE_URI]: IFACE_SRC };
       const dispatcher = makeWorkerDispatcher(
@@ -510,13 +628,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
       // 2. Workspace load with ONLY the first implementor present.
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       const firstWave = [
         { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
         { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
       ];
       yield* Effect.promise(() => ingest('wf-multi-test', firstWave));
-      yield* Effect.promise(() => compile('wf-multi-test', firstWave));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-multi-test', entries: firstWave }),
+      );
 
       // 3. First go-to-implementation — populates the relationship cache with
       //    just implementor #1.
@@ -533,7 +653,9 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         { uri: IMPL2_URI, content: IMPL2_SRC, languageId: 'apex', version: 1 },
       ];
       yield* Effect.promise(() => ingest('wf-multi-test-2', secondWave));
-      yield* Effect.promise(() => compile('wf-multi-test-2', secondWave));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-multi-test-2', entries: secondWave }),
+      );
 
       // 5. Second go-to-implementation — must now return BOTH implementors.
       const secondResult = yield* Effect.promise(() =>
@@ -544,10 +666,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       );
 
       return { firstResult, secondResult };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { firstResult, secondResult } = await Effect.runPromise(program);
 
@@ -612,6 +731,9 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       // Serve whichever content each URI currently holds; updated as the
       // implementor is edited so getDocumentContent (used by request-pool
@@ -642,13 +764,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         }),
       );
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       const firstWave = [
         { uri: IFACE_URI, content: IFACE_SRC, languageId: 'apex', version: 1 },
         { uri: IMPL_URI, content: IMPL_SRC, languageId: 'apex', version: 1 },
       ];
       yield* Effect.promise(() => ingest('wf-live-test', firstWave));
-      yield* Effect.promise(() => compile('wf-live-test', firstWave));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-live-test', entries: firstWave }),
+      );
 
       // 2. First go-to-implementation — caches the current set ([FaceImpl]).
       const firstResult = yield* Effect.promise(() =>
@@ -707,10 +831,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       );
 
       return { firstResult, secondResult };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { firstResult, secondResult } = await Effect.runPromise(program);
 

@@ -98,6 +98,12 @@ export const createPrimaryAssistanceHandler = (
       if (!proxy) return {};
       return proxy.getStandardNamespaces();
     }
+    if (method === 'resourceLoader:getSymbolTables') {
+      const p = params as { classPaths: string[] };
+      const proxy = getResourceLoaderProxy();
+      if (!proxy) return {};
+      return proxy.getSymbolTables(p.classPaths);
+    }
     return connection.sendRequest(method, params);
   };
 };

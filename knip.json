@@ -11,7 +11,11 @@
         "src/server.ts",
         "src/server/webWorkerServer.ts",
         "src/worker.platform.ts",
-        "src/worker.platform.web.ts"
+        "src/worker.platform.web.ts",
+        "test/jest-setup.ts",
+        "test/setup-web.js",
+        "test/fixtures/browserCompilationPoolHarness.ts",
+        "test/fixtures/compilerLifecycleWorker.ts"
       ],
       "ignoreDependencies": [
         "@effect/platform",
@@ -43,6 +47,9 @@
         "test/**/*.ts"
       ]
     },
+    "packages/apex-lsp-shared": {
+      "entry": ["src/observability/tracing.browser.ts"]
+    },
     "packages/apex-lsp-vscode-extension": {
       "entry": [
         "src/index.ts",
@@ -52,6 +59,7 @@
         "src/webviews/graphRenderer.ts",
         "src/webviews/performanceSettingsScript.ts",
         "src/webviews/queueStateScript.ts",
+        "src/observability/extensionTracing.browser.ts",
         "src/apexlib/index.ts",
         "test/**/*.ts"
       ],

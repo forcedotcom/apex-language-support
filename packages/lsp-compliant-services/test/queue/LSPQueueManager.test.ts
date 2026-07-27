@@ -166,6 +166,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       drainAllDeferredReferences: jest.fn(),
       findSubtypes: jest.fn(),
       findSupertypes: jest.fn(),
+      beginWorkspaceLoadSession: jest.fn(),
+      endWorkspaceLoadSession: jest.fn(),
+      isWorkspaceLoadSessionActive: jest.fn(),
     };
 
     // Mock ApexSettingsManager
@@ -389,6 +392,32 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         expect(process).not.toHaveBeenCalled();
       });
 
+      it('skips a hover request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue(null);
+        serviceRegistry.register({
+          requestType: 'hover' as LSPRequestType,
+          priority: Priority.Immediate,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitHoverRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
+      });
+
       it('interrupts an in-flight references request when cancelled', async () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)
@@ -517,6 +546,147 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         fire();
 
         await expect(pending).rejects.toThrow(RequestCancelledError);
+      });
+    });
+
+    // VS Code re-requests textDocument/codeAction on nearly every cursor move,
+    // so a single interaction fires a burst for one URI. Each request forces a
+    // full-detail recompile on a shared worker slot and runs to completion even
+    // after the client supersedes it (the LSP token never crosses into the
+    // worker), starving latency-critical reads. submitCodeActionRequest coalesces
+    // per URI over a short debounce window so only the latest request dispatches.
+    describe('codeAction coalescing', () => {
+      // Same minimal CancellationToken stub as the cancellation block above.
+      const makeToken = (alreadyCancelled = false) => {
+        let cancelled = alreadyCancelled;
+        const listeners = new Set<() => void>();
+        return {
+          token: {
+            get isCancellationRequested() {
+              return cancelled;
+            },
+            onCancellationRequested(listener: () => void) {
+              listeners.add(listener);
+              return { dispose: () => listeners.delete(listener) };
+            },
+          },
+          fire() {
+            cancelled = true;
+            for (const l of listeners) l();
+          },
+        };
+      };
+
+      const codeActionParams = (uri: string) => ({
+        textDocument: { uri },
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 0 },
+        },
+        context: { diagnostics: [] },
+      });
+
+      // Replace the codeAction handler with a spy so we can assert how many
+      // requests actually reached the pool/handler after coalescing.
+      const installCodeActionSpy = () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue([]);
+        serviceRegistry.register({
+          requestType: 'codeAction' as LSPRequestType,
+          priority: Priority.Low,
+          timeout: 1000,
+          maxRetries: 0,
+          process,
+        });
+        return { manager, process };
+      };
+
+      it('collapses a burst of requests for one URI to a single dispatch', async () => {
+        const { manager, process } = installCodeActionSpy();
+
+        // Fire three requests for the same URI in the same tick; the first two
+        // are superseded before their debounce window elapses.
+        const uri = 'file:///Burst.cls';
+        const first = manager.submitCodeActionRequest(codeActionParams(uri));
+        const second = manager.submitCodeActionRequest(codeActionParams(uri));
+        const third = manager.submitCodeActionRequest(codeActionParams(uri));
+
+        await expect(first).rejects.toThrow(RequestCancelledError);
+        await expect(second).rejects.toThrow(RequestCancelledError);
+        await expect(third).resolves.toEqual([]);
+
+        // Only the surviving (latest) request did real work.
+        expect(process).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not coalesce requests for different URIs', async () => {
+        const { manager, process } = installCodeActionSpy();
+
+        const a = manager.submitCodeActionRequest(
+          codeActionParams('file:///A.cls'),
+        );
+        const b = manager.submitCodeActionRequest(
+          codeActionParams('file:///B.cls'),
+        );
+
+        await expect(a).resolves.toEqual([]);
+        await expect(b).resolves.toEqual([]);
+        expect(process).toHaveBeenCalledTimes(2);
+      });
+
+      it('a lone request survives the debounce window and dispatches', async () => {
+        const { manager, process } = installCodeActionSpy();
+
+        await expect(
+          manager.submitCodeActionRequest(codeActionParams('file:///Solo.cls')),
+        ).resolves.toEqual([]);
+        expect(process).toHaveBeenCalledTimes(1);
+      });
+
+      it('drops a request cancelled during the debounce window before dispatch', async () => {
+        const { manager, process } = installCodeActionSpy();
+        const { token, fire } = makeToken();
+
+        const pending = manager.submitCodeActionRequest(
+          codeActionParams('file:///Cancelled.cls'),
+          token,
+        );
+        // Cancel before the debounce window elapses.
+        fire();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('drops a request whose token is already cancelled without dispatching', async () => {
+        const { manager, process } = installCodeActionSpy();
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitCodeActionRequest(
+            codeActionParams('file:///Pre.cls'),
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('drains requests still in the debounce window on shutdown', async () => {
+        const { manager, process } = installCodeActionSpy();
+
+        // A request that is still waiting in its debounce window when shutdown
+        // is called must be rejected (not left to fire its timer later) and
+        // must never dispatch.
+        const pending = manager.submitCodeActionRequest(
+          codeActionParams('file:///Draining.cls'),
+        );
+
+        await manager.shutdown();
+
+        await expect(pending).rejects.toThrow(RequestCancelledError);
+        expect(process).not.toHaveBeenCalled();
       });
     });
 

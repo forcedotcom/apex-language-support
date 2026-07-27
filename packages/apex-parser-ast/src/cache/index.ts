@@ -31,3 +31,12 @@ export {
   StandardLibrarySerializer,
   type NamespaceData,
 } from './stdlib-serializer';
+
+export { getEmbeddedFqnIndexDataUrl } from './fqn-index-data';
+
+export {
+  loadFqnIndexFromGzip,
+  loadFqnIndex,
+  isValidFqnIndexCache,
+  type FqnIndexLoadResult,
+} from './fqn-index-loader';

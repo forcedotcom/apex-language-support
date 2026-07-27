@@ -3,7 +3,12 @@
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return development capabilities in development mode: capabilities-manager-development 1`] = `
 {
   "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
+  "codeActionProvider": {
+    "codeActionKinds": [
+      "quickfix",
+      "refactor.extract",
+    ],
+  },
   "codeLensProvider": {
     "resolveProvider": false,
   },
@@ -163,6 +168,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent provider capabilities: provider-capabilities-comparison 1`] = `
 {
   "development": {
+    "codeActionProvider": {
+      "codeActionKinds": [
+        "quickfix",
+        "refactor.extract",
+      ],
+    },
     "completionProvider": {
       "resolveProvider": false,
       "triggerCharacters": [
@@ -181,6 +192,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
     "hoverProvider": true,
   },
   "production": {
+    "codeActionProvider": undefined,
     "completionProvider": undefined,
     "diagnosticProvider": undefined,
     "documentSymbolProvider": true,
@@ -1692,7 +1704,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
     },
     "expectedServer": {
       "callHierarchyProvider": undefined,
-      "codeActionProvider": undefined,
+      "codeActionProvider": {
+        "codeActionKinds": [
+          "quickfix",
+          "refactor.extract",
+        ],
+      },
       "codeLensProvider": {
         "resolveProvider": false,
       },
@@ -2478,7 +2495,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     "server": {
       "development": {
         "callHierarchyProvider": undefined,
-        "codeActionProvider": undefined,
+        "codeActionProvider": {
+          "codeActionKinds": [
+            "quickfix",
+            "refactor.extract",
+          ],
+        },
         "codeLensProvider": {
           "resolveProvider": false,
         },
@@ -2652,7 +2674,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
   "serverCapabilities": {
     "development": {
       "callHierarchyProvider": undefined,
-      "codeActionProvider": undefined,
+      "codeActionProvider": {
+        "codeActionKinds": [
+          "quickfix",
+          "refactor.extract",
+        ],
+      },
       "codeLensProvider": {
         "resolveProvider": false,
       },
@@ -2864,7 +2891,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 {
   "development": {
     "callHierarchyProvider": undefined,
-    "codeActionProvider": undefined,
+    "codeActionProvider": {
+      "codeActionKinds": [
+        "quickfix",
+        "refactor.extract",
+      ],
+    },
     "codeLensProvider": {
       "resolveProvider": false,
     },
@@ -3039,7 +3071,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 exports[`Capabilities Alignment Tests Server Capabilities Configuration should have consistent development capabilities: development-server-capabilities 1`] = `
 {
   "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
+  "codeActionProvider": {
+    "codeActionKinds": [
+      "quickfix",
+      "refactor.extract",
+    ],
+  },
   "codeLensProvider": {
     "resolveProvider": false,
   },

@@ -352,15 +352,8 @@ public class TestClass {
       const loopVar = symbols.find(
         (s) => s.name === 'item' && s.kind === SymbolKind.Variable,
       );
-      // If not found as a top-level symbol, check if it's in a block scope
-      if (!loopVar) {
-        // The variable might be scoped within the for loop block
-        // This is still valid - the enhanced for loop is being processed
-        const itemsVar = symbols.find((s) => s.name === 'items');
-        expect(itemsVar).toBeDefined();
-      } else {
-        expect(loopVar).toBeDefined();
-      }
+      expect(loopVar).toBeDefined();
+      expect((loopVar as any).type?.name).toBe('String');
     });
   });
 

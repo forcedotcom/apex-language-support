@@ -237,6 +237,82 @@ describe('MissingArtifactUtils', () => {
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
+    it.each(['this', 'super'] as const)(
+      'should use the member leaf instead of treating %s as an artifact qualifier',
+      async (receiver) => {
+        const memberReference = {
+          name: 'inheritedWork',
+          context: ReferenceContext.METHOD_CALL,
+          location: {
+            identifierRange: {
+              startLine: 5,
+              startColumn: 10,
+              endLine: 5,
+              endColumn: 23,
+            },
+          },
+        };
+        const receiverChain = {
+          name: `${receiver}.inheritedWork`,
+          context: ReferenceContext.METHOD_CALL,
+          location: {
+            identifierRange: {
+              startLine: 5,
+              startColumn: 5,
+              endLine: 5,
+              endColumn: 23,
+            },
+          },
+          chainNodes: [{ name: 'inheritedWork' }],
+        };
+        const unknownType = {
+          name: 'unknown',
+          context: ReferenceContext.CLASS_REFERENCE,
+          location: receiverChain.location,
+        };
+        mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
+          unknownType,
+          receiverChain,
+          memberReference,
+        ] as any);
+
+        const result = await (utils as any).extractReferenceAtPosition(
+          'file:///test/TestClass.cls',
+          { line: 4, character: 15 },
+        );
+
+        expect(result).toBe(memberReference);
+        expect(result.name).not.toBe('unknown');
+      },
+    );
+
+    it.each(['this', 'super', 'unknown'] as const)(
+      'should reject %s as a standalone missing-artifact candidate',
+      async (name) => {
+        mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
+          {
+            name,
+            context: ReferenceContext.VARIABLE_USAGE,
+            location: {
+              identifierRange: {
+                startLine: 5,
+                startColumn: 5,
+                endLine: 5,
+                endColumn: 12,
+              },
+            },
+          },
+        ] as any);
+
+        await expect(
+          (utils as any).extractReferenceAtPosition(
+            'file:///test/TestClass.cls',
+            { line: 4, character: 7 },
+          ),
+        ).resolves.toBeNull();
+      },
+    );
+
     it('should prioritize chained reference even when it comes after individual references', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';

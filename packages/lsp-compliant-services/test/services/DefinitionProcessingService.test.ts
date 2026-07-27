@@ -10,6 +10,8 @@ import { DefinitionParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
+import { LayerEnrichmentService } from '../../src/services/LayerEnrichmentService';
+import { PrerequisiteOrchestrationService } from '../../src/services/PrerequisiteOrchestrationService';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 import * as WorkspaceLoadCoordinator from '../../src/services/WorkspaceLoadCoordinator';
 
@@ -29,6 +31,86 @@ describe('DefinitionProcessingService', () => {
   });
 
   describe('processDefinition', () => {
+    it('honors externally prepared execution without rerunning prerequisites', async () => {
+      const prerequisiteSpy = jest
+        .spyOn(
+          PrerequisiteOrchestrationService.prototype,
+          'runPrerequisitesForLspRequestType',
+        )
+        .mockResolvedValue();
+      const receiverType = {
+        id: 'receiver-class-id',
+        name: 'ReceiverClass',
+        kind: 'class',
+        fileUri: 'file:///test/ReceiverClass.cls',
+        parentId: null,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 26,
+          },
+        },
+      } as unknown as ApexSymbol;
+      const symbolManager = {
+        getReferencesAtPosition: jest.fn().mockResolvedValue([
+          {
+            name: 'this',
+            location: {
+              identifierRange: {
+                startLine: 5,
+                startColumn: 4,
+                endLine: 5,
+                endColumn: 8,
+              },
+            },
+          },
+        ]),
+        getReceiverKeywordTargetAtPosition: jest
+          .fn()
+          .mockResolvedValue(receiverType),
+        getSymbolAtPosition: jest.fn(),
+      };
+      const receiverService = new DefinitionProcessingService(
+        logger,
+        symbolManager as any,
+      );
+      receiverService.setLayerEnrichmentService({} as LayerEnrichmentService);
+
+      const result = await receiverService.processDefinition(
+        {
+          textDocument: { uri: 'file:///test/ReceiverClass.cls' },
+          position: { line: 4, character: 6 },
+        },
+        { prerequisitesPrepared: true },
+      );
+
+      expect(result).toEqual([
+        expect.objectContaining({ uri: 'file:///test/ReceiverClass.cls' }),
+      ]);
+      expect(
+        symbolManager.getReceiverKeywordTargetAtPosition,
+      ).toHaveBeenCalled();
+      expect(symbolManager.getSymbolAtPosition).not.toHaveBeenCalled();
+      expect(prerequisiteSpy).not.toHaveBeenCalled();
+
+      await receiverService.processDefinition({
+        textDocument: { uri: 'file:///test/ReceiverClass.cls' },
+        position: { line: 4, character: 6 },
+      });
+      expect(prerequisiteSpy).toHaveBeenCalledWith(
+        'definition',
+        'file:///test/ReceiverClass.cls',
+      );
+    });
+
     it('should return definition location for valid request', async () => {
       // Arrange
       const params: DefinitionParams = {

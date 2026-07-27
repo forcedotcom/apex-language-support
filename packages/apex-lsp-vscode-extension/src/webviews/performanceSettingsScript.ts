@@ -64,10 +64,18 @@ interface PerformanceSettings {
   experimental?: ExperimentalSettings;
 }
 
+interface WorkerConfig {
+  poolSize?: number;
+  concurrency?: number;
+  enabled?: boolean;
+}
+
 interface ExperimentalWorkersSettings {
   enabled: boolean;
-  poolSize: number;
-  resourceLoader: boolean;
+  lspRequest?: Pick<WorkerConfig, 'poolSize'>;
+  dataOwner?: Pick<WorkerConfig, 'concurrency'>;
+  compilation?: Pick<WorkerConfig, 'poolSize' | 'concurrency'>;
+  resourceLoader?: Pick<WorkerConfig, 'enabled'>;
 }
 
 interface ExperimentalSettings {
@@ -243,6 +251,25 @@ class PerformanceSettingsUI {
     inputs.forEach((input) => {
       input.addEventListener('input', () => this.checkDirtyState());
       input.addEventListener('change', () => this.checkDirtyState());
+
+      // Enforce min/max boundaries on number inputs
+      if (input instanceof HTMLInputElement && input.type === 'number') {
+        input.addEventListener('blur', () => {
+          const min = input.min ? parseInt(input.min, 10) : null;
+          const max = input.max ? parseInt(input.max, 10) : null;
+          const value = parseInt(input.value, 10);
+
+          if (!isNaN(value)) {
+            if (min !== null && value < min) {
+              input.value = String(min);
+              this.checkDirtyState();
+            } else if (max !== null && value > max) {
+              input.value = String(max);
+              this.checkDirtyState();
+            }
+          }
+        });
+      }
     });
   }
 
@@ -931,12 +958,11 @@ class PerformanceSettingsUI {
     experimentalSettings: ExperimentalSettings | undefined,
   ): string {
     const expanded = this.expandedSections.has('experimentalWorkers');
-    const workers: ExperimentalWorkersSettings =
-      experimentalSettings?.workers || {
-        enabled: true,
-        poolSize: 2,
-        resourceLoader: true,
-      };
+    const workers = experimentalSettings?.workers || { enabled: true };
+    const lspRequest = workers.lspRequest || {};
+    const dataOwner = workers.dataOwner || {};
+    const compilation = workers.compilation || {};
+    const resourceLoader = workers.resourceLoader || {};
 
     return `
       <div class="settings-section" id="experimentalWorkers">
@@ -957,25 +983,106 @@ class PerformanceSettingsUI {
                        ${workers.enabled ? 'checked' : ''}>
                 <span class="setting-label-text">Enable Worker Threads</span>
               </label>
-              <div class="setting-help">Master switch for internal worker thread topology (default: on)</div>
+              <div class="setting-help">
+                Master switch for internal worker thread topology (default: on)
+              </div>
             </div>
-            <div class="setting-item">
-              <label class="setting-label">
-                <span class="setting-label-text">Enrichment Pool Size</span>
-              </label>
-              <input type="number" class="setting-input"
-                     data-path="experimental.workers.poolSize"
-                     value="${workers.poolSize}" min="1" max="14">
-              <div class="setting-help">Number of enrichment/search worker threads (default: 2, max: cpus-2)</div>
-            </div>
-            <div class="setting-item">
-              <label class="setting-label">
-                <input type="checkbox"
-                       data-path="experimental.workers.resourceLoader"
-                       ${workers.resourceLoader ? 'checked' : ''}>
-                <span class="setting-label-text">Dedicated Resource Loader</span>
-              </label>
-              <div class="setting-help">Spawn a dedicated worker for stdlib/library loading (default: on)</div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-group-title">Worker Configuration</div>
+            <table class="settings-table">
+              <thead>
+                <tr>
+                  <th>Worker</th>
+                  <th>
+                    Pool Size<br>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--vscode-descriptionForeground);">
+                      (1–14)
+                    </span>
+                  </th>
+                  <th>
+                    Concurrency<br>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--vscode-descriptionForeground);">
+                      (1–50)
+                    </span>
+                  </th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>LSP Request</strong></td>
+                  <td>
+                    <input type="number" class="setting-input table-input"
+                           data-path="experimental.workers.lspRequest.poolSize"
+                           value="${lspRequest.poolSize ?? 3}" min="1" max="14"
+                           placeholder="3">
+                  </td>
+                  <td>
+                    <span title="Managed internally by Effect Worker">managed</span>
+                  </td>
+                  <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                    CPU-bound operations (documentSymbol, hover, etc.)
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>DataOwner</strong></td>
+                  <td>
+                    <span title="Single authoritative graph owner">1 (fixed)</span>
+                  </td>
+                  <td>
+                    <input type="number" class="setting-input table-input"
+                           data-path="experimental.workers.dataOwner.concurrency"
+                           value="${dataOwner.concurrency ?? 10}" min="1" max="50"
+                           placeholder="10">
+                  </td>
+                  <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                    Symbol graph management and updates
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Compilation</strong></td>
+                  <td>
+                    <input type="number" class="setting-input table-input"
+                           data-path="experimental.workers.compilation.poolSize"
+                           value="${compilation.poolSize ?? 2}" min="1" max="14"
+                           placeholder="2">
+                  </td>
+                  <td>
+                    <input type="number" class="setting-input table-input"
+                           data-path="experimental.workers.compilation.concurrency"
+                           value="${compilation.concurrency ?? 1}" min="1" max="20"
+                           placeholder="1">
+                  </td>
+                  <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                    File parsing and compilation (concurrency max: 20)
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Resource Loader</strong>
+                    <label style="margin-left: 8px; font-weight: normal;">
+                      <input type="checkbox"
+                             data-path="experimental.workers.resourceLoader.enabled"
+                             ${(resourceLoader.enabled ?? true) ? 'checked' : ''}>
+                      enabled
+                    </label>
+                  </td>
+                  <td>
+                    <span title="Single resource owner">1 (fixed)</span>
+                  </td>
+                  <td>
+                    <span title="Resource loading is serialized">1 (fixed)</span>
+                  </td>
+                  <td style="font-size: 12px; color: var(--vscode-descriptionForeground);">
+                    Standard library and metadata loading
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="setting-help" style="margin-top: 8px;">
+              Pool Size: number of worker processes. Concurrency: max in-flight requests per worker.
             </div>
           </div>
         </div>
