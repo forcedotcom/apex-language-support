@@ -136,7 +136,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
