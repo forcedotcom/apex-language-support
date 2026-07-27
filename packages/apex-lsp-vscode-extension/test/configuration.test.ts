@@ -197,8 +197,19 @@ describe('Configuration Module', () => {
           experimental: {
             workers: {
               enabled: true,
-              poolSize: 3,
-              resourceLoader: true,
+              lspRequest: {
+                poolSize: 3,
+              },
+              dataOwner: {
+                concurrency: 10,
+              },
+              compilation: {
+                poolSize: 2,
+                concurrency: 1,
+              },
+              resourceLoader: {
+                enabled: true,
+              },
             },
           },
           version: undefined,

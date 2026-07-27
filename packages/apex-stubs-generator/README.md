@@ -37,6 +37,15 @@ The generator will:
 
 Running without `bytecode.xml` produces docs-only stubs (reduced coverage).
 
+## Follow-up: generic collection signatures
+
+The generated collection stubs currently erase some generic relationships to
+`Object`. For example, `Map.keySet()` is generated as `Set<Object>` rather than
+`Set<K>`. Correcting `Map<K, V>`, `List<T>`, and `Set<T>` signatures belongs in
+the stub generator and its source-data normalization, not in hover rendering.
+Generated files under `StandardApexLibrary` should not be the permanent source
+of this correction because regeneration would overwrite them.
+
 ### Validate
 
 After generation, validate stub counts against the expected namespace totals:

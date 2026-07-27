@@ -43,12 +43,23 @@ import {
   enableConsoleLogging,
   setLogLevel,
   LoggerInterface,
+  type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
 const LOG_LEVEL = 'debug';
+const COMPILATION_POOL_SIZE = 2;
+const workerLayerFactory = (role: WorkerRole) =>
+  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
+    ...TSX_OPTIONS,
+    workerData: {
+      role,
+      compilationPoolSize: COMPILATION_POOL_SIZE,
+      compilationConcurrency: 1,
+    },
+  });
 
 // A utility class whose instance method `greet` is called from TWO other files,
 // twice in one of them — three cross-file call sites in total. Self-contained
@@ -159,6 +170,9 @@ describe('find-references through the worker topology (location count)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -185,9 +199,11 @@ describe('find-references through the worker topology (location count)', () => {
       );
 
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       yield* Effect.promise(() => ingest('wf-refs-count', ALL_ENTRIES));
-      yield* Effect.promise(() => compile('wf-refs-count', ALL_ENTRIES));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-refs-count', entries: ALL_ENTRIES }),
+      );
 
       // find-references on the `RefUtil` TYPE usage in caller A — the cursor is
       // on `RefUtil` in `RefUtil u = new RefUtil()` (line 2). find-references
@@ -204,10 +220,7 @@ describe('find-references through the worker topology (location count)', () => {
       );
 
       return { result };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { result } = await Effect.runPromise(program);
     logger.debug(`[D2] ${JSON.stringify(result)}`);
@@ -241,6 +254,9 @@ describe('find-references through the worker topology (location count)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -264,9 +280,11 @@ describe('find-references through the worker topology (location count)', () => {
       );
 
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       yield* Effect.promise(() => ingest('wf-refs-idem', ALL_ENTRIES));
-      yield* Effect.promise(() => compile('wf-refs-idem', ALL_ENTRIES));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-refs-idem', entries: ALL_ENTRIES }),
+      );
 
       const dispatchRefs = () =>
         Effect.promise(() =>
@@ -297,10 +315,7 @@ describe('find-references through the worker topology (location count)', () => {
       const second = yield* dispatchRefs();
 
       return { first, second };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { first, second } = await Effect.runPromise(program);
 
@@ -326,6 +341,9 @@ describe('find-references through the worker topology (location count)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(
         topology,
@@ -349,9 +367,11 @@ describe('find-references through the worker topology (location count)', () => {
       );
 
       const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createBatchCompileDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
       yield* Effect.promise(() => ingest('wf-refs-nodecl', ALL_ENTRIES));
-      yield* Effect.promise(() => compile('wf-refs-nodecl', ALL_ENTRIES));
+      yield* Effect.promise(() =>
+        compile({ sessionId: 'wf-refs-nodecl', entries: ALL_ENTRIES }),
+      );
 
       const result = yield* Effect.promise(() =>
         dispatcher.dispatch('references', {
@@ -362,10 +382,7 @@ describe('find-references through the worker topology (location count)', () => {
       );
 
       return { result };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { result } = await Effect.runPromise(program);
 

@@ -110,6 +110,9 @@ export {
 } from './services/GraphDataProcessingService';
 export * from './services/DiagnosticGraphCorrelationService';
 export * from './services/DiagnosticAnalysisService';
+export * from './services/LspRequestPrerequisiteMapping';
+export * from './services/LspRequestPreparationPolicy';
+export * from './services/PrerequisiteRequirements';
 
 // Export diagnostic graph types
 export * from './types/diagnosticGraph';

@@ -3937,17 +3937,20 @@ export class ApexSymbolCollectorListener
     // Capture the type being cast to
     const typeRef = ctx.typeRef();
     if (typeRef) {
-      const typeName = this.getTextFromContext(typeRef);
-      const location = this.getLocation(typeRef);
-      const parentContext = this.getCurrentMethodName();
-
-      // Use the new CAST_TYPE_REFERENCE context for cast types
-      const reference = SymbolReferenceFactory.createCastTypeReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
+      // Keep the raw collection/type identifier separate from its generic
+      // arguments. enterTypeArguments emits String in List<String> as its own
+      // GENERIC_PARAMETER_TYPE reference; storing the cast as "List<String>"
+      // makes the resolver search for a class with that literal name and gives
+      // the base type an imprecise range spanning the entire generic.
+      const extracted = this.extractTypeNameFromTypeRef(typeRef);
+      if (extracted) {
+        const reference = SymbolReferenceFactory.createCastTypeReference(
+          extracted.fullTypeName,
+          extracted.baseLocation,
+          this.getCurrentMethodName(),
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
     }
 
     // Capture the expression being cast
@@ -4055,16 +4058,49 @@ export class ApexSymbolCollectorListener
   enterEnhancedForControl(ctx: EnhancedForControlContext): void {
     try {
       const typeRef = ctx.typeRef?.();
+      const idNode = ctx.id?.();
       if (typeRef) {
-        const typeName = this.getTextFromContext(typeRef);
-        const location = this.getLocation(typeRef);
-        const parentContext = this.getCurrentMethodName();
-        const paramRef = SymbolReferenceFactory.createParameterTypeReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(paramRef);
+        const extracted = this.extractTypeNameFromTypeRef(typeRef);
+        if (extracted) {
+          const paramRef = SymbolReferenceFactory.createParameterTypeReference(
+            extracted.fullTypeName,
+            extracted.baseLocation,
+            this.getCurrentMethodName(),
+          );
+          this.symbolTable.addTypeReference(paramRef);
+        }
+
+        // Enhanced-for identifiers are declarations, not inferred usages.
+        // Without a real symbol, position lookup falls through to the source
+        // collection and can report Object for an explicitly typed variable.
+        if (idNode) {
+          const variableName = idNode.getText();
+          const currentScope = this.getCurrentScopeSymbol();
+          const existing = this.symbolTable.findSymbolInCurrentScope(
+            variableName,
+            currentScope,
+          );
+          if (!existing || existing.kind !== SymbolKind.Variable) {
+            const variable = this.createVariableSymbol(
+              idNode as unknown as ParserRuleContext,
+              this.createDefaultModifiers(),
+              variableName,
+              SymbolKind.Variable,
+              this.createTypeInfoFromTypeRef(typeRef),
+            );
+            variable._detailLevel = this.detailLevel;
+            this.symbolTable.addSymbol(variable, currentScope);
+            this.symbolTable.addTypeReference(
+              SymbolReferenceFactory.createVariableDeclarationReference(
+                variableName,
+                this.getLocationForReference(
+                  idNode as unknown as ParserRuleContext,
+                ),
+                this.getCurrentMethodName(),
+              ),
+            );
+          }
+        }
       }
 
       const expr = ctx.expression?.();

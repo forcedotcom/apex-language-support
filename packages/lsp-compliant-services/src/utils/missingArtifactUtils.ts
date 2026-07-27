@@ -9,6 +9,7 @@
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
+  ReferenceContext,
   isChainedSymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 
@@ -378,8 +379,39 @@ export class MissingArtifactUtils {
           isChainedSymbolReference(ref),
         );
 
+        const receiverKeywordChain = chainedRefs.find((ref) => {
+          const name = ref.name.trim().toLowerCase();
+          return name.startsWith('this.') || name.startsWith('super.');
+        });
+        // `this` and `super` are receiver keywords, never artifact/type names.
+        // Prefer the standalone leaf so superclass hints can identify a real
+        // missing owner instead of sending `this`, `super`, or `unknown` to
+        // the client as a class candidate.
+        const receiverMember = receiverKeywordChain
+          ? references.find(
+              (ref) =>
+                !isChainedSymbolReference(ref) &&
+                ref.name.toLowerCase() !== 'unknown' &&
+                (ref.context === ReferenceContext.METHOD_CALL ||
+                  ref.context === ReferenceContext.FIELD_ACCESS ||
+                  ref.context === ReferenceContext.PROPERTY_REFERENCE),
+            )
+          : undefined;
         const reference =
-          chainedRefs.length > 0 ? chainedRefs[0] : references[0];
+          receiverMember ??
+          (chainedRefs.length > 0 ? chainedRefs[0] : references[0]);
+        const referenceName = reference.name.trim().toLowerCase();
+        if (
+          referenceName === 'this' ||
+          referenceName === 'super' ||
+          referenceName === 'unknown'
+        ) {
+          this.logger.debug(
+            () =>
+              `Skipping non-artifact receiver/placeholder reference: ${reference.name}`,
+          );
+          return null;
+        }
 
         this.logger.debug(
           () =>
