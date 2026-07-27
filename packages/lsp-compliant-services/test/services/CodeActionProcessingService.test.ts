@@ -653,10 +653,12 @@ describe('CodeActionProcessingService', () => {
 
     /**
      * The extracted constant's leading indentation (the whitespace before the
-     * `private ... final` modifiers on the inserted line) must equal the class
-     * declaration's physical line indent plus one indent unit — NOT a value
-     * derived from the `class` keyword's column (which shifts with
-     * visibility/sharing modifiers). Returns that leading indent.
+     * `private ... final` modifiers on the inserted line) must match the
+     * existing member indentation — measured from the enclosing member's
+     * physical line indent, so it reflects the file's actual indent width
+     * (two spaces, four spaces, tabs, ...) rather than a fixed unit or the
+     * `class` keyword's column (which shifts with visibility/sharing
+     * modifiers). Returns that leading indent.
      */
     const constantIndentOf = (action: CodeAction | undefined): string => {
       expect(action).toBeDefined();
@@ -680,14 +682,15 @@ describe('CodeActionProcessingService', () => {
       const result = await service.processCodeAction(params);
       const constant = findAction(result, 'Extract constant');
 
-      // Top-level class at column 0 -> members indent exactly one unit.
+      // Members here are indented two spaces, so the constant matches at two.
       expect(constantIndentOf(constant)).toBe('  ');
     });
 
     it('indents the constant one level despite sharing/visibility modifiers', async () => {
       // Regression (W-23544057): indent was derived from the `class` keyword's
       // column, so `public with sharing class` produced ~18+ spaces of leading
-      // whitespace. The physical class-line indent is 0, so one unit is correct.
+      // whitespace. Measuring the sibling member's physical line indent (two
+      // spaces here) is correct regardless of the modifiers before `class`.
       const source = [
         'public with sharing class Extract {',
         '  public void doWork() {',
@@ -718,7 +721,26 @@ describe('CodeActionProcessingService', () => {
       const result = await service.processCodeAction(params);
       const constant = findAction(result, 'Extract constant');
 
-      // Inner class line is indented two spaces; member adds one more unit.
+      // The inner member (`    public void doWork()`) is indented four spaces,
+      // so the constant matches at four.
+      expect(constantIndentOf(constant)).toBe('    ');
+    });
+
+    it('matches four-space member indentation under a top-level class', async () => {
+      // Real-world Apex commonly indents members four spaces; the constant must
+      // line up with the members rather than assume a two-space unit.
+      const source = [
+        'public with sharing class Extract {',
+        '    public void doWork() {',
+        "        String greeting = 'hello';",
+        '    }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hello'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
       expect(constantIndentOf(constant)).toBe('    ');
     });
 

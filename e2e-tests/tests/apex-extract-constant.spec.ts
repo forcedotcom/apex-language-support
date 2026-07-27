@@ -62,14 +62,28 @@ test.describe('Apex Extract Constant Code Action', () => {
       );
 
       const content = await apexEditor.getContent();
-      // Monaco renders indentation with non-breaking spaces ( ); normalize
-      // to regular spaces so the structural regex assertions match reliably.
-      const normalized = content.replace(/ /g, ' ');
+      // Monaco renders indentation with non-breaking spaces ( ); normalize
+      // to regular spaces so the structural regex assertions (including the
+      // exact leading-space count below) match reliably.
+      const normalized = content.replace(/ /g, ' ');
 
       expect(normalized).toMatch(
         /private\s+static\s+final\s+String\s+v\d+\s*=\s*'greeting'\s*;/,
       );
       expect(normalized).not.toContain('// TODO');
+
+      // The constant must line up with the existing four-space members
+      // (regression: the indent was previously a fixed two-space unit, leaving
+      // the inserted line under-indented by two spaces). Assert the inserted
+      // line's leading whitespace is exactly four spaces — matching the
+      // fixture's members. Split on the constant line and measure its indent
+      // directly so a wrong count surfaces the actual value.
+      const constantLine = normalized
+        .split('\n')
+        .find((line) => line.includes('private static final String'));
+      expect(constantLine).toBeDefined();
+      const leadingSpaces = constantLine!.match(/^\s*/)?.[0] ?? '';
+      expect(leadingSpaces).toBe('    ');
 
       // The original literal is now replaced by the generated name.
       expect(normalized).toMatch(/String\s+message\s*=\s*v\d+\s*;/);

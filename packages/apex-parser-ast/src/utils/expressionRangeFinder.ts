@@ -9,6 +9,7 @@
 import { ParserRuleContext } from 'antlr4';
 import {
   BlockContext,
+  ClassBodyDeclarationContext,
   ClassDeclarationContext,
   ExpressionContext,
   LiteralPrimaryContext,
@@ -19,9 +20,9 @@ import {
 } from '@apexdevtools/apex-parser';
 
 /**
- * One level of member indentation for generated declarations. The Extract
- * family emits two-space indent units (matching the Extract Variable path); do
- * not introduce tabs here.
+ * One level of member indentation, used only as a fallback when the enclosing
+ * class has no sibling member to measure. The Extract family emits two-space
+ * indent units; do not introduce tabs here.
  */
 const INDENT_UNIT = '  ';
 
@@ -442,6 +443,25 @@ const isInnerClass = (classDecl: ClassDeclarationContext): boolean =>
   findEnclosingClass(classDecl) !== null;
 
 /**
+ * Walk up from `ctx` to the nearest enclosing member declaration (a
+ * `ClassBodyDeclarationContext` — method, field, property, inner type, ...), or
+ * null. The extracted constant is inserted as a sibling of this member, so its
+ * physical line indent is exactly the target member indentation.
+ */
+const findEnclosingMember = (
+  ctx: ParserRuleContext,
+): ClassBodyDeclarationContext | null => {
+  let current: ParserRuleContext | undefined = ctx.parentCtx;
+  while (current) {
+    if (current instanceof ClassBodyDeclarationContext) {
+      return current;
+    }
+    current = current.parentCtx;
+  }
+  return null;
+};
+
+/**
  * Given an expression (from {@link findExpressionAtRange}), compute the neutral
  * insertion descriptor for extracting it to a class-body constant: the offset
  * just after the enclosing class body's opening `{`, the physical member
@@ -476,13 +496,23 @@ export const findConstantExtraction = (
     // Insert immediately after the class body's opening brace.
     const insertOffset = openBrace.symbol.stop + 1;
 
-    // Physical indent of the class declaration's line + one member level.
-    // `classDecl.start` points at the `class` keyword (modifiers live in a
-    // parent context), so we measure the line's actual indentation from the
-    // char stream rather than the keyword's column — the latter shifts with
+    // Match the existing member indentation by measuring a real sibling: the
+    // member declaration that encloses the expression sits at exactly the
+    // target member level, so its physical line indent is what we want. This
+    // reflects the file's actual indent width (2 spaces, 4 spaces, tabs, ...)
+    // rather than assuming a fixed unit — the same "derive from real code"
+    // approach the Extract Variable path uses for statement indentation.
+    //
+    // Fallback (no enclosing member, e.g. a class-level field initializer):
+    // the class declaration's own line indent + one nominal unit. `classDecl
+    // .start` points at the `class` keyword (modifiers live in a parent
+    // context), so we measure the line's physical indentation from the char
+    // stream rather than the keyword's column — the latter shifts with
     // visibility/sharing modifiers (e.g. `public with sharing class`).
-    const indent =
-      physicalLineIndentAt(classDecl, classDecl.start.start) + INDENT_UNIT;
+    const enclosingMember = findEnclosingMember(expression);
+    const indent = enclosingMember
+      ? physicalLineIndentAt(enclosingMember, enclosingMember.start.start)
+      : physicalLineIndentAt(classDecl, classDecl.start.start) + INDENT_UNIT;
 
     return {
       insertOffset,
