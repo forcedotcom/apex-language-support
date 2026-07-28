@@ -2650,16 +2650,26 @@ export class LCSAdapter {
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (node): ${workerScript}`,
         );
-        const workerLayerFactory = (role: string) =>
-          makeNodeWorkerLayer(workerScript, {
+        const workerLayerFactory = (role: string) => {
+          const { execArgv, maxOldGenerationSizeMb } = buildWorkerExecArgv({
+            role,
+          });
+          return makeNodeWorkerLayer(workerScript, {
             name: `apex-worker-${role}`,
-            execArgv: buildWorkerExecArgv({ role }).execArgv,
+            execArgv,
+            // `--max-old-space-size` is illegal as a worker execArgv flag, so
+            // the builder surfaces the heap limit here instead. Only roles in
+            // HEAP_LIMITED_ROLES (the data owner) receive a value.
+            ...(maxOldGenerationSizeMb !== undefined && {
+              resourceLimits: { maxOldGenerationSizeMb },
+            }),
             workerData: {
               role,
               compilationPoolSize,
               compilationConcurrency,
             },
           });
+        };
 
         topology = yield* Effect.provideService(
           initializeTopology({ ...config, workerLayerFactory }),
