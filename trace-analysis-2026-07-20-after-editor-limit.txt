@@ -1,0 +1,153 @@
+═══════════════════════════════════════════════════════════════════════════════
+APEX-LS WORKSPACE LOAD PERFORMANCE ANALYSIS - AFTER LIMITING OPEN EDITORS
+Trace File: 2026-07-20T17-13-51-564Z.jsonl
+Total Workspace Load Time: 29.4 seconds
+═══════════════════════════════════════════════════════════════════════════════
+
+EXECUTIVE SUMMARY
+─────────────────────────────────────────────────────────────────────────────
+
+✅ SUCCESS: Limiting open editors DRAMATICALLY reduced cross-file resolution leaks!
+
+COMPARISON:
+Previous Run (many editors open):  30 resolveCrossFileReferences during load
+Current Run (limited editors):      3 resolveCrossFileReferences during load
+                                    4 resolveCrossFileReferences after DrainDeferred
+                                    
+REDUCTION: 90% reduction in leaks during workspace load (30 → 3)
+
+═══════════════════════════════════════════════════════════════════════════════
+DETAILED TIMELINE ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+Workspace Load Session:
+  BeginWorkspaceLoadSession:     1784567635362460708 (duration: 5.07ms)
+  DispatchDocumentOpen:          +19,144ms (19.1 seconds after Begin)
+  First resolveCrossFile leak:   +20,098ms (954ms after DispatchDocumentOpen)
+  Last resolveCrossFile leak:    +21,317ms (during load)
+  DrainDeferredReferences:       +29,338ms (duration: 58.76ms)
+  
+Total workspace.load.total duration: 29,448ms (~29.4 seconds)
+
+═══════════════════════════════════════════════════════════════════════════════
+CROSS-FILE RESOLUTION LEAK ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+DURING WORKSPACE LOAD (between BeginWorkspaceLoadSession and DrainDeferred):
+Count: 3 resolveCrossFileReferences calls
+File: AccountModelHealthCheckVMapper.cls (same file, 3 times)
+Scope: apex-ls-worker-lspRequest (all from LSP requests, not workspace load)
+
+Timestamps & Durations:
+  1. ts=1784567655460760208, dur=79.33ms  - triggered by DispatchDocumentOpen
+  2. ts=1784567655556087583, dur=80.05ms  - triggered by DispatchDocumentOpen
+  3. ts=1784567656679792250, dur=0.08ms   - quick follow-up
+
+AFTER DrainDeferred (post-load):
+Count: 4 additional resolveCrossFileReferences calls
+File: AccountModelHealthCheckVMapper.cls (same file, all 4)
+Scope: apex-ls-worker-lspRequest
+
+Timestamps & Durations:
+  4. ts=1784567707497084250, dur=54.23ms
+  5. ts=1784567711463371500, dur=53.19ms
+  6. ts=1784567715246748916, dur=80.11ms
+  7. ts=1784567720912181375, dur=2003.93ms (2 seconds! - likely heavy enrichment)
+
+═══════════════════════════════════════════════════════════════════════════════
+ROOT CAUSE ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+The DispatchDocumentOpen event at +19.1 seconds is triggering the leaks.
+
+Key Evidence:
+1. ONE DispatchDocumentOpen event occurs at timestamp 1784567654506708042
+   - This is 19.1 seconds AFTER BeginWorkspaceLoadSession
+   - Duration: 372ms
+   
+2. First resolveCrossFile leak happens 954ms later
+   - Strongly correlated with DispatchDocumentOpen
+   
+3. All leaks target the same file: AccountModelHealthCheckVMapper.cls
+   - This was likely the ONE open editor tab when workspace loaded
+   
+4. Pattern matches the theory:
+   - VSCode sends textDocument/didOpen for visible editors
+   - LSP handles it immediately (doesn't defer during workspace load)
+   - This triggers cross-file resolution before workspace load completes
+
+═══════════════════════════════════════════════════════════════════════════════
+UPDATE SYMBOL SUBSET STATISTICS
+═══════════════════════════════════════════════════════════════════════════════
+
+Total UpdateSymbolSubset operations: 653
+Total time: 171,504ms (171.5 seconds cumulative)
+Average duration: 262.64ms per operation
+Min duration: 4.07ms
+Max duration: 2,297ms (2.3 seconds)
+
+NOTE: These are cumulative across all parallel workers, not blocking time.
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPARISON TO PREVIOUS RUN
+═══════════════════════════════════════════════════════════════════════════════
+
+Metric                          Previous (many editors)   Current (1 editor)    Change
+─────────────────────────────────────────────────────────────────────────────
+resolveCrossFile DURING load             30 calls               3 calls       -90%
+resolveCrossFile AFTER drain            Unknown                4 calls        N/A
+Unique files affected                   Multiple               1 file         Much better!
+Total workspace load time               4.0 seconds            29.4 seconds   +25s (!!!)
+
+⚠️ WARNING: Workspace load is now 7x SLOWER (4s → 29.4s)
+
+This is NOT expected and suggests a different regression occurred between runs.
+This needs investigation - possible causes:
+  - Different workspace (EDA repo vs smaller test repo?)
+  - Network latency (org connection issues?)
+  - Cold cache (first load after restart?)
+  - More files to compile (653 UpdateSymbolSubset ops is a lot)
+  - Compilation worker contention
+
+═══════════════════════════════════════════════════════════════════════════════
+CONCLUSIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ VALIDATED: Limiting open editors reduces cross-file resolution leaks
+   - 90% reduction in leaks during workspace load (30 → 3)
+   - Remaining 3 leaks are traceable to the single open editor
+   
+🔍 ROOT CAUSE CONFIRMED: DispatchDocumentOpen
+   - VSCode sends textDocument/didOpen for visible editors
+   - Apex LS processes these immediately, bypassing workspace load deferral
+   - Solution: Defer ALL document processing until after DrainDeferred
+   
+⚠️  NEW ISSUE: 7x workspace load slowdown needs investigation
+   - Different workspace? (EDA vs smaller repo)
+   - 653 files is much larger than previous 99 files
+   - Network/org connection issues?
+   - Need to compare apples-to-apples workspaces
+   
+═══════════════════════════════════════════════════════════════════════════════
+RECOMMENDATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+IMMEDIATE:
+1. ✅ User action validated - limiting editors helps significantly
+2. Implement proper deferral in DispatchDocumentOpen handler
+   - Check if workspace load is in progress
+   - Queue document open requests until after DrainDeferred
+   - This should eliminate the remaining 3 leaks
+
+SHORT-TERM:
+3. Investigate workspace load time regression
+   - Verify workspaces are comparable (file counts, org connection)
+   - Profile the 29.4s load to find new bottleneck
+   - Check if this is EDA-specific (large codebase)
+
+VALIDATION NEEDED:
+4. Re-run test with:
+   - Same workspace as previous 4s run
+   - Zero open editors
+   - Should see ZERO leaks and ~4s load time
+   

@@ -32,10 +32,14 @@ import { Buffer } from 'buffer';
 (globalThis as any).global = globalThis;
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
+import * as Worker from '@effect/platform/Worker';
+import * as BrowserWorker from '@effect/platform-browser/BrowserWorker';
 import * as BrowserWorkerRunner from '@effect/platform-browser/BrowserWorkerRunner';
 import { Effect, Layer, Logger, LogLevel } from 'effect';
 import {
+  InitializeCompilationWorker,
   isAssistanceResponse,
+  type CompilationWorkerRequest,
   type WorkerLogMessage,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -45,12 +49,20 @@ import {
   handlers,
   AllWorkerRequests,
   setAssistanceTransport,
+  setAssignedRole,
   setWorkerId,
   setResourceLoaderLayerFactory,
   setWarmRemoteStdlibNamespaceCache,
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
+import {
+  CompilationWorkerPool,
+  fromSerializedWorkerPool,
+  makeSerializedWorkerPoolReadiness,
+  unavailableCompilationWorkerPool,
+  withCompilationWorkerStartupTimeout,
+} from './compiler/CompilationWorkerPool';
 
 // ---------------------------------------------------------------------------
 // Worker ID (no process.pid in browser)
@@ -165,10 +177,12 @@ async function warmRemoteStdlibNamespaceCache(): Promise<void> {
       'resourceLoader:getStandardNamespaces',
       {},
       true,
-    )) as { namespaces: Record<string, string[]> } | null;
-    if (!raw?.namespaces) return;
-    remoteStdlibNamespaceMap = new Map();
-    for (const [ns, classes] of Object.entries(raw.namespaces)) {
+    )) as Record<string, string[]> | null;
+    if (!raw || typeof raw !== 'object') return;
+    if (!remoteStdlibNamespaceMap) {
+      remoteStdlibNamespaceMap = new Map();
+    }
+    for (const [ns, classes] of Object.entries(raw)) {
       remoteStdlibNamespaceMap.set(
         ns.toLowerCase(),
         new Set(classes.map((c) => c.toLowerCase())),
@@ -183,6 +197,22 @@ async function makeResourceLoaderRemoteLayer() {
   const { ResourceLoaderService } =
     await import('@salesforce/apex-lsp-parser-ast');
   const L = await import('effect/Layer');
+
+  // Load FQN index from embedded artifact for local stdlib class resolution
+  let fqnIndex: Map<string, string> | null = null;
+  try {
+    const { getEmbeddedFqnIndexDataUrl, loadFqnIndexFromGzip } =
+      await import('@salesforce/apex-lsp-parser-ast');
+    const dataUrl = getEmbeddedFqnIndexDataUrl();
+    if (dataUrl) {
+      const base64 = dataUrl.split(',')[1];
+      const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      fqnIndex = loadFqnIndexFromGzip(buffer);
+    }
+  } catch {
+    // Expected in unbundled/dev builds; fall through to IPC
+  }
+
   const impl = {
     isStdApexNamespace(ns: string): boolean {
       if (!remoteStdlibNamespaceMap) return false;
@@ -213,6 +243,30 @@ async function makeResourceLoaderRemoteLayer() {
       return result;
     },
     async resolveClassFqn(className: string): Promise<string | null> {
+      // Local resolution from embedded FQN index (zero IPC)
+      if (fqnIndex) {
+        const normalizedInput = className.replace(/\.cls$/i, '');
+        const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
+
+        // Qualified input (namespace.class): try qualified key only
+        if (pathParts.length >= 2) {
+          const qualifiedKey = pathParts.join('.').toLowerCase();
+          const fqn = fqnIndex.get(qualifiedKey);
+          // If user specified a namespace explicitly, respect it — don't fall
+          // through to unqualified. Return fqn or null (miss = wrong namespace).
+          if (fqn) return fqn;
+          // Miss: the specified namespace doesn't have this class (or non-stdlib)
+          // Fall through to IPC for non-stdlib user types or edge cases
+        } else {
+          // Unqualified input: try unqualified key
+          const unqualifiedKey = pathParts[0].toLowerCase();
+          const fqn = fqnIndex.get(unqualifiedKey);
+          if (fqn) return fqn;
+          // Miss: unknown class, fall through to IPC
+        }
+      }
+
+      // Fallback: IPC to resourceLoader worker (unbundled/dev, or unknown class)
       try {
         return (await requestCoordinatorAssistancePromise(
           'resourceLoader:resolveClass',
@@ -324,6 +378,93 @@ const WorkerLoggerLayer = Layer.merge(
 
 const runnerLayer = WorkerRunner.layerSerialized(AllWorkerRequests, handlers);
 
+type WorkerPortsInit = {
+  readonly _tag: 'WorkerPortsInit';
+  readonly effectPort: MessagePort;
+  readonly assistPort: MessagePort;
+  readonly role?: string;
+  readonly compilationPoolSize?: number;
+  readonly compilationConcurrency?: number;
+  readonly workerPlatformUrl?: string;
+};
+
+function makeCompilationWorkerPoolLayer(data: WorkerPortsInit) {
+  if (data.role !== 'dataOwner') {
+    return Layer.succeed(
+      CompilationWorkerPool,
+      unavailableCompilationWorkerPool,
+    );
+  }
+  if (!data.workerPlatformUrl) {
+    return Layer.effect(
+      CompilationWorkerPool,
+      Effect.fail(
+        new Error(
+          'Browser data-owner startup requires the common worker bundle URL',
+        ),
+      ),
+    );
+  }
+
+  const requestedPoolSize = Math.max(
+    1,
+    Math.floor(data.compilationPoolSize ?? 2),
+  );
+  const hardwareConcurrency = Math.max(
+    1,
+    Math.floor(globalThis.navigator?.hardwareConcurrency ?? requestedPoolSize),
+  );
+  const poolSize = Math.min(
+    requestedPoolSize,
+    Math.max(1, hardwareConcurrency - 2),
+  );
+  const concurrency = Math.max(1, Math.floor(data.compilationConcurrency ?? 1));
+  const workerPlatformUrl = data.workerPlatformUrl;
+  const W = globalThis.Worker;
+
+  const spawnCompilerWorker = () => {
+    const rawWorker = new W(workerPlatformUrl);
+    const effectChannel = new MessageChannel();
+    const assistChannel = new MessageChannel();
+    assistChannel.port1.addEventListener('message', (event: MessageEvent) => {
+      assistPort?.postMessage(event.data);
+    });
+    assistChannel.port1.start();
+    rawWorker.postMessage(
+      {
+        _tag: 'WorkerPortsInit',
+        effectPort: effectChannel.port2,
+        assistPort: assistChannel.port2,
+        role: 'compiler',
+      },
+      [effectChannel.port2, assistChannel.port2],
+    );
+    return effectChannel.port1;
+  };
+
+  return Layer.scoped(
+    CompilationWorkerPool,
+    Effect.gen(function* () {
+      const readiness = yield* makeSerializedWorkerPoolReadiness(poolSize);
+      return yield* withCompilationWorkerStartupTimeout(
+        Effect.gen(function* () {
+          const pool =
+            yield* Worker.makePoolSerialized<CompilationWorkerRequest>({
+              size: poolSize,
+              concurrency,
+              initialMessage: () => new InitializeCompilationWorker({}),
+              onCreate: readiness.onCreate,
+            });
+          yield* readiness.awaitReady;
+          return fromSerializedWorkerPool(pool, poolSize, concurrency);
+        }),
+        readiness.initialized,
+        poolSize,
+      );
+    }).pipe(Effect.provide(BrowserWorker.layer(spawnCompilerWorker))),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Re-export shared functions for testing
 // ---------------------------------------------------------------------------
@@ -335,17 +476,19 @@ export {
   scanCandidatesForOccurrences,
   targetSymbolForCursor,
   declarationLocationForCursor,
-  writeBackCompiledSymbols,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 
 self.addEventListener('message', (event: MessageEvent) => {
-  const data = event.data as Record<string, unknown> | null;
+  const data = event.data as WorkerPortsInit | null;
   if (!data || data._tag !== 'WorkerPortsInit') return;
 
   const effectPort = data.effectPort as MessagePort;
   assistPort = data.assistPort as MessagePort;
   assistPort.start();
+  if (data.role === 'compiler') {
+    setAssignedRole('compiler');
+  }
 
   // Flush any logs buffered before the port arrived
   for (const msg of preAssistBuffer) assistPort.postMessage(msg);
@@ -354,7 +497,10 @@ self.addEventListener('message', (event: MessageEvent) => {
   WorkerRunner.launch(
     Layer.provide(
       runnerLayer,
-      BrowserWorkerRunner.layerMessagePort(effectPort),
+      Layer.merge(
+        BrowserWorkerRunner.layerMessagePort(effectPort),
+        makeCompilationWorkerPoolLayer(data),
+      ),
     ),
   ).pipe(Effect.provide(WorkerLoggerLayer), Effect.runFork);
 });

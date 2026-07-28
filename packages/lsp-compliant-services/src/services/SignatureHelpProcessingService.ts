@@ -26,6 +26,7 @@ import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
@@ -39,6 +40,7 @@ export interface ISignatureHelpProcessor {
    */
   processSignatureHelp(
     params: SignatureHelpParams,
+    context?: LspRequestExecutionContext,
   ): Promise<SignatureHelp | null>;
 }
 
@@ -91,12 +93,16 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
    */
   public async processSignatureHelp(
     params: SignatureHelpParams,
+    context?: LspRequestExecutionContext,
   ): Promise<SignatureHelp | null> {
     this.logger.debug(
       () => `Processing signature help request for: ${params.textDocument.uri}`,
     );
 
-    if (this.prerequisiteOrchestrationService) {
+    if (
+      this.prerequisiteOrchestrationService &&
+      !context?.prerequisitesPrepared
+    ) {
       try {
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'signatureHelp',

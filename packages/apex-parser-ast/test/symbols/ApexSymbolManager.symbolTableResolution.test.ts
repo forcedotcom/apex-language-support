@@ -125,6 +125,115 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       expect(stats.totalReferences).toBeGreaterThan(0);
     });
 
+    it('keeps built-in member introspection out of the same-file pass', async () => {
+      const sourceCode = `
+        public class TestClass {
+          private Date value;
+
+          public String render() {
+            return value.format();
+          }
+        }
+      `;
+      const standardClassSpy = jest.spyOn(
+        symbolManager,
+        'resolveStandardApexClass',
+      );
+      const result = new CompilerService().compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        new ApexSymbolCollectorListener(undefined, 'full'),
+      );
+      const symbolTable = result.result!;
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
+
+      expect(standardClassSpy).not.toHaveBeenCalled();
+
+      const render = (await symbolManager.findSymbolByName('render')).find(
+        (symbol) => symbol.kind === SymbolKind.Method,
+      );
+      expect(render).toBeDefined();
+      const references = await symbolManager.findReferencesFrom(render!);
+      expect(references.some((ref) => ref.symbol.name === 'value')).toBe(true);
+
+      const formatReference = symbolTable
+        .getAllReferences()
+        .find((reference) => reference.name.toLowerCase().includes('format'));
+      expect(formatReference).toBeDefined();
+      expect(formatReference?.resolvedSymbolId).toBeUndefined();
+      expect(formatReference?.chainNodes?.[0].resolvedSymbolId).toBeDefined();
+    });
+
+    it('resolves qualified same-file references case-insensitively', async () => {
+      const sourceCode = `
+        public class TestClass {
+          private String FieldOne;
+
+          public String read() {
+            return THIS.FIELDONE;
+          }
+        }
+      `;
+      const result = new CompilerService().compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        new ApexSymbolCollectorListener(undefined, 'full'),
+      );
+
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, 'file:///TestClass.cls'),
+      );
+
+      const read = (await symbolManager.findSymbolByName('read')).find(
+        (symbol) => symbol.kind === SymbolKind.Method,
+      );
+      expect(read).toBeDefined();
+      const references = await symbolManager.findReferencesFrom(read!);
+      expect(
+        references.some((ref) => ref.symbol.name.toLowerCase() === 'fieldone'),
+      ).toBe(true);
+    });
+
+    it('does not collapse a namespace-qualified type onto a local type', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public class Worker {
+            public void run() {}
+          }
+
+          private other.Worker worker;
+
+          public void execute() {
+            worker.run();
+          }
+        }
+      `;
+      const result = new CompilerService().compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        new ApexSymbolCollectorListener(undefined, 'full'),
+      );
+      const symbolTable = result.result!;
+
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
+
+      const execute = (await symbolManager.findSymbolByName('execute')).find(
+        (symbol) => symbol.kind === SymbolKind.Method,
+      );
+      expect(execute).toBeDefined();
+      const references = await symbolManager.findReferencesFrom(execute!);
+      expect(references.some((ref) => ref.symbol.name === 'run')).toBe(false);
+
+      const runReference = symbolTable
+        .getAllReferences()
+        .find((reference) => reference.name.toLowerCase().includes('run'));
+      expect(runReference?.resolvedSymbolId).toBeUndefined();
+    });
+
     it('should resolve block symbols to containing method/class from SymbolTable', async () => {
       const sourceCode = `
         public class TestClass {

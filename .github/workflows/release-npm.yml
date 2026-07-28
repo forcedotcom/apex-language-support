@@ -51,7 +51,7 @@ jobs:
           node-version: '22.x'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Determine changed NPM packages
         id: changes
@@ -100,7 +100,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Display Release Plan
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'

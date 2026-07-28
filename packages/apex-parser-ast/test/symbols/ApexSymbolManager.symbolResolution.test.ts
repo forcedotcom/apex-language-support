@@ -10,6 +10,7 @@ import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import {
   initialize as schedulerInitialize,
   shutdown as schedulerShutdown,
@@ -132,6 +133,235 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
   };
 
   describe('this.methodName() symbol resolution', () => {
+    it('prefers the resolved method over an unknown chained-return placeholder', async () => {
+      const sourceCode = loadFixture('ChainedThisMethodCall.cls');
+      const fileUri = 'file:///test/ChainedThisMethodCall.worker.cls';
+      const result = compilerService.compile(
+        sourceCode,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const lines = sourceCode.split('\n');
+      const lineIndex = lines.findIndex((line) =>
+        line.includes('this.locateAccountRecordTypeAutoDeletionService()'),
+      );
+      const methodStart = lines[lineIndex].indexOf(
+        'locateAccountRecordTypeAutoDeletionService',
+      );
+      const symbol = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: lineIndex + 1, character: methodStart + 20 },
+        'precise',
+      );
+
+      expect(symbol?.name).toBe('locateAccountRecordTypeAutoDeletionService');
+      expect(symbol?.kind).toBe('method');
+      expect(symbol?.fileUri).toBe(fileUri);
+    });
+
+    it('resolves this, super, and omitted receivers through the class hierarchy case-insensitively', async () => {
+      const baseUri = 'file:///test/ReceiverBase.cls';
+      const childUri = 'file:///test/ReceiverChild.cls';
+      const baseSource = [
+        'public virtual class ReceiverBase {',
+        '  protected virtual void inheritedWork() {}',
+        '}',
+      ].join('\n');
+      const childSource = [
+        'public class ReceiverChild extends ReceiverBase {',
+        '  private String instanceId;',
+        '  ReceiverChild(String instanceId) {',
+        '    this.instanceId = instanceId;',
+        '  }',
+        '  protected override void inheritedWork() {}',
+        '  void run() {',
+        '    this.INHERITEDWORK();',
+        '    super.inheritedWork();',
+        '    inheritedWork();',
+        '  }',
+        '}',
+      ].join('\n');
+
+      for (const [uri, source] of [
+        [baseUri, baseSource],
+        [childUri, childSource],
+      ] as const) {
+        const result = compilerService.compile(
+          source,
+          uri,
+          new FullSymbolCollectorListener(),
+          { collectReferences: true, resolveReferences: true },
+        );
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(result.result!, uri),
+        );
+      }
+
+      const childLines = childSource.split('\n');
+      const resolveOnLine = async (lineIndex: number, token: string) =>
+        symbolManager.getSymbolAtPosition(
+          childUri,
+          {
+            line: lineIndex + 1,
+            character: childLines[lineIndex].indexOf(token) + 2,
+          },
+          'precise',
+        );
+
+      const explicitThis = await resolveOnLine(7, 'INHERITEDWORK');
+      const explicitSuper = await resolveOnLine(8, 'inheritedWork');
+      const omittedThis = await resolveOnLine(9, 'inheritedWork');
+      const explicitField = await resolveOnLine(3, 'instanceId');
+      const thisPosition = {
+        line: 8,
+        character: childLines[7].indexOf('this') + 2,
+      };
+      const superPosition = {
+        line: 9,
+        character: childLines[8].indexOf('super') + 2,
+      };
+      const fieldPosition = {
+        line: 4,
+        character: childLines[3].indexOf('instanceId') + 2,
+      };
+      const thisKeyword =
+        await symbolManager.getReceiverKeywordTargetAtPosition(
+          childUri,
+          thisPosition,
+        );
+      const superKeyword =
+        await symbolManager.getReceiverKeywordTargetAtPosition(
+          childUri,
+          superPosition,
+        );
+
+      expect(explicitThis?.fileUri).toBe(childUri);
+      expect(explicitThis?.name).toBe('inheritedWork');
+      expect(explicitSuper?.fileUri).toBe(baseUri);
+      expect(explicitSuper?.name).toBe('inheritedWork');
+      expect(omittedThis?.fileUri).toBe(childUri);
+      expect(omittedThis?.name).toBe('inheritedWork');
+      expect(explicitField?.kind).toBe('field');
+      expect(thisKeyword?.fileUri).toBe(childUri);
+      expect(thisKeyword?.name).toBe('ReceiverChild');
+      expect(superKeyword?.fileUri).toBe(baseUri);
+      expect(superKeyword?.name).toBe('ReceiverBase');
+      await expect(
+        symbolManager.getSymbolAtPosition(childUri, thisPosition, 'precise'),
+      ).resolves.toBeNull();
+      await expect(
+        symbolManager.getSymbolAtPosition(childUri, superPosition, 'precise'),
+      ).resolves.toBeNull();
+      await expect(
+        symbolManager.getReceiverKeywordTargetAtPosition(
+          childUri,
+          fieldPosition,
+        ),
+      ).resolves.toBeNull();
+    });
+
+    it('resolves receiver keywords when the member chain spans lines', async () => {
+      const fileUri = 'file:///test/MultilineReceiver.cls';
+      const source = [
+        'public class MultilineReceiver {',
+        '  String value;',
+        '  void run() {',
+        '    this',
+        '      .value = super',
+        '      .toString();',
+        '  }',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const lines = source.split('\n');
+      const thisTarget = await symbolManager.getReceiverKeywordTargetAtPosition(
+        fileUri,
+        { line: 4, character: lines[3].indexOf('this') + 2 },
+      );
+
+      expect(thisTarget?.name).toBe('MultilineReceiver');
+    });
+
+    it('prefers a scoped value over a same-named enum for variable usage', async () => {
+      const fileUri = 'file:///test/EnumShadow.cls';
+      const source = [
+        'public class EnumShadow {',
+        '  enum Status { OPEN, CLOSED }',
+        '  void run() {',
+        '    Status Status = null;',
+        '    System.debug(Status);',
+        '  }',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const usageLine = source.split('\n')[4];
+      const resolved = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 5, character: usageLine.lastIndexOf('Status') + 2 },
+        'precise',
+      );
+
+      expect(resolved?.name).toBe('Status');
+      expect(resolved?.kind).toBe('variable');
+    });
+
+    it('resolves an inner enum at both its declaration and same-file usage', async () => {
+      const fileUri = 'file:///test/InnerEnum.cls';
+      const source = [
+        'public class InnerEnum {',
+        '  public enum StatusType { ACTIVE, INACTIVE }',
+        '  public void update(StatusType status) {}',
+        '}',
+      ].join('\n');
+      const result = compilerService.compile(
+        source,
+        fileUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result!, fileUri),
+      );
+
+      const declaration = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 2, character: 16 },
+        'precise',
+      );
+      const usage = await symbolManager.getSymbolAtPosition(
+        fileUri,
+        { line: 3, character: 24 },
+        'precise',
+      );
+
+      expect(declaration?.name).toBe('StatusType');
+      expect(declaration?.kind).toBe('enum');
+      expect(usage?.id).toBe(declaration?.id);
+    });
+
     it('should resolve method name in this.methodName() expression', async () => {
       const sourceCode = loadFixture('ThisMethodCall.cls');
       const fileUri = 'file:///test/ThisMethodCall.cls';

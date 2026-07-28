@@ -161,4 +161,42 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
     });
     expect(result).toEqual({ ok: true });
   });
+
+  it('batches stdlib symbol-table assistance through the resource-loader proxy', async () => {
+    const getSymbolTables = jest.fn(async (classPaths: string[]) =>
+      Object.fromEntries(
+        classPaths.map((classPath) => [classPath, { classPath }]),
+      ),
+    );
+    const handler = createPrimaryAssistanceHandler({
+      connection: {
+        sendRequest: jest.fn(),
+        sendNotification: jest.fn(),
+      } as any,
+      logger,
+      getResourceLoaderProxy: () =>
+        ({ getSymbolTables }) as unknown as ReturnType<
+          Parameters<
+            typeof createPrimaryAssistanceHandler
+          >[0]['getResourceLoaderProxy']
+        >,
+    });
+
+    const result = await handler('resourceLoader:getSymbolTables', {
+      classPaths: ['Database/Batchable.cls', 'System/Assert.cls'],
+    });
+
+    expect(getSymbolTables).toHaveBeenCalledWith([
+      'Database/Batchable.cls',
+      'System/Assert.cls',
+    ]);
+    expect(result).toEqual({
+      'Database/Batchable.cls': {
+        classPath: 'Database/Batchable.cls',
+      },
+      'System/Assert.cls': {
+        classPath: 'System/Assert.cls',
+      },
+    });
+  });
 });

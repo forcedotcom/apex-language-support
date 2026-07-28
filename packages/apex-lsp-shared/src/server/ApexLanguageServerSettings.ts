@@ -307,6 +307,20 @@ export interface SymbolGraphSettings {
 }
 
 /**
+ * Per-worker configuration for worker threads.
+ */
+export interface WorkerConfig {
+  /** Number of backing workers (Node worker threads or browser Web Workers) */
+  poolSize?: number;
+
+  /** Concurrent Effect Worker requests admitted per backing worker */
+  concurrency?: number;
+
+  /** Enable this worker (optional, for toggling specific workers) */
+  enabled?: boolean;
+}
+
+/**
  * Worker topology settings (internal language-server worker pool).
  *
  * The worker topology is fully internal to the server process; the LSP client
@@ -319,14 +333,21 @@ export interface WorkerTopologySettings {
   /** Enable the internal worker topology (default: true) */
   enabled: boolean;
 
-  /**
-   * Number of enrichment workers in the pool.
-   * Bounded by the client manifest to [1, cpus-2]; default: 2.
-   */
-  poolSize: number;
+  /** LSP request worker pool configuration */
+  lspRequest?: Pick<WorkerConfig, 'poolSize'>;
 
-  /** Run the resource loader in a dedicated worker (default: true) */
-  resourceLoader: boolean;
+  /** DataOwner worker configuration */
+  dataOwner?: Pick<WorkerConfig, 'concurrency'>;
+
+  /** Compilation worker configuration */
+  compilation?: Pick<WorkerConfig, 'poolSize' | 'concurrency'>;
+
+  /** Resource loader worker configuration */
+  resourceLoader?: Pick<WorkerConfig, 'enabled'>;
+
+  // Backward compatibility (deprecated, will be removed in future release)
+  /** @deprecated Use lspRequest.poolSize instead */
+  poolSize?: number;
 }
 
 /**

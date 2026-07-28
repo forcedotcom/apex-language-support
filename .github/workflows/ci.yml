@@ -39,7 +39,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Run linting
         run: npm run lint
@@ -112,15 +112,42 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
 
       - name: Run quality tests
         run: npm run test:quality
 
+  browser-compilation:
+    name: Browser Compilation
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Setup Node.js lts/*
+        uses: actions/setup-node@v6
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser compilation integration test
+        run: npm run test:browser-compilation --workspace=packages/apex-ls
+
   package:
     name: Package
-    needs: test
-    if: ${{ needs.test.result == 'success' }}
+    needs: [test, browser-compilation]
+    if: ${{ needs.test.result == 'success' && needs.browser-compilation.result == 'success' }}
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ github.head_ref || github.ref_name }}
@@ -130,16 +157,21 @@ jobs:
   ci-complete:
     name: CI Complete
     runs-on: ubuntu-latest
-    needs: [test, package]
+    needs: [test, browser-compilation, package]
     if: always()
     steps:
       - name: Check all jobs result
         env:
           TEST_RESULT: ${{ needs.test.result }}
+          BROWSER_COMPILATION_RESULT: ${{ needs.browser-compilation.result }}
           PACKAGE_RESULT: ${{ needs.package.result }}
         run: |
           if [[ "$TEST_RESULT" != "success" ]]; then
             echo "Test job(s) failed"
+            exit 1
+          fi
+          if [[ "$BROWSER_COMPILATION_RESULT" != "success" ]]; then
+            echo "Browser compilation job failed"
             exit 1
           fi
           if [[ "$PACKAGE_RESULT" != "success" ]]; then
@@ -150,9 +182,9 @@ jobs:
 
   slack-notify:
     name: CI Failed Notification
-    needs: [test, package]
+    needs: [test, browser-compilation, package]
     runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push' && (needs.test.result == 'failure' || needs.package.result == 'failure')
+    if: always() && github.event_name == 'push' && (needs.test.result == 'failure' || needs.browser-compilation.result == 'failure' || needs.package.result == 'failure')
     steps:
       - name: Notify Slack
         uses: slackapi/slack-github-action@v3.0.5
@@ -163,6 +195,7 @@ jobs:
               "event": "CI workflow failed, run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "repo": "${{ github.repository }}",
               "test_result": "${{ needs.test.result }}",
+              "browser_compilation_result": "${{ needs.browser-compilation.result }}",
               "package_result": "${{ needs.package.result }}",
               "branch": "${{ github.ref_name }}",
               "commit": "${{ github.sha }}"

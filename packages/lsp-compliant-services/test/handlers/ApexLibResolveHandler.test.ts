@@ -85,6 +85,33 @@ describe('ApexLibResolveHandler', () => {
   });
 
   describe('processOnResolve', () => {
+    it('should use an authoritative resource resolver when provided', async () => {
+      const params = {
+        uri: 'apexlib://resources/StandardApexLibrary/System/String.cls',
+      };
+      const resolveResourceFile = jest
+        .fn()
+        .mockResolvedValue('global class String {}');
+
+      const result = await processOnResolve(params, resolveResourceFile);
+
+      expect(result).toEqual({ content: 'global class String {}' });
+      expect(resolveResourceFile).toHaveBeenCalledWith('System/String.cls');
+      expect(mockGetDocument).not.toHaveBeenCalled();
+    });
+
+    it('should not fall back when the authoritative resource resolver misses', async () => {
+      const params = {
+        uri: 'apexlib://resources/StandardApexLibrary/System/Missing.cls',
+      };
+      const resolveResourceFile = jest.fn().mockResolvedValue(undefined);
+
+      await expect(
+        processOnResolve(params, resolveResourceFile),
+      ).rejects.toThrow(`Document not found: ${params.uri}`);
+      expect(mockGetDocument).not.toHaveBeenCalled();
+    });
+
     it('should log debug message with resolve params', async () => {
       const params = {
         uri: 'apexlib://test.cls',

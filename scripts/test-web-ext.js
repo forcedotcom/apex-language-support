@@ -733,6 +733,14 @@ async function runWebExtensionTests() {
 
     const workerSrc = path.resolve(extensionDistPath, 'server.web.js');
     const workerMapSrc = path.resolve(extensionDistPath, 'server.web.js.map');
+    const compilerWorkerSrc = path.resolve(
+      extensionDistPath,
+      'compiler.worker.web.js',
+    );
+    const compilerWorkerMapSrc = path.resolve(
+      extensionDistPath,
+      'compiler.worker.web.js.map',
+    );
 
     if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
       console.log(
@@ -765,7 +773,33 @@ async function runWebExtensionTests() {
       console.log('✅ server.web.js.map found in dist directory');
     }
 
+    if (!fs.existsSync(compilerWorkerSrc)) {
+      const apexLsCompilerWorkerSrc = path.resolve(
+        extensionDevelopmentPath,
+        '../apex-ls/dist/compiler.worker.web.js',
+      );
+      if (!fs.existsSync(apexLsCompilerWorkerSrc)) {
+        throw new Error(
+          `Compiler worker file not found: ${apexLsCompilerWorkerSrc}`,
+        );
+      }
+      fs.copyFileSync(apexLsCompilerWorkerSrc, compilerWorkerSrc);
+      console.log('✅ Copied compiler.worker.web.js from apex-ls');
+    }
+
+    if (!fs.existsSync(compilerWorkerMapSrc)) {
+      const apexLsCompilerWorkerMapSrc = path.resolve(
+        extensionDevelopmentPath,
+        '../apex-ls/dist/compiler.worker.web.js.map',
+      );
+      if (fs.existsSync(apexLsCompilerWorkerMapSrc)) {
+        fs.copyFileSync(apexLsCompilerWorkerMapSrc, compilerWorkerMapSrc);
+        console.log('✅ Copied compiler.worker.web.js.map from apex-ls');
+      }
+    }
+
     console.log(`   - Extension worker: ${workerSrc}`);
+    console.log(`   - Compiler worker: ${compilerWorkerSrc}`);
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
     console.log(`📁 Extension development path: ${extensionDevelopmentPath}`);

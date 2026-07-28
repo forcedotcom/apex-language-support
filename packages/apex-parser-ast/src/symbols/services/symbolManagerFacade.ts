@@ -233,6 +233,10 @@ export interface IEffectSymbolManagerShape {
     position: { line: number; character: number },
     strategy?: SymbolResolutionStrategy,
   ) => Effect.Effect<ApexSymbol | null>;
+  readonly getReceiverKeywordTargetAtPosition: (
+    fileUri: string,
+    position: { line: number; character: number },
+  ) => Effect.Effect<ApexSymbol | null>;
   readonly getSymbolAtPositionWithinScope: (
     fileUri: string,
     position: { line: number; character: number },
@@ -410,6 +414,12 @@ export const iEffectSymbolManagerFromLegacy = (
           Effect.promise(() =>
             legacyManager.getSymbolAtPosition(uri, pos, strategy),
           ),
+        getReceiverKeywordTargetAtPosition: (uri, pos) =>
+          legacyManager.getReceiverKeywordTargetAtPosition
+            ? Effect.promise(() =>
+                legacyManager.getReceiverKeywordTargetAtPosition!(uri, pos),
+              )
+            : Effect.succeed(null),
         getSymbolAtPositionWithinScope: (uri, pos) =>
           Effect.promise(() =>
             legacyManager.getSymbolAtPositionWithinScope(uri, pos),
