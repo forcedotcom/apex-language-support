@@ -245,6 +245,19 @@ interface ReferenceResolutionStats extends ResolverStats {
   resolveTargetMs: number;
   graphLookupMs: number;
   addReferenceMs: number;
+  localPartialResolutions: number;
+}
+
+interface SameFileSymbolIndex {
+  byId: Map<string, ApexSymbol>;
+  byName: Map<string, ApexSymbol[]>;
+  byFqn: Map<string, ApexSymbol[]>;
+  byParentId: Map<string | null, ApexSymbol[]>;
+}
+
+interface SameFileResolution {
+  target: ApexSymbol;
+  complete: boolean;
 }
 
 /**
@@ -286,6 +299,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     new Map();
   // Track files in cross-file resolution to skip concurrent/redundant calls (e.g. multiple LSP requests)
   private resolvingCrossFileRefs: Set<string> = new Set();
+  // Workspace session tracking for deferred resolution during batch load
+  private workspaceLoadSessionId: string | null = null;
+  private deferredResolutions: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
   // Batch size for initial reference processing
@@ -525,8 +541,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (symbolWasAdded && !skipPostAddBookkeeping) {
       // Sync totalSymbols from graph to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = this.symbolRefManager.getStats();
-      this.memoryStats.totalSymbols = graphStats.totalSymbols;
+      const graphCounts = this.symbolRefManager.getCounts();
+      this.memoryStats.totalSymbols = graphCounts.totalSymbols;
 
       // Update file metadata
       const existing = this.fileMetadata.get(properUri);
@@ -1225,6 +1241,67 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Begin a workspace load session - defers cross-file resolution for all
+   * subsequent UpdateSymbolSubset write-backs until endWorkspaceLoadSession()
+   * is called. Called once by the coordinator before the first ingest chunk.
+   */
+  beginWorkspaceLoadSession(sessionId: string): void {
+    this.logger.info(
+      () => `[SYMBOL-MANAGER] Begin workspace load session: ${sessionId}`,
+    );
+    this.workspaceLoadSessionId = sessionId;
+    this.deferredResolutions.clear();
+  }
+
+  /**
+   * End workspace load session and process all deferred resolutions.
+   * Returns count of files resolved.
+   */
+  async endWorkspaceLoadSession(sessionId: string): Promise<number> {
+    if (this.workspaceLoadSessionId !== sessionId) {
+      this.logger.warn(
+        () =>
+          `[SYMBOL-MANAGER] Workspace load session mismatch: active=${this.workspaceLoadSessionId}, end=${sessionId}`,
+      );
+      return 0;
+    }
+
+    const filesCount = this.deferredResolutions.size;
+    this.logger.info(
+      () =>
+        `[SYMBOL-MANAGER] End workspace load session ${sessionId}: ` +
+        `resolving ${filesCount} deferred files`,
+    );
+
+    // Resolve ONLY supertype edges (INHERITANCE/INTERFACE_IMPLEMENTATION) for
+    // deferred files in parallel. This populates the reverse index for
+    // go-to-implementation (findSubtypes) at ~1-5ms/file instead of ~85ms/file
+    // for full resolution. Ordinary cross-file refs are resolved lazily on-demand
+    // via PrerequisiteOrchestrationService per LSP request.
+    const resolutions = Array.from(this.deferredResolutions).map((uri) =>
+      Effect.runPromise(this.resolveSupertypeEdgesForFile(uri)),
+    );
+
+    // CRITICAL: Clear session state BEFORE awaiting resolutions. If the Promise.all
+    // throws (and the batch-compile drain's catchAll swallows it), the session is
+    // still closed — subsequent interactive write-backs will resolve eagerly again
+    // (fallback to eager when session inactive). Without this, a failed drain leaves
+    // workspaceLoadSessionId non-null and all future write-backs skip resolution silently.
+    this.workspaceLoadSessionId = null;
+    this.deferredResolutions.clear();
+
+    await Promise.all(resolutions);
+    return filesCount;
+  }
+
+  /**
+   * Check if a workspace load session is currently active.
+   */
+  isWorkspaceLoadSessionActive(): boolean {
+    return this.workspaceLoadSessionId !== null;
+  }
+
+  /**
    * Remove a file's symbols
    */
   async removeFile(fileUri: string): Promise<void> {
@@ -1268,8 +1345,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.symbolRefManager.removeFile(normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
-    const graphStats = this.symbolRefManager.getStats();
-    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+    const graphCounts = this.symbolRefManager.getCounts();
+    this.memoryStats.totalSymbols = graphCounts.totalSymbols;
 
     // Remove from file metadata (normalized key)
     this.fileMetadata.delete(normalizedUri);
@@ -1924,6 +2001,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
+      const inputSymbols = symbolTable.getAllSymbols();
+      const inputReferences = symbolTable.getAllReferences();
+      const unresolvedReferenceCount = inputReferences.reduce(
+        (count, reference) => count + (reference.resolvedSymbolId ? 0 : 1),
+        0,
+      );
+      const supertypeReferenceCount = inputReferences.reduce(
+        (count, reference) =>
+          count +
+          (reference.context === ReferenceContext.INHERITANCE ||
+          reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION
+            ? 1
+            : 0),
+        0,
+      );
+      const nestedSymbolCount = inputSymbols.reduce(
+        (count, symbol) =>
+          count +
+          (symbol.parentId !== null &&
+          symbol.parentId !== undefined &&
+          symbol.parentId !== 'null'
+            ? 1
+            : 0),
+        0,
+      );
+      const cacheEntriesBefore = self.unifiedCache.getStats().totalEntries;
+
+      yield* Effect.annotateCurrentSpan({
+        'symbol_manager.input.symbol_count': inputSymbols.length,
+        'symbol_manager.input.nested_symbol_count': nestedSymbolCount,
+        'symbol_manager.input.reference_count': inputReferences.length,
+        'symbol_manager.input.unresolved_reference_count':
+          unresolvedReferenceCount,
+        'symbol_manager.input.supertype_reference_count':
+          supertypeReferenceCount,
+        'symbol_manager.state.files_before': self.fileMetadata.size,
+        'symbol_manager.state.symbols_before': self.memoryStats.totalSymbols,
+        'symbol_manager.state.cache_entries_before': cacheEntriesBefore,
+        'symbol_manager.workspace_session_active':
+          self.isWorkspaceLoadSessionActive(),
+      });
+
       const existingMetadata = symbolTable.getMetadata();
       const metadataUpdate: {
         fileUri: string;
@@ -1939,13 +2058,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
       symbolTable.setMetadata(metadataUpdate);
 
-      const registration = yield* self.registerSymbolTableForFile(
-        symbolTable,
-        normalizedUri,
+      const registration = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.register',
         {
+          attributes: {
+            'symbol.count': inputSymbols.length,
+            'reference.count': inputReferences.length,
+          },
+        },
+      )(
+        self.registerSymbolTableForFile(symbolTable, normalizedUri, {
           mergeReferences: false,
           hasErrors,
-        },
+        }),
       );
 
       if (registration.decision === 'rejected-stale') {
@@ -1971,7 +2096,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Rebuild per-file reference edges from the canonical table selected by registration.
-      self.symbolRefManager.clearReferenceStateForFile(normalizedUri);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.clearReferenceState',
+      )(
+        Effect.sync(() =>
+          self.symbolRefManager.clearReferenceStateForFile(normalizedUri),
+        ),
+      );
 
       // After registration, get the canonical symbol table (may have been merged)
       const finalSymbolTable = registration.canonicalTable;
@@ -1992,26 +2123,46 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Update all symbols to use the normalized URI
       // Process in batches with yields for large symbol tables to prevent blocking
       const batchSize = 100;
-      const symbolNamesAdded = new Set<string>();
-      let yieldsPerformed = 0;
-      for (let i = 0; i < symbols.length; i++) {
-        const symbol = symbols[i];
-        // Update the symbol's fileUri to match the normalized URI
-        symbol.fileUri = normalizedUri;
+      const { symbolNamesAdded, yieldsPerformed } = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.insertSymbols',
+        {
+          attributes: {
+            'symbol.count': symbols.length,
+            'symbol.batch_size': batchSize,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          const namesAdded = new Set<string>();
+          let yieldCount = 0;
+          for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            // Update the symbol's fileUri to match the normalized URI
+            symbol.fileUri = normalizedUri;
 
-        // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
-        // Pass the registered SymbolTable to avoid creating a new one
-        yield* Effect.promise(() =>
-          self.addSymbol(symbol, normalizedUri, finalSymbolTable, true),
-        );
-        symbolNamesAdded.add(symbol.name);
+            // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
+            // Pass the registered SymbolTable to avoid creating a new one
+            yield* Effect.promise(() =>
+              self.addSymbol(symbol, normalizedUri, finalSymbolTable, true),
+            );
+            namesAdded.add(symbol.name);
 
-        // Yield every batchSize symbols to allow other tasks to run
-        if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-          yieldsPerformed++;
-          yield* yieldToEventLoop; // Yield to event loop using setImmediate
-        }
-      }
+            // Yield every batchSize symbols to allow other tasks to run
+            if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+              yieldCount++;
+              yield* yieldToEventLoop; // Yield to event loop using setImmediate
+            }
+          }
+          yield* Effect.annotateCurrentSpan({
+            'symbol.unique_name_count': namesAdded.size,
+            'symbol.event_loop_yield_count': yieldCount,
+          });
+          return {
+            symbolNamesAdded: namesAdded,
+            yieldsPerformed: yieldCount,
+          };
+        }),
+      );
 
       const addDuration = Date.now() - addStartTime;
       if (addDuration > 50 || yieldsPerformed > 0) {
@@ -2046,54 +2197,87 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
 
-      // Invalidate cache for all symbol names that were added
-      // This ensures that findSymbolByName() will see the newly added symbols
-      for (const symbolName of symbolNamesAdded) {
-        // Normalize to lowercase to match cache key format in findSymbolByName()
-        const normalizedName = symbolName.toLowerCase();
-        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-      }
+      yield* Effect.withSpan('symbolManager.addSymbolTable.invalidateCache')(
+        Effect.gen(function* () {
+          let invalidationCalls = 0;
+          let entriesExamined = 0;
+          let entriesInvalidated = 0;
+          const invalidate = (pattern: string): void => {
+            // invalidatePattern scans every current key. Capture that work at
+            // each call rather than only reporting the number of deleted keys.
+            entriesExamined += self.unifiedCache.getStats().totalEntries;
+            invalidationCalls++;
+            entriesInvalidated += self.unifiedCache.invalidatePattern(pattern);
+          };
 
-      // Invalidate file-based cache when symbols are added to a file
-      // This ensures that findSymbolsInFile() will see the newly added symbols
-      self.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+          // Invalidate cache for all symbol names that were added
+          // This ensures that findSymbolByName() will see the newly added symbols
+          for (const symbolName of symbolNamesAdded) {
+            // Normalize to lowercase to match cache key format in findSymbolByName()
+            const normalizedName = symbolName.toLowerCase();
+            invalidate(`symbol_name_${normalizedName}`);
+          }
 
-      // Also invalidate name-based cache to ensure findSymbolByName works correctly
-      for (const symbolName of symbolNamesAdded) {
-        const normalizedName = symbolName.toLowerCase();
-        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-      }
+          // Invalidate file-based cache when symbols are added to a file
+          // This ensures that findSymbolsInFile() will see the newly added symbols
+          invalidate(`file_symbols_${normalizedUri}`);
 
-      // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
-      // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
-      // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
-      // another file), so the affected target is not knowable from
-      // symbolNamesAdded alone. findReferencesTo/From cache by target name and
-      // were never invalidated here, so an interface queried while only its
-      // first implementor was loaded stayed pinned to that one implementor even
-      // after more were added (the live "only the first implementor resolves"
-      // bug). These results are a cheap indexed reverse-index lookup, so a
-      // wholesale invalidation of the family is correct and cheap to rebuild.
-      self.unifiedCache.invalidatePattern('^refs_(to|from)_');
+          // Also invalidate name-based cache to ensure findSymbolByName works correctly
+          for (const symbolName of symbolNamesAdded) {
+            const normalizedName = symbolName.toLowerCase();
+            invalidate(`symbol_name_${normalizedName}`);
+          }
+
+          // Invalidate the relationship cache (refs_to_* / refs_from_*). Adding a
+          // file's reference edges can add INBOUND edges to ANY symbol (e.g. a new
+          // implementor adds an INTERFACE_IMPLEMENTATION edge to an interface in
+          // another file), so the affected target is not knowable from
+          // symbolNamesAdded alone. findReferencesTo/From cache by target name and
+          // were never invalidated here, so an interface queried while only its
+          // first implementor was loaded stayed pinned to that one implementor even
+          // after more were added (the live "only the first implementor resolves"
+          // bug). These results are a cheap indexed reverse-index lookup, so a
+          // wholesale invalidation of the family is correct and cheap to rebuild.
+          invalidate('^refs_(to|from)_');
+
+          yield* Effect.annotateCurrentSpan({
+            'cache.entries_before': cacheEntriesBefore,
+            'cache.invalidation_call_count': invalidationCalls,
+            'cache.entries_examined': entriesExamined,
+            'cache.entries_invalidated': entriesInvalidated,
+            'cache.entries_after': self.unifiedCache.getStats().totalEntries,
+          });
+        }),
+      );
 
       // Derive positional argumentTypes for call references BEFORE building any
       // graph edges: the reverse-index edges copy each reference's argumentTypes
       // into their context, so the signature key (used to separate same-arity
       // overloads, W-23182862) must be populated first or it never reaches the
       // edge. File-local and synchronous, so this is the natural place.
-      yield* self.resolveArgumentTypesEffect(finalSymbolTable);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.resolveArgumentTypes',
+        { attributes: { 'reference.count': inputReferences.length } },
+      )(self.resolveArgumentTypesEffect(finalSymbolTable));
 
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
-      yield* self.processSameFileReferencesToGraphEffect(
-        finalSymbolTable,
-        normalizedUri,
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.processSameFileReferences',
+        { attributes: { 'reference.count': inputReferences.length } },
+      )(
+        self.processSameFileReferencesToGraphEffect(
+          finalSymbolTable,
+          normalizedUri,
+        ),
       );
 
       // Sync memory stats with the graph's stats to ensure consistency
       // The graph is the source of truth for symbol counts
-      const graphStats = self.symbolRefManager.getStats();
-      self.memoryStats.totalSymbols = graphStats.totalSymbols;
+      const graphCounts = yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.collectGraphCounts',
+      )(Effect.sync(() => self.symbolRefManager.getCounts()));
+      self.memoryStats.totalSymbols = graphCounts.totalSymbols;
       // Preserve file-level bookkeeping that per-symbol path normally updates.
       // Bulk add skips per-symbol bookkeeping for performance, so we update once.
       if (symbols.length > 0) {
@@ -2121,53 +2305,54 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           symbolTableForRegistry,
           normalizedUri,
         );
-        yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+        yield* Effect.withSpan(
+          'symbolManager.addSymbolTable.updateGlobalTypeRegistry',
+          { attributes: { 'symbol.count': symbols.length } },
+        )(Effect.provide(registerEffect, GlobalTypeRegistryLive));
       }
 
       // Process deferred references for types that were just added
       // This ensures that when a new file (like Foo.cls) is added, deferred references
       // in other files (like Bar.cls) that reference those types get resolved
-      const sourceFilesToReResolve = new Set<string>();
-      for (const symbolName of symbolNamesAdded) {
-        // Check if there are deferred references waiting for this type
-        const deferredRefs =
-          self.symbolRefManager.getDeferredReferences(symbolName);
-        if (deferredRefs && deferredRefs.length > 0) {
-          // Collect source file URIs from deferred references
-          for (const deferredRef of deferredRefs) {
-            if (deferredRef.sourceSymbol?.fileUri) {
-              sourceFilesToReResolve.add(deferredRef.sourceSymbol.fileUri);
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.processDeferredReferences',
+        {
+          attributes: {
+            'symbol.unique_name_count': symbolNamesAdded.size,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          let matchedSymbolNameCount = 0;
+          let matchedReferenceCount = 0;
+          let boundReferenceCount = 0;
+          const boundSourceFiles = new Set<string>();
+          for (const symbolName of symbolNamesAdded) {
+            // Check if there are deferred references waiting for this type
+            const deferredRefs =
+              self.symbolRefManager.getDeferredReferences(symbolName);
+            if (deferredRefs && deferredRefs.length > 0) {
+              matchedSymbolNameCount++;
+              matchedReferenceCount += deferredRefs.length;
+
+              const result =
+                yield* self.symbolRefManager.processDeferredReferencesBatchEffect(
+                  symbolName,
+                );
+              boundReferenceCount += result.boundReferenceCount ?? 0;
+              for (const sourceFileUri of result.boundSourceFileUris ?? []) {
+                boundSourceFiles.add(sourceFileUri);
+              }
             }
           }
-
-          // Process deferred references for this type
-          // Use Effect.tryPromise to handle the async operation and catch errors
-          yield* Effect.tryPromise({
-            try: () =>
-              Effect.runPromise(
-                self.symbolRefManager
-                  .processDeferredReferencesBatchEffect(symbolName)
-                  .pipe(
-                    Effect.catchAll(() =>
-                      Effect.succeed({
-                        needsRetry: false,
-                        reason: 'success' as const,
-                      }),
-                    ),
-                  ),
-              ),
-            catch: () => ({ needsRetry: false, reason: 'success' as const }),
-          }).pipe(
-            Effect.catchAll(() => Effect.succeed(undefined)),
-            Effect.asVoid,
-          );
-        }
-      }
-      // Re-run cross-file resolution for source files that had deferred references
-      // This updates SymbolReference objects with resolvedSymbolId
-      for (const sourceFileUri of sourceFilesToReResolve) {
-        yield* self.resolveCrossFileReferencesForFile(sourceFileUri);
-      }
+          yield* Effect.annotateCurrentSpan({
+            'deferred.matched_symbol_name_count': matchedSymbolNameCount,
+            'deferred.matched_reference_count': matchedReferenceCount,
+            'deferred.bound_reference_count': boundReferenceCount,
+            'deferred.source_file_count': boundSourceFiles.size,
+          });
+        }),
+      );
 
       // Eagerly resolve this file's own SUPERTYPE edges (extends / implements).
       // processSameFileReferencesToGraphEffect (run above) deliberately SKIPS
@@ -2186,22 +2371,67 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // addReference de-dupes, so this stays near-free on repeated write-backs.
       // (Targets must already be in the graph — the common cold-open-interface-
       // then-load-implementor ordering; reverse ordering remains lazy.)
-      const hasUnresolvedSupertypeEdge = finalSymbolTable
-        .getAllReferences()
-        .some(
-          (r) =>
-            !r.resolvedSymbolId &&
-            (r.context === ReferenceContext.INHERITANCE ||
-              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION),
-        );
-      if (hasUnresolvedSupertypeEdge) {
-        yield* self.resolveCrossFileReferencesForFile(normalizedUri);
-      }
+      yield* Effect.withSpan(
+        'symbolManager.addSymbolTable.handleSupertypeReferences',
+        {
+          attributes: {
+            'reference.supertype_count': supertypeReferenceCount,
+          },
+        },
+      )(
+        Effect.gen(function* () {
+          const unresolvedSupertypeReferenceCount = finalSymbolTable
+            .getAllReferences()
+            .reduce(
+              (count, reference) =>
+                count +
+                (!reference.resolvedSymbolId &&
+                (reference.context === ReferenceContext.INHERITANCE ||
+                  reference.context ===
+                    ReferenceContext.INTERFACE_IMPLEMENTATION)
+                  ? 1
+                  : 0),
+              0,
+            );
+          if (unresolvedSupertypeReferenceCount > 0) {
+            if (self.isWorkspaceLoadSessionActive()) {
+              // Defer resolution until workspace load completes
+              self.deferredResolutions.add(normalizedUri);
+              self.logger.debug(
+                () =>
+                  `[SYMBOL-MANAGER] Deferred resolution for ${normalizedUri} ` +
+                  '(workspace load session active)',
+              );
+            } else {
+              // Immediate resolution for interactive operations
+              yield* self.resolveCrossFileReferencesForFile(normalizedUri);
+            }
+          }
+          yield* Effect.annotateCurrentSpan({
+            'reference.unresolved_supertype_count':
+              unresolvedSupertypeReferenceCount,
+            'reference.resolution_deferred':
+              unresolvedSupertypeReferenceCount > 0 &&
+              self.isWorkspaceLoadSessionActive(),
+          });
+        }),
+      );
 
       self.lastProcessedTableStateByFile.set(
         normalizedUri,
         self.getSymbolTableStateSignature(finalSymbolTable),
       );
+
+      yield* Effect.annotateCurrentSpan({
+        'symbol_manager.state.files_after': graphCounts.totalFiles,
+        'symbol_manager.state.symbols_after': graphCounts.totalSymbols,
+        'symbol_manager.state.references_after': graphCounts.totalReferences,
+        'symbol_manager.state.deferred_references_after':
+          graphCounts.deferredReferences,
+        'symbol_manager.state.cache_entries_after':
+          self.unifiedCache.getStats().totalEntries,
+        'symbol_manager.add_duration_ms': Date.now() - addStartTime,
+      });
     });
   }
 
@@ -2386,11 +2616,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.gen(function* () {
       try {
         const typeReferences = symbolTable.getAllReferences();
-        const qualifiedResolutionCache = new HashMap<
-          string,
-          ApexSymbol | null
-        >();
-        const memberResolutionCache = new HashMap<string, ApexSymbol | null>();
+        const sameFileIndex = self.buildSameFileSymbolIndex(symbolTable);
         const unresolvedByName = new HashMap<string, number>();
         const refsByName = new HashMap<string, number>();
         const stats = {
@@ -2403,6 +2629,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           resolveTargetMs: 0,
           graphLookupMs: 0,
           addReferenceMs: 0,
+          localPartialResolutions: 0,
           resolverCalls: 0,
           resolverQualifiedCalls: 0,
           resolverQualifiedMs: 0,
@@ -2438,10 +2665,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               typeRef,
               fileUri,
               symbolTable,
-              qualifiedResolutionCache,
-              memberResolutionCache,
+              sameFileIndex,
               stats,
-              unresolvedByName,
             );
           }
 
@@ -2450,6 +2675,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             yield* Effect.yieldNow();
           }
         }
+
+        yield* Effect.annotateCurrentSpan({
+          'reference.count': typeReferences.length,
+          'reference.batch_size': batchSize,
+          'reference.event_loop_yield_count': Math.max(
+            0,
+            Math.ceil(typeReferences.length / batchSize) - 1,
+          ),
+          'reference.literal_skip_count': stats.literalSkips,
+          'reference.cross_file_skip_count': stats.crossFileSkips,
+          'reference.unresolved_skip_count': stats.unresolvedSkips,
+          'reference.declaration_skip_count': stats.declarationSkips,
+          'reference.graph_lookup_count': stats.graphLookupCalls,
+          'reference.graph_edge_added_count': stats.graphEdgesAdded,
+          'reference.resolve_target_ms': stats.resolveTargetMs,
+          'reference.graph_lookup_ms': stats.graphLookupMs,
+          'reference.add_edge_ms': stats.addReferenceMs,
+          'reference.local_partial_resolution_count':
+            stats.localPartialResolutions,
+          'reference.resolver_call_count': stats.resolverCalls,
+          'reference.resolver_qualified_call_count':
+            stats.resolverQualifiedCalls,
+          'reference.resolver_qualified_ms': stats.resolverQualifiedMs,
+          'reference.resolver_scope_hierarchy_ms':
+            stats.resolverScopeHierarchyMs,
+          'reference.resolver_scope_search_ms': stats.resolverScopeSearchMs,
+          'reference.resolver_direct_lookup_ms': stats.resolverDirectLookupMs,
+          'reference.resolver_builtin_ms': stats.resolverBuiltInMs,
+          'reference.resolver_pre_resolved_hit_count':
+            stats.resolverPreResolvedHits,
+          'reference.resolver_qualified_cache_hit_count':
+            stats.resolverQualifiedCacheHits,
+          'reference.resolver_qualified_cache_miss_count':
+            stats.resolverQualifiedCacheMisses,
+          'reference.resolver_member_cache_hit_count':
+            stats.resolverMemberContextCacheHits,
+          'reference.resolver_member_cache_miss_count':
+            stats.resolverMemberContextCacheMisses,
+          'reference.unresolved_unique_name_count': unresolvedByName.size,
+          'reference.unique_name_count': refsByName.size,
+        });
       } catch (error) {
         self.logger.error(
           () =>
@@ -2471,10 +2737,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: SymbolReference,
     fileUri: string,
     symbolTable: SymbolTable,
-    qualifiedResolutionCache: HashMap<string, ApexSymbol | null>,
-    memberResolutionCache: HashMap<string, ApexSymbol | null>,
+    sameFileIndex: SameFileSymbolIndex,
     stats?: ReferenceResolutionStats,
-    unresolvedByName?: HashMap<string, number>,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
@@ -2487,45 +2751,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
-        // Check if this is a cross-file reference - if so, skip it
-        const qualifierInfo = self.extractQualifierFromChain(typeRef);
-        let isCrossFileReference = false;
-
-        if (qualifierInfo && qualifierInfo.isQualified) {
-          // For qualified references, check if the qualifier is in the current file
-          if (qualifierInfo.qualifier.toLowerCase() === 'this') {
-            const allSymbols = symbolTable.getAllSymbols();
-            const memberInFile = allSymbols.find(
-              (s) => s.name === qualifierInfo.member,
-            );
-            if (!memberInFile) {
-              isCrossFileReference = true;
-            }
-          } else {
-            const allSymbols = symbolTable.getAllSymbols();
-            const qualifierInFile = allSymbols.find(
-              (s) => s.name === qualifierInfo.qualifier,
-            );
-            if (!qualifierInFile) {
-              isCrossFileReference = true;
-            }
-          }
-        } else {
-          // For unqualified references, check if the symbol exists in the current file
-          const allSymbols = symbolTable.getAllSymbols();
-          const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
-          if (!symbolInFile) {
-            isCrossFileReference = true;
-          }
+        const resolveTargetStart = Date.now();
+        const localResolution = self.resolveSameFileTarget(
+          typeRef,
+          symbolTable,
+          sameFileIndex,
+          stats,
+        );
+        if (stats) {
+          stats.resolveTargetMs += Date.now() - resolveTargetStart;
         }
 
-        // Skip cross-file references - they'll be resolved on-demand
-        if (isCrossFileReference) {
+        // No local binding is not evidence that a dotted head is a type or a
+        // namespace. Preserve the unresolved reference for the namespace-aware
+        // global/on-demand resolver instead of guessing here.
+        if (!localResolution) {
           if (stats) {
             stats.crossFileSkips += 1;
           }
           return;
         }
+        const targetSymbol = localResolution.target;
 
         // Process same-file reference - resolve and add to graph
         // This is the same logic as processSymbolReferenceToGraphEffect for same-file refs
@@ -2537,62 +2783,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
-        // Resolve target symbol
-        let targetSymbol: ApexSymbol | null = null;
-        if (typeRef.resolvedSymbolId) {
-          const resolvedId = typeRef.resolvedSymbolId;
-          targetSymbol = yield* Effect.promise(() =>
-            self.getSymbol(resolvedId),
-          );
-        }
-
-        if (!targetSymbol) {
-          const resolveTargetStart = Date.now();
-          targetSymbol = yield* Effect.tryPromise({
-            try: () =>
-              self.findTargetSymbolForReference(
-                typeRef,
-                fileUri,
-                sourceSymbol,
-                symbolTable,
-                qualifiedResolutionCache,
-                memberResolutionCache,
-                stats,
-              ),
-            catch: (error) => error as Error,
-          }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+        if (localResolution.complete) {
+          typeRef.resolvedSymbolId = targetSymbol.id;
+        } else if (
+          isChainedSymbolReference(typeRef) &&
+          typeRef.chainNodes?.[0]
+        ) {
+          // Preserve partial progress without claiming that the terminal member
+          // is resolved. The namespace/global phase may continue the chain.
+          typeRef.resolvedSymbolId = undefined;
+          for (const node of typeRef.chainNodes.slice(1)) {
+            node.resolvedSymbolId = undefined;
+          }
+          typeRef.chainNodes[0].resolvedSymbolId = targetSymbol.id;
           if (stats) {
-            stats.resolveTargetMs += Date.now() - resolveTargetStart;
+            stats.localPartialResolutions += 1;
           }
-          if (targetSymbol) {
-            typeRef.resolvedSymbolId = targetSymbol.id;
-          }
-        }
-
-        if (!targetSymbol) {
-          // Same-file reference couldn't be resolved
-          // This shouldn't happen if second-pass resolution worked correctly,
-          // but if it does, skip it rather than deferring (deferring won't help for same-file refs)
-          // Only cross-file references should be deferred, as they may be resolved when the target file is loaded
-          self.logger.debug(
-            () =>
-              `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
-              '(should have been resolved during second-pass)',
-          );
-          if (stats) {
-            stats.unresolvedSkips += 1;
-          }
-          if (unresolvedByName) {
-            const unresolvedKey =
-              qualifierInfo && qualifierInfo.isQualified
-                ? `${qualifierInfo.qualifier}.${qualifierInfo.member}`
-                : typeRef.name;
-            unresolvedByName.set(
-              unresolvedKey,
-              (unresolvedByName.get(unresolvedKey) ?? 0) + 1,
-            );
-          }
-          return; // Skip, don't defer
         }
 
         // Skip creating edges for declaration references
@@ -2678,6 +2884,333 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
     });
+  }
+
+  /** Build case-insensitive indexes once for the bounded same-file pass. */
+  private buildSameFileSymbolIndex(
+    symbolTable: SymbolTable,
+  ): SameFileSymbolIndex {
+    const byId = new Map<string, ApexSymbol>();
+    const byName = new Map<string, ApexSymbol[]>();
+    const byFqn = new Map<string, ApexSymbol[]>();
+    const byParentId = new Map<string | null, ApexSymbol[]>();
+
+    for (const symbol of symbolTable.getAllSymbols()) {
+      byId.set(symbol.id, symbol);
+
+      const nameKey = symbol.name.toLowerCase();
+      const named = byName.get(nameKey);
+      if (named) {
+        named.push(symbol);
+      } else {
+        byName.set(nameKey, [symbol]);
+      }
+
+      if (symbol.fqn) {
+        const fqnKey = symbol.fqn.toLowerCase();
+        const qualified = byFqn.get(fqnKey);
+        if (qualified) {
+          qualified.push(symbol);
+        } else {
+          byFqn.set(fqnKey, [symbol]);
+        }
+      }
+
+      const parentKey = symbol.parentId ?? null;
+      const children = byParentId.get(parentKey);
+      if (children) {
+        children.push(symbol);
+      } else {
+        byParentId.set(parentKey, [symbol]);
+      }
+    }
+
+    return { byId, byName, byFqn, byParentId };
+  }
+
+  /**
+   * Resolve as much of a reference as can be proven from this file alone.
+   *
+   * Apex dotted expressions are ambiguous: their head can be a scoped value,
+   * a type, or a namespace, and the language is case-insensitive. This method
+   * deliberately does not consult the workspace graph or resource loader. An
+   * unbound head is left for namespace-aware global/on-demand resolution.
+   */
+  private resolveSameFileTarget(
+    typeRef: SymbolReference,
+    symbolTable: SymbolTable,
+    index: SameFileSymbolIndex,
+    stats?: ReferenceResolutionStats,
+  ): SameFileResolution | null {
+    const started = Date.now();
+    if (stats) {
+      stats.resolverCalls += 1;
+    }
+
+    const qualifier = this.extractQualifierFromChain(typeRef);
+    const canTrustPreResolvedTarget =
+      !qualifier?.isQualified ||
+      qualifier.qualifier.toLowerCase() === 'this' ||
+      qualifier.qualifier.toLowerCase() === 'super';
+    if (typeRef.resolvedSymbolId && canTrustPreResolvedTarget) {
+      const resolved = index.byId.get(typeRef.resolvedSymbolId);
+      if (resolved) {
+        if (stats) {
+          stats.resolverPreResolvedHits += 1;
+          stats.resolverDirectLookupMs += Date.now() - started;
+        }
+        const complete =
+          !qualifier?.isQualified ||
+          resolved.name.toLowerCase() === qualifier.member.toLowerCase();
+        return { target: resolved, complete };
+      }
+    }
+
+    if (!qualifier?.isQualified) {
+      const target = this.findSameFileSymbolInScope(
+        typeRef.name,
+        typeRef.location.identifierRange.startLine,
+        typeRef.location.identifierRange.startColumn,
+        symbolTable,
+        index,
+      );
+      if (stats) {
+        stats.resolverScopeSearchMs += Date.now() - started;
+      }
+      return target ? { target, complete: true } : null;
+    }
+
+    if (stats) {
+      stats.resolverQualifiedCalls += 1;
+    }
+    const qualifiedStarted = Date.now();
+    const lowerQualifier = qualifier.qualifier.toLowerCase();
+
+    let head: ApexSymbol | null = null;
+    if (lowerQualifier === 'this' || lowerQualifier === 'super') {
+      const containingType = this.findSameFileContainingType(
+        typeRef,
+        symbolTable,
+        index,
+      );
+      if (containingType) {
+        if (lowerQualifier === 'super') {
+          const superName = (containingType as TypeSymbol).superClass;
+          head = superName ? this.findSameFileType(superName, index) : null;
+        } else {
+          head = containingType;
+        }
+      }
+    } else {
+      const resolvedHeadId =
+        isChainedSymbolReference(typeRef) &&
+        typeRef.chainNodes?.[0]?.resolvedSymbolId;
+      head = resolvedHeadId ? (index.byId.get(resolvedHeadId) ?? null) : null;
+
+      if (!head) {
+        const headLocation =
+          isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
+            ? typeRef.chainNodes[0].location.identifierRange
+            : typeRef.location.identifierRange;
+        head = this.findSameFileSymbolInScope(
+          qualifier.qualifier,
+          headLocation.startLine,
+          headLocation.startColumn,
+          symbolTable,
+          index,
+          true,
+        );
+      }
+    }
+
+    if (!head) {
+      if (stats) {
+        stats.resolverQualifiedMs += Date.now() - qualifiedStarted;
+      }
+      return null;
+    }
+
+    let memberOwner: ApexSymbol | null = head;
+    if (isVariableSymbol(head)) {
+      const resolvedType = head.type.resolvedSymbol as ApexSymbol | undefined;
+      const rawDeclaredTypeName = (
+        head.type.originalTypeString || head.type.name
+      )
+        .replace(/\[\]$/, '')
+        .replace(/<.*>$/, '');
+      const declaredNamespace = head.type.namespace?.toString();
+      const declaredTypeName = (
+        declaredNamespace && !rawDeclaredTypeName.includes('.')
+          ? `${declaredNamespace}.${rawDeclaredTypeName}`
+          : rawDeclaredTypeName
+      ).toLowerCase();
+      const resolvedTypeMatchesQualification =
+        !declaredTypeName.includes('.') ||
+        resolvedType?.fqn?.toLowerCase() === declaredTypeName;
+      memberOwner =
+        (resolvedType &&
+          resolvedTypeMatchesQualification &&
+          index.byId.get(resolvedType.id)) ||
+        this.findSameFileType(declaredTypeName, index);
+
+      // This is a useful partial resolution: the value is local even when its
+      // declared type/member belongs to System or another Apex file.
+      if (!memberOwner) {
+        if (stats) {
+          stats.resolverQualifiedMs += Date.now() - qualifiedStarted;
+        }
+        return { target: head, complete: false };
+      }
+    }
+
+    const member = this.findSameFileMember(
+      memberOwner,
+      qualifier.member,
+      typeRef,
+      index,
+    );
+    if (stats) {
+      stats.resolverQualifiedMs += Date.now() - qualifiedStarted;
+    }
+
+    // Preserve the locally bound head when the rest of the chain leaves the
+    // file. The global resolver can continue from the original chain later.
+    return member
+      ? { target: member, complete: true }
+      : { target: head, complete: false };
+  }
+
+  private findSameFileSymbolInScope(
+    name: string,
+    line: number,
+    character: number,
+    symbolTable: SymbolTable,
+    index: SameFileSymbolIndex,
+    preferValues = false,
+  ): ApexSymbol | null {
+    const candidates = index.byName.get(name.toLowerCase()) ?? [];
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const scopes = symbolTable
+      .getScopeHierarchy({ line, character })
+      .slice()
+      .reverse();
+    for (const scope of scopes) {
+      // Scope blocks are sometimes parented through their semantic method
+      // symbol before reaching the class block. Follow the complete symbol
+      // ancestry rather than assuming every parent is another ScopeSymbol.
+      let current: ApexSymbol | undefined = scope;
+      while (current) {
+        const scopedCandidates = candidates.filter(
+          (symbol) => symbol.parentId === current?.id,
+        );
+        const scoped = preferValues
+          ? (scopedCandidates.find((symbol) => isVariableSymbol(symbol)) ??
+            scopedCandidates[0])
+          : scopedCandidates[0];
+        if (scoped) {
+          return scoped;
+        }
+        current = current.parentId
+          ? index.byId.get(current.parentId)
+          : undefined;
+      }
+    }
+
+    return (
+      candidates.find((symbol) => symbol.parentId == null) ??
+      candidates.find((symbol) => inTypeSymbolGroup(symbol)) ??
+      null
+    );
+  }
+
+  private findSameFileContainingType(
+    typeRef: SymbolReference,
+    symbolTable: SymbolTable,
+    index: SameFileSymbolIndex,
+  ): ApexSymbol | null {
+    const scopes = symbolTable
+      .getScopeHierarchy({
+        line: typeRef.location.identifierRange.startLine,
+        character: typeRef.location.identifierRange.startColumn,
+      })
+      .slice()
+      .reverse();
+    for (const scope of scopes) {
+      let current: ApexSymbol | undefined = scope;
+      while (current) {
+        if (inTypeSymbolGroup(current)) {
+          return current;
+        }
+        current = current.parentId
+          ? index.byId.get(current.parentId)
+          : undefined;
+      }
+    }
+    return null;
+  }
+
+  private findSameFileType(
+    name: string,
+    index: SameFileSymbolIndex,
+  ): ApexSymbol | null {
+    const normalizedName = name.replace(/\[\]$/, '').replace(/<.*>$/, '');
+    if (!normalizedName) {
+      return null;
+    }
+    const nameKey = normalizedName.toLowerCase();
+    return (
+      index.byName.get(nameKey)?.find((symbol) => inTypeSymbolGroup(symbol)) ??
+      index.byFqn.get(nameKey)?.find((symbol) => inTypeSymbolGroup(symbol)) ??
+      null
+    );
+  }
+
+  private findSameFileMember(
+    owner: ApexSymbol,
+    memberName: string,
+    typeRef: SymbolReference,
+    index: SameFileSymbolIndex,
+  ): ApexSymbol | null {
+    if (!inTypeSymbolGroup(owner)) {
+      return null;
+    }
+
+    const containers = [owner.id];
+    for (const child of index.byParentId.get(owner.id) ?? []) {
+      if (isBlockSymbol(child) && child.scopeType === 'class') {
+        containers.push(child.id);
+      }
+    }
+
+    const candidates = containers.flatMap((parentId) =>
+      (index.byParentId.get(parentId) ?? []).filter(
+        (symbol) => symbol.name.toLowerCase() === memberName.toLowerCase(),
+      ),
+    );
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    if (typeRef.context === ReferenceContext.METHOD_CALL) {
+      const methods = candidates.filter(
+        (symbol) =>
+          symbol.kind === SymbolKind.Method ||
+          symbol.kind === SymbolKind.Constructor,
+      );
+      const arityMatch = methods.find(
+        (symbol) =>
+          typeRef.argumentCount !== undefined &&
+          'parameters' in symbol &&
+          Array.isArray(symbol.parameters) &&
+          symbol.parameters.length === typeRef.argumentCount,
+      );
+      return arityMatch ?? methods[0] ?? null;
+    }
+
+    return candidates[0];
   }
 
   /**
@@ -3103,8 +3636,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const properUri = createFileUri(fileUri);
       const normalizedUri = extractFilePathFromUri(properUri);
 
+      yield* Effect.annotateCurrentSpan({
+        'document.normalized_uri': normalizedUri,
+      });
+
       // Skip if already resolving this file (prevents redundant work from overlapping LSP requests)
       if (self.resolvingCrossFileRefs.has(normalizedUri)) {
+        yield* Effect.annotateCurrentSpan({
+          'cross_file.outcome': 'skipped-already-resolving',
+        });
         self.logger.debug(
           () =>
             `Skipping cross-file resolution for ${normalizedUri} (already in progress)`,
@@ -3117,6 +3657,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const symbolTable =
           self.symbolRefManager.getSymbolTableForFile(normalizedUri);
         if (!symbolTable) {
+          yield* Effect.annotateCurrentSpan({
+            'cross_file.outcome': 'skipped-symbol-table-missing',
+          });
           self.logger.debug(
             () =>
               `No SymbolTable found for ${normalizedUri}, skipping cross-file reference resolution`,
@@ -3124,13 +3667,44 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return;
         }
 
+        const references = symbolTable.getAllReferences();
+        const unresolvedBefore = references.reduce(
+          (count, reference) => count + (reference.resolvedSymbolId ? 0 : 1),
+          0,
+        );
+        const unresolvedMethodCallsBefore = references.reduce(
+          (count, reference) =>
+            count +
+            (!reference.resolvedSymbolId &&
+            reference.context === ReferenceContext.METHOD_CALL
+              ? 1
+              : 0),
+          0,
+        );
+        yield* Effect.annotateCurrentSpan({
+          'cross_file.outcome': 'processed',
+          'reference.count': references.length,
+          'reference.unresolved_before': unresolvedBefore,
+          'reference.unresolved_method_call_before':
+            unresolvedMethodCallsBefore,
+          'reference.batch_size': self.initialReferenceBatchSize,
+        });
+
         // Argument-type derivation for same-arity overload separation
         // (W-23182862) already ran for this file's references at ingest
         // (addSymbolTable → resolveArgumentTypesEffect), before its edges were
         // built; it is idempotent and file-local, so it is not repeated here.
-        yield* self.processSymbolReferencesToGraphEffect(
-          symbolTable,
-          normalizedUri,
+        yield* Effect.withSpan(
+          'symbolManager.resolveCrossFile.processReferences',
+          {
+            attributes: {
+              'reference.count': references.length,
+              'reference.unresolved_before': unresolvedBefore,
+              'reference.batch_size': self.initialReferenceBatchSize,
+            },
+          },
+        )(
+          self.processSymbolReferencesToGraphEffect(symbolTable, normalizedUri),
         );
 
         // Resolve unqualified METHOD_CALL references through the superclass chain.
@@ -3138,10 +3712,103 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // file's symbol table. Inherited method calls like getBaseName() — where the
         // method is defined in a cross-file base class — require walking the superclass
         // hierarchy using the global symbol graph, which is only possible here.
-        yield* self.resolveInheritedMethodCallsEffect(
-          symbolTable,
-          normalizedUri,
+        yield* Effect.withSpan(
+          'symbolManager.resolveCrossFile.resolveInheritedMethods',
+          {
+            attributes: {
+              'reference.unresolved_method_call_before':
+                unresolvedMethodCallsBefore,
+            },
+          },
+        )(self.resolveInheritedMethodCallsEffect(symbolTable, normalizedUri));
+
+        const unresolvedAfter = references.reduce(
+          (count, reference) => count + (reference.resolvedSymbolId ? 0 : 1),
+          0,
         );
+        const unresolvedMethodCallsAfter = references.reduce(
+          (count, reference) =>
+            count +
+            (!reference.resolvedSymbolId &&
+            reference.context === ReferenceContext.METHOD_CALL
+              ? 1
+              : 0),
+          0,
+        );
+        yield* Effect.annotateCurrentSpan({
+          'reference.unresolved_after': unresolvedAfter,
+          'reference.resolved_delta': unresolvedBefore - unresolvedAfter,
+          'reference.unresolved_method_call_after': unresolvedMethodCallsAfter,
+          'reference.resolved_method_call_delta':
+            unresolvedMethodCallsBefore - unresolvedMethodCallsAfter,
+        });
+      } finally {
+        self.resolvingCrossFileRefs.delete(normalizedUri);
+      }
+    }).pipe(
+      Effect.withSpan('symbolManager.resolveCrossFileReferencesForFile', {
+        attributes: { 'document.uri': fileUri },
+      }),
+    );
+  }
+
+  /**
+   * Resolve ONLY supertype (INHERITANCE/INTERFACE_IMPLEMENTATION) edges for a file.
+   * Used at workspace load session end to populate the reverse index for go-to-implementation
+   * (findSubtypes) without the cost of full cross-file resolution. Ordinary cross-file
+   * refs are resolved lazily on-demand via PrerequisiteOrchestrationService.
+   *
+   * @param fileUri The file URI to resolve supertype edges for
+   * @returns Effect that resolves only supertype edges for the file
+   */
+  resolveSupertypeEdgesForFile(
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const properUri = createFileUri(fileUri);
+      const normalizedUri = extractFilePathFromUri(properUri);
+
+      // Skip if already resolving this file (prevents redundant work)
+      if (self.resolvingCrossFileRefs.has(normalizedUri)) {
+        self.logger.debug(
+          () =>
+            `Skipping supertype edge resolution for ${normalizedUri} (already in progress)`,
+        );
+        return;
+      }
+
+      self.resolvingCrossFileRefs.add(normalizedUri);
+      try {
+        const symbolTable =
+          self.symbolRefManager.getSymbolTableForFile(normalizedUri);
+        if (!symbolTable) {
+          self.logger.debug(
+            () =>
+              `No SymbolTable found for ${normalizedUri}, skipping supertype edge resolution`,
+          );
+          return;
+        }
+
+        // Process ONLY supertype edges — INHERITANCE/INTERFACE_IMPLEMENTATION.
+        // This builds exactly the graph edges that findSubtypes/findSupertypes
+        // walk, without the cost of resolving all refs or walking the superclass
+        // chain for inherited method calls.
+        const supertypeRefs = symbolTable
+          .getAllReferences()
+          .filter(
+            (r) =>
+              r.context === ReferenceContext.INHERITANCE ||
+              r.context === ReferenceContext.INTERFACE_IMPLEMENTATION,
+          );
+
+        for (const ref of supertypeRefs) {
+          yield* self.processSymbolReferenceToGraphEffect(
+            ref,
+            normalizedUri,
+            symbolTable,
+          );
+        }
       } finally {
         self.resolvingCrossFileRefs.delete(normalizedUri);
       }
@@ -3464,6 +4131,61 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // If it's a cross-file reference, try to resolve it first if the artifact is already loaded
         // Only defer if resolution fails (artifact not loaded yet)
         if (isCrossFileReference) {
+          // An unqualified value/member name is not a top-level Apex type. It
+          // can only bind through lexical scope or an inherited member; asking
+          // the ResourceLoader for it as a class both wastes a worker round trip
+          // and creates bogus deferred type work (for example, treating
+          // `locateRecordTypeService()` as a class named
+          // `locateRecordTypeService`). Qualified expressions still require
+          // type-vs-instance inspection, except for the lexical receivers
+          // `this` and `super`, which can never name a package-level type.
+          const qualifierName = qualifierInfo?.qualifier.toLowerCase();
+          const hasLexicalReceiver =
+            qualifierName === 'this' || qualifierName === 'super';
+          const firstChainNode = isChainedSymbolReference(typeRef)
+            ? typeRef.chainNodes?.[0]
+            : undefined;
+          const hasLexicalChainRoot =
+            firstChainNode?.name.toLowerCase() === 'this' ||
+            firstChainNode?.name.toLowerCase() === 'super' ||
+            firstChainNode?.context === ReferenceContext.METHOD_CALL ||
+            firstChainNode?.context === ReferenceContext.FIELD_ACCESS ||
+            firstChainNode?.context === ReferenceContext.VARIABLE_USAGE ||
+            firstChainNode?.context === ReferenceContext.PROPERTY_REFERENCE;
+          const referenceRange = typeRef.location.identifierRange;
+          // The listener can retain an ambiguous CLASS_REFERENCE alongside a
+          // METHOD_CALL for an invocation used as the receiver of another call
+          // (`member().next()`). Identical name and range are positive evidence
+          // that the token is a lexical invocation, not a top-level type.
+          const hasSameLocationValueReference = symbolTable
+            .getAllReferences()
+            .some((reference) => {
+              const range = reference.location.identifierRange;
+              return (
+                reference !== typeRef &&
+                reference.name.toLowerCase() === typeRef.name.toLowerCase() &&
+                (reference.context === ReferenceContext.METHOD_CALL ||
+                  reference.context === ReferenceContext.FIELD_ACCESS ||
+                  reference.context === ReferenceContext.VARIABLE_USAGE ||
+                  reference.context === ReferenceContext.PROPERTY_REFERENCE) &&
+                range.startLine === referenceRange.startLine &&
+                range.startColumn === referenceRange.startColumn &&
+                range.endLine === referenceRange.endLine &&
+                range.endColumn === referenceRange.endColumn
+              );
+            });
+          const cannotBeTopLevelType =
+            hasLexicalChainRoot ||
+            hasSameLocationValueReference ||
+            ((qualifierInfo?.isQualified !== true || hasLexicalReceiver) &&
+              (typeRef.context === ReferenceContext.METHOD_CALL ||
+                typeRef.context === ReferenceContext.FIELD_ACCESS ||
+                typeRef.context === ReferenceContext.VARIABLE_USAGE ||
+                typeRef.context === ReferenceContext.PROPERTY_REFERENCE));
+          if (cannotBeTopLevelType) {
+            return;
+          }
+
           // Try to resolve the cross-file reference first
           // This handles cases where artifacts were loaded via artifact loading before cross-file resolution runs
           let targetSymbol: ApexSymbol | null = null;
@@ -3707,6 +4429,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 argumentCount: typeRef.argumentCount,
                 argumentTypes: typeRef.argumentTypes,
               },
+              undefined,
+              typeRef,
             );
           }
           return;
@@ -4552,6 +5276,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Estimate usage including symbols and cache entries
   getMemoryUsage(): MemoryUsageStats {
     const cacheStats = this.unifiedCache.getStats();
+    const graphCounts = this.symbolRefManager.getCounts();
     const estimatedMemoryUsage =
       this.memoryStats.totalSymbols * 1024 + cacheStats.totalEntries * 256;
     const fileMetadataSize = this.fileMetadata.size * 256;
@@ -4566,8 +5291,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       cacheEfficiency,
       recommendations: this.generateMemoryOptimizationRecommendations(),
       memoryPoolStats: {
-        totalReferences: this.symbolRefManager.getStats().totalReferences,
-        activeReferences: this.symbolRefManager.getStats().totalReferences,
+        totalReferences: graphCounts.totalReferences,
+        activeReferences: graphCounts.totalReferences,
         referenceEfficiency: 0.85,
         poolSize: estimatedMemoryUsage,
       },
@@ -5262,6 +5987,234 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return symContainedWithin(innerSymbol, outerSymbol);
   }
 
+  private getContainingTypeAtPosition(
+    symbolTable: SymbolTable,
+    position: { line: number; character: number },
+  ): TypeSymbol | undefined {
+    const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+    const allSymbols = symbolTable.getAllSymbols();
+    const symbolsById = new Map(
+      allSymbols.map((symbol) => [symbol.id, symbol]),
+    );
+    let current: ApexSymbol | undefined = scopeHierarchy.at(-1);
+    const visited = new Set<string>();
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      if (
+        current.kind === SymbolKind.Class ||
+        current.kind === SymbolKind.Interface
+      ) {
+        return current as TypeSymbol;
+      }
+      current = current.parentId
+        ? symbolsById.get(current.parentId)
+        : undefined;
+    }
+    return undefined;
+  }
+
+  private isPositionOnReceiverKeyword(
+    references: SymbolReference[],
+    receiverReference: SymbolReference,
+    position: { line: number; character: number },
+  ): boolean {
+    const name = receiverReference.name.trim().toLowerCase();
+    const qualifiedReference = references.find((reference) => {
+      const candidate = reference.name.trim().toLowerCase();
+      return (
+        isChainedSymbolReference(reference) && candidate.startsWith(`${name}.`)
+      );
+    });
+    const range =
+      qualifiedReference?.location.identifierRange ??
+      receiverReference.location.identifierRange;
+    const recordedWidth = range.endColumn - range.startColumn;
+
+    // Without the containing chain, accept only a token-sized reference.
+    // Collector variants sometimes attach a `this` reference to the member's
+    // range; treating that as the keyword is what made `this.field` resolve to
+    // the containing class.
+    if (!qualifiedReference && recordedWidth > name.length) return false;
+
+    return (
+      position.line === range.startLine &&
+      position.character >= range.startColumn &&
+      position.character < range.startColumn + name.length
+    );
+  }
+
+  public async getReceiverKeywordTargetAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol | null> {
+    const references = await this.getReferencesAtPosition(fileUri, position);
+    const receiverReference = references.find((reference) => {
+      const name = reference.name.toLowerCase();
+      return (
+        (name === 'this' || name === 'super') &&
+        this.isPositionOnReceiverKeyword(references, reference, position)
+      );
+    });
+    if (!receiverReference) return null;
+
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+    const containingType = this.getContainingTypeAtPosition(
+      symbolTable,
+      position,
+    );
+    if (!containingType) return null;
+    return receiverReference.name.toLowerCase() === 'super'
+      ? this.resolveSuperclassSymbol(containingType)
+      : containingType;
+  }
+
+  /**
+   * Resolve a member call whose receiver is the current Apex instance. The
+   * listener deliberately omits the pseudo-values `this` and `super` from
+   * chainNodes, so generic chain resolution cannot infer their type. Resolve
+   * them from the lexical containing class instead, including its superclass
+   * chain. An omitted receiver follows the same path after lexical lookup.
+   */
+  private async resolveInstanceReceiverMemberAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+    references: SymbolReference[],
+  ): Promise<ApexSymbol | null> {
+    const broadReceiverReference = references.find((reference) => {
+      const name = reference.name.trim().toLowerCase();
+      return (
+        (name === 'this' || name === 'super') &&
+        this.isPositionInIdentifierRange(
+          position,
+          reference.location.identifierRange,
+        )
+      );
+    });
+    const relevantChains = references.filter(
+      (reference) =>
+        isChainedSymbolReference(reference) &&
+        this.isPositionInIdentifierRange(
+          position,
+          reference.location.identifierRange,
+        ),
+    );
+    const relevantChain =
+      relevantChains.find((reference) => {
+        const name = reference.name.trim().toLowerCase();
+        return name.startsWith('this.') || name.startsWith('super.');
+      }) ?? relevantChains[0];
+    const chainName = relevantChain?.name.trim().toLowerCase();
+    const explicitReceiver =
+      broadReceiverReference?.name.trim().toLowerCase() ??
+      (chainName?.startsWith('super.')
+        ? 'super'
+        : chainName?.startsWith('this.')
+          ? 'this'
+          : null);
+
+    const memberReferences = references.filter((reference) => {
+      // Chained containers carry the whole expression as their name. Resolve
+      // the standalone leaf reference at the cursor instead.
+      if (isChainedSymbolReference(reference)) return false;
+      if (
+        reference.context !== ReferenceContext.METHOD_CALL &&
+        reference.context !== ReferenceContext.FIELD_ACCESS &&
+        reference.context !== ReferenceContext.PROPERTY_REFERENCE &&
+        !(
+          reference.context === ReferenceContext.VARIABLE_USAGE &&
+          explicitReceiver !== null
+        )
+      ) {
+        return false;
+      }
+      return this.isPositionInIdentifierRange(
+        position,
+        reference.location.identifierRange,
+      );
+    });
+    if (memberReferences.length === 0) return null;
+
+    const receiver = explicitReceiver ?? (relevantChain ? null : 'this');
+    // A real qualifier such as `service.run()` is not an implicit receiver.
+    if (receiver === null) return null;
+
+    // Prefer the semantic target already attached by same-file resolution.
+    // This must run before broad synthetic CLASS_REFERENCE entries such as the
+    // collector's unresolved-return-type placeholder (`unknown`). A `super.`
+    // receiver deliberately bypasses a same-file override.
+    if (receiver !== 'super') {
+      for (const reference of memberReferences) {
+        if (!reference.resolvedSymbolId) continue;
+        const resolved = await this.getSymbol(reference.resolvedSymbolId);
+        const matchesExpectedKind =
+          reference.context === ReferenceContext.METHOD_CALL
+            ? resolved?.kind === SymbolKind.Method
+            : reference.context === ReferenceContext.FIELD_ACCESS
+              ? resolved?.kind === SymbolKind.Field
+              : reference.context === ReferenceContext.PROPERTY_REFERENCE
+                ? resolved?.kind === SymbolKind.Property
+                : resolved?.kind === SymbolKind.Field ||
+                  resolved?.kind === SymbolKind.Property;
+        if (matchesExpectedKind) return resolved;
+      }
+    }
+
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+    const containingType = this.getContainingTypeAtPosition(
+      symbolTable,
+      position,
+    );
+    if (!containingType) return null;
+
+    const receiverType =
+      receiver === 'super'
+        ? await this.resolveSuperclassSymbol(containingType)
+        : containingType;
+    if (!receiverType) return null;
+
+    const methodReference = memberReferences.find(
+      (reference) => reference.context === ReferenceContext.METHOD_CALL,
+    );
+    // `this` and omitted receivers are guaranteed to use the current file.
+    // Resolve them through the bounded same-file index first. The generic
+    // member resolver is optimized for type/stdlib traversal and can lose a
+    // field behind a same-named lexical parameter when the collector reports
+    // the leaf as VARIABLE_USAGE.
+    if (receiver !== 'super') {
+      const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
+      const localMember = this.findSameFileMember(
+        receiverType,
+        methodReference?.name ?? memberReferences[0].name,
+        methodReference ?? memberReferences[0],
+        sameFileIndex,
+      );
+      if (localMember) return localMember;
+    }
+
+    if (methodReference) {
+      return this.resolveMemberInContext(
+        { type: 'symbol', symbol: receiverType },
+        methodReference.name,
+        'method',
+      );
+    }
+
+    const memberName = memberReferences[0].name;
+    const field = await this.resolveMemberInContext(
+      { type: 'symbol', symbol: receiverType },
+      memberName,
+      'field',
+    );
+    if (field) return field;
+    return this.resolveMemberInContext(
+      { type: 'symbol', symbol: receiverType },
+      memberName,
+      'property',
+    );
+  }
+
   /**
    * Get symbol at position with precise resolution (exact position matches only)
    * This is used for hover, definition, and references requests where we want exact matches
@@ -5276,6 +6229,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Only match if position is exactly on a declaration identifier (not method calls or chained expressions)
       const symbolsInFile = await this.findSymbolsInFile(fileUri);
       for (const symbol of symbolsInFile) {
+        // Scope blocks are structural implementation details. Some class/enum
+        // blocks share the declaration identifier range with their semantic
+        // type, so returning the block makes hover/definition miss the type.
+        if (isBlockSymbol(symbol)) continue;
         if (
           symbol.location?.identifierRange &&
           this.isPositionInIdentifierRange(
@@ -5292,6 +6249,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (refsAtPosition.length === 0) {
             // No references means this is a declaration - return the symbol directly
             return symbol;
+          }
+
+          const typeRefAtPosition = refsAtPosition.find((ref) => {
+            if (
+              ref.context !== ReferenceContext.CLASS_REFERENCE &&
+              ref.context !== ReferenceContext.TYPE_DECLARATION &&
+              ref.context !== ReferenceContext.PARAMETER_TYPE &&
+              ref.context !== ReferenceContext.GENERIC_PARAMETER_TYPE &&
+              ref.context !== ReferenceContext.RETURN_TYPE
+            ) {
+              return false;
+            }
+            return this.isPositionInIdentifierRange(
+              position,
+              ref.location.identifierRange,
+            );
+          });
+          if (typeRefAtPosition) {
+            const resolvedType = await this.resolveSymbolReferenceToSymbol(
+              typeRefAtPosition,
+              fileUri,
+              position,
+            );
+            if (resolvedType) {
+              return resolvedType;
+            }
           }
 
           // If there are references, check if any are METHOD_CALL references
@@ -5336,6 +6319,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (typeReferences.length > 0) {
+        // Generic symbol consumers (references, rename, etc.) must not turn a
+        // language keyword into a class target. Hover and definition opt in
+        // through getReceiverKeywordTargetAtPosition instead.
+        const keywordAtPosition = typeReferences.some((reference) => {
+          if (!isApexKeyword(reference.name)) return false;
+          const name = reference.name.toLowerCase();
+          if (name === 'this' || name === 'super') {
+            return this.isPositionOnReceiverKeyword(
+              typeReferences,
+              reference,
+              position,
+            );
+          }
+          return this.isPositionInIdentifierRange(
+            position,
+            reference.location.identifierRange,
+          );
+        });
+        if (keywordAtPosition) return null;
+
+        const receiverMember =
+          await this.resolveInstanceReceiverMemberAtPosition(
+            fileUri,
+            position,
+            typeReferences,
+          );
+        if (receiverMember) return receiverMember;
+
         // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
         // These should be resolved as classes/types, not variables or methods
         const genericParamRefs = typeReferences.filter(
@@ -6229,7 +7240,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async resolveMemberInContext(
     context: ChainResolutionContext,
     memberName: string,
-    memberType: 'property' | 'method' | 'class',
+    memberType: 'property' | 'field' | 'method' | 'class',
     typeSubstitutions: GenericTypeSubstitutionMap | null = null,
   ): Promise<ApexSymbol | null> {
     return resolveMemberInCtxOp(

@@ -19,22 +19,35 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import { Effect, LogLevel, Schema, Queue, Deferred, Option } from 'effect';
+import {
+  Cause,
+  Effect,
+  LogLevel,
+  Schema,
+  Queue,
+  Deferred,
+  Option,
+} from 'effect';
 import type * as Tracer from 'effect/Tracer';
 import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   CompileDocument,
-  WorkspaceBatchCompile,
+  CompileApexFile,
+  InitializeCompilationWorker,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -63,13 +76,32 @@ import {
   type WorkerRole,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
-import { getDocumentStateCache } from '@salesforce/apex-lsp-compliant-services';
-import type {
-  DataOwnerServices,
-  RequestServices,
+import {
+  getDocumentStateCache,
+  getLspRequestPreparationPolicy,
+  type DataOwnerServices,
+  type LSPRequestType,
+  type LspRequestPreparationPolicy,
+  type RequestServices,
 } from '@salesforce/apex-lsp-compliant-services';
-import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
+import type {
+  DetailLevel,
+  SerializedSymbolTableData,
+} from '@salesforce/apex-lsp-parser-ast';
+import {
+  STANDARD_APEX_LIBRARY_URI,
+  SymbolTable,
+} from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  CompilationWorkerPool,
+  type CompilationWorkerPoolService,
+} from './compiler/CompilationWorkerPool.ts';
+import {
+  createCompilationWorkerHandlers,
+  reconstructCompiledSymbolTable,
+} from './compiler/CompilationWorkerHandler.ts';
+import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -80,19 +112,22 @@ export const AllWorkerRequests = Schema.Union(
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   FindOccurrenceCandidates,
   CompileDocument,
-  WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -112,6 +147,8 @@ export const AllWorkerRequests = Schema.Union(
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
+  InitializeCompilationWorker,
+  CompileApexFile,
 );
 
 // ---------------------------------------------------------------------------
@@ -353,6 +390,113 @@ export function setWarmRemoteStdlibNamespaceCache(
 
 function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
   return _warmRemoteStdlibNamespaceCache();
+}
+
+export interface StandardNamespacePreloadResult {
+  readonly namespaces: readonly string[];
+  readonly loadedClasses: number;
+  readonly totalClasses: number;
+  readonly missingNamespaces: readonly string[];
+  readonly failedClasses: readonly string[];
+}
+
+/**
+ * Load configured stdlib namespaces into the DataOwner's authoritative graph.
+ *
+ * The ResourceLoaderService namespace map must already be warm. Keeping this
+ * operation in the DataOwner avoids populating a coordinator-local graph that
+ * worker-backed LSP requests never read.
+ */
+export async function preloadStandardNamespaces(
+  svc: DataOwnerServices,
+  configuredNamespaces: readonly string[],
+): Promise<StandardNamespacePreloadResult> {
+  const available = svc.stdlibProvider.getStandardNamespaces();
+  const availableByLowerName = new Map(
+    [...available.entries()].map(([namespace, classes]) => [
+      namespace.toLowerCase(),
+      { namespace, classes },
+    ]),
+  );
+
+  const requested =
+    configuredNamespaces.includes('*') && available.size > 0
+      ? [...available.keys()]
+      : configuredNamespaces;
+  const selected = new Map<string, { namespace: string; classes: string[] }>();
+  const missingNamespaces: string[] = [];
+
+  for (const requestedNamespace of requested) {
+    const match = availableByLowerName.get(requestedNamespace.toLowerCase());
+    if (!match) {
+      missingNamespaces.push(requestedNamespace);
+      continue;
+    }
+    selected.set(match.namespace.toLowerCase(), match);
+  }
+
+  if (configuredNamespaces.includes('*') && available.size === 0) {
+    missingNamespaces.push('*');
+  }
+
+  let loadedClasses = 0;
+  let totalClasses = 0;
+  const failedClasses: string[] = [];
+  const classesToLoad: Array<{
+    classPath: string;
+    fqn: string;
+  }> = [];
+
+  for (const { namespace, classes } of selected.values()) {
+    for (const classFile of classes) {
+      if (!classFile.toLowerCase().endsWith('.cls')) {
+        continue;
+      }
+      const className = classFile.replace(/\.cls$/i, '');
+      classesToLoad.push({
+        classPath: `${namespace}/${classFile}`,
+        fqn: `${namespace}.${className}`,
+      });
+    }
+  }
+
+  totalClasses = classesToLoad.length;
+  const serializedTables =
+    classesToLoad.length === 0
+      ? {}
+      : ((await requestCoordinatorAssistancePromiseShared(
+          'resourceLoader:getSymbolTables',
+          { classPaths: classesToLoad.map(({ classPath }) => classPath) },
+          true,
+        )) as Record<string, unknown | null>);
+
+  for (const { classPath, fqn } of classesToLoad) {
+    const serialized = serializedTables[classPath];
+    if (!serialized) {
+      failedClasses.push(fqn);
+      continue;
+    }
+    try {
+      const table = SymbolTable.fromJSON(serialized);
+      await Effect.runPromise(
+        svc.symbolManager.addSymbolTable(
+          table,
+          `${STANDARD_APEX_LIBRARY_URI}/${classPath}`,
+        ),
+      );
+      loadedClasses++;
+    } catch {
+      failedClasses.push(fqn);
+    }
+  }
+
+  return {
+    namespaces: [...selected.values()].map(({ namespace }) => namespace),
+    loadedClasses,
+    totalClasses,
+    missingNamespaces,
+    failedClasses,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -699,8 +843,12 @@ export type PositionReq = {
   textDocument: { uri: string };
   position: { line: number; character: number };
   content?: string;
+  documentVersion?: number;
 };
-export type DocOnlyReq = { textDocument: { uri: string } };
+export type DocOnlyReq = {
+  textDocument: { uri: string };
+  content?: string;
+};
 export type DocWithContentReq = {
   textDocument: { uri: string };
   content?: string;
@@ -726,6 +874,37 @@ export type CodeActionReq = {
 // Enrichment helpers
 // ---------------------------------------------------------------------------
 
+export interface EnrichmentLoadOptions {
+  /** Materialize every cross-file edge in the cursor file. */
+  readonly materializeCrossFileReferences?: boolean;
+  /** Preserve an unchanged full-detail cursor table owned by this worker. */
+  readonly reuseCompiledCursor?: boolean;
+  /** Cursor-target preparation loads dependencies after full-detail compile. */
+  readonly deferDependencyPrefetch?: boolean;
+  /** Exact live document version used to validate a local cursor fast path. */
+  readonly sourceVersion?: number;
+  /** Enable metadata-only or skipped owner queries for cursor preparation. */
+  readonly allowOwnerQuerySkip?: boolean;
+  readonly telemetry?: {
+    reusedLocalTables?: number;
+    ingestedTables?: number;
+    ownerQuerySkipped?: boolean;
+    ownerMetadataOnly?: boolean;
+  };
+}
+
+interface FullDetailCursorCacheEntry {
+  readonly content: string;
+  readonly sourceVersion: number;
+  readonly table: unknown;
+}
+
+const fullDetailCursorBySymbolManager = new WeakMap<
+  RequestServices['symbolManager'],
+  Map<string, FullDetailCursorCacheEntry>
+>();
+const MAX_FULL_DETAIL_CURSOR_CACHE_ENTRIES = 32;
+
 /**
  * Load symbol data from the data-owner worker into the local enrichment
  * worker's symbol manager. Stores the document text in local storage
@@ -738,25 +917,71 @@ export function loadSymbolDataForEnrichment(
   svc: RequestServices,
   uri: string,
   content?: string,
-): Effect.Effect<{ version: number; detailLevel: string }, never, never> {
+  options: EnrichmentLoadOptions = {},
+): Effect.Effect<
+  { version: number; detailLevel: string; localDetailLevel?: string },
+  never,
+  never
+> {
   let version = -1;
   let detailLevel = 'public-api';
+  let reusedLocalTables = 0;
+  let ingestedTables = 0;
+  const materializeCrossFileReferences =
+    options.materializeCrossFileReferences ?? true;
+  const ownerMetadataOnly =
+    options.allowOwnerQuerySkip === true && content !== undefined;
+  const localDetailLevel: string | undefined = ownerMetadataOnly
+    ? 'public-api'
+    : undefined;
 
   return Effect.gen(function* () {
-    if (content) {
+    if (content !== undefined) {
       // Completion needs offsetAt/positionAt for live-buffer analysis.
       const doc = makeWorkerDocument(uri, content);
       svc.storageManager.getStorage().setDocument(uri, doc as never);
     }
 
+    if (
+      options.allowOwnerQuerySkip &&
+      options.reuseCompiledCursor &&
+      content !== undefined &&
+      options.sourceVersion !== undefined
+    ) {
+      const cached = fullDetailCursorBySymbolManager
+        .get(svc.symbolManager)
+        ?.get(uri);
+      const currentTable = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbolTableForFile(uri),
+      );
+      const currentDetail = currentTable?.getDetailLevel();
+      if (
+        cached?.content === content &&
+        cached.sourceVersion === options.sourceVersion &&
+        cached.table === currentTable &&
+        currentDetail === 'full'
+      ) {
+        reusedLocalTables = 1;
+        if (options.telemetry) {
+          options.telemetry.reusedLocalTables = reusedLocalTables;
+          options.telemetry.ingestedTables = ingestedTables;
+          options.telemetry.ownerQuerySkipped = true;
+        }
+        return {
+          version: options.sourceVersion,
+          detailLevel: currentDetail,
+        };
+      }
+    }
+
     const response = (yield* Effect.fn('worker.enrichment.querySymbolSubset', {
-      attributes: { uri },
+      attributes: { uri, 'query.include_entries': !ownerMetadataOnly },
     })(function* () {
       return (yield* Effect.tryPromise({
         try: () =>
           requestCoordinatorAssistancePromiseShared(
             'dataOwner:QuerySymbolSubset',
-            { uris: [uri] },
+            { uris: [uri], includeEntries: !ownerMetadataOnly },
             true,
           ),
         catch: (cause) => cause,
@@ -771,7 +996,10 @@ export function loadSymbolDataForEnrichment(
       detailLevels: Record<string, string>;
     };
 
-    if (response?.entries) {
+    version = response?.versions?.[uri] ?? -1;
+    detailLevel = response?.detailLevels?.[uri] ?? 'public-api';
+
+    if (!ownerMetadataOnly && response?.entries) {
       const { SymbolTable, ReferenceContext } = yield* Effect.tryPromise({
         try: () => import('@salesforce/apex-lsp-parser-ast'),
         catch: (cause) => cause,
@@ -791,22 +1019,63 @@ export function loadSymbolDataForEnrichment(
         return tables;
       };
 
-      const loaded = ingestEntries(response.entries);
+      const entriesToLoad: Record<string, unknown> = {};
+      let reusedCursorTable: any | undefined;
+      for (const [fileUri, stData] of Object.entries(response.entries)) {
+        let reuse = false;
+        if (
+          options.reuseCompiledCursor &&
+          fileUri === uri &&
+          content !== undefined
+        ) {
+          const cached = fullDetailCursorBySymbolManager
+            .get(svc.symbolManager)
+            ?.get(uri);
+          const existing = yield* Effect.promise(() =>
+            svc.symbolManager.getSymbolTableForFile(fileUri),
+          );
+          reuse =
+            cached !== undefined &&
+            cached.table !== undefined &&
+            cached.content === content &&
+            cached.sourceVersion === version &&
+            cached.table === existing;
+          if (reuse) reusedCursorTable = existing;
+        }
+        if (reuse) {
+          reusedLocalTables++;
+        } else {
+          entriesToLoad[fileUri] = stData;
+        }
+      }
+
+      const loaded = yield* Effect.fn(
+        'worker.enrichment.deserializeSymbolTables',
+        {
+          attributes: {
+            uri,
+            count: Object.keys(entriesToLoad).length,
+            'cache.reused_count': reusedLocalTables,
+          },
+        },
+      )(function* () {
+        return yield* Effect.sync(() => ingestEntries(entriesToLoad));
+      })();
       for (const { fileUri, st } of loaded) {
         yield* Effect.fn('worker.enrichment.addSymbolTable', {
           attributes: { uri: fileUri },
         })(function* () {
           yield* svc.symbolManager.addSymbolTable(st, fileUri);
         })();
+        ingestedTables++;
       }
-      version = response.versions?.[uri] ?? -1;
-      detailLevel = response.detailLevels?.[uri] ?? 'public-api';
 
       // Phase 2: pre-fetch cross-file dependencies.
       // Extract unresolved CLASS_REFERENCE / CONSTRUCTOR_CALL names from the
       // loaded file and ask the data-owner to resolve them to symbol tables.
-      const currentSt = loaded.find((e) => e.fileUri === uri)?.st;
-      if (currentSt) {
+      const currentSt =
+        loaded.find((e) => e.fileUri === uri)?.st ?? reusedCursorTable;
+      if (currentSt && !options.deferDependencyPrefetch) {
         const refs = currentSt.getAllReferences() as Array<{
           name: string;
           context: number;
@@ -842,11 +1111,14 @@ export function loadSymbolDataForEnrichment(
             })) as { entries: Record<string, unknown> };
           })().pipe(Effect.catchAll(() => Effect.succeed(undefined)));
           if (depResponse?.entries) {
-            for (const { fileUri: depUri, st: depSt } of ingestEntries(
-              depResponse.entries,
-            )) {
-              yield* svc.symbolManager.addSymbolTable(depSt, depUri);
-            }
+            const dependencies = ingestEntries(depResponse.entries);
+            yield* Effect.fn('worker.enrichment.ingestDependencies', {
+              attributes: { uri, count: dependencies.length },
+            })(function* () {
+              for (const { fileUri: depUri, st: depSt } of dependencies) {
+                yield* svc.symbolManager.addSymbolTable(depSt, depUri);
+              }
+            })();
           }
 
           // Cross-worker fallback: ResolveDepUris resolves names that map to a
@@ -856,10 +1128,15 @@ export function loadSymbolDataForEnrichment(
           // (which holds ALL workspace symbols) to resolve the remaining names
           // in one batched query and ingest the owning files' symbol tables.
           // The ingest count is intentionally not captured (see below).
-          yield* Effect.tryPromise({
-            try: () => resolveMissingNamesViaDataOwner(svc, [...classNames]),
-            catch: (cause) => cause,
-          }).pipe(Effect.catchAll(() => Effect.void));
+          yield* Effect.fn('worker.enrichment.resolveMissingNames', {
+            attributes: { uri, candidateCount: classNames.size },
+          })(function* () {
+            const ingested = yield* Effect.tryPromise({
+              try: () => resolveMissingNamesViaDataOwner(svc, [...classNames]),
+              catch: (cause) => cause,
+            }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+            yield* Effect.annotateCurrentSpan({ ingested });
+          })();
 
           // Ingestion alone only lands the owning files' SYMBOLS in the local
           // name index (addSymbolTable processes same-file refs only and defers
@@ -877,16 +1154,33 @@ export function loadSymbolDataForEnrichment(
           // resolution), so resolve whenever ANY class dep was requested.
           // resolveCrossFileReferencesForFile is re-entrancy-guarded and
           // addReference de-dupes, so this is near-free when nothing changed.
-          yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
-            attributes: { uri },
-          })(function* () {
-            yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
-          })();
+          if (materializeCrossFileReferences) {
+            yield* Effect.fn('worker.enrichment.resolveCrossFileReferences', {
+              attributes: { uri },
+            })(function* () {
+              yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri);
+            })();
+          }
         }
       }
     }
 
-    return { version, detailLevel };
+    yield* Effect.annotateCurrentSpan({
+      'enrichment.local_tables_reused': reusedLocalTables,
+      'enrichment.tables_ingested': ingestedTables,
+      'enrichment.cross_file_materialized': materializeCrossFileReferences,
+      'enrichment.owner_metadata_only': ownerMetadataOnly,
+    });
+    if (options.telemetry) {
+      options.telemetry.reusedLocalTables = reusedLocalTables;
+      options.telemetry.ingestedTables = ingestedTables;
+      options.telemetry.ownerMetadataOnly = ownerMetadataOnly;
+    }
+    return {
+      version,
+      detailLevel,
+      ...(localDetailLevel === undefined ? {} : { localDetailLevel }),
+    };
   }).pipe(
     Effect.catchAll((error) =>
       Effect.sync(() => {
@@ -896,7 +1190,289 @@ export function loadSymbolDataForEnrichment(
           () =>
             `[ENRICHMENT] Symbol-subset load failed for ${uri}: ${String(error)}`,
         );
-        return { version, detailLevel };
+        if (options.telemetry) {
+          options.telemetry.reusedLocalTables = reusedLocalTables;
+          options.telemetry.ingestedTables = ingestedTables;
+        }
+        return {
+          version,
+          detailLevel,
+          ...(localDetailLevel === undefined ? {} : { localDetailLevel }),
+        };
+      }),
+    ),
+  );
+}
+
+/**
+ * Code Lens only inspects symbols declared in the requested file. It does not
+ * resolve types, references, or members, so loading dependencies and
+ * materializing cross-file edges cannot affect its result.
+ */
+export function loadCodeLensSymbolData(
+  svc: RequestServices,
+  uri: string,
+): Effect.Effect<
+  { version: number; detailLevel: string; localDetailLevel?: string },
+  never,
+  never
+> {
+  return loadSymbolDataForEnrichment(svc, uri, undefined, {
+    materializeCrossFileReferences: false,
+    deferDependencyPrefetch: true,
+  });
+}
+
+interface CursorTargetDependencyTelemetry {
+  candidateCount: number;
+  localHitCount: number;
+  requestedCount: number;
+  ingestedCount: number;
+}
+
+const dependencyTypeNames = (name: string): string[] =>
+  (name.match(/[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/gu) ?? []).filter(
+    (candidate) =>
+      !['this', 'super', 'unknown', 'void', 'null'].includes(
+        candidate.toLowerCase(),
+      ),
+  );
+
+/**
+ * Load only type tables that can participate in the expression at the cursor.
+ * The full-detail cursor table must already be installed so body references,
+ * local variable types, method return types, and receiver keywords are visible.
+ */
+function loadCursorTargetDependencies(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Effect.Effect<CursorTargetDependencyTelemetry, never, never> {
+  return Effect.fn('worker.enrichment.loadCursorTargetDependencies', {
+    attributes: { uri },
+  })(function* () {
+    const empty: CursorTargetDependencyTelemetry = {
+      candidateCount: 0,
+      localHitCount: 0,
+      requestedCount: 0,
+      ingestedCount: 0,
+    };
+    const symbolTable = yield* Effect.promise(() =>
+      svc.symbolManager.getSymbolTableForFile(uri),
+    );
+    if (!symbolTable) return empty;
+
+    const { ReferenceContext, SymbolKind, SymbolTable } = yield* Effect.promise(
+      () => import('@salesforce/apex-lsp-parser-ast'),
+    );
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    type CursorReference = {
+      name: string;
+      context: number;
+      resolvedSymbolId?: string;
+      location?: {
+        identifierRange?: {
+          endLine: number;
+          endColumn: number;
+        };
+      };
+      chainNodes?: CursorReference[];
+    };
+    let references = symbolTable.getReferencesAtPosition(
+      parserPosition,
+    ) as CursorReference[];
+    if (references.length === 0) {
+      // Completion is normally requested just after the dot (`receiver.|`),
+      // not on the receiver token itself. Admit only an immediately-adjacent
+      // reference; do not fall back to an arbitrary earlier expression.
+      const adjacent = (symbolTable.getAllReferences() as CursorReference[])
+        .filter((reference) => {
+          const range = reference.location?.identifierRange;
+          if (!range || range.endLine !== parserPosition.line) return false;
+          const distance = parserPosition.character - range.endColumn;
+          return distance >= 0 && distance <= 2;
+        })
+        .sort(
+          (left, right) =>
+            (right.location?.identifierRange?.endColumn ?? -1) -
+            (left.location?.identifierRange?.endColumn ?? -1),
+        )[0];
+      if (adjacent) references = [adjacent];
+    }
+    const candidateNames = new Map<string, string>();
+    const addCandidate = (name: string | undefined): void => {
+      if (!name) return;
+      for (const candidate of dependencyTypeNames(name)) {
+        candidateNames.set(candidate.toLowerCase(), candidate);
+      }
+    };
+    const addTypeInfoCandidate = (value: unknown): void => {
+      if (
+        value &&
+        typeof value === 'object' &&
+        'name' in value &&
+        typeof value.name === 'string'
+      ) {
+        addCandidate(value.name);
+      }
+    };
+
+    const addResolvedSymbolType = function* (
+      resolvedSymbolId: string | undefined,
+    ) {
+      if (!resolvedSymbolId) return;
+      const symbol = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbol(resolvedSymbolId),
+      );
+      if (symbol && 'type' in symbol) addTypeInfoCandidate(symbol.type);
+      if (symbol && 'returnType' in symbol) {
+        addTypeInfoCandidate(symbol.returnType);
+      }
+    };
+
+    for (const reference of references) {
+      if (
+        reference.context === ReferenceContext.CLASS_REFERENCE ||
+        reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        reference.context === ReferenceContext.TYPE_DECLARATION ||
+        reference.context === ReferenceContext.INHERITANCE ||
+        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION
+      ) {
+        addCandidate(reference.name);
+      }
+      yield* addResolvedSymbolType(reference.resolvedSymbolId);
+      for (const node of reference.chainNodes ?? []) {
+        if (
+          node.context === ReferenceContext.CLASS_REFERENCE ||
+          node.context === ReferenceContext.CONSTRUCTOR_CALL ||
+          node.context === ReferenceContext.TYPE_DECLARATION
+        ) {
+          addCandidate(node.name);
+        }
+        yield* addResolvedSymbolType(node.resolvedSymbolId);
+      }
+    }
+
+    // `this.member`, `super.member`, and omitted member calls can resolve in a
+    // superclass. Include only the immediate declared parent; member lookup
+    // walks the already-loaded hierarchy and a later miss remains observable.
+    const receiverReferences = references.flatMap((reference) => [
+      reference,
+      ...(reference.chainNodes ?? []),
+    ]);
+    const needsReceiverHierarchy = receiverReferences.some((reference) => {
+      const lower = reference.name.toLowerCase();
+      return (
+        lower === 'super' ||
+        lower.startsWith('super.') ||
+        ((reference.context === ReferenceContext.METHOD_CALL ||
+          reference.context === ReferenceContext.FIELD_ACCESS) &&
+          !reference.resolvedSymbolId)
+      );
+    });
+    if (needsReceiverHierarchy) {
+      const allSymbols = symbolTable.getAllSymbols();
+      const symbolsById = new Map(
+        allSymbols.map((symbol) => [symbol.id, symbol]),
+      );
+      const hierarchy = symbolTable.getScopeHierarchy(parserPosition);
+      let current = symbolsById.get(hierarchy.at(-1)?.id ?? '');
+      const visited = new Set<string>();
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        if (
+          current.kind === SymbolKind.Class ||
+          current.kind === SymbolKind.Interface
+        ) {
+          const superClass =
+            'superClass' in current && typeof current.superClass === 'string'
+              ? current.superClass
+              : undefined;
+          addCandidate(superClass);
+          break;
+        }
+        current = current.parentId
+          ? symbolsById.get(current.parentId)
+          : undefined;
+      }
+    }
+
+    const missingNames: string[] = [];
+    let localHitCount = 0;
+    for (const name of candidateNames.values()) {
+      const candidates = yield* Effect.promise(() =>
+        svc.symbolManager.findSymbolByName(name),
+      );
+      let locallyAvailable = false;
+      for (const candidate of candidates) {
+        if (!candidate.fileUri) continue;
+        const table = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolTableForFile(candidate.fileUri!),
+        );
+        if (table) {
+          locallyAvailable = true;
+          break;
+        }
+      }
+      if (locallyAvailable) localHitCount++;
+      else missingNames.push(name);
+    }
+
+    let ingestedCount = 0;
+    if (missingNames.length > 0) {
+      const response = (yield* Effect.tryPromise({
+        try: () =>
+          requestCoordinatorAssistancePromiseShared(
+            'dataOwner:ResolveDepUris',
+            { classNames: missingNames },
+            true,
+          ),
+        catch: (cause) => cause,
+      }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))) as
+        { entries?: Record<string, unknown> } | undefined;
+      for (const [fileUri, data] of Object.entries(response?.entries ?? {})) {
+        if (!data) continue;
+        const table = SymbolTable.fromSerializedData(
+          data as SerializedSymbolTableData,
+        );
+        yield* svc.symbolManager.addSymbolTable(table, fileUri);
+        ingestedCount++;
+      }
+      yield* Effect.tryPromise({
+        try: () => resolveMissingNamesViaDataOwner(svc, missingNames),
+        catch: () => 0,
+      }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+    }
+
+    const telemetry = {
+      candidateCount: candidateNames.size,
+      localHitCount,
+      requestedCount: missingNames.length,
+      ingestedCount,
+    };
+    yield* Effect.annotateCurrentSpan({
+      'cursor_target.candidate_count': telemetry.candidateCount,
+      'cursor_target.local_hit_count': telemetry.localHitCount,
+      'cursor_target.requested_count': telemetry.requestedCount,
+      'cursor_target.ingested_count': telemetry.ingestedCount,
+    });
+    return telemetry;
+  })().pipe(
+    Effect.catchAll((error) =>
+      Effect.sync(() => {
+        getLogger().warn(
+          () =>
+            `[ENRICHMENT] Cursor-target dependency load failed for ${uri}: ${String(error)}`,
+        );
+        return {
+          candidateCount: 0,
+          localHitCount: 0,
+          requestedCount: 0,
+          ingestedCount: 0,
+        };
       }),
     ),
   );
@@ -1119,6 +1695,16 @@ export async function recompileCursorFileAtFullDetail(
   svc: RequestServices,
   uri: string,
   content?: string,
+  options: {
+    resolveCrossFileReferences?: boolean;
+    reuseUnchangedContent?: boolean;
+    sourceVersion?: number;
+    telemetry?: {
+      reused?: boolean;
+      compileMs?: number;
+      addSymbolTableMs?: number;
+    };
+  } = {},
 ): Promise<boolean> {
   // Only TRULY-ABSENT content (undefined) skips the recompile. An empty string
   // is a valid zero-length file — rejecting it with a `!content` falsy check
@@ -1127,21 +1713,67 @@ export async function recompileCursorFileAtFullDetail(
   // which already treats '' as "content present".
   if (content === undefined) return false;
   try {
+    if (options.reuseUnchangedContent) {
+      const cached = fullDetailCursorBySymbolManager
+        .get(svc.symbolManager)
+        ?.get(uri);
+      const currentTable = await svc.symbolManager.getSymbolTableForFile(uri);
+      if (
+        cached?.content === content &&
+        cached.sourceVersion === (options.sourceVersion ?? -1) &&
+        cached.table === currentTable
+      ) {
+        if (options.telemetry) options.telemetry.reused = true;
+        return true;
+      }
+    }
     const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
       await import('@salesforce/apex-lsp-parser-ast');
     const table = new SymbolTable();
     const listener = new FullSymbolCollectorListener(table);
+    const compileStartedAt = performance.now();
     const result = new CompilerService().compile(content, uri, listener, {
       collectReferences: true,
       resolveReferences: true,
     });
+    if (options.telemetry) {
+      options.telemetry.compileMs = performance.now() - compileStartedAt;
+    }
     const st = result?.result instanceof SymbolTable ? result.result : table;
+    const addStartedAt = performance.now();
     await Effect.runPromise(svc.symbolManager.addSymbolTable(st, uri));
+    if (options.telemetry) {
+      options.telemetry.addSymbolTableMs = performance.now() - addStartedAt;
+    }
+    if (options.reuseUnchangedContent) {
+      const currentTable = await svc.symbolManager.getSymbolTableForFile(uri);
+      let entries = fullDetailCursorBySymbolManager.get(svc.symbolManager);
+      if (!entries) {
+        entries = new Map();
+        fullDetailCursorBySymbolManager.set(svc.symbolManager, entries);
+      }
+      // Refresh insertion order for this URI, then cap retained source text.
+      // The SymbolManager itself is worker-long-lived, so the inner map must
+      // not grow with every document ever hovered during an editor session.
+      entries.delete(uri);
+      entries.set(uri, {
+        content,
+        sourceVersion: options.sourceVersion ?? -1,
+        table: currentTable,
+      });
+      while (entries.size > MAX_FULL_DETAIL_CURSOR_CACHE_ENTRIES) {
+        const oldestUri = entries.keys().next().value as string | undefined;
+        if (oldestUri === undefined) break;
+        entries.delete(oldestUri);
+      }
+    }
     // Re-resolve so the freshly-parsed in-body references re-key into the
     // cross-file reverse index (the public-api version's edges are superseded).
-    await Effect.runPromise(
-      svc.symbolManager.resolveCrossFileReferencesForFile(uri),
-    );
+    if (options.resolveCrossFileReferences ?? true) {
+      await Effect.runPromise(
+        svc.symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+    }
     return true;
   } catch (err) {
     // The cursor file stays at public-api detail, so an in-body cursor won't
@@ -1152,6 +1784,184 @@ export async function recompileCursorFileAtFullDetail(
     );
     return false;
   }
+}
+
+export interface PreparedLspRequestContext {
+  readonly requestType: LSPRequestType;
+  readonly uri: string;
+  readonly documentVersion: number;
+  readonly initialDetailLevel: DetailLevel;
+  readonly achievedDetailLevel: DetailLevel;
+  readonly cacheHit: boolean;
+  readonly localTableChanged: boolean;
+  readonly ready: boolean;
+  readonly writeBackRequired: boolean;
+  readonly policy: LspRequestPreparationPolicy;
+}
+
+const isLiveContentPolicy = (policy: LspRequestPreparationPolicy): boolean =>
+  policy.content === 'live-if-available' || policy.content === 'live-required';
+
+const shouldMaterializeWholeFile = (
+  policy: LspRequestPreparationPolicy,
+): boolean => policy.dependencyScope === 'outbound-file';
+
+const asDetailLevel = (value: string): DetailLevel => {
+  switch (value) {
+    case 'public-api':
+    case 'protected':
+    case 'private':
+    case 'full':
+      return value;
+    default:
+      return 'public-api';
+  }
+};
+
+/**
+ * Prepare a cursor-oriented request using the authoritative request policy.
+ * The returned achieved detail is based on work that actually completed; a
+ * requested target level is never treated as proof of enrichment.
+ */
+export function prepareLspRequestCursor(
+  svc: RequestServices,
+  requestType: LSPRequestType,
+  uri: string,
+  content?: string,
+  position?: { line: number; character: number },
+  documentVersion?: number,
+): Effect.Effect<PreparedLspRequestContext, never, never> {
+  const policy = getLspRequestPreparationPolicy(requestType);
+  return Effect.fn('worker.lspRequest.prepare', {
+    attributes: { 'request.type': requestType, uri },
+  })(function* () {
+    const useCursorTargetDependencies =
+      policy.dependencyScope === 'cursor-target' && position !== undefined;
+    const loadTelemetry: {
+      reusedLocalTables?: number;
+      ingestedTables?: number;
+      ownerQuerySkipped?: boolean;
+      ownerMetadataOnly?: boolean;
+    } = {};
+    const loadResult = yield* loadSymbolDataForEnrichment(svc, uri, content, {
+      materializeCrossFileReferences: shouldMaterializeWholeFile(policy),
+      reuseCompiledCursor: policy.reuseUnchangedCursor,
+      deferDependencyPrefetch: useCursorTargetDependencies,
+      sourceVersion: documentVersion,
+      allowOwnerQuerySkip: useCursorTargetDependencies,
+      telemetry: loadTelemetry,
+    });
+    const initialDetailLevel = asDetailLevel(loadResult.detailLevel);
+    let achievedDetailLevel = asDetailLevel(
+      loadResult.localDetailLevel ?? loadResult.detailLevel,
+    );
+    let cacheHit = false;
+    let localTableChanged = false;
+
+    const requiresDetailedCursor =
+      policy.requiredDetailLevel === 'private' ||
+      policy.requiredDetailLevel === 'full';
+    if (
+      requiresDetailedCursor &&
+      isLiveContentPolicy(policy) &&
+      content !== undefined
+    ) {
+      const recompileTelemetry: {
+        reused?: boolean;
+        compileMs?: number;
+        addSymbolTableMs?: number;
+      } = {};
+      const recompiled = yield* Effect.promise(() =>
+        recompileCursorFileAtFullDetail(svc, uri, content, {
+          resolveCrossFileReferences: shouldMaterializeWholeFile(policy),
+          reuseUnchangedContent: policy.reuseUnchangedCursor,
+          sourceVersion: loadResult.version,
+          telemetry: recompileTelemetry,
+        }),
+      );
+      cacheHit = recompileTelemetry.reused === true;
+      localTableChanged = recompiled && !cacheHit;
+      if (recompiled) achievedDetailLevel = 'full';
+
+      yield* Effect.annotateCurrentSpan({
+        // `recompileCursorFileAtFullDetail` also returns true when an
+        // unchanged local table is reused. Keep this attribute about actual
+        // compilation so cache-hit traces are not contradictory.
+        'request.cursor_recompiled': recompiled && !cacheHit,
+        'request.cursor_cache_hit': cacheHit,
+        'request.compile_ms': recompileTelemetry.compileMs ?? 0,
+        'request.add_symbol_table_ms': recompileTelemetry.addSymbolTableMs ?? 0,
+      });
+    }
+
+    const cursorTargetTelemetry = useCursorTargetDependencies
+      ? yield* loadCursorTargetDependencies(svc, uri, position)
+      : {
+          candidateCount: 0,
+          localHitCount: 0,
+          requestedCount: 0,
+          ingestedCount: 0,
+        };
+
+    const detailReady =
+      policy.requiredDetailLevel === null ||
+      !shouldEnrich(achievedDetailLevel, policy.requiredDetailLevel);
+    const contentReady =
+      policy.content !== 'live-required' || content !== undefined;
+    const ready = detailReady && contentReady;
+    const writeBackRequired =
+      policy.writeBack &&
+      ready &&
+      shouldEnrich(initialDetailLevel, achievedDetailLevel);
+
+    yield* Effect.annotateCurrentSpan({
+      'request.content_available': content !== undefined,
+      'request.initial_detail_level': initialDetailLevel,
+      'request.achieved_detail_level': achievedDetailLevel,
+      'request.dependency_scope': policy.dependencyScope,
+      'request.failure_mode': policy.failureMode,
+      'request.local_tables_reused': loadTelemetry.reusedLocalTables ?? 0,
+      'request.tables_ingested': loadTelemetry.ingestedTables ?? 0,
+      'request.owner_query_skipped': loadTelemetry.ownerQuerySkipped ?? false,
+      'request.owner_metadata_only': loadTelemetry.ownerMetadataOnly ?? false,
+      'request.cursor_target_candidate_count':
+        cursorTargetTelemetry.candidateCount,
+      'request.cursor_target_local_hit_count':
+        cursorTargetTelemetry.localHitCount,
+      'request.cursor_target_requested_count':
+        cursorTargetTelemetry.requestedCount,
+      'request.cursor_target_ingested_count':
+        cursorTargetTelemetry.ingestedCount,
+      'request.ready': ready,
+      'request.write_back_required': writeBackRequired,
+    });
+
+    return {
+      requestType,
+      uri,
+      documentVersion: loadResult.version,
+      initialDetailLevel,
+      achievedDetailLevel,
+      cacheHit,
+      localTableChanged,
+      ready,
+      writeBackRequired,
+      policy,
+    };
+  })();
+}
+
+export function writeBackPreparedLspRequest(
+  svc: RequestServices,
+  prepared: PreparedLspRequestContext,
+): Effect.Effect<boolean, never, never> {
+  if (!prepared.writeBackRequired) return Effect.succeed(false);
+  return writeBackEnrichedSymbols(
+    svc,
+    prepared.uri,
+    prepared.documentVersion,
+    prepared.achievedDetailLevel,
+  );
 }
 
 /**
@@ -1376,132 +2186,12 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
   );
 
 // ---------------------------------------------------------------------------
-// Compilation services (lazy bootstrap)
-// ---------------------------------------------------------------------------
-
-export interface CompilationServices {
-  readonly compile: (
-    content: string,
-    uri: string,
-  ) => {
-    symbolTable: unknown;
-    errors: unknown[];
-  } | null;
-}
-
-export const ensureCompilationServices: Effect.Effect<CompilationServices> =
-  Effect.runSync(
-    Effect.cached(
-      Effect.gen(function* () {
-        const { CompilerService, VisibilitySymbolListener, SymbolTable } =
-          yield* Effect.promise(
-            () => import('@salesforce/apex-lsp-parser-ast'),
-          );
-        const compilerService = new CompilerService();
-
-        const compile = (content: string, uri: string) => {
-          const table = new SymbolTable();
-          const listener = new VisibilitySymbolListener('public-api', table);
-          const result = compilerService.compile(content, uri, listener, {
-            collectReferences: true,
-            resolveReferences: true,
-          });
-          if (!result) return null;
-          const symbolTable =
-            result.result instanceof SymbolTable ? result.result : table;
-          return { symbolTable, errors: result.errors };
-        };
-
-        yield* Effect.logInfo('[COMPILATION] services bootstrapped');
-        return { compile } as CompilationServices;
-      }),
-    ),
-  );
-
-// ---------------------------------------------------------------------------
-// Compiled-symbol write-back (compilation role)
-// ---------------------------------------------------------------------------
-
-export async function writeBackCompiledSymbols(
-  symbolTable: {
-    getAllSymbols(): unknown[];
-    getAllReferences(): unknown[];
-    getAllHierarchicalReferences?(): unknown[];
-    getMetadata(): unknown;
-    getFileUri(): string;
-  },
-  uri: string,
-  documentVersion: number,
-): Promise<boolean> {
-  const startTime = Date.now();
-  try {
-    // Sanitize for the wire BEFORE posting. The assistance bus posts this
-    // payload via MessagePort.postMessage, which uses the structured-clone
-    // algorithm — and structured clone THROWS on function values
-    // ("() => null could not be cloned"). A compiled SymbolTable's
-    // getAllSymbols() can carry function-valued properties (lazy thunks), which
-    // appear for real type-referencing Apex but not for trivial self-contained
-    // classes. Without this, the postMessage throws synchronously, the
-    // write-back never reaches the coordinator/data-owner, the readiness latch
-    // is never resolved, and the cold-read gate burns its full budget before
-    // falling back to a local compile — the ~2s cold-start stall.
-    //
-    // cloneForWire (JSON round-trip) is the same sanitizer every other
-    // wire-crossing data-owner payload already uses; it drops functions and
-    // other non-cloneable values, leaving plain JSON the data-owner can merge.
-    const enrichedSymbolTable = cloneForWire({
-      symbols: symbolTable.getAllSymbols(),
-      references: symbolTable.getAllReferences(),
-      hierarchicalReferences:
-        symbolTable.getAllHierarchicalReferences?.() ?? [],
-      metadata: symbolTable.getMetadata(),
-      fileUri: symbolTable.getFileUri(),
-    });
-    const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
-      ? enrichedSymbolTable.symbols.length
-      : 0;
-
-    const response = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:UpdateSymbolSubset',
-      {
-        uri,
-        documentVersion,
-        enrichedSymbolTable,
-        enrichedDetailLevel: 'public-api',
-        sourceWorkerId: workerId,
-      },
-      true,
-    )) as { accepted: boolean; merged: number; versionMismatch: boolean };
-
-    const elapsed = Date.now() - startTime;
-    const accepted = response?.accepted ?? false;
-
-    await Effect.runPromise(
-      Effect.logDebug(
-        `[COMPILATION] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
-          `${symbolCount} symbols for ${uri} (v${documentVersion}, ${elapsed}ms)` +
-          (response?.versionMismatch ? ' [version mismatch]' : ''),
-      ),
-    );
-    return accepted;
-  } catch (err) {
-    const elapsed = Date.now() - startTime;
-    await Effect.runPromise(
-      Effect.logWarning(
-        `[COMPILATION] Write-back failed: ${uri} (${elapsed}ms) - ${err}`,
-      ),
-    );
-    return false;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Role-specific initialization
 // ---------------------------------------------------------------------------
 
 export const handleWorkerInitRole = (
   req: Schema.Schema.Type<typeof WorkerInit>,
-): Effect.Effect<{ ready: boolean }> => {
+): Effect.Effect<{ ready: boolean }, never, CompilationWorkerPoolService> => {
   if (req.role === 'resourceLoader') {
     return Effect.gen(function* () {
       const { ResourceLoader } = yield* Effect.promise(
@@ -1515,18 +2205,26 @@ export const handleWorkerInitRole = (
   if (req.role === 'dataOwner') {
     return Effect.gen(function* () {
       yield* ensureDataOwnerServices;
+      const compilationPool = yield* CompilationWorkerPool;
+      if (compilationPool.available) {
+        yield* Effect.logInfo(
+          `[DATA-OWNER] compilation pool ready (size=${compilationPool.size}, ` +
+            `concurrencyPerWorker=${compilationPool.concurrency})`,
+        );
+      } else {
+        // Some focused worker topologies do not install workspace-compilation
+        // infrastructure. They may still serve ordinary data-owner requests;
+        // WorkspaceBatchCompileOnDataOwner fails explicitly if invoked.
+        yield* Effect.logDebug(
+          '[DATA-OWNER] workspace compilation capability is not installed',
+        );
+      }
       return { ready: true };
     });
   }
   if (req.role === 'lspRequest') {
     return Effect.gen(function* () {
       yield* ensureRequestServices;
-      return { ready: true };
-    });
-  }
-  if (req.role === 'compilation') {
-    return Effect.gen(function* () {
-      yield* ensureCompilationServices;
       return { ready: true };
     });
   }
@@ -1581,25 +2279,62 @@ export function writeBackEnrichedSymbols(
       return false;
     }
 
-    // Serialize symbol table to wire format. Sanitize via cloneForWire to drop
-    // function values (lazy thunks) that structured clone cannot handle — see
-    // writeBackCompiledSymbols for the full rationale.
-    const enrichedSymbolTable = cloneForWire({
-      symbols: symbolTable.getAllSymbols(),
-      references: symbolTable.getAllReferences(),
-      hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
-      metadata: symbolTable.getMetadata(),
-      fileUri: symbolTable.getFileUri(),
-    });
+    const actualDetailLevel = symbolTable.getDetailLevel();
+    if (
+      actualDetailLevel === null ||
+      shouldEnrich(actualDetailLevel, enrichedDetailLevel)
+    ) {
+      yield* Effect.logWarning(
+        `[ENRICHMENT] Write-back skipped: table for ${uri} reached ` +
+          `${actualDetailLevel ?? 'unknown'}, below claimed ${enrichedDetailLevel}`,
+      );
+      return false;
+    }
+
+    // Serialize symbol table to wire format with instrumentation
+    const { enrichedSymbolTable, serializeMs, payloadSizeBytes } =
+      yield* Effect.fn('worker.enrichment.serializeSymbols', {
+        attributes: { uri },
+      })(function* () {
+        const serializeStart = Date.now();
+        const table = cloneForWire({
+          symbols: symbolTable.getAllSymbols(),
+          references: symbolTable.getAllReferences(),
+          hierarchicalReferences: symbolTable.getAllHierarchicalReferences(),
+          metadata: symbolTable.getMetadata(),
+          fileUri: symbolTable.getFileUri(),
+        });
+        const serializeMs = Date.now() - serializeStart;
+
+        // Estimate payload size (approximate via JSON serialization)
+        const payloadSizeBytes = JSON.stringify(table).length;
+
+        return yield* Effect.succeed({
+          enrichedSymbolTable: table,
+          serializeMs,
+          payloadSizeBytes,
+        });
+      })();
 
     const symbolCount = Array.isArray(enrichedSymbolTable?.symbols)
       ? enrichedSymbolTable.symbols.length
       : 0;
+    const referenceCount = Array.isArray(enrichedSymbolTable?.references)
+      ? enrichedSymbolTable.references.length
+      : 0;
 
     const response = (yield* Effect.fn('worker.enrichment.updateSymbolSubset', {
-      attributes: { uri, symbolCount, detailLevel: enrichedDetailLevel },
+      attributes: {
+        uri,
+        symbolCount,
+        referenceCount,
+        detailLevel: actualDetailLevel,
+        payloadSizeBytes,
+        serializeMs,
+      },
     })(function* () {
-      return (yield* Effect.tryPromise({
+      const ipcCallStart = Date.now();
+      const result = (yield* Effect.tryPromise({
         try: () =>
           requestCoordinatorAssistancePromiseShared(
             'dataOwner:UpdateSymbolSubset',
@@ -1607,13 +2342,25 @@ export function writeBackEnrichedSymbols(
               uri,
               documentVersion,
               enrichedSymbolTable,
-              enrichedDetailLevel,
+              enrichedDetailLevel: actualDetailLevel,
               sourceWorkerId: workerId,
             },
             true,
           ),
         catch: (cause) => cause,
       })) as { accepted: boolean; merged: number; versionMismatch: boolean };
+
+      const ipcCallMs = Date.now() - ipcCallStart;
+
+      // Track post-IPC cleanup/overhead
+      yield* Effect.fn('worker.enrichment.postIpcCleanup', {
+        attributes: { uri, ipcCallMs },
+      })(function* () {
+        // Explicit cleanup marker - any work here contributes to post-IPC gap
+        return yield* Effect.succeed(undefined);
+      })();
+
+      return result;
     })()) as { accepted: boolean; merged: number; versionMismatch: boolean };
 
     const elapsed = Date.now() - startTime;
@@ -1621,7 +2368,7 @@ export function writeBackEnrichedSymbols(
 
     yield* Effect.logDebug(
       `[ENRICHMENT] Write-back ${accepted ? 'accepted' : 'rejected'}: ` +
-        `${symbolCount} symbols, ${enrichedDetailLevel} level, ${uri} ` +
+        `${symbolCount} symbols, ${actualDetailLevel} level, ${uri} ` +
         `(v${documentVersion}, ${elapsed}ms)` +
         (response?.versionMismatch ? ' [version mismatch]' : ''),
     );
@@ -1881,42 +2628,42 @@ const requestHandlers = {
     'DispatchHover',
     (svc, req) =>
       Effect.gen(function* () {
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const uri = req.textDocument.uri;
+        const prepared = yield* prepareLspRequestCursor(
           svc,
-          req.textDocument.uri,
+          'hover',
+          uri,
           req.content,
+          req.position,
+          req.documentVersion,
         );
 
-        // The data-owner only retains public-api detail. Recompile the live
-        // cursor file locally so private members, fields, and locals exist.
-        yield* Effect.promise(() =>
-          recompileCursorFileAtFullDetail(
-            svc,
-            req.textDocument.uri,
-            req.content,
-          ),
-        );
-
-        // Hover requires 'full' detail level per LspRequestPrerequisiteMapping
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-        const result = yield* Effect.promise(() =>
-          svc.hoverService.processHover({
-            textDocument: { uri: req.textDocument.uri },
-            position: req.position,
-          }),
-        );
-
-        // Write back enriched symbols if enrichment occurred
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
+        const result = yield* Effect.fn('worker.hover.process', {
+          attributes: { uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.hoverService.processHover(
+              {
+                textDocument: { uri },
+                position: req.position,
+              },
+              {
+                prerequisitesPrepared: true,
+              },
+            ),
           );
-        }
+        })();
+
+        const wroteBack = yield* Effect.fn('worker.hover.writeBack', {
+          attributes: { uri },
+        })(function* () {
+          return yield* writeBackPreparedLspRequest(svc, prepared);
+        })();
+
+        yield* Effect.annotateCurrentSpan({
+          'hover.cursor_cache_hit': prepared.cacheHit,
+          'hover.write_back': wroteBack,
+        });
 
         return result;
       }),
@@ -1925,28 +2672,15 @@ const requestHandlers = {
     'DispatchCompletion',
     (svc, req) =>
       Effect.gen(function* () {
-        // Completion runs on the in-flight (possibly unsaved) document text, so
-        // load the local subset from that content rather than the data-owner's
-        // last-stored version.
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const prepared = yield* prepareLspRequestCursor(
           svc,
+          'completion',
           req.textDocument.uri,
           req.content,
+          req.position,
+          req.documentVersion,
         );
-
-        // Completion operates on in-flight declarations, not the data-owner's
-        // previous public-api snapshot.
-        yield* Effect.promise(() =>
-          recompileCursorFileAtFullDetail(
-            svc,
-            req.textDocument.uri,
-            req.content,
-          ),
-        );
-
-        // Completion needs full member visibility for member-access suggestions.
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        if (!prepared.ready) return [];
 
         // triggerKind crosses the wire as a plain number but IS a
         // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
@@ -1956,22 +2690,20 @@ const requestHandlers = {
           position: req.position,
           ...(req.context ? { context: req.context } : {}),
         };
-        const result = yield* Effect.promise(() =>
-          svc.completionService.processCompletion(
-            completionParams as Parameters<
-              typeof svc.completionService.processCompletion
-            >[0],
-          ),
-        );
-
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
+        const result = yield* Effect.fn('worker.completion.process', {
+          attributes: { uri: req.textDocument.uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.completionService.processCompletion(
+              completionParams as Parameters<
+                typeof svc.completionService.processCompletion
+              >[0],
+              { prerequisitesPrepared: true },
+            ),
           );
-        }
+        })();
+
+        yield* writeBackPreparedLspRequest(svc, prepared);
 
         return result;
       }),
@@ -1980,34 +2712,33 @@ const requestHandlers = {
     'DispatchSignatureHelp',
     (svc, req) =>
       Effect.gen(function* () {
-        // Signature help runs on the in-flight document text while typing args.
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const prepared = yield* prepareLspRequestCursor(
           svc,
+          'signatureHelp',
           req.textDocument.uri,
           req.content,
+          req.position,
+          req.documentVersion,
         );
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        if (!prepared.ready) return null;
         const params = {
           textDocument: { uri: req.textDocument.uri },
           position: req.position,
           ...(req.context !== undefined ? { context: req.context } : {}),
         };
-        const result = yield* Effect.promise(() =>
-          svc.signatureHelpService.processSignatureHelp(
-            params as Parameters<
-              typeof svc.signatureHelpService.processSignatureHelp
-            >[0],
-          ),
-        );
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
+        const result = yield* Effect.fn('worker.signatureHelp.process', {
+          attributes: { uri: req.textDocument.uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.signatureHelpService.processSignatureHelp(
+              params as Parameters<
+                typeof svc.signatureHelpService.processSignatureHelp
+              >[0],
+              { prerequisitesPrepared: true },
+            ),
           );
-        }
+        })();
+        yield* writeBackPreparedLspRequest(svc, prepared);
         return result;
       }),
   ),
@@ -2015,13 +2746,13 @@ const requestHandlers = {
     'DispatchCodeAction',
     (svc, req) =>
       Effect.gen(function* () {
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const prepared = yield* prepareLspRequestCursor(
           svc,
+          'codeAction',
           req.textDocument.uri,
           req.content,
         );
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
+        if (!prepared.ready) return [];
         const params = {
           textDocument: { uri: req.textDocument.uri },
           range: req.range,
@@ -2034,14 +2765,7 @@ const requestHandlers = {
             >[0],
           ),
         );
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
-          );
-        }
+        yield* writeBackPreparedLspRequest(svc, prepared);
         return result;
       }),
   ),
@@ -2049,40 +2773,31 @@ const requestHandlers = {
     'DispatchDefinition',
     (svc, req) =>
       Effect.gen(function* () {
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const prepared = yield* prepareLspRequestCursor(
           svc,
+          'definition',
           req.textDocument.uri,
           req.content,
+          req.position,
+          req.documentVersion,
         );
+        if (!prepared.ready) return null;
 
-        yield* Effect.promise(() =>
-          recompileCursorFileAtFullDetail(
-            svc,
-            req.textDocument.uri,
-            req.content,
-          ),
-        );
-
-        // Definition requires 'full' detail level per LspRequestPrerequisiteMapping
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
-        const result = yield* Effect.promise(() =>
-          svc.definitionService.processDefinition({
-            textDocument: { uri: req.textDocument.uri },
-            position: req.position,
-          }),
-        );
-
-        // Write back enriched symbols if enrichment occurred
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
+        const result = yield* Effect.fn('worker.definition.process', {
+          attributes: { uri: req.textDocument.uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.definitionService.processDefinition(
+              {
+                textDocument: { uri: req.textDocument.uri },
+                position: req.position,
+              },
+              { prerequisitesPrepared: true },
+            ),
           );
-        }
+        })();
+
+        yield* writeBackPreparedLspRequest(svc, prepared);
 
         return result;
       }),
@@ -2232,14 +2947,13 @@ const requestHandlers = {
     'DispatchImplementation',
     (svc, req) =>
       Effect.gen(function* () {
-        // Mirror the references enrichment shape, but for the inbound IMPLEMENTS /
-        // EXTENDS direction:
-        //   load symbol data → load inbound implementor/subtype tables →
-        //   resolve cross-file edges → process → write back.
-        const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
+        const prepared = yield* prepareLspRequestCursor(
           svc,
+          'implementation',
           req.textDocument.uri,
+          req.content,
         );
+        if (!prepared.ready) return null;
 
         // Go-to-implementation must see every implementor/subtype of the target
         // type, which live in *other* files. loadDependentsForReferences pulls the
@@ -2258,11 +2972,6 @@ const requestHandlers = {
           req.textDocument.uri,
         );
 
-        // Implementor discovery reads interfaces/superClass + method declarations,
-        // which are present at 'full' detail (per LspRequestPrerequisiteMapping).
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
-
         const result = yield* Effect.promise(() =>
           svc.implementationService.processImplementation({
             textDocument: { uri: req.textDocument.uri },
@@ -2270,14 +2979,7 @@ const requestHandlers = {
           }),
         );
 
-        if (needsEnrichment) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            requiredLevel,
-          );
-        }
+        yield* writeBackPreparedLspRequest(svc, prepared);
 
         return result;
       }),
@@ -2310,26 +3012,30 @@ const requestHandlers = {
     'DispatchCodeLens',
     (svc, req) =>
       Effect.gen(function* () {
-        yield* loadSymbolDataForEnrichment(svc, req.textDocument.uri);
-        return yield* Effect.promise(() =>
-          svc.codeLensService.processCodeLens({
-            textDocument: { uri: req.textDocument.uri },
-          }),
-        );
+        yield* loadCodeLensSymbolData(svc, req.textDocument.uri);
+        return yield* Effect.fn('worker.lspRequest.processCodeLens', {
+          attributes: { uri: req.textDocument.uri },
+        })(function* () {
+          return yield* Effect.promise(() =>
+            svc.codeLensService.processCodeLens({
+              textDocument: { uri: req.textDocument.uri },
+            }),
+          );
+        })();
       }),
   ),
   DispatchDiagnostic: effectRequestHandler<DocOnlyReq>(
     'DispatchDiagnostic',
     (svc, req) =>
       Effect.gen(function* () {
+        // DiagnosticProcessingService owns validator-oriented compilation.
+        // Store live text and load the local graph here, but do not run the
+        // shared cursor compiler and duplicate that compute.
         const { version, detailLevel } = yield* loadSymbolDataForEnrichment(
           svc,
           req.textDocument.uri,
+          req.content,
         );
-
-        // Diagnostics requires 'full' detail level per LspRequestPrerequisiteMapping
-        const requiredLevel = 'full';
-        const needsEnrichment = shouldEnrich(detailLevel, requiredLevel);
 
         const result = yield* Effect.promise(() =>
           svc.diagnosticService.processDiagnostic({
@@ -2337,13 +3043,19 @@ const requestHandlers = {
           }),
         );
 
-        // Write back enriched symbols if enrichment occurred
-        if (needsEnrichment) {
+        const table = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
+        );
+        const achievedDetailLevel = table?.getDetailLevel() ?? null;
+        if (
+          achievedDetailLevel !== null &&
+          shouldEnrich(detailLevel, achievedDetailLevel)
+        ) {
           yield* writeBackEnrichedSymbols(
             svc,
             req.textDocument.uri,
             version,
-            requiredLevel,
+            achievedDetailLevel,
           );
         }
 
@@ -2431,11 +3143,33 @@ export function withWorkerRequestTracing<A, E>(
   return workerTracingHooks.withParent(request, tracedEffect);
 }
 
+const compilationHandlers = createCompilationWorkerHandlers();
+
 const untracedHandlers: SerializedWorkerHandlers = {
+  InitializeCompilationWorker: (req) =>
+    guardRole('InitializeCompilationWorker').pipe(
+      Effect.flatMap(() =>
+        compilationHandlers.InitializeCompilationWorker(req),
+      ),
+    ),
+
+  CompileApexFile: (req) =>
+    guardRole('CompileApexFile').pipe(
+      Effect.flatMap(() => compilationHandlers.CompileApexFile(req)),
+    ),
+
   WorkerInit: (req) => {
     if (assignedRole !== null) {
       return Effect.die(
         new Error('WorkerInit received but role already assigned'),
+      );
+    }
+    if (req.protocolVersion !== WIRE_PROTOCOL_VERSION) {
+      return Effect.die(
+        new Error(
+          `Worker protocol mismatch: coordinator=${req.protocolVersion}, ` +
+            `worker=${WIRE_PROTOCOL_VERSION}`,
+        ),
       );
     }
     setAssignedRole(req.role);
@@ -2471,20 +3205,67 @@ const untracedHandlers: SerializedWorkerHandlers = {
         Effect.gen(function* () {
           if (assignedRole === 'dataOwner') {
             yield* ensureDataOwnerServices;
+            yield* Effect.tryPromise({
+              try: () => warmRemoteStdlibNamespaceCacheShared(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
           } else if (assignedRole === 'lspRequest') {
             yield* ensureRequestServices;
-          } else if (assignedRole === 'compilation') {
-            yield* ensureCompilationServices;
+            yield* Effect.tryPromise({
+              try: () => warmRemoteStdlibNamespaceCacheShared(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
+          } else if (assignedRole === 'resourceLoader') {
+            // resourceLoader IS the stdlib source - warm it by initializing ResourceLoader
+            // which triggers stdlib protobuf loading and namespace indexing
+            const { ResourceLoader } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
+            yield* Effect.tryPromise({
+              try: () => ResourceLoader.getInstance().initialize(),
+              catch: (e) => ({
+                _tag: 'WorkerRemoteStdlibWarmupError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
           }
-          yield* Effect.tryPromise({
-            try: () => warmRemoteStdlibNamespaceCacheShared(),
-            catch: (e) => ({
-              _tag: 'WorkerRemoteStdlibWarmupError' as const,
-              message: e instanceof Error ? e.message : String(e),
-            }),
-          });
           return { ok: true as const };
         }),
+      ),
+    ),
+
+  DataOwnerPreloadStandardNamespaces: (req) =>
+    guardRole('DataOwnerPreloadStandardNamespaces').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const result = yield* Effect.tryPromise({
+              try: () => preloadStandardNamespaces(svc, req.namespaces),
+              catch: (e) => ({
+                _tag: 'DataOwnerPreloadStandardNamespacesError' as const,
+                message: e instanceof Error ? e.message : String(e),
+              }),
+            });
+            yield* Effect.logInfo(
+              `[DATA-OWNER] stdlib preload: ${result.loadedClasses}/${result.totalClasses} classes ` +
+                `from [${result.namespaces.join(', ')}]`,
+            );
+            return {
+              namespaces: [...result.namespaces],
+              loadedClasses: result.loadedClasses,
+              totalClasses: result.totalClasses,
+              missingNamespaces: [...result.missingNamespaces],
+              failedClasses: [...result.failedClasses],
+            };
+          }),
+        ),
       ),
     ),
 
@@ -2506,6 +3287,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
               string,
               'public-api' | 'protected' | 'private' | 'full'
             > = {};
+            const includeEntries = req.includeEntries !== false;
 
             const serializeSt = (
               st: Awaited<ReturnType<typeof sm.getSymbolTableForFile>> & object,
@@ -2519,11 +3301,12 @@ const untracedHandlers: SerializedWorkerHandlers = {
               });
 
             for (const uri of req.uris) {
-              // Get symbol table
-              const st = yield* Effect.promise(() =>
-                sm.getSymbolTableForFile(uri),
-              );
-              entries[uri] = st ? serializeSt(st) : null;
+              if (includeEntries) {
+                const st = yield* Effect.promise(() =>
+                  sm.getSymbolTableForFile(uri),
+                );
+                entries[uri] = st ? serializeSt(st) : null;
+              }
 
               // Get document version
               const doc = yield* Effect.promise(() => storage.getDocument(uri));
@@ -2780,15 +3563,21 @@ const untracedHandlers: SerializedWorkerHandlers = {
             );
 
             // Populate cross-file incoming edges for this file now that its
-            // symbols are merged. Resolves references from this file into the
-            // workspace graph (and defers any whose targets aren't ingested yet,
-            // to be drained post-batch via DrainDeferredReferences).
-            yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
-              attributes: {
-                'document.uri': req.uri,
-                'reference.count': referenceCount,
-              },
-            })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
+            // symbols are merged. During workspace batch load the workspace load
+            // session is active and we skip eager full per-file resolution —
+            // addSymbolTable already deferred supertype edges to deferredResolutions
+            // (drained at session end), and ordinary cross-file refs resolve on-demand
+            // via PrerequisiteOrchestrationService. After the workspace load session
+            // ends, single-file didOpen/didChange write-backs (session inactive) still
+            // resolve eagerly for that one file — bounded, correct interactive behavior.
+            if (!svc.symbolManager.isWorkspaceLoadSessionActive()) {
+              yield* Effect.withSpan('dataOwner.update.resolveCrossFile', {
+                attributes: {
+                  'document.uri': req.uri,
+                  'reference.count': referenceCount,
+                },
+              })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
+            }
 
             // Update cache with new detail level
             cache.merge(req.uri, {
@@ -2863,12 +3652,27 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
-  DrainDeferredReferences: () =>
+  DrainDeferredReferences: (req) =>
     guardRole('DrainDeferredReferences').pipe(
       Effect.flatMap(() =>
         dataOwnerWrite(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
+
+            // End workspace load session and resolve all deferred files (if sessionId provided)
+            let processedCount = 0;
+            if (req.sessionId) {
+              const sessionId = req.sessionId; // Capture for type narrowing
+              processedCount = yield* Effect.promise(() =>
+                svc.symbolManager.endWorkspaceLoadSession(sessionId),
+              );
+              yield* Effect.logInfo(
+                `[DATA-OWNER] End workspace load session: ${sessionId}, ` +
+                  `resolved=${processedCount} deferred files`,
+              );
+            }
+
+            // Drain remaining deferred references (legacy behavior)
             const resolved =
               yield* svc.symbolManager.drainAllDeferredReferences();
             yield* Effect.annotateCurrentSpan(
@@ -2876,12 +3680,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
               resolved,
             );
             yield* Effect.logDebug(
-              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} edge(s)`,
+              `[DATA-OWNER] DrainDeferredReferences resolved ${resolved} additional edge(s)`,
             );
-            return { resolved };
+            return { resolved, processedCount };
           }),
           {
             spanName: 'dataOwner.references.drain',
+            attributes: req.sessionId
+              ? { 'workspace.session_id': req.sessionId }
+              : {},
           },
         ),
       ),
@@ -3053,6 +3860,189 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
+  BeginWorkspaceLoadSession: (req) =>
+    guardRole('BeginWorkspaceLoadSession').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            svc.symbolManager.beginWorkspaceLoadSession(req.sessionId);
+            yield* Effect.logInfo(
+              `[DATA-OWNER] Begin workspace load session: ${req.sessionId}`,
+            );
+            return { ok: true as const };
+          }),
+        ),
+      ),
+    ),
+
+  WorkspaceBatchCompileOnDataOwner: (req) =>
+    guardRole('WorkspaceBatchCompileOnDataOwner').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const pool = yield* CompilationWorkerPool;
+          if (!pool.available) {
+            return yield* Effect.fail(
+              new Error(
+                'Workspace compilation requires the data-owner-managed compilation pool',
+              ),
+            );
+          }
+
+          yield* Effect.logInfo(
+            '[DATA-OWNER] WorkspaceBatchCompileOnDataOwner received: ' +
+              `${req.entries.length} files, poolSize=${pool.size}, ` +
+              `workerConcurrency=${pool.concurrency}`,
+          );
+          const batchStartTime = Date.now();
+          const svc = yield* ensureDataOwnerServices;
+          // CPU parallelism comes from distinct Effect Workers. The worker's
+          // own Effect concurrency controls request scheduling, not additional
+          // CPU execution within that worker. Keeping workspace admission at
+          // one request per backing worker also avoids preloading the Effect
+          // pool's FIFO lease queue: an interactive request that arrives while
+          // all workers are busy waits ahead of the next, not-yet-submitted
+          // workspace file.
+          const compilationParallelism = Math.max(1, pool.size);
+          const resultBufferCapacity = Math.max(1, pool.size * 4);
+
+          yield* Effect.annotateCurrentSpan({
+            'workspace.session_id': req.sessionId,
+            'workspace.file_count': req.entries.length,
+            'workspace.content_chars': req.entries.reduce(
+              (total, entry) => total + entry.content.length,
+              0,
+            ),
+            'workspace.worker_count': pool.size,
+            'workspace.concurrency_per_worker': pool.concurrency,
+            'workspace.compile_parallelism': compilationParallelism,
+            'workspace.result_buffer_capacity': resultBufferCapacity,
+            'workspace.compile_location': 'data-owner-effect-worker-pool',
+          });
+
+          const pipeline = yield* runWorkspaceCompilationPipeline({
+            entries: req.entries,
+            parallelism: compilationParallelism,
+            bufferCapacity: resultBufferCapacity,
+            compile: (entry) =>
+              pool.execute(
+                new CompileApexFile({
+                  uri: entry.uri,
+                  content: entry.content,
+                  languageId: entry.languageId,
+                  version: entry.version,
+                  detailLevel: 'public-api',
+                  collectReferences: true,
+                  traceContext: req.traceContext,
+                }),
+                'low',
+              ),
+            commit: (compiled, entry, index) =>
+              dataOwnerWrite(
+                Effect.gen(function* () {
+                  const storage = svc.storageManager.getStorage();
+                  const currentDocument = yield* Effect.promise(() =>
+                    storage.getDocument(entry.uri),
+                  );
+                  if (
+                    !currentDocument ||
+                    currentDocument.version !== entry.version
+                  ) {
+                    yield* Effect.annotateCurrentSpan({
+                      'workspace.merge_outcome': !currentDocument
+                        ? 'rejected-document-missing'
+                        : 'rejected-version-mismatch',
+                      'document.current_version':
+                        currentDocument?.version ?? -1,
+                    });
+                    resolveReadiness(entry.uri, entry.version);
+                    return { outcome: 'rejected' as const };
+                  }
+
+                  const deserializeStart = Date.now();
+                  const symbolTable = reconstructCompiledSymbolTable(compiled);
+                  const deserializeMs = Date.now() - deserializeStart;
+
+                  const mergeStart = Date.now();
+                  yield* svc.symbolManager.addSymbolTable(
+                    symbolTable,
+                    entry.uri,
+                    entry.version,
+                    compiled.parserDiagnostics.length > 0,
+                  );
+                  const mergeMs = Date.now() - mergeStart;
+                  getDocumentStateCache().merge(entry.uri, {
+                    documentVersion: entry.version,
+                    detailLevel: 'public-api',
+                    timestamp: Date.now(),
+                  });
+                  resolveReadiness(entry.uri, entry.version);
+
+                  yield* Effect.annotateCurrentSpan({
+                    'workspace.compile_ms': compiled.metrics.compileMs,
+                    'workspace.serialize_ms': compiled.metrics.serializeMs,
+                    'workspace.payload_size_bytes':
+                      compiled.metrics.payloadSizeBytes,
+                    'workspace.deserialize_ms': deserializeMs,
+                    'workspace.merge_ms': mergeMs,
+                    'workspace.merge_outcome': 'compiled',
+                    'symbol.count': compiled.metrics.symbolCount,
+                    'reference.count': compiled.metrics.referenceCount,
+                  });
+                  return { outcome: 'compiled' as const };
+                }),
+                {
+                  spanName: 'workspace.file.commit',
+                  attributes: {
+                    'workspace.session_id': req.sessionId,
+                    'workspace.file_index': index,
+                    'workspace.file_total': req.entries.length,
+                    'document.uri': entry.uri,
+                    'document.version': entry.version,
+                  },
+                },
+              ),
+          });
+
+          for (const failure of pipeline.failures) {
+            resolveReadiness(failure.entry.uri, failure.entry.version);
+            yield* Effect.logWarning(
+              `[DATA-OWNER] Workspace compilation failed for ${failure.entry.uri}: ` +
+                Cause.pretty(failure.cause),
+            );
+          }
+
+          const compiledCount = pipeline.results.filter(
+            (result) => result.outcome === 'compiled',
+          ).length;
+          const errorCount = req.entries.length - compiledCount;
+          const elapsedMs = Date.now() - batchStartTime;
+
+          yield* Effect.annotateCurrentSpan({
+            'workspace.compiled_count': compiledCount,
+            'workspace.error_count': errorCount,
+            'workspace.elapsed_ms': elapsedMs,
+          });
+          yield* Effect.logInfo(
+            `[DATA-OWNER] Effect Worker batch compile: ${compiledCount} compiled, ` +
+              `${errorCount} errors, ${elapsedMs}ms (${pool.size} workers)`,
+          );
+
+          return {
+            compiledCount,
+            errorCount,
+            elapsedMs,
+            workerCount: pool.size,
+          };
+        }).pipe(
+          Effect.mapError((error) => ({
+            _tag: 'WorkspaceBatchCompileOnDataOwnerError' as const,
+            message: error instanceof Error ? error.message : String(error),
+          })),
+        ),
+      ),
+    ),
+
   WorkspaceBatchIngest: (req) =>
     guardRole('WorkspaceBatchIngest').pipe(
       Effect.flatMap(() =>
@@ -3060,6 +4050,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
           Effect.gen(function* () {
             const startTime = Date.now();
             const svc = yield* ensureDataOwnerServices;
+
             const storage = svc.storageManager.getStorage();
             for (const entry of req.entries) {
               const doc: WorkerDocument = {
@@ -3192,15 +4183,11 @@ const untracedHandlers: SerializedWorkerHandlers = {
     'DispatchDocumentSave',
     (svc, req) =>
       Effect.gen(function* () {
-        // Mirror DispatchDocumentChange: store a version placeholder and arm the
-        // readiness latch so the CompileDocument this save triggers can write
-        // its symbols back (UpdateSymbolSubset requires the document present at
-        // this version) and a request racing the save re-evaluates against the
-        // saved version. The compile message carries the real saved content; the
-        // placeholder text is replaced when the write-back merges.
+        // Mirror DispatchDocumentChange: persist the authoritative saved text
+        // before compilation and arm readiness at this version.
         const doc: WorkerDocument = {
           uri: req.uri,
-          getText: () => '',
+          getText: () => req.content,
           languageId: 'apex',
           version: req.version,
         };
@@ -3232,167 +4219,134 @@ const untracedHandlers: SerializedWorkerHandlers = {
       }),
   ),
 
-  // -- Compilation worker handlers ---------------------------------------------
+  // -- Interactive compilation via the data-owner-managed Effect Worker pool ---
 
   CompileDocument: (req) =>
     guardRole('CompileDocument').pipe(
       Effect.flatMap(() =>
         Effect.gen(function* () {
           const startTime = Date.now();
-          const svc = yield* ensureCompilationServices;
-
-          const result = svc.compile(req.content, req.uri);
-          let compiledCount = 0;
-          if (result && result.symbolTable) {
-            compiledCount = 1;
-            yield* Effect.promise(() =>
-              writeBackCompiledSymbols(
-                result.symbolTable as any,
-                req.uri,
-                req.version,
+          const pool = yield* CompilationWorkerPool;
+          if (!pool.available) {
+            return yield* Effect.fail(
+              new Error(
+                'Interactive compilation requires the data-owner-managed compilation pool',
               ),
             );
           }
 
+          const compiled = yield* pool.execute(
+            new CompileApexFile({
+              uri: req.uri,
+              content: req.content,
+              languageId: req.languageId,
+              version: req.version,
+              detailLevel: 'public-api',
+              collectReferences: true,
+              traceContext: req.traceContext,
+            }),
+            req.priority,
+          );
+
+          const compiledCount = yield* dataOwnerWrite(
+            Effect.gen(function* () {
+              const svc = yield* ensureDataOwnerServices;
+              const storage = svc.storageManager.getStorage();
+              const currentDocument = yield* Effect.promise(() =>
+                storage.getDocument(req.uri),
+              );
+              if (!currentDocument || currentDocument.version !== req.version) {
+                resolveReadiness(req.uri, req.version);
+                yield* Effect.annotateCurrentSpan({
+                  'interactive.compile_outcome': !currentDocument
+                    ? 'rejected-document-missing'
+                    : 'rejected-version-mismatch',
+                  'document.current_version': currentDocument?.version ?? -1,
+                });
+                return 0;
+              }
+
+              const symbolTable = yield* Effect.withSpan(
+                'interactive.compile.deserialize',
+                { attributes: { 'document.uri': req.uri } },
+              )(Effect.sync(() => reconstructCompiledSymbolTable(compiled)));
+
+              yield* Effect.withSpan('interactive.compile.addSymbolTable', {
+                attributes: {
+                  'document.uri': req.uri,
+                  'symbol.count': compiled.metrics.symbolCount,
+                  'reference.count': compiled.metrics.referenceCount,
+                },
+              })(
+                svc.symbolManager.addSymbolTable(
+                  symbolTable,
+                  req.uri,
+                  req.version,
+                  compiled.parserDiagnostics.length > 0,
+                ),
+              );
+
+              const workspaceLoadSessionActive =
+                svc.symbolManager.isWorkspaceLoadSessionActive();
+              if (!workspaceLoadSessionActive) {
+                yield* Effect.withSpan('interactive.compile.resolveCrossFile', {
+                  attributes: {
+                    'document.uri': req.uri,
+                    'reference.count': compiled.metrics.referenceCount,
+                  },
+                })(
+                  svc.symbolManager.resolveCrossFileReferencesForFile(req.uri),
+                );
+              }
+              yield* Effect.withSpan('interactive.compile.finalize')(
+                Effect.sync(() => {
+                  getDocumentStateCache().merge(req.uri, {
+                    documentVersion: req.version,
+                    detailLevel: 'public-api',
+                    timestamp: Date.now(),
+                  });
+                  resolveReadiness(req.uri, req.version);
+                }),
+              );
+              yield* Effect.annotateCurrentSpan({
+                'interactive.compile_outcome': 'compiled',
+                'interactive.cross_file_resolution_skipped':
+                  workspaceLoadSessionActive,
+                'interactive.compile_ms': compiled.metrics.compileMs,
+                'interactive.serialize_ms': compiled.metrics.serializeMs,
+                'interactive.payload_size_bytes':
+                  compiled.metrics.payloadSizeBytes,
+                'symbol.count': compiled.metrics.symbolCount,
+                'reference.count': compiled.metrics.referenceCount,
+              });
+              return 1;
+            }),
+            {
+              spanName: 'interactive.compile.commit',
+              attributes: {
+                'document.uri': req.uri,
+                'document.version': req.version,
+                'interactive.priority': req.priority,
+              },
+            },
+          );
           const elapsedMs = Date.now() - startTime;
           yield* Effect.logDebug(
-            `[COMPILATION] CompileDocument: ${req.uri} (v${req.version}, ` +
+            `[DATA-OWNER] CompileDocument via persistent pool: ${req.uri} (v${req.version}, ` +
               `priority=${req.priority}, ${elapsedMs}ms)`,
           );
           return { compiledCount, elapsedMs };
-        }),
-      ),
-    ),
-
-  WorkspaceBatchCompile: (req) =>
-    guardRole('WorkspaceBatchCompile').pipe(
-      Effect.flatMap(() =>
-        Effect.gen(function* () {
-          const batchStartTime = Date.now();
-          const svc = yield* ensureCompilationServices;
-
-          yield* Effect.annotateCurrentSpan({
-            'workspace.session_id': req.sessionId,
-            'workspace.file_count': req.entries.length,
-            'workspace.content_chars': req.entries.reduce(
-              (total, entry) => total + entry.content.length,
-              0,
+        }).pipe(
+          Effect.tapError(() =>
+            dataOwnerWrite(
+              Effect.sync(() => resolveReadiness(req.uri, req.version)),
             ),
-          });
-
-          let compiledCount = 0;
-          let errorCount = 0;
-          const YIELD_INTERVAL = 10;
-
-          for (let i = 0; i < req.entries.length; i++) {
-            const entry = req.entries[i];
-            try {
-              const compiled = yield* Effect.withSpan(
-                'workspace.file.compile',
-                {
-                  attributes: {
-                    'workspace.session_id': req.sessionId,
-                    'workspace.file_index': i,
-                    'workspace.file_total': req.entries.length,
-                    'document.uri': entry.uri,
-                    'document.version': entry.version,
-                    'document.content_chars': entry.content.length,
-                  },
-                },
-              )(
-                Effect.gen(function* () {
-                  const compileStart = Date.now();
-                  const result = yield* Effect.try({
-                    try: () => svc.compile(entry.content, entry.uri),
-                    catch: (error) => ({
-                      _tag: 'WorkspaceBatchCompileError' as const,
-                      message:
-                        error instanceof Error ? error.message : String(error),
-                    }),
-                  });
-                  const compileMs = Date.now() - compileStart;
-                  const symbolTable = result?.symbolTable as any;
-                  const symbolCount =
-                    symbolTable?.getAllSymbols?.().length ?? 0;
-                  const referenceCount =
-                    symbolTable?.getAllReferences?.().length ?? 0;
-
-                  yield* Effect.annotateCurrentSpan({
-                    'workspace.compile_ms': compileMs,
-                    'symbol.count': symbolCount,
-                    'reference.count': referenceCount,
-                  });
-
-                  if (!symbolTable) {
-                    yield* Effect.annotateCurrentSpan(
-                      'workspace.compile_outcome',
-                      'no-symbol-table',
-                    );
-                    return false;
-                  }
-
-                  const writeBackStart = Date.now();
-                  yield* Effect.promise(() =>
-                    writeBackCompiledSymbols(
-                      symbolTable,
-                      entry.uri,
-                      entry.version,
-                    ),
-                  );
-                  yield* Effect.annotateCurrentSpan({
-                    'workspace.write_back_ms': Date.now() - writeBackStart,
-                    'workspace.compile_outcome': 'compiled',
-                  });
-                  return true;
-                }),
-              );
-
-              if (compiled) {
-                compiledCount++;
-              } else {
-                errorCount++;
-              }
-            } catch {
-              errorCount++;
-            }
-
-            if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < req.entries.length) {
-              yield* Effect.yieldNow();
-            }
-          }
-
-          // Post-batch: ask the data-owner to drain deferred cross-file
-          // references into graph edges now that every file in the batch has
-          // been written back and had its references resolved. Best-effort:
-          // a drain failure must not fail the batch compile.
-          yield* Effect.tryPromise({
-            try: () =>
-              requestCoordinatorAssistancePromiseShared(
-                'dataOwner:DrainDeferredReferences',
-                {},
-                true,
-              ),
-            catch: (e) => e,
-          }).pipe(
-            Effect.catchAll((e) =>
-              Effect.logWarning(
-                `[COMPILATION] DrainDeferredReferences failed: ${e}`,
-              ),
-            ),
-          );
-
-          const elapsedMs = Date.now() - batchStartTime;
-          yield* Effect.annotateCurrentSpan({
-            'workspace.compiled_count': compiledCount,
-            'workspace.error_count': errorCount,
-            'workspace.elapsed_ms': elapsedMs,
-          });
-          yield* Effect.logInfo(
-            `[COMPILATION] WorkspaceBatchCompile: session=${req.sessionId}, ` +
-              `compiled=${compiledCount}, errors=${errorCount}, ${elapsedMs}ms`,
-          );
-          return { compiledCount, errorCount, elapsedMs };
-        }),
+          ),
+          Effect.mapError((error) => ({
+            _tag: 'CompileDocumentError' as const,
+            message: error instanceof Error ? error.message : String(error),
+          })),
+        ),
       ),
     ),
 
@@ -3430,6 +4384,28 @@ const untracedHandlers: SerializedWorkerHandlers = {
           );
           if (!st) return { found: false };
           return { found: true, symbolTable: cloneForWire(st) };
+        }),
+      ),
+    ),
+
+  ResourceLoaderGetSymbolTables: (req) =>
+    guardRole('ResourceLoaderGetSymbolTables').pipe(
+      Effect.flatMap(() =>
+        Effect.gen(function* () {
+          const { ResourceLoader } = yield* Effect.promise(
+            () => import('@salesforce/apex-lsp-parser-ast'),
+          );
+          const loader = ResourceLoader.getInstance();
+          const entries: Record<string, unknown> = {};
+          for (const classPath of req.classPaths) {
+            const symbolTable = yield* Effect.promise(() =>
+              loader.getSymbolTable(classPath),
+            );
+            if (symbolTable) {
+              entries[classPath] = cloneForWire(symbolTable);
+            }
+          }
+          return { entries };
         }),
       ),
     ),

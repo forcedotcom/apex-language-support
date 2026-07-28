@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.9.29",
+  "version": "0.9.30",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -628,17 +628,62 @@
               "default": true,
               "description": "%configuration.apex-ls-ts.experimental.workers.enabled.description%"
             },
-            "poolSize": {
-              "type": "number",
-              "default": 3,
-              "minimum": 1,
-              "maximum": 14,
-              "description": "%configuration.apex-ls-ts.experimental.workers.poolSize.description%"
+            "lspRequest": {
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.experimental.workers.lspRequest.description%",
+              "properties": {
+                "poolSize": {
+                  "type": "number",
+                  "default": 3,
+                  "minimum": 1,
+                  "maximum": 14,
+                  "description": "%configuration.apex-ls-ts.experimental.workers.lspRequest.poolSize.description%"
+                }
+              }
+            },
+            "dataOwner": {
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.experimental.workers.dataOwner.description%",
+              "properties": {
+                "concurrency": {
+                  "type": "number",
+                  "default": 10,
+                  "minimum": 1,
+                  "maximum": 50,
+                  "description": "%configuration.apex-ls-ts.experimental.workers.dataOwner.concurrency.description%"
+                }
+              }
+            },
+            "compilation": {
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.experimental.workers.compilation.description%",
+              "properties": {
+                "poolSize": {
+                  "type": "number",
+                  "default": 2,
+                  "minimum": 1,
+                  "maximum": 14,
+                  "description": "%configuration.apex-ls-ts.experimental.workers.compilation.poolSize.description%"
+                },
+                "concurrency": {
+                  "type": "number",
+                  "default": 1,
+                  "minimum": 1,
+                  "maximum": 20,
+                  "description": "%configuration.apex-ls-ts.experimental.workers.compilation.concurrency.description%"
+                }
+              }
             },
             "resourceLoader": {
-              "type": "boolean",
-              "default": true,
-              "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.description%"
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.description%",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "%configuration.apex-ls-ts.experimental.workers.resourceLoader.enabled.description%"
+                }
+              }
             }
           }
         }

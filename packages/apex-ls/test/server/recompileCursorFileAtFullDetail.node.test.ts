@@ -81,4 +81,75 @@ describe('recompileCursorFileAtFullDetail content guard', () => {
     expect(addSymbolTable).toHaveBeenCalledTimes(1);
     expect(resolveCrossFileReferencesForFile).toHaveBeenCalledWith(URI);
   });
+
+  it('can compile for cursor-only resolution without materializing file edges', async () => {
+    const recompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      URI,
+      CLASS_BODY,
+      { resolveCrossFileReferences: false },
+    );
+
+    expect(recompiled).toBe(true);
+    expect(addSymbolTable).toHaveBeenCalledTimes(1);
+    expect(resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
+  });
+
+  it('reuses unchanged full-detail content in the same worker', async () => {
+    let currentTable: unknown;
+    addSymbolTable.mockImplementation((table: unknown) => {
+      currentTable = table;
+      return Effect.void;
+    });
+    (svc.symbolManager as any).getSymbolTableForFile = jest.fn(
+      async () => currentTable,
+    );
+    const firstTelemetry: { reused?: boolean } = {};
+    const secondTelemetry: { reused?: boolean } = {};
+
+    await recompileCursorFileAtFullDetail(svc, URI, CLASS_BODY, {
+      resolveCrossFileReferences: false,
+      reuseUnchangedContent: true,
+      sourceVersion: 7,
+      telemetry: firstTelemetry,
+    });
+    await recompileCursorFileAtFullDetail(svc, URI, CLASS_BODY, {
+      resolveCrossFileReferences: false,
+      reuseUnchangedContent: true,
+      sourceVersion: 7,
+      telemetry: secondTelemetry,
+    });
+
+    expect(addSymbolTable).toHaveBeenCalledTimes(1);
+    expect(firstTelemetry.reused).toBeUndefined();
+    expect(secondTelemetry.reused).toBe(true);
+  });
+
+  it('does not reuse compilation after the symbol-table instance is replaced', async () => {
+    let currentTable: unknown;
+    addSymbolTable.mockImplementation((table: unknown) => {
+      currentTable = table;
+      return Effect.void;
+    });
+    (svc.symbolManager as any).getSymbolTableForFile = jest.fn(
+      async () => currentTable,
+    );
+
+    await recompileCursorFileAtFullDetail(svc, URI, CLASS_BODY, {
+      resolveCrossFileReferences: false,
+      reuseUnchangedContent: true,
+      sourceVersion: 7,
+    });
+    currentTable = { replacement: true };
+    const telemetry: { reused?: boolean } = {};
+    await recompileCursorFileAtFullDetail(svc, URI, CLASS_BODY, {
+      resolveCrossFileReferences: false,
+      reuseUnchangedContent: true,
+      sourceVersion: 7,
+      telemetry,
+    });
+
+    expect(addSymbolTable).toHaveBeenCalledTimes(2);
+    expect(telemetry.reused).toBeUndefined();
+  });
 });

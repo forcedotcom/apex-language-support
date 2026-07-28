@@ -439,3 +439,9 @@ jobs:
                 }
               }
             }
+
+      - name: Fail summary when E2E tests failed
+        if: env.E2E_FAILURES != '0' || env.E2E_ERRORS != '0' || env.E2E_MISSING != '0' || env.E2E_TOTAL == '0'
+        run: |
+          echo "E2E failures=$E2E_FAILURES errors=$E2E_ERRORS missing=$E2E_MISSING total=$E2E_TOTAL"
+          exit 1

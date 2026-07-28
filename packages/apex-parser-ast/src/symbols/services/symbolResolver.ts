@@ -43,7 +43,7 @@ export interface SymbolResolverShape {
   readonly resolveMemberInContext: (
     context: ChainResolutionContext,
     memberName: string,
-    memberType: 'property' | 'method' | 'class',
+    memberType: 'property' | 'field' | 'method' | 'class',
     typeSubstitutions?: GenericTypeSubstitutionMap | null,
   ) => Effect.Effect<ApexSymbol | null>;
 
@@ -97,7 +97,7 @@ export interface SymbolManagerOps {
   resolveMemberInContext(
     context: ChainResolutionContext,
     memberName: string,
-    memberType: 'property' | 'method' | 'class',
+    memberType: 'property' | 'field' | 'method' | 'class',
     typeSubstitutions?: GenericTypeSubstitutionMap | null,
   ): Promise<ApexSymbol | null>;
   resolveStandardLibraryType(

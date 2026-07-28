@@ -17,7 +17,10 @@ export interface WorkerTopologyStatus {
     readonly active: boolean;
   };
   readonly resourceLoader: { readonly active: boolean } | null;
-  readonly compilation: { readonly active: boolean };
+  readonly compilation: {
+    readonly active: boolean;
+    readonly poolSize: number;
+  };
   readonly dispatchedCount: number;
   readonly coordinatorOnlyTypes: readonly string[];
 }

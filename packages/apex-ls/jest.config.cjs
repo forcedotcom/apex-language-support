@@ -5,6 +5,13 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/test/jest-setup.ts'],
   // Node.js specific configuration
   testEnvironment: 'node',
+  // This suite launches a real Chromium instance. Keep it out of the ordinary
+  // Node matrix, where browser downloads are intentionally disabled, and run it
+  // in the dedicated browser-compilation CI job instead.
+  testPathIgnorePatterns: [
+    ...(baseConfig.testPathIgnorePatterns ?? []),
+    'BrowserCompilationPool\\.browser\\.node\\.test\\.ts$',
+  ],
   // Global teardown to ensure scheduler is shut down after all tests
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Force exit after tests complete to prevent hanging on open handles

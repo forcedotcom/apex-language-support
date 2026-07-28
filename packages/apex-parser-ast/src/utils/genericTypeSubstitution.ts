@@ -64,16 +64,35 @@ export function applyTypeSubstitutions(
   const substitutedOriginal =
     substituteTypeName(typeInfo.originalTypeString, substitutions) ??
     typeInfo.originalTypeString;
+  const substitutedKeyType = typeInfo.keyType
+    ? applyTypeSubstitutions(typeInfo.keyType, substitutions)
+    : typeInfo.keyType;
+  const substitutedTypeParameters = typeInfo.typeParameters?.map((tp) =>
+    applyTypeSubstitutions(tp, substitutions),
+  );
+  let originalTypeString = substitutedOriginal;
+  if (typeInfo.isArray && substitutedTypeParameters?.[0]) {
+    originalTypeString = `${substitutedTypeParameters[0].originalTypeString}[]`;
+  } else if (
+    substitutedName === 'Map' &&
+    substitutedKeyType &&
+    substitutedTypeParameters?.[0]
+  ) {
+    const keyType = substitutedKeyType.originalTypeString;
+    const valueType = substitutedTypeParameters[0].originalTypeString;
+    originalTypeString = `Map<${keyType}, ${valueType}>`;
+  } else if (substitutedTypeParameters?.length) {
+    originalTypeString = `${substitutedName}<${substitutedTypeParameters
+      .map((parameter) => parameter.originalTypeString)
+      .join(', ')}>`;
+  }
+
   return {
     ...typeInfo,
     name: substitutedName ?? typeInfo.name,
-    originalTypeString: substitutedOriginal,
-    keyType: typeInfo.keyType
-      ? applyTypeSubstitutions(typeInfo.keyType, substitutions)
-      : typeInfo.keyType,
-    typeParameters: typeInfo.typeParameters?.map((tp) =>
-      applyTypeSubstitutions(tp, substitutions),
-    ),
+    originalTypeString,
+    keyType: substitutedKeyType,
+    typeParameters: substitutedTypeParameters,
   };
 }
 

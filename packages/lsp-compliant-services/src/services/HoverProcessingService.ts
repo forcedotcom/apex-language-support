@@ -40,6 +40,7 @@ import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
 
 import {
   transformLspToParserPosition,
@@ -56,7 +57,10 @@ export interface IHoverProcessor {
    * @param params The hover parameters
    * @returns Hover information for the requested position
    */
-  processHover(params: HoverParams): Promise<Hover | null>;
+  processHover(
+    params: HoverParams,
+    context?: LspRequestExecutionContext,
+  ): Promise<Hover | null>;
   scheduleTimeoutFollowup(params: HoverParams): Promise<void>;
 }
 
@@ -118,7 +122,10 @@ export class HoverProcessingService implements IHoverProcessor {
    * @param params The hover parameters
    * @returns Hover information for the requested position
    */
-  public async processHover(params: HoverParams): Promise<Hover | null> {
+  public async processHover(
+    params: HoverParams,
+    context?: LspRequestExecutionContext,
+  ): Promise<Hover | null> {
     const hoverStartTime = Date.now();
     this.logger.debug(
       () =>
@@ -126,7 +133,10 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     // Run prerequisites for hover request
-    if (this.prerequisiteOrchestrationService) {
+    if (
+      this.prerequisiteOrchestrationService &&
+      !context?.prerequisitesPrepared
+    ) {
       try {
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'hover',
@@ -183,6 +193,20 @@ export class HoverProcessingService implements IHoverProcessor {
         // Do not fall back to scope here: scope's containment fallback returns the enclosing
         // method/class, which is not meaningful for arbitrary positions (keywords, whitespace, etc.).
         return null;
+      }
+
+      const receiverKeywordTarget =
+        (await this.symbolManager.getReceiverKeywordTargetAtPosition?.(
+          params.textDocument.uri,
+          parserPosition,
+        )) ?? null;
+      if (receiverKeywordTarget) {
+        return this.createHoverInformation(
+          receiverKeywordTarget,
+          receiverKeywordTarget,
+          references,
+          parserPosition,
+        );
       }
 
       // Debug: Log all references at position

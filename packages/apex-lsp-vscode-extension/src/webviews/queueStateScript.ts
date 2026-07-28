@@ -26,7 +26,7 @@ interface WorkerTopologyStatus {
   dataOwner: { active: boolean };
   requestPool: { size: number; active: boolean };
   resourceLoader: { active: boolean } | null;
-  compilation: { active: boolean };
+  compilation: { active: boolean; poolSize: number };
   dispatchedCount: number;
   coordinatorOnlyTypes: readonly string[];
 }
@@ -436,7 +436,11 @@ class QueueStateDashboard {
         topology.dataOwner.active,
         'x1 (storage + symbols)',
       ),
-      roleCard('Compilation', topology.compilation.active, 'x1 (public-api)'),
+      roleCard(
+        'Compilation Pool',
+        topology.compilation.active,
+        `x${topology.compilation.poolSize} (data-owner managed)`,
+      ),
       roleCard('Enrichment Pool', topology.requestPool.active, poolLabel),
     ];
     if (topology.resourceLoader) {

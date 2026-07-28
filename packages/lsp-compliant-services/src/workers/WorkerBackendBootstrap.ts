@@ -21,6 +21,7 @@ import {
   type ISymbolManager,
   ApexSymbolProcessingManager,
   ResourceLoaderService,
+  type ResourceLoaderServiceShape,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Layer } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -47,6 +48,7 @@ import type { DiagnosticProcessingService } from '../services/DiagnosticProcessi
 
 export interface DataOwnerServices {
   readonly symbolManager: ISymbolManager;
+  readonly stdlibProvider: ResourceLoaderServiceShape;
   readonly storageManager: ApexStorageManager;
   readonly documentProcessingService: DocumentProcessingService;
   readonly documentCloseProcessingService: DocumentCloseProcessingService;
@@ -82,7 +84,7 @@ const bootstrapSharedDeps = Effect.gen(function* () {
   };
   const factory = new ServiceFactory(deps);
 
-  return { logger, symbolManager, storageManager, factory };
+  return { logger, symbolManager, storageManager, factory, stdlibProvider };
 });
 
 /**
@@ -94,7 +96,7 @@ export const bootstrapDataOwnerServicesEffect: Effect.Effect<
   never,
   ResourceLoaderService
 > = Effect.gen(function* () {
-  const { logger, symbolManager, storageManager, factory } =
+  const { logger, symbolManager, storageManager, factory, stdlibProvider } =
     yield* bootstrapSharedDeps;
 
   const { DocumentCloseProcessingService: DocClose } = yield* Effect.promise(
@@ -103,6 +105,7 @@ export const bootstrapDataOwnerServicesEffect: Effect.Effect<
 
   return {
     symbolManager,
+    stdlibProvider,
     storageManager,
     documentProcessingService: factory.createDocumentProcessingService(),
     documentCloseProcessingService: new DocClose(logger),
