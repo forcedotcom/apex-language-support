@@ -87,6 +87,7 @@ export const makeNodeWorkerLayer = (
   workerOptions?: {
     name?: string;
     execArgv?: string[];
+    resourceLimits?: { maxOldGenerationSizeMb?: number };
     workerData?: unknown;
     transferList?: any[];
     stdout?: boolean;
