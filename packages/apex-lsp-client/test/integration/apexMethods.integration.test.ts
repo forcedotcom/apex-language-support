@@ -26,9 +26,6 @@ import type { HeadlessClientResult } from '../../src/hosts/headlessHost';
  * - apex/profiling/*
  * - apex/findMissingArtifact (handler)
  *
- * Also verifies gating suppression: when enableGating is false in settings,
- * the server should not apply gating logic to requests.
- *
  * Gated: requires `RUN_INTEGRATION=1` AND the server binary must exist.
  * To run locally:
  *   npm run bundle -w @salesforce/apex-ls && RUN_INTEGRATION=1 npm test -w @salesforce/apex-lsp-client
@@ -37,6 +34,45 @@ const serverPath = join(__dirname, '../../../apex-ls/dist/server.node.js');
 const serverAvailable = existsSync(serverPath);
 const runIntegration = process.env.RUN_INTEGRATION === '1' && serverAvailable;
 const describeIntegration = runIntegration ? describe : describe.skip;
+
+/**
+ * Assert an `apex/*` request completed a real protocol round-trip.
+ *
+ * Success path: the server returned a response, which must be defined and (when
+ * `expectedProp` is given) carry that property.
+ *
+ * Error path: the request rejected with a JSON-RPC `ResponseError` — an `Error`
+ * bearing a numeric `code`. That proves the request reached the server and was
+ * processed/rejected on the wire. A client-side crash (e.g. a malformed request
+ * that throws before sending) surfaces as a plain `Error`/`TypeError` with no
+ * numeric `code` and fails this assertion — so these tests can no longer pass
+ * unconditionally on the error path.
+ */
+const expectRoundTrip = async <T>(
+  send: () => Promise<T>,
+  expectedProp?: string,
+): Promise<void> => {
+  let response: T | undefined;
+  let caught: unknown;
+  let threw = false;
+  try {
+    response = await send();
+  } catch (e: unknown) {
+    threw = true;
+    caught = e;
+  }
+
+  if (!threw) {
+    expect(response).toBeDefined();
+    if (expectedProp !== undefined) {
+      expect(response).toHaveProperty(expectedProp);
+    }
+    return;
+  }
+
+  expect(caught).toBeInstanceOf(Error);
+  expect(typeof (caught as { code?: unknown }).code).toBe('number');
+};
 
 describeIntegration('apex/* methods real-server integration', () => {
   let result: HeadlessClientResult | undefined;
@@ -47,11 +83,7 @@ describeIntegration('apex/* methods real-server integration', () => {
       serverArgs: ['--stdio'],
     });
 
-    // Initialize with gating disabled for the suppression tests
-    await result.core.initialize({
-      ...DEFAULT_APEX_SETTINGS,
-      enableGating: false,
-    });
+    await result.core.initialize(DEFAULT_APEX_SETTINGS);
   }, 60000);
 
   afterAll(async () => {
@@ -69,40 +101,31 @@ describeIntegration('apex/* methods real-server integration', () => {
     it('sendWorkspaceBatch round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.sendWorkspaceBatch({
-          batchIndex: 0,
-          totalBatches: 1,
-          isLastBatch: true,
-          compressedData: '',
-          fileMetadata: [],
-        });
-
-        // Server should respond with a result (success or error structure)
-        expect(response).toBeDefined();
-        expect(response).toHaveProperty('success');
-      } catch (e: unknown) {
-        // Server may reject with a response error due to invalid data.
-        // That's valid — it means the round-trip completed and the server
-        // processed the request.
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(
+        () =>
+          result!.core.sendWorkspaceBatch({
+            sessionId: 'integration-session',
+            batchIndex: 0,
+            totalBatches: 1,
+            isLastBatch: true,
+            compressedData: '',
+            fileMetadata: [],
+          }),
+        'success',
+      );
     }, 30000);
 
     it('processWorkspaceBatches round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.processWorkspaceBatches({
-          totalBatches: 0,
-        });
-
-        expect(response).toBeDefined();
-        expect(response).toHaveProperty('success');
-      } catch (e: unknown) {
-        // Similar to above — response error means round-trip worked.
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(
+        () =>
+          result!.core.processWorkspaceBatches({
+            sessionId: 'integration-session',
+            totalBatches: 0,
+          }),
+        'success',
+      );
     }, 30000);
 
     it('workspaceLoadComplete notification sends without error', async () => {
@@ -130,29 +153,13 @@ describeIntegration('apex/* methods real-server integration', () => {
     it('queueState round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.queueState({});
-
-        // Server should return queue state structure
-        expect(response).toBeDefined();
-      } catch (e: unknown) {
-        // May error if server state is not ready
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(() => result!.core.queueState({}));
     }, 30000);
 
     it('graphData round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.graphData({});
-
-        // Server should return graph data structure
-        expect(response).toBeDefined();
-      } catch (e: unknown) {
-        // May error if server state is not ready
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(() => result!.core.graphData({ type: 'all' }));
     }, 30000);
   });
 
@@ -160,43 +167,19 @@ describeIntegration('apex/* methods real-server integration', () => {
     it('profilingStart round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.profilingStart({});
-
-        expect(response).toBeDefined();
-        expect(response).toHaveProperty('success');
-      } catch (e: unknown) {
-        // May error if profiling not available
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(() => result!.core.profilingStart({}), 'success');
     }, 30000);
 
     it('profilingStop round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.profilingStop({});
-
-        expect(response).toBeDefined();
-        expect(response).toHaveProperty('success');
-      } catch (e: unknown) {
-        // May error if profiling not started
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(() => result!.core.profilingStop({}), 'success');
     }, 30000);
 
     it('profilingStatus round-trip', async () => {
       expect(result).toBeDefined();
 
-      try {
-        const response = await result!.core.profilingStatus({});
-
-        expect(response).toBeDefined();
-        expect(response).toHaveProperty('enabled');
-      } catch (e: unknown) {
-        // May error if profiling not available
-        expect(e).toBeDefined();
-      }
+      await expectRoundTrip(() => result!.core.profilingStatus({}), 'enabled');
     }, 30000);
   });
 
@@ -259,36 +242,5 @@ describeIntegration('apex/* methods real-server integration', () => {
 
       disposable.dispose();
     });
-  });
-
-  describe('gating suppression', () => {
-    it('server respects enableGating: false in settings', async () => {
-      expect(result).toBeDefined();
-
-      // We initialized with enableGating: false in beforeAll.
-      // Verify that requests complete without gating errors.
-      // Gating errors typically manifest as specific error codes or messages.
-
-      // Send a request that would normally be gated
-      try {
-        const response = await result!.core.sendWorkspaceBatch({
-          batchIndex: 0,
-          totalBatches: 1,
-          isLastBatch: true,
-          compressedData: '',
-          fileMetadata: [],
-        });
-
-        // If gating were active and blocking, we'd expect a gating error.
-        // With gating disabled, we should get a normal response (success or
-        // validation error, but not a gating error).
-        expect(response).toBeDefined();
-      } catch (e: unknown) {
-        // If we get an error, verify it's not a gating error.
-        // Gating errors typically have specific codes or messages.
-        const error = e as { message?: string; code?: number };
-        expect(error.message).not.toMatch(/gat(?:e|ing)/i);
-      }
-    }, 30000);
   });
 });

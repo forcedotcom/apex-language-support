@@ -18,6 +18,7 @@
  */
 
 import { describe, it } from '@jest/globals';
+import type { Effect } from 'effect';
 import type * as PublicAPI from '../src/index';
 
 describe('Type-level assertions', () => {
@@ -25,14 +26,48 @@ describe('Type-level assertions', () => {
     // This is a compile-time check. If Effect types leak into the public API,
     // the type assertions below will fail with a compile error.
 
-    // Helper type to check if a type contains Effect references
-    type ContainsEffect<T> = T extends { _tag: 'Effect' }
+    // Effect brands its public interface with a unique symbol (`EffectTypeId`),
+    // NOT a `_tag: 'Effect'` string — so keying on `_tag` never matches a real
+    // Effect and the guard would pass unconditionally. `IsEffect` instead tests
+    // structural assignability to `Effect.Effect<any, any, any>`, which carries
+    // that brand. The `[X] extends [...]` tuple wrapper prevents distribution
+    // over unions so a union member can't collapse the result to `boolean`.
+    type IsEffect<X> = [X] extends [Effect.Effect<any, any, any>]
       ? true
-      : T extends (...args: any[]) => infer R
-        ? ContainsEffect<R>
-        : T extends Promise<infer U>
-          ? ContainsEffect<U>
-          : false;
+      : false;
+    type Peel<X> = X extends (...args: any[]) => infer R ? R : X;
+    type Await<X> = X extends Promise<infer U> ? U : X;
+
+    // Does a single member leak Effect? A member leaks if it IS an Effect, if a
+    // method returns one (directly or via Promise), or if a property is a
+    // Promise<Effect>. Deliberately NOT recursive into arbitrary nested objects:
+    // the public surface reaches Node `ChildProcess`/stream and self-referential
+    // LSP types (e.g. `DocumentSymbol.children`) whose unbounded traversal trips
+    // `ts(2589)`/`ts(2615)`. One level covers every way Effect can appear in a
+    // public signature.
+    type MemberLeaksEffect<X> =
+      IsEffect<X> extends true
+        ? true
+        : IsEffect<Await<Peel<X>>> extends true
+          ? true
+          : IsEffect<Await<X>> extends true
+            ? true
+            : false;
+
+    // Helper type: true if T itself is an Effect, T is a function/Promise
+    // resolving to an Effect, or any member of T leaks an Effect.
+    type ContainsEffect<T> =
+      IsEffect<T> extends true
+        ? true
+        : IsEffect<Await<Peel<T>>> extends true
+          ? true
+          : T extends object
+            ? true extends {
+                [K in keyof T]-?: MemberLeaksEffect<T[K]>;
+              }[keyof T]
+              ? true
+              : false
+            : false;
 
     // Assert that the core ApexClientCore type doesn't export Effect
     type CoreType = PublicAPI.ApexClientCore;
@@ -68,11 +103,37 @@ describe('Type-level assertions', () => {
       ? true
       : never = true as const;
 
+    // Positive controls: prove the guard actually FIRES on real Effect leaks,
+    // so the clean-assertions above cannot silently pass on a broken guard (the
+    // exact failure mode of the previous `_tag`-based version). Each type below
+    // deliberately leaks Effect via a different vector; `ContainsEffect` must
+    // report `true` for all of them or this block fails to compile.
+    type LeaksDirect = Effect.Effect<number>;
+    type LeaksViaMethod = { doThing(): Effect.Effect<number> };
+    type LeaksViaPromise = { doThing(): Promise<Effect.Effect<number>> };
+    type LeaksViaProperty = { runtime: Effect.Effect<void>; name: string };
+    const _detectDirect: ContainsEffect<LeaksDirect> extends true
+      ? true
+      : never = true as const;
+    const _detectMethod: ContainsEffect<LeaksViaMethod> extends true
+      ? true
+      : never = true as const;
+    const _detectPromise: ContainsEffect<LeaksViaPromise> extends true
+      ? true
+      : never = true as const;
+    const _detectProperty: ContainsEffect<LeaksViaProperty> extends true
+      ? true
+      : never = true as const;
+
     // If any of the above assertions fail, the test will not compile.
     // This prevents Effect types from leaking into the public API.
 
     // The actual runtime test is a no-op — the value is in compile-time checking.
     expect(_assertCoreClean).toBe(true);
+    expect(_detectDirect).toBe(true);
+    expect(_detectMethod).toBe(true);
+    expect(_detectPromise).toBe(true);
+    expect(_detectProperty).toBe(true);
     expect(_assertInitializeIsPromise).toBe(true);
     expect(_assertRpcClean).toBe(true);
     expect(_assertMiddlewareClean).toBe(true);

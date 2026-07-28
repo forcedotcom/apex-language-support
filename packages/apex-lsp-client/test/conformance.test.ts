@@ -88,7 +88,11 @@ const createMockConnectionProvider = (): ConnectionProvider => async () => {
   const dispose = jest.fn((): void => undefined);
 
   const connection: RpcConnection = {
-    sendRequest,
+    // The mock resolves `Promise<unknown>`; the port's `sendRequest` is generic
+    // `<R>() => Promise<R>`. `unknown` isn't assignable to a caller-chosen `R`,
+    // so cast this one field to the port's method type. Runtime behavior is a
+    // real jest mock, so `jest.spyOn`/`toHaveBeenCalledWith` still work.
+    sendRequest: sendRequest as RpcConnection['sendRequest'],
     sendNotification,
     onRequest,
     onNotification,
@@ -186,7 +190,15 @@ const runConformanceSuite = (
     });
 
     describe('advertise⇔handle invariant', () => {
-      it('advertised capabilities match working handlers', async () => {
+      // Scope: both providers this suite runs (Mock and JsonRpc) use a
+      // hand-mocked server that echoes fixed capabilities and results, so this
+      // test validates the CLIENT-SIDE wiring — that the core reads advertised
+      // capabilities off InitializeResult and dispatches the matching typed
+      // method without throwing. It does NOT prove a real server's advertised
+      // capabilities correspond to working handlers; that (non-circular)
+      // coverage lives in the RUN_INTEGRATION-gated real-server integration
+      // tests (test/integration/*.integration.test.ts).
+      it('advertised capabilities dispatch matching handlers (client wiring)', async () => {
         const provider = createProvider();
         context = await provider();
 
@@ -240,7 +252,7 @@ const runConformanceSuite = (
         expect(context.core.isDisposed()).toBe(false);
 
         // 2. We can register a custom handler without error
-        const customHandler = jest.fn(() => ({ notFound: true }));
+        const customHandler = jest.fn(() => ({ notFound: true as const }));
         const disposable = context.core.onFindMissingArtifact(customHandler);
         expect(disposable).toBeDefined();
         disposable.dispose();
@@ -250,12 +262,19 @@ const runConformanceSuite = (
         const provider = createProvider();
         context = await provider();
 
-        // Initialize with settings - they should populate initializationOptions
-        const settings = { ...DEFAULT_APEX_SETTINGS, enableGating: false };
-        const result = await context.core.initialize(settings);
+        const sendRequestSpy = jest.spyOn(context.connection, 'sendRequest');
 
-        // The connection should have received an initialize request
-        expect(result).toBeDefined();
+        // Initialize with settings — they should flow through to the
+        // `initialize` request as `initializationOptions`.
+        const result = await context.core.initialize(DEFAULT_APEX_SETTINGS);
+
+        // The connection received an initialize request carrying the settings.
+        expect(sendRequestSpy).toHaveBeenCalledWith(
+          'initialize',
+          expect.objectContaining({
+            initializationOptions: DEFAULT_APEX_SETTINGS,
+          }),
+        );
         expect(result.capabilities).toBeDefined();
       });
 
@@ -357,6 +376,7 @@ const runConformanceSuite = (
         const spy = jest.spyOn(context.connection, 'sendRequest');
 
         await context.core.sendWorkspaceBatch({
+          sessionId: 'test-session',
           batchIndex: 0,
           totalBatches: 1,
           isLastBatch: true,
@@ -394,7 +414,7 @@ const runConformanceSuite = (
 
         await context.core.initialize(DEFAULT_APEX_SETTINGS);
 
-        const handler = jest.fn(() => ({ notFound: true }));
+        const handler = jest.fn(() => ({ notFound: true as const }));
         const disposable = context.core.onFindMissingArtifact(handler);
 
         expect(disposable).toBeDefined();
