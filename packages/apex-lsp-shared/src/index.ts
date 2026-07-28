@@ -351,6 +351,8 @@ export interface WorkspaceFileBatch {
  * Parameters for client-to-server workspace batch request
  */
 export interface SendWorkspaceBatchParams {
+  /** Client-generated identifier shared by every batch in one workspace load. */
+  readonly sessionId: string;
   readonly batchIndex: number;
   readonly totalBatches: number;
   readonly isLastBatch: boolean;
@@ -376,6 +378,8 @@ export interface SendWorkspaceBatchResult {
  * Parameters for processing stored workspace batches
  */
 export interface ProcessWorkspaceBatchesParams {
+  /** Client-generated identifier of the workspace load to process. */
+  readonly sessionId: string;
   readonly totalBatches: number;
   /** W3C traceparent for the detached server-processing span. */
   readonly traceContext?: string;
@@ -438,6 +442,7 @@ export {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
@@ -447,8 +452,8 @@ export {
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   CompileDocument,
-  WorkspaceBatchCompile,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -474,17 +479,32 @@ export {
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
+  WorkspaceBatchCompileOnDataOwner,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   DataOwnerTags,
   LspRequestTags,
   ResourceLoaderTags,
-  CompilationTags,
   AllWorkerTags,
   WIRE_PROTOCOL_VERSION,
   isAllowedTag,
 } from './workerWireSchemas';
+
+// Dedicated, platform-neutral compilation worker protocol.
+export {
+  CompilationDetailLevel,
+  SerializedParserDiagnostic,
+  SerializedCompilationSymbolTable,
+  CompilationMetrics,
+  CompileApexFileSuccess,
+  CompileApexFileFailure,
+  InitializeCompilationWorker,
+  CompileApexFile,
+  CompilationWorkerRequests,
+} from './compilationWorkerWireSchemas';
+export type { CompilationWorkerRequest } from './compilationWorkerWireSchemas';
 export type {
   LSPRequestType,
   AssistanceRequestPayload,
@@ -500,12 +520,10 @@ export type {
   DataOwnerTag,
   LspRequestTag,
   ResourceLoaderTag,
-  CompilationTag,
   WorkerTag,
   DataOwnerRequest,
   LspRequestMessage,
   ResourceLoaderRequest,
-  CompilationRequest,
   WorkerLogMessage,
   WorkerLogLevel,
 } from './workerWireSchemas';

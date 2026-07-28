@@ -13,7 +13,10 @@ import {
   QuerySymbolSubset,
   DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
-  WorkspaceBatchCompile,
+  DispatchDiagnostic,
+  DispatchHover,
+  DispatchImplementation,
+  WorkspaceBatchCompileOnDataOwner,
   WorkspaceBatchIngest,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
@@ -43,7 +46,6 @@ function createSpyLogger(): LoggerInterface {
 
 function makeFakeTopology() {
   const sent: unknown[] = [];
-  const compiled: unknown[] = [];
   const pooled: unknown[] = [];
   const topology: WorkerTopology = {
     dataOwner: {
@@ -58,22 +60,58 @@ function makeFakeTopology() {
         return Effect.succeed({ result: null });
       },
     } as any,
-    compilation: {
-      executeEffect: (msg: unknown) => {
-        compiled.push(msg);
-        return Effect.succeed({
-          compiledCount: 1,
-          errorCount: 0,
-          elapsedMs: 1,
-        });
-      },
-    } as any,
     resourceLoader: null,
+    compilationPoolSize: 2,
+    compilationConcurrency: 1,
   } as unknown as WorkerTopology;
-  return { topology, sent, compiled, pooled };
+  return { topology, sent, pooled };
 }
 
 describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
+  it('carries live document version for cursor dispatch', async () => {
+    const logger = createSpyLogger();
+    const { topology, pooled } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(
+      topology,
+      logger,
+      () => 'public class LiveBuffer {}',
+      () => 7,
+    );
+
+    await dispatcher.dispatch('hover', {
+      textDocument: { uri: 'file:///workspace/LiveBuffer.cls' },
+      position: { line: 0, character: 0 },
+    });
+
+    expect(pooled).toHaveLength(1);
+    expect(pooled[0]).toBeInstanceOf(DispatchHover);
+    expect((pooled[0] as { documentVersion?: number }).documentVersion).toBe(7);
+  });
+
+  it.each([
+    ['implementation', DispatchImplementation],
+    ['diagnostics', DispatchDiagnostic],
+  ] as const)('carries live content for %s dispatch', async (type, Message) => {
+    const logger = createSpyLogger();
+    const { topology, pooled } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(
+      topology,
+      logger,
+      () => 'public class LiveBuffer {}',
+    );
+
+    await dispatcher.dispatch(type, {
+      textDocument: { uri: 'file:///workspace/LiveBuffer.cls' },
+      position: { line: 0, character: 0 },
+    });
+
+    expect(pooled).toHaveLength(1);
+    expect(pooled[0]).toBeInstanceOf(Message);
+    expect((pooled[0] as { content?: string }).content).toBe(
+      'public class LiveBuffer {}',
+    );
+  });
+
   it('forwards ResolveDependentUris with uri + symbolName as a typed schema instance', async () => {
     const logger = createSpyLogger();
     const { topology, sent } = makeFakeTopology();
@@ -116,6 +154,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     });
     await dispatcher.queryDataOwner('QuerySymbolSubset', {
       uris: ['file:///A.cls'],
+      includeEntries: false,
     });
 
     expect(sent[0]).toBeInstanceOf(ResolveDepUris);
@@ -126,6 +165,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     expect((sent[1] as QuerySymbolSubset).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
+    expect((sent[1] as QuerySymbolSubset).includeEntries).toBe(false);
   });
 
   it('forwards QuerySymbolByName with name + optional namespace as a typed schema instance', async () => {
@@ -194,7 +234,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
 
   it('propagates trace context through workspace batch dispatchers', async () => {
     const logger = createSpyLogger();
-    const { topology, sent, compiled } = makeFakeTopology();
+    const { topology, sent } = makeFakeTopology();
     const dispatcher = makeWorkerDispatcher(topology, logger);
     const entries = [
       {
@@ -206,14 +246,17 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     ];
 
     await dispatcher.createBatchIngestionDispatcher()('session-1', entries);
-    await dispatcher.createBatchCompileDispatcher()('session-1', entries);
+    await dispatcher.createDataOwnerCompileDispatcher()({
+      sessionId: 'session-1',
+      entries,
+    });
 
     expect(sent[0]).toBeInstanceOf(WorkspaceBatchIngest);
-    expect(compiled[0]).toBeInstanceOf(WorkspaceBatchCompile);
+    expect(sent[1]).toBeInstanceOf(WorkspaceBatchCompileOnDataOwner);
     expect((sent[0] as WorkspaceBatchIngest).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
-    expect((compiled[0] as WorkspaceBatchCompile).traceContext).toBe(
+    expect((sent[1] as WorkspaceBatchCompileOnDataOwner).traceContext).toBe(
       '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
     );
   });

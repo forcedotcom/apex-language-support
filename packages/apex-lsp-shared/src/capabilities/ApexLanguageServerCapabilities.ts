@@ -9,6 +9,7 @@
 import {
   ServerCapabilities,
   ClientCapabilities,
+  CodeActionKind,
 } from 'vscode-languageserver-protocol';
 
 export type ExtendedServerCapabilities = ServerCapabilities &
@@ -243,6 +244,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   definitionProvider: true,
   implementationProvider: true,
   referencesProvider: true,
+  codeActionProvider: {
+    codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
+  },
   codeLensProvider: {
     resolveProvider: false,
   },

@@ -88,7 +88,65 @@ describe('Cross-file edge population (W-22692421)', () => {
       .symbolRefManager;
 
   describe('compile order: deferral then drain', () => {
-    it('populates the incoming edge once the target file is added and drained', async () => {
+    it('rebinds the owning SymbolTable reference without rescanning the file', async () => {
+      const callerUri = 'file:///TargetedCaller.cls';
+      const callerTable = await addFile(
+        `
+          public class TargetedCaller {
+            public void run() {
+              TargetedCallee value;
+            }
+          }
+        `,
+        callerUri,
+      );
+      await addFile(
+        'public class TargetedCallee {}',
+        'file:///TargetedCallee.cls',
+      );
+
+      const callerType = callerTable
+        .getAllSymbols()
+        .find(
+          (symbol) =>
+            symbol.kind === SymbolKind.Class &&
+            symbol.name === 'TargetedCaller',
+        );
+      const calleeReference = callerTable
+        .getAllReferences()
+        .find(
+          (reference) =>
+            reference.name === 'TargetedCallee' &&
+            reference.context === ReferenceContext.TYPE_DECLARATION,
+        );
+      expect(callerType).toBeDefined();
+      expect(calleeReference).toBeDefined();
+
+      calleeReference!.resolvedSymbolId = undefined;
+      const graph = refManager();
+      graph.enqueueDeferredReference(
+        callerType!,
+        'TargetedCallee',
+        ReferenceType.TYPE_REFERENCE,
+        calleeReference!.location,
+        undefined,
+        'file:///TargetedCallee.cls',
+        calleeReference!,
+      );
+
+      const result = await Effect.runPromise(
+        graph.processDeferredReferencesBatchEffect('TargetedCallee'),
+      );
+      const target = (
+        await symbolManager.findSymbolByName('TargetedCallee')
+      ).find((symbol) => symbol.kind === SymbolKind.Class);
+
+      expect(result.boundReferenceCount).toBeGreaterThan(0);
+      expect(result.boundSourceFileCount).toBe(1);
+      expect(calleeReference!.resolvedSymbolId).toBe(target?.id);
+    });
+
+    it('populates the incoming edge when the deferred target is added', async () => {
       // Caller references Callee, but Callee is added AFTER Caller — so the
       // cross-file reference cannot be resolved yet and must be deferred.
       const callerUri = 'file:///Caller.cls';
@@ -120,10 +178,11 @@ describe('Cross-file edge population (W-22692421)', () => {
       `;
       await addFile(calleeSrc, calleeUri);
 
-      // Drain synchronously — should turn the deferred Callee reference into a
-      // graph edge so Callee now has an incoming reference from Caller.
+      // Adding Callee processes its deferred bucket directly through the
+      // index-based path; no later whole-graph drain should have work left.
+      expect(graph.getDeferredTargetNames()).not.toContain('Callee');
       const resolved = graph.drainAllDeferredReferencesSync();
-      expect(resolved).toBeGreaterThan(0);
+      expect(resolved).toBe(0);
 
       // Callee's deferred bucket should be cleared.
       expect(graph.getDeferredTargetNames()).not.toContain('Callee');

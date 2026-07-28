@@ -20,6 +20,7 @@ import { Effect } from 'effect';
 import type * as Worker from '@effect/platform/Worker';
 import {
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   ResourceLoaderGetFile,
   ResourceLoaderResolveClass,
   ResourceLoaderGetStandardNamespaces,
@@ -82,6 +83,35 @@ export class ResourceLoaderProxy {
       {
         'resource.class_path': classPath,
         'resource.cache_hit': cacheHit,
+      },
+    );
+  }
+
+  async getSymbolTables(
+    classPaths: readonly string[],
+  ): Promise<Record<string, unknown>> {
+    return runWithSpan(
+      'resourceLoader.proxy.getSymbolTables',
+      async () => {
+        const uniquePaths = [
+          ...new Map(
+            classPaths.map((classPath) => [classPath.toLowerCase(), classPath]),
+          ).values(),
+        ];
+        const msg = this.withTraceContext(
+          new ResourceLoaderGetSymbolTables({ classPaths: uniquePaths }),
+        );
+        const result = await Effect.runPromise(this.worker.executeEffect(msg));
+        for (const [classPath, symbolTable] of Object.entries(result.entries)) {
+          this.symbolTables.set(
+            classPath.toLowerCase(),
+            Promise.resolve(symbolTable),
+          );
+        }
+        return result.entries;
+      },
+      {
+        'resource.class_count': classPaths.length,
       },
     );
   }

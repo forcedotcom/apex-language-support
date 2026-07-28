@@ -26,6 +26,9 @@ import {
   DocumentDiagnosticReportKind,
   FoldingRangeParams,
   CodeLensParams,
+  CodeActionParams,
+  CodeAction,
+  Command,
   ClientCapabilities,
   Registration,
   ServerCapabilities,
@@ -89,8 +92,9 @@ import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
   setBatchIngestionDispatcher,
-  setBatchCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
+  setWorkspaceLoadSessionDispatcher,
+  setDataOwnerCompileDispatcher,
   setIngestionCompleteCallback,
 } from './WorkspaceBatchHandler';
 import { createPrimaryAssistanceHandler } from './CoordinatorPrimaryAssistanceHandler';
@@ -144,7 +148,7 @@ export class LCSAdapter {
       dataOwner: { active: boolean };
       requestPool: { size: number; active: boolean };
       resourceLoader: { active: boolean } | null;
-      compilation: { active: boolean };
+      compilation: { active: boolean; poolSize: number };
       dispatchedCount: number;
       coordinatorOnlyTypes: readonly string[];
     };
@@ -174,6 +178,7 @@ export class LCSAdapter {
     string,
     Promise<DocumentDiagnosticReport>
   >();
+  private readonly inFlightCodeLensByUri = new HashMap<string, Promise<any>>();
 
   private readonly onExit: () => void;
 
@@ -742,6 +747,33 @@ export class LCSAdapter {
       );
     }
 
+    if (capabilities.codeActionProvider) {
+      this.connection.onCodeAction(
+        async (
+          params: CodeActionParams,
+          token: CancellationToken,
+        ): Promise<(Command | CodeAction)[] | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.CODE_ACTION,
+            'textDocument/codeAction',
+            params,
+            (p) =>
+              LSPQueueManager.getInstance().submitCodeActionRequest(p, token),
+            null,
+            {
+              'document.range':
+                `${params.range.start.line}:${params.range.start.character}` +
+                `-${params.range.end.line}:${params.range.end.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Code action handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Code action handler not registered (capability disabled)',
+      );
+    }
+
     if (capabilities.completionProvider) {
       this.connection.onCompletion(
         async (
@@ -861,15 +893,45 @@ export class LCSAdapter {
     }
 
     if (capabilities.codeLensProvider) {
-      this.connection.onCodeLens(async (params: CodeLensParams) =>
-        this.handleLspRequest(
-          LSP_SPAN_NAMES.CODE_LENS,
-          'textDocument/codeLens',
-          params,
-          (p) => LSPQueueManager.getInstance().submitCodeLensRequest(p),
-          [],
-        ),
-      );
+      this.connection.onCodeLens(async (params: CodeLensParams) => {
+        const uri = params.textDocument.uri;
+        const existing = this.inFlightCodeLensByUri.get(uri);
+        if (existing) {
+          this.logger.debug(
+            () => `🔍 CodeLens request deduplicated for URI: ${uri}`,
+          );
+          return await existing;
+        }
+        this.logger.debug(() => `🔍 CodeLens request for URI: ${uri}`);
+        const processingPromise = (async () => {
+          try {
+            const result = await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.CODE_LENS,
+              () => LSPQueueManager.getInstance().submitCodeLensRequest(params),
+              {
+                'lsp.method': 'textDocument/codeLens',
+                'document.uri': uri,
+              },
+            );
+            return result;
+          } catch (error) {
+            if (error instanceof RequestCancelledError) {
+              this.logger.debug(() => 'textDocument/codeLens cancelled');
+              return [];
+            }
+            this.logger.error(
+              () => `Error processing codeLens: ${formattedError(error)}`,
+            );
+            return [];
+          }
+        })();
+        this.inFlightCodeLensByUri.set(uri, processingPromise);
+        try {
+          return await processingPromise;
+        } finally {
+          this.inFlightCodeLensByUri.delete(uri);
+        }
+      });
       this.logger.debug('CodeLens handler registered');
     } else {
       this.logger.debug(
@@ -917,9 +979,16 @@ export class LCSAdapter {
           () => `🔍 apexlib/resolve request received for: ${params.uri}`,
         );
         try {
+          const resourceLoaderProxy = this.resourceLoaderProxy;
           return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.RESOLVE_APEXLIB,
-            () => dispatchProcessOnResolve(params),
+            () =>
+              dispatchProcessOnResolve(
+                params,
+                resourceLoaderProxy
+                  ? (path) => resourceLoaderProxy.getFile(path)
+                  : undefined,
+              ),
             {
               'lsp.method': 'apexlib/resolve',
               'document.uri': params.uri,
@@ -946,7 +1015,7 @@ export class LCSAdapter {
           () =>
             `📦 apex/sendWorkspaceBatch request received: batch ${
               params.batchIndex + 1
-            }/${params.totalBatches} (${params.fileMetadata.length} files)`,
+            }/${params.totalBatches} (${params.fileMetadata.length} files, session=${params.sessionId})`,
         );
         try {
           const parentContext = extractTraceContext(params.traceContext);
@@ -955,6 +1024,7 @@ export class LCSAdapter {
               'workspace.batch.store',
               () => handleWorkspaceBatchRequest(params),
               {
+                'workspace.session_id': params.sessionId,
                 'workspace.batch_index': params.batchIndex,
                 'workspace.batch_total': params.totalBatches,
                 'workspace.file_count': params.fileMetadata.length,
@@ -985,7 +1055,8 @@ export class LCSAdapter {
       ): Promise<ProcessWorkspaceBatchesResult> => {
         this.logger.debug(
           () =>
-            `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches`,
+            `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches ` +
+            `(session=${params.sessionId})`,
         );
         try {
           const parentContext = extractTraceContext(params.traceContext);
@@ -1000,6 +1071,7 @@ export class LCSAdapter {
                 return handleProcessWorkspaceBatchesRequest(tracedParams);
               },
               {
+                'workspace.session_id': params.sessionId,
                 'workspace.batch_count': params.totalBatches,
               },
             ),
@@ -1552,6 +1624,15 @@ export class LCSAdapter {
         allCapabilities.referencesProvider;
     }
 
+    // codeActionProvider must be in the initial response for the Refactor / quick-fix
+    // menus to appear — VS Code gates those UIs on the advertised capability, and (like
+    // references) does not honor dynamic registration for it. Only set in the development
+    // profile, so this stays dev-only until production enablement (W-23389340).
+    if (allCapabilities.codeActionProvider) {
+      staticCapabilities.codeActionProvider =
+        allCapabilities.codeActionProvider;
+    }
+
     if (
       allCapabilities.definitionProvider &&
       !params.capabilities.textDocument?.definition?.dynamicRegistration
@@ -1864,22 +1945,21 @@ export class LCSAdapter {
       this.logger.debug(() => `Failed to send startup snapshot: ${e}`);
     }
 
-    // Initialize ResourceLoader with standard library
-    // Requests ZIP from client via apex/provideStandardLibrary
-    // Client uses vscode.workspace.fs to read from virtual file system
-    this.initializeResourceLoader().catch((error) => {
-      this.logger.error(
-        () =>
-          `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
-      );
-    });
-
-    // Pre-populate symbol graph with configured namespaces
-    this.prePopulateSymbolGraph().catch((error) => {
-      this.logger.error(
-        () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
-      );
-    });
+    // Worker mode initializes stdlib in the dedicated resource-loader worker
+    // and preloads configured namespaces into the authoritative DataOwner
+    // during topology startup. Only the coordinator-local path needs this
+    // legacy initialization, and its two phases must remain sequential.
+    if (!this.workerDispatcher) {
+      void (async () => {
+        await this.initializeResourceLoader();
+        await this.prePopulateSymbolGraph();
+      })().catch((error) => {
+        this.logger.error(
+          () =>
+            `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
+        );
+      });
+    }
 
     // NOTE: the worker topology is no longer started here. It is brought up
     // during `initialize` (before we return server capabilities) so that
@@ -2452,7 +2532,7 @@ export class LCSAdapter {
       const {
         initializeTopology,
         makeNodeWorkerLayer,
-        makeBrowserWorkerLayer,
+        makeBrowserWorkerLayerFactory,
         makeWorkerDispatcher,
         getRawWorkers,
         getBrowserAssistancePorts,
@@ -2470,7 +2550,22 @@ export class LCSAdapter {
         LSPConfigurationManager.getInstance().getSettings().apex;
       const workerCfg = apexSettings.experimental?.workers;
 
-      const enableResourceLoader = workerCfg?.resourceLoader !== false;
+      // Read from nested structure with backward compatibility for flat structure
+      const poolSize =
+        workerCfg?.lspRequest?.poolSize ?? workerCfg?.poolSize ?? 3;
+      const enableResourceLoader = workerCfg?.resourceLoader?.enabled ?? true;
+      const dataOwnerConcurrency = workerCfg?.dataOwner?.concurrency;
+      const compilationConcurrency = workerCfg?.compilation?.concurrency ?? 1;
+      const compilationPoolSize = workerCfg?.compilation?.poolSize ?? 2;
+      const preloadNamespaces = apexSettings.symbolGraph?.enabled
+        ? (apexSettings.symbolGraph.preloadNamespaces ?? [])
+        : [];
+
+      this.logger.alwaysLog(
+        `[LCSAdapter] compilationConcurrency: final=${compilationConcurrency}, ` +
+          `fromSettings=${workerCfg?.compilation?.concurrency}, ` +
+          `workerCfg.compilation=${JSON.stringify(workerCfg?.compilation)}`,
+      );
 
       const serverMode = LSPConfigurationManager.getInstance()
         .getCapabilitiesManager()
@@ -2514,12 +2609,15 @@ export class LCSAdapter {
       }
 
       const config = {
-        poolSize: workerCfg?.poolSize ?? 2,
+        poolSize,
         enableResourceLoader,
         logger: this.logger,
         logLevel: mainLogLevel,
         serverMode,
         spanCollectorUrl,
+        dataOwnerConcurrency,
+        compilationConcurrency,
+        compilationPoolSize,
       };
 
       const isNodeJs =
@@ -2556,6 +2654,11 @@ export class LCSAdapter {
           makeNodeWorkerLayer(workerScript, {
             name: `apex-worker-${role}`,
             execArgv: buildWorkerExecArgv({ role }).execArgv,
+            workerData: {
+              role,
+              compilationPoolSize,
+              compilationConcurrency,
+            },
           });
 
         topology = yield* Effect.provideService(
@@ -2572,27 +2675,33 @@ export class LCSAdapter {
         // fall back to the coordinator-local path, and references — an empty
         // stub there — returns nothing). When href is unusable as a base, use
         // the client-injected absolute worker URL, then a file:// placeholder.
-        // makeBrowserWorkerLayer re-wraps the fetched script in a SAME-ORIGIN
+        // The browser layer factory re-wraps fetched scripts in SAME-ORIGIN
         // blob regardless, so the sub-worker always shares the parent's origin.
-        const resolveWorkerUrl = (base: string) =>
-          new URL('./worker.platform.web.js', base).href;
+        const resolveWorkerUrl = (fileName: string, base: string) =>
+          new URL(`./${fileName}`, base).href;
         const rawHref = (globalThis as any).location?.href;
         const workerUrl =
           typeof rawHref === 'string' && !rawHref.startsWith('blob:')
-            ? resolveWorkerUrl(rawHref)
+            ? resolveWorkerUrl('worker.platform.web.js', rawHref)
             : // `||` (not `??`): an empty string is as unusable a base as
               // undefined, so fall through to the placeholder in both cases.
               this.workerPlatformWebUrl ||
-              resolveWorkerUrl('file:///server.web.js');
+              resolveWorkerUrl(
+                'worker.platform.web.js',
+                'file:///server.web.js',
+              );
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
-        const browserLayer = yield* Effect.promise(() =>
-          makeBrowserWorkerLayer(workerUrl),
+        const workerLayerFactory = yield* Effect.promise(() =>
+          makeBrowserWorkerLayerFactory(workerUrl, {
+            compilationPoolSize,
+            compilationConcurrency,
+          }),
         );
 
         topology = yield* Effect.provideService(
-          initializeTopology(config).pipe(Effect.provide(browserLayer as any)),
+          initializeTopology({ ...config, workerLayerFactory }),
           Scope.Scope,
           scope,
         );
@@ -2602,14 +2711,20 @@ export class LCSAdapter {
         topology,
         this.logger,
         (uri: string) => this.getDocumentTextForWorker(uri),
+        (uri: string) => this.documents.get(uri)?.version,
       );
       LSPQueueManager.getInstance().setWorkerDispatcher(dispatcher);
       this.workerDispatcher = dispatcher;
 
       setBatchIngestionDispatcher(dispatcher.createBatchIngestionDispatcher());
-      setBatchCompileDispatcher(dispatcher.createBatchCompileDispatcher());
       setCrossFileEnrichmentDispatcher(
         dispatcher.createCrossFileEnrichmentDispatcher(),
+      );
+      setWorkspaceLoadSessionDispatcher(
+        dispatcher.createWorkspaceLoadSessionDispatcher(),
+      );
+      setDataOwnerCompileDispatcher(
+        dispatcher.createDataOwnerCompileDispatcher(),
       );
 
       if (topology.resourceLoader) {
@@ -2643,11 +2758,38 @@ export class LCSAdapter {
         mediator.attachToBrowserAssistancePorts(getBrowserAssistancePorts());
       }
 
-      yield* runRemoteStdlibWarmupPhase(topology, config.poolSize);
+      const preloadResult = yield* runRemoteStdlibWarmupPhase(
+        topology,
+        config.poolSize,
+        preloadNamespaces,
+      );
+      if (preloadResult) {
+        this.logger.alwaysLog(
+          '[WorkerCoordinator] DataOwner stdlib preloaded ' +
+            `${preloadResult.loadedClasses}/${preloadResult.totalClasses} classes ` +
+            `from [${preloadResult.namespaces.join(', ')}]`,
+        );
+        if (preloadResult.missingNamespaces.length > 0) {
+          this.logger.warn(
+            'Configured stdlib namespaces not found: ' +
+              preloadResult.missingNamespaces.join(', '),
+          );
+        }
+        if (preloadResult.failedClasses.length > 0) {
+          this.logger.warn(
+            `Failed to preload ${preloadResult.failedClasses.length} stdlib classes: ` +
+              preloadResult.failedClasses.slice(0, 10).join(', '),
+          );
+        }
+      }
 
       this.logger.alwaysLog(
         '[WorkerCoordinator] Topology active — ' +
-          'queue dispatch, batch ingestion, assistance mediation, stdlib warm',
+          'queue dispatch, batch ingestion, assistance mediation, stdlib warm; ' +
+          `config: poolSize=${poolSize}, enableResourceLoader=${enableResourceLoader}, ` +
+          `dataOwnerConcurrency=${dataOwnerConcurrency ?? 'default'}, ` +
+          `compilationPoolSize=${compilationPoolSize}, ` +
+          `compilationConcurrency=${compilationConcurrency}`,
       );
 
       // No pre-topology document replay is needed: the topology is brought up
@@ -2702,12 +2844,15 @@ export class LCSAdapter {
     }
 
     this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> =>
+      async (
+        params: HoverParams,
+        token: CancellationToken,
+      ): Promise<Hover | null> =>
         this.handleLspRequest(
           LSP_SPAN_NAMES.HOVER,
           'textDocument/hover',
           params,
-          (p) => LSPQueueManager.getInstance().submitHoverRequest(p),
+          (p) => LSPQueueManager.getInstance().submitHoverRequest(p, token),
           null,
           {
             'document.position': `${params.position.line}:${params.position.character}`,

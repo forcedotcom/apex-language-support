@@ -26,6 +26,7 @@ import { toDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { getDocumentStateCache } from './DocumentStateCache';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
 import {
   CompletionStrategy,
   CompletionCandidate,
@@ -45,7 +46,10 @@ export interface ICompletionProcessor {
    * @param params The completion parameters
    * @returns Completion items for the requested position
    */
-  processCompletion(params: CompletionParams): Promise<CompletionItem[]>;
+  processCompletion(
+    params: CompletionParams,
+    context?: LspRequestExecutionContext,
+  ): Promise<CompletionItem[]>;
 
   /**
    * Process a completion request with progressive refinement support.
@@ -174,8 +178,9 @@ export class CompletionProcessingService implements ICompletionProcessor {
    */
   public async processCompletion(
     params: CompletionParams,
+    context?: LspRequestExecutionContext,
   ): Promise<CompletionItem[]> {
-    const result = await this.processCompletionInternal(params);
+    const result = await this.processCompletionInternal(params, context);
     return result.items;
   }
 
@@ -186,12 +191,14 @@ export class CompletionProcessingService implements ICompletionProcessor {
    */
   public async processCompletionWithReadiness(
     params: CompletionParams,
+    context?: LspRequestExecutionContext,
   ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }> {
-    return this.processCompletionInternal(params);
+    return this.processCompletionInternal(params, context);
   }
 
   private async processCompletionInternal(
     params: CompletionParams,
+    context?: LspRequestExecutionContext,
   ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }> {
     this.logger.debug(
       () => `Processing completion request for: ${params.textDocument.uri}`,
@@ -202,7 +209,10 @@ export class CompletionProcessingService implements ICompletionProcessor {
     // partial and re-query.
     let enrichmentReady = true;
 
-    if (this.prerequisiteOrchestrationService) {
+    if (
+      this.prerequisiteOrchestrationService &&
+      !context?.prerequisitesPrepared
+    ) {
       try {
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'completion',

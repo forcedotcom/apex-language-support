@@ -7,45 +7,20 @@
  */
 
 /**
- * Cold-start write-back + readiness-gate integration tests.
+ * Cold-start interactive-compilation + readiness-gate integration tests.
  *
- * Reproduces the live extension's cold-open stall: opening a file dispatches a
- * compile to the compilation worker, which writes its symbols back to the
- * data-owner via the coordinator assistance bus (dataOwner:UpdateSymbolSubset).
- * A request-pool read (documentSymbol/etc.) waits on the data-owner readiness
- * latch through awaitSymbolDataReady. If the write-back never lands, the gate
- * times out and the live server falls back to a coordinator-local compile —
- * the ~2s cold-start penalty the user observes.
- *
- * Unlike the other WriteBackProtocol integration tests (which call
- * topology.dataOwner.executeEffect(new UpdateSymbolSubset(...)) directly and so
- * never exercise the worker -> coordinator -> data-owner assistance round-trip),
- * these tests wire the REAL CoordinatorAssistanceMediator and attach it to the
- * live workers' assistance ports — exactly as LCSAdapter does in production.
- * That is the layer the bug lives in and the layer the skipped tests never
- * covered.
- *
- * ROOT CAUSE (found via these tests): writeBackCompiledSymbols posted the raw
- * symbol payload over a MessagePort, but a real, type-referencing class's
- * getAllSymbols() carries function values (lazy thunks, e.g. `() => null`).
- * MessagePort.postMessage uses the structured-clone algorithm, which THROWS on
- * functions ("() => null could not be cloned"). The write-back died before
- * reaching the coordinator, the readiness latch armed by the open was never
- * resolved, and the cold-read gate burned its full budget then fell back to a
- * local compile — the ~2s stall. The fix sanitizes the payload with
- * cloneForWire (the same JSON round-trip every other wire-crossing payload
- * uses), which strips the functions.
+ * Opening a file first stores it in the data-owner and then asks that same
+ * worker to compile it through its persistent Effect worker pool. The
+ * data-owner validates and commits the result locally before acknowledging the
+ * request. A request-pool read (documentSymbol/etc.) waits on the data-owner
+ * readiness latch through awaitSymbolDataReady.
  *
  * Test roles:
- *  - GREEN: a trivial self-contained class (no function-valued fields) merges in
- *    ~1ms. This is why the bug hid — synthetic/trivial tables clone cleanly.
- *  - REGRESSION: a stdlib-referencing class (function-valued fields) that timed
- *    out before the fix and merges after it — the direct guard for this bug.
- *  - CANDIDATE A: a misrouted write-back (no dataOwnerHandler) reproduces the
- *    same `timeout` symptom from a different cause — a guard against assistance-
- *    bus wiring regressions.
+ *  - GREEN: a trivial self-contained class becomes ready after local commit.
+ *  - INDEPENDENCE: interactive commit does not rely on assistance write-back.
+ *  - REGRESSION: a stdlib-referencing class also commits through the pool.
  *  - CANDIDATE C: documents the distinct peek-before-arm race
- *    (`no-compile-pending`), a SEPARATE failure mode from the live `timeout`.
+ *    (`no-compile-pending`).
  */
 
 import * as path from 'path';
@@ -62,6 +37,7 @@ import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssis
 import {
   getLogger,
   type LoggerInterface,
+  type WorkerRole,
   enableConsoleLogging,
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -70,6 +46,7 @@ import { Effect } from 'effect';
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
 const LOG_LEVEL = 'error';
+const COMPILATION_POOL_SIZE = 2;
 
 // A trivial, fully self-contained class: no stdlib/System dependencies, so the
 // compile can always produce a symbol table even on a cold (un-warmed) server.
@@ -108,6 +85,17 @@ const GATE_BUDGET_MS = 3000;
 
 const MATCH_LATEST_VERSION = -1;
 
+const workerLayerFactory = (role: WorkerRole) =>
+  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
+    ...TSX_OPTIONS,
+    name: `cold-start-${role}`,
+    workerData: {
+      role,
+      compilationPoolSize: COMPILATION_POOL_SIZE,
+      compilationConcurrency: 1,
+    },
+  });
+
 interface QueryResult {
   entries: Record<string, unknown>;
   versions: Record<string, number>;
@@ -129,7 +117,7 @@ const openParams = (uri: string, text: string, version = 1) => ({
   text,
 });
 
-describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
+describe('Cold-start interactive compilation + readiness gate', () => {
   let logger: LoggerInterface;
 
   beforeAll(() => {
@@ -152,9 +140,11 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -198,10 +188,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
       )) as QueryResult;
 
       return { readiness, waitedMs, query };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
@@ -219,28 +206,19 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
   }, 120_000);
 
   /**
-   * CANDIDATE A — write-back never reaches the data-owner.
-   *
-   * Models the live evidence directly: the latch is armed by the open, but the
-   * data-owner's UpdateSymbolSubset handler never runs (no '[DATA-OWNER]
-   * UpdateSymbolSubset received' in the live log). We reproduce that by wiring
-   * the mediator WITHOUT a dataOwnerHandler (2-arg construction, as the older
-   * unit tests do). The 'dataOwner:UpdateSymbolSubset' write-back then falls to
-   * the primary handler, which does not merge into the data-owner graph — so
-   * the latch is never resolved.
-   *
-   * Expectation: gate returns { ready: false, reason: 'timeout' } after burning
-   * (nearly) the full budget, and the data-owner holds NO symbols. If this
-   * matches the live symptom, the root cause is a missing/misrouted
-   * dataOwnerHandler on the live assistance bus.
+   * Interactive compile results are committed locally by the data owner. A
+   * missing dataOwner assistance route therefore cannot drop the result or
+   * strand the readiness latch.
    */
-  it("CANDIDATE A: missing dataOwnerHandler drops the write-back -> gate 'timeout'", async () => {
+  it('interactive commit does not depend on a dataOwner assistance route', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -248,8 +226,8 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         openDocs.get(uri),
       );
 
-      // No dataOwnerHandler: dataOwner:* write-backs fall to the primary
-      // handler, which swallows them (returns {accepted:true} without merging).
+      // Deliberately omit the dataOwnerHandler. The interactive path must not
+      // use this route to commit compiler results.
       const mediator = wireMediator(dispatcher, logger, {
         failOnPrimary: false,
         routeDataOwner: false,
@@ -260,9 +238,6 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         getWorkerNames(),
       );
 
-      // Await the open so the latch is ARMED (DispatchDocumentOpen ran), exactly
-      // as the live log shows (latch=v1). The compile runs and posts its
-      // write-back, but it is swallowed by the primary handler.
       openDocs.set(TEST_URI, SELF_CONTAINED_CLASS);
       yield* Effect.promise(() =>
         dispatcher.dispatch(
@@ -286,10 +261,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
       )) as QueryResult;
 
       return { readiness, waitedMs, query };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
@@ -299,46 +271,25 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
         `entry=${JSON.stringify(query.entries[TEST_URI])}`,
     );
 
-    // Reproduces the live failure: armed-but-never-resolved -> timeout.
-    expect(readiness.ready).toBe(false);
-    expect(readiness.reason).toBe('timeout');
-    expect(waitedMs).toBeGreaterThan(GATE_BUDGET_MS - 500);
-    // The open stored the document (so a record exists at v1), but the swallowed
-    // write-back never merged a symbol table — QuerySymbolSubset returns `null`
-    // for a stored-but-unmerged file. That null IS the "No Symbols" the live
-    // request-pool read would have seen.
-    expect(query.entries[TEST_URI]).toBeNull();
+    expect(readiness.reason).toBeUndefined();
+    expect(readiness.ready).toBe(true);
+    expect(waitedMs).toBeLessThan(GATE_BUDGET_MS - 200);
+    expect(query.entries[TEST_URI]).not.toBeNull();
+    expect(query.entries[TEST_URI]).toBeDefined();
+    expect(query.versions[TEST_URI]).toBe(1);
   }, 120_000);
 
-  /**
-   * REGRESSION (the real live bug) — function-valued symbol fields must survive
-   * the write-back wire crossing.
-   *
-   * A real, type-referencing Apex class compiles to a SymbolTable whose
-   * getAllSymbols() carries function-valued properties (lazy thunks, e.g.
-   * `() => null`). writeBackCompiledSymbols posts that payload over a
-   * MessagePort, whose structured-clone algorithm THROWS on functions
-   * ("() => null could not be cloned"). Before the fix, that threw synchronously
-   * inside the write-back, so the request never reached the coordinator/data-
-   * owner, the readiness latch armed by the open was never resolved, and the
-   * cold-read gate burned its full budget then fell back to a local compile —
-   * the ~2s cold-start stall the user saw.
-   *
-   * The GREEN baseline passed only because its trivial self-contained class
-   * produced no function-valued fields. This test uses a stdlib-referencing
-   * class (List<String>, String.join, System.debug) that DOES, so it would time
-   * out before the fix. The fix sanitizes the payload with cloneForWire (the
-   * same JSON round-trip every other wire-crossing data-owner payload uses),
-   * which strips the functions. After the fix the write-back merges and the gate
-   * is ready well inside budget.
-   */
-  it('REGRESSION: function-valued symbol fields survive the write-back -> gate ready', async () => {
+  /** A real stdlib-dependent table must survive the dedicated compiler-worker
+   * protocol, reconstruct locally, and resolve the readiness latch. */
+  it('REGRESSION: stdlib-dependent symbols commit locally -> gate ready', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -381,10 +332,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
       )) as QueryResult;
 
       return { readiness, waitedMs, query };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { readiness, waitedMs, query } = await Effect.runPromise(program);
 
@@ -405,6 +353,74 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
     expect(query.versions[STDLIB_URI]).toBe(1);
   }, 120_000);
 
+  it('open, change, and save all compile and commit through the persistent pool', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger);
+      const mediator = wireMediator(dispatcher, logger, {
+        failOnPrimary: true,
+        routeDataOwner: true,
+      });
+      mediator.attachToWorkers(
+        getRawWorkers(),
+        getAssistancePorts(),
+        getWorkerNames(),
+      );
+
+      const events = [
+        {
+          type: 'documentOpen' as const,
+          version: 1,
+          text: 'public class TestClass { public void opened() {} }',
+        },
+        {
+          type: 'documentChange' as const,
+          version: 2,
+          text: 'public class TestClass { public void changed() {} }',
+        },
+        {
+          type: 'documentSave' as const,
+          version: 3,
+          text: 'public class TestClass { public void saved() {} }',
+        },
+      ];
+
+      const observed: QueryResult[] = [];
+      for (const event of events) {
+        yield* Effect.promise(() =>
+          dispatcher.dispatch(
+            event.type,
+            openParams(TEST_URI, event.text, event.version),
+          ),
+        );
+        observed.push(
+          (yield* Effect.promise(() =>
+            dispatcher.queryDataOwner('QuerySymbolSubset', {
+              uris: [TEST_URI],
+            }),
+          )) as QueryResult,
+        );
+      }
+      return observed;
+    }).pipe(Effect.scoped);
+
+    const observed = await Effect.runPromise(program);
+    expect(observed.map((result) => result.versions[TEST_URI])).toEqual([
+      1, 2, 3,
+    ]);
+    for (const result of observed) {
+      expect(result.entries[TEST_URI]).not.toBeNull();
+      expect(result.entries[TEST_URI]).toBeDefined();
+    }
+  }, 120_000);
+
   /**
    * CANDIDATE C — the gate peeks before the open arms the latch.
    *
@@ -418,9 +434,11 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -461,10 +479,7 @@ describe('Cold-start write-back + readiness gate (live assistance bus)', () => {
       const waitedMs = (yield* Effect.sync(() => Date.now())) - startedAt;
 
       return { readiness, waitedMs };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { readiness, waitedMs } = await Effect.runPromise(program);
 

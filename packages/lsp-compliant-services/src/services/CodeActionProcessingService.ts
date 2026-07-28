@@ -11,7 +11,10 @@ import {
   CodeAction,
   CodeActionKind,
   Range,
+  Position,
   Diagnostic,
+  WorkspaceEdit,
+  TextEdit,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -20,8 +23,51 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
+  parseForCodeActions,
+  findExpressionForCodeAction,
+  findConstantExtractionFromExpression,
+  findMethodCallForCodeAction,
+  CodeActionParseContext,
+  ConstantExtraction,
+  ApexSymbol,
+  TypeSymbol,
+  SymbolKind,
+  SymbolVisibility,
+  MethodCallAtRange,
+  ErrorCodes,
+  inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
+
+/**
+ * Diagnostic codes that signal a call to a method that does not exist on the
+ * receiver type — the trigger for the Declare-Missing-Method quick fix. The
+ * semantic validator emits {@link ErrorCodes.INVALID_METHOD_NOT_FOUND}; the
+ * uppercase variant guards against alternate code conventions in the pipeline.
+ *
+ * Built lazily (rather than at module load) so it does not depend on the
+ * `ErrorCodes` generated object being initialized before this module — that
+ * ordering is not guaranteed under the parser-ast barrel's circular exports.
+ */
+const methodNotFoundCodes = (): ReadonlySet<string> =>
+  new Set<string>([
+    ErrorCodes.INVALID_METHOD_NOT_FOUND,
+    'INVALID_METHOD_NOT_FOUND',
+  ]);
+
+/** Fallback type used when an argument / return type cannot be inferred (full inference is story 01.1). */
+const FALLBACK_TYPE = 'Object';
+
+/**
+ * The resolved target of a Declare-Missing-Method fix: the user class that
+ * should receive the stub, the file that declares it (multi-file edit target),
+ * and whether the call was made statically (on the type name).
+ */
+interface TargetClass {
+  typeSymbol: TypeSymbol;
+  fileUri: string;
+  isStatic: boolean;
+}
 
 /**
  * Interface for code action processing functionality
@@ -49,6 +95,14 @@ export interface CodeActionContext {
   currentScope: string;
   isStatic: boolean;
   accessModifier: 'public' | 'private' | 'protected' | 'global';
+  /**
+   * Opaque, parsed-once handle from apex-parser-ast, used by the eager Extract
+   * Variable / Extract Constant refactorings and the Declare-Missing-Method
+   * finder. `undefined` when the document could not be parsed. The parse tree it
+   * wraps stays private to apex-parser-ast; this layer only passes it to the
+   * `*ForCodeAction` accessors.
+   */
+  parseContext?: CodeActionParseContext;
 }
 
 /**
@@ -124,6 +178,20 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     const isStatic = this.isInStaticContext(text, offset);
     const accessModifier = this.getAccessModifierContext(text, offset);
     const currentScope = this.extractCurrentScope(text, offset);
+    // apex-parser-ast owns the parse: it constructs the CompilerService, chooses
+    // the listener, and applies the compile options, returning an opaque handle
+    // the finders consume. Parsed once here and reused across all finders.
+    const parseContext = parseForCodeActions(text, document.uri) ?? undefined;
+    if (!parseContext) {
+      // parseForCodeActions is best-effort and swallows parse failures to stay
+      // logger-free; preserve the diagnostic signal here (the LS layer owns the
+      // logger) so a document that fails to parse leaves a debug trail rather
+      // than silently offering no code actions.
+      this.logger.debug(
+        () =>
+          `Unable to parse document for code actions: ${document.uri} — expression-based actions will be unavailable`,
+      );
+    }
 
     return {
       document,
@@ -136,6 +204,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       currentScope,
       isStatic,
       accessModifier,
+      parseContext,
     };
   }
 
@@ -178,60 +247,221 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   ): Promise<CodeAction[]> {
     const actions: CodeAction[] = [];
 
-    if (!context.symbolName) {
+    // Eager (Jorje-parity) extract refactorings. These compute complete
+    // WorkspaceEdits up front (no codeAction/resolve round-trip).
+    //
+    // NOTE: This intentionally does NOT offer command-backed Rename / Extract
+    // Method / Move-to-File actions. Those were speculative stubs bound to
+    // client commands (`apex.renameSymbol` / `apex.extractMethod` /
+    // `apex.moveToFile`) that are registered nowhere, so invoking them failed
+    // with "command not found". Symbol rename is tracked separately as a real
+    // LSP feature (textDocument/rename, W-22629631); the other two have no
+    // committed work. They are omitted rather than shipped half-working.
+    const extractActions = this.getExtractActions(context);
+    actions.push(...extractActions);
+
+    return actions;
+  }
+
+  /**
+   * Build the eager Extract Local Variable and Extract Constant code actions for
+   * the current selection.
+   *
+   * Both are computed against the document CST via the shared
+   * {@link findExpressionForCodeAction} accessor (story 05.0). When the selection is not
+   * a single, well-formed expression inside a method body the finder returns
+   * `null` and neither action is offered. Extract Constant is additionally gated
+   * to literal (or prefix-of-literal, e.g. `-5`) expressions.
+   */
+  private getExtractActions(context: CodeActionContext): CodeAction[] {
+    const actions: CodeAction[] = [];
+
+    if (!context.parseContext) {
       return actions;
     }
 
+    let found;
     try {
-      // Find symbol in ApexSymbolManager
-      const symbols = await this.symbolManager.findSymbolByName(
-        context.symbolName,
-      );
-
-      for (const symbol of symbols) {
-        // Rename symbol action
-        const renameAction: CodeAction = {
-          title: `Rename ${symbol.kind} '${symbol.name}'`,
-          kind: CodeActionKind.Refactor,
-          command: {
-            title: `Rename ${symbol.kind}`,
-            command: 'apex.renameSymbol',
-            arguments: [symbol.name, context.document.uri, context.range],
-          },
-        };
-        actions.push(renameAction);
-
-        // Extract method action (if it's a method)
-        if (symbol.kind === 'method') {
-          const extractAction: CodeAction = {
-            title: `Extract method '${symbol.name}'`,
-            kind: CodeActionKind.RefactorExtract,
-            command: {
-              title: 'Extract method',
-              command: 'apex.extractMethod',
-              arguments: [symbol.name, context.document.uri, context.range],
-            },
-          };
-          actions.push(extractAction);
-        }
-
-        // Move to file action
-        const moveAction: CodeAction = {
-          title: `Move ${symbol.kind} '${symbol.name}' to separate file`,
-          kind: CodeActionKind.Refactor,
-          command: {
-            title: 'Move to file',
-            command: 'apex.moveToFile',
-            arguments: [symbol.name, context.document.uri],
-          },
-        };
-        actions.push(moveAction);
-      }
+      found = findExpressionForCodeAction(context.parseContext, context.range);
     } catch (error) {
-      this.logger.debug(() => `Error getting refactoring actions: ${error}`);
+      this.logger.debug(() => `Extract finder error: ${error}`);
+      return actions;
+    }
+
+    if (!found) {
+      return actions;
+    }
+
+    // Character span + verbatim text of the expression are computed inside
+    // apex-parser-ast, so this layer never touches ANTLR token internals.
+    const {
+      statementStart,
+      indent,
+      expressionStart,
+      expressionEnd,
+      expressionText: exprText,
+    } = found;
+    const text = context.document.getText();
+    if (!exprText) {
+      return actions;
+    }
+
+    // Replace the whole matched expression, NOT the user's raw selection. The
+    // finder returns the tightest expression that *encloses* the selection, so
+    // the selection can be a strict subset (or a zero-width cursor). Replacing
+    // context.range while inserting the full expression text would corrupt the
+    // statement (leave a fragment, or duplicate the expression). Anchor the
+    // replacement to the expression's own span so the two edits stay consistent.
+    const exprRange: Range = {
+      start: context.document.positionAt(expressionStart),
+      end: context.document.positionAt(expressionEnd),
+    };
+
+    const variableName = this.generateExtractName(text);
+
+    const variableAction = this.buildExtractVariableAction(
+      context,
+      text,
+      statementStart,
+      indent,
+      exprText,
+      variableName,
+      exprRange,
+    );
+    if (variableAction) {
+      actions.push(variableAction);
+    }
+
+    // The class-body insertion point, member indentation, inner-class flag, and
+    // literal eligibility are all computed in apex-parser-ast so the LS layer
+    // never touches ANTLR types. Reuse the expression already located above
+    // (`found`) rather than re-walking the tree. Extract Constant is gated to
+    // literal (or prefix-of-literal, e.g. `-5`) expressions, matching Jorje's rule.
+    const constantExtraction = findConstantExtractionFromExpression(found);
+    if (constantExtraction?.isLiteral) {
+      const constantAction = this.buildExtractConstantAction(
+        context,
+        constantExtraction,
+        exprText,
+        variableName,
+        exprRange,
+      );
+      if (constantAction) {
+        actions.push(constantAction);
+      }
     }
 
     return actions;
+  }
+
+  /**
+   * Build the Extract Local Variable WorkspaceEdit.
+   *
+   * Produces two TextEdits on the current document:
+   *   1. an insertion of `<indent><T> <name> = <exprText>;\n` at the start of
+   *      the enclosing statement's line, and
+   *   2. a replacement of the selected range with `<name>`.
+   *
+   * Type inference is a separate story (01.1); until then the declared type
+   * falls back to `Object` and a trailing comment documents the limitation.
+   */
+  private buildExtractVariableAction(
+    context: CodeActionContext,
+    text: string,
+    statementStart: number,
+    indent: string,
+    exprText: string,
+    variableName: string,
+    exprRange: Range,
+  ): CodeAction | null {
+    const insertPosition = context.document.positionAt(statementStart);
+    // Anchor the insertion at the very start of the statement's line so the new
+    // declaration lands above the statement with matching indentation.
+    const lineStart: Position = {
+      line: insertPosition.line,
+      character: 0,
+    };
+
+    const declaration = `${indent}Object ${variableName} = ${exprText}; // TODO: infer type (was Object)\n`;
+
+    const insertEdit: TextEdit = {
+      range: { start: lineStart, end: lineStart },
+      newText: declaration,
+    };
+    const replaceEdit: TextEdit = {
+      range: exprRange,
+      newText: variableName,
+    };
+
+    return {
+      title: 'Extract local variable',
+      kind: CodeActionKind.RefactorExtract,
+      edit: {
+        changes: {
+          [context.document.uri]: [insertEdit, replaceEdit],
+        },
+      },
+    };
+  }
+
+  /**
+   * Build the Extract Constant WorkspaceEdit.
+   *
+   * Inserts `<modifiers> Object <name> = <exprText>;` at class-body level,
+   * directly under the enclosing class declaration's opening brace, and replaces
+   * the selection with `<name>`. Top-level classes use `private static final`;
+   * inner classes use `private final` (Apex/Jorje disallows `static` on inner
+   * members). Returns `null` when the enclosing class body cannot be located.
+   */
+  private buildExtractConstantAction(
+    context: CodeActionContext,
+    insertion: ConstantExtraction,
+    exprText: string,
+    variableName: string,
+    exprRange: Range,
+  ): CodeAction | null {
+    const modifiers = insertion.isInner
+      ? 'private final'
+      : 'private static final';
+    const insertPosition = context.document.positionAt(insertion.insertOffset);
+    const declaration =
+      `\n${insertion.indent}${modifiers} Object ${variableName} = ` +
+      `${exprText}; // TODO: infer type (was Object)`;
+
+    const insertEdit: TextEdit = {
+      range: { start: insertPosition, end: insertPosition },
+      newText: declaration,
+    };
+    const replaceEdit: TextEdit = {
+      range: exprRange,
+      newText: variableName,
+    };
+
+    return {
+      title: 'Extract constant',
+      kind: CodeActionKind.RefactorExtract,
+      edit: {
+        changes: {
+          [context.document.uri]: [insertEdit, replaceEdit],
+        },
+      },
+    };
+  }
+
+  /**
+   * Generate an extracted-symbol name (`v1`, `v2`, …) that does not collide with
+   * an identifier already present in the document. This is a pragmatic,
+   * text-based collision check; precise scope analysis is out of scope here.
+   */
+  private generateExtractName(text: string): string {
+    for (let index = 1; index < 1000; index++) {
+      const candidate = `v${index}`;
+      const wordBoundary = new RegExp(`\\b${candidate}\\b`);
+      if (!wordBoundary.test(text)) {
+        return candidate;
+      }
+    }
+    return `v${Date.now()}`;
   }
 
   /**
@@ -241,6 +471,17 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     context: CodeActionContext,
   ): Promise<CodeAction[]> {
     const actions: CodeAction[] = [];
+
+    // Declare-Missing-Method is diagnostic-driven and does not rely on the
+    // (currently simplified) symbolName heuristic, so it runs first.
+    try {
+      const declareActions = await this.getDeclareMissingMethodActions(context);
+      actions.push(...declareActions);
+    } catch (error) {
+      this.logger.debug(
+        () => `Error getting declare-missing-method actions: ${error}`,
+      );
+    }
 
     if (!context.symbolName) {
       return actions;
@@ -303,6 +544,322 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     }
 
     return actions;
+  }
+
+  /**
+   * Build "Declare method '<name>' in <Type>" quick fixes (Jorje QUICKFIX
+   * parity). Diagnostic-driven: triggered by an unresolved-method diagnostic
+   * (`invalid.method.not.found`) whose call is on a resolved *user* class.
+   *
+   * Requirements to offer the fix (per the story):
+   * - the receiver type resolves to a user-defined class (not enum/interface,
+   *   not a standard-library type);
+   * - the call's result is used in a non-void position (params typed and
+   *   non-void).
+   *
+   * The generated stub is written EAGERLY into the *target type's* declaring
+   * file (multi-file edit) — Jorje uses no `codeAction/resolve`.
+   */
+  private async getDeclareMissingMethodActions(
+    context: CodeActionContext,
+  ): Promise<CodeAction[]> {
+    const actions: CodeAction[] = [];
+
+    const relevantDiagnostics = context.diagnostics.filter((d) =>
+      this.isMethodNotFoundDiagnostic(d),
+    );
+    if (relevantDiagnostics.length === 0) {
+      return actions;
+    }
+
+    // Locate and describe the call at the diagnostic range using the shared
+    // CST finder. This is resilient to syntax errors (returns null).
+    const callInfo = await this.findMethodCall(context, relevantDiagnostics);
+    if (!callInfo) {
+      return actions;
+    }
+
+    // A void-context call carries no return type to infer — not offered.
+    if (
+      callInfo.returnContext === 'void' ||
+      callInfo.returnContext === 'expression'
+    ) {
+      return actions;
+    }
+
+    // Resolve the receiver type to a user-defined class and its declaring file.
+    const target = await this.resolveTargetUserClass(context, callInfo);
+    if (!target) {
+      return actions;
+    }
+
+    const stub = this.buildMethodStub(callInfo, target);
+    const edit = await this.buildDeclareMethodEdit(target, stub);
+    if (!edit) {
+      return actions;
+    }
+
+    actions.push({
+      title: `Declare method '${callInfo.methodName}' in ${target.typeSymbol.name}`,
+      kind: CodeActionKind.QuickFix,
+      diagnostics: relevantDiagnostics,
+      edit,
+    });
+
+    return actions;
+  }
+
+  /** True when a diagnostic reports a call to a method that does not exist. */
+  private isMethodNotFoundDiagnostic(diagnostic: Diagnostic): boolean {
+    const code = diagnostic.code;
+    return typeof code === 'string' && methodNotFoundCodes().has(code);
+  }
+
+  /**
+   * Compile the current document and locate the method call at (or overlapping)
+   * one of the given diagnostics' ranges. Returns null when no call is found or
+   * the source cannot be parsed into a usable CST.
+   */
+  private async findMethodCall(
+    context: CodeActionContext,
+    diagnostics: Diagnostic[],
+  ): Promise<MethodCallAtRange | null> {
+    // Reuse the CST already parsed in analyzeCodeActionContext rather than
+    // recompiling the document. The finder only walks the parse tree, which is
+    // grammar-equivalent regardless of the listener used to build it, so the
+    // shared parse context is sufficient.
+    const parseContext = context.parseContext;
+    if (!parseContext) {
+      return null;
+    }
+
+    // Prefer the code-action request range, then each diagnostic range.
+    const ranges: Range[] = [context.range, ...diagnostics.map((d) => d.range)];
+    for (const range of ranges) {
+      const call = findMethodCallForCodeAction(parseContext, range);
+      if (call) {
+        return call;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Resolve the call's receiver to a user-defined class and its declaring
+   * document URI — the multi-file integration point.
+   *
+   * - Qualified call `receiver.method(...)`: the receiver text (a variable,
+   *   field, or the type name itself) is resolved to a type via the symbol
+   *   manager. `static` iff the receiver text *is* the type name.
+   * - Unqualified call `method(...)`: an implicit-`this` call, so the target is
+   *   the enclosing class (the current document's own type). Instance call.
+   *
+   * Returns null when the type cannot be resolved, is not a class (enum /
+   * interface), is a standard-library type, or has no declaring file.
+   */
+  private async resolveTargetUserClass(
+    context: CodeActionContext,
+    callInfo: MethodCallAtRange,
+  ): Promise<TargetClass | null> {
+    if (callInfo.receiverText) {
+      return this.resolveReceiverType(context, callInfo.receiverText);
+    }
+
+    // Unqualified call -> enclosing (current) class; instance call.
+    const currentType = await this.findTypeInFile(context.document.uri);
+    if (!currentType) {
+      return null;
+    }
+    return {
+      typeSymbol: currentType,
+      fileUri: currentType.fileUri,
+      isStatic: false,
+    };
+  }
+
+  /**
+   * Resolve a receiver expression (e.g. `acct`, `MyClass`) to the user class it
+   * refers to. The receiver may be the type name (static call) or a variable /
+   * field whose declared type is the target (instance call).
+   */
+  private async resolveReceiverType(
+    context: CodeActionContext,
+    receiverText: string,
+  ): Promise<TargetClass | null> {
+    // 1) Receiver is itself a type name -> static call on that type.
+    const directType = await this.findUserClassByName(receiverText);
+    if (directType) {
+      return {
+        typeSymbol: directType,
+        fileUri: directType.fileUri,
+        isStatic: true,
+      };
+    }
+
+    // 2) Receiver is a variable / field -> resolve its declared type name,
+    //    then look that type up. Instance call.
+    const typeName = await this.findReceiverDeclaredTypeName(
+      context.document.uri,
+      receiverText,
+    );
+    if (!typeName) {
+      return null;
+    }
+    const instanceType = await this.findUserClassByName(typeName);
+    if (!instanceType) {
+      return null;
+    }
+    return {
+      typeSymbol: instanceType,
+      fileUri: instanceType.fileUri,
+      isStatic: false,
+    };
+  }
+
+  /**
+   * Find the declared type name of a variable/field named `receiverText` in the
+   * given file (the receiver of an instance call).
+   */
+  private async findReceiverDeclaredTypeName(
+    fileUri: string,
+    receiverText: string,
+  ): Promise<string | undefined> {
+    const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
+    const variable = symbols.find(
+      (s) =>
+        s.name === receiverText &&
+        (s.kind === SymbolKind.Variable ||
+          s.kind === SymbolKind.Field ||
+          s.kind === SymbolKind.Property ||
+          s.kind === SymbolKind.Parameter),
+    );
+    if (variable && 'type' in variable) {
+      const typeInfo = (variable as { type?: { name?: string } }).type;
+      return typeInfo?.name;
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolve a type name to a user-defined class symbol (not enum/interface, not
+   * a standard-library type). Returns null otherwise.
+   */
+  private async findUserClassByName(name: string): Promise<TypeSymbol | null> {
+    const candidates = await this.symbolManager.findSymbolByName(name);
+    const typeSymbol = candidates.find(
+      (s) => inTypeSymbolGroup(s) && this.isUserClass(s),
+    );
+    return typeSymbol && inTypeSymbolGroup(typeSymbol) ? typeSymbol : null;
+  }
+
+  /** Find the top-level type declared in a file (used for implicit-`this` calls). */
+  private async findTypeInFile(fileUri: string): Promise<TypeSymbol | null> {
+    const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
+    const typeSymbol = symbols.find(
+      (s) => inTypeSymbolGroup(s) && this.isUserClass(s),
+    );
+    return typeSymbol && inTypeSymbolGroup(typeSymbol) ? typeSymbol : null;
+  }
+
+  /** True iff the symbol is a user-defined class (not enum/interface, not stdlib). */
+  private isUserClass(symbol: ApexSymbol): boolean {
+    return (
+      symbol.kind === SymbolKind.Class &&
+      !symbol.modifiers?.isBuiltIn &&
+      !symbol.fileUri?.startsWith('apexlib://')
+    );
+  }
+
+  /**
+   * Compose the method-stub source for the missing method.
+   *
+   * - return type: inferred from how the call result is used (declared local
+   *   type or enclosing method return type); falls back to `Object`;
+   * - parameters: types inferred from literal / `new` arguments (`Object`
+   *   otherwise), with generated names `param1`, `param2`, ...;
+   * - visibility: `public` (a cross-class call implies the member must be
+   *   visible to the caller);
+   * - `static` modifier: static iff the call is on the type name.
+   */
+  private buildMethodStub(
+    callInfo: MethodCallAtRange,
+    target: TargetClass,
+  ): string {
+    const returnType = callInfo.returnTypeText?.trim() || FALLBACK_TYPE;
+    const params = callInfo.arguments
+      .map(
+        (arg, index) =>
+          `${arg.inferredType || FALLBACK_TYPE} param${index + 1}`,
+      )
+      .join(', ');
+    const staticModifier = target.isStatic ? 'static ' : '';
+    const signature =
+      `${SymbolVisibility.Public} ${staticModifier}` +
+      `${returnType} ${callInfo.methodName}(${params})`;
+    return `${signature} {\n    return null;\n  }`;
+  }
+
+  /**
+   * Build the `WorkspaceEdit` that inserts the stub into the target type's
+   * declaring file. Uses `documentChanges` (versioned edits) so the correct
+   * file URI is targeted regardless of the current document (multi-file).
+   *
+   * The stub is inserted just before the type's closing brace; when the target
+   * document is not loaded we fall back to the class symbol's end position.
+   */
+  private async buildDeclareMethodEdit(
+    target: TargetClass,
+    stub: string,
+  ): Promise<WorkspaceEdit | null> {
+    const insertPosition = await this.computeInsertPosition(target);
+    if (!insertPosition) {
+      return null;
+    }
+
+    const textEdit: TextEdit = {
+      range: { start: insertPosition, end: insertPosition },
+      newText: `  ${stub}\n`,
+    };
+
+    return {
+      documentChanges: [
+        {
+          textDocument: { uri: target.fileUri, version: null },
+          edits: [textEdit],
+        },
+      ],
+    };
+  }
+
+  /**
+   * Compute the insertion point: immediately before the target type's closing
+   * brace, so the stub lands as the last member of the class.
+   *
+   * `symbolRange.endColumn` is computed as `stopToken.column + stopToken.length`
+   * (see `ApexSymbolCollectorListener.getLocation`), i.e. it points *past* the
+   * `}` rather than at it. Inserting there would emit the member *after* the
+   * closing brace — outside the class body — producing invalid Apex. Subtract
+   * the brace's own width (1 char) to land just before it.
+   *
+   * CAVEAT: this position comes from the *indexed* symbol (`symbolManager`),
+   * not the live target file. For a multi-file Declare-Missing-Method fix the
+   * target class is typically not the open document, so if that file has been
+   * edited since it was last indexed the recorded `symbolRange` can be stale
+   * and the stub may land at the wrong offset. Acceptable for the dev-only
+   * steel thread; before production enablement (05.4) this should re-read the
+   * target file (or reparse) to anchor the insertion against current content.
+   */
+  private async computeInsertPosition(
+    target: TargetClass,
+  ): Promise<{ line: number; character: number } | null> {
+    const range = target.typeSymbol.location?.symbolRange;
+    if (!range) {
+      return null;
+    }
+    // LSP lines are 0-based; symbolRange lines are 1-based. endColumn is one
+    // past the `}`, so endColumn - 1 is the brace's own column.
+    const line = Math.max(0, range.endLine - 1);
+    return { line, character: Math.max(0, range.endColumn - 1) };
   }
 
   /**

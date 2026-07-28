@@ -26,6 +26,7 @@
     "bundle": "wireit",
     "test": "wireit",
     "test:web": "wireit",
+    "test:browser-compilation": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
@@ -159,16 +160,31 @@
         "jest.config.base.cjs",
         "../../scripts/jest-teardown.js"
       ]
+    },
+    "test:browser-compilation": {
+      "command": "jest --config jest.config.cjs --runInBand --testPathIgnorePatterns=/node_modules/ --runTestsByPath test/integration/BrowserCompilationPool.browser.node.test.ts",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/fixtures/browserCompilationPoolHarness.ts",
+        "test/integration/BrowserCompilationPool.browser.node.test.ts",
+        "**/jest.config.cjs",
+        "jest.config.base.cjs",
+        "../../scripts/jest-teardown.js"
+      ],
+      "cache": false
     }
   },
   "dependencies": {
     "@effect/platform": "^0.97.0",
     "@effect/platform-browser": "^0.76.0",
-    "@effect/platform-node": "^0.107.0",
+    "@effect/platform-node": "^0.108.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/context-async-hooks": "^2.7.1",
     "@opentelemetry/core": "^2.9.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "@opentelemetry/sdk-trace-node": "^2.9.0",

@@ -32,14 +32,14 @@ describe('buildWorkerExecArgv', () => {
 
   it('passes through --heap-prof and appends role to --heap-prof-dir', () => {
     const result = buildWorkerExecArgv({
-      role: 'compilation',
+      role: 'compilerWorker',
       parentExecArgv: ['--heap-prof', '--heap-prof-dir=/tmp/profiles'],
     });
     expect(result.execArgv).toEqual([
       '--heap-prof',
-      '--heap-prof-dir=/tmp/profiles/compilation',
+      '--heap-prof-dir=/tmp/profiles/compilerWorker',
     ]);
-    expect(result.profileDirs).toEqual(['/tmp/profiles/compilation']);
+    expect(result.profileDirs).toEqual(['/tmp/profiles/compilerWorker']);
   });
 
   it('handles both cpu and heap profiling together', () => {
