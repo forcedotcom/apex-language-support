@@ -184,6 +184,140 @@ describe('inferTypeForCodeAction — same-file method-call return types', () => 
   });
 });
 
+describe('inferTypeForCodeAction — scope-aware variable resolution', () => {
+  // Regression: a same-named local in a sibling method must NOT be picked. A
+  // flat file-wide first-match scan bound `x` in method `b` to the `Integer x`
+  // declared first in method `a`, emitting a wrong, non-compiling declaration.
+  it('resolves a shadowed local to the declaration in its own method', () => {
+    const source = [
+      'public class Sample {',
+      '  public void a() {',
+      '    Integer x = 1;',
+      '    Integer y = x;',
+      '  }',
+      '  public void b() {',
+      '    String x = null;',
+      '    String z = x;',
+      '  }',
+      '}',
+    ].join('\n');
+    // Target the reference on `String z = x;` (the last `x`), which lives in
+    // method b — it must resolve to String, not the Integer x in method a.
+    expect(inferAt(source, 'x', lastRangeOf(source, 'x'))).toBe('String');
+  });
+
+  it('resolves a class field when no local shadows it', () => {
+    const source = [
+      'public class Sample {',
+      '  private Account acct;',
+      '  public void run() {',
+      '    Account z = acct;',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(inferAt(source, 'acct', lastRangeOf(source, 'acct'))).toBe(
+      'Account',
+    );
+  });
+
+  it('resolves a shadowed local inside a composite expression', () => {
+    // The composite path (arithmetic/ternary/...) delegates to the shared
+    // recursive resolver, whose own variable lookup is scope-unaware. Extracting
+    // `x + 1` in method `b` (where `x` is Integer) must not pick up the `String
+    // x` declared in method `a` and mis-infer String concatenation.
+    const source = [
+      'public class Sample {',
+      '  public void a() {',
+      '    String x = null;',
+      '  }',
+      '  public void b() {',
+      '    Integer x = 1;',
+      '    Integer y = x + 1;',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(inferAt(source, 'x + 1')).toBe('Integer');
+  });
+
+  it('prefers an inner-block local over a same-named field', () => {
+    const source = [
+      'public class Sample {',
+      '  private Account value;',
+      '  public void run() {',
+      '    if (true) {',
+      '      String value = null;',
+      '      String captured = value;',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+    // The reference inside the if-block sees the local String `value`, not the
+    // Account field of the same name.
+    expect(inferAt(source, 'value', lastRangeOf(source, 'value'))).toBe(
+      'String',
+    );
+  });
+});
+
+describe('inferTypeForCodeAction — method overload disambiguation', () => {
+  // Regression: overloads were resolved by first-match-on-name, ignoring
+  // arguments — `describe(5)` bound to the zero-arg `String describe()`.
+  it('picks the overload matching the call arity', () => {
+    const source = [
+      'public class Sample {',
+      '  public String describe() {',
+      "    return 'hi';",
+      '  }',
+      '  public Integer describe(Integer n) {',
+      '    return n;',
+      '  }',
+      '  public void run() {',
+      '    Integer result = describe(5);',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(inferAt(source, 'describe(5)')).toBe('Integer');
+  });
+
+  it('bails to null (safe Object fallback) when overloads are ambiguous by arity', () => {
+    // Two single-arg overloads with different return types — arity cannot
+    // disambiguate, so we must not guess.
+    const source = [
+      'public class Sample {',
+      '  public String f(Integer a) {',
+      "    return 'x';",
+      '  }',
+      '  public Integer f(String a) {',
+      '    return 1;',
+      '  }',
+      '  public void run() {',
+      '    Object o = f(5);',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(inferAt(source, 'f(5)')).toBeNull();
+  });
+});
+
+describe('inferTypeForCodeAction — composite over user-defined type', () => {
+  // Regression: the composite path (ternary/arithmetic/comparison) delegated to
+  // the shared resolver, which lowercases user types — `Account` came back as
+  // `account`. Casing must be recovered from the same-file declarations.
+  it('preserves user-type casing through a ternary', () => {
+    const source = [
+      'public class Sample {',
+      '  public void run() {',
+      '    Boolean cond = true;',
+      '    Account left = new Account();',
+      '    Account right = new Account();',
+      '    Account picked = cond ? left : right;',
+      '  }',
+      '}',
+    ].join('\n');
+    expect(inferAt(source, 'cond ? left : right')).toBe('Account');
+  });
+});
+
 describe('inferTypeForCodeAction — graceful degradation', () => {
   it('returns null for a null context', () => {
     expect(inferTypeForCodeAction(null, null)).toBeNull();

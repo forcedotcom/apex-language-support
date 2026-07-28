@@ -80,6 +80,53 @@ const CANONICAL_PRIMITIVE_CASING: ReadonlyMap<string, string> = new Map([
 const canonicalizeTypeName = (typeName: string): string =>
   CANONICAL_PRIMITIVE_CASING.get(typeName.toLowerCase()) ?? typeName;
 
+/**
+ * Recover the author's casing for a (possibly-lowercased) type name using the
+ * same-file symbol table. The shared recursive resolver lowercases user-defined
+ * type names (`Account` → `account`), so composite results over custom types
+ * would otherwise be emitted lowercased. Primitives resolve through the fixed
+ * canonical map; for everything else we search the file's declared type spellings
+ * — type declarations (class/interface/enum names) and the declared types of
+ * variables/parameters/fields/properties — and return the first spelling whose
+ * lowercase matches. Falls back to the input verbatim when no declaration is
+ * found (Apex type names are case-insensitive, so the result still compiles).
+ */
+const recoverTypeCasing = (
+  typeName: string,
+  symbolTable: SymbolTable,
+): string => {
+  const primitive = CANONICAL_PRIMITIVE_CASING.get(typeName.toLowerCase());
+  if (primitive) {
+    return primitive;
+  }
+
+  const lower = typeName.toLowerCase();
+  for (const symbol of symbolTable.getAllSymbols()) {
+    // A type declaration's own name carries the canonical spelling.
+    if (
+      (symbol.kind === SymbolKind.Class ||
+        symbol.kind === SymbolKind.Interface ||
+        symbol.kind === SymbolKind.Enum) &&
+      symbol.name?.toLowerCase() === lower
+    ) {
+      return symbol.name;
+    }
+    // A declared variable/field/parameter type carries the author's spelling.
+    if (
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter ||
+      symbol.kind === SymbolKind.Field ||
+      symbol.kind === SymbolKind.Property
+    ) {
+      const declaredName = (symbol as VariableSymbol).type?.name;
+      if (declaredName && declaredName.toLowerCase() === lower) {
+        return declaredName;
+      }
+    }
+  }
+  return typeName;
+};
+
 /** Unwrap parentheses so `(expr)` resolves as `expr`. */
 const unwrapSubExpression = (expr: ExpressionContext): ExpressionContext => {
   let current = expr;
@@ -122,25 +169,26 @@ const inferLiteralType = (literal: LiteralPrimaryContext): string | null => {
 };
 
 /**
- * Look up a same-file variable/parameter/field by name and return its declared
- * type name verbatim (casing preserved), or `null` when not found or untyped.
+ * Look up a same-file variable/parameter/field AS SEEN AT the reference's source
+ * position and return its declared type name verbatim (casing preserved), or
+ * `null` when not found or untyped.
+ *
+ * Resolution is scope-aware: it walks the lexical block scopes enclosing the
+ * reference (innermost first, then file root) via
+ * {@link SymbolTable.resolveVariableAtPosition}. This is essential — a flat,
+ * file-wide first-match-by-name scan can bind to a same-named local in an
+ * unrelated sibling method (e.g. `Integer x` in one method vs `String x` in
+ * another), yielding a wrong, non-compiling declared type for the extracted
+ * declaration. The position comes from the reference's own token, so no scope
+ * context need cross the package boundary.
  */
 const sameFileVariableType = (
   name: string,
+  line: number,
+  column: number,
   symbolTable: SymbolTable,
 ): string | null => {
-  const symbol =
-    symbolTable.lookup(name, null) ??
-    symbolTable
-      .getAllSymbols()
-      .find(
-        (candidate) =>
-          candidate.name?.toLowerCase() === name.toLowerCase() &&
-          (candidate.kind === SymbolKind.Variable ||
-            candidate.kind === SymbolKind.Parameter ||
-            candidate.kind === SymbolKind.Field ||
-            candidate.kind === SymbolKind.Property),
-      );
+  const symbol = symbolTable.resolveVariableAtPosition(name, line, column);
 
   if (
     symbol &&
@@ -156,24 +204,50 @@ const sameFileVariableType = (
 };
 
 /**
- * Look up a same-file method by name and return its declared return type name
- * verbatim (casing preserved), or `null` when not found or untyped.
+ * Look up a same-file method by name and argument count and return its declared
+ * return type name verbatim (casing preserved), or `null` when it cannot be
+ * resolved unambiguously.
+ *
+ * Overloads are disambiguated by ARITY: among same-named methods, only those
+ * whose declared parameter count matches `argCount` are considered. A flat
+ * first-match-by-name scan (ignoring arguments) picks the first-declared
+ * overload regardless of the call — e.g. resolving `describe(5)` to a zero-arg
+ * `String describe()` when an `Integer describe(Integer)` is the real target —
+ * emitting a wrong declared type. When arity still leaves more than one
+ * candidate (or none matches), we bail to `null` rather than guess, so the
+ * caller falls back to the safe `Object` placeholder.
  */
 const sameFileMethodReturnType = (
   name: string,
+  argCount: number,
   symbolTable: SymbolTable,
 ): string | null => {
-  const method = symbolTable
+  const methods = symbolTable
     .getAllSymbols()
-    .find(
-      (candidate) =>
+    .filter(
+      (candidate): candidate is MethodSymbol =>
         candidate.name?.toLowerCase() === name.toLowerCase() &&
         candidate.kind === SymbolKind.Method,
     );
-  if (method) {
-    return (method as MethodSymbol).returnType?.name ?? null;
+
+  if (methods.length === 0) {
+    return null;
   }
-  return null;
+
+  // Single same-named method: no overloading, resolve directly.
+  if (methods.length === 1) {
+    return methods[0].returnType?.name ?? null;
+  }
+
+  // Overloaded: keep only arity-compatible candidates. Bail on ambiguity so we
+  // never emit a confidently-wrong return type.
+  const byArity = methods.filter(
+    (method) => (method.parameters?.length ?? 0) === argCount,
+  );
+  if (byArity.length !== 1) {
+    return null;
+  }
+  return byArity[0].returnType?.name ?? null;
 };
 
 /**
@@ -211,11 +285,18 @@ const inferLeafType = (
       return inferLiteralType(primary);
     }
     if (primary instanceof IdPrimaryContext) {
-      const name = primary.id()?.getText();
+      const idNode = primary.id();
+      const name = idNode?.getText();
       if (!name) {
         return null;
       }
-      const localType = sameFileVariableType(name, symbolTable);
+      // Resolve the reference at its own source position so a same-named local
+      // in a sibling scope can't be picked. ANTLR lines are 1-based, columns
+      // 0-based — the shape `resolveVariableAtPosition` expects.
+      const token = idNode.start;
+      const localType = token
+        ? sameFileVariableType(name, token.line, token.column, symbolTable)
+        : null;
       if (localType) {
         return canonicalizeTypeName(localType);
       }
@@ -224,13 +305,17 @@ const inferLeafType = (
     }
   }
 
-  // Unqualified method call `foo(...)` — resolve the declared return type.
+  // Unqualified method call `foo(...)` — resolve the declared return type,
+  // disambiguating overloads by argument count.
   if (expr instanceof MethodCallExpressionContext) {
-    const name = expr.methodCall()?.id()?.getText();
+    const methodCall = expr.methodCall();
+    const name = methodCall?.id()?.getText();
     if (!name) {
       return null;
     }
-    const localReturn = sameFileMethodReturnType(name, symbolTable);
+    const argCount =
+      methodCall?.expressionList()?.expression_list()?.length ?? 0;
+    const localReturn = sameFileMethodReturnType(name, argCount, symbolTable);
     if (localReturn) {
       return canonicalizeTypeName(localReturn);
     }
@@ -322,6 +407,65 @@ const collectLiteralTypes = (
 };
 
 /**
+ * Pre-seed the recursive resolver's `resolvedTypes` cache with SCOPE-CORRECT
+ * variable types, keyed by each bare-identifier {@link PrimaryExpressionContext}
+ * in the subtree rooted at `expr`.
+ *
+ * The recursive resolver consults this cache before its own resolution, and its
+ * built-in variable lookup ({@code resolveExpressionTypeTier1}) is a flat,
+ * file-wide first-match-by-name scan — the same scope-unaware bug fixed on the
+ * leaf path, but reachable here for COMPOSITE expressions (e.g. `x + 1`, where a
+ * same-named local in a sibling method would otherwise be picked). Seeding each
+ * variable reference with its position-resolved declared type forecloses that:
+ * the resolver finds our correct entry and never runs its flat scan for these
+ * nodes. Types are stored verbatim (the resolver's combination logic is
+ * case-insensitive; final casing is recovered by {@link recoverTypeCasing}).
+ */
+const collectVariableTypes = (
+  expr: ExpressionContext,
+  symbolTable: SymbolTable,
+): WeakMap<ExpressionContext, ExpressionTypeInfo> => {
+  const resolvedTypes = new WeakMap<ExpressionContext, ExpressionTypeInfo>();
+
+  const visit = (node: any): void => {
+    if (
+      node instanceof PrimaryExpressionContext &&
+      node.primary() instanceof IdPrimaryContext
+    ) {
+      const idNode = (node.primary() as IdPrimaryContext).id();
+      const name = idNode?.getText();
+      const token = idNode?.start;
+      if (name && token) {
+        const declaredType = sameFileVariableType(
+          name,
+          token.line,
+          token.column,
+          symbolTable,
+        );
+        if (declaredType) {
+          resolvedTypes.set(node, {
+            resolvedType: declaredType,
+            source: 'variable',
+          });
+        }
+      }
+    }
+
+    const childCount =
+      typeof node?.getChildCount === 'function' ? node.getChildCount() : 0;
+    for (let i = 0; i < childCount; i++) {
+      const child = node.getChild(i);
+      if (child && typeof child.getChildCount === 'function') {
+        visit(child);
+      }
+    }
+  };
+
+  visit(expr);
+  return resolvedTypes;
+};
+
+/**
  * Infer the Apex type of `expression`, returning the correctly-cased type name
  * (e.g. `Integer`, `String`, `Account`) or `null` when it cannot be resolved.
  *
@@ -358,17 +502,26 @@ export const inferExpressionType = (
     // Composite expressions: delegate to the shared recursive resolver, which
     // computes numeric promotion / string concat / comparison-to-Boolean, etc.
     // Its result is always a primitive (lowercased); normalize the casing.
+    //
+    // Pre-seed the resolver's cache with scope-correct variable types so its own
+    // flat, scope-unaware variable lookup never runs for our identifiers — a
+    // same-named local in a sibling method must not leak into e.g. `x + 1`.
     const literalTypes = collectLiteralTypes(expr);
+    const resolvedTypes = collectVariableTypes(expr, symbolTable);
     const resolved: ExpressionTypeInfo | null = Effect.runSync(
       resolveExpressionTypeRecursive(
         expr,
-        new WeakMap<ExpressionContext, ExpressionTypeInfo>(),
+        resolvedTypes,
         literalTypes,
         symbolTable,
       ),
     );
     if (resolved?.resolvedType) {
-      return canonicalizeTypeName(resolved.resolvedType);
+      // The recursive resolver lowercases everything. Primitives map through the
+      // fixed canonical table; user-defined types (e.g. a ternary/arithmetic
+      // over `Account`) have their author casing recovered from the same-file
+      // declarations so the emitted declaration reads `Account`, not `account`.
+      return recoverTypeCasing(resolved.resolvedType, symbolTable);
     }
     return null;
   } catch {
