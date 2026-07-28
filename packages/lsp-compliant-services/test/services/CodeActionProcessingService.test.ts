@@ -607,6 +607,77 @@ describe('CodeActionProcessingService', () => {
       expect(findAction(result, 'Extract constant')).toBeUndefined();
     });
 
+    /**
+     * The extracted constant's leading indentation (the whitespace before the
+     * `private ... final` modifiers on the inserted line) must equal the class
+     * declaration's physical line indent plus one indent unit — NOT a value
+     * derived from the `class` keyword's column (which shifts with
+     * visibility/sharing modifiers). Returns that leading indent.
+     */
+    const constantIndentOf = (action: CodeAction | undefined): string => {
+      expect(action).toBeDefined();
+      const newText = action?.edit?.changes?.[uri]?.[0].newText ?? '';
+      // Declaration is inserted as `\n<indent>private ...`.
+      const match = newText.match(/^\n([ \t]*)private\b/);
+      expect(match).not.toBeNull();
+      return match![1];
+    };
+
+    it('indents the constant one level under a top-level `public class`', async () => {
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        "    String greeting = 'hello';",
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hello'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      // Top-level class at column 0 -> members indent exactly one unit.
+      expect(constantIndentOf(constant)).toBe('  ');
+    });
+
+    it('indents the constant one level despite sharing/visibility modifiers', async () => {
+      // Regression (W-23544057): indent was derived from the `class` keyword's
+      // column, so `public with sharing class` produced ~18+ spaces of leading
+      // whitespace. The physical class-line indent is 0, so one unit is correct.
+      const source = [
+        'public with sharing class Extract {',
+        '  public void doWork() {',
+        "    String greeting = 'hello';",
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hello'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      expect(constantIndentOf(constant)).toBe('  ');
+    });
+
+    it('indents the constant one level under the inner class line', async () => {
+      const source = [
+        'public class Outer {',
+        '  public class Inner {',
+        '    public void doWork() {',
+        "      String greeting = 'hi';",
+        '    }',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hi'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
+      // Inner class line is indented two spaces; member adds one more unit.
+      expect(constantIndentOf(constant)).toBe('    ');
+    });
+
     it('uses private final (no static) for inner-class constants', async () => {
       const source = [
         'public class Outer {',

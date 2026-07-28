@@ -310,15 +310,26 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults({}, 'desktop');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.poolSize).toBe(3);
-      expect(result.apex.experimental?.workers.resourceLoader).toBe(true);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(3);
+      expect(result.apex.experimental?.workers.resourceLoader?.enabled).toBe(
+        true,
+      );
+      expect(result.apex.experimental?.workers.dataOwner?.concurrency).toBe(10);
+      expect(result.apex.experimental?.workers.compilation?.poolSize).toBe(2);
+      expect(result.apex.experimental?.workers.compilation?.concurrency).toBe(
+        1,
+      );
     });
 
     it('should default experimental.workers on for web (cross-client consistency)', () => {
       const result = mergeWithDefaults({}, 'web');
 
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.poolSize).toBe(3);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(3);
+      expect(result.apex.experimental?.workers.compilation).toEqual({
+        poolSize: 2,
+        concurrency: 1,
+      });
     });
 
     it('should preserve user-supplied experimental.workers overrides', () => {
@@ -327,8 +338,8 @@ describe('ApexLanguageServerSettings Validation', () => {
           experimental: {
             workers: {
               enabled: false,
-              poolSize: 4,
-              resourceLoader: false,
+              lspRequest: { poolSize: 4 },
+              resourceLoader: { enabled: false },
             },
           },
         },
@@ -337,8 +348,10 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults(partialConfig, 'desktop');
 
       expect(result.apex.experimental?.workers.enabled).toBe(false);
-      expect(result.apex.experimental?.workers.poolSize).toBe(4);
-      expect(result.apex.experimental?.workers.resourceLoader).toBe(false);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(4);
+      expect(result.apex.experimental?.workers.resourceLoader?.enabled).toBe(
+        false,
+      );
     });
 
     it('should fill missing experimental.workers fields from defaults on partial override', () => {
@@ -346,7 +359,7 @@ describe('ApexLanguageServerSettings Validation', () => {
         apex: {
           experimental: {
             workers: {
-              poolSize: 6,
+              lspRequest: { poolSize: 6 },
             },
           },
         },
@@ -355,9 +368,11 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithDefaults(partialConfig, 'desktop');
 
       // poolSize from user, enabled/resourceLoader from defaults
-      expect(result.apex.experimental?.workers.poolSize).toBe(6);
+      expect(result.apex.experimental?.workers.lspRequest?.poolSize).toBe(6);
       expect(result.apex.experimental?.workers.enabled).toBe(true);
-      expect(result.apex.experimental?.workers.resourceLoader).toBe(true);
+      expect(result.apex.experimental?.workers.resourceLoader?.enabled).toBe(
+        true,
+      );
     });
   });
 

@@ -51,12 +51,23 @@ import {
   getLogger,
   enableConsoleLogging,
   setLogLevel,
+  type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
 const LOG_LEVEL = 'error';
+const COMPILATION_POOL_SIZE = 2;
+const workerLayerFactory = (role: WorkerRole) =>
+  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
+    ...TSX_OPTIONS,
+    workerData: {
+      role,
+      compilationPoolSize: COMPILATION_POOL_SIZE,
+      compilationConcurrency: 1,
+    },
+  });
 
 // A simple, self-contained interface: trivial to compile and outline. Mirrors
 // the live-log file (MyInterface.cls) whose cold-open documentSymbol returned
@@ -122,6 +133,9 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
       wireProductionMediator(topology, dispatcher, logger);
@@ -152,10 +166,7 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
       );
 
       return { result };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const response = await Effect.runPromise(program);
     const symbols = response.result as unknown[] | null;

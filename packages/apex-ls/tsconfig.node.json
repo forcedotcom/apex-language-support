@@ -20,6 +20,7 @@
     "src/server/WorkspaceBatchHandler.ts",
     "src/server/traceContextInjection.ts",
     "src/server/coordinatorTracing.ts",
+    "src/compiler/**/*.ts",
     "src/utils/EnvironmentUtils.ts",
     "src/profiling/ProfilingService.ts",
     "src/types/**/*.ts",

@@ -166,6 +166,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       drainAllDeferredReferences: jest.fn(),
       findSubtypes: jest.fn(),
       findSupertypes: jest.fn(),
+      beginWorkspaceLoadSession: jest.fn(),
+      endWorkspaceLoadSession: jest.fn(),
+      isWorkspaceLoadSessionActive: jest.fn(),
     };
 
     // Mock ApexSettingsManager
@@ -386,6 +389,32 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         ).rejects.toThrow(RequestCancelledError);
 
         // Never reached the handler since it was cancelled pre-dispatch.
+        expect(process).not.toHaveBeenCalled();
+      });
+
+      it('skips a hover request cancelled before dispatch', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const serviceRegistry = (manager as any)
+          .serviceRegistry as ServiceRegistry;
+        const process = jest.fn().mockResolvedValue(null);
+        serviceRegistry.register({
+          requestType: 'hover' as LSPRequestType,
+          priority: Priority.Immediate,
+          timeout: 100,
+          maxRetries: 0,
+          process,
+        });
+        const { token } = makeToken(true);
+
+        await expect(
+          manager.submitHoverRequest(
+            {
+              textDocument: { uri: 'test' },
+              position: { line: 0, character: 0 },
+            },
+            token,
+          ),
+        ).rejects.toThrow(RequestCancelledError);
         expect(process).not.toHaveBeenCalled();
       });
 

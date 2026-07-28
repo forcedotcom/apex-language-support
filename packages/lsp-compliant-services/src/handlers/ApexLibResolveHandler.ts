@@ -27,6 +27,12 @@ interface ResolveResponse {
   content: string;
 }
 
+export type ApexLibResourceFileResolver = (
+  path: string,
+) => Promise<string | undefined>;
+
+const APEXLIB_RESOURCE_PREFIX = 'apexlib://resources/StandardApexLibrary/';
+
 /**
  * Process resolve request for apexlib URIs
  *
@@ -34,13 +40,27 @@ interface ResolveResponse {
  * when requested via the apexlib:// URI scheme.
  *
  * @param params - The resolve request parameters
+ * @param resourceFileResolver - Optional authoritative resource-loader worker resolver
  * @returns Promise resolving to the content of the requested artifact
  */
 export async function processOnResolve(
   params: ResolveRequestParams,
+  resourceFileResolver?: ApexLibResourceFileResolver,
 ): Promise<ResolveResponse> {
   try {
     logger.debug(`Processing resolve request for: ${params.uri}`);
+
+    if (resourceFileResolver) {
+      if (!params.uri.startsWith(APEXLIB_RESOURCE_PREFIX)) {
+        throw new Error(`Invalid apexlib URI: ${params.uri}`);
+      }
+      const resourcePath = params.uri.slice(APEXLIB_RESOURCE_PREFIX.length);
+      const content = await resourceFileResolver(resourcePath);
+      if (content === undefined) {
+        throw new Error(`Document not found: ${params.uri}`);
+      }
+      return { content };
+    }
 
     // First, try to resolve from embedded resources in the parser package
     const embeddedContent = await resolveFromEmbeddedResources(params.uri);
@@ -152,10 +172,15 @@ async function resolveFromEmbeddedResources(
  * Dispatch wrapper for resolve processing with error handling
  *
  * @param params - The resolve request parameters
+ * @param resourceFileResolver - Optional authoritative resource-loader worker resolver
  * @returns Promise resolving to the content of the requested artifact
  */
 export function dispatchProcessOnResolve(
   params: ResolveRequestParams,
+  resourceFileResolver?: ApexLibResourceFileResolver,
 ): Promise<ResolveResponse> {
-  return dispatch(processOnResolve(params), 'Error processing resolve request');
+  return dispatch(
+    processOnResolve(params, resourceFileResolver),
+    'Error processing resolve request',
+  );
 }

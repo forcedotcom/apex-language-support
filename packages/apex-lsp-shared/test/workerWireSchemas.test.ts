@@ -11,11 +11,13 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   ResolveDependentUris,
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   ResourceLoaderGetSymbolTable,
+  ResourceLoaderGetSymbolTables,
   DispatchDocumentOpen,
   DispatchDocumentChange,
   DispatchDocumentSave,
@@ -96,17 +98,37 @@ describe('workerWireSchemas', () => {
     });
   });
 
+  describe('DataOwnerPreloadStandardNamespaces', () => {
+    it('should encode and decode configured namespaces', () => {
+      const req = new DataOwnerPreloadStandardNamespaces({
+        namespaces: ['Database', 'System'],
+      });
+
+      const encoded = Schema.encodeSync(DataOwnerPreloadStandardNamespaces)(
+        req,
+      );
+      const decoded = Schema.decodeSync(DataOwnerPreloadStandardNamespaces)(
+        encoded,
+      );
+
+      expect(decoded.namespaces).toEqual(['Database', 'System']);
+    });
+  });
+
   describe('QuerySymbolSubset', () => {
     it('should encode and decode round-trip', () => {
       const query = new QuerySymbolSubset({
         uris: ['file:///a.cls', 'file:///b.cls'],
+        includeEntries: false,
       });
       expect(query._tag).toBe('QuerySymbolSubset');
       expect(query.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+      expect(query.includeEntries).toBe(false);
 
       const encoded = Schema.encodeSync(QuerySymbolSubset)(query);
       const decoded = Schema.decodeSync(QuerySymbolSubset)(encoded);
       expect(decoded.uris).toEqual(['file:///a.cls', 'file:///b.cls']);
+      expect(decoded.includeEntries).toBe(false);
     });
   });
 
@@ -198,6 +220,21 @@ describe('workerWireSchemas', () => {
       const encoded = Schema.encodeSync(ResourceLoaderGetSymbolTable)(req);
       const decoded = Schema.decodeSync(ResourceLoaderGetSymbolTable)(encoded);
       expect(decoded.classPath).toBe('System/String.cls');
+    });
+  });
+
+  describe('ResourceLoaderGetSymbolTables', () => {
+    it('should encode and decode a bulk lookup round-trip', () => {
+      const req = new ResourceLoaderGetSymbolTables({
+        classPaths: ['Database/Batchable.cls', 'System/Assert.cls'],
+      });
+
+      const encoded = Schema.encodeSync(ResourceLoaderGetSymbolTables)(req);
+      const decoded = Schema.decodeSync(ResourceLoaderGetSymbolTables)(encoded);
+      expect(decoded.classPaths).toEqual([
+        'Database/Batchable.cls',
+        'System/Assert.cls',
+      ]);
     });
   });
 
@@ -376,36 +413,43 @@ describe('workerWireSchemas', () => {
   });
 
   describe('isAllowedTag', () => {
-    it('should allow WorkerInit for all roles', () => {
+    it('should allow WorkerInit for coordinator-managed roles', () => {
       expect(isAllowedTag('dataOwner', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerInit')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerInit')).toBe(true);
-      expect(isAllowedTag('compilation', 'WorkerInit')).toBe(true);
+      expect(isAllowedTag('compiler', 'WorkerInit')).toBe(false);
     });
 
     it('should allow PingWorker for all roles', () => {
       expect(isAllowedTag('dataOwner', 'PingWorker')).toBe(true);
       expect(isAllowedTag('lspRequest', 'PingWorker')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'PingWorker')).toBe(true);
-      expect(isAllowedTag('compilation', 'PingWorker')).toBe(true);
     });
 
-    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and compilation', () => {
+    it('should allow WorkerRemoteStdlibWarmup on dataOwner, enrichment, and resourceLoader', () => {
       expect(isAllowedTag('dataOwner', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('lspRequest', 'WorkerRemoteStdlibWarmup')).toBe(true);
       expect(isAllowedTag('resourceLoader', 'WorkerRemoteStdlibWarmup')).toBe(
-        false,
-      );
-      expect(isAllowedTag('compilation', 'WorkerRemoteStdlibWarmup')).toBe(
         true,
       );
+    });
+
+    it('should restrict stdlib namespace preloading to dataOwner', () => {
+      expect(
+        isAllowedTag('dataOwner', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(true);
+      expect(
+        isAllowedTag('lspRequest', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(false);
+      expect(
+        isAllowedTag('resourceLoader', 'DataOwnerPreloadStandardNamespaces'),
+      ).toBe(false);
     });
 
     it('should restrict QuerySymbolSubset to dataOwner', () => {
       expect(isAllowedTag('dataOwner', 'QuerySymbolSubset')).toBe(true);
       expect(isAllowedTag('lspRequest', 'QuerySymbolSubset')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'QuerySymbolSubset')).toBe(false);
-      expect(isAllowedTag('compilation', 'QuerySymbolSubset')).toBe(false);
     });
 
     it('should restrict ResolveDependentUris to dataOwner', () => {
@@ -414,7 +458,6 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('resourceLoader', 'ResolveDependentUris')).toBe(
         false,
       );
-      expect(isAllowedTag('compilation', 'ResolveDependentUris')).toBe(false);
     });
 
     it('should restrict WorkspaceBatchIngest to dataOwner', () => {
@@ -423,7 +466,6 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('resourceLoader', 'WorkspaceBatchIngest')).toBe(
         false,
       );
-      expect(isAllowedTag('compilation', 'WorkspaceBatchIngest')).toBe(false);
     });
 
     it('should restrict ResourceLoaderGetSymbolTable to resourceLoader', () => {
@@ -435,6 +477,18 @@ describe('workerWireSchemas', () => {
       );
       expect(
         isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTable'),
+      ).toBe(true);
+    });
+
+    it('should restrict ResourceLoaderGetSymbolTables to resourceLoader', () => {
+      expect(isAllowedTag('dataOwner', 'ResourceLoaderGetSymbolTables')).toBe(
+        false,
+      );
+      expect(isAllowedTag('lspRequest', 'ResourceLoaderGetSymbolTables')).toBe(
+        false,
+      );
+      expect(
+        isAllowedTag('resourceLoader', 'ResourceLoaderGetSymbolTables'),
       ).toBe(true);
     });
 
@@ -468,9 +522,15 @@ describe('workerWireSchemas', () => {
       }
     });
 
-    it('should route compilation tags to compilation only', () => {
-      for (const tag of ['CompileDocument', 'WorkspaceBatchCompile']) {
-        expect(isAllowedTag('compilation', tag)).toBe(true);
+    it('should route interactive compilation to the data owner only', () => {
+      expect(isAllowedTag('dataOwner', 'CompileDocument')).toBe(true);
+      expect(isAllowedTag('lspRequest', 'CompileDocument')).toBe(false);
+      expect(isAllowedTag('resourceLoader', 'CompileDocument')).toBe(false);
+    });
+
+    it('should restrict pure compilation requests to compiler workers', () => {
+      for (const tag of ['InitializeCompilationWorker', 'CompileApexFile']) {
+        expect(isAllowedTag('compiler', tag)).toBe(true);
         expect(isAllowedTag('dataOwner', tag)).toBe(false);
         expect(isAllowedTag('lspRequest', tag)).toBe(false);
         expect(isAllowedTag('resourceLoader', tag)).toBe(false);
@@ -481,7 +541,7 @@ describe('workerWireSchemas', () => {
       expect(isAllowedTag('dataOwner', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('lspRequest', 'UnknownTag')).toBe(false);
       expect(isAllowedTag('resourceLoader', 'UnknownTag')).toBe(false);
-      expect(isAllowedTag('compilation', 'UnknownTag')).toBe(false);
+      expect(isAllowedTag('compiler', 'UnknownTag')).toBe(false);
     });
   });
 });

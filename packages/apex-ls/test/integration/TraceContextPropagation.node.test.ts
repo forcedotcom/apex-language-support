@@ -48,6 +48,7 @@ describe('Trace context propagation - promise chain fix', () => {
     initializeLSPQueueManager({
       initializeSymbolManager: () => Promise.resolve(),
       shutdownSymbolManager: () => Promise.resolve(),
+      getSymbolTableForFile: () => Promise.resolve(null),
     } as unknown as ISymbolManager);
   });
 

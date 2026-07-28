@@ -21,6 +21,7 @@ import {
 } from '../queue/priority-scheduler-utils';
 import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
 import type { ApexSymbol, SymbolLocation } from '../types/symbol';
+import type { SymbolReference } from '../types/symbolReference';
 import type {
   ReferenceEdge,
   ReferenceType,
@@ -32,6 +33,8 @@ import type {
  */
 export type DeferredReference = {
   sourceSymbol: ApexSymbol;
+  /** Exact reference object owned by this manager's SymbolTable instance. */
+  sourceReference?: SymbolReference;
   referenceType: EnumValue<typeof ReferenceType>;
   location: SymbolLocation;
   /**
@@ -143,6 +146,12 @@ export interface BatchProcessingResult {
   needsRetry: boolean;
   reason: string;
   remainingCount?: number;
+  /** References rebound in the owning SymbolTable without a full-file rescan. */
+  boundReferenceCount?: number;
+  /** Distinct owning SymbolTables updated by the targeted rebind. */
+  boundSourceFileCount?: number;
+  /** Exact source tables updated; used only for local observability. */
+  boundSourceFileUris?: string[];
 }
 
 /**

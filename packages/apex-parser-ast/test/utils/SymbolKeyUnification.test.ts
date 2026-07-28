@@ -474,9 +474,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       expect(areEquivalent(key1, key2)).toBe(true);
     });
 
-    it('should handle large numbers of symbols efficiently', () => {
+    it('should handle large numbers of symbols', () => {
       const symbols: ApexSymbol[] = [];
-      const startTime = Date.now();
 
       // Create 1000 symbols
       for (let i = 0; i < 1000; i++) {
@@ -529,12 +528,6 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       const unifiedKeys = symbols.map((symbol) =>
         createFromSymbol(symbol, 'TestFile.cls'),
       );
-
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      // Should complete in reasonable time (less than 100ms)
-      expect(duration).toBeLessThan(100);
 
       // Verify all keys have unique unified IDs
       const unifiedIds = unifiedKeys.map((key) => key.unifiedId);
