@@ -1796,6 +1796,84 @@ export class SymbolTable {
   }
 
   /**
+   * Resolve a variable/parameter/field/property by name AS SEEN AT a source
+   * position (1-based line, 0-based column), honoring lexical scope.
+   *
+   * The block scopes whose `symbolRange` contains the position are the lexical
+   * ancestors of that point; visiting them innermost-first and returning the
+   * first name match models real Apex resolution — an inner block's local
+   * shadows an enclosing declaration, and a class-body field is found only when
+   * no closer local exists. Crucially this NEVER matches a same-named local in
+   * a sibling method/block (whose range does not contain the position), which a
+   * flat file-wide scan does — emitting a wrong, non-compiling declared type.
+   *
+   * Falls back to a file-scope (root) declaration when no enclosing block
+   * declares the name. Returns `undefined` when nothing matches.
+   *
+   * Unlike {@link lookupInScopeChain}, this seeds from a raw position (no
+   * pre-located `ScopeSymbol` needed) and walks the physical block ranges, so it
+   * also reaches class-body fields whose parent is the class block rather than a
+   * method block.
+   *
+   * @param name The identifier to resolve (case-insensitive, matching Apex).
+   * @param line 1-based source line of the reference.
+   * @param column 0-based source column of the reference.
+   */
+  resolveVariableAtPosition(
+    name: string,
+    line: number,
+    column: number,
+  ): ApexSymbol | undefined {
+    const isVariableLike = (symbol: ApexSymbol): boolean =>
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter ||
+      symbol.kind === SymbolKind.Field ||
+      symbol.kind === SymbolKind.Property;
+
+    const nameMatches = (symbol: ApexSymbol): boolean =>
+      symbol.name?.toLowerCase() === name.toLowerCase() &&
+      isVariableLike(symbol);
+
+    const containsPosition = (range: Range): boolean => {
+      const afterStart =
+        range.startLine < line ||
+        (range.startLine === line && range.startColumn <= column);
+      const beforeEnd =
+        range.endLine > line ||
+        (range.endLine === line && range.endColumn >= column);
+      return afterStart && beforeEnd;
+    };
+
+    // Enclosing block scopes, innermost (latest-starting) first: this is the
+    // lexical ancestor chain for `position`.
+    const enclosingScopes = this.symbolArray
+      .filter(
+        (symbol): symbol is ScopeSymbol =>
+          symbol.kind === SymbolKind.Block &&
+          !!symbol.location?.symbolRange &&
+          containsPosition(symbol.location.symbolRange),
+      )
+      .sort((a, b) => {
+        const rangeA = a.location.symbolRange;
+        const rangeB = b.location.symbolRange;
+        return (
+          rangeB.startLine - rangeA.startLine ||
+          rangeB.startColumn - rangeA.startColumn
+        );
+      });
+
+    for (const scope of enclosingScopes) {
+      const match = this.getSymbolsInScope(scope.id).find(nameMatches);
+      if (match) {
+        return match;
+      }
+    }
+
+    // Fall back to a file-scope (root) declaration.
+    return this.getSymbolsInScope(null).find(nameMatches);
+  }
+
+  /**
    * Lookup a symbol by key
    * @param key The key of the symbol to find
    * @returns The symbol if found, undefined otherwise

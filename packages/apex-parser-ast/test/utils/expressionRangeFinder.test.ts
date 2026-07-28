@@ -291,7 +291,7 @@ describe('findConstantExtraction', () => {
     expect(extraction!.isInner).toBe(false);
   });
 
-  it('indents inner-class members relative to the inner class line', () => {
+  it('indents inner-class members to match the sibling member', () => {
     const source = [
       'public class Outer {',
       '  public class Inner {',
@@ -305,9 +305,30 @@ describe('findConstantExtraction', () => {
     const extraction = extractionFor(source, "'hi'");
 
     expect(extraction).not.toBeNull();
-    // Inner class line is indented two spaces; members add one more unit.
+    // The enclosing member (`    public void run()`) is indented four spaces,
+    // so the extracted constant matches at four spaces.
     expect(extraction!.indent).toBe('    ');
     expect(extraction!.isInner).toBe(true);
+    expect(extraction!.isLiteral).toBe(true);
+  });
+
+  it('matches four-space member indentation (not a fixed two-space unit)', () => {
+    // Real-world Apex commonly indents members four spaces. The extracted
+    // constant must line up with the existing members rather than assuming a
+    // two-space unit (the earlier off-by-two bug).
+    const source = [
+      'public with sharing class Const {',
+      '    public void run() {',
+      "        String greeting = 'hello';",
+      '    }',
+      '}',
+    ].join('\n');
+
+    const extraction = extractionFor(source, "'hello'");
+
+    expect(extraction).not.toBeNull();
+    expect(extraction!.indent).toBe('    ');
+    expect(extraction!.isInner).toBe(false);
     expect(extraction!.isLiteral).toBe(true);
   });
 
