@@ -1248,14 +1248,20 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     try {
       const typeRef = (ctx as any).typeRef?.();
       if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const reference = SymbolReferenceFactory.createCastTypeReference(
-          typeName,
-          location,
-          this.getCurrentMethodName(),
-        );
-        this.symbolTable.addTypeReference(reference);
+        const typeNames = typeRef.typeName_list?.();
+        const baseType = typeNames?.[0];
+        const idNode = baseType?.id?.();
+        const collectionNode =
+          baseType?.LIST?.() || baseType?.SET?.() || baseType?.MAP?.();
+        const nameNode = idNode || collectionNode;
+        if (nameNode) {
+          const reference = SymbolReferenceFactory.createCastTypeReference(
+            nameNode.getText(),
+            this.getLocationForReference(nameNode),
+            this.getCurrentMethodName(),
+          );
+          this.symbolTable.addTypeReference(reference);
+        }
       }
 
       const expression = (ctx as any).expression?.();
@@ -1324,7 +1330,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const typeRef = ctx.typeRef();
       if (typeRef) {
         const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
+        const typeNames = typeRef.typeName_list?.();
+        const baseType = typeNames?.[0];
+        const nameNode =
+          baseType?.id?.() ||
+          baseType?.LIST?.() ||
+          baseType?.SET?.() ||
+          baseType?.MAP?.();
+        const location = nameNode
+          ? this.getLocationForReference(nameNode)
+          : this.getLocation(typeRef);
         const reference = SymbolReferenceFactory.createTypeDeclarationReference(
           typeName,
           location,

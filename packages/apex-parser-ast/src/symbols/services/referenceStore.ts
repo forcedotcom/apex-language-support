@@ -112,6 +112,6 @@ export const referenceStoreShim = (
 
     getStats: () =>
       Effect.sync(() => ({
-        totalReferences: manager.getStats().totalEdges,
+        totalReferences: manager.getCounts().totalEdges,
       })),
   });

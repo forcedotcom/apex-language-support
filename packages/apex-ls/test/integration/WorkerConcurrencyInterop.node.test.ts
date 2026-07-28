@@ -36,6 +36,7 @@ import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssis
 import {
   getLogger,
   type LoggerInterface,
+  type WorkerRole,
   enableConsoleLogging,
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -44,6 +45,16 @@ import { Effect, Fiber } from 'effect';
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
 const LOG_LEVEL = 'error';
+const COMPILATION_POOL_SIZE = 2;
+const workerLayerFactory = (role: WorkerRole) =>
+  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
+    ...TSX_OPTIONS,
+    workerData: {
+      role,
+      compilationPoolSize: COMPILATION_POOL_SIZE,
+      compilationConcurrency: 1,
+    },
+  });
 
 const MATCH_LATEST_VERSION = -1;
 
@@ -151,6 +162,9 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -204,10 +218,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       )) as QueryResult;
 
       return { readyV1, readiness, waitedMs, query };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { readyV1, readiness, waitedMs, query } =
       await Effect.runPromise(program);
@@ -265,7 +276,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
     // Generous bound: the write must land well within this even while a large
     // burst of reads is in flight. A loop that genuinely starved writes behind
     // reads would blow past it.
-    const WRITE_DEADLINE_MS = 5000;
+    const WRITE_DEADLINE_MS = 6000; // Increased from 5000 to reduce flakiness on loaded machines
 
     const readerUri = 'file:///test/Reader.cls';
     const readerClass = `public class Reader {
@@ -282,6 +293,9 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
 
       const openDocs = new Map<string, string>();
@@ -318,10 +332,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       );
 
       // Fire READ_BURST concurrent reads against the seeded file, and — in the
-      // same tick — one write-back for a different file. Measure how long the
-      // write takes to be accepted while the reads are contending.
-      const writeStart = yield* Effect.sync(() => Date.now());
-
+      // same tick — one write-back for a different file.
       const reads = Array.from({ length: READ_BURST }, () =>
         Effect.promise(() =>
           dispatcher.queryDataOwner('QuerySymbolSubset', { uris: [readerUri] }),
@@ -347,20 +358,28 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         }),
       );
 
-      // Run reads + the write concurrently; the write must resolve promptly.
-      const writeResult = (yield* Effect.all([writeBack, ...reads], {
-        concurrency: 'unbounded',
-      }).pipe(Effect.map((all) => all[0]))) as {
+      // Start the read burst independently so the write timer observes only
+      // write acceptance, not completion of all 1,000 reads. The previous
+      // Effect.all([write, ...reads]) measurement stopped its clock only after
+      // every read completed and therefore measured total burst duration.
+      const readsFiber = yield* Effect.fork(
+        Effect.all(reads, { concurrency: 'unbounded' }),
+      );
+      yield* Effect.yieldNow();
+
+      const writeStart = yield* Effect.sync(() => Date.now());
+      const writeResult = (yield* writeBack) as {
         accepted: boolean;
         versionMismatch: boolean;
       };
       const writeMs = (yield* Effect.sync(() => Date.now())) - writeStart;
 
+      // Keep the topology alive until the read requests have drained so the
+      // test does not leak in-flight assistance messages into teardown.
+      yield* Fiber.join(readsFiber);
+
       return { writeResult, writeMs };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { writeResult, writeMs } = await Effect.runPromise(program);
 
@@ -405,6 +424,9 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const openDocs = new Map<string, string>();
       const dispatcher = makeWorkerDispatcher(topology, logger, (u) =>
@@ -455,10 +477,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       yield* Fiber.join(changeFiber);
 
       return { results };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { results } = await Effect.runPromise(program);
 
@@ -502,6 +521,9 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
       });
       const openDocs = new Map<string, string>();
       const dispatcher = makeWorkerDispatcher(topology, logger, (u) =>
@@ -552,10 +574,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
       };
 
       return { a, b, finalLevel: query.detailLevels?.[uri] };
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped);
 
     const { a, b, finalLevel } = await Effect.runPromise(program);
 

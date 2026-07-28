@@ -33,6 +33,7 @@ import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
+import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
 
 /**
  * Context information for definition processing
@@ -57,7 +58,10 @@ export interface IDefinitionProcessor {
    * @param params The definition parameters
    * @returns Definition locations for the requested symbol
    */
-  processDefinition(params: DefinitionParams): Promise<Location[] | null>;
+  processDefinition(
+    params: DefinitionParams,
+    context?: LspRequestExecutionContext,
+  ): Promise<Location[] | null>;
 }
 
 /**
@@ -106,13 +110,17 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
   public async processDefinition(
     params: DefinitionParams,
+    context?: LspRequestExecutionContext,
   ): Promise<Location[] | null> {
     this.logger.debug(
       () => `Processing definition request for: ${params.textDocument.uri}`,
     );
 
     // Run prerequisites for definition request
-    if (this.prerequisiteOrchestrationService) {
+    if (
+      this.prerequisiteOrchestrationService &&
+      !context?.prerequisitesPrepared
+    ) {
       try {
         await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
           'definition',
@@ -197,6 +205,18 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         }
 
         return [];
+      }
+
+      const receiverKeywordTarget =
+        (await this.symbolManager.getReceiverKeywordTargetAtPosition?.(
+          params.textDocument.uri,
+          parserPosition,
+        )) ?? null;
+      if (receiverKeywordTarget) {
+        const location = await this.createLocationFromSymbol(
+          receiverKeywordTarget,
+        );
+        return location ? [location] : [];
       }
 
       // Use precise symbol resolution for goto definition

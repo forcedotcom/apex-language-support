@@ -501,9 +501,13 @@ export class LSPQueueManager {
   /**
    * Submit a hover request
    */
-  async submitHoverRequest(params: any): Promise<any> {
+  async submitHoverRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
     return this.submitRequest('hover', params, {
       priority: Priority.Immediate,
+      token,
     });
   }
 

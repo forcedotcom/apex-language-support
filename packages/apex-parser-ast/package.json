@@ -49,6 +49,7 @@
       "output": [
         "resources/apex-stdlib.pb.gz",
         "resources/apex-type-registry.pb.gz",
+        "resources/apex-fqn-index.pb.gz",
         "resources/apex-stdlib.sha256"
       ],
       "files": [
@@ -60,7 +61,8 @@
       "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-primitive-types.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
       "output": [
         "src/generated/**",
-        "resources/StandardApexLibrary.zip"
+        "resources/StandardApexLibrary.zip",
+        "resources/StandardApexLibrary.zip.md5"
       ],
       "files": [
         "scripts/generate-proto.mjs",
@@ -211,7 +213,7 @@
     "@apexdevtools/apex-parser": "5.1.0",
     "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
-    "@salesforce/vscode-i18n": "^66.7.1",
+    "@salesforce/vscode-i18n": "^66.8.0",
     "antlr4": "4.13.2",
     "data-structure-typed": "^2.6.2",
     "effect": "^3.22.0",

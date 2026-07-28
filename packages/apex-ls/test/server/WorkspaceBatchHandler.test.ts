@@ -12,9 +12,10 @@ import {
   clearBatchStorage,
   clearCleanupInterval,
   setBatchIngestionDispatcher,
-  setBatchCompileDispatcher,
   getBatchIngestionDispatcher,
   setBatchDispatcherWaitMs,
+  setWorkspaceLoadSessionDispatcher,
+  setDataOwnerCompileDispatcher,
   setCrossFileEnrichmentDispatcher,
   getCrossFileEnrichmentDispatcher,
 } from '../../src/server/WorkspaceBatchHandler';
@@ -86,6 +87,8 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
 }));
 
 describe('WorkspaceBatchHandler', () => {
+  const TEST_SESSION_ID = 'workspace-test-session';
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Clear batch storage between tests
@@ -129,7 +132,9 @@ describe('WorkspaceBatchHandler', () => {
     batchIndex: number,
     totalBatches: number,
     fileCount: number = 10,
+    sessionId: string = TEST_SESSION_ID,
   ): SendWorkspaceBatchParams => ({
+    sessionId,
     batchIndex,
     totalBatches,
     isLastBatch: batchIndex === totalBatches - 1,
@@ -200,6 +205,7 @@ describe('WorkspaceBatchHandler', () => {
     it('should handle error gracefully', async () => {
       // Create invalid params that might cause errors
       const invalidParams = {
+        sessionId: '',
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -210,6 +216,40 @@ describe('WorkspaceBatchHandler', () => {
       // Should not throw, but may return error
       const result = await handleWorkspaceBatchRequest(invalidParams);
       expect(result).toBeDefined();
+    });
+
+    it('keeps concurrent sessions with equal batch counts isolated', async () => {
+      const firstSession = 'workspace-session-first';
+      const secondSession = 'workspace-session-second';
+
+      await handleWorkspaceBatchRequest(
+        createMockBatchParams(0, 2, 1, firstSession),
+      );
+      await handleWorkspaceBatchRequest(
+        createMockBatchParams(0, 2, 1, secondSession),
+      );
+      const firstResult = await handleWorkspaceBatchRequest(
+        createMockBatchParams(1, 2, 1, firstSession),
+      );
+
+      expect(firstResult.receivedCount).toBe(2);
+      await expect(
+        handleProcessWorkspaceBatchesRequest({
+          sessionId: secondSession,
+          totalBatches: 2,
+        }),
+      ).resolves.toMatchObject({ success: false });
+    });
+
+    it('rejects inconsistent batch counts within one session', async () => {
+      await handleWorkspaceBatchRequest(createMockBatchParams(0, 2));
+
+      const result = await handleWorkspaceBatchRequest(
+        createMockBatchParams(1, 3),
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('expected 2 batches');
     });
   });
 
@@ -227,6 +267,7 @@ describe('WorkspaceBatchHandler', () => {
 
       // Trigger processing
       const result = await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
         totalBatches,
       });
 
@@ -246,6 +287,7 @@ describe('WorkspaceBatchHandler', () => {
 
       // Try to trigger processing (should fail)
       const result = await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
         totalBatches,
       });
 
@@ -289,14 +331,25 @@ describe('WorkspaceBatchHandler', () => {
     }
 
     beforeEach(() => {
-      // Shrink the bootstrap-race wait so the no-dispatcher case falls through
+      // Shrink the bootstrap-race wait so the unavailable-worker case fails
       // quickly instead of polling for the full 5s production window.
       setBatchDispatcherWaitMs(100);
+      setWorkspaceLoadSessionDispatcher(jest.fn().mockResolvedValue({}));
+      setDataOwnerCompileDispatcher(
+        jest
+          .fn()
+          .mockImplementation(async ({ entries }: { entries: unknown[] }) => ({
+            compiledCount: entries.length,
+            errorCount: 0,
+            elapsedMs: 1,
+          })),
+      );
     });
 
     afterEach(() => {
       setBatchIngestionDispatcher(null);
-      setBatchCompileDispatcher(null);
+      setWorkspaceLoadSessionDispatcher(null);
+      setDataOwnerCompileDispatcher(null);
       setBatchDispatcherWaitMs(5000);
     });
 
@@ -327,6 +380,7 @@ describe('WorkspaceBatchHandler', () => {
       ]);
 
       await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -338,6 +392,7 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       const result = await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
         totalBatches: 1,
       });
       expect(result.success).toBe(true);
@@ -356,7 +411,7 @@ describe('WorkspaceBatchHandler', () => {
       });
     });
 
-    it('falls back to local processing when no dispatcher is set', async () => {
+    it('does not fall back to local processing when no dispatcher is set', async () => {
       const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
         offer: jest.Mock;
       };
@@ -367,6 +422,7 @@ describe('WorkspaceBatchHandler', () => {
       ]);
 
       await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -375,13 +431,14 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       const result = await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
         totalBatches: 1,
       });
       expect(result.success).toBe(true);
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(offer).toHaveBeenCalled();
+      expect(offer).not.toHaveBeenCalled();
     });
 
     it('dispatches all decoded entries from multiple batches', async () => {
@@ -401,6 +458,7 @@ describe('WorkspaceBatchHandler', () => {
           3,
         );
         await handleWorkspaceBatchRequest({
+          sessionId: TEST_SESSION_ID,
           batchIndex: i,
           totalBatches: 3,
           isLastBatch: i === 2,
@@ -409,7 +467,10 @@ describe('WorkspaceBatchHandler', () => {
         });
       }
 
-      await handleProcessWorkspaceBatchesRequest({ totalBatches: 3 });
+      await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
+        totalBatches: 3,
+      });
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       expect(dispatcher).toHaveBeenCalledTimes(1);
@@ -432,25 +493,27 @@ describe('WorkspaceBatchHandler', () => {
         );
       const compileDispatcher = jest
         .fn()
-        .mockImplementation(
-          async (_sessionId: string, entries: typeof files) => ({
-            compiledCount: entries.length,
-            errorCount: 0,
-            elapsedMs: 1,
-          }),
-        );
+        .mockImplementation(async ({ entries }: { entries: typeof files }) => ({
+          compiledCount: entries.length,
+          errorCount: 0,
+          elapsedMs: 1,
+        }));
       setBatchIngestionDispatcher(ingestionDispatcher);
-      setBatchCompileDispatcher(compileDispatcher);
+      setDataOwnerCompileDispatcher(compileDispatcher);
 
       const compressedData = makeCompressedBatch(files);
       await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
         compressedData,
         fileMetadata: files.map(({ uri, version }) => ({ uri, version })),
       });
-      await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+      await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
+        totalBatches: 1,
+      });
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       expect(ingestionDispatcher).toHaveBeenCalledTimes(3);
@@ -459,8 +522,44 @@ describe('WorkspaceBatchHandler', () => {
         ingestionDispatcher.mock.calls.map(([, entries]) => entries.length),
       ).toEqual([100, 100, 1]);
       expect(
-        compileDispatcher.mock.calls.map(([, entries]) => entries.length),
+        compileDispatcher.mock.calls.map(([{ entries }]) => entries.length),
       ).toEqual([100, 100, 1]);
+    });
+
+    it('ends the workspace session when compilation fails fatally', async () => {
+      const sessionDispatcher = jest.fn().mockResolvedValue({});
+      setWorkspaceLoadSessionDispatcher(sessionDispatcher);
+      setBatchIngestionDispatcher(
+        jest.fn().mockResolvedValue({ processedCount: 1 }),
+      );
+      setDataOwnerCompileDispatcher(
+        jest.fn().mockRejectedValue(new Error('compile transport failed')),
+      );
+
+      const files = [
+        {
+          uri: 'file:///Failure.cls',
+          version: 1,
+          content: 'class Failure {}',
+        },
+      ];
+      await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
+        batchIndex: 0,
+        totalBatches: 1,
+        isLastBatch: true,
+        compressedData: makeCompressedBatch(files),
+        fileMetadata: files.map(({ uri, version }) => ({ uri, version })),
+      });
+      await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
+        totalBatches: 1,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(
+        sessionDispatcher.mock.calls.map(([request]) => request._tag),
+      ).toEqual(['BeginWorkspaceLoadSession', 'DrainDeferredReferences']);
     });
 
     it('waits for a dispatcher wired after batches start processing', async () => {
@@ -475,6 +574,7 @@ describe('WorkspaceBatchHandler', () => {
         { uri: 'file:///Race.cls', version: 1, content: 'class Race {}' },
       ]);
       await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -483,7 +583,10 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       // Processing begins with no dispatcher set (bootstrap race) ...
-      await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+      await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
+        totalBatches: 1,
+      });
       // ... and the worker wires it up shortly after, within the wait window.
       await new Promise((resolve) => setTimeout(resolve, 30));
       setBatchIngestionDispatcher(dispatcher);
@@ -504,6 +607,7 @@ describe('WorkspaceBatchHandler', () => {
       ]);
 
       await handleWorkspaceBatchRequest({
+        sessionId: TEST_SESSION_ID,
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -512,6 +616,7 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       const result = await handleProcessWorkspaceBatchesRequest({
+        sessionId: TEST_SESSION_ID,
         totalBatches: 1,
       });
       expect(result.success).toBe(true);
@@ -565,6 +670,7 @@ describe('WorkspaceBatchHandler', () => {
       async function storeBatchAndProcess(files = testFiles) {
         const compressedData = makeCompressedBatch(files);
         await handleWorkspaceBatchRequest({
+          sessionId: TEST_SESSION_ID,
           batchIndex: 0,
           totalBatches: 1,
           isLastBatch: true,
@@ -574,18 +680,40 @@ describe('WorkspaceBatchHandler', () => {
             version: f.version,
           })),
         });
-        await handleProcessWorkspaceBatchesRequest({ totalBatches: 1 });
+        await handleProcessWorkspaceBatchesRequest({
+          sessionId: TEST_SESSION_ID,
+          totalBatches: 1,
+        });
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       afterEach(() => {
         setBatchIngestionDispatcher(null);
+        setWorkspaceLoadSessionDispatcher(null);
+        setDataOwnerCompileDispatcher(null);
         setCrossFileEnrichmentDispatcher(null);
+        setBatchDispatcherWaitMs(5000);
         mockGetSettings.mockReturnValue({
           apex: {
             deferredReferenceProcessing: { enableCrossFileDeferral: false },
           },
         });
+      });
+
+      beforeEach(() => {
+        setBatchDispatcherWaitMs(100);
+        setWorkspaceLoadSessionDispatcher(jest.fn().mockResolvedValue({}));
+        setDataOwnerCompileDispatcher(
+          jest
+            .fn()
+            .mockImplementation(
+              async ({ entries }: { entries: unknown[] }) => ({
+                compiledCount: entries.length,
+                errorCount: 0,
+                elapsedMs: 1,
+              }),
+            ),
+        );
       });
 
       it('setCrossFileEnrichmentDispatcher / getCrossFileEnrichmentDispatcher round-trip', () => {
@@ -687,7 +815,7 @@ describe('WorkspaceBatchHandler', () => {
         expect(enrichmentDispatcher).toHaveBeenCalledTimes(1);
       });
 
-      it('does NOT dispatch enrichment on local processing path', async () => {
+      it('does NOT dispatch enrichment when the worker route is unavailable', async () => {
         const enrichmentDispatcher = jest
           .fn()
           .mockResolvedValue({ resolved: 0, failed: 0 });

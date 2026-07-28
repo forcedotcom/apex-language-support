@@ -71,7 +71,10 @@ export function getPrerequisitesForLspRequestType(
         requiredDetailLevel: 'full', // Need full type info for hover
         requiresReferences: true,
         requiresReferenceResolution: true,
-        requiresCrossFileResolution: true,
+        // Hover resolves only the expression at the cursor. Materializing all
+        // cross-file edges in the document is reserved for reverse-index
+        // consumers such as references and implementation.
+        requiresCrossFileResolution: false,
         executionMode: 'async',
         skipDuringWorkspaceLoad: true,
         missingArtifactResolution: {

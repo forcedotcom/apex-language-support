@@ -94,7 +94,7 @@ export const symbolIndexStoreShim = (
 
     getStats: () =>
       Effect.sync(() => {
-        const stats = manager.getStats();
+        const stats = manager.getCounts();
         return {
           totalSymbols: stats.totalSymbols,
           totalFiles: stats.totalFiles,

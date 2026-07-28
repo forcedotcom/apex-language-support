@@ -209,7 +209,6 @@ describe('withExtractedTraceContext()', () => {
     const cases = [
       { role: 'dataOwner' as const, tag: 'QuerySymbolSubset' },
       { role: 'lspRequest' as const, tag: 'DispatchHover' },
-      { role: 'compilation' as const, tag: 'CompileDocument' },
       { role: 'resourceLoader' as const, tag: 'ResourceLoaderGetFile' },
     ];
 

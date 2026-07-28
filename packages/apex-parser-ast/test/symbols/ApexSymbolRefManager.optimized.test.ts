@@ -609,6 +609,25 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
   });
 
   describe('Performance and Memory', () => {
+    it('should read graph counts without running topology analysis', () => {
+      const detectCycles = jest.spyOn(
+        symbolRefManager,
+        'detectCircularDependencies',
+      );
+
+      const counts = symbolRefManager.getCounts();
+
+      expect(counts).toMatchObject({
+        totalSymbols: 0,
+        totalFiles: 0,
+        totalReferences: 0,
+      });
+      expect(detectCycles).not.toHaveBeenCalled();
+
+      symbolRefManager.getStats();
+      expect(detectCycles).toHaveBeenCalledTimes(1);
+    });
+
     it('should handle large numbers of symbols efficiently', () => {
       const startTime = Date.now();
 

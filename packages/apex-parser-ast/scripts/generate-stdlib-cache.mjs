@@ -306,6 +306,118 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
 }
 
 /**
+ * Generate FQN index for local stdlib class resolution.
+ * Maps normalized (lowercased) input keys to canonical FQNs.
+ * Emits both qualified (namespace.class) and unqualified (class) keys.
+ *
+ * System-wins tiebreak: for unqualified collisions, System namespace wins;
+ * otherwise first-seen (namespace iteration order is stable).
+ *
+ * @param {Array<{name: string, symbolTables: Map<string, SymbolTable>}>} namespaceData
+ * @param {string} sourceChecksum
+ * @returns {Uint8Array} Protobuf binary data
+ */
+async function generateFqnIndex(namespaceData, sourceChecksum) {
+  const { FqnIndex, FqnIndexEntry } = await import(
+    '../out/generated/apex-stdlib.js'
+  );
+
+  const fqnIndex = new Map(); // Map<string, string>
+  const unqualifiedCollisions = new Map(); // track collisions to apply System-wins
+
+  // First pass: collect all types with canonical FQNs
+  const allTypes = []; // Array<{namespace, className, symbolName, fqn}>
+
+  for (const ns of namespaceData) {
+    for (const [fileUri, symbolTable] of ns.symbolTables) {
+      // Extract namespace and class name from file URI
+      // Format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
+      if (!match) {
+        continue;
+      }
+
+      const [, namespace, className] = match;
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find top-level types only (same filter as generateTypeRegistry)
+      for (const symbol of allSymbols) {
+        const isTopLevel =
+          symbol.parentId === null || symbol.parentId === 'null';
+        const kindLower =
+          typeof symbol.kind === 'string'
+            ? symbol.kind.toLowerCase()
+            : String(symbol.kind).toLowerCase();
+        const isTypeSymbol =
+          kindLower === 'class' ||
+          kindLower === 'interface' ||
+          kindLower === 'enum';
+
+        if (isTopLevel && isTypeSymbol) {
+          // Workaround: If symbol name is empty or "unknownClass", use className from URI
+          const symbolName =
+            symbol.name && symbol.name !== 'unknownClass'
+              ? symbol.name
+              : className;
+
+          if (!symbolName) {
+            continue;
+          }
+
+          const canonicalFqn = `${namespace}.${symbolName}`;
+          allTypes.push({ namespace, className, symbolName, fqn: canonicalFqn });
+        }
+      }
+    }
+  }
+
+  // Second pass: build index with System-wins tiebreak
+  for (const type of allTypes) {
+    const qualifiedKey = `${type.namespace}.${type.symbolName}`.toLowerCase();
+    const unqualifiedKey = type.symbolName.toLowerCase();
+
+    // Qualified key: always set (no collisions possible in qualified space)
+    fqnIndex.set(qualifiedKey, type.fqn);
+
+    // Unqualified key: apply System-wins
+    if (!unqualifiedCollisions.has(unqualifiedKey)) {
+      unqualifiedCollisions.set(unqualifiedKey, []);
+    }
+    unqualifiedCollisions.get(unqualifiedKey).push(type);
+  }
+
+  // Resolve unqualified collisions: System wins, else first-seen
+  for (const [unqualifiedKey, types] of unqualifiedCollisions) {
+    if (types.length === 1) {
+      fqnIndex.set(unqualifiedKey, types[0].fqn);
+    } else {
+      // Multiple namespaces define this class
+      const systemType = types.find((t) => t.namespace === 'System');
+      fqnIndex.set(
+        unqualifiedKey,
+        systemType ? systemType.fqn : types[0].fqn, // first-seen
+      );
+    }
+  }
+
+  // Convert to protobuf
+  const entries = [];
+  for (const [key, fqn] of fqnIndex) {
+    entries.push(FqnIndexEntry.create({ key, fqn }));
+  }
+
+  const index = FqnIndex.create({
+    generatedAt: new Date().toISOString(),
+    sourceChecksum,
+    entries,
+  });
+
+  return FqnIndex.toBinary(index);
+}
+
+/**
  * Main function
  */
 async function main() {
@@ -478,33 +590,53 @@ async function main() {
     `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
   );
 
+  // Generate FQN index
+  console.log('\n8. Generating FQN index...');
+  const fqnIndexBinary = await generateFqnIndex(namespaceData, sourceChecksum);
+  const compressedFqnIndex = gzipSync(fqnIndexBinary, { level: 9 });
+  console.log(
+    `   FQN index size: ${(compressedFqnIndex.length / 1024).toFixed(2)} KB`,
+  );
+
   // Write output files
-  console.log('\n8. Writing output files...');
+  console.log('\n9. Writing output files...');
   const REGISTRY_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz');
+  const FQN_INDEX_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz');
   writeFileSync(CACHE_FILE, compressedData);
   writeFileSync(REGISTRY_FILE, compressedRegistry);
+  writeFileSync(FQN_INDEX_FILE, compressedFqnIndex);
   writeFileSync(CHECKSUM_FILE, sourceChecksum);
   console.log(`   ✅ ${CACHE_FILE}`);
   console.log(`   ✅ ${REGISTRY_FILE}`);
+  console.log(`   ✅ ${FQN_INDEX_FILE}`);
   console.log(`   ✅ ${CHECKSUM_FILE}`);
 
   // Generate MD5 checksums for output files
-  console.log('\n9. Generating MD5 checksums...');
+  console.log('\n10. Generating MD5 checksums...');
   const cacheFileMD5 = createHash('md5').update(compressedData).digest('hex');
   const registryFileMD5 = createHash('md5')
     .update(compressedRegistry)
+    .digest('hex');
+  const fqnIndexMD5 = createHash('md5')
+    .update(compressedFqnIndex)
     .digest('hex');
 
   // Write MD5 checksum files in standard format: <hash>  <filename>
   const CACHE_MD5_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz.md5');
   const REGISTRY_MD5_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz.md5');
+  const FQN_INDEX_MD5_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz.md5');
   writeFileSync(CACHE_MD5_FILE, `${cacheFileMD5}  apex-stdlib.pb.gz\n`);
   writeFileSync(
     REGISTRY_MD5_FILE,
     `${registryFileMD5}  apex-type-registry.pb.gz\n`,
   );
+  writeFileSync(
+    FQN_INDEX_MD5_FILE,
+    `${fqnIndexMD5}  apex-fqn-index.pb.gz\n`,
+  );
   console.log(`   ✅ ${CACHE_MD5_FILE}`);
   console.log(`   ✅ ${REGISTRY_MD5_FILE}`);
+  console.log(`   ✅ ${FQN_INDEX_MD5_FILE}`);
 
   // Summary
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -517,9 +649,13 @@ async function main() {
   console.log(
     `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
   );
+  console.log(
+    `   FQN index size: ${(compressedFqnIndex.length / 1024).toFixed(2)} KB`,
+  );
   console.log(`   Source checksum (SHA256): ${sourceChecksum}`);
   console.log(`   Stdlib MD5: ${cacheFileMD5}`);
   console.log(`   Registry MD5: ${registryFileMD5}`);
+  console.log(`   FQN index MD5: ${fqnIndexMD5}`);
 }
 
 main().catch((error) => {

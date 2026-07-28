@@ -21,6 +21,7 @@ import {
   WorkerInit,
   PingWorker,
   WorkerRemoteStdlibWarmup,
+  DataOwnerPreloadStandardNamespaces,
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
@@ -29,11 +30,12 @@ import {
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
+  WorkspaceBatchCompileOnDataOwner,
+  BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   CompileDocument,
-  WorkspaceBatchCompile,
   DispatchHover,
   DispatchDefinition,
   DispatchCompletion,
@@ -55,7 +57,6 @@ import {
   type DataOwnerRequest,
   type LspRequestMessage,
   type ResourceLoaderRequest,
-  type CompilationRequest,
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import type {
@@ -108,6 +109,7 @@ export const makeNodeWorkerLayer = (
       ...workerOptions,
       workerData: {
         ...(workerOptions?.workerData as object | undefined),
+        workerScript,
         assistPort: assistChannel.port1,
       },
       transferList: [
@@ -184,6 +186,58 @@ export interface BrowserMessagePort {
  */
 const browserAssistancePorts: BrowserMessagePort[] = [];
 
+export interface BrowserWorkerBootstrapOptions {
+  readonly role?: WorkerRole;
+  readonly compilationPoolSize?: number;
+  readonly compilationConcurrency?: number;
+  readonly workerPlatformUrl?: string;
+}
+
+function browserWorkerLayer(
+  blobUrl: string,
+  bootstrap: BrowserWorkerBootstrapOptions,
+  BrowserWorker: typeof import('@effect/platform-browser/BrowserWorker'),
+  W: new (url: string | URL) => BrowserWorkerLike,
+  MC: new () => { port1: BrowserMessagePort; port2: BrowserMessagePort },
+): Layer.Layer<Worker.WorkerManager | Worker.Spawner> {
+  return BrowserWorker.layer((_id: number) => {
+    const rawWorker = new W(blobUrl);
+    const mcEffect = new MC();
+    const mcAssist = new MC();
+
+    rawWorker.postMessage(
+      {
+        _tag: 'WorkerPortsInit',
+        effectPort: mcEffect.port2,
+        assistPort: mcAssist.port2,
+        ...bootstrap,
+      },
+      [mcEffect.port2, mcAssist.port2],
+    );
+    browserAssistancePorts.push(mcAssist.port1);
+
+    return mcEffect.port1 as never;
+  });
+}
+
+function withBlobUrlCleanup(
+  layer: Layer.Layer<Worker.WorkerManager | Worker.Spawner>,
+  blobUrls: ReadonlyArray<string>,
+): Layer.Layer<Worker.WorkerManager | Worker.Spawner> {
+  return Layer.merge(
+    layer,
+    Layer.scopedDiscard(
+      Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          for (const blobUrl of blobUrls) {
+            URL.revokeObjectURL(blobUrl);
+          }
+        }),
+      ),
+    ),
+  );
+}
+
 /**
  * Create a browser worker layer using native Web Worker API.
  *
@@ -197,6 +251,7 @@ const browserAssistancePorts: BrowserMessagePort[] = [];
  */
 export async function makeBrowserWorkerLayer(
   workerScriptUrl: string,
+  bootstrap: BrowserWorkerBootstrapOptions = {},
 ): Promise<Layer.Layer<Worker.WorkerManager | Worker.Spawner>> {
   const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
 
@@ -204,7 +259,13 @@ export async function makeBrowserWorkerLayer(
   // origin as the parent (server.web.js). Direct HTTP URLs fail with a
   // SecurityError when the parent runs from a different-origin blob context
   // (e.g. VS Code web extension subdomain isolation).
-  const scriptText = await fetch(workerScriptUrl).then((r) => r.text());
+  const response = await fetch(workerScriptUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Unable to load browser worker bundle ${workerScriptUrl}: ${response.status} ${response.statusText}`,
+    );
+  }
+  const scriptText = await response.text();
   const blobUrl = URL.createObjectURL(
     new Blob([scriptText], { type: 'application/javascript' }),
   );
@@ -217,33 +278,57 @@ export async function makeBrowserWorkerLayer(
     port1: BrowserMessagePort;
     port2: BrowserMessagePort;
   };
-  return BrowserWorker.layer((_id: number) => {
-    const rawWorker = new W(blobUrl);
+  return withBlobUrlCleanup(
+    browserWorkerLayer(blobUrl, bootstrap, BrowserWorker, W, MC),
+    [blobUrl],
+  );
+}
 
-    // Two dedicated channels per worker:
-    //   mcEffect — Effect protocol (coordinator ↔ worker)
-    //   mcAssist — side-channel for logs + assistance RPC
-    const mcEffect = new MC();
-    const mcAssist = new MC();
-
-    // Transfer both port2s to the worker via rawWorker.postMessage on `self`.
-    // The worker listens on `self` for this one-time init message and never
-    // starts Effect's BrowserWorkerRunner on `self`, so there is no collision.
-    rawWorker.postMessage(
-      {
-        _tag: 'WorkerPortsInit',
-        effectPort: mcEffect.port2,
-        assistPort: mcAssist.port2,
-      },
-      [mcEffect.port2, mcAssist.port2],
+export async function makeBrowserWorkerLayerFactory(
+  workerScriptUrl: string,
+  options: {
+    readonly compilationPoolSize: number;
+    readonly compilationConcurrency: number;
+  },
+): Promise<
+  (role: WorkerRole) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>
+> {
+  const BrowserWorker = await import('@effect/platform-browser/BrowserWorker');
+  const workerResponse = await fetch(workerScriptUrl);
+  if (!workerResponse.ok) {
+    throw new Error(
+      `Unable to load browser worker bundle ${workerScriptUrl}: ${workerResponse.status} ${workerResponse.statusText}`,
     );
-    browserAssistancePorts.push(mcAssist.port1);
+  }
 
-    // Return the Effect protocol port to BrowserWorker.layer.
-    // Effect will call port1Effect.postMessage([requestId, payload]) and listen
-    // for responses on it — never touching self.
-    return mcEffect.port1 as never;
-  });
+  const workerScript = await workerResponse.text();
+  const workerBlobUrl = URL.createObjectURL(
+    new Blob([workerScript], { type: 'application/javascript' }),
+  );
+  const W = (globalThis as any).Worker as new (
+    url: string | URL,
+  ) => BrowserWorkerLike;
+  const MC = (globalThis as any).MessageChannel as new () => {
+    port1: BrowserMessagePort;
+    port2: BrowserMessagePort;
+  };
+
+  return (role) =>
+    withBlobUrlCleanup(
+      browserWorkerLayer(
+        workerBlobUrl,
+        {
+          role,
+          compilationPoolSize: options.compilationPoolSize,
+          compilationConcurrency: options.compilationConcurrency,
+          ...(role === 'dataOwner' ? { workerPlatformUrl: workerBlobUrl } : {}),
+        },
+        BrowserWorker,
+        W,
+        MC,
+      ),
+      [workerBlobUrl],
+    );
 }
 
 export function getBrowserAssistancePorts(): BrowserMessagePort[] {
@@ -264,11 +349,12 @@ const DEFAULT_WORKER_SCRIPT =
 // ---------------------------------------------------------------------------
 
 export interface WorkerTopology {
-  readonly dataOwner: Worker.SerializedWorker<DataOwnerRequest>;
+  readonly dataOwner: Worker.SerializedWorkerPool<DataOwnerRequest>;
   readonly requestPool: Worker.SerializedWorkerPool<LspRequestMessage>;
   readonly requestPoolSize: number;
-  readonly resourceLoader: Worker.SerializedWorker<ResourceLoaderRequest> | null;
-  readonly compilation: Worker.SerializedWorker<CompilationRequest>;
+  readonly resourceLoader: Worker.SerializedWorkerPool<ResourceLoaderRequest> | null;
+  readonly compilationPoolSize: number;
+  readonly compilationConcurrency: number;
 }
 
 export interface TopologyConfig {
@@ -286,10 +372,18 @@ export interface TopologyConfig {
   readonly workerLayerFactory?: (
     role: WorkerRole,
   ) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>;
+  /** Maximum concurrent requests to the dataOwner worker. Default: 10.
+   *  Higher values allow more UpdateSymbolSubset calls to dispatch concurrently,
+   *  reducing IPC serialization overhead during workspace load. */
+  readonly dataOwnerConcurrency?: number;
+  /** Concurrent Effect Worker requests admitted per backing compiler worker. */
+  readonly compilationConcurrency?: number;
+  /** Number of backing compiler workers owned by the data owner. */
+  readonly compilationPoolSize?: number;
 }
 
 const makeInitMessage = (
-  role: 'dataOwner' | 'lspRequest' | 'resourceLoader' | 'compilation',
+  role: WorkerRole,
   logLevel?: string,
   serverMode: 'production' | 'development' = 'production',
   spanCollectorUrl?: string,
@@ -393,70 +487,66 @@ export function initializeTopology(
         : eff;
 
     // Spawn all workers in parallel for faster initialization
-    const [resourceLoader, dataOwner, compilation, requestPool] =
-      yield* Effect.all(
-        [
-          config.enableResourceLoader
-            ? withRoleLayer(
-                Worker.makeSerialized<ResourceLoaderRequest>({
-                  initialMessage: () =>
-                    makeInitMessage(
-                      'resourceLoader',
-                      logLevel,
-                      serverMode,
-                      spanCollectorUrl,
-                    ),
-                }),
-                'resourceLoader',
-              )
-            : Effect.succeed(null),
-          withRoleLayer(
-            Worker.makeSerialized<DataOwnerRequest>({
-              initialMessage: () =>
-                makeInitMessage(
-                  'dataOwner',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                ),
-            }),
-            'dataOwner',
-          ),
-          withRoleLayer(
-            Worker.makeSerialized<CompilationRequest>({
-              initialMessage: () =>
-                makeInitMessage(
-                  'compilation',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                ),
-            }),
-            'compilation',
-          ),
-          withRoleLayer(
-            Worker.makePoolSerialized<LspRequestMessage>({
-              size: poolSize,
-              initialMessage: () =>
-                makeInitMessage(
-                  'lspRequest',
-                  logLevel,
-                  serverMode,
-                  spanCollectorUrl,
-                ),
-            }),
-            'lspRequest',
-          ),
-        ],
-        { concurrency: 'unbounded' },
-      );
+    const [resourceLoader, dataOwner, requestPool] = yield* Effect.all(
+      [
+        config.enableResourceLoader
+          ? withRoleLayer(
+              Worker.makePoolSerialized<ResourceLoaderRequest>({
+                initialMessage: () =>
+                  makeInitMessage(
+                    'resourceLoader',
+                    logLevel,
+                    serverMode,
+                    spanCollectorUrl,
+                  ),
+                size: 1,
+                concurrency: 1, // Serial processing for resource loading
+              }),
+              'resourceLoader',
+            )
+          : Effect.succeed(null),
+        withRoleLayer(
+          Worker.makePoolSerialized<DataOwnerRequest>({
+            initialMessage: () =>
+              makeInitMessage(
+                'dataOwner',
+                logLevel,
+                serverMode,
+                spanCollectorUrl,
+              ),
+            size: 1, // Single worker instance
+            concurrency: config.dataOwnerConcurrency ?? 10, // Allow up to N concurrent requests to the worker
+          }),
+          'dataOwner',
+        ),
+        withRoleLayer(
+          Worker.makePoolSerialized<LspRequestMessage>({
+            size: poolSize,
+            initialMessage: () =>
+              makeInitMessage(
+                'lspRequest',
+                logLevel,
+                serverMode,
+                spanCollectorUrl,
+              ),
+          }),
+          'lspRequest',
+        ),
+      ],
+      { concurrency: 'unbounded' },
+    );
 
     // Log after all are initialized
     if (resourceLoader) {
       logger.alwaysLog('[WorkerCoordinator] Resource loader initialized');
     }
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized');
-    logger.alwaysLog('[WorkerCoordinator] Compilation worker initialized');
+    logger.alwaysLog(
+      () =>
+        '[WorkerCoordinator] Compilation pool initialized ' +
+        `(owner=dataOwner, size=${config.compilationPoolSize ?? 2}, ` +
+        `concurrencyPerWorker=${config.compilationConcurrency ?? 1})`,
+    );
     logger.alwaysLog(
       () =>
         `[WorkerCoordinator] Enrichment pool initialized (size=${poolSize})`,
@@ -467,7 +557,8 @@ export function initializeTopology(
       requestPool,
       requestPoolSize: poolSize,
       resourceLoader,
-      compilation,
+      compilationPoolSize: config.compilationPoolSize ?? 2,
+      compilationConcurrency: config.compilationConcurrency ?? 1,
     } as WorkerTopology;
   });
 }
@@ -526,7 +617,8 @@ export interface TransportTopology {
   readonly dataOwner: WorkerHandle;
   readonly requestPool: PoolHandle;
   readonly resourceLoader: WorkerHandle | null;
-  readonly compilation: WorkerHandle;
+  readonly compilationPoolSize: number;
+  readonly compilationConcurrency: number;
 }
 
 /**
@@ -551,10 +643,11 @@ export const initializeTransportTopology = (
 
     const dataOwner = yield* transport.spawn('dataOwner');
     logger.alwaysLog('[WorkerCoordinator] Data owner initialized (transport)');
-
-    const compilation = yield* transport.spawn('compilation');
     logger.alwaysLog(
-      '[WorkerCoordinator] Compilation worker initialized (transport)',
+      () =>
+        '[WorkerCoordinator] Compilation pool configured ' +
+        `(owner=dataOwner, size=${config.compilationPoolSize ?? 2}, ` +
+        `concurrencyPerWorker=${config.compilationConcurrency ?? 1})`,
     );
 
     const requestPool = yield* transport.makePool('lspRequest', poolSize);
@@ -568,7 +661,8 @@ export const initializeTransportTopology = (
       dataOwner,
       requestPool,
       resourceLoader,
-      compilation,
+      compilationPoolSize: config.compilationPoolSize ?? 2,
+      compilationConcurrency: config.compilationConcurrency ?? 1,
     };
   });
 
@@ -581,22 +675,34 @@ export const initializeTransportTopology = (
 export const runRemoteStdlibWarmupPhase = (
   topology: WorkerTopology,
   poolSize: number,
+  preloadNamespaces: readonly string[] = [],
 ) => {
   const req = new WorkerRemoteStdlibWarmup({});
   return Effect.gen(function* () {
     if (!topology.resourceLoader) {
-      return;
+      return undefined;
     }
     const n = clampPoolSize(poolSize);
     // Warm all workers in parallel — each is independent
     yield* Effect.all(
       [
         topology.dataOwner.executeEffect(req),
+        topology.resourceLoader.executeEffect(req),
         ...Array.from({ length: n }, () =>
           topology.requestPool.executeEffect(req),
         ),
       ],
       { concurrency: 'unbounded' },
+    );
+
+    if (preloadNamespaces.length === 0) {
+      return undefined;
+    }
+
+    return yield* topology.dataOwner.executeEffect(
+      new DataOwnerPreloadStandardNamespaces({
+        namespaces: [...preloadNamespaces],
+      }),
     );
   });
 };
@@ -683,13 +789,14 @@ export interface BatchIngestEntry {
 interface DispatcherCallbacks {
   readonly sendToDataOwner: (msg: DataOwnerRequest) => Promise<unknown>;
   readonly dispatchToPool: (msg: LspRequestMessage) => Promise<unknown>;
-  readonly sendToCompilation: (msg: CompilationRequest) => Promise<unknown>;
   readonly sendBatch: (
     msg: WorkspaceBatchIngest,
   ) => Promise<{ processedCount: number }>;
   readonly poolSize: number;
   readonly hasResourceLoader: boolean;
+  readonly compilationPoolSize: number;
   readonly getDocumentContent?: (uri: string) => string | undefined;
+  readonly getDocumentVersion?: (uri: string) => number | undefined;
 }
 
 /**
@@ -705,17 +812,28 @@ function createDispatcher(
     sessionId: string,
     entries: BatchIngestEntry[],
   ) => Promise<{ processedCount: number }>;
-  createBatchCompileDispatcher(): (
-    sessionId: string,
-    entries: BatchIngestEntry[],
-  ) => Promise<{
-    compiledCount: number;
-    errorCount: number;
-    elapsedMs: number;
-  }>;
   createCrossFileEnrichmentDispatcher(): (
     fileUris: string[],
   ) => Promise<{ resolved: number; failed: number }>;
+  createWorkspaceLoadSessionDispatcher(): (msg: {
+    _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
+    sessionId?: string;
+  }) => Promise<unknown>;
+  createDataOwnerCompileDispatcher(): (entries: {
+    sessionId: string;
+    entries: Array<{
+      uri: string;
+      content: string;
+      languageId: string;
+      version: number;
+    }>;
+    traceContext?: string;
+  }) => Promise<{
+    compiledCount: number;
+    errorCount: number;
+    elapsedMs: number;
+    workerCount: number;
+  }>;
   queryDataOwner(method: string, params: unknown): Promise<unknown>;
   queryGraphData(params: {
     type: 'all' | 'file' | 'type';
@@ -798,24 +916,16 @@ function createDispatcher(
           compileMsg as unknown as Record<string, unknown>,
         );
 
-        logger.debug(() => `[WorkerDispatch] → dataOwner→compilation: ${type}`);
-        // Store the document on the data-owner BEFORE dispatching the compile.
-        // The compile writes its symbols back via dataOwner:UpdateSymbolSubset,
-        // which is rejected ("document not found") if the document hasn't been
-        // stored yet. Racing the two (fire-and-forget store + concurrent
-        // compile) drops the write-back on a cold open — the compile finishes
-        // before the store lands — so the data-owner graph stays empty and
-        // request-pool reads see "No Symbols". Sequencing guarantees the
-        // document is present when the write-back arrives. A failed store still
-        // lets the compile proceed (best-effort), matching the prior behavior.
-        try {
-          await callbacks.sendToDataOwner(dataOwnerMsg);
-        } catch (err) {
-          logger.error(
-            () => `[WorkerDispatch] dataOwner ${type} failed: ${err}`,
-          );
-        }
-        return callbacks.sendToCompilation(compileMsg);
+        logger.debug(
+          () => `[WorkerDispatch] → dataOwner store→pool compile: ${type}`,
+        );
+        // Store the document on the data-owner BEFORE asking it to compile and
+        // commit through its persistent pool. Version validation rejects a
+        // result if a newer mutation wins while compilation is in flight.
+        // A failed store is terminal for this dispatch: compiling content the
+        // authoritative owner did not accept cannot produce a valid commit.
+        await callbacks.sendToDataOwner(dataOwnerMsg);
+        return callbacks.sendToDataOwner(compileMsg);
       }
 
       if (DATA_OWNER_TYPES.has(type)) {
@@ -830,6 +940,7 @@ function createDispatcher(
         type,
         params,
         callbacks.getDocumentContent,
+        callbacks.getDocumentVersion,
       );
       injectTraceContextIntoMessage(msg as unknown as Record<string, unknown>);
       logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
@@ -844,7 +955,10 @@ function createDispatcher(
       resourceLoader: callbacks.hasResourceLoader
         ? { active: available }
         : null,
-      compilation: { active: available },
+      compilation: {
+        active: available,
+        poolSize: callbacks.compilationPoolSize,
+      },
       dispatchedCount,
       coordinatorOnlyTypes: [...COORDINATOR_ONLY_TYPES],
     }),
@@ -861,25 +975,6 @@ function createDispatcher(
           message as unknown as Record<string, unknown>,
         );
         return callbacks.sendBatch(message);
-      };
-    },
-
-    createBatchCompileDispatcher() {
-      return async (sessionId: string, entries: BatchIngestEntry[]) => {
-        logger.debug(
-          () =>
-            '[WorkerDispatch] → compilation: WorkspaceBatchCompile ' +
-            `(session=${sessionId}, entries=${entries.length})`,
-        );
-        const message = new WorkspaceBatchCompile({ sessionId, entries });
-        injectTraceContextIntoMessage(
-          message as unknown as Record<string, unknown>,
-        );
-        return callbacks.sendToCompilation(message) as Promise<{
-          compiledCount: number;
-          errorCount: number;
-          elapsedMs: number;
-        }>;
       };
     },
 
@@ -905,13 +1000,58 @@ function createDispatcher(
       };
     },
 
+    createWorkspaceLoadSessionDispatcher() {
+      return async (msg: {
+        _tag: 'BeginWorkspaceLoadSession' | 'DrainDeferredReferences';
+        sessionId?: string;
+      }) => {
+        if (msg._tag === 'BeginWorkspaceLoadSession' && msg.sessionId) {
+          return sendTracedToDataOwner(
+            new BeginWorkspaceLoadSession({ sessionId: msg.sessionId }),
+          );
+        } else if (msg._tag === 'DrainDeferredReferences') {
+          return sendTracedToDataOwner(
+            new DrainDeferredReferences({ sessionId: msg.sessionId }),
+          );
+        }
+        return Promise.resolve();
+      };
+    },
+
+    createDataOwnerCompileDispatcher() {
+      return async (params: {
+        sessionId: string;
+        entries: Array<{
+          uri: string;
+          content: string;
+          languageId: string;
+          version: number;
+        }>;
+        traceContext?: string;
+      }) => {
+        const result = await sendTracedToDataOwner(
+          new WorkspaceBatchCompileOnDataOwner(params),
+        );
+        return result as {
+          compiledCount: number;
+          errorCount: number;
+          elapsedMs: number;
+          workerCount: number;
+        };
+      };
+    },
+
     async queryDataOwner(method: string, params: unknown): Promise<unknown> {
       switch (method) {
         case 'QuerySymbolSubset': {
-          const pqs = params as { uris?: string[] };
+          const pqs = params as {
+            uris?: string[];
+            includeEntries?: boolean;
+          };
           return sendTracedToDataOwner(
             new QuerySymbolSubset({
               uris: pqs.uris ?? [],
+              includeEntries: pqs.includeEntries,
             }),
           );
         }
@@ -988,7 +1128,12 @@ function createDispatcher(
           );
         }
         case 'DrainDeferredReferences': {
-          return sendTracedToDataOwner(new DrainDeferredReferences());
+          const drainParams = params as { sessionId?: string } | undefined;
+          return sendTracedToDataOwner(
+            new DrainDeferredReferences({
+              sessionId: drainParams?.sessionId,
+            }),
+          );
         }
         default:
           throw new Error(`Unknown data-owner query method: ${method}`);
@@ -1019,6 +1164,7 @@ export function makeWorkerDispatcher(
   topology: WorkerTopology,
   logger: LoggerInterface,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ) {
   return createDispatcher(
     {
@@ -1038,19 +1184,13 @@ export function makeWorkerDispatcher(
         >;
         return Effect.runPromise(eff);
       },
-      sendToCompilation: (msg) => {
-        const eff = topology.compilation.executeEffect(msg) as Effect.Effect<
-          unknown,
-          unknown,
-          never
-        >;
-        return Effect.runPromise(eff);
-      },
       sendBatch: (msg) =>
         Effect.runPromise(topology.dataOwner.executeEffect(msg)),
       poolSize: topology.requestPoolSize,
       hasResourceLoader: topology.resourceLoader !== null,
+      compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
+      getDocumentVersion,
     },
     logger,
   );
@@ -1063,6 +1203,7 @@ export function makeTransportDispatcher(
   topology: TransportTopology,
   logger: LoggerInterface,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ) {
   return createDispatcher(
     {
@@ -1072,15 +1213,15 @@ export function makeTransportDispatcher(
         Effect.runPromise(
           topology.transport.dispatch(topology.requestPool, msg),
         ),
-      sendToCompilation: (msg) =>
-        Effect.runPromise(topology.transport.send(topology.compilation, msg)),
       sendBatch: (msg) =>
         Effect.runPromise(
           topology.transport.send(topology.dataOwner, msg),
         ) as Promise<{ processedCount: number }>,
       poolSize: topology.requestPool.size,
       hasResourceLoader: topology.resourceLoader !== null,
+      compilationPoolSize: topology.compilationPoolSize,
       getDocumentContent,
+      getDocumentVersion,
     },
     logger,
   );
@@ -1162,7 +1303,7 @@ function buildDataOwnerMessage(
 function buildCompileMessage(
   type: LSPRequestType,
   params: unknown,
-): CompilationRequest {
+): CompileDocument {
   const p = params as DocumentEventParams;
   const uri = p.document?.uri ?? p.textDocument?.uri ?? '';
   const content = p.document?.getText?.() ?? p.text ?? '';
@@ -1176,14 +1317,17 @@ function buildLspRequestMessage(
   type: LSPRequestType,
   params: unknown,
   getDocumentContent?: (uri: string) => string | undefined,
+  getDocumentVersion?: (uri: string) => number | undefined,
 ): LspRequestMessage {
   const p = params as EnrichmentParams;
+  const documentVersion = getDocumentVersion?.(p.textDocument.uri);
   switch (type) {
     case 'hover':
       return new DispatchHover({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
+        documentVersion,
       });
     case 'completion': {
       const c = p as PositionBasedParams & {
@@ -1193,6 +1337,7 @@ function buildLspRequestMessage(
         textDocument: { uri: c.textDocument.uri },
         position: c.position,
         content: getDocumentContent?.(c.textDocument.uri),
+        documentVersion,
         ...(c.context ? { context: c.context } : {}),
       });
     }
@@ -1201,6 +1346,7 @@ function buildLspRequestMessage(
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
         content: getDocumentContent?.(p.textDocument.uri),
+        documentVersion,
       });
     case 'signatureHelp': {
       const s = p as PositionBasedParams & { context?: unknown };
@@ -1208,6 +1354,7 @@ function buildLspRequestMessage(
         textDocument: { uri: s.textDocument.uri },
         position: s.position,
         content: getDocumentContent?.(s.textDocument.uri),
+        documentVersion,
         ...(s.context !== undefined ? { context: s.context } : {}),
       });
     }
@@ -1246,6 +1393,7 @@ function buildLspRequestMessage(
       return new DispatchImplementation({
         textDocument: { uri: p.textDocument.uri },
         position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'documentSymbol':
       return new DispatchDocumentSymbol({
@@ -1264,6 +1412,7 @@ function buildLspRequestMessage(
     case 'diagnostics':
       return new DispatchDiagnostic({
         textDocument: { uri: p.textDocument.uri },
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'crossFileEnrichment':
       return new DispatchCrossFileEnrichment({

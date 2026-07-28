@@ -2168,6 +2168,48 @@ public class RecordTypeModel {}`;
   });
 
   describe('Hover Fixes - this.methodName() expressions', () => {
+    it('should show the containing type when hovering directly on this', async () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const hoverTestClassPath = join(fixturesDir, 'HoverTestClass.cls');
+      const hoverTestClassContent = readFileSync(hoverTestClassPath, 'utf8');
+      const document = TextDocument.create(
+        'file:///HoverTestClass.cls',
+        'apex',
+        1,
+        hoverTestClassContent,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      const result = new CompilerService().compile(
+        hoverTestClassContent,
+        'file:///HoverTestClass.cls',
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          result.result!,
+          'file:///HoverTestClass.cls',
+        ),
+      );
+
+      const lines = hoverTestClassContent.split('\n');
+      const lineIndex = lines.findIndex((line) => line.includes('this.'));
+      const hover = await hoverService.processHover({
+        textDocument: { uri: 'file:///HoverTestClass.cls' },
+        position: {
+          line: lineIndex,
+          character: lines[lineIndex].indexOf('this') + 1,
+        },
+      });
+      const content =
+        typeof hover?.contents === 'object' && 'value' in hover.contents
+          ? hover.contents.value
+          : '';
+
+      expect(content).toContain('HoverTestClass');
+    });
+
     it('should provide hover information for method name in this.methodName() expression', async () => {
       const fixturesDir = join(__dirname, '../fixtures/classes');
       const hoverTestClassPath = join(fixturesDir, 'HoverTestClass.cls');
