@@ -74,6 +74,7 @@ export * from './utils/effectUtils';
 export * from './utils/UnifiedCache';
 export * from './utils/expressionRangeFinder';
 export * from './utils/methodCallAtRange';
+export * from './utils/expressionTypeInference';
 export * from './utils/codeActionParse';
 
 // Export cross-file symbol management

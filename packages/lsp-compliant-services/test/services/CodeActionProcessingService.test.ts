@@ -443,10 +443,52 @@ describe('CodeActionProcessingService', () => {
       const edits = action?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
       // First edit inserts a declaration; second replaces the selection.
-      expect(edits?.[0].newText).toMatch(/Object v1 = 1 \+ 2;/);
+      // Type is inferred (story 01.1): `1 + 2` promotes to Integer.
+      expect(edits?.[0].newText).toMatch(/Integer v1 = 1 \+ 2;/);
       expect(edits?.[0].newText.endsWith('\n')).toBe(true);
       expect(edits?.[1].newText).toBe('v1');
       expect(edits?.[1].range).toEqual(params.range);
+    });
+
+    it('infers a constructed (new) type for Extract local variable', async () => {
+      // Story 01.1: `new Account()` -> Account, replacing the Object placeholder.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Account a = new Account();',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, 'new Account()');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits?.[0].newText).toMatch(/Account v1 = new Account\(\);/);
+      // The old Object placeholder / TODO comment is gone.
+      expect(edits?.[0].newText).not.toMatch(/Object/);
+      expect(edits?.[0].newText).not.toMatch(/TODO/);
+    });
+
+    it('falls back to Object when the type cannot be inferred', async () => {
+      // Story 01.1: a chained/qualified access is deferred to the cross-file
+      // seam (absent in this same-file test) -> Object fallback, no TODO noise.
+      const source = [
+        'public class Extract {',
+        '  public void doWork() {',
+        '    Object x = foo.bar.baz;',
+        '  }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, 'foo.bar.baz');
+
+      const result = await service.processCodeAction(params);
+      const action = findAction(result, 'Extract local variable');
+
+      const edits = action?.edit?.changes?.[uri];
+      expect(edits?.[0].newText).toMatch(/Object v1 = foo\.bar\.baz;/);
+      expect(edits?.[0].newText).not.toMatch(/TODO/);
     });
 
     /**
@@ -462,9 +504,9 @@ describe('CodeActionProcessingService', () => {
       const edits = action?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
       const declaration = edits![0].newText;
-      const captured = declaration.match(
-        /Object v\d+ = ([\s\S]+?); \/\/ TODO/,
-      )?.[1];
+      // Declaration is `<indent><Type> v<n> = <expr>;\n`; capture <expr>.
+      // <Type> is the inferred Apex type (story 01.1), no longer always Object.
+      const captured = declaration.match(/^\s*\S+ v\d+ = ([\s\S]+?);\s*$/)?.[1];
       expect(captured).toBeDefined();
       expect(edits![1].newText).toBe('v1');
       const doc = TextDocument.create(uri, 'apex', 1, source);
@@ -565,8 +607,9 @@ describe('CodeActionProcessingService', () => {
       expect(constant?.kind).toBe(CodeActionKind.RefactorExtract);
       const edits = constant?.edit?.changes?.[uri];
       expect(edits).toHaveLength(2);
+      // Type is inferred (story 01.1): a string literal -> String.
       expect(edits?.[0].newText).toMatch(
-        /private static final Object v1 = 'hello';/,
+        /private static final String v1 = 'hello';/,
       );
       expect(edits?.[1].newText).toBe('v1');
     });
@@ -585,8 +628,9 @@ describe('CodeActionProcessingService', () => {
       const constant = findAction(result, 'Extract constant');
 
       expect(constant).toBeDefined();
+      // `-5` is a prefix-of-literal integer -> Integer (story 01.1).
       expect(constant?.edit?.changes?.[uri]?.[0].newText).toMatch(
-        /private static final Object v1 = -5;/,
+        /private static final Integer v1 = -5;/,
       );
     });
 
@@ -609,10 +653,12 @@ describe('CodeActionProcessingService', () => {
 
     /**
      * The extracted constant's leading indentation (the whitespace before the
-     * `private ... final` modifiers on the inserted line) must equal the class
-     * declaration's physical line indent plus one indent unit — NOT a value
-     * derived from the `class` keyword's column (which shifts with
-     * visibility/sharing modifiers). Returns that leading indent.
+     * `private ... final` modifiers on the inserted line) must match the
+     * existing member indentation — measured from the enclosing member's
+     * physical line indent, so it reflects the file's actual indent width
+     * (two spaces, four spaces, tabs, ...) rather than a fixed unit or the
+     * `class` keyword's column (which shifts with visibility/sharing
+     * modifiers). Returns that leading indent.
      */
     const constantIndentOf = (action: CodeAction | undefined): string => {
       expect(action).toBeDefined();
@@ -636,14 +682,15 @@ describe('CodeActionProcessingService', () => {
       const result = await service.processCodeAction(params);
       const constant = findAction(result, 'Extract constant');
 
-      // Top-level class at column 0 -> members indent exactly one unit.
+      // Members here are indented two spaces, so the constant matches at two.
       expect(constantIndentOf(constant)).toBe('  ');
     });
 
     it('indents the constant one level despite sharing/visibility modifiers', async () => {
       // Regression (W-23544057): indent was derived from the `class` keyword's
       // column, so `public with sharing class` produced ~18+ spaces of leading
-      // whitespace. The physical class-line indent is 0, so one unit is correct.
+      // whitespace. Measuring the sibling member's physical line indent (two
+      // spaces here) is correct regardless of the modifiers before `class`.
       const source = [
         'public with sharing class Extract {',
         '  public void doWork() {',
@@ -674,7 +721,26 @@ describe('CodeActionProcessingService', () => {
       const result = await service.processCodeAction(params);
       const constant = findAction(result, 'Extract constant');
 
-      // Inner class line is indented two spaces; member adds one more unit.
+      // The inner member (`    public void doWork()`) is indented four spaces,
+      // so the constant matches at four.
+      expect(constantIndentOf(constant)).toBe('    ');
+    });
+
+    it('matches four-space member indentation under a top-level class', async () => {
+      // Real-world Apex commonly indents members four spaces; the constant must
+      // line up with the members rather than assume a two-space unit.
+      const source = [
+        'public with sharing class Extract {',
+        '    public void doWork() {',
+        "        String greeting = 'hello';",
+        '    }',
+        '}',
+      ].join('\n');
+      const { params } = setupDocument(source, "'hello'");
+
+      const result = await service.processCodeAction(params);
+      const constant = findAction(result, 'Extract constant');
+
       expect(constantIndentOf(constant)).toBe('    ');
     });
 
@@ -695,7 +761,8 @@ describe('CodeActionProcessingService', () => {
 
       expect(constant).toBeDefined();
       const newText = constant?.edit?.changes?.[uri]?.[0].newText ?? '';
-      expect(newText).toMatch(/private final Object v1 = 'hi';/);
+      // Type is inferred (story 01.1): a string literal -> String.
+      expect(newText).toMatch(/private final String v1 = 'hi';/);
       expect(newText).not.toMatch(/static/);
     });
 

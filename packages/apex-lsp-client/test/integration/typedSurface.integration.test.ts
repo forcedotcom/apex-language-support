@@ -56,6 +56,7 @@ describeIntegration('typed apex/* surface integration', () => {
     // a response (success or error) without throwing a transport error.
     try {
       const response = await result.core.sendWorkspaceBatch({
+        sessionId: 'integration-session',
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,

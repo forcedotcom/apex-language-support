@@ -7,7 +7,8 @@
  */
 
 import { CompilerService, RawParseTree } from '../parser/compilerService';
-import { ApexFoldingRangeListener } from '../parser/listeners/ApexFoldingRangeListener';
+import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
+import { SymbolTable } from '../types/symbol';
 import {
   ConstantExtraction,
   ExpressionAtRange,
@@ -15,28 +16,42 @@ import {
   findExpressionAtRange,
   LspRange,
 } from './expressionRangeFinder';
+import {
+  inferExpressionType,
+  InferExpressionTypeOptions,
+} from './expressionTypeInference';
 import { findMethodCallAtRange, MethodCallAtRange } from './methodCallAtRange';
 
 /**
  * Opaque, parsed-once handle for the code-action finders.
  *
  * Produced by {@link parseForCodeActions} and passed back into the range-based
- * accessors ({@link findExpressionForCodeAction}, etc.). The parse tree is held
- * privately so the language-server layer never sees an ANTLR type nor decides
- * which listener / compile options to use — that orchestration lives here, next
- * to the finders that consume it.
+ * accessors ({@link findExpressionForCodeAction}, etc.). The parse tree and
+ * symbol table are held privately so the language-server layer never sees an
+ * ANTLR type nor decides which listener / compile options to use — that
+ * orchestration lives here, next to the finders that consume it.
  */
 export interface CodeActionParseContext {
   /** @internal Cached CST; not for consumption outside this module's accessors. */
   readonly parseTree: RawParseTree | undefined;
+  /**
+   * @internal Same-file symbol table from the single parse; consumed by
+   * {@link inferTypeForCodeAction} for expression type inference. Not for
+   * consumption outside this module's accessors.
+   */
+  readonly symbolTable: SymbolTable | undefined;
 }
 
 /**
- * Parse `text` (Apex source for `uri`) into the CST the code-action finders
- * need, exactly once. Owns the {@link CompilerService} construction, the
- * throwaway {@link ApexFoldingRangeListener} (used purely to obtain
- * `CompilationResult.parseTree`), and the compile options — knowledge that used
- * to leak into the LS layer.
+ * Parse `text` (Apex source for `uri`) into the CST and same-file symbol table
+ * the code-action finders need, exactly once. Owns the {@link CompilerService}
+ * construction, the {@link ApexSymbolCollectorListener} (which yields both the
+ * `parseTree` and a `SymbolTable` in one walk), and the compile options —
+ * knowledge that used to leak into the LS layer.
+ *
+ * The symbol table powers expression type inference (story 01.1); same-file
+ * references are resolved so variable/parameter/field declarations carry their
+ * declared types.
  *
  * Returns `null` (never throws) on parse failure so callers simply degrade to
  * "no code actions offered". The returned handle is opaque: pass it to the
@@ -53,10 +68,16 @@ export const parseForCodeActions = (
     const result = new CompilerService().compile(
       text,
       uri,
-      new ApexFoldingRangeListener(),
-      { includeComments: false },
+      new ApexSymbolCollectorListener(),
+      {
+        includeComments: false,
+        collectReferences: true,
+        resolveReferences: true,
+      },
     );
-    return { parseTree: result.parseTree };
+    const symbolTable =
+      result.result instanceof SymbolTable ? result.result : undefined;
+    return { parseTree: result.parseTree, symbolTable };
   } catch {
     // Resilient: a broken parse yields no code actions, never an exception.
     return null;
@@ -119,3 +140,24 @@ export const findMethodCallForCodeAction = (
   range: LspRange,
 ): MethodCallAtRange | null =>
   context ? findMethodCallAtRange(context.parseTree, range) : null;
+
+/**
+ * Infer the Apex type of an expression already located via
+ * {@link findExpressionForCodeAction}, using the single parse's same-file symbol
+ * table. Returns the correctly-cased type name (e.g. `Integer`, `String`,
+ * `Account`) for the Extract Variable / Extract Constant declaration, or `null`
+ * when the type cannot be resolved (the caller falls back to `Object`).
+ *
+ * The `ExpressionAtRange` handle stays opaque to the caller — only this module
+ * reads its private `expression`. Cross-file resolution enters through the
+ * optional {@link InferExpressionTypeOptions.lookupCrossFileType} seam; when
+ * omitted, resolution is same-file only.
+ */
+export const inferTypeForCodeAction = (
+  context: CodeActionParseContext | null | undefined,
+  found: ExpressionAtRange | null | undefined,
+  options: InferExpressionTypeOptions = {},
+): string | null =>
+  context && found
+    ? inferExpressionType(found.expression, context.symbolTable, options)
+    : null;
