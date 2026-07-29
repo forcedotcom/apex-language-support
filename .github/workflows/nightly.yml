@@ -27,7 +27,9 @@ permissions:
 
 jobs:
   nightly-release:
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@main
+    # TEMP: point at fix branch to test resolve-changed-extensions fix (salesforcecli/github-workflows#165).
+    # Revert to @main once that PR merges.
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@fix/vscode-publish-resolve-changed-extensions
     with:
       branch: ${{ github.event.inputs.branch || 'main' }}
       # Use 'changed' to automatically detect extensions with changes since last release
