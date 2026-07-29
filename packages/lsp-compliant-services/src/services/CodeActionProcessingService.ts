@@ -27,6 +27,7 @@ import {
   findExpressionForCodeAction,
   findConstantExtractionFromExpression,
   findMethodCallForCodeAction,
+  inferTypeForCodeAction,
   CodeActionParseContext,
   ConstantExtraction,
   ApexSymbol,
@@ -319,6 +320,17 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     const variableName = this.generateExtractName(text);
 
+    // Infer the declared type over the single parse's same-file symbol table
+    // (story 01.1). Falls back to `Object` when the type cannot be resolved
+    // (e.g. cross-file member access, which the cross-file seam handles later).
+    let inferredType: string | null = null;
+    try {
+      inferredType = inferTypeForCodeAction(context.parseContext, found);
+    } catch (error) {
+      this.logger.debug(() => `Extract type inference error: ${error}`);
+    }
+    const declaredType = inferredType ?? FALLBACK_TYPE;
+
     const variableAction = this.buildExtractVariableAction(
       context,
       text,
@@ -327,6 +339,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       exprText,
       variableName,
       exprRange,
+      declaredType,
     );
     if (variableAction) {
       actions.push(variableAction);
@@ -345,6 +358,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
         exprText,
         variableName,
         exprRange,
+        declaredType,
       );
       if (constantAction) {
         actions.push(constantAction);
@@ -362,8 +376,8 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    *      the enclosing statement's line, and
    *   2. a replacement of the selected range with `<name>`.
    *
-   * Type inference is a separate story (01.1); until then the declared type
-   * falls back to `Object` and a trailing comment documents the limitation.
+   * `declaredType` is the inferred Apex type (story 01.1); it is `Object` when
+   * the type could not be resolved from same-file information.
    */
   private buildExtractVariableAction(
     context: CodeActionContext,
@@ -373,6 +387,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     exprText: string,
     variableName: string,
     exprRange: Range,
+    declaredType: string,
   ): CodeAction | null {
     const insertPosition = context.document.positionAt(statementStart);
     // Anchor the insertion at the very start of the statement's line so the new
@@ -382,7 +397,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       character: 0,
     };
 
-    const declaration = `${indent}Object ${variableName} = ${exprText}; // TODO: infer type (was Object)\n`;
+    const declaration = `${indent}${declaredType} ${variableName} = ${exprText};\n`;
 
     const insertEdit: TextEdit = {
       range: { start: lineStart, end: lineStart },
@@ -407,11 +422,13 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   /**
    * Build the Extract Constant WorkspaceEdit.
    *
-   * Inserts `<modifiers> Object <name> = <exprText>;` at class-body level,
-   * directly under the enclosing class declaration's opening brace, and replaces
-   * the selection with `<name>`. Top-level classes use `private static final`;
-   * inner classes use `private final` (Apex/Jorje disallows `static` on inner
-   * members). Returns `null` when the enclosing class body cannot be located.
+   * Inserts `<modifiers> <declaredType> <name> = <exprText>;` at class-body
+   * level, directly under the enclosing class declaration's opening brace, and
+   * replaces the selection with `<name>`. Top-level classes use `private static
+   * final`; inner classes use `private final` (Apex/Jorje disallows `static` on
+   * inner members). `declaredType` is the inferred Apex type (story 01.1),
+   * `Object` when it could not be resolved. Returns `null` when the enclosing
+   * class body cannot be located.
    */
   private buildExtractConstantAction(
     context: CodeActionContext,
@@ -419,14 +436,15 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     exprText: string,
     variableName: string,
     exprRange: Range,
+    declaredType: string,
   ): CodeAction | null {
     const modifiers = insertion.isInner
       ? 'private final'
       : 'private static final';
     const insertPosition = context.document.positionAt(insertion.insertOffset);
     const declaration =
-      `\n${insertion.indent}${modifiers} Object ${variableName} = ` +
-      `${exprText}; // TODO: infer type (was Object)`;
+      `\n${insertion.indent}${modifiers} ${declaredType} ${variableName} = ` +
+      `${exprText};`;
 
     const insertEdit: TextEdit = {
       range: { start: insertPosition, end: insertPosition },

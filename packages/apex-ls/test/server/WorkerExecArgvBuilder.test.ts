@@ -80,12 +80,61 @@ describe('buildWorkerExecArgv', () => {
     expect(execArgv).toEqual(['--inspect=0']);
   });
 
-  it('passes through --max-old-space-size', () => {
-    const { execArgv } = buildWorkerExecArgv({
+  // --max-old-space-size is NOT a legal worker_threads execArgv flag; the
+  // Worker constructor throws "invalid execArgv flags" on it. It must be
+  // surfaced as a resourceLimits.maxOldGenerationSizeMb value instead, and
+  // only for the data owner (the worker whose heap actually scales with the
+  // workspace symbol graph).
+  it('never passes --max-old-space-size through to execArgv', () => {
+    for (const role of [
+      'dataOwner',
+      'lspRequest',
+      'resourceLoader',
+      'compiler',
+    ] as const) {
+      const { execArgv } = buildWorkerExecArgv({
+        role,
+        parentExecArgv: ['--max-old-space-size=4096'],
+      });
+      expect(execArgv).not.toContain('--max-old-space-size=4096');
+      expect(execArgv).toEqual([]);
+    }
+  });
+
+  it('surfaces --max-old-space-size as maxOldGenerationSizeMb for dataOwner', () => {
+    const result = buildWorkerExecArgv({
       role: 'dataOwner',
-      parentExecArgv: ['--max-old-space-size=4096'],
+      parentExecArgv: ['--max-old-space-size=12288'],
     });
-    expect(execArgv).toEqual(['--max-old-space-size=4096']);
+    expect(result.maxOldGenerationSizeMb).toBe(12288);
+    expect(result.execArgv).toEqual([]);
+  });
+
+  it('omits maxOldGenerationSizeMb for non-dataOwner roles', () => {
+    for (const role of ['lspRequest', 'resourceLoader', 'compiler'] as const) {
+      const result = buildWorkerExecArgv({
+        role,
+        parentExecArgv: ['--max-old-space-size=12288'],
+      });
+      expect(result.maxOldGenerationSizeMb).toBeUndefined();
+    }
+  });
+
+  it('leaves maxOldGenerationSizeMb undefined when no heap flag is present', () => {
+    const result = buildWorkerExecArgv({
+      role: 'dataOwner',
+      parentExecArgv: ['--enable-source-maps'],
+    });
+    expect(result.maxOldGenerationSizeMb).toBeUndefined();
+  });
+
+  it('ignores a malformed --max-old-space-size value', () => {
+    const result = buildWorkerExecArgv({
+      role: 'dataOwner',
+      parentExecArgv: ['--max-old-space-size=not-a-number'],
+    });
+    expect(result.maxOldGenerationSizeMb).toBeUndefined();
+    expect(result.execArgv).toEqual([]);
   });
 
   it('passes through --enable-source-maps and --nolazy', () => {
@@ -98,7 +147,7 @@ describe('buildWorkerExecArgv', () => {
 
   it('handles a full combination of flags', () => {
     const result = buildWorkerExecArgv({
-      role: 'resourceLoader',
+      role: 'dataOwner',
       parentExecArgv: [
         '--nolazy',
         '--inspect=6009',
@@ -108,15 +157,17 @@ describe('buildWorkerExecArgv', () => {
         '--max-old-space-size=2048',
       ],
     });
+    // --max-old-space-size is stripped from execArgv (illegal for workers)
+    // and surfaced separately as a resourceLimits value.
     expect(result.execArgv).toEqual([
       '--nolazy',
       '--inspect=0',
       '--cpu-prof',
-      '--cpu-prof-dir=/tmp/p/resourceLoader',
+      '--cpu-prof-dir=/tmp/p/dataOwner',
       '--enable-source-maps',
-      '--max-old-space-size=2048',
     ]);
-    expect(result.profileDirs).toEqual(['/tmp/p/resourceLoader']);
+    expect(result.maxOldGenerationSizeMb).toBe(2048);
+    expect(result.profileDirs).toEqual(['/tmp/p/dataOwner']);
   });
 
   it('defaults to process.execArgv when parentExecArgv is not provided', () => {

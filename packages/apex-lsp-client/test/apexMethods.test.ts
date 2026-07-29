@@ -97,6 +97,7 @@ describe('ApexMethods typed surface', () => {
     it('sendWorkspaceBatch sends apex/sendWorkspaceBatch', async () => {
       const core = await ApexClientCore.create(connection);
       const params = {
+        sessionId: 'test-session',
         batchIndex: 0,
         totalBatches: 1,
         isLastBatch: true,
@@ -117,7 +118,7 @@ describe('ApexMethods typed surface', () => {
 
     it('processWorkspaceBatches sends apex/processWorkspaceBatches', async () => {
       const core = await ApexClientCore.create(connection);
-      const params = { totalBatches: 5 };
+      const params = { sessionId: 'test-session', totalBatches: 5 };
 
       await core.processWorkspaceBatches(params);
 

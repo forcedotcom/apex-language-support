@@ -23,19 +23,37 @@ function isPassthroughFlag(flag: string): boolean {
 }
 
 /**
+ * Roles whose heap should track the user's `jsHeapSizeGB` setting.
+ *
+ * Only the data owner holds state that scales with workspace size (the full
+ * symbol graph), so it is the sole worker that inherits the custom heap limit.
+ * Enrichment (lspRequest) workers hold bounded per-request symbol subsets, the
+ * resource loader holds the fixed-size stdlib, and compilation sub-workers
+ * process one file at a time — none of them benefit from a larger heap, and
+ * applying it to every worker would over-commit system memory.
+ */
+const HEAP_LIMITED_ROLES = new Set<string>(['dataOwner']);
+
+/**
  * Collects role-specific profile output directories that need to be
  * created before the worker starts. The caller is responsible for
  * creating them (the builder is pure — no fs side effects).
+ *
+ * `maxOldGenerationSizeMb`, when present, must be passed to the Worker
+ * constructor via `resourceLimits` — NOT as a `--max-old-space-size` execArgv
+ * flag, which `worker_threads` rejects as an "invalid execArgv flag".
  */
 export interface BuildResult {
   readonly execArgv: string[];
   readonly profileDirs: string[];
+  readonly maxOldGenerationSizeMb?: number;
 }
 
 export function buildWorkerExecArgv(opts: WorkerExecArgvOptions): BuildResult {
   const parentArgv = opts.parentExecArgv ?? process.execArgv;
   const execArgv: string[] = [];
   const profileDirs: string[] = [];
+  let maxOldGenerationSizeMb: number | undefined;
 
   for (const arg of parentArgv) {
     if (isPassthroughFlag(arg)) {
@@ -65,10 +83,19 @@ export function buildWorkerExecArgv(opts: WorkerExecArgvOptions): BuildResult {
     }
 
     if (arg.startsWith('--max-old-space-size=')) {
-      execArgv.push(arg);
+      // `--max-old-space-size` is rejected by the Worker constructor as an
+      // invalid execArgv flag, so it must NOT be forwarded. Translate it into
+      // a resourceLimits value, and only for roles whose heap should scale
+      // with the workspace (see HEAP_LIMITED_ROLES).
+      if (HEAP_LIMITED_ROLES.has(opts.role)) {
+        const mb = Number(arg.slice('--max-old-space-size='.length));
+        if (Number.isFinite(mb) && mb > 0) {
+          maxOldGenerationSizeMb = mb;
+        }
+      }
       continue;
     }
   }
 
-  return { execArgv, profileDirs };
+  return { execArgv, profileDirs, maxOldGenerationSizeMb };
 }
