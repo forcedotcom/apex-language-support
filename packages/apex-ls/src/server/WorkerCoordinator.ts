@@ -42,6 +42,7 @@ import {
   DispatchSignatureHelp,
   DispatchCodeAction,
   DispatchReferences,
+  DispatchRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
@@ -751,7 +752,10 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   implementation: 'requestPool',
   prerequisiteEnrichment: 'coordinatorOnly',
   references: 'requestPool',
-  rename: 'coordinatorOnly',
+  // Rename reads the workspace-wide symbol graph to collect cross-file
+  // occurrences (like references), so it runs on the enrichment pool — not the
+  // coordinator, whose local store only holds opened files.
+  rename: 'requestPool',
   resolve: 'coordinatorOnly',
   signatureHelp: 'requestPool',
   // workspaceSymbol stays coordinator-only: it is workspace-wide, not
@@ -1388,6 +1392,18 @@ function buildLspRequestMessage(
         // isn't empty (same as documentSymbol). Without it find-references
         // returns [] on the pool.
         content: getDocumentContent?.(r.textDocument.uri),
+      });
+    }
+    case 'rename': {
+      const rn = p as PositionBasedParams & { newName: string };
+      return new DispatchRename({
+        textDocument: { uri: rn.textDocument.uri },
+        position: rn.position,
+        newName: rn.newName,
+        // Same as DispatchReferences: the pool worker resolves the cursor to a
+        // symbol via its local document, so carry the live text or the rename
+        // scan finds nothing on the pool.
+        content: getDocumentContent?.(rn.textDocument.uri),
       });
     }
     case 'implementation':

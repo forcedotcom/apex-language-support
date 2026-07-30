@@ -693,8 +693,14 @@ export class LSPQueueManager {
   /**
    * Submit a rename request
    */
-  async submitRenameRequest(params: any): Promise<any> {
-    return this.submitRequest('rename', params, { priority: Priority.Low });
+  async submitRenameRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
+    return this.submitRequest('rename', params, {
+      priority: Priority.Low,
+      token,
+    });
   }
 
   /**

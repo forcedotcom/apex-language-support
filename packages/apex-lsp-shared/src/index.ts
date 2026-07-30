@@ -473,6 +473,7 @@ export {
   DispatchSignatureHelp,
   DispatchCodeAction,
   DispatchReferences,
+  DispatchRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
