@@ -2420,6 +2420,25 @@ function emitWorkerLog(level: string, message: string): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Identifier coordinates in parser space (1-based line, 0-based column).
+ */
+export type OccurrenceRange = {
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+};
+
+/**
+ * A single occurrence of a symbol: the file URI plus the matched identifier's
+ * range (parser coordinates). Shared by find-references and rename.
+ */
+export type CursorOccurrence = {
+  uri: string;
+  identifierRange: OccurrenceRange;
+};
+
+/**
  * Phase-2 of find-references (W-23272674, standalone-scan pivot): given the
  * candidate files surfaced by the phase-1 lexical prefilter, parse EACH ONE at
  * full detail into its OWN throwaway SymbolTable and scan that table for
@@ -2441,17 +2460,7 @@ function emitWorkerLog(level: string, message: string): void {
 export async function scanCandidatesForOccurrences(
   candidates: Array<{ uri: string; content: string }>,
   target: { name: string; kind?: string },
-): Promise<
-  Array<{
-    uri: string;
-    identifierRange: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    };
-  }>
-> {
+): Promise<CursorOccurrence[]> {
   const {
     CompilerService,
     FullSymbolCollectorListener,
@@ -2459,15 +2468,7 @@ export async function scanCandidatesForOccurrences(
     findOccurrencesInFile,
   } = await import('@salesforce/apex-lsp-parser-ast');
 
-  const out: Array<{
-    uri: string;
-    identifierRange: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    };
-  }> = [];
+  const out: CursorOccurrence[] = [];
 
   // De-dupe candidate URIs so a file mentioned twice is scanned once.
   const seen = new Set<string>();
@@ -2561,12 +2562,7 @@ export async function targetSymbolForCursor(
  */
 type DeclarationLocation = {
   uri: string;
-  identifierRange: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
+  identifierRange: OccurrenceRange;
 };
 
 /**
@@ -2622,6 +2618,112 @@ export async function declarationLocationForCursor(
   } catch {
     return null;
   }
+}
+
+/**
+ * The resolved target symbol plus every occurrence of it across the workspace,
+ * as produced by {@link resolveOccurrencesForCursor}. `null` occurrences here
+ * never happen — the helper returns the whole struct as `null` instead — but
+ * the shape keeps target + occurrences together for the caller.
+ */
+export type CursorOccurrenceResolution = {
+  target: { name: string; kind?: string };
+  occurrences: CursorOccurrence[];
+};
+
+/**
+ * Shared cursor→occurrences core for the workspace-wide two-phase scan
+ * (W-23272674), reused by find-references and rename (W-23631073). Runs the
+ * kind-agnostic stages that both features need, in order:
+ *
+ *   1. recompile the cursor file at full detail (so in-body usages resolve),
+ *      aborting when there's no text to compile;
+ *   2. resolve the cursor position → target symbol name + kind
+ *      ({@link targetSymbolForCursor});
+ *   3. phase-1 lexical prefilter of the workspace via the data-owner
+ *      (`FindOccurrenceCandidates`), overriding the cursor file's candidate
+ *      content with the live editor buffer for fidelity;
+ *   4. phase-2 standalone parse + reference scan over each candidate
+ *      ({@link scanCandidatesForOccurrences}).
+ *
+ * Returns the target + its occurrences, or `null` when the cursor can't be
+ * resolved (no text / no target). Result assembly is deliberately left to the
+ * caller: find-references maps occurrences to an LSP `Location[]` (and adds the
+ * declaration when `includeDeclaration` is set); rename builds a
+ * `WorkspaceEdit`. Neither the declaration lookup nor `includeDeclaration`
+ * lives here — they are references-specific.
+ */
+export async function resolveOccurrencesForCursor(
+  svc: RequestServices,
+  req: PositionReq,
+  logPrefix = 'OCCURRENCES',
+): Promise<CursorOccurrenceResolution | null> {
+  // --- Stage 1: recompile the cursor file at full detail.
+  const cursorTextAvailable = typeof req.content === 'string';
+  const cursorRecompiled = await recompileCursorFileAtFullDetail(
+    svc,
+    req.textDocument.uri,
+    req.content,
+  );
+
+  // With no document text the cursor file stays at public-api detail and the
+  // position→symbol lookup cannot succeed; abort rather than mislead.
+  if (!cursorRecompiled && !cursorTextAvailable) {
+    getLogger().warn(
+      () =>
+        `[${logPrefix}] No document text for ${req.textDocument.uri}; ` +
+        'cursor file cannot be recompiled at full detail, so position ' +
+        'resolution cannot succeed. Aborting with no result.',
+    );
+    return null;
+  }
+
+  // --- Stage 2: resolve the target symbol under the cursor.
+  const target = await targetSymbolForCursor(
+    svc,
+    req.textDocument.uri,
+    req.position,
+  );
+  emitWorkerLog(
+    'info',
+    `[${logPrefix}] target: name=${target?.name ?? '<none>'} ` +
+      `kind=${target?.kind ?? '<none>'}`,
+  );
+  if (!target?.name) return null;
+
+  // --- Stage 3: phase-1 lexical prefilter of the workspace.
+  const scan = (await requestCoordinatorAssistancePromiseShared(
+    'dataOwner:FindOccurrenceCandidates',
+    { symbolName: target.name },
+    true,
+  )) as { candidates: Array<{ uri: string; content: string }> };
+  const rawCandidates = scan?.candidates ?? [];
+
+  // Live-buffer fidelity for the file under the cursor: phase-1 and phase-2
+  // both scan the data-owner's STORED content, which can lag the unsaved editor
+  // buffer. `req.content` is the live text for the cursor file, so override
+  // that one candidate's content with it (matched by URI). Other files keep
+  // their stored content. Safe for phase-2, which parses each candidate's
+  // `content` standalone (see scanCandidatesForOccurrences).
+  const candidates =
+    typeof req.content === 'string'
+      ? rawCandidates.map((c) =>
+          c.uri === req.textDocument.uri
+            ? { ...c, content: req.content as string }
+            : c,
+        )
+      : rawCandidates;
+  emitWorkerLog('info', `[${logPrefix}] candidates: ${candidates.length}`);
+
+  // --- Stage 4: phase-2 standalone parse + reference scan.
+  const occurrences = await scanCandidatesForOccurrences(candidates, target);
+  emitWorkerLog(
+    'info',
+    `[${logPrefix}] phase2: ${occurrences.length} occurrence(s) across ` +
+      `${candidates.length} candidate(s)`,
+  );
+
+  return { target: { name: target.name, kind: target.kind }, occurrences };
 }
 
 // ---------------------------------------------------------------------------
@@ -2813,80 +2915,25 @@ const requestHandlers = {
       // Find-references (W-23272674) runs a workspace-wide, two-phase scan:
       //   phase-1 (data-owner): cheap lexical prefilter of all stored workspace
       //     documents for the target name → candidate {uri, content};
-      //   phase-2 (here): parse each candidate STANDALONE and scan its own
-      //     references for genuine usages of the target — no shared-graph
-      //     ingest (see scanCandidatesForOccurrences / memory
+      //   phase-2: parse each candidate STANDALONE and scan its own references
+      //     for genuine usages of the target — no shared-graph ingest (see
+      //     scanCandidatesForOccurrences / memory
       //     project-findreferences-standalone-pivot).
       // The cursor file still needs a full-detail recompile so the TARGET under
       // the cursor resolves to a name + kind (the data-owner serves public-api
       // detail, bodies stripped). That single recompile is bounded and stable;
       // the former per-candidate ingest was the unbounded cost that timed out.
-      const cursorTextAvailable = typeof req.content === 'string';
-      const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      //
+      // Stages 1-4 (recompile → resolve target → prefilter → scan) are the
+      // kind-agnostic core shared with rename (W-23631073); this handler owns
+      // only the references-specific Location[] assembly below.
+      const resolved = await resolveOccurrencesForCursor(
         svc,
-        req.textDocument.uri,
-        req.content,
+        req,
+        'REFERENCES',
       );
-
-      // With no document text the cursor file stays at public-api detail and
-      // the position→symbol lookup cannot succeed; return an explicit empty
-      // result rather than a misleading no-match.
-      if (!cursorRecompiled && !cursorTextAvailable) {
-        getLogger().warn(
-          () =>
-            `[REFERENCES] No document text for ${req.textDocument.uri}; ` +
-            'cursor file cannot be recompiled at full detail, so position ' +
-            'resolution cannot succeed. Aborting with an empty result.',
-        );
-        return [];
-      }
-
-      // --- Phase-1: resolve the target, then lexically prefilter the workspace.
-      const target = await targetSymbolForCursor(
-        svc,
-        req.textDocument.uri,
-        req.position,
-      );
-      emitWorkerLog(
-        'info',
-        `[REFERENCES] target: name=${target?.name ?? '<none>'} ` +
-          `kind=${target?.kind ?? '<none>'}`,
-      );
-      if (!target?.name) return [];
-
-      const scan = (await requestCoordinatorAssistancePromiseShared(
-        'dataOwner:FindOccurrenceCandidates',
-        { symbolName: target.name },
-        true,
-      )) as { candidates: Array<{ uri: string; content: string }> };
-      const rawCandidates = scan?.candidates ?? [];
-
-      // Live-buffer fidelity for the file under the cursor: phase-1 and phase-2
-      // both scan the data-owner's STORED content, which can lag the unsaved
-      // editor buffer. `req.content` is the live text for the cursor file, so
-      // override that one candidate's content with it (matched by URI). Other
-      // files keep their stored content. Safe for phase-2, which parses each
-      // candidate's `content` standalone (see scanCandidatesForOccurrences).
-      const candidates =
-        typeof req.content === 'string'
-          ? rawCandidates.map((c) =>
-              c.uri === req.textDocument.uri
-                ? { ...c, content: req.content as string }
-                : c,
-            )
-          : rawCandidates;
-      emitWorkerLog('info', `[REFERENCES] candidates: ${candidates.length}`);
-
-      // --- Phase-2: standalone parse + reference scan over each candidate.
-      const occurrences = await scanCandidatesForOccurrences(
-        candidates,
-        target,
-      );
-      emitWorkerLog(
-        'info',
-        `[REFERENCES] phase2: ${occurrences.length} occurrence(s) across ` +
-          `${candidates.length} candidate(s)`,
-      );
+      if (!resolved) return [];
+      const { occurrences } = resolved;
 
       // Build the LSP result. Parser coordinates are 1-based line / 0-based
       // column; LSP is 0-based line, so subtract 1 from each line. De-dupe by
