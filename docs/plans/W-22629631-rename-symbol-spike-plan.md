@@ -13,7 +13,15 @@
 - Rename is currently routed `coordinatorOnly` in `WorkerCoordinator.ts` `DISPATCH_ROUTING` (~line 752), but the reference-finding it depends on runs on the request pool via a two-phase flow (coordinator lexical-prefilter → per-file standalone parse+scan in `worker.platform.shared.ts`). Decision: move `rename` to `requestPool` to reuse that flow directly.
 - Absorbs the rename-implementation portion of the former W-22629618 (AST/symbol-table semantics), closed/redistributed.
 
-This plan went through one round of adversarial review (plan-adversary agent) against the live codebase. Three of the original assumptions were wrong; corrections are folded into the phase plan below and flagged inline.
+This plan went through one round of adversarial review (plan-adversary agent) against the live codebase, then a second review against the jorje reference implementation (`~/git/apex-jorje/apex-jorje-lsp/src/main/java/apex/jorje/lsp/impl/rename/`) and LSP 3.17. Three of the original assumptions were wrong; corrections are folded into the phase plan below and flagged inline. The jorje pass surfaced several parity gaps — qualify-on-conflict rewriting, constructor→type dispatch, hierarchy-graph sequencing, prepareRename/capability ordering, and error-delivery mechanism — captured as cross-cutting decisions and folded into the affected phases.
+
+### Cross-cutting decisions from the jorje-parity pass
+
+- **Qualify-on-conflict (behavioral parity choice — affects Groups 3–5).** jorje does *not* only detect member-name conflicts and reject: when a rename would shadow an inner-class or ancestor static member, it **rewrites the reference to be fully qualified** (`this.newName` for instance, `OuterType.newName` for static) instead of erroring. See `RenameUtil.fieldNameRewrites`/`getFullyQualifiedName` and the inner-class conflict blocks in `FieldRenameHandler.getDocumentChanges` / `MethodRenameHandler.getDocumentChanges`. **Decision needed:** replicate jorje's qualify-on-conflict, or intentionally reject those cases. If we reject, that is a deliberate divergence from jorje and must be documented as such (this epic is "Jorje Parity"). Default recommendation: replicate, since rejecting turns a mechanical rename into a manual fix.
+- **Constructor rename dispatches to renameType, not renameMethod.** In jorje's `getRenameHandler`, a `METHOD` member with `isConstructor()` routes to `TypeRenameHandler` — renaming a constructor *is* renaming the type (and triggers the file rename). The shared resolver's kind-mapping (Phase 1 / 3.1) must resolve a cursor on a constructor decl/call to the renameType path, or renameMethod will grab constructors and emit a broken partial edit. Encoded in 1.3 / 3.1 below.
+- **WorkspaceEdit shape + client-capability gate (decide in Phase 0, not Group 6).** Two *separate* LSP client capabilities are in play: `workspace.workspaceEdit.documentChanges` gates the versioned `TextDocumentEdit[]` shape; `workspace.workspaceEdit.resourceOperations` (must contain `'rename'`) gates `RenameFile`. jorje emits `documentChanges` for *every* kind. **Decision:** use the plain `changes` map (no capability required) for renameLocal/Field/Method, and `documentChanges` + `RenameFile` only for renameType — OR emit `documentChanges` throughout and add its capability gate in the foundation. Picking the former keeps the capability guard scoped to renameType (6.1); picking the latter moves a `documentChanges` guard into Group 1. Do not leave this to Group 6.
+- **Error-delivery mechanism (pin in Phase 3).** jorje returns an **empty** `WorkspaceEdit` and pushes conflict/invalid/can't-rename messages via `window/showMessage` (`errorHandler.showError`) — a non-idiomatic side channel. The LSP-idiomatic path is a `ResponseError` on `textDocument/rename` (VS Code renders the rename-failure toast) and a `ResponseError` on `prepareRename` for "can't rename here." **Decision recommendation:** return `ResponseError`, not jorje's showMessage side channel. The whole Phase 3 validation architecture hangs on this — pick it before building 3.2.
+- **prepareRename is beyond-parity, and its capability flag must not outrun its handler.** jorje has no prepareRename (`ApexLanguageServer.java` is plain `setRenameProvider(true)`). Advertising `prepareProvider: true` (1.2) tells `prepareSupport`-honoring clients to call `textDocument/prepareRename`; if `onPrepareRename` isn't wired, those clients get method-not-found and rename breaks entirely. See 1.2/4.x note below.
 
 ## Revised phase plan
 
@@ -22,28 +30,33 @@ This plan went through one round of adversarial review (plan-adversary agent) ag
 - Move `rename` from `coordinatorOnly` to `requestPool` in `DISPATCH_ROUTING`.
 - **New, previously unscoped:** add a `DispatchRename` worker message/handler/dispatch-case on the request-pool side — the counterpart to `DispatchReferences`. Comparable in size to references' original pool wiring.
 - Wire `onRename` in `LCSAdapter.ts`, gated on `capabilities.renameProvider`, copying the `onReferences` pattern.
-- Add `renameProvider: { prepareProvider: true }` to `DEVELOPMENT_CAPABILITIES` only.
+- Add `renameProvider` to `DEVELOPMENT_CAPABILITIES` only. **Do not set `prepareProvider: true` yet** — advertising it makes `prepareSupport`-honoring clients call `textDocument/prepareRename`, which returns method-not-found until `onPrepareRename` is wired (Phase 4), breaking rename for those clients. Either flip `prepareProvider` on only when the Phase 1 resolver can back a minimal `onPrepareRename` (3.1/4.x), or land a trivial `onPrepareRename` stub in Phase 0 alongside the flag. Start with `renameProvider: true` (no prepare).
+- Fix the WorkspaceEdit-shape + capability decision here (see cross-cutting decisions): the Phase-0 no-op returns `null`, but the chosen shape (`changes` vs `documentChanges`) determines whether a `documentChanges` client-capability gate is needed in the foundation.
 - Verify: round-trip returns `null` via the correct thread with the capability gate live.
 
 **Phase 1 — Shared symbol/occurrence resolution**
 - Extract the resolve-cursor-symbol → prefilter-candidates → standalone-scan logic from `DispatchReferences`/`scanCandidatesForOccurrences` into a shared helper.
-- **Correctness fix, not optional:** the lexical prefilter (`textMentionsSymbol.ts:24`) is case-sensitive; Apex is case-insensitive. For references this only produces an incomplete search; for rename it means some occurrences silently never get renamed, breaking the build with no error. Must fix in the shared helper.
-- Helper returns each occurrence's `identifierRange` (`symbol.ts:490`) for edit construction.
+- **Correctness fix, not optional:** the lexical prefilter (`textMentionsSymbol.ts:26`) is case-sensitive (`new RegExp(\`\\b${...}\\b\`)`, no `i` flag — verified); Apex is case-insensitive. For references this only produces an incomplete search; for rename it means some occurrences silently never get renamed, breaking the build with no error. Must fix in the shared helper.
+- **Kind-resolution mapping must encode constructor→type dispatch:** a cursor resolving to a constructor (declaration or `new`-call site) maps to the renameType path, not renameMethod — matching jorje's `getRenameHandler` (`METHOD` + `isConstructor()` → `TypeRenameHandler`). Without this, renameMethod grabs constructors and emits a broken partial edit.
+- Helper returns each occurrence's `identifierRange` (`symbol.ts:492`) for edit construction.
 
 **Phase 2 — Rename kinds, incremental delivery, one PR-sized WI group each**
 
 1. **renameLocal** — NOT the trivially safe first step it was originally billed as. `findOccurrencesInFile` (`findOccurrencesInFile.ts:166`) matches by name + reference-context only, no scope/declaration binding — cannot distinguish a local in one block from an unrelated same-named local in a sibling block. Must add scope-aware occurrence matching (bind to declaring symbol) before shipping, or it renames the wrong variable under shadowing.
-2. **renameField** — cross-file via Phase 1 helper; conflict checks using `TypeSymbol.superClass`/`interfaces`.
-3. **renameMethod** — `ISymbolManager.findSubtypes`/`findSupertypes` already exist (`ApexSymbolRefManager.ts:2477`, already used by `ImplementationProcessingService.ts:396-434`) — reuse, don't build a new reverse index (original plan wrongly assumed none existed). Real risk: that graph is scoped to the request-pool worker's transient per-request graph, not the full workspace — renameMethod can silently miss overrides in files not yet loaded. Must add a graph-completeness guard (force full-graph load for the affected type family) before trusting it for a destructive edit.
-4. **renameType** — adds `.cls`/`-meta.xml` file rename via `RenameFile` + constructor rename, on the `documentChanges` shape. Must gate the `RenameFile` op on client capability negotiation (`resourceOperations` in client's advertised capabilities) — no such check exists anywhere today. Needs a fallback for clients that don't support it.
+2. **renameField** — cross-file via Phase 1 helper. Conflict checks span same-class, **ancestor, and descendant** types (jorje `FieldRenameHandler` walks all three: `getAncestorTypeHavingFieldConflict` + `getDescendantTypeHavingFieldConflict` via the subtype graph; ancestor check ignores `private` fields, descendant check applies only when the renamed field is not `private`). **Sequencing consequence:** descendant traversal needs the `findSubtypes` hierarchy graph + completeness guard that the plan currently builds in Group 5 (5.1) — so renameField (Group 4) depends on Group 5 capability. Move 5.1 earlier (see breakdown). Also decide qualify-on-conflict here (cross-cutting): jorje rewrites inner-class-shadowing references to `OuterType.newName`/`this.newName` rather than rejecting.
+3. **renameMethod** — `ISymbolManager.findSubtypes`/`findSupertypes` already exist (`ApexSymbolRefManager.ts:2485`/`2500`, already used by `ImplementationProcessingService.ts:407,434`) — reuse, don't build a new reverse index (original plan wrongly assumed none existed). Real risk: that graph is scoped to the request-pool worker's transient per-request graph, not the full workspace — renameMethod can silently miss overrides in files not yet loaded. Must add a graph-completeness guard (force full-graph load for the affected type family) before trusting it for a destructive edit. **Reference-collection split:** jorje collects static-method references differently from instance-method references (`getReferenceLocations` for static vs `getInstanceMethodLocations`, which walks the override/hierarchy graph) — capture in 5.2. Same qualify-on-conflict decision applies (static-method-in-outer-class shadow → fully-qualified rewrite).
+4. **renameType** — adds `.cls`/`-meta.xml` file rename via `RenameFile` + constructor rename, on the `documentChanges` shape. jorje emits **two** `RenameFile` ops (the `.cls` and the `.cls-meta.xml`) plus text edits for all type references *and* every constructor's references (`TypeRenameHandler.getDocumentChanges`). Must gate the `RenameFile` op on client capability negotiation (`resourceOperations` containing `'rename'`) — no such check exists anywhere today. Needs a fallback for clients that don't support it (still rename in-file references; skip the file rename). Note file rename only fires for top-level types with a resolved source unit (`TypeInfoUtil.isTopLevel`).
 
 **Phase 3 — Validation (cross-cutting, lands piecemeal with each Phase 2 kind)**
-- Reuse `IdentifierValidator.validateIdentifier` and `ExceptionValidator` rules as-is.
+- Reuse `IdentifierValidator.validateIdentifier` (`IdentifierValidator.ts:82` — static, takes name + `SymbolKind` + top-level/scope flags; verified present) and `ExceptionValidator` rules as-is. jorje's `TypeRenameHandler.isIdentifierNameInvalid` also enforces the Exception naming pair: an Exception type's new name must end in `Exception`, and a non-Exception type's new name must not — replicate for renameType.
 - New: case-insensitive same-class/ancestor/descendant conflict detector.
-- New: `canBeRenamed()` guard rejecting stdlib/managed-package symbols.
+- New: `canBeRenamed()` guard — frame as the positive **is-user-sourced** test (jorje: `CodeUnitDetailsProvider.isUserSourced(...)`), which rejects stdlib/managed-package/non-source symbols, rather than enumerating exclusion categories.
+- **Pin the error-delivery mechanism (cross-cutting decision):** return a `ResponseError` from `textDocument/rename` on conflict/invalid/can't-rename — do **not** copy jorje's empty-`WorkspaceEdit` + `window/showMessage` side channel. All three validators (`canBeRenamed`, `isIdentifierNameInvalid`, `getConflictError`) feed this one path.
 
 **Phase 4 — prepareRename**
-- `onPrepareRename` returns `identifierRange` from the Phase 1 resolver, or error if `canBeRenamed()` fails.
+- `onPrepareRename` returns `identifierRange` from the Phase 1 resolver, or a `ResponseError` ("You cannot rename this element") if `canBeRenamed()` fails — this is the LSP-idiomatic "can't rename here" signal.
+- Only flip `renameProvider.prepareProvider: true` (deferred in Phase 0) once this handler exists, so the advertised capability never outruns the implementation.
+- Note: prepareRename is **beyond jorje parity** (jorje has none) — net-new surface, not a port.
 
 **Phase 5 — Tests, land alongside each Phase 2 kind**
 - Unit: `RenameProcessingService.test.ts` (mock-prerequisites pattern from `DefinitionProcessingService.test.ts`).
@@ -88,16 +101,16 @@ Intra-group sequential dependencies (e.g. 3.2 waits on 3.1) are encoded as `Depe
 
 | # | Subject | Notes |
 |---|---|---|
-| 4.1 | renameField cross-file occurrence collection + WorkspaceEdit construction | Uses Phase 1 helper + `TypeSymbol.superClass`/`interfaces`. |
-| 4.2 | renameField conflict detection (same-class/ancestor/descendant, case-insensitive) + validation wiring | Depends on 4.1. |
+| 4.1 | renameField cross-file occurrence collection + WorkspaceEdit construction (incl. qualify-on-conflict rewrite if that decision is taken) | Uses Phase 1 helper + `TypeSymbol.superClass`/`interfaces`. |
+| 4.2 | renameField conflict detection (same-class/ancestor/descendant, case-insensitive) + validation wiring | Depends on 4.1 **and on the hierarchy-graph capability currently in 5.1** — descendant-conflict detection walks `findSubtypes`. See resequencing note below; 5.1 must merge before 4.2. |
 | 4.3 | renameField e2e (extends 3.3's helper/spec) | |
 
 **Group 5 — renameMethod (gated on all of Group 4)**
 
 | # | Subject | Notes |
 |---|---|---|
-| 5.1 | Hierarchy traversal: reuse `ISymbolManager.findSubtypes`/`findSupertypes` + graph-completeness guard (force full-graph load for affected type family before trusting it for a destructive edit) | Do NOT build a new reverse index — it already exists. |
-| 5.2 | renameMethod WorkspaceEdit construction across all overrides + interface implementations + wire into `processRename` | Depends on 5.1. |
+| 5.1 | Hierarchy traversal: reuse `ISymbolManager.findSubtypes`/`findSupertypes` + graph-completeness guard (force full-graph load for affected type family before trusting it for a destructive edit) | Do NOT build a new reverse index — it already exists. **Resequence: this is a shared dependency of renameField (4.2), not renameMethod-only. Build it in/before Group 4.** See resequencing note below. |
+| 5.2 | renameMethod WorkspaceEdit construction across all overrides + interface implementations + wire into `processRename` — respect the static (`getReferenceLocations`) vs instance (`getInstanceMethodLocations`, hierarchy-walking) reference-collection split | Depends on 5.1. |
 | 5.3 | renameMethod conflict detection + validation wiring | Depends on 5.2. |
 | 5.4 | renameMethod e2e — override + interface-implementer cases | |
 
@@ -105,9 +118,9 @@ Intra-group sequential dependencies (e.g. 3.2 waits on 3.1) are encoded as `Depe
 
 | # | Subject | Notes |
 |---|---|---|
-| 6.1 | Client capability negotiation guard (`resourceOperations` rename support check) + fallback for unsupporting clients | No precedent in codebase; build first so 6.2 has somewhere to plug in. |
-| 6.2 | File rename (`.cls` + `-meta.xml` via `RenameFile` op) + constructor rename + `documentChanges` construction | Depends on 6.1. |
-| 6.3 | renameType validation (`ExceptionValidator` extends-Exception rule + conflict detection + `canBeRenamed`) | Depends on 6.2. |
+| 6.1 | Client capability negotiation guard (`resourceOperations` contains `'rename'` check) + fallback for unsupporting clients (rename in-file references, skip file rename) | No precedent in codebase; build first so 6.2 has somewhere to plug in. If the WorkspaceEdit-shape decision (Phase 0) uses `documentChanges` for earlier kinds too, the `documentChanges` capability gate lands in Group 1 instead of here. |
+| 6.2 | File rename (**two** `RenameFile` ops: `.cls` + `.cls-meta.xml`) + constructor-reference edits + `documentChanges` construction; top-level types only | Depends on 6.1. Constructor→type dispatch already handled by the 1.3/3.1 resolver. |
+| 6.3 | renameType validation (`ExceptionValidator` extends-Exception rule + the Exception-name-suffix pair rule + conflict detection + `canBeRenamed`) | Depends on 6.2. |
 | 6.4 | renameType e2e — file rename + constructor rename cases | |
 
 **Group 7 — Finalization (gated on all of Group 6)**
@@ -118,4 +131,6 @@ Intra-group sequential dependencies (e.g. 3.2 waits on 3.1) are encoded as `Depe
 
 Production capability rollout intentionally out of scope for this epic — rename ships `DEVELOPMENT_CAPABILITIES`-only; revisit in a later story once all four kinds are stable in dev.
 
-20 leaf items total across 7 groups. Groups 1-2 (5 items) are shared foundation; groups 3-6 (14 items) repeat the same 3-4 item shape per symbol kind, so kind N+1's estimate is a reliable proxy once kind N ships; group 7 is 1 finalization item.
+**Resequencing required (from jorje-parity pass):** the hierarchy-traversal WI (5.1) is a dependency of renameField descendant-conflict detection (4.2), not a renameMethod-only concern — jorje's `FieldRenameHandler` walks `findSubtypes` for descendant conflicts exactly as `MethodRenameHandler` does. As numbered, Group 4 would depend on a Group-5 deliverable, which the numeric-sequencing gate cannot express (it only gates whole-number-N on all of N−1). Options: (a) renumber 5.1 into Group 3/4 (e.g. a new 3.x or 4.0) so the dotted prefix reflects the true order — **this requires updating the GUS `Subject__c` prefixes and the W-number map on line 60**, since the auto-build gate keys off the prefix; or (b) keep the numbers and add an explicit `Depends on (must merge first): W-23631128` (5.1's W-number) to 4.2's Details so the blocker gate holds 4.2 until 5.1 merges — cheaper, no renumber, but leaves the dotted order cosmetically misleading. Recommendation: (b) for now; (a) if the epic is re-planned. Either way 5.1 must merge before 4.2.
+
+20 leaf items total across 7 groups. Groups 1-2 (5 items) are shared foundation; groups 3-6 (14 items) repeat the same 3-4 item shape per symbol kind, so kind N+1's estimate is a reliable proxy once kind N ships; group 7 is 1 finalization item. Note the shared foundation is effectively larger than 5 once the qualify-on-conflict rewrite (Groups 4–5) and the hierarchy graph (5.1, needed by Group 4) are accounted for.
