@@ -106,7 +106,7 @@
     "knip": "^6.29.0",
     "prettier": "^3.9.4",
     "rimraf": "^5.0.5",
-    "semantic-release": "^25.0.7",
+    "semantic-release": "^25.0.8",
     "semver": "^7.8.5",
     "shelljs": "^0.10.0",
     "simple-git": "^3.36.0",
