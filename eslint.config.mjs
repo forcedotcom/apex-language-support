@@ -119,6 +119,48 @@ export default [
     },
   },
   {
+    files: ['packages/apex-parser-ast/src/parser/listeners/**/*.ts'],
+    rules: {
+      'local/parser-owned-semantics': 'error',
+    },
+  },
+  {
+    files: [
+      'packages/apex-parser-ast/src/semantics/validation/ConstructorExpressionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/ExpressionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/TypeCastingValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/CollectionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ConstructorValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/DmlStatementValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/DmlLoopQueryValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/DuplicateFieldInitValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ExceptionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ExpressionTypeValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ExpressionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/InnerTypeValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/InstanceofValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/LiteralValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/MethodResolutionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ModifierValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ParameterizedTypeValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/ReturnStatementValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/RunAsStatementValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/SourceSizeValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/StaticContextValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/SwitchStatementValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/validators/VariableResolutionValidator.ts',
+      'packages/apex-parser-ast/src/semantics/validation/VariableExpressionValidator.ts',
+      'packages/apex-parser-ast/src/symbols/ApexSymbolManager.ts',
+      'packages/apex-parser-ast/src/symbols/ops/resolutionContext.ts',
+      'packages/apex-parser-ast/src/utils/methodCallAtRange.ts',
+      'packages/lsp-compliant-services/src/documentSymbol/ApexDocumentSymbolProvider.ts',
+      'packages/lsp-compliant-services/src/services/CodeActionProcessingService.ts',
+    ],
+    rules: {
+      'local/parser-owned-semantics': 'error',
+    },
+  },
+  {
     // e2e-tests: import plugin cannot resolve @playwright/test re-exports (Page, Locator, etc.)
     files: ['e2e-tests/**/*.ts'],
     rules: {
