@@ -176,6 +176,30 @@ describe('per-overload reference separation (F11-2 core)', () => {
     expect(callSite).toBeDefined();
   });
 
+  it('locates the active invocation and parser-recorded separator at the cursor', async () => {
+    const uri = 'file:///test/InvocationCursor.cls';
+    const source = [
+      'public class InvocationCursor {',
+      '  void use(String first, Integer second) {}',
+      '  void caller() {',
+      "    use('value', 42);",
+      '  }',
+      '}',
+    ].join('\n');
+    await compileAndAdd(source, uri);
+
+    const invocation = await symbolManager.getInvocationAtPosition(uri, {
+      line: 3,
+      character: source.split('\n')[3].indexOf('42') + 1,
+    });
+
+    expect(invocation?.name).toBe('use');
+    expect(invocation?.argumentTypes).toEqual(['String', 'Integer']);
+    expect(
+      invocation?.semanticContext?.invocation?.separatorRanges,
+    ).toHaveLength(1);
+  });
+
   /** Find a `use`/1 overload by its single parameter's declared type. */
   const useOverloadByParamType = async (
     fileUri: string,
@@ -339,10 +363,10 @@ describe('per-overload reference separation (F11-2 core)', () => {
   // ApexSymbolCollectorListener, but the worker topology collects references
   // via VisibilitySymbolListener + { collectReferences: true } — a DIFFERENT
   // pass (ApexReferenceCollectorListener). The argumentCount discriminator AND
-  // the argumentExpressions capture were added to BOTH listeners; this asserts
+  // the argumentSemantics capture were added to BOTH listeners; this asserts
   // the worker pass also stamps them, so the two cannot drift apart and
   // silently disable overload separation live.
-  it('worker reference pass stamps call-site argumentCount + argumentExpressions on METHOD_CALL refs', () => {
+  it('worker reference pass stamps call-site argumentCount + parser argument semantics on METHOD_CALL refs', () => {
     const table = new SymbolTable();
     const listener = new VisibilitySymbolListener('public-api', table);
     const result = compilerService.compile(
@@ -369,13 +393,18 @@ describe('per-overload reference separation (F11-2 core)', () => {
       .sort((a, b) => (a ?? -1) - (b ?? -1));
     expect(arities).toEqual([0, 1, 2]);
 
-    // The worker pass must also capture raw argument source texts (Phase A),
-    // the input semantic resolution turns into the argumentTypes signature key.
+    // The worker pass must carry parser-classified argument roots, never raw
+    // argument text interpreted later by semantic services.
     const exprsByArity = new Map(
-      callRefs.map((r) => [r.argumentCount, r.argumentExpressions]),
+      callRefs.map((r) => [r.argumentCount, r.argumentSemantics]),
     );
     expect(exprsByArity.get(0)).toEqual([]);
-    expect(exprsByArity.get(1)).toEqual(["'hi'"]);
-    expect(exprsByArity.get(2)).toEqual(["'a'", "'b'"]);
+    expect(exprsByArity.get(1)).toEqual([
+      { kind: 'literal', literalType: 'String' },
+    ]);
+    expect(exprsByArity.get(2)).toEqual([
+      { kind: 'literal', literalType: 'String' },
+      { kind: 'literal', literalType: 'String' },
+    ]);
   });
 });

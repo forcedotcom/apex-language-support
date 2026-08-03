@@ -11,12 +11,11 @@ import {
   LSPConfigurationManager,
   ApexSettingsManager,
   Priority,
-  WireIdentifierSpecSchema,
 } from '@salesforce/apex-lsp-shared';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
-import { Schema } from 'effect';
 import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
+import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
 
 /**
  * Result types for blocking resolution
@@ -110,18 +109,28 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       );
     }
     const names = params.identifiers.map((s) => s.name).join(', ');
-    const normalizedNames = Array.from(
+    const normalizedIdentifiers = Array.from(
       new Set(
         params.identifiers
-          .map((s) => s.name.trim().toLowerCase())
-          .filter((name) => name.length > 0),
+          .map((identifier) => {
+            const provenance = identifier.provenance;
+            if (!provenance) return '';
+            return [
+              identifier.name.trim().toLowerCase(),
+              provenance.sourceUri,
+              provenance.documentVersion ?? 'unknown',
+              provenance.referenceIdentity,
+              provenance.parseCompleteness,
+            ].join('|');
+          })
+          .filter((identity) => identity.length > 0),
       ),
     )
       .sort()
       .join(',');
     const key = `${params.origin?.requestKind ?? 'unknown'}|${
       params.origin?.uri ?? 'unknown'
-    }|${normalizedNames || names.toLowerCase()}`;
+    }|${normalizedIdentifiers || names.toLowerCase()}`;
     const now = Date.now();
     const existing =
       EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.get(
@@ -161,6 +170,13 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
     // (typeReference, parentContext.*) are not cloneable — an unsanitized
     // payload throws DataCloneError and silently fails resolution.
     const safeParams = this.sanitizeParams(params);
+    if (!safeParams) {
+      this.logger.debug(
+        () =>
+          'Rejecting missing-artifact request without complete semantic provenance',
+      );
+      return 'not-found';
+    }
     const timeoutMs = params.timeoutMsHint || this.config.blockingWaitTimeoutMs;
 
     const requestPromise = (async (): Promise<BlockingResult> => {
@@ -302,6 +318,13 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
     try {
       // Sanitize params before sending via postMessage (structured clone).
       const safeParams = this.sanitizeParams(params);
+      if (!safeParams) {
+        this.logger.debug(
+          () =>
+            'Rejecting missing-artifact request without complete semantic provenance',
+        );
+        return;
+      }
 
       const connection = this.getConnection();
       if (!connection) {
@@ -379,22 +402,8 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
    */
   private sanitizeParams(
     params: FindMissingArtifactParams,
-  ): FindMissingArtifactParams {
-    const decodeIdentifier = Schema.decodeUnknownSync(WireIdentifierSpecSchema);
-    // Schema.decode yields deeply-readonly values; the runtime object is a
-    // plain structured-clone-safe payload, so cast back to the mutable param
-    // type for the sinks that consume it.
-    return {
-      ...params,
-      identifiers: params.identifiers.map((id) => {
-        try {
-          return decodeIdentifier(id);
-        } catch {
-          // Fallback: name-only if the identifier deviates from the wire schema
-          return { name: id.name };
-        }
-      }),
-    } as FindMissingArtifactParams;
+  ): FindMissingArtifactParams | null {
+    return sanitizeMissingArtifactParams(params);
   }
 
   /**

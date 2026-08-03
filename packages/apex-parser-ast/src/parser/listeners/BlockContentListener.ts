@@ -44,6 +44,9 @@ import {
   GetterContext,
   SetterContext,
   MethodDeclarationContext,
+  ApexParser,
+  type ApexErrorNode,
+  type ApexTerminalNode,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -74,6 +77,7 @@ import {
   MethodSymbol,
   TypeSymbol,
   SymbolFactory,
+  Range,
 } from '../../types/symbol';
 import {
   isDotExpressionContext,
@@ -122,6 +126,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
   // Chain expression scope for capturing complete chains as single units
   private chainExpressionScope: ChainScope | null = null;
+  private pendingErrorIdentifier?: {
+    name: string;
+    location: SymbolLocation;
+    line: number;
+    endColumn: number;
+  };
+  private pendingIncompleteMemberReference?: SymbolReference;
 
   // Scope tracking for block-level symbols
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
@@ -130,6 +141,118 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   constructor(symbolTable: SymbolTable) {
     super();
     this.symbolTable = symbolTable;
+  }
+
+  visitErrorNode(node: ApexErrorNode): void {
+    this.observeIncompleteMemberAccessToken(node.symbol);
+  }
+
+  visitTerminal(node: ApexTerminalNode): void {
+    const token = node.symbol;
+    if (
+      token?.type === ApexParser.THIS ||
+      token?.type === ApexParser.SUPER ||
+      token?.type === ApexParser.DOT
+    ) {
+      this.observeIncompleteMemberAccessToken(token);
+    }
+  }
+
+  /**
+   * Preserve incomplete member access as a parser-owned block reference during
+   * layered enrichment. The full collector records the same fact, but editor
+   * completion normally enriches through BlockContentListener only.
+   */
+  private observeIncompleteMemberAccessToken(
+    token: ApexErrorNode['symbol'],
+  ): void {
+    if (!token) return;
+
+    const text = token.text ?? '';
+    const range: Range = {
+      startLine: token.line,
+      startColumn: token.column,
+      endLine: token.line,
+      endColumn: token.column + text.length,
+    };
+    const location: SymbolLocation = {
+      symbolRange: range,
+      identifierRange: range,
+    };
+
+    if (
+      token.type === ApexParser.Identifier ||
+      token.type === ApexParser.THIS ||
+      token.type === ApexParser.SUPER
+    ) {
+      const active = this.pendingIncompleteMemberReference;
+      if (
+        active?.semanticContext?.memberAccess &&
+        active.semanticContext.memberAccess.operatorRange.startLine ===
+          token.line &&
+        active.semanticContext.memberAccess.operatorRange.endColumn ===
+          token.column
+      ) {
+        active.semanticContext.memberAccess.memberRange = range;
+        return;
+      }
+      this.pendingErrorIdentifier = {
+        name: text,
+        location,
+        line: token.line,
+        endColumn: token.column + text.length,
+      };
+      this.pendingIncompleteMemberReference = undefined;
+      return;
+    }
+
+    if (token.type === ApexParser.DOT) {
+      const receiver = this.pendingErrorIdentifier;
+      if (
+        !receiver ||
+        receiver.line !== token.line ||
+        receiver.endColumn !== token.column
+      ) {
+        this.pendingErrorIdentifier = undefined;
+        this.pendingIncompleteMemberReference = undefined;
+        return;
+      }
+
+      const existing = this.symbolTable.getAllReferences().find((reference) => {
+        const operator = reference.semanticContext?.memberAccess?.operatorRange;
+        return (
+          operator?.startLine === range.startLine &&
+          operator.startColumn === range.startColumn
+        );
+      });
+      if (existing) {
+        this.pendingIncompleteMemberReference = existing;
+        return;
+      }
+
+      const reference = new EnhancedSymbolReference(
+        receiver.name,
+        receiver.location,
+        ReferenceContext.VARIABLE_USAGE,
+        {
+          parentContext: this.getCurrentMethodName(),
+          semanticContext: {
+            memberAccess: {
+              kind: 'member-access',
+              receiverRange: receiver.location.identifierRange,
+              operatorRange: range,
+              incomplete: true,
+            },
+          },
+        },
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.pendingIncompleteMemberReference = reference;
+      return;
+    }
+
+    this.pendingErrorIdentifier = undefined;
+    this.pendingIncompleteMemberReference = undefined;
   }
 
   setCurrentFileUri(fileUri: string): void {
@@ -292,10 +415,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     let pushed = false;
     try {
       const idNode = ctx.id();
-      const methodName = idNode?.getText() || 'unknownMethod';
-      const location = idNode
-        ? this.getLocationForReference(idNode)
-        : this.getLocation(ctx);
+      const methodName = idNode?.getText();
+      if (!idNode || !methodName) {
+        return;
+      }
+      const location = this.getLocationForReference(idNode);
       const parentContext = this.getCurrentMethodName(ctx);
 
       const reference = SymbolReferenceFactory.createMethodCallReference(
@@ -349,10 +473,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
-      const methodName = anyIdNode?.getText() || 'unknownMethod';
-      const methodLocation = anyIdNode
-        ? this.getLocationForReference(anyIdNode)
-        : this.getLocation(ctx);
+      const methodName = anyIdNode?.getText();
+      if (!anyIdNode || !methodName) {
+        return;
+      }
+      const methodLocation = this.getLocationForReference(anyIdNode);
       const parentContext = this.getCurrentMethodName(ctx);
 
       const reference = SymbolReferenceFactory.createMethodCallReference(
@@ -450,7 +575,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         return;
       }
 
-      const idText = ctx.getText() || '';
+      const idText = ctx.getText();
+      if (!idText) {
+        return;
+      }
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName(ctx);
 
@@ -492,7 +620,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         return;
       }
 
-      const idText = idNode.getText() || '';
+      const idText = idNode.getText();
+      if (!idText) {
+        return;
+      }
       const location = this.getLocationForReference(idNode);
       const parentContext = this.getCurrentMethodName(ctx);
 
@@ -637,7 +768,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           const dotExpr = leftExpression;
           const anyId = dotExpr.anyId();
           if (anyId) {
-            const fieldName = this.getTextFromContext(anyId);
+            const fieldName = anyId.getText();
+            if (!fieldName) {
+              return;
+            }
             const objectExpr = dotExpr.expression();
             if (objectExpr) {
               const objectIdentifiers =
@@ -924,7 +1058,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       return;
     }
 
-    const fieldName = this.getTextFromContext(anyId);
+    const fieldName = anyId.getText();
+    if (!fieldName) {
+      return;
+    }
     const fieldLocation = this.getLocationForReference(anyId);
     const objectExpr = ctx.expression();
     const parentContext = this.getCurrentMethodName(ctx);
@@ -963,6 +1100,9 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
         if (leftExpression) {
           const qualifier = this.extractQualifierFromExpression(leftExpression);
+          if (!qualifier) {
+            return;
+          }
           const qualifierLocation = this.getLocation(
             leftExpression as unknown as ParserRuleContext,
           );
@@ -1040,15 +1180,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   private extractTypeNameFromTypeRef(typeRef: TypeRefContext): string {
-    const typeNames = typeRef.typeName_list();
-    if (typeNames && typeNames.length > 0) {
-      const typeName = typeNames[0];
-      const idNode = typeName.id();
-      if (idNode) {
-        return idNode.getText();
-      }
-    }
-    return typeRef.getText() || '';
+    return createTypeInfoFromTypeRefUtil(typeRef).originalTypeString;
   }
 
   private extractIdentifiersFromExpression(expr: any): string[] {
@@ -1057,10 +1189,16 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     if (isContextType(expr, IdPrimaryContext)) {
       const idNode = (expr as IdPrimaryContext).id();
       if (idNode) {
-        identifiers.push(idNode.getText() || '');
+        const identifier = idNode.getText();
+        if (identifier) {
+          identifiers.push(identifier);
+        }
       }
     } else if (isContextType(expr, AnyIdContext)) {
-      identifiers.push(expr.getText() || '');
+      const identifier = expr.getText();
+      if (identifier) {
+        identifiers.push(identifier);
+      }
     } else if (isContextType(expr, DotExpressionContext)) {
       const dotExpr = expr as DotExpressionContext;
       const objectExpr = dotExpr.expression();
@@ -1092,9 +1230,9 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     return identifiers;
   }
 
-  private extractQualifierFromExpression(expr: any): string {
+  private extractQualifierFromExpression(expr: any): string | undefined {
     const identifiers = this.extractIdentifiersFromExpression(expr);
-    return identifiers[0] || 'unknown';
+    return identifiers[0];
   }
 
   private createExpressionNode(
@@ -1158,10 +1296,6 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
     // Fallback: try to use as ParserRuleContext anyway
     return this.getLocation(ctx as ParserRuleContext);
-  }
-
-  private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.getText() || '';
   }
 
   /**

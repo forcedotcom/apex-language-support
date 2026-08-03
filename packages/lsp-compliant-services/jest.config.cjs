@@ -2,6 +2,12 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
+  // This package consumes workspace TypeScript sources directly. Transforming
+  // compiled JavaScript loaded by global teardown makes focused tests compile
+  // the entire output graph again and can exhaust the Jest worker heap.
+  transform: {
+    '^.+\\.tsx?$': 'ts-jest',
+  },
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     // Mock ZIP file imports for Jest (esbuild handles these at bundle time)
@@ -18,7 +24,11 @@ module.exports = {
       '<rootDir>/../apex-lsp-testbed/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
+  // Service suites own their scheduler and singleton instances inside Jest's
+  // isolated test environments. The shared teardown loads fresh parser and
+  // services barrels in a separate environment, so it cannot clean the state
+  // created by those suites and only adds shutdown work.
+  globalTeardown: undefined,
   // Increase test timeout to allow cleanup of setTimeout-based monitoring tasks
   testTimeout: 120_000,
   // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
@@ -31,9 +41,7 @@ module.exports = {
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
   detectOpenHandles: process.env.DETECT_OPEN_HANDLES === 'true',
-  // Force exit after tests complete to prevent hanging on open handles
-  // NOTE: This is a workaround - the warning will still appear, allowing us to track the issue
-  // The warning appears before forceExit takes effect, so we don't lose visibility
-  // Can be disabled with JEST_FORCE_EXIT=false if needed for debugging
-  forceExit: process.env.JEST_FORCE_EXIT !== 'false', // Default to true, can disable with JEST_FORCE_EXIT=false
+  // Service tests must release the resources they create. Keeping this false
+  // makes leaked handles visible instead of masking them with Jest's force-exit.
+  forceExit: false,
 };

@@ -18,6 +18,8 @@ import {
   compileFixtureWithOptions,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
+import { ApexParser, ApexParserFactory } from '@apexdevtools/apex-parser';
+import { CommonTokenStream } from 'antlr4';
 
 describe('DuplicateFieldInitValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -108,6 +110,37 @@ describe('DuplicateFieldInitValidator', () => {
       (e: any) => e.code === ErrorCodes.DUPLICATE_FIELD_INIT,
     );
     expect(hasDuplicateFieldInitError).toBe(true);
+  });
+
+  it('should validate from a cached parse tree without source text', async () => {
+    const sourceContent = loadFixture(
+      VALIDATOR_CATEGORY,
+      'InvalidConstructorExpressions.cls',
+    );
+    const symbolTable = await compileFixtureForValidator(
+      'InvalidConstructorExpressions.cls',
+    );
+    const lexer = ApexParserFactory.createLexer(sourceContent);
+    const parser = new ApexParser(new CommonTokenStream(lexer));
+    parser.removeErrorListeners();
+    lexer.removeErrorListeners();
+
+    const result = await runValidator(
+      DuplicateFieldInitValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          parseTree: parser.compilationUnit(),
+          sourceContent: undefined,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some((e) => e.code === ErrorCodes.DUPLICATE_FIELD_INIT),
+    ).toBe(true);
   });
 
   it('should report INVALID_NAME_VALUE_PAIR_CONSTRUCTOR for primitive type', async () => {

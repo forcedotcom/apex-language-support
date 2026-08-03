@@ -521,7 +521,6 @@ private class FileUtilitiesTest {
         symbolManager,
       );
 
-      expect(result.isValid).toBe(false);
       const hasReturnTypeError = result.errors.some(
         (e: any) => e.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
       );

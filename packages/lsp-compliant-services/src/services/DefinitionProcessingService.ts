@@ -23,6 +23,7 @@ import {
   SymbolKind,
   inTypeSymbolGroup,
   TypeSymbol,
+  SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import {
@@ -34,6 +35,7 @@ import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
+import { hasCompleteSemanticState } from '../utils/semanticStateUtils';
 
 /**
  * Context information for definition processing
@@ -48,6 +50,22 @@ export interface DefinitionContext {
   /** Whether missing artifact resolution was triggered */
   wasResolvedFromMissingArtifact: boolean;
 }
+
+type ExternalDefinitionTarget = {
+  uri: string;
+  range?: Range;
+};
+
+type SymbolWithDefinitionTarget = ApexSymbol & {
+  /**
+   * A navigable representation supplied by an external semantic layer.
+   *
+   * The symbol graph still owns semantic identity; this target only controls
+   * where an editor opens that identity (for example, an sObject metadata
+   * component rather than its internal graph representation).
+   */
+  definitionTarget?: ExternalDefinitionTarget;
+};
 
 /**
  * Interface for definition processing functionality
@@ -137,6 +155,21 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
+
+      if (
+        !(await hasCompleteSemanticState(
+          this.symbolManager,
+          params.textDocument.uri,
+          params.position,
+        ))
+      ) {
+        this.logger.debug(
+          () =>
+            `Definition semantic state is incomplete for ${params.textDocument.uri}; ` +
+            'preserving uncertainty',
+        );
+        return [];
+      }
 
       this.logger.debug(
         () =>
@@ -448,6 +481,12 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   private async createLocationFromSymbol(
     symbol: ApexSymbol,
   ): Promise<Location | null> {
+    const definitionTarget = (symbol as SymbolWithDefinitionTarget)
+      .definitionTarget;
+    if (definitionTarget?.uri && definitionTarget.range) {
+      return definitionTarget as Location;
+    }
+
     if (!symbol.location) {
       this.logger.debug(
         () => `Symbol has no location: ${JSON.stringify(symbol)}`,
@@ -455,17 +494,22 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       return null;
     }
 
-    const uri = await this.getSymbolFileUri(symbol);
+    const uri = definitionTarget?.uri || (await this.getSymbolFileUri(symbol));
     if (!uri) {
       this.logger.debug(() => `Could not get URI for symbol: ${symbol.name}`);
       return null;
     }
 
-    // For goto definition, we require precise positioning via identifierRange
-    if (!symbol.location.identifierRange) {
+    // An external URI without its own range denotes the external artifact as a
+    // whole, so retain the symbol range. Graph-owned navigation continues to
+    // use the precise identifier range.
+    const parserRange = definitionTarget?.uri
+      ? symbol.location.symbolRange
+      : symbol.location.identifierRange;
+    if (!parserRange) {
       this.logger.warn(
         () =>
-          `Symbol missing precise positioning (identifierRange) required for goto definition: ${JSON.stringify(
+          `Symbol missing positioning required for goto definition: ${JSON.stringify(
             symbol.location,
           )}`,
       );
@@ -473,14 +517,14 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     }
 
     // Use precise identifier range for accurate positioning
-    const startLine = symbol.location.identifierRange.startLine;
-    const startColumn = symbol.location.identifierRange.startColumn;
-    const endLine = symbol.location.identifierRange.endLine;
-    const endColumn = symbol.location.identifierRange.endColumn;
+    const startLine = parserRange.startLine;
+    const startColumn = parserRange.startColumn;
+    const endLine = parserRange.endLine;
+    const endColumn = parserRange.endColumn;
 
     this.logger.debug(
       () =>
-        `Using precise identifierRange: ${startLine}:${startColumn}-${endLine}:${endColumn}`,
+        `Using definition range: ${startLine}:${startColumn}-${endLine}:${endColumn}`,
     );
 
     // Validate that we have valid numeric values
@@ -640,98 +684,138 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   }
 
   /**
-   * Fallback resolver for chained static references (e.g., CrossFileUtility.formatName()).
-   * When the standard symbol manager resolution picks the wrong symbol or returns null
-   * for a qualified static call, this method extracts the qualifier and member from
-   * the chainNodes and looks them up directly in the symbol table.
+   * Resolve a chain only from parser-owned identity. This is deliberately not a
+   * name-search fallback: simple names are not unique across namespaces/types,
+   * and a same-file member is not necessarily owned by the receiver.
    */
   private async tryResolveFromChainedRef(
-    references: any[],
+    references: SymbolReference[],
     position: { line: number; character: number },
-    sourceUri: string,
+    _sourceUri: string,
   ): Promise<ApexSymbol | null> {
     const chainedRefs = references.filter(
-      (r: any) => r.chainNodes?.length >= 2,
+      (reference) => (reference.chainNodes?.length ?? 0) >= 2,
     );
     for (const chainedRef of chainedRefs) {
-      const chainNodes: any[] = chainedRef.chainNodes;
-      const firstNode = chainNodes[0];
-      if (!firstNode?.location?.identifierRange) continue;
-
-      const firstRange = firstNode.location.identifierRange;
-      const onQualifier =
-        position.line === firstRange.startLine &&
-        position.character >= firstRange.startColumn &&
-        position.character <= firstRange.endColumn;
-
-      if (onQualifier) {
-        // Cursor is on the qualifier class name — return the class symbol
-        const candidates = await this.symbolManager.findSymbolByName(
-          firstNode.name,
-        );
-        const cls = candidates.find(
-          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        );
-        if (cls && cls.fileUri !== sourceUri) return cls;
+      const chainNodes = chainedRef.chainNodes!;
+      const nodeIndex = chainNodes.findIndex((node) =>
+        this.isPositionInReference(position, node),
+      );
+      if (nodeIndex < 0) {
         continue;
       }
 
-      // Check if cursor is on a later chain node (member/method)
-      for (let i = 1; i < chainNodes.length; i++) {
-        const node = chainNodes[i];
-        if (!node?.location?.identifierRange) continue;
-        const nodeRange = node.location.identifierRange;
-        const onMember =
-          position.line === nodeRange.startLine &&
-          position.character >= nodeRange.startColumn &&
-          position.character <= nodeRange.endColumn;
-        if (!onMember) continue;
-
-        // Find the qualifier class then find the member within it
-        const qualifierCandidates = await this.symbolManager.findSymbolByName(
-          firstNode.name,
-        );
-        const qualifierClass = qualifierCandidates.find(
-          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        );
-        if (!qualifierClass) break;
-
-        const memberCandidates = await this.symbolManager.findSymbolByName(
-          node.name,
-        );
-        const member = memberCandidates.find(
-          (s) =>
-            s.parentId === qualifierClass.id ||
-            (s.fileUri === qualifierClass.fileUri && s.name === node.name),
-        );
-        if (member && member.fileUri !== sourceUri) return member;
-        // Fallback: return qualifier class if member not found
-        if (qualifierClass.fileUri !== sourceUri) return qualifierClass;
-        break;
+      const requestedNode = chainNodes[nodeIndex];
+      const resolved =
+        nodeIndex === 0
+          ? await this.getResolvedReferenceOwner(requestedNode)
+          : await this.getResolvedReferenceSymbol(requestedNode);
+      if (resolved) {
+        return resolved;
       }
+
+      // A member without a resolved edge may only be recovered beneath an
+      // exactly resolved owner. Never substitute the qualifier definition for
+      // an unresolved requested member.
+      if (nodeIndex > 0) {
+        const owner = await this.getResolvedReferenceOwner(
+          chainNodes[nodeIndex - 1],
+        );
+        if (!owner?.fileUri) {
+          return null;
+        }
+        return await this.findUniqueOwnedMember(owner, requestedNode.name);
+      }
+
+      return null;
     }
     return null;
+  }
+
+  private isPositionInReference(
+    position: { line: number; character: number },
+    reference: SymbolReference,
+  ): boolean {
+    const range = reference.location?.identifierRange;
+    return Boolean(
+      range &&
+      position.line === range.startLine &&
+      position.character >= range.startColumn &&
+      position.character <= range.endColumn,
+    );
+  }
+
+  private async getResolvedReferenceSymbol(
+    reference: SymbolReference,
+  ): Promise<ApexSymbol | null> {
+    if (reference.resolvedSymbolId) {
+      return await this.symbolManager.getSymbol(reference.resolvedSymbolId);
+    }
+
+    return null;
+  }
+
+  private async getResolvedReferenceOwner(
+    reference: SymbolReference,
+  ): Promise<ApexSymbol | null> {
+    if (reference.resolvedTypeId) {
+      const resolvedType = await this.symbolManager.getSymbol(
+        reference.resolvedTypeId,
+      );
+      if (resolvedType) {
+        return resolvedType;
+      }
+    }
+    const resolvedSymbol = await this.getResolvedReferenceSymbol(reference);
+    if (resolvedSymbol) {
+      return resolvedSymbol;
+    }
+
+    // A dotted parser-owned name is already an FQN. A simple name is not, and
+    // must not be promoted to one here because namespace context is absent.
+    if (reference.name.includes('.')) {
+      return await this.symbolManager.findSymbolByFQN(reference.name);
+    }
+    return null;
+  }
+
+  private async findUniqueOwnedMember(
+    owner: ApexSymbol,
+    memberName: string,
+  ): Promise<ApexSymbol | null> {
+    const symbols = await this.symbolManager.findSymbolsInFile(owner.fileUri);
+    const byId = new Map(symbols.map((symbol) => [symbol.id, symbol]));
+    const candidates = symbols.filter(
+      (symbol) =>
+        symbol.name.toLowerCase() === memberName.toLowerCase() &&
+        this.isOwnedBy(symbol, owner.id, byId),
+    );
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  private isOwnedBy(
+    symbol: ApexSymbol,
+    ownerId: string,
+    byId: ReadonlyMap<string, ApexSymbol>,
+  ): boolean {
+    const visited = new Set<string>();
+    let parentId = symbol.parentId;
+    while (parentId && !visited.has(parentId)) {
+      if (parentId === ownerId) {
+        return true;
+      }
+      visited.add(parentId);
+      parentId = byId.get(parentId)?.parentId ?? null;
+    }
+    return false;
   }
 
   /**
    * Get the file URI for a symbol
    */
   private async getSymbolFileUri(symbol: ApexSymbol): Promise<string | null> {
-    // Try to get from symbol's file URI
-    if (symbol.fileUri) {
-      return symbol.fileUri;
-    }
-
-    // Try to find in symbol manager
-    try {
-      const files = await this.symbolManager.findFilesForSymbol(symbol.name);
-      if (files.length > 0) {
-        return files[0];
-      }
-    } catch (error) {
-      this.logger.debug(() => `Error getting symbol file URI: ${error}`);
-    }
-
-    return null;
+    // URI is part of symbol identity. A global name-to-file lookup can select a
+    // different declaration with the same simple name.
+    return symbol.fileUri || symbol.key?.fileUri || null;
   }
 }

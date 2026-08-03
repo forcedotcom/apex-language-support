@@ -34,7 +34,12 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'completion',
     priority: Priority.Immediate,
-    timeout: 100,
+    // Match CompletionHandler's progressive-completion budget. The
+    // distributed request-pool path performs cursor compilation and targeted
+    // dependency loading before producing a CompletionList; cancelling it at
+    // 100ms discarded useful work and bypassed the handler's incomplete-list
+    // fallback.
+    timeout: 2000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createCompletionService(),
   },

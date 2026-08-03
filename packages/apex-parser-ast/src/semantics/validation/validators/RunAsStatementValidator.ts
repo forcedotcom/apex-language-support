@@ -17,7 +17,6 @@ import {
   BlockContext,
   RunAsStatementContext,
   ExpressionContext,
-  LiteralPrimaryContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -38,11 +37,8 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
-import {
-  resolveExpressionTypeRecursive,
-  type ExpressionTypeInfo,
-} from './ExpressionValidator';
 import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
+import { callArgumentSemantic } from '../../../utils/contextTypeGuards';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -73,64 +69,17 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
     ctx: RunAsStatementContext;
     expressionCount: number;
     expression?: ExpressionContext;
-    expressionText?: string;
   }> = [];
-  private literalTypes: Map<
-    ExpressionContext,
-    'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null'
-  > = new Map();
-
-  enterLiteralPrimary(ctx: LiteralPrimaryContext): void {
-    // Collect literal types for expression resolution
-    const literal = ctx.literal();
-    if (!literal) {
-      return;
-    }
-
-    let literalType:
-      'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null' | null =
-      null;
-
-    if (literal.IntegerLiteral()) {
-      literalType = 'integer';
-    } else if (literal.LongLiteral()) {
-      literalType = 'long';
-    } else if (literal.NumberLiteral()) {
-      literalType = 'decimal';
-    } else if (literal.StringLiteral()) {
-      literalType = 'string';
-    } else if (literal.BooleanLiteral()) {
-      literalType = 'boolean';
-    } else if (literal.NULL()) {
-      literalType = 'null';
-    }
-
-    if (literalType) {
-      // Find the containing ExpressionContext
-      let parent = ctx.parentCtx;
-      while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parentCtx;
-      }
-      if (parent instanceof ExpressionContext) {
-        this.literalTypes.set(parent, literalType);
-      }
-    }
-  }
 
   enterRunAsStatement(ctx: RunAsStatementContext): void {
     const expressionList = ctx.expressionList();
     const expressions = expressionList?.expression_list() || [];
     const expression = expressions.length === 1 ? expressions[0] : undefined;
-    const expressionText =
-      expressions.length === 1
-        ? expressions[0].getText() || undefined
-        : undefined;
 
     this.runAsStatements.push({
       ctx,
       expressionCount: expressions.length,
       expression,
-      expressionText,
     });
   }
 
@@ -138,16 +87,8 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
     ctx: RunAsStatementContext;
     expressionCount: number;
     expression?: ExpressionContext;
-    expressionText?: string;
   }> {
     return this.runAsStatements;
-  }
-
-  getLiteralTypes(): Map<
-    ExpressionContext,
-    'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null'
-  > {
-    return this.literalTypes;
   }
 
   getResult(): void {
@@ -155,74 +96,37 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
   }
 }
 
-/**
- * Check if expression text represents a User or Version type
- * Uses text-based heuristics and symbol table lookup for TIER 1 validation
- */
-function isUserOrVersionType(
-  expressionText: string,
-  symbolTable?: SymbolTable,
-): boolean {
-  if (!expressionText) {
-    return false;
+/** Resolve the parser-classified runAs argument at its lexical source position. */
+function resolveRunAsArgumentType(
+  expression: ExpressionContext,
+  symbolTable: SymbolTable,
+): string | undefined {
+  const semantic = callArgumentSemantic(expression);
+  if (semantic.kind === 'literal') {
+    return semantic.literalType;
+  }
+  if (semantic.kind !== 'identifier') {
+    // Complex expressions require expression/xref resolution. Preserve that
+    // uncertainty instead of interpreting the rendered source text.
+    return undefined;
   }
 
-  const normalized = expressionText.trim();
-
-  // Check for direct User type
-  if (normalized === 'User' || normalized.toLowerCase() === 'user') {
-    return true;
+  const symbol = symbolTable.resolveVariableAtPosition(
+    semantic.name,
+    expression.start.line,
+    expression.start.column,
+  );
+  if (
+    symbol &&
+    (symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter ||
+      symbol.kind === SymbolKind.Field ||
+      symbol.kind === SymbolKind.Property)
+  ) {
+    const variable = symbol as VariableSymbol;
+    return variable.type?.originalTypeString ?? variable.type?.name;
   }
-
-  // Check for Version aliases: Version, System.Version, Package.Version
-  if (isStandardTypeAlias(normalized, 'version')) {
-    return true;
-  }
-
-  // Try to look up variable in symbol table (for simple identifier expressions)
-  if (symbolTable && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(normalized)) {
-    // Try case-sensitive lookup first
-    let variableSymbol = symbolTable.lookup(normalized, null);
-
-    // If not found, try case-insensitive lookup
-    if (!variableSymbol) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variableSymbol = allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.name.toLowerCase() === normalized.toLowerCase(),
-      );
-    }
-
-    if (
-      variableSymbol &&
-      (variableSymbol.kind === SymbolKind.Variable ||
-        variableSymbol.kind === SymbolKind.Parameter ||
-        variableSymbol.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variableSymbol as VariableSymbol;
-      if (varSymbol.type) {
-        const typeName = varSymbol.type.name || '';
-        const normalizedTypeName = typeName.toLowerCase();
-
-        // Check if variable type is User
-        if (normalizedTypeName === 'user') {
-          return true;
-        }
-
-        // Check if variable type is Version (System.Version, Package.Version, or just Version)
-        if (isStandardTypeAlias(normalizedTypeName, 'version')) {
-          return true;
-        }
-      }
-    }
-  }
-
-  // Everything else (method calls, complex expressions, unknown variables) - allow it
-  // We can't determine type without TIER 2 resolution
-  return true;
+  return undefined;
 }
 
 /**
@@ -252,12 +156,12 @@ export const RunAsStatementValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError, ISymbolManager> =>
     Effect.gen(function* () {
-      const symbolManager = yield* ISymbolManager;
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
 
-      // Source content is required for this validator
-      if (!options.sourceContent) {
+      // Raw document text is only parser transport. Cached parser state is
+      // sufficient when sourceContent is unavailable.
+      if (!options.parseTree && !options.sourceContent) {
         yield* Effect.logDebug(
           'RunAsStatementValidator: sourceContent not provided, skipping validation',
         );
@@ -283,8 +187,8 @@ export const RunAsStatementValidator: Validator = {
           const isTrigger = fileUri.endsWith('.trigger');
           const isAnonymous = fileUri.endsWith('.apex');
           const contentToParse = isAnonymous
-            ? `{${sourceContent}}`
-            : sourceContent;
+            ? `{${sourceContent ?? ''}}`
+            : (sourceContent ?? '');
 
           const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
@@ -310,10 +214,8 @@ export const RunAsStatementValidator: Validator = {
 
         // Validate each runAs statement
         const runAsStatements = listener.getRunAsStatements();
-        const literalTypes = listener.getLiteralTypes();
         for (const runAsStmt of runAsStatements) {
-          const { ctx, expressionCount, expression, expressionText } =
-            runAsStmt;
+          const { ctx, expressionCount, expression } = runAsStmt;
           // Check for exactly one argument
           if (expressionCount !== 1) {
             const location = getLocationFromContext(ctx);
@@ -325,22 +227,13 @@ export const RunAsStatementValidator: Validator = {
             continue;
           }
 
-          // Check if expression type is User or Version using comprehensive type resolution
+          // Validate only a type established by parser-owned argument facts and
+          // lexical symbols. Unresolved complex expressions remain uncertain.
           if (expression) {
-            const resolvedExpressionTypes = new WeakMap<
-              ExpressionContext,
-              ExpressionTypeInfo
-            >();
-            const typeInfo = yield* resolveExpressionTypeRecursive(
+            const expressionType = resolveRunAsArgumentType(
               expression,
-              resolvedExpressionTypes,
-              literalTypes,
               symbolTable,
-              symbolManager,
-              options.tier,
             );
-
-            const expressionType = typeInfo?.resolvedType || null;
             if (expressionType) {
               const typeLower = expressionType.toLowerCase();
               const isValidType =
@@ -355,16 +248,6 @@ export const RunAsStatementValidator: Validator = {
                   code: ErrorCodes.INVALID_RUNAS,
                 });
               }
-            }
-          } else if (expressionText) {
-            // Fallback to text-based validation
-            if (!isUserOrVersionType(expressionText, symbolTable)) {
-              const location = getLocationFromContext(ctx);
-              errors.push({
-                message: localizeTyped(ErrorCodes.INVALID_RUNAS),
-                location,
-                code: ErrorCodes.INVALID_RUNAS,
-              });
             }
           }
         }

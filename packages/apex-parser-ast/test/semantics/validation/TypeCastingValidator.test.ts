@@ -7,39 +7,74 @@
  */
 import { TypeCastingValidator } from '../../../src/semantics/validation/TypeCastingValidator';
 import type { ValidationScope } from '../../../src/semantics/validation/TypeValidator';
+import type { ApexSymbol } from '../../../src/types/symbol';
+import { SymbolKind, SymbolVisibility } from '../../../src/types/symbol';
 
 describe('TypeCastingValidator', () => {
-  const createMockScope = (): ValidationScope => ({
-    errors: {
-      addError: jest.fn(),
-      addWarning: jest.fn(),
-    },
-    settings: {
-      collectMultipleErrors: true,
-      breakOnFirstError: false,
-      enableWarnings: true,
-      maxErrors: 100,
-      version: 58,
-    },
-    symbolTable: {} as any,
-    currentContext: {
-      currentType: null,
-      currentMethod: null,
-      isStaticContext: false,
-      blockDepth: 0,
-      currentNamespace: null,
-    },
-    compilationContext: {
-      namespace: null,
-      version: 58,
-      isTrusted: true,
-      sourceType: 'FILE',
-      referencingType: null,
-      enclosingTypes: [],
-      parentTypes: [],
-      isStaticContext: false,
-    },
-  });
+  const createMockScope = (allSymbols: ApexSymbol[] = []): ValidationScope =>
+    ({
+      errors: {
+        addError: jest.fn(),
+        addWarning: jest.fn(),
+      },
+      settings: {
+        collectMultipleErrors: true,
+        breakOnFirstError: false,
+        enableWarnings: true,
+        maxErrors: 100,
+        version: 58,
+      },
+      symbolTable: {
+        getAllSymbols: () => allSymbols,
+      },
+      currentContext: {
+        currentType: null,
+        currentMethod: null,
+        isStaticContext: false,
+        blockDepth: 0,
+        currentNamespace: null,
+      },
+      compilationContext: {
+        namespace: null,
+        version: 58,
+        isTrusted: true,
+        sourceType: 'FILE',
+        referencingType: null,
+        enclosingTypes: [],
+        parentTypes: [],
+        isStaticContext: false,
+      },
+    }) as unknown as ValidationScope;
+
+  const createClassSymbol = (name: string, superClass?: string): ApexSymbol =>
+    ({
+      id: name,
+      name,
+      kind: SymbolKind.Class,
+      superClass,
+      interfaces: [],
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: name.length,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: name.length,
+        },
+      },
+      fileUri: `file:///${name}.cls`,
+      parentId: null,
+      key: { prefix: 'class', name },
+      _isLoaded: true,
+      modifiers: {
+        visibility: SymbolVisibility.Public,
+      },
+    }) as ApexSymbol;
 
   const createMockTypeInfo = (
     name: string,
@@ -108,14 +143,18 @@ describe('TypeCastingValidator', () => {
         expect(result.isValid).toBe(true);
       });
 
-      it('should allow casting from parent to child class', () => {
-        const sourceType = createMockTypeInfo('ParentClass');
-        const targetType = createMockTypeInfo('ChildClass');
+      it('should allow casting from a resolved parent to child class', () => {
+        const sourceType = createMockTypeInfo('Animal');
+        const targetType = createMockTypeInfo('Dog');
+        const symbols = [
+          createClassSymbol('Animal'),
+          createClassSymbol('Dog', 'Animal'),
+        ];
 
         const result = TypeCastingValidator.validateCast(
           sourceType,
           targetType,
-          createMockScope(),
+          createMockScope(symbols),
         );
 
         expect(result.isValid).toBe(true);
@@ -191,18 +230,39 @@ describe('TypeCastingValidator', () => {
         expect(result.errors).toContain('incompatible.cast.types');
       });
 
-      it('should reject casting from child to parent class', () => {
-        const sourceType = createMockTypeInfo('ChildClass');
-        const targetType = createMockTypeInfo('ParentClass');
+      it('should allow casting from a resolved child to parent class', () => {
+        const sourceType = createMockTypeInfo('Dog');
+        const targetType = createMockTypeInfo('Animal');
+        const symbols = [
+          createClassSymbol('Animal'),
+          createClassSymbol('Dog', 'Animal'),
+        ];
 
         const result = TypeCastingValidator.validateCast(
           sourceType,
           targetType,
-          createMockScope(),
+          createMockScope(symbols),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('incompatible.cast.types');
+        expect(result.isValid).toBe(true);
+      });
+
+      it('should follow a resolved transitive class hierarchy', () => {
+        const sourceType = createMockTypeInfo('Animal');
+        const targetType = createMockTypeInfo('Puppy');
+        const symbols = [
+          createClassSymbol('Animal'),
+          createClassSymbol('Dog', 'Animal'),
+          createClassSymbol('Puppy', 'Dog'),
+        ];
+
+        const result = TypeCastingValidator.validateCast(
+          sourceType,
+          targetType,
+          createMockScope(symbols),
+        );
+
+        expect(result.isValid).toBe(true);
       });
 
       it('should reject casting to void type', () => {
@@ -236,6 +296,39 @@ describe('TypeCastingValidator', () => {
       it('should reject casting between unrelated classes', () => {
         const sourceType = createMockTypeInfo('ClassA');
         const targetType = createMockTypeInfo('ClassB');
+        const symbols = [
+          createClassSymbol('ClassA'),
+          createClassSymbol('ClassB'),
+        ];
+
+        const result = TypeCastingValidator.validateCast(
+          sourceType,
+          targetType,
+          createMockScope(symbols),
+        );
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('incompatible.cast.types');
+      });
+
+      it('preserves uncertainty when class hierarchy symbols are unavailable', () => {
+        const sourceType = createMockTypeInfo('ExternalBase');
+        const targetType = createMockTypeInfo('ExternalChild');
+
+        const result = TypeCastingValidator.validateCast(
+          sourceType,
+          targetType,
+          createMockScope(),
+        );
+
+        expect(result.isValid).toBe(true);
+      });
+    });
+
+    describe('SObject Casts', () => {
+      it('should reject casting between unrelated concrete SObject types', () => {
+        const sourceType = createMockTypeInfo('Account', false, true);
+        const targetType = createMockTypeInfo('Contact', false, true);
 
         const result = TypeCastingValidator.validateCast(
           sourceType,
@@ -246,12 +339,23 @@ describe('TypeCastingValidator', () => {
         expect(result.isValid).toBe(false);
         expect(result.errors).toContain('incompatible.cast.types');
       });
-    });
 
-    describe('SObject Casts', () => {
-      it('should allow casting between SObject types', () => {
-        const sourceType = createMockTypeInfo('Account', false, true);
-        const targetType = createMockTypeInfo('Contact', false, true);
+      it('should allow casting from generic SObject to a custom object', () => {
+        const sourceType = createMockTypeInfo('SObject', false, true);
+        const targetType = createMockTypeInfo('Property__c', false, true);
+
+        const result = TypeCastingValidator.validateCast(
+          sourceType,
+          targetType,
+          createMockScope(),
+        );
+
+        expect(result.isValid).toBe(true);
+      });
+
+      it('should allow casting from a custom object to generic SObject', () => {
+        const sourceType = createMockTypeInfo('Property__c', false, true);
+        const targetType = createMockTypeInfo('SObject', false, true);
 
         const result = TypeCastingValidator.validateCast(
           sourceType,

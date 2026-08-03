@@ -18,7 +18,6 @@ import {
   NewExpressionContext,
   ArrayExpressionContext,
   ExpressionContext,
-  LiteralPrimaryContext,
   MethodCallExpressionContext,
   DotExpressionContext,
   DotMethodCallContext,
@@ -29,6 +28,7 @@ import type {
   SymbolLocation,
   VariableSymbol,
 } from '../../../types/symbol';
+import type { TypeInfo } from '../../../types/typeInfo';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -42,14 +42,15 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
-import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
 import { isFieldSymbol } from '../../../utils/symbolNarrowing';
+import { createTypeInfoFromTypeRef } from '../../../parser/utils/createTypeInfoFromTypeRef';
+import { callArgumentSemantic } from '../../../utils/contextTypeGuards';
 import {
-  resolveExpressionTypeRecursive,
-  isNumericType,
-  type ExpressionTypeInfo,
-} from './ExpressionValidator';
+  createCollectionTypeInfo,
+  createMapTypeInfo,
+  createTypeInfo,
+} from '../../../utils/TypeInfoFactory';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -104,6 +105,80 @@ function areMapTypesCompatible(type1: string, type2: string): boolean {
   return false;
 }
 
+const collectionElementType = (type: TypeInfo): TypeInfo | undefined =>
+  type.typeParameters?.[0];
+
+const mapTypes = (
+  type: TypeInfo,
+): { keyType?: TypeInfo; valueType?: TypeInfo } => ({
+  keyType: type.keyType ?? type.typeParameters?.[0],
+  valueType: type.keyType ? type.typeParameters?.[0] : type.typeParameters?.[1],
+});
+
+const compatibleTypeInfo = (left: TypeInfo, right: TypeInfo): boolean => {
+  if (!areMapTypesCompatible(left.name, right.name)) {
+    return false;
+  }
+
+  const leftMap = mapTypes(left);
+  const rightMap = mapTypes(right);
+  if (leftMap.keyType || rightMap.keyType) {
+    return (
+      !!leftMap.keyType &&
+      !!rightMap.keyType &&
+      compatibleTypeInfo(leftMap.keyType, rightMap.keyType) &&
+      !!leftMap.valueType &&
+      !!rightMap.valueType &&
+      compatibleTypeInfo(leftMap.valueType, rightMap.valueType)
+    );
+  }
+
+  const leftParameters = left.typeParameters ?? [];
+  const rightParameters = right.typeParameters ?? [];
+  return (
+    leftParameters.length === rightParameters.length &&
+    leftParameters.every((parameter, index) =>
+      compatibleTypeInfo(parameter, rightParameters[index]),
+    )
+  );
+};
+
+/** Resolve only grammar-classified literals, identifiers, and new collections. */
+function resolveSemanticExpressionType(
+  expression: ExpressionContext,
+  symbolTable: SymbolTable,
+  listener: CollectionListener,
+): TypeInfo | undefined {
+  if (expression instanceof NewExpressionContext) {
+    return listener.getCreatedType(expression);
+  }
+
+  const semantic = callArgumentSemantic(expression);
+  if (semantic.kind === 'literal') {
+    return createTypeInfo(semantic.literalType);
+  }
+  if (semantic.kind !== 'identifier') {
+    return undefined;
+  }
+
+  const location = getLocationFromContext(expression).identifierRange;
+  const scopes = symbolTable.getScopeHierarchy({
+    line: location.startLine,
+    character: location.startColumn,
+  });
+  const scope = scopes.length > 0 ? scopes[scopes.length - 1] : null;
+  const symbol = symbolTable.lookupInScopeChain(semantic.name, scope);
+  if (
+    symbol &&
+    (symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter ||
+      isFieldSymbol(symbol))
+  ) {
+    return (symbol as VariableSymbol).type;
+  }
+  return undefined;
+}
+
 /**
  * Listener to collect collection-related parse tree information
  */
@@ -111,16 +186,14 @@ class CollectionListener extends BaseApexParserListener<void> {
   private collectionInitializers: Array<{
     ctx: NewExpressionContext;
     collectionType: 'List' | 'Set' | 'Map';
-    elementType?: string;
-    keyType?: string; // For Map
-    valueType?: string; // For Map
-    initializerText?: string;
+    createdType: TypeInfo;
+    argumentExpressions: ExpressionContext[];
   }> = [];
   private listIndexExpressions: Array<{
     ctx: ArrayExpressionContext;
-    indexExpression?: ExpressionContext;
-    indexText?: string;
+    indexExpression: ExpressionContext;
   }> = [];
+  private createdTypes = new WeakMap<NewExpressionContext, TypeInfo>();
   private collectionMethodCalls: Array<{
     ctx: MethodCallExpressionContext | DotMethodCallContext;
     methodName: string;
@@ -128,48 +201,6 @@ class CollectionListener extends BaseApexParserListener<void> {
     argumentExpressions: ExpressionContext[];
     location: SymbolLocation;
   }> = [];
-  private literalTypes: Map<
-    ExpressionContext,
-    'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null'
-  > = new Map();
-
-  enterLiteralPrimary(ctx: LiteralPrimaryContext): void {
-    // Collect literal types for expression resolution
-    const literal = ctx.literal();
-    if (!literal) {
-      return;
-    }
-
-    let literalType:
-      'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null' | null =
-      null;
-
-    if (literal.IntegerLiteral()) {
-      literalType = 'integer';
-    } else if (literal.LongLiteral()) {
-      literalType = 'long';
-    } else if (literal.NumberLiteral()) {
-      literalType = 'decimal';
-    } else if (literal.StringLiteral()) {
-      literalType = 'string';
-    } else if (literal.BooleanLiteral()) {
-      literalType = 'boolean';
-    } else if (literal.NULL()) {
-      literalType = 'null';
-    }
-
-    if (literalType) {
-      // Find the containing ExpressionContext
-      let parent = ctx.parentCtx;
-      while (parent && !(parent instanceof ExpressionContext)) {
-        parent = parent.parentCtx;
-      }
-      if (parent instanceof ExpressionContext) {
-        this.literalTypes.set(parent, literalType);
-      }
-    }
-  }
-
   enterNewExpression(ctx: NewExpressionContext): void {
     const creator = ctx.creator();
     if (!creator) {
@@ -202,45 +233,27 @@ class CollectionListener extends BaseApexParserListener<void> {
     if (listToken || setToken || mapToken) {
       const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
 
-      let elementType: string | undefined;
-      let keyType: string | undefined;
-      let valueType: string | undefined;
-
-      const extractTypeName = (typeRef: TypeRefContext): string | undefined => {
-        const typeNames = typeRef.typeName_list();
-        if (typeNames && typeNames.length > 0) {
-          const typeName = typeNames[0];
-          const id = typeName.id();
-          if (id) {
-            return id.getText();
-          }
-        }
-        return typeRef.getText()?.trim() || undefined;
-      };
-
       // Grammar: idCreatedNamePair : anyId (LT typeList GT)?
       const typeList = firstPair.typeList();
       const typeRefs: TypeRefContext[] = typeList?.typeRef_list() ?? [];
-
-      if (collectionType === 'Map' && typeRefs.length >= 2) {
-        keyType = extractTypeName(typeRefs[0]);
-        valueType = extractTypeName(typeRefs[1]);
-      } else if (typeRefs.length > 0) {
-        elementType = extractTypeName(typeRefs[0]);
-      }
+      const typeParameters = typeRefs.map(createTypeInfoFromTypeRef);
+      const createdType =
+        collectionType === 'Map' && typeParameters.length >= 2
+          ? createMapTypeInfo(typeParameters[0], typeParameters[1])
+          : createCollectionTypeInfo(collectionType, typeParameters);
 
       const classCreatorRest = creator.classCreatorRest();
       const arguments_ = classCreatorRest?.arguments();
-      const initializerText = arguments_?.getText() || '';
+      const argumentExpressions =
+        arguments_?.expressionList()?.expression_list() ?? [];
 
       this.collectionInitializers.push({
         ctx,
         collectionType,
-        elementType,
-        keyType,
-        valueType,
-        initializerText,
+        createdType,
+        argumentExpressions,
       });
+      this.createdTypes.set(ctx, createdType);
     }
   }
 
@@ -250,11 +263,9 @@ class CollectionListener extends BaseApexParserListener<void> {
     const expressions = ctx.expression_list();
     if (expressions && expressions.length > 1) {
       const indexExpr = expressions[1]; // Index is the second expression
-      const indexText = indexExpr.getText() || '';
       this.listIndexExpressions.push({
         ctx,
         indexExpression: indexExpr,
-        indexText,
       });
     }
   }
@@ -266,7 +277,7 @@ class CollectionListener extends BaseApexParserListener<void> {
     const methodCall = ctx.methodCall();
     if (methodCall) {
       const id = methodCall.id();
-      const methodName = id?.getText() || '';
+      const methodName = id?.start.text ?? '';
 
       // Check for collection methods: all(), sort(), putAll()
       if (
@@ -318,7 +329,7 @@ class CollectionListener extends BaseApexParserListener<void> {
     // DotMethodCallContext: anyId LPAREN expressionList? RPAREN
     // This is used for method calls like map1.putAll(map2)
     const anyId = ctx.anyId();
-    const methodName = anyId?.getText() || '';
+    const methodName = anyId?.start.text ?? '';
 
     // Check for collection methods: all(), sort(), putAll()
     if (
@@ -372,27 +383,17 @@ class CollectionListener extends BaseApexParserListener<void> {
   getCollectionInitializers(): Array<{
     ctx: NewExpressionContext;
     collectionType: 'List' | 'Set' | 'Map';
-    elementType?: string;
-    keyType?: string;
-    valueType?: string;
-    initializerText?: string;
+    createdType: TypeInfo;
+    argumentExpressions: ExpressionContext[];
   }> {
     return this.collectionInitializers;
   }
 
   getListIndexExpressions(): Array<{
     ctx: ArrayExpressionContext;
-    indexExpression?: ExpressionContext;
-    indexText?: string;
+    indexExpression: ExpressionContext;
   }> {
     return this.listIndexExpressions;
-  }
-
-  getLiteralTypes(): Map<
-    ExpressionContext,
-    'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null'
-  > {
-    return this.literalTypes;
   }
 
   getCollectionMethodCalls(): Array<{
@@ -403,6 +404,10 @@ class CollectionListener extends BaseApexParserListener<void> {
     location: SymbolLocation;
   }> {
     return this.collectionMethodCalls;
+  }
+
+  getCreatedType(ctx: NewExpressionContext): TypeInfo | undefined {
+    return this.createdTypes.get(ctx);
   }
 }
 
@@ -435,7 +440,6 @@ export const CollectionValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError, ISymbolManager> =>
     Effect.gen(function* () {
-      const symbolManager = yield* ISymbolManager;
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
 
@@ -490,318 +494,182 @@ export const CollectionValidator: Validator = {
         const collectionInitializers = listener.getCollectionInitializers();
         const listIndexExpressions = listener.getListIndexExpressions();
         const collectionMethodCalls = listener.getCollectionMethodCalls();
-        const literalTypes = listener.getLiteralTypes();
 
         // 1. Validate collection initializers
         for (const initializer of collectionInitializers) {
-          const {
-            ctx,
-            collectionType,
-            elementType,
-            keyType,
-            valueType,
-            initializerText,
-          } = initializer;
+          const { ctx, collectionType, createdType, argumentExpressions } =
+            initializer;
           const location = getLocationFromContext(ctx);
+          const elementType = collectionElementType(createdType);
+          const { keyType, valueType } = mapTypes(createdType);
 
           // Validate SObject List creation - must be concrete SObject type
-          if (collectionType === 'List' && elementType) {
-            const elementTypeLower = elementType.toLowerCase();
-            // Check if it's the abstract SObject type (not a concrete type)
-            if (elementTypeLower === 'sobject') {
-              errors.push({
-                message: localizeTyped(ErrorCodes.INVALID_SOBJECT_LIST),
-                location,
-                code: ErrorCodes.INVALID_SOBJECT_LIST,
-              });
-            }
+          if (
+            collectionType === 'List' &&
+            elementType?.name.toLowerCase() === 'sobject'
+          ) {
+            errors.push({
+              message: localizeTyped(ErrorCodes.INVALID_SOBJECT_LIST),
+              location,
+              code: ErrorCodes.INVALID_SOBJECT_LIST,
+            });
           }
 
           // Validate SObject Map creation - must be concrete SObject type
-          if (collectionType === 'Map' && valueType) {
-            const valueTypeLower = valueType.toLowerCase();
-            // Check if it's the abstract SObject type (not a concrete type)
-            if (valueTypeLower === 'sobject') {
-              errors.push({
-                message: localizeTyped(ErrorCodes.INVALID_SOBJECT_MAP),
-                location,
-                code: ErrorCodes.INVALID_SOBJECT_MAP,
-              });
-            }
-          }
-
-          // Validate Map initializer key and value types
-          // Note: This requires type resolution which is better handled in TIER 2
-          // For TIER 1, we do basic text-based pattern matching
           if (
             collectionType === 'Map' &&
-            keyType &&
-            valueType &&
-            initializerText &&
-            initializerText.trim() !== '()'
+            valueType?.name.toLowerCase() === 'sobject'
           ) {
-            const normalizedInitializer = initializerText.toLowerCase().trim();
-            // Check if initializer looks like a Map type
-            if (normalizedInitializer.includes('map<')) {
-              // Try to extract key and value types from the initializer Map type
-              const mapMatch = normalizedInitializer.match(
-                /map<([^,]+),\s*([^>]+)>/,
-              );
-              if (mapMatch) {
-                const initializerKeyType = mapMatch[1].trim();
-                const initializerValueType = mapMatch[2].trim();
-
-                // Validate key type compatibility
-                const keyTypeLower = keyType.toLowerCase();
-                const initializerKeyTypeLower =
-                  initializerKeyType.toLowerCase();
-                // Only flag if types are clearly incompatible (exact mismatch and not compatible)
-                if (
-                  keyTypeLower !== initializerKeyTypeLower &&
-                  !areMapTypesCompatible(keyTypeLower, initializerKeyTypeLower)
-                ) {
-                  // Check if it's a clear mismatch (not just a variable name)
-                  if (
-                    initializerKeyTypeLower !== 'integer' &&
-                    initializerKeyTypeLower !== 'string' &&
-                    initializerKeyTypeLower !== 'long' &&
-                    initializerKeyTypeLower !== 'id'
-                  ) {
-                    // Might be a variable name, skip for TIER 1
-                    continue;
-                  }
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_INITIAL_KEY_TYPE,
-                      initializerKeyType,
-                      `Map<${keyType}, ${valueType}>`,
-                    ),
-                    location,
-                    code: ErrorCodes.INVALID_INITIAL_KEY_TYPE,
-                  });
-                }
-
-                // Validate value type compatibility
-                const valueTypeLower = valueType.toLowerCase();
-                const initializerValueTypeLower =
-                  initializerValueType.toLowerCase();
-                if (
-                  valueTypeLower !== initializerValueTypeLower &&
-                  !areMapTypesCompatible(
-                    valueTypeLower,
-                    initializerValueTypeLower,
-                  )
-                ) {
-                  // Check if it's a clear mismatch
-                  if (
-                    initializerValueTypeLower !== 'integer' &&
-                    initializerValueTypeLower !== 'string' &&
-                    initializerValueTypeLower !== 'long' &&
-                    initializerValueTypeLower !== 'id'
-                  ) {
-                    // Might be a variable name, skip for TIER 1
-                    continue;
-                  }
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_INITIAL_VALUE_TYPE,
-                      initializerValueType,
-                      `Map<${keyType}, ${valueType}>`,
-                    ),
-                    location,
-                    code: ErrorCodes.INVALID_INITIAL_VALUE_TYPE,
-                  });
-                }
-              }
-            }
+            errors.push({
+              message: localizeTyped(ErrorCodes.INVALID_SOBJECT_MAP),
+              location,
+              code: ErrorCodes.INVALID_SOBJECT_MAP,
+            });
           }
 
-          if (initializerText && initializerText.trim() !== '()') {
-            // Has initializer arguments
-            const normalizedInitializer = initializerText.toLowerCase().trim();
+          const argument = argumentExpressions[0];
+          if (!argument) continue;
+          const argumentType = resolveSemanticExpressionType(
+            argument,
+            symbolTable,
+            listener,
+          );
+          if (!argumentType) continue;
 
-            if (collectionType === 'List') {
-              // List initializer: must be Integer or List<elementType>
-              // Basic check: if it's not a number and doesn't look like a List, flag it
-              const isNumeric = /^\d+$/.test(
-                normalizedInitializer.replace(/[()]/g, '').trim(),
-              );
-              const looksLikeList = normalizedInitializer.includes('list<');
-
-              if (!isNumeric && !looksLikeList) {
-                // This is a basic check - full type validation requires TIER 2
-                // For now, we'll flag obviously wrong patterns
-                const invalidPatterns = [
-                  'string',
-                  'boolean',
-                  'double',
-                  'decimal',
-                ];
-                const isInvalid = invalidPatterns.some((pattern) =>
-                  normalizedInitializer.includes(pattern),
-                );
-
-                if (isInvalid && elementType) {
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_LIST_INITIALIZER,
-                      initializerText,
-                      elementType,
-                    ),
-                    location,
-                    code: ErrorCodes.INVALID_LIST_INITIALIZER,
-                  });
-                }
+          if (collectionType === 'List') {
+            const sourceElement = collectionElementType(argumentType);
+            const validCapacity = argumentType.name.toLowerCase() === 'integer';
+            const validList =
+              argumentType.name.toLowerCase() === 'list' &&
+              !!elementType &&
+              !!sourceElement &&
+              compatibleTypeInfo(elementType, sourceElement);
+            if (!validCapacity && !validList && elementType) {
+              errors.push({
+                message: localizeTyped(
+                  ErrorCodes.INVALID_LIST_INITIALIZER,
+                  argumentType.originalTypeString,
+                  elementType.originalTypeString,
+                  elementType.originalTypeString,
+                ),
+                location,
+                code: ErrorCodes.INVALID_LIST_INITIALIZER,
+              });
+            }
+          } else if (collectionType === 'Set') {
+            const sourceElement = collectionElementType(argumentType);
+            const sourceKind = argumentType.name.toLowerCase();
+            const validCollection =
+              (sourceKind === 'list' || sourceKind === 'set') &&
+              !!elementType &&
+              !!sourceElement &&
+              compatibleTypeInfo(elementType, sourceElement);
+            if (!validCollection && elementType) {
+              errors.push({
+                message: localizeTyped(
+                  ErrorCodes.INVALID_SET_INITIALIZER,
+                  argumentType.originalTypeString,
+                  elementType.originalTypeString,
+                ),
+                location,
+                code: ErrorCodes.INVALID_SET_INITIALIZER,
+              });
+            }
+          } else if (collectionType === 'Map') {
+            if (argumentType.name.toLowerCase() === 'map') {
+              const source = mapTypes(argumentType);
+              if (
+                keyType &&
+                source.keyType &&
+                !compatibleTypeInfo(keyType, source.keyType)
+              ) {
+                errors.push({
+                  message: localizeTyped(
+                    ErrorCodes.INVALID_INITIAL_KEY_TYPE,
+                    source.keyType.originalTypeString,
+                    createdType.originalTypeString,
+                  ),
+                  location,
+                  code: ErrorCodes.INVALID_INITIAL_KEY_TYPE,
+                });
               }
-            } else if (collectionType === 'Set') {
-              // Set initializer: must be List<elementType> or Set<elementType>
-              const looksLikeCollection =
-                normalizedInitializer.includes('list<') ||
-                normalizedInitializer.includes('set<');
-
-              if (!looksLikeCollection) {
-                // Basic check - flag if it's clearly not a collection
-                const invalidPatterns = ['integer', 'string', 'boolean'];
-                const isInvalid = invalidPatterns.some((pattern) =>
-                  normalizedInitializer.includes(pattern),
-                );
-
-                if (isInvalid && elementType) {
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_SET_INITIALIZER,
-                      initializerText,
-                      elementType,
-                    ),
-                    location,
-                    code: ErrorCodes.INVALID_SET_INITIALIZER,
-                  });
-                }
+              if (
+                valueType &&
+                source.valueType &&
+                !compatibleTypeInfo(valueType, source.valueType)
+              ) {
+                errors.push({
+                  message: localizeTyped(
+                    ErrorCodes.INVALID_INITIAL_VALUE_TYPE,
+                    source.valueType.originalTypeString,
+                    createdType.originalTypeString,
+                  ),
+                  location,
+                  code: ErrorCodes.INVALID_INITIAL_VALUE_TYPE,
+                });
               }
-            } else if (collectionType === 'Map') {
-              // Map initializer: must be Map<keyType, valueType> or SObject List
-              const looksLikeMap = normalizedInitializer.includes('map<');
-              const looksLikeSObjectList =
-                normalizedInitializer.includes('list<') &&
-                (normalizedInitializer.includes('account') ||
-                  normalizedInitializer.includes('contact') ||
-                  normalizedInitializer.includes('__c'));
-
-              if (!looksLikeMap && !looksLikeSObjectList) {
-                // Basic check - flag if it's clearly not valid
-                const invalidPatterns = ['integer', 'string', 'boolean'];
-                const isInvalid = invalidPatterns.some((pattern) =>
-                  normalizedInitializer.includes(pattern),
-                );
-
-                if (isInvalid) {
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_MAP_INITIALIZER,
-                      initializerText,
-                      'KeyType',
-                      'ValueType',
-                    ),
-                    location,
-                    code: ErrorCodes.INVALID_MAP_INITIALIZER,
-                  });
-                }
-              }
+            } else if (argumentType.name.toLowerCase() !== 'list') {
+              errors.push({
+                message: localizeTyped(
+                  ErrorCodes.INVALID_MAP_INITIALIZER,
+                  argumentType.originalTypeString,
+                  keyType?.originalTypeString ?? 'Unknown',
+                  valueType?.originalTypeString ?? 'Unknown',
+                ),
+                location,
+                code: ErrorCodes.INVALID_MAP_INITIALIZER,
+              });
             }
           }
         }
 
         // 2. Validate list index expressions
         for (const indexExpr of listIndexExpressions) {
-          const { ctx, indexExpression, indexText } = indexExpr;
+          const { ctx, indexExpression } = indexExpr;
           const location = getLocationFromContext(ctx);
-
-          if (indexText) {
-            const normalizedIndex = indexText.toLowerCase().trim();
-
-            // TIER 1: Check literal types first (most reliable)
-            let isNonNumeric = false;
-            if (indexExpression) {
-              const literalType = literalTypes.get(indexExpression);
-              if (literalType === 'string' || literalType === 'boolean') {
-                isNonNumeric = true;
-              }
-            }
-
-            // TIER 1: Basic text-based check for clearly non-numeric patterns
-            if (!isNonNumeric) {
-              const nonNumericPatterns = [
-                'string',
-                'boolean',
-                'double',
-                'list',
-              ];
-              isNonNumeric = nonNumericPatterns.some((pattern) =>
-                normalizedIndex.includes(pattern),
-              );
-            }
-
-            if (isNonNumeric) {
-              errors.push({
-                message: localizeTyped(
-                  ErrorCodes.INVALID_LIST_INDEX_TYPE,
-                  'Integer',
-                  indexText,
-                ),
-                location,
-                code: ErrorCodes.INVALID_LIST_INDEX_TYPE,
-              });
-            }
-
-            // TIER 2: Enhanced type checking for index expressions
-            if (options.tier === ValidationTier.THOROUGH && !isNonNumeric) {
-              if (indexExpression) {
-                yield* validateListIndexTypeExpression(
-                  indexExpression,
-                  location,
-                  symbolTable,
-                  symbolManager,
-                  literalTypes,
-                  errors,
-                );
-              } else if (indexText.trim()) {
-                // Fallback to text-based validation
-                yield* validateListIndexType(
-                  indexText,
-                  location,
-                  symbolTable,
-                  symbolManager,
-                  errors,
-                );
-              }
-            }
+          const indexType = resolveSemanticExpressionType(
+            indexExpression,
+            symbolTable,
+            listener,
+          );
+          if (
+            indexType &&
+            indexType.name.toLowerCase() !== 'integer' &&
+            indexType.name.toLowerCase() !== 'long'
+          ) {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.INVALID_LIST_INDEX_TYPE,
+                'Integer',
+                indexType.originalTypeString,
+              ),
+              location,
+              code: ErrorCodes.INVALID_LIST_INDEX_TYPE,
+            });
           }
         }
 
-        // 3. Validate collection method calls (.all(), .sort())
+        // 3. Validate collection method calls (.all(), .sort()). Keep the
+        // parser-owned TypeInfo shape intact so nested generic arguments are
+        // never reconstructed from a flattened display string.
         const resolvedExpressionTypes = new WeakMap<
           ExpressionContext,
-          ExpressionTypeInfo
+          TypeInfo
         >();
-
-        // Collect all expressions that need resolution
-        const allExpressions: ExpressionContext[] = [];
         for (const methodCall of collectionMethodCalls) {
-          allExpressions.push(methodCall.baseExpression);
-          for (const argExpr of methodCall.argumentExpressions) {
-            allExpressions.push(argExpr);
+          for (const expression of [
+            methodCall.baseExpression,
+            ...methodCall.argumentExpressions,
+          ]) {
+            const resolved = resolveSemanticExpressionType(
+              expression,
+              symbolTable,
+              listener,
+            );
+            if (resolved) {
+              resolvedExpressionTypes.set(expression, resolved);
+            }
           }
-        }
-        // Resolve expression types
-        for (const expr of allExpressions) {
-          yield* resolveExpressionTypeRecursive(
-            expr,
-            resolvedExpressionTypes,
-            literalTypes,
-            symbolTable,
-            symbolManager,
-            options.tier,
-          );
         }
 
         for (const methodCall of collectionMethodCalls) {
@@ -810,17 +678,11 @@ export const CollectionValidator: Validator = {
 
           // Resolve base expression type to check if it's a collection
           const baseTypeInfo = resolvedExpressionTypes.get(baseExpression);
-          const baseType = baseTypeInfo?.resolvedType || null;
+          const baseType = baseTypeInfo?.originalTypeString ?? null;
 
-          if (baseType) {
-            const baseTypeLower = baseType.toLowerCase();
-            const isCollection =
-              baseTypeLower.includes('list<') ||
-              baseTypeLower.includes('set<') ||
-              baseTypeLower.includes('map<') ||
-              baseTypeLower === 'list' ||
-              baseTypeLower === 'set' ||
-              baseTypeLower === 'map';
+          if (baseTypeInfo && baseType) {
+            const baseKind = baseTypeInfo.name.toLowerCase();
+            const isCollection = ['list', 'set', 'map'].includes(baseKind);
 
             if (!isCollection) {
               // Base expression is not a collection - this is handled by MethodResolutionValidator
@@ -845,13 +707,10 @@ export const CollectionValidator: Validator = {
                 // Validate argument type - should be a Map with compatible types
                 const argExpr = argumentExpressions[0];
                 const argTypeInfo = resolvedExpressionTypes.get(argExpr);
-                const argType = argTypeInfo?.resolvedType || null;
+                const argType = argTypeInfo?.originalTypeString ?? null;
 
-                if (argType) {
-                  const argTypeLower = argType.toLowerCase();
-
-                  // Check if argument is a Map
-                  if (!argTypeLower.includes('map<')) {
+                if (argTypeInfo && argType) {
+                  if (argTypeInfo.name.toLowerCase() !== 'map') {
                     errors.push({
                       message: localizeTyped(
                         ErrorCodes.INVALID_MAP_PUTALL,
@@ -861,53 +720,16 @@ export const CollectionValidator: Validator = {
                       location,
                       code: ErrorCodes.INVALID_MAP_PUTALL,
                     });
-                  } else {
-                    // Extract key/value types from both Maps
-                    const baseMapMatch = baseTypeLower.match(
-                      /map<([^,]+),\s*([^>]+)>/,
-                    );
-                    const argMapMatch = argTypeLower.match(
-                      /map<([^,]+),\s*([^>]+)>/,
-                    );
-
-                    if (baseMapMatch && argMapMatch) {
-                      const baseKeyType = baseMapMatch[1].trim();
-                      const baseValueType = baseMapMatch[2].trim();
-                      const argKeyType = argMapMatch[1].trim();
-                      const argValueType = argMapMatch[2].trim();
-
-                      // Key types must match exactly
-                      if (
-                        baseKeyType !== argKeyType &&
-                        !areMapTypesCompatible(baseKeyType, argKeyType)
-                      ) {
-                        errors.push({
-                          message: localizeTyped(
-                            ErrorCodes.INVALID_MAP_PUTALL,
-                            argType,
-                            baseType,
-                          ),
-                          location,
-                          code: ErrorCodes.INVALID_MAP_PUTALL,
-                        });
-                      }
-
-                      // Value types must be compatible
-                      if (
-                        baseValueType !== argValueType &&
-                        !areMapTypesCompatible(baseValueType, argValueType)
-                      ) {
-                        errors.push({
-                          message: localizeTyped(
-                            ErrorCodes.INVALID_MAP_PUTALL,
-                            argType,
-                            baseType,
-                          ),
-                          location,
-                          code: ErrorCodes.INVALID_MAP_PUTALL,
-                        });
-                      }
-                    }
+                  } else if (!compatibleTypeInfo(baseTypeInfo, argTypeInfo)) {
+                    errors.push({
+                      message: localizeTyped(
+                        ErrorCodes.INVALID_MAP_PUTALL,
+                        argType,
+                        baseType,
+                      ),
+                      location,
+                      code: ErrorCodes.INVALID_MAP_PUTALL,
+                    });
                   }
                 }
               }
@@ -932,67 +754,37 @@ export const CollectionValidator: Validator = {
                 const comparatorArg = argumentExpressions[0];
                 const comparatorTypeInfo =
                   resolvedExpressionTypes.get(comparatorArg);
-                const comparatorType = comparatorTypeInfo?.resolvedType || null;
+                const comparatorType =
+                  comparatorTypeInfo?.originalTypeString ?? null;
 
-                if (comparatorType) {
-                  const comparatorTypeLower = comparatorType.toLowerCase();
-                  // Comparator should be compatible with collection element type
-                  // Extract element type
-                  let elementType: string | null = null;
-                  if (baseTypeLower.includes('list<')) {
-                    const match = baseTypeLower.match(/list<([^>]+)>/);
-                    if (match) {
-                      elementType = match[1].trim();
-                    }
-                  } else if (baseTypeLower.includes('set<')) {
-                    const match = baseTypeLower.match(/set<([^>]+)>/);
-                    if (match) {
-                      elementType = match[1].trim();
-                    }
-                  }
+                if (comparatorTypeInfo && comparatorType) {
+                  const elementType = collectionElementType(baseTypeInfo);
+                  const comparatorElement =
+                    comparatorTypeInfo.name.toLowerCase() === 'comparator'
+                      ? collectionElementType(comparatorTypeInfo)
+                      : undefined;
 
-                  // Check if Comparator type is compatible
-                  // Comparator<T> should match element type T
+                  // A named user class may implement Comparator through its
+                  // resolved symbol; without that structured relationship this
+                  // validator preserves uncertainty instead of inspecting text.
                   if (
                     elementType &&
-                    !comparatorTypeLower.includes(elementType.toLowerCase())
+                    comparatorElement &&
+                    !compatibleTypeInfo(elementType, comparatorElement)
                   ) {
-                    // This is a basic check - full validation requires TIER 2
-                    // For now, flag if it's clearly incompatible
-                    if (
-                      !comparatorTypeLower.includes('comparator') &&
-                      !comparatorTypeLower.includes(elementType.toLowerCase())
-                    ) {
-                      errors.push({
-                        message: localizeTyped(
-                          ErrorCodes.ILLEGAL_COMPARATOR_FOR_SORT,
-                          comparatorType,
-                          elementType || 'Unknown',
-                        ),
-                        location,
-                        code: ErrorCodes.ILLEGAL_COMPARATOR_FOR_SORT,
-                      });
-                    }
+                    errors.push({
+                      message: localizeTyped(
+                        ErrorCodes.ILLEGAL_COMPARATOR_FOR_SORT,
+                        comparatorType,
+                        elementType.originalTypeString,
+                      ),
+                      location,
+                      code: ErrorCodes.ILLEGAL_COMPARATOR_FOR_SORT,
+                    });
                   }
                 }
               }
             }
-          }
-        }
-
-        // 4. Enhanced validation for List/Set initializer expression types
-        // Validate that initializer expressions match the declared element type
-        for (const initializer of collectionInitializers) {
-          const { elementType, initializerText } = initializer;
-          if (
-            elementType &&
-            initializerText &&
-            initializerText.trim() !== '()'
-          ) {
-            // Try to extract the initializer expression from the parse tree
-            // This requires parsing the initializer arguments
-            // For now, we rely on the basic text-based checks above
-            // Full type validation requires TIER 2 with expression type resolution
           }
         }
 
@@ -1020,118 +812,3 @@ export const CollectionValidator: Validator = {
       }
     }),
 };
-
-/**
- * Validate list index expression type (TIER 2) using expression type resolution
- * Checks if index expression is Integer or Long
- */
-function validateListIndexTypeExpression(
-  indexExpression: ExpressionContext,
-  location: SymbolLocation,
-  symbolTable: SymbolTable,
-  symbolManager: ISymbolManagerInterface,
-  literalTypes: Map<
-    ExpressionContext,
-    'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null'
-  >,
-  errors: ValidationErrorInfo[],
-): Effect.Effect<void, never, never> {
-  return Effect.gen(function* () {
-    const resolvedExpressionTypes = new WeakMap<
-      ExpressionContext,
-      ExpressionTypeInfo
-    >();
-
-    const typeInfo = yield* resolveExpressionTypeRecursive(
-      indexExpression,
-      resolvedExpressionTypes,
-      literalTypes,
-      symbolTable,
-      symbolManager,
-      ValidationTier.THOROUGH,
-    );
-
-    if (!typeInfo?.resolvedType) {
-      // Could not resolve type - skip validation
-      return;
-    }
-
-    const indexType = typeInfo.resolvedType.toLowerCase();
-
-    // Check if type is Integer or Long (valid index types)
-    if (indexType !== 'integer' && indexType !== 'long') {
-      // Check if it's a numeric type that could be promoted
-      if (!isNumericType(indexType)) {
-        errors.push({
-          message: localizeTyped(
-            ErrorCodes.INVALID_LIST_INDEX_TYPE,
-            'Integer',
-            typeInfo.resolvedType,
-          ),
-          location,
-          code: ErrorCodes.INVALID_LIST_INDEX_TYPE,
-        });
-      }
-    }
-  });
-}
-
-/**
- * Validate list index expression type (TIER 2) - fallback text-based approach
- * Used when ExpressionContext is not available
- * Checks if index expression resolves to Integer or Long type
- */
-function validateListIndexType(
-  indexText: string,
-  location: SymbolLocation,
-  symbolTable: SymbolTable,
-  symbolManager: ISymbolManagerInterface,
-  errors: ValidationErrorInfo[],
-): Effect.Effect<void, never, never> {
-  return Effect.gen(function* () {
-    const trimmed = indexText.trim();
-
-    // Skip if it's a numeric literal (already valid)
-    if (/^-?\d+$/.test(trimmed)) {
-      return;
-    }
-
-    // Skip if it's a simple arithmetic expression (e.g., "i + 1")
-    // Full expression type resolution would require more complex parsing
-    if (trimmed.includes('+') || trimmed.includes('-')) {
-      return;
-    }
-
-    // Try to resolve as a variable
-    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-      const variable = symbolTable.lookup(trimmed, null);
-      if (!variable) {
-        // Variable not found - skip (handled by VariableResolutionValidator)
-        return;
-      }
-
-      if (
-        variable.kind === SymbolKind.Variable ||
-        variable.kind === SymbolKind.Parameter ||
-        isFieldSymbol(variable)
-      ) {
-        const varSymbol = variable as VariableSymbol;
-        if (varSymbol.type?.name) {
-          const typeName = varSymbol.type.name.toLowerCase();
-          // Check if type is Integer or Long (valid index types)
-          if (typeName !== 'integer' && typeName !== 'long') {
-            errors.push({
-              message: localizeTyped(
-                ErrorCodes.INVALID_LIST_INDEX_TYPE,
-                'Integer',
-                indexText,
-              ),
-              location,
-              code: ErrorCodes.INVALID_LIST_INDEX_TYPE,
-            });
-          }
-        }
-      }
-    }
-  });
-}

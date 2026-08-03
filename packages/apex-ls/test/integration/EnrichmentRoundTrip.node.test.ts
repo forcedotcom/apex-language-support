@@ -49,6 +49,7 @@ import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrim
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
 import {
   DispatchHover,
+  DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
   DispatchCodeAction,
@@ -171,6 +172,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
   const runFeature = (
     makeRequest: () =>
       | DispatchHover
+      | DispatchCompletion
       | DispatchReferences
       | DispatchImplementation
       | DispatchCodeAction,
@@ -277,6 +279,50 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     // hanging on an unsettled assistance call.
     expect(response).toBeDefined();
     expect('result' in response).toBe(true);
+  }, 120_000);
+
+  it('returns instance members for refined this-access through the worker topology', async () => {
+    const completionUri = 'file:///test/DoesItOpen.cls';
+    const completionSource = [
+      'public class DoesItOpen {',
+      '  public DoesItOpen() {',
+      '    this.may',
+      '  }',
+      '  public String maybeItOpens() {',
+      "    return 'Yes';",
+      '  }',
+      '  public static String maybeStatic() {',
+      "    return 'Static';",
+      '  }',
+      '}',
+    ].join('\n');
+
+    const response = await Effect.runPromise(
+      runFeature(
+        () =>
+          new DispatchCompletion({
+            textDocument: { uri: completionUri },
+            position: { line: 2, character: 12 },
+            content: completionSource,
+            context: { triggerKind: 1 },
+          }),
+        { uri: completionUri, source: completionSource },
+      ),
+    );
+
+    const completion = response.result as {
+      items: Array<{ label?: string }>;
+      isIncomplete: boolean;
+    };
+    expect(completion.items.map((item) => item.label)).toContain(
+      'maybeItOpens()',
+    );
+    expect(completion.items.map((item) => item.label)).not.toContain(
+      'block_6_40',
+    );
+    expect(completion.items.map((item) => item.label)).not.toContain(
+      'maybeStatic()',
+    );
   }, 120_000);
 
   it('completes a references round-trip end-to-end', async () => {

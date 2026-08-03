@@ -10,6 +10,7 @@ import type { TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   captureActiveTraceContext,
+  runWithSpan,
   type LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
 
@@ -40,6 +41,7 @@ type TraceContextRunner = <T>(fn: () => T) => T;
 
 interface PendingChange {
   readonly event: TextDocumentChangeEvent<TextDocument>;
+  readonly enqueuedAt: number;
   readonly runInTraceContext: TraceContextRunner;
   readonly resolve: () => void;
 }
@@ -116,6 +118,7 @@ export class DocumentChangeBatcher {
     });
     this.pending.set(uri, {
       event,
+      enqueuedAt: Date.now(),
       runInTraceContext: captureActiveTraceContext(),
       resolve: resolveProcessing,
     });
@@ -148,7 +151,7 @@ export class DocumentChangeBatcher {
       return;
     }
 
-    const { event, runInTraceContext, resolve } = pending;
+    const { event, enqueuedAt, runInTraceContext, resolve } = pending;
 
     this.logger.debug(
       () =>
@@ -158,7 +161,22 @@ export class DocumentChangeBatcher {
     const invoke = (): void => {
       runInTraceContext(() => {
         this.running++;
-        this.processor(event)
+        // Invoke synchronously, exactly as before tracing was added. Some
+        // callers use invocation itself as the "compile admitted" signal;
+        // moving it behind runWithSpan's promise boundary changes queue timing.
+        const processing = this.processor(event);
+        void runWithSpan(
+          'lsp.document.change.debounceFlush',
+          () => processing,
+          {
+            'document.uri': uri,
+            'document.version': event.document.version,
+            'document.debounce_wait_ms': Date.now() - enqueuedAt,
+          },
+        ).catch(() => {
+          // The authoritative processing chain below owns error reporting.
+        });
+        processing
           .catch((error) => {
             this.logger.error(
               () =>

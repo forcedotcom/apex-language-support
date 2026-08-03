@@ -55,6 +55,34 @@ describe('ApexSymbolCollectorListener - Literal Capture and Resolution', () => {
   });
 
   describe('Literal TypeInfo Linking', () => {
+    it('does not publish identifiers inside string literals as variable usages', () => {
+      const apexCode = `
+public class TestClass {
+  public void method() {
+    String plain = 'property FakeIdentifier__c property.Beds__c';
+    String escaped = 'before \\'quotedIdentifier\\' after';
+    Integer property = 1;
+    property++;
+  }
+}`;
+
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(apexCode, 'test.cls', listener);
+
+      expect(result.errors).toHaveLength(0);
+
+      const variableUsages = listener
+        .getResult()
+        .getAllReferences()
+        .filter(
+          (reference) => reference.context === ReferenceContext.VARIABLE_USAGE,
+        );
+
+      expect(variableUsages.map((reference) => reference.name)).toEqual([
+        'property',
+      ]);
+    });
+
     it('should link TypeInfo for literals to LITERAL SymbolReference', () => {
       const apexCode = `
 public class TestClass {

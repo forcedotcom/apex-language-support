@@ -28,6 +28,7 @@ import {
   Range,
   SymbolResolutionStrategy,
   TypeSymbol,
+  VariableSymbol,
 } from '../types/symbol';
 import { UnifiedCache } from '../utils/UnifiedCache';
 import {
@@ -97,7 +98,7 @@ import {
   isBlockSymbol,
   isVariableSymbol,
 } from '../utils/symbolNarrowing';
-import { resolveArgumentTypes } from '../utils/argumentTypeResolution';
+import { resolveArgumentSemantics } from '../utils/argumentTypeResolution';
 import {
   buildReferencesToCacheKey,
   buildReferencesFromCacheKey,
@@ -107,7 +108,6 @@ import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import { type GenericTypeSubstitutionMap } from '../utils/genericTypeSubstitution';
 import {
-  isPositionWithinSymbol as posIsWithinSymbol,
   isPositionInIdentifierRange as posInIdRange,
   isPositionContainedInSymbol as posContainedInSymbol,
   isSymbolContainedWithin as symContainedWithin,
@@ -117,23 +117,7 @@ import {
   findChainMemberAtPosition as findChainMember,
   findContainingSymbolFromSymbolTable as containingSymFromST,
 } from './ops/positionUtils';
-import {
-  createFallbackResolutionContext as fallbackResCtx,
-  createFallbackChainResolutionContext as fallbackChainResCtx,
-  extractNamespaceFromUri as nsFromUri,
-  extractCurrentScope as scopeFromText,
-  extractAccessModifier as accessModFromText,
-  extractImportStatements as importsFromText,
-  extractNamespaceFromText as nsFromTextLine,
-  determineScopeFromText as scopeFromTextLine,
-  extractAccessModifierFromText as accessModFromTextLine,
-  extractIsStaticFromText as isStaticFromTextLine,
-  determineScopeFromSymbol as scopeFromSymbol,
-  extractInheritanceFromSymbols as inheritanceFromSymbols,
-  extractInterfaceImplementationsFromSymbols as interfacesFromSymbols,
-  extractAccessModifierFromSymbol as accessModFromSymbol,
-  extractIsStaticFromSymbol as isStaticFromSymbol,
-} from './ops/resolutionContext';
+import { createResolutionContextFromSymbolTable } from './ops/resolutionContext';
 import type {
   ChainResolutionContext,
   SymbolManagerOps,
@@ -673,6 +657,83 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return symbols;
   }
 
+  async getVisibleSymbolsAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol[]> {
+    const symbolTable = await this.getSymbolTableForFile(fileUri);
+    if (!symbolTable) {
+      return [];
+    }
+
+    const tablePosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const scopeHierarchy = symbolTable.getScopeHierarchy(tablePosition);
+    if (scopeHierarchy.length === 0) {
+      return symbolTable.getFileScopeSymbols();
+    }
+
+    const allSymbols = symbolTable.getAllSymbols();
+    const byId = new Map(allSymbols.map((symbol) => [symbol.id, symbol]));
+    const containerRank = new Map<string, number>();
+    let rank = 0;
+
+    for (const scope of scopeHierarchy.slice().reverse()) {
+      let current: ApexSymbol | undefined = scope;
+      while (current) {
+        if (!containerRank.has(current.id)) {
+          containerRank.set(current.id, rank++);
+        }
+        current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
+    }
+
+    const isDeclaredBeforeCursor = (symbol: ApexSymbol): boolean => {
+      if (
+        symbol.kind !== SymbolKind.Variable &&
+        symbol.kind !== SymbolKind.Parameter
+      ) {
+        return true;
+      }
+      const range = symbol.location.identifierRange;
+      return (
+        range.startLine < tablePosition.line ||
+        (range.startLine === tablePosition.line &&
+          range.startColumn < tablePosition.character)
+      );
+    };
+
+    const visible = allSymbols
+      .filter(
+        (symbol) =>
+          symbol.kind !== SymbolKind.Block &&
+          isDeclaredBeforeCursor(symbol) &&
+          (symbol.parentId === null || containerRank.has(symbol.parentId)),
+      )
+      .sort((left, right) => {
+        const leftRank =
+          left.parentId === null
+            ? Number.MAX_SAFE_INTEGER
+            : (containerRank.get(left.parentId) ?? Number.MAX_SAFE_INTEGER);
+        const rightRank =
+          right.parentId === null
+            ? Number.MAX_SAFE_INTEGER
+            : (containerRank.get(right.parentId) ?? Number.MAX_SAFE_INTEGER);
+        return leftRank - rightRank;
+      });
+
+    const byName = new Map<string, ApexSymbol>();
+    for (const symbol of visible) {
+      const key = symbol.name.toLowerCase();
+      if (!byName.has(key)) {
+        byName.set(key, symbol);
+      }
+    }
+    return Array.from(byName.values());
+  }
+
   /**
    * Get SymbolTable for a file
    * @param fileUri The file URI
@@ -1025,36 +1086,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Create resolution context from document text and position
    */
   public async createResolutionContext(
-    documentText: string,
+    _documentText: string,
     position: Position,
     fileUri: string,
   ): Promise<SymbolResolutionContext> {
-    // Get symbol table for the file to extract context information
-    const symbolsInFile = await this.findSymbolsInFile(fileUri);
-
-    // If we have symbols in the file, use them to create a rich context
-    if (symbolsInFile.length > 0) {
-      return this.createFallbackResolutionContext(
-        documentText,
-        position,
-        fileUri,
-      );
-    }
-
-    // Fallback to basic context creation
-    return this.createFallbackResolutionContext(
-      documentText,
+    const symbolTable = await this.getSymbolTableForFile(fileUri);
+    return createResolutionContextFromSymbolTable(
+      symbolTable,
       position,
       fileUri,
     );
-  }
-
-  private createFallbackResolutionContext(
-    documentText: string,
-    position: Position,
-    fileUri: string,
-  ): SymbolResolutionContext {
-    return fallbackResCtx(documentText, position, fileUri);
   }
 
   /**
@@ -1079,28 +1120,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       requestType,
       position,
     };
-  }
-
-  private extractNamespaceFromUri(fileUri: string): string {
-    return nsFromUri(fileUri);
-  }
-
-  private extractCurrentScope(
-    documentText: string,
-    position: Position,
-  ): string {
-    return scopeFromText(documentText, position);
-  }
-
-  private extractAccessModifier(
-    documentText: string,
-    position: Position,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    return accessModFromText(documentText, position);
-  }
-
-  private extractImportStatements(documentText: string): string[] {
-    return importsFromText(documentText);
   }
 
   /**
@@ -2831,21 +2850,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Find source symbol in graph - only match by fileUri if available
         // If fileUri is not set, we can't reliably match, so skip
-        const sourceInGraph = sourceSymbol.fileUri
-          ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
-          : sourceSymbolsInGraph.length === 1
-            ? sourceSymbolsInGraph[0]
-            : undefined;
+        const sourceInGraph =
+          self.symbolRefManager.getSymbol(sourceSymbol.id) ??
+          (sourceSymbol.fileUri
+            ? sourceSymbolsInGraph.find(
+                (s) => s.fileUri === sourceSymbol.fileUri,
+              )
+            : sourceSymbolsInGraph.length === 1
+              ? sourceSymbolsInGraph[0]
+              : undefined);
 
         // Find target symbol in graph - only match by fileUri if available
         // If fileUri is not set, we can't reliably match, so skip
-        const targetInGraph = resolvedTargetSymbol.fileUri
-          ? targetSymbolsInGraph.find(
-              (s) => s.fileUri === resolvedTargetSymbol.fileUri,
-            )
-          : targetSymbolsInGraph.length === 1
-            ? targetSymbolsInGraph[0]
-            : undefined;
+        const targetInGraph =
+          self.symbolRefManager.getSymbol(resolvedTargetSymbol.id) ??
+          (resolvedTargetSymbol.fileUri
+            ? targetSymbolsInGraph.find(
+                (s) => s.fileUri === resolvedTargetSymbol.fileUri,
+              )
+            : targetSymbolsInGraph.length === 1
+              ? targetSymbolsInGraph[0]
+              : undefined);
 
         if (!sourceInGraph || !targetInGraph) {
           // Can't reliably match symbols without fileUri when multiple symbols exist
@@ -2955,14 +2980,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (typeRef.resolvedSymbolId && canTrustPreResolvedTarget) {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
+        const isDeclarationIdentity =
+          typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
+          typeRef.context === ReferenceContext.PROPERTY_REFERENCE;
+        const scopeValidated =
+          isVariableSymbol(resolved) &&
+          !qualifier?.isQualified &&
+          !isDeclarationIdentity
+            ? this.findSameFileSymbolInScope(
+                typeRef.name,
+                typeRef.location.identifierRange.startLine,
+                typeRef.location.identifierRange.startColumn,
+                symbolTable,
+                index,
+              )
+            : resolved;
+        if (!scopeValidated) {
+          return null;
+        }
         if (stats) {
           stats.resolverPreResolvedHits += 1;
           stats.resolverDirectLookupMs += Date.now() - started;
         }
         const complete =
           !qualifier?.isQualified ||
-          resolved.name.toLowerCase() === qualifier.member.toLowerCase();
-        return { target: resolved, complete };
+          scopeValidated.name.toLowerCase() === qualifier.member.toLowerCase();
+        return { target: scopeValidated, complete };
       }
     }
 
@@ -3236,6 +3279,133 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     } catch (_error) {
       return [];
     }
+  }
+
+  async getIncompleteMemberAccessAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null> {
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) {
+      return null;
+    }
+
+    const line = position.line + 1;
+    const references = symbolTable.getAllReferences();
+    return (
+      references
+        .filter((reference) => {
+          const semantic = reference.semanticContext;
+          const memberAccess = semantic?.memberAccess;
+          if (!memberAccess?.incomplete) {
+            return false;
+          }
+          // During parser recovery the receiver and the refined member can be
+          // emitted by different grammar/error paths. The receiver owns the
+          // incomplete member-access fact while the member is still a precise
+          // FIELD_ACCESS reference immediately following the dot. Join those
+          // parser-owned records structurally so completion remains active for
+          // both `receiver.` and `receiver.prefix`.
+          const refinedMemberRange =
+            memberAccess.memberRange ??
+            references.find((candidate) => {
+              const range = candidate.location.identifierRange;
+              return (
+                candidate !== reference &&
+                candidate.context === ReferenceContext.FIELD_ACCESS &&
+                range.startLine === memberAccess.operatorRange.endLine &&
+                range.startColumn === memberAccess.operatorRange.endColumn
+              );
+            })?.location.identifierRange;
+          const endColumn =
+            refinedMemberRange?.endColumn ??
+            memberAccess.operatorRange.endColumn;
+          return (
+            memberAccess.operatorRange.startLine === line &&
+            position.character >= memberAccess.operatorRange.endColumn &&
+            position.character <= endColumn
+          );
+        })
+        .sort(
+          (left, right) =>
+            (right.semanticContext?.memberAccess?.operatorRange.startColumn ??
+              0) -
+            (left.semanticContext?.memberAccess?.operatorRange.startColumn ??
+              0),
+        )[0] ?? null
+    );
+  }
+
+  async getInvocationAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null> {
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+
+    const line = position.line + 1;
+    return (
+      symbolTable
+        .getAllReferences()
+        .filter((reference) => {
+          const invocation = reference.semanticContext?.invocation;
+          if (!invocation) return false;
+          const range = invocation.callRange;
+          const afterName =
+            line > reference.location.identifierRange.endLine ||
+            (line === reference.location.identifierRange.endLine &&
+              position.character >=
+                reference.location.identifierRange.endColumn);
+          const afterStart =
+            line > range.startLine ||
+            (line === range.startLine &&
+              position.character >= range.startColumn);
+          const beforeEnd =
+            line < range.endLine ||
+            (line === range.endLine &&
+              position.character <= range.endColumn + 1);
+          return afterName && afterStart && beforeEnd;
+        })
+        .sort((left, right) => {
+          const leftRange = left.semanticContext!.invocation!.callRange;
+          const rightRange = right.semanticContext!.invocation!.callRange;
+          return (
+            rightRange.startLine - leftRange.startLine ||
+            rightRange.startColumn - leftRange.startColumn
+          );
+        })[0] ?? null
+    );
+  }
+
+  async getOverrideCompletionAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null> {
+    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) return null;
+
+    const line = position.line + 1;
+    return (
+      symbolTable
+        .getAllReferences()
+        .filter((reference) => {
+          const range =
+            reference.semanticContext?.overrideCompletion?.keywordRange;
+          return (
+            range !== undefined &&
+            range.endLine === line &&
+            position.character >= range.endColumn &&
+            position.character <= range.endColumn + 1
+          );
+        })
+        .sort(
+          (left, right) =>
+            (right.semanticContext?.overrideCompletion?.keywordRange
+              .startColumn ?? 0) -
+            (left.semanticContext?.overrideCompletion?.keywordRange
+              .startColumn ?? 0),
+        )[0] ?? null
+    );
   }
 
   /**
@@ -3878,9 +4048,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Phase B of type-aware overload separation (W-23182862): derive positional
-   * `argumentTypes` for each call reference from the raw argument source texts
-   * (`argumentExpressions`) the parser captured in Phase A.
+   * Derive positional `argumentTypes` from parser-classified argument roots.
    *
    * For each METHOD_CALL / CONSTRUCTOR_CALL reference that has captured argument
    * texts but no `argumentTypes` yet, resolve each argument:
@@ -3905,7 +4073,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       for (const ref of symbolTable.getAllReferences()) {
         if (
           ref.argumentTypes !== undefined ||
-          ref.argumentExpressions === undefined ||
+          ref.argumentSemantics === undefined ||
           (ref.context !== ReferenceContext.METHOD_CALL &&
             ref.context !== ReferenceContext.CONSTRUCTOR_CALL)
         ) {
@@ -3940,8 +4108,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return undefined;
         };
 
-        const argumentTypes = resolveArgumentTypes(
-          ref.argumentExpressions,
+        const argumentTypes = resolveArgumentSemantics(
+          ref.argumentSemantics,
           lookupType,
         );
         if (argumentTypes !== undefined) {
@@ -4337,6 +4505,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (targetSymbol) {
             // Update resolvedSymbolId
             typeRef.resolvedSymbolId = targetSymbol.id;
+            self.bindResolvedDeclarationType(
+              symbolTable,
+              typeRef,
+              targetSymbol,
+            );
 
             // Find source symbol for graph edge
             const properUri = createFileUri(fileUri);
@@ -4585,6 +4758,52 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
     });
+  }
+
+  /**
+   * Keep a declaration's TypeInfo in sync with its resolved type reference.
+   *
+   * Chained member resolution starts from VariableSymbol.type.resolvedSymbol.
+   * Same-file resolution populates that value in ApexReferenceResolver, but
+   * cross-file types (including composed SObjects) are resolved later in this
+   * manager. Merely setting SymbolReference.resolvedSymbolId therefore leaves
+   * an instance receiver unable to resolve its members.
+   */
+  private bindResolvedDeclarationType(
+    symbolTable: SymbolTable,
+    typeRef: SymbolReference,
+    resolvedType: ApexSymbol,
+  ): void {
+    if (
+      typeRef.context !== ReferenceContext.TYPE_DECLARATION &&
+      typeRef.context !== ReferenceContext.PARAMETER_TYPE
+    ) {
+      return;
+    }
+
+    const range = typeRef.location.identifierRange;
+    const referenceSuffix =
+      `:${range.startLine}:${range.startColumn}:${typeRef.name}:` +
+      ReferenceContext[typeRef.context];
+
+    for (const symbol of symbolTable.getAllSymbols()) {
+      if (
+        symbol.kind !== SymbolKind.Variable &&
+        symbol.kind !== SymbolKind.Parameter &&
+        symbol.kind !== SymbolKind.Field &&
+        symbol.kind !== SymbolKind.Property
+      ) {
+        continue;
+      }
+
+      const typeInfo = (symbol as VariableSymbol).type;
+      if (
+        typeInfo?.typeReferenceId?.endsWith(referenceSuffix) &&
+        !typeInfo.resolvedSymbol
+      ) {
+        typeInfo.resolvedSymbol = resolvedType;
+      }
+    }
   }
 
   /**
@@ -5401,198 +5620,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Create comprehensive resolution context using symbol manager knowledge
    */
   public async createChainResolutionContext(
-    documentText: string,
+    _documentText: string,
     position: Position,
     fileUri: string,
   ): Promise<SymbolResolutionContext> {
-    // Get symbol table for the file to extract context information
-    const symbolsInFile = await this.findSymbolsInFile(fileUri);
-
-    // Find the symbol at the current position to determine context
-    const symbolAtPosition = await this.findSymbolAtPositionSync(
-      fileUri,
+    const symbolTable = await this.getSymbolTableForFile(fileUri);
+    return createResolutionContextFromSymbolTable(
+      symbolTable,
       position,
+      fileUri,
     );
-
-    // If no symbols are loaded, fall back to text-based context extraction
-    if (symbolsInFile.length === 0) {
-      return this.createFallbackChainResolutionContext(
-        documentText,
-        position,
-        fileUri,
-      );
-    }
-
-    // Extract namespace context from file path or symbol information
-    const namespaceContext = await this.extractNamespaceFromFile(fileUri);
-
-    // Determine current scope based on containing symbol
-    const currentScope = this.determineScopeFromSymbol(symbolAtPosition);
-
-    // Build scope chain from the containing symbol hierarchy
-    const scopeChain = await this.buildScopeChainFromSymbol(symbolAtPosition);
-
-    // Extract inheritance information from class symbols
-    const inheritanceChain = this.extractInheritanceFromSymbols(symbolsInFile);
-    const interfaceImplementations =
-      this.extractInterfaceImplementationsFromSymbols(symbolsInFile);
-
-    // Determine access modifier and static status from containing symbol
-    const accessModifier =
-      this.extractAccessModifierFromSymbol(symbolAtPosition);
-    const isStatic = this.extractIsStaticFromSymbol(symbolAtPosition);
-
-    return {
-      sourceFile: fileUri,
-      namespaceContext,
-      currentScope,
-      scopeChain,
-      expectedType: undefined, // Would need AST analysis for accurate type inference
-      parameterTypes: [], // Would need AST analysis for parameter context
-      accessModifier,
-      isStatic,
-      inheritanceChain,
-      interfaceImplementations,
-      importStatements: [], // Apex doesn't use imports
-    };
-  }
-
-  private createFallbackChainResolutionContext(
-    documentText: string,
-    position: Position,
-    fileUri: string,
-  ): SymbolResolutionContext {
-    return fallbackChainResCtx(documentText, position, fileUri);
-  }
-
-  private extractNamespaceFromText(line: string): string {
-    return nsFromTextLine(line);
-  }
-
-  private determineScopeFromText(line: string): string {
-    return scopeFromTextLine(line);
-  }
-
-  private extractAccessModifierFromText(
-    line: string,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    return accessModFromTextLine(line);
-  }
-
-  private extractIsStaticFromText(line: string): boolean {
-    return isStaticFromTextLine(line);
-  }
-
-  /**
-   * Find symbol at position synchronously (for context extraction)
-   */
-  private async findSymbolAtPositionSync(
-    fileUri: string,
-    position: Position,
-  ): Promise<ApexSymbol | null> {
-    const symbolsInFile = await this.findSymbolsInFile(fileUri);
-
-    // Find the most specific symbol that contains this position
-    for (const symbol of symbolsInFile) {
-      if (this.isPositionWithinSymbol(symbol, position)) {
-        return symbol;
-      }
-    }
-
-    return null;
-  }
-
-  private isPositionWithinSymbol(
-    symbol: ApexSymbol,
-    position: Position,
-  ): boolean {
-    return posIsWithinSymbol(symbol, position);
-  }
-
-  /**
-   * Extract namespace from SymbolTable and symbols in the file
-   */
-  private async extractNamespaceFromFile(fileUri: string): Promise<string> {
-    // Get the SymbolTable for this file
-    const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
-    if (!symbolTable) {
-      return '';
-    }
-
-    // Get all symbols in the file to find namespace information
-    const symbolsInFile = await this.findSymbolsInFile(fileUri);
-
-    // Look for namespace information in the symbols
-    for (const symbol of symbolsInFile) {
-      if (symbol.namespace) {
-        // If namespace is a string, return it directly
-        if (typeof symbol.namespace === 'string') {
-          return symbol.namespace;
-        }
-        // If namespace is a Namespace object, get its string representation
-        if (
-          symbol.namespace &&
-          typeof symbol.namespace === 'object' &&
-          'toString' in symbol.namespace
-        ) {
-          return symbol.namespace.toString();
-        }
-      }
-    }
-
-    return '';
-  }
-
-  private determineScopeFromSymbol(symbol: ApexSymbol | null): string {
-    return scopeFromSymbol(symbol);
-  }
-
-  /**
-   * Build scope chain from symbol hierarchy
-   */
-  private async buildScopeChainFromSymbol(
-    symbol: ApexSymbol | null,
-  ): Promise<string[]> {
-    if (!symbol) return ['global'];
-
-    const scopeChain: string[] = [];
-    let currentSymbol: ApexSymbol | null = symbol;
-
-    // Walk up the symbol hierarchy
-    while (currentSymbol) {
-      const scope = this.determineScopeFromSymbol(currentSymbol);
-      scopeChain.unshift(scope);
-
-      // Get parent symbol
-      currentSymbol = await this.getContainingType(currentSymbol);
-    }
-
-    // Always end with global scope
-    if (scopeChain[scopeChain.length - 1] !== 'global') {
-      scopeChain.push('global');
-    }
-
-    return scopeChain;
-  }
-
-  private extractInheritanceFromSymbols(symbols: ApexSymbol[]): string[] {
-    return inheritanceFromSymbols(symbols);
-  }
-
-  private extractInterfaceImplementationsFromSymbols(
-    symbols: ApexSymbol[],
-  ): string[] {
-    return interfacesFromSymbols(symbols);
-  }
-
-  private extractAccessModifierFromSymbol(
-    symbol: ApexSymbol | null,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    return accessModFromSymbol(symbol);
-  }
-
-  private extractIsStaticFromSymbol(symbol: ApexSymbol | null): boolean {
-    return isStaticFromSymbol(symbol);
   }
 
   /**
@@ -6255,9 +6292,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (
               ref.context !== ReferenceContext.CLASS_REFERENCE &&
               ref.context !== ReferenceContext.TYPE_DECLARATION &&
+              ref.context !== ReferenceContext.CONSTRUCTOR_CALL &&
               ref.context !== ReferenceContext.PARAMETER_TYPE &&
               ref.context !== ReferenceContext.GENERIC_PARAMETER_TYPE &&
-              ref.context !== ReferenceContext.RETURN_TYPE
+              ref.context !== ReferenceContext.CAST_TYPE_REFERENCE &&
+              ref.context !== ReferenceContext.INSTANCEOF_TYPE_REFERENCE &&
+              ref.context !== ReferenceContext.RETURN_TYPE &&
+              ref.context !== ReferenceContext.INHERITANCE &&
+              ref.context !== ReferenceContext.INTERFACE_IMPLEMENTATION
             ) {
               return false;
             }
@@ -6275,6 +6317,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (resolvedType) {
               return resolvedType;
             }
+
+            // The cursor is on an explicit type token, not on the declaration
+            // identifier. Returning the enclosing variable/field here makes
+            // consumers believe resolution succeeded and prevents on-demand
+            // loading of missing workspace or org types.
+            return null;
           }
 
           // If there are references, check if any are METHOD_CALL references
@@ -6339,6 +6387,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         });
         if (keywordAtPosition) return null;
 
+        // Resolve a concrete member selected inside a chain before considering
+        // overlapping standalone references emitted by parser error recovery.
+        // For example, the cursor on `Beds__c` in `property.Beds__c` may also
+        // intersect a misplaced VARIABLE_USAGE named `property`; the chain is
+        // the structurally precise representation of the token under cursor.
         const receiverMember =
           await this.resolveInstanceReceiverMemberAtPosition(
             fileUri,
@@ -6346,6 +6399,64 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeReferences,
           );
         if (receiverMember) return receiverMember;
+
+        // The collector conservatively emits CLASS_REFERENCE for an
+        // identifier used as an expression when the surrounding statement is
+        // incomplete (for example, a line containing only `property`). Before
+        // treating that token as a package-level type, prefer a scope-visible
+        // value with the same name. This is the same lexical distinction used
+        // by completion and prevents hover/definition from searching for a
+        // local variable as an Apex class.
+        const hasExplicitTypeReference = typeReferences.some(
+          (reference) =>
+            reference.context === ReferenceContext.TYPE_DECLARATION ||
+            reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+            reference.context === ReferenceContext.PARAMETER_TYPE ||
+            reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+            reference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+            reference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+            reference.context === ReferenceContext.RETURN_TYPE ||
+            reference.context === ReferenceContext.INHERITANCE ||
+            reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION,
+        );
+        const positionOnNonRootChainMember = typeReferences.some(
+          (reference) => {
+            if (!isChainedSymbolReference(reference)) return false;
+            const member = this.findChainMemberAtPosition(reference, position);
+            return member !== null && member.index > 0;
+          },
+        );
+        if (!hasExplicitTypeReference && !positionOnNonRootChainMember) {
+          const symbolTable =
+            this.symbolRefManager.getSymbolTableForFile(fileUri);
+          if (symbolTable) {
+            const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
+            for (const reference of typeReferences) {
+              if (
+                (reference.context !== ReferenceContext.CLASS_REFERENCE &&
+                  reference.context !== ReferenceContext.VARIABLE_USAGE) ||
+                reference.name.includes('.') ||
+                !this.isPositionInIdentifierRange(
+                  position,
+                  reference.location.identifierRange,
+                )
+              ) {
+                continue;
+              }
+              const localValue = this.findSameFileSymbolInScope(
+                reference.name,
+                reference.location.identifierRange.startLine,
+                reference.location.identifierRange.startColumn,
+                symbolTable,
+                sameFileIndex,
+                true,
+              );
+              if (isVariableSymbol(localValue)) {
+                return localValue;
+              }
+            }
+          }
+        }
 
         // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
         // These should be resolved as classes/types, not variables or methods

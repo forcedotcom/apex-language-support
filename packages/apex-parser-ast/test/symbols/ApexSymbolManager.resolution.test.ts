@@ -356,7 +356,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     ['core'],
     'createResolutionContext - Enhanced',
     () => {
-      it('should include request type in resolution context', async () => {
+      it('preserves an incomplete context when no semantic snapshot is registered', async () => {
         const context = await symbolManager.createResolutionContext(
           'public class TestClass { public String testVariable; }',
           { line: 0, character: 5 },
@@ -365,14 +365,15 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
         expect(context).toBeDefined();
         expect(context.sourceFile).toBe('file:///test/test.cls');
-        expect(context.namespaceContext).toBe('public');
-        expect(context.currentScope).toBe('class');
-        expect(context.scopeChain).toContain('class');
+        expect(context.namespaceContext).toBe('');
+        expect(context.currentScope).toBe('unknown');
+        expect(context.scopeChain).toEqual([]);
         expect(context.accessModifier).toBe('public');
         expect(context.isStatic).toBe(false);
+        expect(context.semanticState).toBe('incomplete');
       });
 
-      it('should handle different request types correctly', async () => {
+      it('does not infer access from unregistered source text', async () => {
         const context1 = await symbolManager.createResolutionContext(
           'public class TestClass { public void myMethod() { } }',
           { line: 0, character: 5 },
@@ -389,7 +390,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(context1.sourceFile).toBe('test.cls');
         expect(context2.sourceFile).toBe('test2.cls');
         expect(context1.accessModifier).toBe('public');
-        expect(context2.accessModifier).toBe('private');
+        expect(context2.accessModifier).toBe('public');
+        expect(context1.semanticState).toBe('incomplete');
+        expect(context2.semanticState).toBe('incomplete');
       });
     },
   );

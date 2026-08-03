@@ -21,12 +21,11 @@ import {
   PrimaryExpressionContext,
   MethodCallExpressionContext,
   DotExpressionContext,
-  NewExpressionContext,
+  ArrayExpressionContext,
   IdPrimaryContext,
-  FormalParameterContext,
-  FieldDeclarationContext,
-  PropertyDeclarationContext,
-  LocalVariableDeclarationContext,
+  PreOpExpressionContext,
+  PostOpExpressionContext,
+  MethodDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -49,7 +48,7 @@ import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParser
 import type { ParserRuleContext } from 'antlr4';
 import {
   isContextType,
-  isMethodCallContext,
+  parserContextContainsToken,
 } from '../../../utils/contextTypeGuards';
 import { isPropertySymbol } from '../../../utils/symbolNarrowing';
 
@@ -88,40 +87,17 @@ function isVoidType(typeName: string | undefined | null): boolean {
  * Check if an expression is a valid assignment target
  * Valid targets: variables, field access, array access, property access
  */
-function isValidAssignmentTarget(
-  expr: ExpressionContext,
-  symbolTable: SymbolTable,
-): boolean {
-  // Primary expressions can be assignment targets if they're variables or field access
+function isValidAssignmentTarget(expr: ExpressionContext): boolean {
   if (isContextType(expr, PrimaryExpressionContext)) {
-    return true; // Variables, field access, etc. are valid
+    return isContextType(expr.primary(), IdPrimaryContext);
   }
-
-  // Method calls are NOT valid assignment targets
-  if (isContextType(expr, MethodCallExpressionContext)) {
-    return false;
+  if (isContextType(expr, DotExpressionContext)) {
+    return expr.dotMethodCall() === undefined;
   }
-
-  // New expressions are NOT valid assignment targets
-  if (isContextType(expr, NewExpressionContext)) {
-    return false;
+  if (isContextType(expr, ArrayExpressionContext)) {
+    return true;
   }
-
-  // Literals are NOT valid assignment targets
-  const exprText = expr.getText() || '';
-  if (
-    /^\d+$/.test(exprText) || // Numeric literals
-    exprText === 'true' ||
-    exprText === 'false' ||
-    (exprText.startsWith('"') && exprText.endsWith('"')) ||
-    (exprText.startsWith("'") && exprText.endsWith("'"))
-  ) {
-    return false;
-  }
-
-  // For other expression types, check recursively
-  // This is a simplified check - in practice, we'd need to check the structure
-  return true;
+  return false;
 }
 
 /**
@@ -139,10 +115,7 @@ interface ExpressionValidationError {
 class ExpressionTypeListener extends BaseApexParserListener<void> {
   private errors: ExpressionValidationError[] = [];
 
-  constructor(
-    private symbolTable: SymbolTable,
-    private sourceContent?: string,
-  ) {
+  constructor(private symbolTable: SymbolTable) {
     super();
   }
 
@@ -199,191 +172,6 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
   }
 
   /**
-   * Check for void in formal parameters by examining parse tree text
-   * This handles cases where the parser skips invalid syntax
-   */
-  enterFormalParameter(ctx: FormalParameterContext): void {
-    const paramText = ctx.getText()?.toLowerCase().trim() || '';
-    // Check if parameter text starts with "void " (handles cases where parser rejects void as invalid syntax)
-    if (paramText.startsWith('void ')) {
-      const typeRef = ctx.typeRef();
-      // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
-        const location = getLocationFromContext(ctx);
-        this.errors.push({
-          ctx,
-          code: ErrorCodes.INVALID_VOID_PARAMETER,
-          symbolLocation: location,
-        });
-      }
-    }
-  }
-
-  /**
-   * Check for void in field declarations by examining parse tree text
-   */
-  enterFieldDeclaration(ctx: FieldDeclarationContext): void {
-    const fieldText = ctx.getText()?.toLowerCase().trim() || '';
-    // Check if field text starts with "void " (handles cases where parser rejects void as invalid syntax)
-    if (fieldText.startsWith('void ')) {
-      const typeRef = ctx.typeRef();
-      // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
-        const location = getLocationFromContext(ctx);
-        this.errors.push({
-          ctx,
-          code: ErrorCodes.INVALID_VOID_VARIABLE,
-          symbolLocation: location,
-        });
-      }
-    }
-  }
-
-  /**
-   * Check for void in property declarations by examining parse tree text
-   */
-  enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
-    const propText = ctx.getText()?.toLowerCase().trim() || '';
-    // Check if property text contains "void " before the property name
-    // (handles cases where parser rejects void as invalid syntax)
-    if (propText.includes('void ') && !propText.includes('void method')) {
-      const typeRef = ctx.typeRef();
-      // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
-        const location = getLocationFromContext(ctx);
-        this.errors.push({
-          ctx,
-          code: ErrorCodes.INVALID_VOID_PROPERTY,
-          symbolLocation: location,
-        });
-      }
-    }
-  }
-
-  /**
-   * Check for void in local variable declarations by examining parse tree text
-   */
-  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    const varText = ctx.getText()?.toLowerCase().trim() || '';
-    // Check if variable text starts with "void " (handles cases where parser rejects void as invalid syntax)
-    if (varText.startsWith('void ')) {
-      const typeRef = ctx.typeRef();
-      // Only report if typeRef is null or doesn't properly represent void
-      if (!typeRef || !isVoidType(typeRef.getText()?.toLowerCase().trim())) {
-        const location = getLocationFromContext(ctx);
-        this.errors.push({
-          ctx,
-          code: ErrorCodes.INVALID_VOID_VARIABLE,
-          symbolLocation: location,
-        });
-      }
-    }
-  }
-
-  /**
-   * Check source content directly for void in invalid positions
-   * This handles cases where the parser skips invalid syntax entirely
-   */
-  checkVoidInSource(sourceContent: string): ExpressionValidationError[] {
-    const voidErrors: ExpressionValidationError[] = [];
-    const lines = sourceContent.split('\n');
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineNum = i + 1;
-
-      // Check for void parameter: "void param" inside parentheses (method parameters)
-      // Pattern: void followed by identifier inside parentheses
-      // Example: "public void method(void param) {"
-      const openParenIndex = line.indexOf('(');
-      const closeParenIndex = line.indexOf(')', openParenIndex);
-      if (openParenIndex >= 0 && closeParenIndex > openParenIndex) {
-        // Extract content inside parentheses
-        const paramContent = line.substring(
-          openParenIndex + 1,
-          closeParenIndex,
-        );
-        // Look for "void identifier" pattern inside parentheses
-        const voidParamMatch = paramContent.match(
-          /\bvoid\s+([a-zA-Z_][a-zA-Z0-9_]*)/,
-        );
-        if (voidParamMatch) {
-          // Calculate the actual column position of void in the line
-          const voidIndexInParams = paramContent.indexOf('void');
-          const column = openParenIndex + 1 + voidIndexInParams;
-          voidErrors.push({
-            code: ErrorCodes.INVALID_VOID_PARAMETER,
-            symbolLocation: {
-              symbolRange: {
-                startLine: lineNum,
-                startColumn: column,
-                endLine: lineNum,
-                endColumn: column + 4,
-              },
-              identifierRange: {
-                startLine: lineNum,
-                startColumn: column,
-                endLine: lineNum,
-                endColumn: column + 4,
-              },
-            },
-          });
-        }
-      }
-
-      // Check for void field/variable: "void x;" (not in method signature)
-      const voidVarMatch = line.match(
-        /^\s*(?:public|private|protected|global|static|transient|final)?\s*void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*;/,
-      );
-      if (voidVarMatch && !line.includes('{') && !line.includes('(')) {
-        const column = line.indexOf('void');
-        voidErrors.push({
-          code: ErrorCodes.INVALID_VOID_VARIABLE,
-          symbolLocation: {
-            symbolRange: {
-              startLine: lineNum,
-              startColumn: column,
-              endLine: lineNum,
-              endColumn: column + 4,
-            },
-            identifierRange: {
-              startLine: lineNum,
-              startColumn: column,
-              endLine: lineNum,
-              endColumn: column + 4,
-            },
-          },
-        });
-      }
-
-      // Check for void property: "void prop { get; set; }"
-      const voidPropMatch = line.match(/void\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{/);
-      if (voidPropMatch && line.includes('get') && line.includes('set')) {
-        const column = line.indexOf('void');
-        voidErrors.push({
-          code: ErrorCodes.INVALID_VOID_PROPERTY,
-          symbolLocation: {
-            symbolRange: {
-              startLine: lineNum,
-              startColumn: column,
-              endLine: lineNum,
-              endColumn: column + 4,
-            },
-            identifierRange: {
-              startLine: lineNum,
-              startColumn: column,
-              endLine: lineNum,
-              endColumn: column + 4,
-            },
-          },
-        });
-      }
-    }
-
-    return voidErrors;
-  }
-
-  /**
    * Check expression statements (expressions used as statements)
    * Valid expression statements:
    * - Method calls
@@ -407,10 +195,9 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
           isContextType(expr, DotExpressionContext) &&
           (expr as DotExpressionContext).dotMethodCall?.() !== undefined;
 
-        // Check for increment/decrement operators (++ or --)
-        const exprText = expr.getText() || '';
         const hasIncrementDecrement =
-          exprText.includes('++') || exprText.includes('--');
+          isContextType(expr, PreOpExpressionContext) ||
+          isContextType(expr, PostOpExpressionContext);
 
         // Valid expression statements: method calls, assignments, qualified method calls, increment/decrement
         if (
@@ -419,30 +206,10 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
           !isQualifiedMethodCall &&
           !hasIncrementDecrement
         ) {
-          // Check if it's a primary expression (could be a method call)
-          if (isContextType(expr, PrimaryExpressionContext)) {
-            const primary = expr as PrimaryExpressionContext;
-            // Check if primary contains a method call
-            const primaryCtx = primary.primary();
-            const hasMethodCall =
-              primaryCtx &&
-              (isContextType(primaryCtx, IdPrimaryContext) ||
-                isMethodCallContext(primaryCtx));
-            if (!hasMethodCall) {
-              // Primary expression without method call is invalid as statement
-              // (unless it's increment/decrement which we already checked)
-              this.errors.push({
-                ctx: expr,
-                code: ErrorCodes.INVALID_EXPRESSION_STATEMENT,
-              });
-            }
-          } else {
-            // Other expression types (arithmetic, comparisons, etc.) are invalid as statements
-            this.errors.push({
-              ctx: expr,
-              code: ErrorCodes.INVALID_EXPRESSION_STATEMENT,
-            });
-          }
+          this.errors.push({
+            ctx: expr,
+            code: ErrorCodes.INVALID_EXPRESSION_STATEMENT,
+          });
         }
       }
     }
@@ -453,7 +220,7 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
    */
   enterAssignExpression(ctx: AssignExpressionContext): void {
     const target = ctx.expression(0); // First expression is the target
-    if (target && !isValidAssignmentTarget(target, this.symbolTable)) {
+    if (target && !isValidAssignmentTarget(target)) {
       this.errors.push({
         ctx: target,
         code: ErrorCodes.INVALID_EXPRESSION_ASSIGNMENT,
@@ -467,6 +234,57 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
 
   getErrors(): ExpressionValidationError[] {
     return this.errors;
+  }
+
+  /**
+   * The grammar recovers `void name;` and `void name { get; set; }` as method
+   * declarations with a synthetic, empty formal-parameter context. Preserve
+   * that parser-owned recovery shape so the intended invalid declaration can
+   * still receive its specific diagnostic.
+   */
+  enterMethodDeclaration(ctx: MethodDeclarationContext): void {
+    const formalParameters = ctx.formalParameters();
+    if (
+      formalParameters?.LPAREN() &&
+      parserContextContainsToken(formalParameters, ApexParser.VOID)
+    ) {
+      this.errors.push({
+        ctx: formalParameters,
+        code: ErrorCodes.INVALID_VOID_PARAMETER,
+      });
+    }
+
+    if (!ctx.VOID() || formalParameters?.LPAREN()) {
+      return;
+    }
+
+    if (ctx.SEMI()) {
+      this.errors.push({
+        ctx,
+        code: ErrorCodes.INVALID_VOID_VARIABLE,
+      });
+      return;
+    }
+
+    const block = ctx.block();
+    const hasAccessorStatement = block?.statement_list().some((statement) => {
+      const expression = statement.expressionStatement()?.expression();
+      if (!expression || !isContextType(expression, PrimaryExpressionContext)) {
+        return false;
+      }
+      const primary = expression.primary();
+      if (!isContextType(primary, IdPrimaryContext)) {
+        return false;
+      }
+      const identifier = primary.id();
+      return Boolean(identifier?.GET() || identifier?.SET());
+    });
+    if (hasAccessorStatement) {
+      this.errors.push({
+        ctx,
+        code: ErrorCodes.INVALID_VOID_PROPERTY,
+      });
+    }
   }
 }
 
@@ -548,17 +366,12 @@ export const ExpressionTypeValidator: Validator = {
         }
 
         // Walk the parse tree to validate expression types
-        const listener = new ExpressionTypeListener(symbolTable, sourceContent);
+        const listener = new ExpressionTypeListener(symbolTable);
 
         ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
 
         // Check void types from symbol table
         const voidErrors = listener.checkVoidTypes();
-
-        // Also check source content directly for void in invalid positions
-        // This handles cases where the parser skips invalid syntax entirely
-        const sourceVoidErrors = listener.checkVoidInSource(sourceContent);
-        voidErrors.push(...sourceVoidErrors);
 
         // Report errors from parse tree traversal
         const validationErrors = listener.getErrors();

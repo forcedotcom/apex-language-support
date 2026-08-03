@@ -41,7 +41,7 @@ import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParser
 import type { ParserRuleContext } from 'antlr4';
 import { isAssignable } from '../utils/typeAssignability';
 import { INSTANCEOF_PRIMITIVE_TYPES } from '../../../utils/primitiveTypes';
-import { extractBaseTypeName } from '../utils/typeUtils';
+import { createTypeInfoFromTypeRef } from '../../../parser/utils/createTypeInfoFromTypeRef';
 
 function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
   const start = ctx.start;
@@ -206,10 +206,7 @@ export const InstanceofValidator: Validator = {
         if (leftExpr instanceof CastExpressionContext) {
           const typeRef = leftExpr.typeRef?.();
           if (typeRef) {
-            leftType =
-              extractBaseTypeName(typeRef.getText() || '') ||
-              typeRef.getText()?.trim().toLowerCase() ||
-              null;
+            leftType = createTypeInfoFromTypeRef(typeRef).name.toLowerCase();
           }
         }
         if (!leftType) {
@@ -227,8 +224,9 @@ export const InstanceofValidator: Validator = {
         const effectiveLeftType = leftType || leftLiteralType || 'object';
 
         // Resolve right operand type name
-        const rightTypeName = typeRef.getText()?.trim() ?? '';
-        const rightBase = extractBaseTypeName(rightTypeName);
+        const rightType = createTypeInfoFromTypeRef(typeRef);
+        const rightTypeName = rightType.originalTypeString;
+        const rightBase = rightType.name.toLowerCase();
 
         // INVALID_INSTANCEOF_INVALID_TYPE: RHS must be class/interface, not primitive
         if (INSTANCEOF_PRIMITIVE_TYPES.has(rightBase)) {

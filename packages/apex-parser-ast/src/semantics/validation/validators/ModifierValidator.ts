@@ -34,7 +34,7 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { localizeTyped, localize } from '../../../i18n/messageInstance';
+import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type {
   UnitType,
@@ -203,23 +203,6 @@ function getSymbolKindName(kind: SymbolKind): string {
   }
 }
 
-/**
- * Get plural form for type kinds (matches Jorje Element enum -> class.plural etc.)
- * Used for ENCLOSING_TYPE_FOR nested in modifier.requires
- */
-function getSymbolKindNamePlural(kind: SymbolKind): string {
-  switch (kind) {
-    case SymbolKind.Class:
-      return localize('class.plural');
-    case SymbolKind.Interface:
-      return localize('interface.plural');
-    case SymbolKind.Enum:
-      return localize('enum.plural');
-    default:
-      return getSymbolKindName(kind);
-  }
-}
-
 function hasReadOnlyAnnotation(symbol: {
   annotations?: Array<{ name: string }>;
 }): boolean {
@@ -317,60 +300,6 @@ export const ModifierValidator: Validator = {
 
       const allSymbols = symbolTable.getAllSymbols();
 
-      // Check for global modifier on inner types - ENCLOSING_TYPE_FOR
-      // Inner type with global requires enclosing type to be global
-      if (options.sourceContent) {
-        const sourceContent = options.sourceContent;
-        const lines = sourceContent.split('\n');
-
-        for (const symbol of allSymbols) {
-          if (isInnerType(symbol)) {
-            // Check if the source code has "global" before this inner type declaration
-            const location = symbol.location;
-            if (location && location.symbolRange) {
-              const lineIndex = location.symbolRange.startLine - 1;
-              if (lineIndex >= 0 && lineIndex < lines.length) {
-                const line = lines[lineIndex];
-                const symbolNameIndex = line.indexOf(symbol.name);
-                if (symbolNameIndex >= 0) {
-                  const beforeName = line.substring(0, symbolNameIndex);
-                  const globalMatch = beforeName.match(/\bglobal\b/i);
-                  if (globalMatch) {
-                    // Inner has global - enclosing type must also be global
-                    const enclosingType = findContainingType(
-                      symbol,
-                      allSymbols,
-                    );
-                    const enclosingHasGlobal =
-                      enclosingType?.modifiers?.visibility ===
-                      SymbolVisibility.Global;
-                    if (!enclosingHasGlobal) {
-                      // Jorje nests enclosing.type.for inside modifier.requires for full message
-                      const pluralKind = getSymbolKindNamePlural(symbol.kind);
-                      const enclosingMsg = localizeTyped(
-                        ErrorCodes.ENCLOSING_TYPE_FOR,
-                        'global',
-                        pluralKind,
-                      );
-                      errors.push({
-                        message: localizeTyped(
-                          ErrorCodes.MODIFIER_REQUIRES,
-                          enclosingMsg,
-                          pluralKind,
-                          'global',
-                        ),
-                        location: symbol.location,
-                        code: ErrorCodes.ENCLOSING_TYPE_FOR,
-                      });
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
       for (const symbol of allSymbols) {
         const modifiers = symbol.modifiers;
         const kind = symbol.kind;
@@ -419,47 +348,22 @@ export const ModifierValidator: Validator = {
         }
 
         // Check 4: Modifiers not allowed on inner types
-        // Note: global modifier on inner types is checked above via source content scanning
-        // because the parser sanitizes it to match the outer class visibility
+        // Invalid inner visibility is diagnosed while walking the declaration. The
+        // normalized symbol intentionally does not retain the rejected modifier, so
+        // this validation pass must not reconstruct it from document text.
 
         // Check 4b: TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL - top-level types need public, global, or @isTest
-        // For interfaces, the listener may sanitize Default→Public; use source when available
         if (
           symbol.parentId === null &&
           inTypeSymbolGroup(symbol) &&
           symbol.location
         ) {
-          let hasPublicOrGlobal =
+          const hasPublicOrGlobal =
             modifiers.visibility === SymbolVisibility.Global ||
             modifiers.visibility === SymbolVisibility.Public;
           const hasIsTest =
             modifiers.isTestMethod === true ||
             symbol.annotations?.some((a) => a.name.toLowerCase() === 'istest');
-
-          // Interfaces: listener sanitizes Default to Public; check source for explicit modifier
-          if (
-            isInterfaceSymbol(symbol) &&
-            hasPublicOrGlobal &&
-            options.sourceContent &&
-            symbol.location.symbolRange
-          ) {
-            const lines = options.sourceContent.split('\n');
-            const lineIndex = symbol.location.symbolRange.startLine - 1;
-            if (lineIndex >= 0 && lineIndex < lines.length) {
-              const line = lines[lineIndex];
-              const nameIdx = line.indexOf(symbol.name);
-              if (nameIdx >= 0) {
-                const beforeName = line.substring(0, nameIdx);
-                const hasExplicit =
-                  /\bpublic\b/i.test(beforeName) ||
-                  /\bglobal\b/i.test(beforeName) ||
-                  /@istest\b/i.test(beforeName);
-                if (!hasExplicit) {
-                  hasPublicOrGlobal = false;
-                }
-              }
-            }
-          }
 
           if (!hasPublicOrGlobal && !hasIsTest) {
             errors.push({
@@ -627,63 +531,9 @@ export const ModifierValidator: Validator = {
             });
           }
 
-          // Check source content for invalid modifiers on fields
-          // (parser sanitizes these, so we need to check source directly)
-          if (options.sourceContent && isFieldSymbol(symbol)) {
-            const location = symbol.location;
-            if (location && location.symbolRange) {
-              const lineIndex = location.symbolRange.startLine - 1;
-              const lines = options.sourceContent.split('\n');
-              if (lineIndex >= 0 && lineIndex < lines.length) {
-                const line = lines[lineIndex];
-                const symbolNameIndex = line.indexOf(symbol.name);
-                if (symbolNameIndex >= 0) {
-                  const beforeName = line.substring(0, symbolNameIndex);
-
-                  // Check for virtual modifier
-                  if (beforeName.match(/\bvirtual\b/i)) {
-                    errors.push({
-                      message: localizeTyped(
-                        ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                        'virtual',
-                        'field',
-                      ),
-                      location: symbol.location,
-                      code: ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                    });
-                  }
-
-                  // Check for abstract modifier
-                  if (beforeName.match(/\babstract\b/i)) {
-                    errors.push({
-                      message: localizeTyped(
-                        ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                        'abstract',
-                        'field',
-                      ),
-                      location: symbol.location,
-                      code: ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                    });
-                  }
-
-                  // Check for override modifier
-                  if (beforeName.match(/\boverride\b/i)) {
-                    errors.push({
-                      message: localizeTyped(
-                        ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                        'override',
-                        'field',
-                      ),
-                      location: symbol.location,
-                      code: ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
-                    });
-                  }
-                }
-              }
-            }
-          }
-
-          // Virtual not allowed on fields (check symbol table as fallback)
+          // Invalid modifiers rejected by the declaration walker are absent from
+          // the normalized symbol. Validate only modifiers that remain semantic
+          // facts; do not recover rejected modifiers from raw document text.
           if (modifiers.isVirtual && isFieldSymbol(symbol)) {
             errors.push({
               message: localizeTyped(

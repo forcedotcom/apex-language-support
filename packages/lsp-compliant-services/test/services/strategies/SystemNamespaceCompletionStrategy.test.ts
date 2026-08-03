@@ -40,13 +40,19 @@ describe('SystemNamespaceCompletionStrategy', () => {
       const context = makeCompletionContext(doc, 0, 8, {
         triggerCharacter: '.',
       });
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should not handle when line ends with dot', () => {
       const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 8);
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
+    });
+
+    it('should not handle a partially typed member name', () => {
+      const doc = makeTextDocument('    this.may', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 12);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should not handle when no identifier prefix has been typed', () => {
@@ -54,9 +60,37 @@ describe('SystemNamespaceCompletionStrategy', () => {
       const context = makeCompletionContext(doc, 0, 4);
       expect(strategy.canHandle(context)).toBe(false);
     });
+
+    it.each([
+      ["'Sys'", 3],
+      ["'unterminated Sys", 17],
+      ['// Sys', 6],
+      ['/* Sys */', 6],
+    ])(
+      'does not handle a prefix inside a string or comment: %s',
+      (content, character) => {
+        const doc = makeTextDocument(content, 'file:///test/Test.cls');
+        const context = makeCompletionContext(doc, 0, character);
+
+        expect(strategy.canHandle(context)).toBe(false);
+      },
+    );
   });
 
   describe('getCompletions', () => {
+    it('contributes no namespace candidates at a lexer-recorded member-access dot', async () => {
+      const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 8, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      expect(candidates).toEqual([]);
+    });
+
     it('should return matching namespaces filtered by prefix', async () => {
       const doc = makeTextDocument('    S', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 5);
@@ -84,6 +118,62 @@ describe('SystemNamespaceCompletionStrategy', () => {
       expect(names).toContain('System');
       expect(names).not.toContain('Database');
       expect(names).not.toContain('Schema');
+    });
+
+    it('uses the partial lexer token before a cursor inside an identifier', async () => {
+      const doc = makeTextDocument('    SysSuffix', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 7);
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const names = candidates.map((candidate) => candidate.symbol.name);
+      expect(names).toContain('System');
+    });
+
+    it('preserves an incomplete namespace prefix in malformed source', async () => {
+      const content = 'public class Broken { void run() { Dat';
+      const doc = makeTextDocument(content, 'file:///test/Broken.cls');
+      const context = makeCompletionContext(doc, 0, content.length);
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      const names = candidates.map((candidate) => candidate.symbol.name);
+      expect(names).toContain('Database');
+      expect(names).toContain('Datacloud');
+    });
+
+    it('uses lexer-owned namespace and partial type tokens for qualified prefixes', async () => {
+      jest.spyOn(symbolManager, 'findSymbolsByPrefix').mockResolvedValue([
+        {
+          id: 'system:Assert',
+          name: 'Assert',
+          kind: 'class',
+          namespace: 'System',
+        },
+        {
+          id: 'schema:Assignment',
+          name: 'Assignment',
+          kind: 'class',
+          namespace: 'Schema',
+        },
+      ] as any);
+      // `System` and `As` are keyword tokens in the Apex lexer. They still
+      // form a valid namespace-qualified completion query.
+      const doc = makeTextDocument('System.As', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 9);
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      expect(symbolManager.findSymbolsByPrefix).toHaveBeenCalledWith('as', 50);
+      expect(candidates.map((candidate) => candidate.symbol.name)).toEqual([
+        'Assert',
+      ]);
     });
 
     it('should filter by prefix "da" to include Database and DataSource', async () => {
