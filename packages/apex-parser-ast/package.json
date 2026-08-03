@@ -24,6 +24,8 @@
     "README.md"
   ],
   "scripts": {
+    "fetch:api-stubs": "node scripts/fetch-api-stubs.mjs",
+    "generate:api-stubs": "node scripts/generate-api-stubs.mjs",
     "generate:stdlib-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",
