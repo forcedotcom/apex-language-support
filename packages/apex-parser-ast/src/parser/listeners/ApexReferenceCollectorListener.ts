@@ -40,15 +40,21 @@ import {
   ReferenceContext,
   EnhancedSymbolReference,
 } from '../../types/symbolReference';
-import type { SymbolReference } from '../../types/symbolReference';
+import type {
+  SymbolReference,
+  SymbolReferenceSemanticContext,
+} from '../../types/symbolReference';
 import { SymbolTable, SymbolLocation } from '../../types/symbol';
 import {
   isDotExpressionContext,
   isContextType,
   countCallArguments,
   countConstructorArguments,
-  callArgumentExpressions,
-  constructorArgumentExpressions,
+  callArgumentSemantics,
+  constructorArgumentSemantics,
+  callInvocationSemantic,
+  constructorInvocationSemantic,
+  indexedAccessSemantic,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
@@ -61,6 +67,7 @@ interface ChainScope {
   parentScope?: ChainScope;
   finalAccess?: 'read' | 'write' | 'readwrite';
   nodeAccesses?: ('read' | 'write' | 'readwrite')[];
+  baseSemanticContext?: SymbolReferenceSemanticContext;
 }
 
 /**
@@ -235,10 +242,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     let pushed = false;
     try {
       const idNode = ctx.id();
-      const methodName = idNode?.getText() || 'unknownMethod';
-      const location = idNode
-        ? this.getLocationForReference(idNode)
-        : this.getLocation(ctx);
+      const methodName = idNode?.getText();
+      if (!idNode || !methodName) {
+        return;
+      }
+      const location = this.getLocationForReference(idNode);
       const parentContext = this.getCurrentMethodName();
 
       const reference = SymbolReferenceFactory.createMethodCallReference(
@@ -251,7 +259,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       reference.argumentCount = countCallArguments(ctx);
       // Raw argument source texts — input to semantic argument-type resolution
       // (same-arity overload separation). Type derivation happens later.
-      reference.argumentExpressions = callArgumentExpressions(ctx);
+      reference.argumentSemantics = callArgumentSemantics(ctx);
+      reference.semanticContext = {
+        ...reference.semanticContext,
+        invocation: callInvocationSemantic(ctx),
+      };
 
       this.methodCallStack.push({
         callRef: reference,
@@ -298,10 +310,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
-      const methodName = anyIdNode?.getText() || 'unknownMethod';
-      const methodLocation = anyIdNode
-        ? this.getLocationForReference(anyIdNode)
-        : this.getLocation(ctx);
+      const methodName = anyIdNode?.getText();
+      if (!anyIdNode || !methodName) {
+        return;
+      }
+      const methodLocation = this.getLocationForReference(anyIdNode);
       const parentContext = this.getCurrentMethodName();
 
       this.logger.debug(
@@ -319,7 +332,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       );
       // Overload discriminator: call-site arity (F11-2).
       reference.argumentCount = countCallArguments(ctx);
-      reference.argumentExpressions = callArgumentExpressions(ctx);
+      reference.argumentSemantics = callArgumentSemantics(ctx);
+      reference.semanticContext = {
+        ...reference.semanticContext,
+        invocation: callInvocationSemantic(ctx),
+      };
 
       this.methodCallStack.push({
         callRef: reference,
@@ -330,14 +347,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       if (this.chainExpressionScope?.isActive) {
         // Method calls in chains are always 'read' (intermediate nodes)
         // Chain finalization will create and add the chained reference to symbol table
-        this.chainExpressionScope.chainNodes.push(
-          this.createExpressionNode(
-            methodName,
-            methodLocation,
-            ReferenceContext.METHOD_CALL,
-            'read',
-          ),
+        const chainNode = this.createExpressionNode(
+          methodName,
+          methodLocation,
+          ReferenceContext.METHOD_CALL,
+          'read',
         );
+        chainNode.argumentCount = reference.argumentCount;
+        chainNode.argumentSemantics = reference.argumentSemantics;
+        chainNode.semanticContext = reference.semanticContext;
+        this.chainExpressionScope.chainNodes.push(chainNode);
         // Do NOT add individual reference to symbol table - chain finalization handles it
         // The individual reference is still used for methodCallStack (parameter tracking) above
       } else {
@@ -922,7 +941,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         return;
       }
 
-      const fieldName = ctx.getText() || 'unknownField';
+      const fieldName = ctx.getText();
+      if (!fieldName) {
+        return;
+      }
       const location = this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
 
@@ -980,7 +1002,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       return;
     }
 
-    const variableName = this.getTextFromContext(ctx);
+    const variableName = ctx.id()?.getText();
+    if (!variableName) {
+      return;
+    }
 
     if (!this.isMethodCallParameter(ctx)) {
       let parent: ParserRuleContext | undefined = ctx.parentCtx;
@@ -1887,7 +1912,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       // Overload discriminator: constructor call-site arity (F11-2). Lets
       // findReferencesTo separate `new Foo()` from `new Foo(x)`.
       reference.argumentCount = countConstructorArguments(ctx);
-      reference.argumentExpressions = constructorArgumentExpressions(ctx);
+      reference.argumentSemantics = constructorArgumentSemantics(ctx);
+      reference.semanticContext = {
+        ...reference.semanticContext,
+        invocation: constructorInvocationSemantic(ctx),
+      };
 
       // Check if this constructor call has arguments (classCreatorRest)
       const classCreatorRest = (creator as any).classCreatorRest?.();
@@ -1910,6 +1939,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     // Check if we're in LHS assignment context
     const finalAccess = this.currentLhsAccess || 'read';
 
+    const indexedAccess = indexedAccessSemantic(ctx.expression());
     return {
       isActive: true,
       baseExpression: this.extractBaseExpressionFromParser(ctx),
@@ -1917,12 +1947,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       startLocation: this.getLocation(ctx),
       depth: 0,
       finalAccess,
+      baseSemanticContext: indexedAccess ? { indexedAccess } : undefined,
     };
   }
 
   private finalizeChainScope(chainScope: ChainScope): void {
     if (!chainScope.isActive) return;
     chainScope.isActive = false;
+    if (!chainScope.baseExpression) return;
 
     // Even if there are no chain nodes, we might still need to create a reference
     // for the base expression (e.g., FileUtilities.createFile() where baseExpression='FileUtilities')
@@ -2046,15 +2078,29 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               },
             };
 
-            // Create final node reference with chainNodes property
-            // For 'this' chains, we don't include 'this' as a chain node,
-            // only the actual method/property calls
+            // Preserve the explicit receiver in the structured chain. Semantic
+            // consumers must be able to distinguish `this.member` from an
+            // unqualified member without recovering the receiver from source.
             const finalNode = validChainNodes[validChainNodes.length - 1];
             const finalAccess = chainScope.finalAccess || 'read';
 
+            const thisLocation = this.createPreciseBaseLocation(
+              'this',
+              startLocation,
+            );
+            const thisNode = new EnhancedSymbolReference(
+              'this',
+              thisLocation,
+              ReferenceContext.CHAIN_STEP,
+              {
+                parentContext,
+                access: 'read',
+              },
+            );
+
             // Ensure each chain node has correct access
             // All nodes in 'this' chains are intermediate (read), except final node
-            const nodesWithAccess = validChainNodes.map((node, index) => {
+            const memberNodesWithAccess = validChainNodes.map((node, index) => {
               const isFinal = index === validChainNodes.length - 1;
               const nodeAccess = isFinal ? finalAccess : 'read';
               if (node.access !== nodeAccess) {
@@ -2067,13 +2113,18 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
                     parentContext: node.parentContext,
                     access: nodeAccess,
                     isStatic: node.isStatic,
+                    semanticContext: node.semanticContext,
                     literalValue: node.literalValue,
                     literalType: node.literalType,
+                    argumentCount: node.argumentCount,
+                    argumentSemantics: node.argumentSemantics,
+                    argumentTypes: node.argumentTypes,
                   },
                 );
               }
               return node;
             });
+            const nodesWithAccess = [thisNode, ...memberNodesWithAccess];
 
             const finalRef = new EnhancedSymbolReference(
               fullExpression,
@@ -2086,6 +2137,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
                 isStatic: finalNode.isStatic,
                 chainNodes: nodesWithAccess, // Attach chainNodes to final node
                 accessValidationState: 'syntax_only',
+                semanticContext: finalNode.semanticContext,
+                argumentCount: finalNode.argumentCount,
+                argumentSemantics: finalNode.argumentSemantics,
+                argumentTypes: finalNode.argumentTypes,
               },
             );
 
@@ -2125,6 +2180,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         baseContext,
         'read',
       );
+      baseNode.semanticContext = chainScope.baseSemanticContext;
 
       // Ensure each chain node has correct access based on its role
       // Base node: always 'read' (intermediate)
@@ -2165,8 +2221,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               parentContext: node.parentContext,
               access: nodeAccess,
               isStatic: node.isStatic,
+              semanticContext: node.semanticContext,
               literalValue: node.literalValue,
               literalType: node.literalType,
+              argumentCount: node.argumentCount,
+              argumentSemantics: node.argumentSemantics,
+              argumentTypes: node.argumentTypes,
             },
           );
         }
@@ -2217,6 +2277,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           isStatic: finalNode.isStatic,
           chainNodes: analyzedChainNodes, // Attach chainNodes to final node
           accessValidationState: 'syntax_only', // TIER 1 capture only
+          semanticContext: finalNode.semanticContext,
+          argumentCount: finalNode.argumentCount,
+          argumentSemantics: finalNode.argumentSemantics,
+          argumentTypes: finalNode.argumentTypes,
         },
       );
 
@@ -2272,7 +2336,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         // Overload discriminator: call-site arity (F11-2).
         reference.argumentCount = countCallArguments(ctx);
-        reference.argumentExpressions = callArgumentExpressions(ctx);
+        reference.argumentSemantics = callArgumentSemantics(ctx);
+        reference.semanticContext = {
+          ...reference.semanticContext,
+          invocation: callInvocationSemantic(ctx),
+        };
         this.symbolTable.addTypeReference(reference);
       }
     } catch (error) {
@@ -2517,6 +2585,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               );
               return 'this';
             }
+            const superToken = (primary as any).SUPER?.();
+            if (superToken) {
+              return 'super';
+            }
           }
         }
 
@@ -2527,6 +2599,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             () => '[EXTRACT_BASE] Found THIS token directly on expression',
           );
           return 'this';
+        }
+        const superTokenDirect = (leftExpression as any).SUPER?.();
+        if (superTokenDirect) {
+          return 'super';
         }
 
         // If leftExpression is a DotExpressionContext, recursively extract the base
@@ -2545,29 +2621,19 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         // Use extractIdentifiersFromExpression to get only identifiers, not method calls
         const identifiers =
           this.extractIdentifiersFromExpression(leftExpression);
-        const result = identifiers.length > 0 ? identifiers[0] : 'unknown';
+        const result = identifiers[0] ?? '';
         this.logger.debug(
           () =>
             `[EXTRACT_BASE] Extracted base expression: "${result}" from ${identifiers.length} identifiers`,
         );
-        // Warn if the result contains parentheses or 'this.' - this shouldn't happen
-        if (result.includes('()') || result.includes('this.')) {
-          this.logger.warn(
-            () =>
-              `[EXTRACT_BASE] WARNING: Base expression contains invalid characters: "${result}"`,
-          );
-        }
         return result;
       }
-      this.logger.debug(
-        () => "[EXTRACT_BASE] No leftExpression found, returning 'unknown'",
-      );
-      return 'unknown';
+      return '';
     } catch (error) {
       this.logger.warn(
         () => `Error extracting base expression from parser: ${error}`,
       );
-      return 'unknown';
+      return '';
     }
   }
 
@@ -2636,44 +2702,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         : [];
     }
 
-    // Handle simple identifier node
-    if (expr.id) {
-      const id = expr.id();
-      if (id) {
-        identifiers.push(id.getText());
-        return identifiers;
-      }
-    }
-
-    // Fallback: try to extract from children
-    if (expr.children) {
-      for (const child of expr.children) {
-        if (child.id) {
-          const id = child.id();
-          if (id) {
-            identifiers.push(id.getText());
-          }
-        } else if (
-          child.getText() &&
-          !child.getText().includes('(') &&
-          !child.getText().includes('.')
-        ) {
-          // Only use text if it doesn't contain parentheses or dots (which indicate complex expressions)
-          identifiers.push(child.getText());
-        }
-      }
-    }
-
-    // Last resort: use text property only if it's a simple identifier (no parentheses, no dots)
-    if (identifiers.length === 0 && expr.getText()) {
-      const text = expr.getText();
-      // Only use text if it looks like a simple identifier (no parentheses, no dots)
-      if (!text.includes('(') && !text.includes('.')) {
-        identifiers.push(text);
-      }
-    }
-
-    return identifiers;
+    // Unknown expression shapes intentionally produce no semantic identifiers.
+    // A listener for that concrete parser context must be added instead of
+    // recovering meaning from child/composite source text.
+    return [];
   }
 
   private extractQualifierFromExpression(expr: any): string {
@@ -3003,10 +3035,6 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       };
     }
     return null;
-  }
-
-  private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.getText() || '';
   }
 
   private validateMethodCallStackCleanup(): void {

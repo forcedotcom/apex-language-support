@@ -13,6 +13,7 @@ import {
   MethodCallAtRange,
 } from '../../src/utils/methodCallAtRange';
 import { LspRange } from '../../src/utils/expressionRangeFinder';
+import { SymbolTable } from '../../src/types/symbol';
 
 /** Range covering the first occurrence of `needle` in `source` (0-based). */
 const rangeOf = (source: string, needle: string): LspRange => {
@@ -38,8 +39,15 @@ describe('findMethodCallAtRange', () => {
 
   const call = (source: string, needle: string): MethodCallAtRange | null => {
     const listener = new ApexSymbolCollectorListener(undefined, 'full');
-    const result = compilerService.compile(source, 'Caller.cls', listener);
-    return findMethodCallAtRange(result.parseTree, rangeOf(source, needle));
+    const result = compilerService.compile(source, 'Caller.cls', listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    return findMethodCallAtRange(
+      result.parseTree,
+      rangeOf(source, needle),
+      result.result instanceof SymbolTable ? result.result : undefined,
+    );
   };
 
   it('describes a qualified instance call used as a variable initializer', () => {
@@ -56,12 +64,16 @@ describe('findMethodCallAtRange', () => {
 
     expect(info).not.toBeNull();
     expect(info!.methodName).toBe('computeValue');
-    expect(info!.receiverText).toBe('t');
+    expect(info!.receiver).toMatchObject({
+      name: 't',
+      kind: 'value',
+      declaredTypeName: 'Target',
+    });
     expect(info!.returnContext).toBe('variable-initializer');
     expect(info!.returnTypeText).toBe('Integer');
     expect(info!.arguments).toEqual([
-      { text: '42', inferredType: 'Integer' },
-      { text: "'x'", inferredType: 'String' },
+      { inferredType: 'Integer' },
+      { inferredType: 'String' },
     ]);
   });
 
@@ -77,12 +89,10 @@ describe('findMethodCallAtRange', () => {
     const info = call(source, 'helper');
 
     expect(info!.methodName).toBe('helper');
-    expect(info!.receiverText).toBeUndefined();
+    expect(info!.receiver).toBeUndefined();
     expect(info!.returnContext).toBe('return');
     expect(info!.returnTypeText).toBe('Integer');
-    expect(info!.arguments).toEqual([
-      { text: 'true', inferredType: 'Boolean' },
-    ]);
+    expect(info!.arguments).toEqual([{ inferredType: 'Boolean' }]);
   });
 
   it('classifies a bare-statement call as void', () => {
@@ -108,8 +118,61 @@ describe('findMethodCallAtRange', () => {
     ].join('\n');
 
     expect(call(source, 'compute')!.arguments).toEqual([
-      { text: 's', inferredType: undefined },
+      { inferredType: undefined },
     ]);
+  });
+
+  it('uses the immediate parser chain node for a chained receiver', () => {
+    const source = [
+      'public class Caller {',
+      '  Target target;',
+      '  public void run() {',
+      '    Integer r = this.target.computeValue(42);',
+      '  }',
+      '}',
+    ].join('\n');
+
+    expect(call(source, 'computeValue')!.receiver).toMatchObject({
+      name: 'target',
+      kind: 'value',
+      declaredTypeName: 'Target',
+    });
+  });
+
+  it('does not lexically bind an intermediate member owned by an arbitrary value', () => {
+    const source = [
+      'public class Caller {',
+      '  Target target;',
+      '  public void run() {',
+      '    Other owner = new Other();',
+      '    Integer r = owner.target.computeValue(42);',
+      '  }',
+      '}',
+    ].join('\n');
+
+    expect(call(source, 'computeValue')!.receiver).toMatchObject({
+      name: 'target',
+      kind: 'unresolved',
+    });
+  });
+
+  it('does not confuse receiver-like text in comments or strings with the call chain', () => {
+    const source = [
+      'public class Caller {',
+      '  public void run() {',
+      "    String noise = 'Wrong.computeValue(1)';",
+      '    // Wrong.computeValue(2);',
+      '    Target actual = new Target();',
+      '    Integer r = actual.computeValue(42);',
+      '  }',
+      '}',
+    ].join('\n');
+
+    expect(call(source, 'actual.computeValue')!.receiver).toMatchObject({
+      name: 'actual',
+      kind: 'value',
+      declaredTypeName: 'Target',
+    });
   });
 
   it('returns null for a field access (not a method call)', () => {

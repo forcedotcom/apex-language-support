@@ -27,10 +27,91 @@ describe('ApexSymbolCollectorListener with Type References', () => {
   });
 
   describe('Method Call References', () => {
+    it('preserves this as the receiver of a chained field reference', () => {
+      const sourceCode = `
+        public class TestClass {
+          Integer value;
+          Integer readValue() { return this.value; }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+
+      const chain = listener
+        .getResult()
+        .getAllReferences()
+        .find(
+          (reference) =>
+            isChainedSymbolReference(reference) &&
+            reference.name === 'this.value',
+        );
+
+      expect(chain?.chainNodes?.map((node) => node.name)).toEqual([
+        'this',
+        'value',
+      ]);
+      expect(chain?.chainNodes?.[0].context).toBe(ReferenceContext.CHAIN_STEP);
+      expect(chain?.chainNodes?.[1].context).toBe(
+        ReferenceContext.FIELD_ACCESS,
+      );
+    });
+
+    it('records indexed receivers on chained field and method references', () => {
+      const sourceCode = `
+        public class TestClass {
+          class Row {
+            Integer value;
+            String label() { return null; }
+          }
+          void exerciseMethod() {
+            List<Row> rows;
+            Integer value = rows[0].value;
+            String label = rows[0].label();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+
+      const chains = listener
+        .getResult()
+        .getAllReferences()
+        .filter(isChainedSymbolReference);
+      const valueChain = chains.find((reference) =>
+        reference.chainNodes?.some((node) => node.name === 'value'),
+      );
+      const labelChain = chains.find((reference) =>
+        reference.chainNodes?.some((node) => node.name === 'label'),
+      );
+
+      for (const chain of [valueChain, labelChain]) {
+        expect(chain).toBeDefined();
+        expect(chain?.chainNodes?.[0].name).toBe('rows');
+        expect(chain?.chainNodes?.[0].semanticContext?.indexedAccess).toEqual(
+          expect.objectContaining({
+            kind: 'indexed-access',
+            receiverRange: expect.objectContaining({
+              startLine: expect.any(Number),
+              startColumn: expect.any(Number),
+            }),
+            indexRange: expect.objectContaining({
+              startLine: expect.any(Number),
+              startColumn: expect.any(Number),
+            }),
+          }),
+        );
+      }
+    });
+
     it('should capture method call references', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod() {
+          public void exerciseMethod() {
             FileUtilities.createFile(base64Data, fileName, recordId);
           }
         }
@@ -61,7 +142,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(chainedRef).toBeDefined();
       expect(isChainedSymbolReference(chainedRef)).toBe(true);
-      expect(chainedRef?.parentContext).toBe('testMethod');
+      expect(chainedRef?.parentContext).toBe('exerciseMethod');
       expect(chainedRef?.resolvedSymbolId).toBeUndefined();
       // Check chainNodes structure
       const chainedRefTyped = chainedRef as any;
@@ -99,7 +180,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
     it('should capture method call references without qualifier', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod() {
+          public void exerciseMethod() {
             createFile(base64Data, fileName, recordId);
           }
         }
@@ -127,7 +208,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(methodRef).toBeDefined();
       expect(methodRef?.context).toBe(ReferenceContext.METHOD_CALL);
       // Simple method call - no qualifier
-      expect(methodRef?.parentContext).toBe('testMethod');
+      expect(methodRef?.parentContext).toBe('exerciseMethod');
 
       // Check for VARIABLE_USAGE references (parameters)
       const base64DataRef = references.find(
@@ -160,7 +241,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
     it('should capture type declaration references', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod() {
+          public void exerciseMethod() {
             Property__c property = new Property__c();
             String contentDocumentLinkId;
           }
@@ -188,12 +269,12 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(propertyRef).toBeDefined();
       expect(propertyRef?.context).toBe(ReferenceContext.TYPE_DECLARATION);
-      expect(propertyRef?.parentContext).toBe('testMethod');
+      expect(propertyRef?.parentContext).toBe('exerciseMethod');
 
       const stringRef = typeDeclRefs.find((ref) => ref.name === 'String');
       expect(stringRef).toBeDefined();
       expect(stringRef?.context).toBe(ReferenceContext.TYPE_DECLARATION);
-      expect(stringRef?.parentContext).toBe('testMethod');
+      expect(stringRef?.parentContext).toBe('exerciseMethod');
     });
 
     it('should capture type literal references via TypeName.class', () => {
@@ -221,7 +302,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
     it('should capture field access references', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod() {
+          public void exerciseMethod() {
             Property__c property = new Property__c(); // dotted method call
             String id = property.Id; // dotted field access
           }
@@ -244,7 +325,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(chainedRefs).toHaveLength(1);
       expect(chainedRefs[0].name).toBe('property.Id');
-      expect(chainedRefs[0].parentContext).toBe('testMethod');
+      expect(chainedRefs[0].parentContext).toBe('exerciseMethod');
       // Check chainNodes structure
       const chainedRefTyped = chainedRefs[0] as any;
       expect(chainedRefTyped.chainNodes).toBeDefined();
@@ -516,7 +597,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
     it('should capture parameter type references', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod(String param1, Property__c param2, List<String> param3, Map<String, Property__c> param4) {
+          public void exerciseMethod(String param1, Property__c param2, List<String> param3, Map<String, Property__c> param4) {
             // Method body
           }
         }
@@ -555,11 +636,11 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // Check for generic base types
       const listRef = paramTypeRefs.find((ref) => ref.name === 'List');
       expect(listRef).toBeDefined();
-      expect(listRef?.parentContext).toBe('testMethod');
+      expect(listRef?.parentContext).toBe('exerciseMethod');
 
       const mapRef = paramTypeRefs.find((ref) => ref.name === 'Map');
       expect(mapRef).toBeDefined();
-      expect(mapRef?.parentContext).toBe('testMethod');
+      expect(mapRef?.parentContext).toBe('exerciseMethod');
     });
 
     it('should capture enhanced for control: parameter type and source variable usage', () => {
@@ -1260,6 +1341,344 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           expect(node.resolvedSymbolId).toBeUndefined();
         }
       }
+    });
+  });
+
+  describe('Incomplete member access', () => {
+    it('captures an incomplete indexed receiver without reconstructing source text', () => {
+      const sourceCode = `public class TestClass {
+  class Row { Integer value; }
+  public void testMethod() {
+    List<Row> rows = new List<Row>();
+    rows[0].
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+
+      const reference = listener
+        .getResult()
+        .getAllReferences()
+        .find(
+          (candidate) =>
+            candidate.name === 'rows' &&
+            candidate.semanticContext?.indexedAccess &&
+            candidate.semanticContext.memberAccess?.incomplete,
+        );
+
+      expect(reference?.semanticContext).toEqual(
+        expect.objectContaining({
+          indexedAccess: expect.objectContaining({
+            kind: 'indexed-access',
+            receiverRange: expect.objectContaining({
+              startLine: 5,
+              startColumn: 4,
+            }),
+            indexRange: expect.objectContaining({
+              startLine: 5,
+              startColumn: 9,
+            }),
+          }),
+          memberAccess: expect.objectContaining({
+            kind: 'member-access',
+            incomplete: true,
+            operatorRange: expect.objectContaining({
+              startLine: 5,
+              startColumn: 11,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('does not synthesize a method or corrupt scope after a missing method identifier', () => {
+      const sourceCode = `public class TestClass {
+  public void testMethod() {
+    String skippedBodyValue;
+  }
+  public void validMethod() {
+    String ;
+    String retainedValue;
+    consume(retainedValue);
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const symbolTable = listener.getResult();
+
+      expect(
+        symbolTable
+          .getAllSymbols()
+          .some((symbol) =>
+            ['unknownMethod', 'unknownVariable', 'unknownParameter'].includes(
+              symbol.name,
+            ),
+          ),
+      ).toBe(false);
+      expect(
+        symbolTable
+          .getAllSymbols()
+          .some(
+            (symbol) =>
+              symbol.name === 'validMethod' &&
+              symbol.kind === SymbolKind.Method,
+          ),
+      ).toBe(true);
+      expect(
+        symbolTable
+          .getAllReferences()
+          .find((reference) => reference.name === 'consume')?.parentContext,
+      ).toBe('validMethod');
+    });
+
+    it.each(['property.', 'property.Bed'])(
+      'captures %s from parser error nodes with structural ranges',
+      (expression) => {
+        const sourceCode = `public class TestClass {
+  public void testMethod() {
+    Property__c property = new Property__c();
+    insert property;
+    ${expression}
+  }
+}`;
+        const listener = new ApexSymbolCollectorListener();
+        compilerService.compile(sourceCode, 'TestClass.cls', listener);
+
+        const reference = listener
+          .getResult()
+          .getAllReferences()
+          .find(
+            (candidate) =>
+              candidate.semanticContext?.memberAccess?.kind === 'member-access',
+          );
+
+        expect(reference).toEqual(
+          expect.objectContaining({
+            name: 'property',
+            context: ReferenceContext.VARIABLE_USAGE,
+            resolvedSymbolId: expect.stringContaining('property'),
+            semanticContext: expect.objectContaining({
+              memberAccess: expect.objectContaining({
+                kind: 'member-access',
+                incomplete: true,
+                receiverRange: expect.objectContaining({
+                  startLine: 5,
+                  startColumn: 4,
+                }),
+                operatorRange: expect.objectContaining({
+                  startLine: 5,
+                  startColumn: 12,
+                }),
+              }),
+            }),
+          }),
+        );
+        if (expression.endsWith('Bed')) {
+          expect(reference?.semanticContext?.memberAccess?.memberRange).toEqual(
+            expect.objectContaining({
+              startLine: 5,
+              startColumn: 13,
+              endColumn: 16,
+            }),
+          );
+        }
+      },
+    );
+
+    it('attaches a trailing dot to the parser-owned method-call chain', () => {
+      const sourceCode = `public class TestClass {
+  TestClass load() { return null; }
+  public void testMethod() {
+    TestClass service = new TestClass();
+    service.load().
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+
+      const reference = listener
+        .getResult()
+        .getAllReferences()
+        .find(
+          (candidate) =>
+            candidate.name === 'service.load' &&
+            candidate.semanticContext?.memberAccess?.kind === 'member-access',
+        );
+
+      expect(reference).toEqual(
+        expect.objectContaining({
+          context: ReferenceContext.METHOD_CALL,
+          resolvedSymbolId: expect.stringContaining('load'),
+          semanticContext: expect.objectContaining({
+            memberAccess: expect.objectContaining({
+              incomplete: true,
+              operatorRange: expect.objectContaining({
+                startLine: 5,
+                startColumn: 18,
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('DML semantic context', () => {
+    it('annotates operands for every DML operation without creating keyword references', () => {
+      const sourceCode = `public class DmlContexts {
+  public void run() {
+    Account record;
+    List<Account> duplicates;
+    insert record;
+    update record;
+    delete record;
+    undelete record;
+    upsert record Account.External_Id__c;
+    merge record duplicates;
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'DmlContexts.cls', listener);
+      const references = listener.getResult().getAllReferences();
+      const dmlReferences = references.filter(
+        (reference) => reference.semanticContext?.dml,
+      );
+
+      expect(
+        dmlReferences
+          .filter((reference) => reference.semanticContext?.dml?.isOperandRoot)
+          .map((reference) => reference.semanticContext?.dml?.operation),
+      ).toEqual(
+        expect.arrayContaining([
+          'insert',
+          'update',
+          'delete',
+          'undelete',
+          'upsert',
+          'merge',
+        ]),
+      );
+      expect(
+        dmlReferences.some(
+          (reference) =>
+            reference.semanticContext?.dml?.operation === 'merge' &&
+            reference.semanticContext.dml.operandRole === 'duplicate',
+        ),
+      ).toBe(true);
+      expect(
+        dmlReferences.find(
+          (reference) => reference.semanticContext?.dml?.operation === 'upsert',
+        )?.semanticContext?.dml?.upsertFieldRange,
+      ).toBeDefined();
+      expect(
+        references.some((reference) =>
+          [
+            'insert',
+            'update',
+            'delete',
+            'undelete',
+            'upsert',
+            'merge',
+          ].includes(reference.name.toLowerCase()),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe('Invocation result context', () => {
+    it('captures declared and existing assignment targets from parser structure', () => {
+      const sourceCode = `public class InvocationTargets {
+  public String calculate() { return ''; }
+  public void run() {
+    String declaredValue = calculate();
+    String existingValue;
+    existingValue = calculate();
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'InvocationTargets.cls', listener);
+      const calls = listener
+        .getResult()
+        .getAllReferences()
+        .filter(
+          (reference) =>
+            reference.name === 'calculate' &&
+            reference.context === ReferenceContext.METHOD_CALL,
+        );
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0].semanticContext?.invocation?.resultTarget).toEqual(
+        expect.objectContaining({
+          kind: 'declared-variable',
+          targetIdentifier: 'declaredValue',
+          expectedType: 'String',
+          expectedTypeShape: expect.objectContaining({
+            name: 'String',
+            isArray: false,
+            isCollection: false,
+          }),
+        }),
+      );
+      expect(calls[1].semanticContext?.invocation?.resultTarget).toEqual(
+        expect.objectContaining({
+          kind: 'assignment',
+          targetIdentifier: 'existingValue',
+        }),
+      );
+    });
+  });
+
+  describe('Invalid void declarations', () => {
+    it('preserves parser-owned void recovery without inventing declarations', () => {
+      const sourceCode = `public class InvalidVoidDeclarations {
+  void fieldValue;
+  void propertyValue { get; set; }
+  public void run(void parameterValue) {
+    void localValue;
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(
+        sourceCode,
+        'InvalidVoidDeclarations.cls',
+        listener,
+      );
+      const symbols = listener.getResult().getAllSymbols();
+
+      // The grammar recovers each class member as a method declaration because
+      // `void` is only a legal method return type. Preserve those concrete
+      // parser facts rather than reinterpreting malformed tokens as fields or
+      // properties.
+      for (const name of ['fieldValue', 'propertyValue', 'run']) {
+        expect(
+          symbols.find(
+            (symbol) =>
+              symbol.kind === SymbolKind.Method && symbol.name === name,
+          ),
+        ).toEqual(
+          expect.objectContaining({
+            returnType: expect.objectContaining({ name: 'void' }),
+          }),
+        );
+      }
+
+      // The recovered formal parameter has no identifier, and the local line
+      // is an expression plus an error node. Neither is a declaration-shaped
+      // parser fact, so the collector must preserve that uncertainty instead
+      // of synthesizing symbols from token order or source text.
+      expect(
+        symbols.some(
+          (symbol) =>
+            symbol.kind === SymbolKind.Parameter &&
+            symbol.name === 'parameterValue',
+        ),
+      ).toBe(false);
+      expect(
+        symbols.some(
+          (symbol) =>
+            symbol.kind === SymbolKind.Variable && symbol.name === 'localValue',
+        ),
+      ).toBe(false);
     });
   });
 

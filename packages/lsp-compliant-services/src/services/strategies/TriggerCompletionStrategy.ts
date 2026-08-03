@@ -7,24 +7,14 @@
  */
 
 import { Effect } from 'effect';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CompletionContext } from '../CompletionProcessingService';
 import { CompletionStrategy, CompletionCandidate } from './CompletionStrategy';
 
-/**
- * Static description of a single trigger context variable. Backs the synthetic
- * symbol-like objects returned to the completion pipeline since these
- * variables aren't part of the user's symbol table.
- */
 interface TriggerVariableDescriptor {
   name: string;
   typeName: string;
 }
 
-/**
- * Trigger context variables exposed via `Trigger.<name>` inside a `.trigger`
- * file. Order and naming mirror Jorje's `TriggerKeywordCompletionStrategy`.
- */
 const TRIGGER_VARIABLES: readonly TriggerVariableDescriptor[] = [
   { name: 'isExecuting', typeName: 'Boolean' },
   { name: 'isInsert', typeName: 'Boolean' },
@@ -40,109 +30,41 @@ const TRIGGER_VARIABLES: readonly TriggerVariableDescriptor[] = [
   { name: 'size', typeName: 'Integer' },
 ];
 
-/**
- * Strategy for trigger-related completions. Combines the responsibilities of
- * Jorje's `TriggerKeywordCompletionStrategy` (the `trigger` keyword at the top
- * level of a `.trigger` file) and `TriggerContextVariablesCompletionStrategy`
- * (suggestions after `Trigger.`).
- */
+/** Supplies Trigger context variables from a parser-recorded member access. */
 export class TriggerCompletionStrategy implements CompletionStrategy {
   readonly name = 'TriggerCompletion';
 
   canHandle(context: CompletionContext): boolean {
-    if (!this.isTriggerFile(context.document.uri)) {
-      return false;
-    }
-
-    const lineText = context.document.getText({
-      start: { line: context.position.line, character: 0 },
-      end: context.position,
-    });
-
-    // After `Trigger.<prefix>` — context variables.
-    if (this.isAfterTriggerDot(lineText)) {
-      return true;
-    }
-
-    // Top-level: only when not inside a member expression.
-    return !lineText.trimEnd().endsWith('.');
+    return (
+      this.isTriggerFile(context.document.uri) &&
+      context.incompleteMemberAccess?.name.toLowerCase() === 'trigger'
+    );
   }
 
   getCompletions(
     context: CompletionContext,
   ): Effect.Effect<CompletionCandidate[], never, never> {
-    const self = this;
-    return Effect.gen(function* () {
-      const candidates: CompletionCandidate[] = [];
-      const lineText = context.document.getText({
-        start: { line: context.position.line, character: 0 },
-        end: context.position,
-      });
+    if (!this.canHandle(context)) return Effect.succeed([]);
 
-      if (self.isAfterTriggerDot(lineText)) {
-        for (const variable of TRIGGER_VARIABLES) {
-          candidates.push({
-            symbol: self.makeTriggerVariableSymbol(variable),
-            relevance: 0.95,
-            context: 'trigger context variable',
-          });
-        }
-        yield* Effect.yieldNow();
-        return candidates;
-      }
-
-      // Top-level: suggest the `trigger` keyword when the prefix matches.
-      const word = self
-        .getWordAtPosition(context.document, context.position)
-        .toLowerCase();
-      if (self.shouldSuggestTriggerKeyword(lineText, word)) {
-        candidates.push({
-          symbol: self.makeTriggerKeywordSymbol(),
-          relevance: 0.9,
-          context: 'trigger keyword',
-        });
-      }
-
-      return candidates;
-    });
+    return Effect.succeed(
+      TRIGGER_VARIABLES.map((variable) => ({
+        symbol: this.makeTriggerVariableSymbol(variable),
+        relevance: 0.95,
+        context: 'trigger context variable',
+      })),
+    );
   }
 
-  /**
-   * True if the URI looks like an Apex trigger file (`.trigger` extension).
-   */
   private isTriggerFile(uri: string): boolean {
-    return /\.trigger(\?|#|$)/i.test(uri);
+    const lower = uri.toLowerCase();
+    const query = lower.indexOf('?');
+    const fragment = lower.indexOf('#');
+    const endCandidates = [query, fragment].filter((index) => index >= 0);
+    const end =
+      endCandidates.length > 0 ? Math.min(...endCandidates) : lower.length;
+    return lower.slice(0, end).endsWith('.trigger');
   }
 
-  /**
-   * Match the same pattern Jorje uses: `(?i)trigger\.[a-z]*` immediately
-   * before the cursor on the current line. We anchor to the end of the line
-   * text up to the cursor.
-   */
-  private isAfterTriggerDot(lineText: string): boolean {
-    return /(?:^|[^A-Za-z0-9_$])trigger\.[A-Za-z]*$/i.test(lineText);
-  }
-
-  /**
-   * Decide whether the cursor is at a top-level position where the `trigger`
-   * keyword would be valid. Conservative: only at the start of the file's
-   * non-whitespace content, optionally with a partial prefix matching `trigger`.
-   */
-  private shouldSuggestTriggerKeyword(lineText: string, word: string): boolean {
-    const beforeWord =
-      word.length > 0
-        ? lineText.slice(0, lineText.length - word.length)
-        : lineText;
-    if (beforeWord.trim().length !== 0) {
-      return false;
-    }
-    if (word.length === 0) return true;
-    return 'trigger'.startsWith(word);
-  }
-
-  /**
-   * Build a synthetic symbol-like object for a trigger context variable.
-   */
   private makeTriggerVariableSymbol(variable: TriggerVariableDescriptor): any {
     return {
       id: `trigger-variable:${variable.name}`,
@@ -160,39 +82,5 @@ export class TriggerCompletionStrategy implements CompletionStrategy {
         },
       },
     };
-  }
-
-  /**
-   * Build a synthetic symbol-like object for the `trigger` keyword itself.
-   */
-  private makeTriggerKeywordSymbol(): any {
-    return {
-      id: 'trigger-keyword',
-      name: 'trigger',
-      kind: 'variable',
-      modifiers: { isStatic: false, isBuiltIn: true, visibility: 'public' },
-      location: {
-        symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-        identifierRange: {
-          startLine: 0,
-          startColumn: 0,
-          endLine: 0,
-          endColumn: 0,
-        },
-      },
-    };
-  }
-
-  private getWordAtPosition(
-    document: TextDocument,
-    position: { line: number; character: number },
-  ): string {
-    const text = document.getText();
-    const offset = document.offsetAt(position);
-    let start = offset;
-    while (start > 0 && /\w/.test(text[start - 1])) {
-      start--;
-    }
-    return text.substring(start, offset);
   }
 }

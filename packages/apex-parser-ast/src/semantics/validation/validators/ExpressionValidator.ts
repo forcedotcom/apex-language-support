@@ -16,6 +16,8 @@ import {
   TriggerUnitContext,
   BlockContext,
   ExpressionContext,
+  PrimaryExpressionContext,
+  IdPrimaryContext,
   EqualityExpressionContext,
   CmpExpressionContext,
   Arth1ExpressionContext,
@@ -45,6 +47,7 @@ import {
   IfStatementContext,
   WhileStatementContext,
   DoWhileStatementContext,
+  SoqlPrimaryContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -66,15 +69,40 @@ import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParser
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { ReferenceContext } from '../../../types/symbolReference';
+import type { TypeInfo } from '../../../types/typeInfo';
+import { createTypeInfoFromTypeRef } from '../../../parser/utils/createTypeInfoFromTypeRef';
 
 /**
  * Expression type information stored in WeakMap during validation
  */
 export interface ExpressionTypeInfo {
   resolvedType: string | null;
+  semanticType?: TypeInfo;
   source: 'literal' | 'variable' | 'computed' | 'unknown';
   operandTypes?: string[]; // For binary expressions
   operator?: string; // For operator expressions
+}
+
+function findInlineSoqlPrimary(
+  ctx: ParserRuleContext,
+): SoqlPrimaryContext | null {
+  if (ctx instanceof SoqlPrimaryContext) return ctx;
+  for (const child of ctx.children ?? []) {
+    if ('children' in child) {
+      const result = findInlineSoqlPrimary(child as ParserRuleContext);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function getSoqlSObjectType(ctx: SoqlPrimaryContext): string | null {
+  const fieldName = ctx
+    .soqlLiteral()
+    .query()
+    .fromNameList()
+    ?.fieldName_list()?.[0];
+  return fieldName?.soqlId_list()?.[0]?.id()?.start?.text ?? null;
 }
 
 /**
@@ -288,24 +316,18 @@ class ExpressionListener extends BaseApexParserListener<void> {
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> = [];
   private arithmeticExpressions: Array<{
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> = [];
   private bitwiseExpressions: Array<{
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> = [];
   private ternaryExpressions: Array<{
@@ -313,9 +335,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     conditionExpr: ExpressionContext;
     trueExpr: ExpressionContext;
     falseExpr: ExpressionContext;
-    conditionText?: string;
-    trueExprText?: string;
-    falseExprText?: string;
   }> = [];
   private forControlExpressions: Array<{
     ctx: ExpressionContext;
@@ -324,6 +343,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
   private enhancedForControlExpressions: Array<{
     ctx: ExpressionContext;
     location: SymbolLocation;
+    isInlineSoql: boolean;
   }> = [];
   private booleanConditionExpressions: Array<{
     ctx: ExpressionContext;
@@ -340,13 +360,15 @@ class ExpressionListener extends BaseApexParserListener<void> {
   private castExpressions: Array<{
     ctx: CastExpressionContext;
     sourceExpr: ExpressionContext;
-    targetType: string;
+    targetType: TypeInfo;
     location: SymbolLocation;
   }> = [];
   private enhancedForControls: Array<{
     ctx: EnhancedForControlContext;
-    variableType: string | null;
+    variableType: TypeInfo | null;
     collectionExpr: ExpressionContext;
+    isInlineSoql: boolean;
+    querySObjectType: string | null;
     location: SymbolLocation;
   }> = [];
 
@@ -389,8 +411,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator =
         ctx.TRIPLEEQUAL()?.getText() ||
@@ -403,8 +423,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -415,8 +433,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       let operator = '<';
       if (ctx.GT()) {
@@ -428,8 +444,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -440,16 +454,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator = ctx.MUL() ? '*' : ctx.DIV() ? '/' : '*';
       this.arithmeticExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -460,16 +470,12 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       const operator = ctx.ADD() ? '+' : ctx.SUB() ? '-' : '+';
       this.arithmeticExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -480,14 +486,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '&',
       });
     }
@@ -498,14 +500,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '|',
       });
     }
@@ -516,14 +514,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.bitwiseExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '^',
       });
     }
@@ -534,8 +528,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       // Grammar: expression (LT LT | GT GT GT | GT GT) expression
       let operator = '<<';
@@ -552,8 +544,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -565,17 +555,11 @@ class ExpressionListener extends BaseApexParserListener<void> {
       const conditionExpr = expressions[0];
       const trueExpr = expressions[1];
       const falseExpr = expressions[2];
-      const conditionText = conditionExpr.getText() || '';
-      const trueExprText = trueExpr.getText() || '';
-      const falseExprText = falseExpr.getText() || '';
       this.ternaryExpressions.push({
         ctx: ctx as ExpressionContext,
         conditionExpr,
         trueExpr,
         falseExpr,
-        conditionText,
-        trueExprText,
-        falseExprText,
       });
     }
   }
@@ -590,14 +574,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '&&',
       });
     }
@@ -608,14 +588,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '||',
       });
     }
@@ -626,14 +602,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator: '??',
       });
     }
@@ -644,8 +616,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     if (expressions.length >= 2) {
       const leftExpr = expressions[0];
       const rightExpr = expressions[1];
-      const leftText = leftExpr.getText() || '';
-      const rightText = rightExpr.getText() || '';
       // Extract operator from tokens
       let operator = '=';
       if (ctx.ADD_ASSIGN()) operator = '+=';
@@ -662,8 +632,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
         ctx: ctx as ExpressionContext,
         leftExpr,
         rightExpr,
-        leftText,
-        rightText,
         operator,
       });
     }
@@ -753,7 +721,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
     const sourceExpr = ctx.expression();
     const typeRef = ctx.typeRef();
     if (sourceExpr && typeRef) {
-      const targetType = typeRef.getText() || '';
+      const targetType = createTypeInfoFromTypeRef(typeRef);
       const location = getLocationFromContext(ctx);
       this.castExpressions.push({
         ctx,
@@ -767,14 +735,11 @@ class ExpressionListener extends BaseApexParserListener<void> {
   enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
     const expr = ctx.expression();
     if (expr) {
-      const exprText = expr.getText() || '';
       // InstanceOf always returns Boolean
       this.comparisonExpressions.push({
         ctx: ctx as ExpressionContext,
         leftExpr: expr,
         rightExpr: expr, // Dummy - not used for instanceof
-        leftText: exprText,
-        rightText: '',
         operator: 'instanceof',
       });
     }
@@ -800,16 +765,20 @@ class ExpressionListener extends BaseApexParserListener<void> {
     const typeRef = ctx.typeRef();
     if (iterableExpr) {
       const location = getLocationFromContext(ctx);
-      const variableType = typeRef ? typeRef.getText() || null : null;
+      const variableType = typeRef ? createTypeInfoFromTypeRef(typeRef) : null;
+      const soqlPrimary = findInlineSoqlPrimary(iterableExpr);
       this.enhancedForControlExpressions.push({
         ctx: iterableExpr,
         location,
+        isInlineSoql: soqlPrimary !== null,
       });
       // Also store for loop variable type validation
       this.enhancedForControls.push({
         ctx,
         variableType,
         collectionExpr: iterableExpr,
+        isInlineSoql: soqlPrimary !== null,
+        querySObjectType: soqlPrimary ? getSoqlSObjectType(soqlPrimary) : null,
         location,
       });
     }
@@ -874,8 +843,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> {
     return this.comparisonExpressions;
@@ -885,8 +852,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> {
     return this.arithmeticExpressions;
@@ -896,8 +861,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     ctx: ExpressionContext;
     leftExpr: ExpressionContext;
     rightExpr: ExpressionContext;
-    leftText?: string;
-    rightText?: string;
     operator?: string;
   }> {
     return this.bitwiseExpressions;
@@ -908,9 +871,6 @@ class ExpressionListener extends BaseApexParserListener<void> {
     conditionExpr: ExpressionContext;
     trueExpr: ExpressionContext;
     falseExpr: ExpressionContext;
-    conditionText?: string;
-    trueExprText?: string;
-    falseExprText?: string;
   }> {
     return this.ternaryExpressions;
   }
@@ -932,6 +892,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
   getEnhancedForControlExpressions(): Array<{
     ctx: ExpressionContext;
     location: SymbolLocation;
+    isInlineSoql: boolean;
   }> {
     return this.enhancedForControlExpressions;
   }
@@ -957,7 +918,7 @@ class ExpressionListener extends BaseApexParserListener<void> {
   getCastExpressions(): Array<{
     ctx: CastExpressionContext;
     sourceExpr: ExpressionContext;
-    targetType: string;
+    targetType: TypeInfo;
     location: SymbolLocation;
   }> {
     return this.castExpressions;
@@ -965,8 +926,10 @@ class ExpressionListener extends BaseApexParserListener<void> {
 
   getEnhancedForControls(): Array<{
     ctx: EnhancedForControlContext;
-    variableType: string | null;
+    variableType: TypeInfo | null;
     collectionExpr: ExpressionContext;
+    isInlineSoql: boolean;
+    querySObjectType: string | null;
     location: SymbolLocation;
   }> {
     return this.enhancedForControls;
@@ -1147,7 +1110,7 @@ export const ExpressionValidator: Validator = {
 
         // 1. Validate comparison expressions
         for (const expr of comparisonExpressions) {
-          const { ctx, leftExpr, rightExpr, leftText, rightText } = expr;
+          const { ctx, leftExpr, rightExpr } = expr;
           const location = getLocationFromContext(ctx);
 
           if (leftExpr && rightExpr) {
@@ -1173,8 +1136,8 @@ export const ExpressionValidator: Validator = {
               errors.push({
                 message: localizeTyped(
                   ErrorCodes.INVALID_COMPARISON_TYPES,
-                  leftText || '',
-                  rightText || '',
+                  effectiveLeftType,
+                  effectiveRightType,
                 ),
                 location,
                 code: ErrorCodes.INVALID_COMPARISON_TYPES,
@@ -1347,8 +1310,7 @@ export const ExpressionValidator: Validator = {
 
         // 4. Validate ternary expressions
         for (const expr of ternaryExpressions) {
-          const { ctx, trueExpr, falseExpr, trueExprText, falseExprText } =
-            expr;
+          const { ctx, trueExpr, falseExpr } = expr;
           const location = getLocationFromContext(ctx);
 
           if (trueExpr && falseExpr) {
@@ -1374,8 +1336,8 @@ export const ExpressionValidator: Validator = {
               errors.push({
                 message: localizeTyped(
                   ErrorCodes.INCOMPATIBLE_TERNARY_EXPRESSION_TYPES,
-                  trueExprText || '',
-                  falseExprText || '',
+                  effectiveTrueType,
+                  effectiveFalseType,
                 ),
                 location,
                 code: ErrorCodes.INCOMPATIBLE_TERNARY_EXPRESSION_TYPES,
@@ -1416,7 +1378,7 @@ export const ExpressionValidator: Validator = {
 
         // 6. Validate enhanced for loop iterable expressions
         for (const expr of enhancedForControlExpressions) {
-          const { ctx, location } = expr;
+          const { ctx, location, isInlineSoql } = expr;
           const typeInfo = resolvedExpressionTypes.get(ctx);
           const resolvedType = typeInfo?.resolvedType || null;
 
@@ -1424,12 +1386,13 @@ export const ExpressionValidator: Validator = {
           const literalType = getLiteralType(ctx, literalTypes);
           const effectiveType = resolvedType || literalType || null;
 
-          // Enhanced for loop iterable must be List, Set, Array, or Iterable
-          // SOQL [SELECT ...] and Database.getQueryLocator are also valid
-          const exprText = (ctx.getText() || '').trim();
-          const isSoqlOrQueryLocator =
-            (exprText.includes('[') && /SELECT[\s\S]*FROM/i.test(exprText)) ||
-            exprText.includes('getQueryLocator');
+          // Inline SOQL is identified by its grammar alternative. QueryLocator
+          // expressions are accepted only when semantic type resolution records
+          // that return type; unresolved expressions remain uncertain.
+          const isQueryLocator =
+            effectiveType?.toLowerCase() === 'querylocator' ||
+            effectiveType?.toLowerCase() === 'database.querylocator';
+          const isSoqlOrQueryLocator = isInlineSoql || isQueryLocator;
 
           if (effectiveType || isSoqlOrQueryLocator) {
             if (!effectiveType && isSoqlOrQueryLocator) {
@@ -1830,7 +1793,7 @@ export const ExpressionValidator: Validator = {
 
           if (effectiveSourceType) {
             const sourceTypeLower = effectiveSourceType.toLowerCase();
-            const targetTypeLower = targetType.toLowerCase();
+            const targetTypeLower = targetType.originalTypeString.toLowerCase();
 
             // Check if cast is allowed (not on void)
             if (sourceTypeLower === 'void') {
@@ -1865,53 +1828,27 @@ export const ExpressionValidator: Validator = {
 
         // 15. Validate enhanced for loop variable type matches collection element type
         for (const expr of enhancedForControls) {
-          const { variableType, collectionExpr, location } = expr;
-          const collectionText = (collectionExpr.getText() || '').trim();
-
-          // SOQL or Database.getQueryLocator: variable must be SObject-compatible
-          const isSoql =
-            collectionText.includes('[') &&
-            /SELECT[\s\S]*FROM/i.test(collectionText);
+          const {
+            variableType,
+            collectionExpr,
+            isInlineSoql,
+            querySObjectType,
+            location,
+          } = expr;
+          const collectionTypeInfo =
+            resolvedExpressionTypes.get(collectionExpr);
+          const resolvedCollectionType = collectionTypeInfo?.resolvedType;
           const isQueryLocator =
-            collectionText.includes('getQueryLocator') ||
-            /Database\.getQueryLocator\s*\(/i.test(collectionText);
+            resolvedCollectionType === 'querylocator' ||
+            resolvedCollectionType === 'database.querylocator';
 
-          if (variableType && (isSoql || isQueryLocator)) {
-            const variableTypeLower = variableType.toLowerCase().trim();
-            const primitives = new Set([
-              'integer',
-              'long',
-              'double',
-              'decimal',
-              'string',
-              'boolean',
-              'date',
-              'datetime',
-              'time',
-              'id',
-              'blob',
-              'object',
-            ]);
-
-            const listMatch = variableTypeLower.match(
-              /^(list|set)\s*<\s*([^>]+)\s*>$/,
-            );
-            const elementType = listMatch
-              ? listMatch[2].trim()
-              : variableTypeLower;
+          if (variableType && (isInlineSoql || isQueryLocator)) {
+            const loopElementType =
+              variableType.typeParameters?.[0] ?? variableType;
+            const variableTypeLower = loopElementType.name.toLowerCase();
 
             const isSObjectCompatible =
-              variableTypeLower === 'sobject' ||
-              (listMatch &&
-                (elementType === 'sobject' || !primitives.has(elementType))) ||
-              (!primitives.has(variableTypeLower) &&
-                (variableTypeLower.endsWith('__c') ||
-                  variableTypeLower.endsWith('__kav') ||
-                  variableTypeLower.endsWith('__ka') ||
-                  variableTypeLower.endsWith('__x') ||
-                  /^(account|contact|lead|opportunity|case|user|task|event)$/i.test(
-                    variableTypeLower,
-                  )));
+              variableTypeLower === 'sobject' || !loopElementType.isPrimitive;
 
             if (!isSObjectCompatible) {
               errors.push({
@@ -1921,78 +1858,38 @@ export const ExpressionValidator: Validator = {
                 location,
                 code: ErrorCodes.LOOP_VARIABLE_MISMATCH_SOBJECT_TYPE,
               });
-            } else if (isSoql) {
-              // Extract SObject type from FROM clause for concrete type check
-              const fromMatch = collectionText.match(
-                /FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)/i,
-              );
-              const querySObjectType = fromMatch
-                ? fromMatch[1].trim().toLowerCase()
-                : null;
+            } else if (isInlineSoql && querySObjectType) {
+              const queryTypeLower = querySObjectType.toLowerCase();
+              const matches =
+                variableTypeLower === 'sobject' ||
+                variableTypeLower === queryTypeLower;
 
-              if (querySObjectType) {
-                const varBaseType = variableTypeLower
-                  .replace(/^list\s*<\s*([^>]+)\s*>$/, '$1')
-                  .trim();
-                const matches =
-                  varBaseType === 'sobject' || varBaseType === querySObjectType;
-
-                if (!matches) {
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE,
-                      querySObjectType,
-                    ),
-                    location,
-                    code: ErrorCodes.LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE,
-                  });
-                }
+              if (!matches) {
+                errors.push({
+                  message: localizeTyped(
+                    ErrorCodes.LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE,
+                    queryTypeLower,
+                  ),
+                  location,
+                  code: ErrorCodes.LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE,
+                });
               }
             }
           } else if (variableType) {
-            const collectionTypeInfo =
-              resolvedExpressionTypes.get(collectionExpr);
-            const resolvedCollectionType =
-              collectionTypeInfo?.resolvedType || null;
-            const literalCollectionType = getLiteralType(
-              collectionExpr,
-              literalTypes,
-            );
-            const effectiveCollectionType =
-              resolvedCollectionType || literalCollectionType || null;
+            const elementType =
+              collectionTypeInfo?.semanticType?.typeParameters?.[0];
 
-            if (effectiveCollectionType) {
-              const collectionTypeLower = effectiveCollectionType.toLowerCase();
-              const variableTypeLower = variableType.toLowerCase();
-
-              // Extract element type from collection type (e.g., "List<String>" -> "String")
-              let elementType: string | null = null;
-              if (collectionTypeLower.includes('list<')) {
-                const match = collectionTypeLower.match(/list<([^>]+)>/);
-                if (match) {
-                  elementType = match[1].trim();
-                }
-              } else if (collectionTypeLower.includes('set<')) {
-                const match = collectionTypeLower.match(/set<([^>]+)>/);
-                if (match) {
-                  elementType = match[1].trim();
-                }
-              } else if (collectionTypeLower.includes('iterable<')) {
-                const match = collectionTypeLower.match(/iterable<([^>]+)>/);
-                if (match) {
-                  elementType = match[1].trim();
-                }
-              }
-
-              // If we extracted an element type, validate it matches the variable type
-              if (elementType && elementType !== variableTypeLower) {
+            if (elementType) {
+              const elementTypeLower = elementType.name.toLowerCase();
+              const variableTypeLower = variableType.name.toLowerCase();
+              if (elementTypeLower !== variableTypeLower) {
                 // Allow some flexibility for numeric types
-                if (!areTypesCompatible(elementType, variableTypeLower)) {
+                if (!areTypesCompatible(elementTypeLower, variableTypeLower)) {
                   errors.push({
                     message: localizeTyped(
                       ErrorCodes.INVALID_LOOP_TYPE,
                       variableTypeLower,
-                      elementType,
+                      elementTypeLower,
                     ),
                     location,
                     code: ErrorCodes.INVALID_LOOP_TYPE,
@@ -2062,50 +1959,34 @@ export const ExpressionValidator: Validator = {
  * Does not perform cross-file resolution - leaves that for TIER 2
  */
 function resolveExpressionTypeTier1(
-  exprText: string,
+  identifierName: string,
   symbolTable: SymbolTable,
-): string | null {
-  const trimmed = exprText.trim();
+): TypeInfo | null {
+  // The caller obtained identifierName from IdPrimaryContext, so no source-text
+  // shape test is needed here.
+  let variable = symbolTable.lookup(identifierName, null);
 
-  // Skip if it's a literal (already handled by literal type detection)
-  if (
-    trimmed.startsWith('"') ||
-    trimmed.startsWith("'") ||
-    trimmed === 'true' ||
-    trimmed === 'false' ||
-    /^-?\d+\.?\d*$/.test(trimmed) ||
-    trimmed === 'null'
-  ) {
-    return null;
+  // If not found, try case-insensitive lookup in all symbols (same-file only)
+  if (!variable) {
+    const allSymbols = symbolTable.getAllSymbols();
+    variable = allSymbols.find(
+      (s) =>
+        s.name?.toLowerCase() === identifierName.toLowerCase() &&
+        (s.kind === SymbolKind.Variable ||
+          s.kind === SymbolKind.Parameter ||
+          s.kind === SymbolKind.Field),
+    );
   }
 
-  // Try to resolve as a simple variable name (no method calls, no operators)
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-    // First try scope-based lookup (searches through scopes - same-file only)
-    let variable = symbolTable.lookup(trimmed, null);
-
-    // If not found, try case-insensitive lookup in all symbols (same-file only)
-    if (!variable) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variable = allSymbols.find(
-        (s) =>
-          s.name?.toLowerCase() === trimmed.toLowerCase() &&
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field),
-      );
-    }
-
-    if (
-      variable &&
-      (variable.kind === SymbolKind.Variable ||
-        variable.kind === SymbolKind.Parameter ||
-        variable.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variable as VariableSymbol;
-      if (varSymbol.type?.name) {
-        return varSymbol.type.name.toLowerCase();
-      }
+  if (
+    variable &&
+    (variable.kind === SymbolKind.Variable ||
+      variable.kind === SymbolKind.Parameter ||
+      variable.kind === SymbolKind.Field)
+  ) {
+    const varSymbol = variable as VariableSymbol;
+    if (varSymbol.type?.name) {
+      return varSymbol.type;
     }
   }
 
@@ -2119,137 +2000,118 @@ function resolveExpressionTypeTier1(
  * Includes cross-file resolution
  */
 function resolveExpressionType(
-  exprText: string,
+  identifierName: string,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
-): Effect.Effect<string | null, never, never> {
+): Effect.Effect<TypeInfo | null, never, never> {
   return Effect.gen(function* () {
-    const trimmed = exprText.trim();
+    // The caller obtained identifierName from IdPrimaryContext.
+    // First try scope-based lookup (searches through scopes)
+    let variable = symbolTable.lookup(identifierName, null);
+    yield* Effect.logDebug(
+      `[ExpressionValidator] resolveExpressionType: scope lookup for "${identifierName}": ${
+        variable ? `found (${variable.kind})` : 'not found'
+      }`,
+    );
 
-    // Skip if it's a literal (already handled by TIER 1)
-    if (
-      trimmed.startsWith('"') ||
-      trimmed.startsWith("'") ||
-      trimmed === 'true' ||
-      trimmed === 'false' ||
-      /^-?\d+\.?\d*$/.test(trimmed) ||
-      trimmed === 'null'
-    ) {
-      return null;
-    }
-
-    // Try to resolve as a simple variable name (no method calls, no operators)
-    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
+    // If not found, try case-insensitive lookup in all symbols
+    if (!variable) {
+      const allSymbols = symbolTable.getAllSymbols();
       yield* Effect.logDebug(
-        `[ExpressionValidator] resolveExpressionType: "${trimmed}" matches variable pattern`,
+        '[ExpressionValidator] resolveExpressionType: searching ' +
+          `${allSymbols.length} total symbols for "${identifierName}"`,
       );
-      // First try scope-based lookup (searches through scopes)
-      let variable = symbolTable.lookup(trimmed, null);
+      variable = allSymbols.find(
+        (s) =>
+          s.name?.toLowerCase() === identifierName.toLowerCase() &&
+          (s.kind === SymbolKind.Variable ||
+            s.kind === SymbolKind.Parameter ||
+            s.kind === SymbolKind.Field),
+      );
       yield* Effect.logDebug(
-        `[ExpressionValidator] resolveExpressionType: scope lookup for "${trimmed}": ${
+        `[ExpressionValidator] resolveExpressionType: all-symbols search for "${identifierName}": ${
           variable ? `found (${variable.kind})` : 'not found'
         }`,
       );
+    }
 
-      // If not found, try case-insensitive lookup in all symbols
-      if (!variable) {
-        const allSymbols = symbolTable.getAllSymbols();
+    if (
+      variable &&
+      (variable.kind === SymbolKind.Variable ||
+        variable.kind === SymbolKind.Parameter ||
+        variable.kind === SymbolKind.Field)
+    ) {
+      const varSymbol = variable as VariableSymbol;
+      if (varSymbol.type?.name) {
+        const typeName = varSymbol.type.name.toLowerCase();
         yield* Effect.logDebug(
-          `[ExpressionValidator] resolveExpressionType: searching ${allSymbols.length} total symbols for "${trimmed}"`,
+          `[ExpressionValidator] resolveExpressionType: resolved "${identifierName}" to type "${typeName}"`,
         );
-        variable = allSymbols.find(
-          (s) =>
-            s.name?.toLowerCase() === trimmed.toLowerCase() &&
-            (s.kind === SymbolKind.Variable ||
-              s.kind === SymbolKind.Parameter ||
-              s.kind === SymbolKind.Field),
-        );
+        return varSymbol.type;
+      } else {
         yield* Effect.logDebug(
-          `[ExpressionValidator] resolveExpressionType: all-symbols search for "${trimmed}": ${
-            variable ? `found (${variable.kind})` : 'not found'
-          }`,
+          `[ExpressionValidator] resolveExpressionType: variable "${identifierName}" found but has no type`,
         );
       }
+    }
 
+    // Also check if there's a reference to this variable that has been resolved
+    // Search all references (case-insensitive)
+    const allReferences = symbolTable.getAllReferences();
+    const variableRef = allReferences.find(
+      (ref) =>
+        ref.name?.toLowerCase() === identifierName.toLowerCase() &&
+        ref.context === ReferenceContext.VARIABLE_USAGE &&
+        ref.resolvedSymbolId,
+    );
+
+    if (variableRef?.resolvedSymbolId) {
+      const varRefId = variableRef.resolvedSymbolId;
+      const resolvedSymbol = yield* Effect.promise(() =>
+        symbolManager.getSymbol(varRefId),
+      );
       if (
-        variable &&
-        (variable.kind === SymbolKind.Variable ||
-          variable.kind === SymbolKind.Parameter ||
-          variable.kind === SymbolKind.Field)
+        resolvedSymbol &&
+        (resolvedSymbol.kind === SymbolKind.Variable ||
+          resolvedSymbol.kind === SymbolKind.Parameter ||
+          resolvedSymbol.kind === SymbolKind.Field)
       ) {
-        const varSymbol = variable as VariableSymbol;
+        const varSymbol = resolvedSymbol as VariableSymbol;
         if (varSymbol.type?.name) {
-          const typeName = varSymbol.type.name.toLowerCase();
-          yield* Effect.logDebug(
-            `[ExpressionValidator] resolveExpressionType: resolved "${trimmed}" to type "${typeName}"`,
-          );
-          return typeName;
-        } else {
-          yield* Effect.logDebug(
-            `[ExpressionValidator] resolveExpressionType: variable "${trimmed}" found but has no type`,
-          );
-        }
-      }
-
-      // Also check if there's a reference to this variable that has been resolved
-      // Search all references (case-insensitive)
-      const allReferences = symbolTable.getAllReferences();
-      const variableRef = allReferences.find(
-        (ref) =>
-          ref.name?.toLowerCase() === trimmed.toLowerCase() &&
-          ref.context === ReferenceContext.VARIABLE_USAGE &&
-          ref.resolvedSymbolId,
-      );
-
-      if (variableRef?.resolvedSymbolId) {
-        const varRefId = variableRef.resolvedSymbolId;
-        const resolvedSymbol = yield* Effect.promise(() =>
-          symbolManager.getSymbol(varRefId),
-        );
-        if (
-          resolvedSymbol &&
-          (resolvedSymbol.kind === SymbolKind.Variable ||
-            resolvedSymbol.kind === SymbolKind.Parameter ||
-            resolvedSymbol.kind === SymbolKind.Field)
-        ) {
-          const varSymbol = resolvedSymbol as VariableSymbol;
-          if (varSymbol.type?.name) {
-            return varSymbol.type.name.toLowerCase();
-          }
-        }
-      }
-
-      // Final fallback: use symbolManager.findSymbolByName (searches across all files)
-      // Prefer same-file matches, but allow cross-file resolution
-      const symbolsByName = yield* Effect.promise(() =>
-        symbolManager.findSymbolByName(trimmed),
-      );
-      const currentFileUri = symbolTable.getFileUri();
-      // First try same-file match
-      let foundVariable = symbolsByName.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.fileUri === currentFileUri,
-      );
-      // If not found in same file, try cross-file
-      if (!foundVariable) {
-        foundVariable = symbolsByName.find(
-          (s) =>
-            s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field,
-        );
-      }
-      if (foundVariable) {
-        const varSymbol = foundVariable as VariableSymbol;
-        if (varSymbol.type?.name) {
-          return varSymbol.type.name.toLowerCase();
+          return varSymbol.type;
         }
       }
     }
 
+    // Final fallback: use symbolManager.findSymbolByName (searches across all files)
+    // Prefer same-file matches, but allow cross-file resolution
+    const symbolsByName = yield* Effect.promise(() =>
+      symbolManager.findSymbolByName(identifierName),
+    );
+    const currentFileUri = symbolTable.getFileUri();
+    // First try same-file match
+    let foundVariable = symbolsByName.find(
+      (s) =>
+        (s.kind === SymbolKind.Variable ||
+          s.kind === SymbolKind.Parameter ||
+          s.kind === SymbolKind.Field) &&
+        s.fileUri === currentFileUri,
+    );
+    // If not found in same file, try cross-file
+    if (!foundVariable) {
+      foundVariable = symbolsByName.find(
+        (s) =>
+          s.kind === SymbolKind.Variable ||
+          s.kind === SymbolKind.Parameter ||
+          s.kind === SymbolKind.Field,
+      );
+    }
+    if (foundVariable) {
+      const varSymbol = foundVariable as VariableSymbol;
+      if (varSymbol.type?.name) {
+        return varSymbol.type;
+      }
+    }
     return null;
   });
 }
@@ -2798,9 +2660,10 @@ export function resolveExpressionTypeRecursive(
       const castExpr = expr as CastExpressionContext;
       const typeRef = castExpr.typeRef();
       if (typeRef) {
-        const typeName = typeRef.getText() || '';
+        const typeInfo = createTypeInfoFromTypeRef(typeRef);
         const info: ExpressionTypeInfo = {
-          resolvedType: typeName.toLowerCase(),
+          resolvedType: typeInfo.name.toLowerCase(),
+          semanticType: typeInfo,
           source: 'computed',
           operator: 'cast',
         };
@@ -2820,28 +2683,29 @@ export function resolveExpressionTypeRecursive(
       return info;
     }
 
-    // Handle primary expressions (variables) - try text-based resolution
-    const exprText = expr.getText() || '';
-    const trimmed = exprText.trim();
+    // Resolve identifier primaries from their grammar node. Other primary
+    // alternatives (literal, this, super, type reference, SOQL/SOSL) must not
+    // be reinterpreted as variable names from their rendered source text.
+    if (expr instanceof PrimaryExpressionContext) {
+      const primary = expr.primary();
+      if (!(primary instanceof IdPrimaryContext)) {
+        return null;
+      }
 
-    // Skip if it's a literal (already handled above)
-    if (
-      trimmed.startsWith('"') ||
-      trimmed.startsWith("'") ||
-      trimmed === 'true' ||
-      trimmed === 'false' ||
-      /^-?\d+\.?\d*$/.test(trimmed) ||
-      trimmed === 'null'
-    ) {
-      return null;
-    }
+      const identifierName = primary.id()?.start?.text;
+      if (!identifierName) {
+        return null;
+      }
 
-    // Try to resolve as a variable (TIER 1: same-file only)
-    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-      const resolvedType = resolveExpressionTypeTier1(trimmed, symbolTable);
+      // Try to resolve as a variable (TIER 1: same-file only)
+      const resolvedType = resolveExpressionTypeTier1(
+        identifierName,
+        symbolTable,
+      );
       if (resolvedType) {
         const info: ExpressionTypeInfo = {
-          resolvedType,
+          resolvedType: resolvedType.name.toLowerCase(),
+          semanticType: resolvedType,
           source: 'variable',
         };
         resolvedTypes.set(expr, info);
@@ -2851,13 +2715,14 @@ export function resolveExpressionTypeRecursive(
       // TIER 2: Cross-file resolution
       if (tier === ValidationTier.THOROUGH && symbolManager) {
         const crossFileType = yield* resolveExpressionType(
-          trimmed,
+          identifierName,
           symbolTable,
           symbolManager,
         );
         if (crossFileType) {
           const info: ExpressionTypeInfo = {
-            resolvedType: crossFileType,
+            resolvedType: crossFileType.name.toLowerCase(),
+            semanticType: crossFileType,
             source: 'variable',
           };
           resolvedTypes.set(expr, info);

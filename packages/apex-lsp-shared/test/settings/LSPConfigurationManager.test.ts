@@ -121,7 +121,7 @@ describe('LSPConfigurationManager', () => {
         workers: {
           enabled: true,
           poolSize: 2,
-          resourceLoader: true,
+          resourceLoader: { enabled: true },
         },
       },
       version: undefined,

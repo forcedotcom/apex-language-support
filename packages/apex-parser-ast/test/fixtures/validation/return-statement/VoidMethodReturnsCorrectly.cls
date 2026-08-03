@@ -1,5 +1,5 @@
 public class VoidMethodReturnsCorrectly {
-    public void testMethod() {
+    public void returnsCorrectly() {
         return;
     }
 }

@@ -85,8 +85,10 @@ import {
   type RequestServices,
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
+  ApexSymbol,
   DetailLevel,
   SerializedSymbolTableData,
+  SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   STANDARD_APEX_LIBRARY_URI,
@@ -102,6 +104,13 @@ import {
   reconstructCompiledSymbolTable,
 } from './compiler/CompilationWorkerHandler.ts';
 import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline.ts';
+import {
+  recordSymbolStateEvent,
+  selectSymbolStateReference,
+  type SymbolStateReference,
+  type SymbolStateSpanAttributes,
+  type SymbolStateSymbol,
+} from './server/SymbolStateFlightRecorder.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -161,7 +170,10 @@ export interface WorkerDocument {
   readonly uri: string;
   readonly languageId: string;
   readonly version: number;
-  getText(): string;
+  getText(range?: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  }): string;
   // Position/offset helpers. Completion (analyzeCompletionContext,
   // GeneralCompletionStrategy.getWordAtPosition) calls document.offsetAt(); a
   // bare object without it throws "offsetAt is not a function" and the request
@@ -192,19 +204,23 @@ export function makeWorkerDocument(
       lineStarts.push(i + 1);
     }
   }
+  const offsetAt = (position: { line: number; character: number }): number => {
+    const line = Math.max(0, Math.min(position.line, lineStarts.length - 1));
+    const lineStart = lineStarts[line];
+    const lineEnd =
+      line + 1 < lineStarts.length ? lineStarts[line + 1] : content.length;
+    const maxChar = lineEnd - lineStart;
+    return lineStart + Math.max(0, Math.min(position.character, maxChar));
+  };
   return {
     uri,
     languageId: 'apex',
     version,
-    getText: () => content,
-    offsetAt: (position) => {
-      const line = Math.max(0, Math.min(position.line, lineStarts.length - 1));
-      const lineStart = lineStarts[line];
-      const lineEnd =
-        line + 1 < lineStarts.length ? lineStarts[line + 1] : content.length;
-      const maxChar = lineEnd - lineStart;
-      return lineStart + Math.max(0, Math.min(position.character, maxChar));
-    },
+    getText: (range) =>
+      range
+        ? content.substring(offsetAt(range.start), offsetAt(range.end))
+        : content,
+    offsetAt,
     positionAt: (offset) => {
       const clamped = Math.max(0, Math.min(offset, content.length));
       // Binary search for the line whose start is the greatest ≤ clamped.
@@ -356,6 +372,128 @@ export let workerId = 'uninitialized';
 
 export function setWorkerId(id: string): void {
   workerId = id;
+}
+
+function symbolStateTracingEnabled(): boolean {
+  return (
+    (globalThis as Record<string, unknown>).__apexWorkerInitServerMode ===
+    'development'
+  );
+}
+
+type SymbolStateTableSnapshot = {
+  readonly detailLevel: string | null;
+  readonly tableVersion?: number;
+  readonly parseCompleteness: string;
+  readonly symbols: readonly unknown[];
+  readonly references: readonly SymbolStateReference[];
+  readonly cursorReferences: readonly SymbolStateReference[];
+  readonly cursorSymbols: readonly SymbolStateSymbol[];
+  readonly cursorPosition?: {
+    readonly line: number;
+    readonly character: number;
+  };
+};
+
+function compactSymbolForState(symbol: unknown): unknown {
+  const value = symbol as {
+    id?: string;
+    name?: string;
+    kind?: unknown;
+    parentId?: string | null;
+    location?: unknown;
+  };
+  return {
+    id: value.id,
+    name: value.name,
+    kind: String(value.kind ?? ''),
+    parentId: value.parentId,
+    location: value.location,
+  };
+}
+
+function compactReferenceForState(reference: unknown): SymbolStateReference {
+  const value = reference as {
+    name?: string;
+    context?: string | number;
+    resolvedSymbolId?: string;
+    location?: { identifierRange?: unknown };
+    semanticContext?: unknown;
+    chainNodes?: readonly unknown[];
+  };
+  return {
+    name: value.name,
+    context: value.context,
+    range: value.location?.identifierRange,
+    resolvedSymbolId: value.resolvedSymbolId,
+    semanticContext: value.semanticContext,
+    chainNodes: value.chainNodes?.map(compactReferenceForState),
+  };
+}
+
+async function captureSymbolStateTable(
+  svc: RequestServices | DataOwnerServices,
+  uri: string,
+  position?: { line: number; character: number },
+): Promise<SymbolStateTableSnapshot> {
+  const table = await svc.symbolManager.getSymbolTableForFile(uri);
+  if (!table) {
+    return {
+      detailLevel: null,
+      tableVersion: undefined,
+      parseCompleteness: 'unknown',
+      symbols: [],
+      references: [],
+      cursorReferences: [],
+      cursorSymbols: [],
+      cursorPosition: position
+        ? { line: position.line + 1, character: position.character }
+        : undefined,
+    };
+  }
+  const tableSymbols = table.getAllSymbols();
+  const symbols = tableSymbols.map(compactSymbolForState);
+  const references = table.getAllReferences().map(compactReferenceForState);
+  const parserPosition = position
+    ? { line: position.line + 1, character: position.character }
+    : undefined;
+  const cursorReferences = parserPosition
+    ? table
+        .getReferencesAtPosition(parserPosition)
+        .map(compactReferenceForState)
+    : [];
+  const cursorSymbols = parserPosition
+    ? tableSymbols
+        .filter((symbol) =>
+          positionInParserRange(
+            parserPosition,
+            symbol.location?.identifierRange,
+          ),
+        )
+        .map((symbol) => ({
+          id: symbol.id,
+          name: symbol.name,
+          kind: String(symbol.kind),
+          range: symbol.location?.identifierRange,
+        }))
+    : [];
+  const metadata = table.getMetadata();
+  return {
+    detailLevel: table.getDetailLevel(),
+    tableVersion: metadata.documentVersion,
+    parseCompleteness: metadata.parseCompleteness,
+    symbols,
+    references,
+    cursorReferences,
+    cursorSymbols,
+    cursorPosition: parserPosition,
+  };
+}
+
+function symbolStateAttributes(
+  input: Parameters<typeof recordSymbolStateEvent>[0],
+): SymbolStateSpanAttributes {
+  return symbolStateTracingEnabled() ? recordSymbolStateEvent(input) : {};
 }
 
 type ResourceLoaderLayerFactory = () => Promise<unknown>;
@@ -859,6 +997,16 @@ export type RefsReq = PositionReq & {
 export type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
 };
+
+export function completionResultForWire(result: {
+  readonly items: unknown[];
+  readonly isIncomplete: boolean;
+}): { readonly items: unknown[]; readonly isIncomplete: boolean } {
+  return {
+    items: result.items,
+    isIncomplete: result.isIncomplete,
+  };
+}
 export type SignatureHelpReq = PositionReq & { context?: unknown };
 export type CodeActionReq = {
   textDocument: { uri: string };
@@ -1230,13 +1378,102 @@ interface CursorTargetDependencyTelemetry {
   ingestedCount: number;
 }
 
-const dependencyTypeNames = (name: string): string[] =>
-  (name.match(/[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/gu) ?? []).filter(
-    (candidate) =>
-      !['this', 'super', 'unknown', 'void', 'null'].includes(
-        candidate.toLowerCase(),
-      ),
+type DependencyTypeShape = {
+  name?: string;
+  isArray?: boolean;
+  isPrimitive?: boolean;
+  isBuiltIn?: boolean;
+  namespace?: string | { name?: string; global?: string };
+  typeParameters?: DependencyTypeShape[];
+  keyType?: DependencyTypeShape;
+  resolvedType?: DependencyTypeShape;
+  resolvedSymbol?: { id?: string; name?: string; fqn?: string };
+};
+
+type DependencyCursorReference = {
+  name: string;
+  context: number;
+  resolvedSymbolId?: string;
+  resolvedTypeId?: string;
+  semanticContext?: {
+    memberAccess?: {
+      operatorRange: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      memberRange?: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      incomplete: boolean;
+    };
+  };
+  location?: {
+    identifierRange?: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    };
+  };
+  chainNodes?: DependencyCursorReference[];
+};
+
+const positionInParserRange = (
+  position: { line: number; character: number },
+  range:
+    | {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      }
+    | undefined,
+): boolean =>
+  range !== undefined &&
+  (position.line > range.startLine ||
+    (position.line === range.startLine &&
+      position.character >= range.startColumn)) &&
+  (position.line < range.endLine ||
+    (position.line === range.endLine && position.character <= range.endColumn));
+
+/** Select only parser references whose token or member-access range owns the cursor. */
+export const dependencyReferencesAtCursor = (
+  references: DependencyCursorReference[],
+  position: { line: number; character: number },
+): DependencyCursorReference[] => {
+  const exact = references.filter((reference) =>
+    positionInParserRange(position, reference.location?.identifierRange),
   );
+  if (exact.length > 0) {
+    const rangeSize = (reference: DependencyCursorReference): number => {
+      const range = reference.location?.identifierRange;
+      if (!range) return Number.POSITIVE_INFINITY;
+      return (
+        (range.endLine - range.startLine) * 1_000_000 +
+        (range.endColumn - range.startColumn)
+      );
+    };
+    const narrowest = Math.min(...exact.map(rangeSize));
+    return exact.filter((reference) => rangeSize(reference) === narrowest);
+  }
+
+  return references.filter((reference) => {
+    const access = reference.semanticContext?.memberAccess;
+    if (!access) return false;
+    const end = access.memberRange ?? access.operatorRange;
+    return positionInParserRange(position, {
+      startLine: access.operatorRange.startLine,
+      startColumn: access.operatorRange.endColumn,
+      endLine: end.endLine,
+      endColumn: end.endColumn,
+    });
+  });
+};
 
 /**
  * Load only type tables that can participate in the expression at the cursor.
@@ -1269,65 +1506,82 @@ function loadCursorTargetDependencies(
       line: position.line + 1,
       character: position.character,
     };
-    type CursorReference = {
-      name: string;
-      context: number;
-      resolvedSymbolId?: string;
-      location?: {
-        identifierRange?: {
-          endLine: number;
-          endColumn: number;
-        };
-      };
-      chainNodes?: CursorReference[];
-    };
-    let references = symbolTable.getReferencesAtPosition(
+    let references = dependencyReferencesAtCursor(
+      symbolTable.getReferencesAtPosition(
+        parserPosition,
+      ) as DependencyCursorReference[],
       parserPosition,
-    ) as CursorReference[];
+    );
     if (references.length === 0) {
-      // Completion is normally requested just after the dot (`receiver.|`),
-      // not on the receiver token itself. Admit only an immediately-adjacent
-      // reference; do not fall back to an arbitrary earlier expression.
-      const adjacent = (symbolTable.getAllReferences() as CursorReference[])
-        .filter((reference) => {
-          const range = reference.location?.identifierRange;
-          if (!range || range.endLine !== parserPosition.line) return false;
-          const distance = parserPosition.character - range.endColumn;
-          return distance >= 0 && distance <= 2;
-        })
-        .sort(
-          (left, right) =>
-            (right.location?.identifierRange?.endColumn ?? -1) -
-            (left.location?.identifierRange?.endColumn ?? -1),
-        )[0];
-      if (adjacent) references = [adjacent];
+      references = dependencyReferencesAtCursor(
+        symbolTable.getAllReferences() as DependencyCursorReference[],
+        parserPosition,
+      );
     }
-    const candidateNames = new Map<string, string>();
-    const addCandidate = (name: string | undefined): void => {
+    const candidateNames = new Map<
+      string,
+      { name: string; exactFqn?: string }
+    >();
+    const addCandidate = (
+      name: string | undefined,
+      exactFqn?: string,
+    ): void => {
       if (!name) return;
-      for (const candidate of dependencyTypeNames(name)) {
-        candidateNames.set(candidate.toLowerCase(), candidate);
-      }
+      const lower = name.toLowerCase();
+      if (['this', 'super', 'unknown', 'void', 'null'].includes(lower)) return;
+      candidateNames.set((exactFqn ?? name).toLowerCase(), {
+        name,
+        ...(exactFqn ? { exactFqn } : {}),
+      });
     };
+    const visitedTypes = new Set<object>();
+    const pendingResolvedSymbolIds = new Set<string>();
     const addTypeInfoCandidate = (value: unknown): void => {
-      if (
-        value &&
-        typeof value === 'object' &&
-        'name' in value &&
-        typeof value.name === 'string'
-      ) {
-        addCandidate(value.name);
+      if (!value || typeof value !== 'object' || visitedTypes.has(value))
+        return;
+      visitedTypes.add(value);
+      const type = value as DependencyTypeShape;
+      const resolvedFqn = type.resolvedSymbol?.fqn;
+      const namespace =
+        typeof type.namespace === 'string'
+          ? type.namespace
+          : (type.namespace?.name ?? type.namespace?.global);
+      const structuredFqn =
+        namespace && type.name ? `${namespace}.${type.name}` : undefined;
+      const exactFqn = resolvedFqn ?? structuredFqn;
+      if (!type.isArray && !type.isPrimitive && !type.isBuiltIn) {
+        addCandidate(exactFqn ?? type.name, exactFqn);
+      }
+      addTypeInfoCandidate(type.keyType);
+      for (const parameter of type.typeParameters ?? []) {
+        addTypeInfoCandidate(parameter);
+      }
+      addTypeInfoCandidate(type.resolvedType);
+      if (type.resolvedSymbol?.id) {
+        pendingResolvedSymbolIds.add(type.resolvedSymbol.id);
       }
     };
 
+    const loadedResolvedSymbols = new Map<string, ApexSymbol | null>();
+
     const addResolvedSymbolType = function* (
       resolvedSymbolId: string | undefined,
+      includeSymbolIdentity = false,
     ) {
       if (!resolvedSymbolId) return;
-      const symbol = yield* Effect.promise(() =>
-        svc.symbolManager.getSymbol(resolvedSymbolId),
-      );
-      if (symbol && 'type' in symbol) addTypeInfoCandidate(symbol.type);
+      let symbol = loadedResolvedSymbols.get(resolvedSymbolId);
+      if (!loadedResolvedSymbols.has(resolvedSymbolId)) {
+        symbol = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbol(resolvedSymbolId),
+        );
+        loadedResolvedSymbols.set(resolvedSymbolId, symbol ?? null);
+      }
+      if (!symbol) return;
+      if (includeSymbolIdentity) {
+        const symbolFqn = 'fqn' in symbol ? symbol.fqn : undefined;
+        addCandidate(symbolFqn ?? symbol.name, symbolFqn);
+      }
+      if ('type' in symbol) addTypeInfoCandidate(symbol.type);
       if (symbol && 'returnType' in symbol) {
         addTypeInfoCandidate(symbol.returnType);
       }
@@ -1344,6 +1598,7 @@ function loadCursorTargetDependencies(
         addCandidate(reference.name);
       }
       yield* addResolvedSymbolType(reference.resolvedSymbolId);
+      yield* addResolvedSymbolType(reference.resolvedTypeId, true);
       for (const node of reference.chainNodes ?? []) {
         if (
           node.context === ReferenceContext.CLASS_REFERENCE ||
@@ -1353,12 +1608,18 @@ function loadCursorTargetDependencies(
           addCandidate(node.name);
         }
         yield* addResolvedSymbolType(node.resolvedSymbolId);
+        yield* addResolvedSymbolType(node.resolvedTypeId, true);
       }
     }
 
+    for (const resolvedSymbolId of pendingResolvedSymbolIds) {
+      yield* addResolvedSymbolType(resolvedSymbolId, true);
+    }
+
     // `this.member`, `super.member`, and omitted member calls can resolve in a
-    // superclass. Include only the immediate declared parent; member lookup
-    // walks the already-loaded hierarchy and a later miss remains observable.
+    // declared supertypes. Include only the immediate parser-owned hierarchy
+    // edges; member lookup walks already-loaded ancestors and a later miss
+    // remains observable.
     const receiverReferences = references.flatMap((reference) => [
       reference,
       ...(reference.chainNodes ?? []),
@@ -1392,6 +1653,13 @@ function loadCursorTargetDependencies(
               ? current.superClass
               : undefined;
           addCandidate(superClass);
+          if ('interfaces' in current && Array.isArray(current.interfaces)) {
+            for (const interfaceName of current.interfaces) {
+              if (typeof interfaceName === 'string') {
+                addCandidate(interfaceName);
+              }
+            }
+          }
           break;
         }
         current = current.parentId
@@ -1402,10 +1670,23 @@ function loadCursorTargetDependencies(
 
     const missingNames: string[] = [];
     let localHitCount = 0;
-    for (const name of candidateNames.values()) {
-      const candidates = yield* Effect.promise(() =>
-        svc.symbolManager.findSymbolByName(name),
-      );
+    for (const candidateName of candidateNames.values()) {
+      const symbolManagerWithOptionalFqn =
+        svc.symbolManager as typeof svc.symbolManager & {
+          findSymbolByFQN?: (fqn: string) => Promise<ApexSymbol | null>;
+        };
+      const exact = symbolManagerWithOptionalFqn.findSymbolByFQN
+        ? yield* Effect.promise(() =>
+            symbolManagerWithOptionalFqn.findSymbolByFQN!(
+              candidateName.exactFqn ?? candidateName.name,
+            ),
+          )
+        : null;
+      const candidates = exact
+        ? [exact]
+        : yield* Effect.promise(() =>
+            svc.symbolManager.findSymbolByName(candidateName.name),
+          );
       let locallyAvailable = false;
       for (const candidate of candidates) {
         if (!candidate.fileUri) continue;
@@ -1418,7 +1699,7 @@ function loadCursorTargetDependencies(
         }
       }
       if (locallyAvailable) localHitCount++;
-      else missingNames.push(name);
+      else if (candidates.length <= 1) missingNames.push(candidateName.name);
     }
 
     let ingestedCount = 0;
@@ -1441,10 +1722,22 @@ function loadCursorTargetDependencies(
         yield* svc.symbolManager.addSymbolTable(table, fileUri);
         ingestedCount++;
       }
-      yield* Effect.tryPromise({
+      const fallbackIngested = yield* Effect.tryPromise({
         try: () => resolveMissingNamesViaDataOwner(svc, missingNames),
         catch: () => 0,
       }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+      ingestedCount += fallbackIngested;
+    }
+
+    // The cursor is deliberately compiled before its targeted dependencies are
+    // loaded. Re-resolve it now that those tables are present; otherwise hover
+    // retains the unresolved `property.Beds__c` chain and incorrectly falls
+    // through to missing-artifact search. All downstream features consume this
+    // parser-owned state; none reconstruct the receiver from document text.
+    if (candidateNames.size > 0) {
+      yield* svc.symbolManager
+        .resolveCrossFileReferencesForFile(uri)
+        .pipe(Effect.catchAll(() => Effect.void));
     }
 
     const telemetry = {
@@ -1741,7 +2034,9 @@ export async function recompileCursorFileAtFullDetail(
     }
     const st = result?.result instanceof SymbolTable ? result.result : table;
     const addStartedAt = performance.now();
-    await Effect.runPromise(svc.symbolManager.addSymbolTable(st, uri));
+    await Effect.runPromise(
+      svc.symbolManager.addSymbolTable(st, uri, options.sourceVersion),
+    );
     if (options.telemetry) {
       options.telemetry.addSymbolTableMs = performance.now() - addStartedAt;
     }
@@ -1851,6 +2146,14 @@ export function prepareLspRequestCursor(
       allowOwnerQuerySkip: useCursorTargetDependencies,
       telemetry: loadTelemetry,
     });
+    // Live editor content is authoritative for the request. The data owner can
+    // still report the preceding version while the change compile is in
+    // flight; tagging this recompile with that older version turns it into a
+    // same-version merge and preserves declarations/references removed by the
+    // edit. Install and write back the cursor table at the version that
+    // supplied `content`, falling back to the owner version only for callers
+    // that do not carry a document version.
+    const cursorDocumentVersion = documentVersion ?? loadResult.version;
     const initialDetailLevel = asDetailLevel(loadResult.detailLevel);
     let achievedDetailLevel = asDetailLevel(
       loadResult.localDetailLevel ?? loadResult.detailLevel,
@@ -1875,7 +2178,7 @@ export function prepareLspRequestCursor(
         recompileCursorFileAtFullDetail(svc, uri, content, {
           resolveCrossFileReferences: shouldMaterializeWholeFile(policy),
           reuseUnchangedContent: policy.reuseUnchangedCursor,
-          sourceVersion: loadResult.version,
+          sourceVersion: cursorDocumentVersion,
           telemetry: recompileTelemetry,
         }),
       );
@@ -1914,6 +2217,14 @@ export function prepareLspRequestCursor(
       ready &&
       shouldEnrich(initialDetailLevel, achievedDetailLevel);
 
+    const stateSnapshot = symbolStateTracingEnabled()
+      ? yield* Effect.promise(() => captureSymbolStateTable(svc, uri, position))
+      : undefined;
+    const stateAnomaly =
+      ready && content !== undefined && stateSnapshot?.symbols.length === 0
+        ? 'prepared-request-has-no-cursor-symbol-table'
+        : undefined;
+
     yield* Effect.annotateCurrentSpan({
       'request.content_available': content !== undefined,
       'request.initial_detail_level': initialDetailLevel,
@@ -1934,12 +2245,37 @@ export function prepareLspRequestCursor(
         cursorTargetTelemetry.ingestedCount,
       'request.ready': ready,
       'request.write_back_required': writeBackRequired,
+      ...symbolStateAttributes({
+        phase: `request.prepare.${requestType}`,
+        uri,
+        workerId,
+        workerRole: assignedRole ?? 'unassigned',
+        documentVersion,
+        ownerVersion: loadResult.version,
+        tableVersion: stateSnapshot?.tableVersion,
+        parseCompleteness: stateSnapshot?.parseCompleteness,
+        content,
+        detailLevel: stateSnapshot?.detailLevel ?? achievedDetailLevel,
+        symbols: stateSnapshot?.symbols,
+        references: stateSnapshot?.references,
+        cursorReferences: stateSnapshot?.cursorReferences,
+        cursorSymbols: stateSnapshot?.cursorSymbols,
+        cursorPosition: stateSnapshot?.cursorPosition,
+        outcome: ready ? 'ready' : 'not-ready',
+        anomaly: stateAnomaly,
+        extra: {
+          'symbol_state.cursor_reference_count':
+            stateSnapshot?.cursorReferences.length ?? 0,
+          'symbol_state.cursor_cache_hit': cacheHit,
+          'symbol_state.local_table_changed': localTableChanged,
+        },
+      }),
     });
 
     return {
       requestType,
       uri,
-      documentVersion: loadResult.version,
+      documentVersion: cursorDocumentVersion,
       initialDetailLevel,
       achievedDetailLevel,
       cacheHit,
@@ -2043,6 +2379,213 @@ export async function loadReferencedTypesForFile(
   }
 }
 
+type ParserPosition = { line: number; character: number };
+
+type CursorReference = SymbolReference & {
+  _originalChainedRef?: SymbolReference;
+  _chainNode?: SymbolReference;
+};
+
+const positionInIdentifierRange = (
+  position: ParserPosition,
+  reference: SymbolReference,
+): boolean => positionInRange(position, reference.location?.identifierRange);
+
+const positionInRange = (
+  position: ParserPosition,
+  range:
+    | {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      }
+    | undefined,
+): boolean => {
+  if (!range) return false;
+  if (position.line < range.startLine || position.line > range.endLine) {
+    return false;
+  }
+  if (
+    position.line === range.startLine &&
+    position.character < range.startColumn
+  ) {
+    return false;
+  }
+  return !(
+    position.line === range.endLine && position.character > range.endColumn
+  );
+};
+
+const identifierRangeSize = (reference: SymbolReference): number => {
+  const range = reference.location.identifierRange;
+  return (
+    (range.endLine - range.startLine) * 1_000_000 +
+    range.endColumn -
+    range.startColumn
+  );
+};
+
+const referenceIdentity = (reference: SymbolReference): string =>
+  [
+    reference.name.toLowerCase(),
+    String(reference.context),
+    reference.resolvedSymbolId ?? '',
+    reference.resolvedTypeId ?? '',
+  ].join('\u001f');
+
+/**
+ * Select the parser reference whose own identifier token contains the cursor.
+ * `getReferencesAtPosition` also returns enclosing chain references and
+ * synthetic chain nodes, so array order is not semantic. A resolved identity
+ * wins over unresolved duplicates at the same narrowest range. Conflicting
+ * identities remain ambiguous rather than selecting whichever was inserted
+ * first.
+ */
+function exactCursorReference(
+  references: readonly SymbolReference[],
+  position: ParserPosition,
+): { reference: CursorReference | null; ambiguous: boolean } {
+  const exact = references.filter((reference) =>
+    positionInIdentifierRange(position, reference),
+  );
+  if (exact.length === 0) return { reference: null, ambiguous: false };
+
+  const smallest = Math.min(...exact.map(identifierRangeSize));
+  const narrowest = exact.filter(
+    (reference) => identifierRangeSize(reference) === smallest,
+  ) as CursorReference[];
+  const resolvedIds = new Set(
+    narrowest
+      .map((reference) => reference.resolvedSymbolId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  if (resolvedIds.size > 1) return { reference: null, ambiguous: true };
+  if (resolvedIds.size === 1) {
+    const resolvedId = [...resolvedIds][0];
+    return {
+      reference:
+        narrowest.find(
+          (reference) => reference.resolvedSymbolId === resolvedId,
+        ) ?? null,
+      ambiguous: false,
+    };
+  }
+
+  const identities = new Set(narrowest.map(referenceIdentity));
+  if (identities.size > 1) return { reference: null, ambiguous: true };
+  return { reference: narrowest[0] ?? null, ambiguous: false };
+}
+
+const namespaceText = (symbol: ApexSymbol): string => {
+  if (typeof symbol.namespace === 'string') return symbol.namespace;
+  return symbol.namespace?.toString?.() ?? '';
+};
+
+const referenceOwnerIds = (reference: CursorReference): Set<string> => {
+  const ownerIds = new Set<string>();
+  const chain = reference._originalChainedRef?.chainNodes;
+  if (!chain?.length) return ownerIds;
+
+  const selected = reference._chainNode ?? reference;
+  const selectedRange = selected.location.identifierRange;
+  const index = chain.findIndex((node) => {
+    const range = node.location.identifierRange;
+    return (
+      node.name.toLowerCase() === selected.name.toLowerCase() &&
+      range.startLine === selectedRange.startLine &&
+      range.startColumn === selectedRange.startColumn &&
+      range.endLine === selectedRange.endLine &&
+      range.endColumn === selectedRange.endColumn
+    );
+  });
+  if (index <= 0) return ownerIds;
+  const receiver = chain[index - 1];
+  if (receiver.resolvedTypeId) ownerIds.add(receiver.resolvedTypeId);
+  if (receiver.resolvedSymbolId) ownerIds.add(receiver.resolvedSymbolId);
+  return ownerIds;
+};
+
+async function resolveReferenceSymbol(
+  svc: RequestServices,
+  reference: CursorReference,
+): Promise<ApexSymbol | null> {
+  if (reference.resolvedSymbolId) {
+    const resolved = await svc.symbolManager.getSymbol(
+      reference.resolvedSymbolId,
+    );
+    if (resolved) return resolved;
+  }
+
+  const qualifiedName = reference.name.includes('.')
+    ? reference.name
+    : undefined;
+  if (qualifiedName) {
+    const exactFqn = await svc.symbolManager.findSymbolByFQN(qualifiedName);
+    if (exactFqn) return exactFqn;
+  }
+
+  const leaf = reference.name.includes('.')
+    ? reference.name.slice(reference.name.lastIndexOf('.') + 1)
+    : reference.name;
+  let candidates = await svc.symbolManager.findSymbolByName(leaf);
+
+  if (qualifiedName) {
+    const qualifier = qualifiedName.slice(0, qualifiedName.lastIndexOf('.'));
+    candidates = candidates.filter(
+      (candidate) =>
+        candidate.fqn?.toLowerCase() === qualifiedName.toLowerCase() ||
+        namespaceText(candidate).toLowerCase() === qualifier.toLowerCase(),
+    );
+  }
+
+  const ownerIds = referenceOwnerIds(reference);
+  if (ownerIds.size > 0) {
+    candidates = candidates.filter(
+      (candidate) => candidate.parentId && ownerIds.has(candidate.parentId),
+    );
+  }
+
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+/** Resolve a declaration or the exact parser reference under the cursor. */
+async function resolveCursorSymbol(
+  svc: RequestServices,
+  uri: string,
+  position: ParserPosition,
+): Promise<ApexSymbol | null> {
+  const references = await svc.symbolManager.getReferencesAtPosition(
+    uri,
+    position,
+  );
+  const selected = exactCursorReference(references ?? [], position);
+  if (selected.ambiguous) return null;
+  if (selected.reference) {
+    const resolved = await resolveReferenceSymbol(svc, selected.reference);
+    if (resolved) return resolved;
+
+    // Some declaration tokens also carry a parser reference. Accept the
+    // precise result only when its declaration range is the cursor token in
+    // this file; a usage resolves to a declaration elsewhere (or at another
+    // range) and therefore cannot reintroduce the old order-dependent fallback.
+    const declaration = await svc.symbolManager.getSymbolAtPosition(
+      uri,
+      position,
+      'precise',
+    );
+    if (
+      declaration?.fileUri === uri &&
+      positionInRange(position, declaration.location?.identifierRange)
+    ) {
+      return declaration;
+    }
+    return null;
+  }
+
+  return svc.symbolManager.getSymbolAtPosition(uri, position, 'precise');
+}
+
 /**
  * Resolve the symbol under the cursor and return the file URI it is DECLARED
  * in. Find References on a usage must load callers of the TARGET symbol, which
@@ -2067,34 +2610,9 @@ export async function declaringFileForCursorSymbol(
       character: position.character,
     };
 
-    // Preferred: precise position→symbol resolution gives the declaring file
-    // directly.
-    const symbol = await svc.symbolManager.getSymbolAtPosition(
-      uri,
-      parserPosition,
-      'precise',
-    );
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
     const fileUri = (symbol as { fileUri?: string } | null)?.fileUri;
-    if (fileUri && fileUri !== uri) return fileUri;
-
-    // Fallback: 'precise' can return null when the cursor file's reference
-    // isn't yet bound to a resolvedSymbolId (cross-file edges not fully
-    // materialized in the worker's partial graph). The reference under the
-    // cursor still carries the NAME, and the target symbol is loaded by name —
-    // so resolve the name to its declaring file directly. This is what lets
-    // find-references on a `RefUtil` usage reach RefUtil.cls's dependents.
-    const refs = await svc.symbolManager.getReferencesAtPosition(
-      uri,
-      parserPosition,
-    );
-    const name = refs?.[0]?.name;
-    if (!name) return null;
-    // Strip any qualified prefix (`Outer.Inner` → leaf segment is searched, but
-    // a type usage like `RefUtil` is already unqualified).
-    const leaf = name.includes('.') ? name.split('.').pop()! : name;
-    const named = await svc.symbolManager.findSymbolByName(leaf);
-    const namedUri = (named as { fileUri?: string } | null)?.fileUri;
-    return namedUri && namedUri !== uri ? namedUri : null;
+    return fileUri && fileUri !== uri ? fileUri : null;
   } catch {
     return null;
   }
@@ -2498,8 +3016,8 @@ export async function scanCandidatesForOccurrences(
  * Resolve the target symbol under the cursor to its NAME and kind, for the
  * workspace-wide find-references rebuild. Only name+kind are needed here — no
  * declaring-file lookup, type prefetch, or dependent loading (phase-2 does the
- * symbolic match). Resolution order: precise position→symbol first, then fall
- * back to the reference name under the cursor resolved by name.
+ * symbolic match). The cursor is resolved from its exact parser reference and
+ * semantic identity; ambiguous name-only matches produce no target.
  *
  * The cursor file must already be compiled at full detail (so in-body usages
  * resolve) before this runs.
@@ -2516,35 +3034,14 @@ export async function targetSymbolForCursor(
       character: position.character,
     };
 
-    // Preferred: precise position→symbol resolution carries name + kind.
-    const symbol = (await svc.symbolManager.getSymbolAtPosition(
-      uri,
-      parserPosition,
-      'precise',
-    )) as { name?: string; kind?: unknown } | null;
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
     if (symbol?.name) {
       return {
         name: symbol.name,
         kind: typeof symbol.kind === 'string' ? symbol.kind : undefined,
       };
     }
-
-    // Fallback: 'precise' returns null when the cursor's reference isn't yet
-    // bound to a resolvedSymbolId. The reference still carries the NAME; resolve
-    // it by name to recover the kind.
-    const refs = await svc.symbolManager.getReferencesAtPosition(
-      uri,
-      parserPosition,
-    );
-    const name = refs?.[0]?.name;
-    if (!name) return null;
-    const leaf = name.includes('.') ? name.split('.').pop()! : name;
-    const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0] as
-      { name?: string; kind?: unknown } | undefined;
-    return {
-      name: named?.name ?? leaf,
-      kind: named && typeof named.kind === 'string' ? named.kind : undefined,
-    };
+    return null;
   } catch {
     return null;
   }
@@ -2594,29 +3091,106 @@ export async function declarationLocationForCursor(
       return { uri: s.fileUri, identifierRange: ir };
     };
 
-    // Preferred: the precise symbol at the cursor IS the declaration (cursor on
-    // the declaration itself) or the symbol a usage resolves to.
-    const precise = await svc.symbolManager.getSymbolAtPosition(
-      uri,
-      parserPosition,
-      'precise',
-    );
+    // The exact parser reference resolves to its declaration; a cursor with no
+    // reference can still be directly on a declaration symbol.
+    const precise = await resolveCursorSymbol(svc, uri, parserPosition);
     const fromPrecise = asDecl(precise);
     if (fromPrecise) return fromPrecise;
-
-    // Fallback: resolve the reference name under the cursor to its declaration.
-    const refs = await svc.symbolManager.getReferencesAtPosition(
-      uri,
-      parserPosition,
-    );
-    const name = refs?.[0]?.name;
-    if (!name) return null;
-    const leaf = name.includes('.') ? name.split('.').pop()! : name;
-    const named = (await svc.symbolManager.findSymbolByName(leaf))?.[0];
-    return asDecl(named);
+    return null;
   } catch {
     return null;
   }
+}
+
+async function captureResolutionStateAttributes(
+  svc: RequestServices,
+  requestType: 'hover' | 'completion' | 'definition',
+  req: PositionReq,
+  prepared: PreparedLspRequestContext,
+  result: unknown,
+): Promise<SymbolStateSpanAttributes> {
+  if (!symbolStateTracingEnabled()) return {};
+  const uri = req.textDocument.uri;
+  const snapshot = await captureSymbolStateTable(svc, uri, req.position);
+  const resultText = JSON.stringify(result);
+  const resultMissing =
+    result == null ||
+    (Array.isArray(result) && result.length === 0) ||
+    (typeof result === 'object' &&
+      result !== null &&
+      'items' in result &&
+      Array.isArray((result as { items?: unknown[] }).items) &&
+      (result as { items: unknown[] }).items.length === 0);
+  const searchingFallback = resultText.includes('Searching for symbol');
+  const unresolvedCursor =
+    snapshot.cursorReferences.length > 0 &&
+    snapshot.cursorReferences.every((reference) => !reference.resolvedSymbolId);
+  const selectedReference = selectSymbolStateReference(
+    snapshot.cursorReferences,
+    snapshot.cursorPosition,
+  );
+  const selectedReferenceAttributes: SymbolStateSpanAttributes = {
+    ...(selectedReference?.name
+      ? { 'symbol_state.selected_reference_name': selectedReference.name }
+      : {}),
+    ...(selectedReference?.context !== undefined
+      ? {
+          'symbol_state.selected_reference_context': String(
+            selectedReference.context,
+          ),
+        }
+      : {}),
+    ...(selectedReference?.resolvedSymbolId
+      ? {
+          'symbol_state.selected_symbol_id': selectedReference.resolvedSymbolId,
+        }
+      : {}),
+  };
+  const anomaly = searchingFallback
+    ? `${requestType}-returned-searching-fallback`
+    : resultMissing && snapshot.cursorReferences.length > 0
+      ? `${requestType}-returned-empty-with-cursor-reference`
+      : undefined;
+  const itemCount =
+    typeof result === 'object' &&
+    result !== null &&
+    'items' in result &&
+    Array.isArray((result as { items?: unknown[] }).items)
+      ? (result as { items: unknown[] }).items.length
+      : Array.isArray(result)
+        ? result.length
+        : result == null
+          ? 0
+          : 1;
+  return symbolStateAttributes({
+    phase: `request.resolve.${requestType}`,
+    uri,
+    workerId,
+    workerRole: assignedRole ?? 'unassigned',
+    documentVersion: req.documentVersion,
+    ownerVersion: prepared.documentVersion,
+    tableVersion: snapshot.tableVersion,
+    parseCompleteness: snapshot.parseCompleteness,
+    content: req.content,
+    detailLevel: snapshot.detailLevel,
+    symbols: snapshot.symbols,
+    references: snapshot.references,
+    cursorReferences: snapshot.cursorReferences,
+    cursorSymbols: snapshot.cursorSymbols,
+    cursorPosition: snapshot.cursorPosition,
+    outcome: searchingFallback
+      ? 'searching-fallback'
+      : resultMissing
+        ? 'empty'
+        : 'resolved',
+    anomaly,
+    extra: {
+      'symbol_state.cursor_reference_count': snapshot.cursorReferences.length,
+      'symbol_state.cursor_references_unresolved': unresolvedCursor,
+      'symbol_state.result_count': itemCount,
+      ...selectedReferenceAttributes,
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2641,7 +3215,7 @@ const requestHandlers = {
         const result = yield* Effect.fn('worker.hover.process', {
           attributes: { uri },
         })(function* () {
-          return yield* Effect.promise(() =>
+          const hoverResult = yield* Effect.promise(() =>
             svc.hoverService.processHover(
               {
                 textDocument: { uri },
@@ -2652,6 +3226,17 @@ const requestHandlers = {
               },
             ),
           );
+          const stateAttributes = yield* Effect.promise(() =>
+            captureResolutionStateAttributes(
+              svc,
+              'hover',
+              req,
+              prepared,
+              hoverResult,
+            ),
+          );
+          yield* Effect.annotateCurrentSpan(stateAttributes);
+          return hoverResult;
         })();
 
         const wroteBack = yield* Effect.fn('worker.hover.writeBack', {
@@ -2680,7 +3265,9 @@ const requestHandlers = {
           req.position,
           req.documentVersion,
         );
-        if (!prepared.ready) return [];
+        if (!prepared.ready) {
+          return { items: [], isIncomplete: true };
+        }
 
         // triggerKind crosses the wire as a plain number but IS a
         // CompletionTriggerKind value (1/2/3); the worker avoids importing LSP
@@ -2693,19 +3280,30 @@ const requestHandlers = {
         const result = yield* Effect.fn('worker.completion.process', {
           attributes: { uri: req.textDocument.uri },
         })(function* () {
-          return yield* Effect.promise(() =>
-            svc.completionService.processCompletion(
+          const completionResult = yield* Effect.promise(() =>
+            svc.completionService.processCompletionWithReadiness(
               completionParams as Parameters<
-                typeof svc.completionService.processCompletion
+                typeof svc.completionService.processCompletionWithReadiness
               >[0],
               { prerequisitesPrepared: true },
             ),
           );
+          const stateAttributes = yield* Effect.promise(() =>
+            captureResolutionStateAttributes(
+              svc,
+              'completion',
+              req,
+              prepared,
+              completionResult,
+            ),
+          );
+          yield* Effect.annotateCurrentSpan(stateAttributes);
+          return completionResult;
         })();
 
         yield* writeBackPreparedLspRequest(svc, prepared);
 
-        return result;
+        return completionResultForWire(result);
       }),
   ),
   DispatchSignatureHelp: effectRequestHandler<SignatureHelpReq>(
@@ -2786,7 +3384,7 @@ const requestHandlers = {
         const result = yield* Effect.fn('worker.definition.process', {
           attributes: { uri: req.textDocument.uri },
         })(function* () {
-          return yield* Effect.promise(() =>
+          const definitionResult = yield* Effect.promise(() =>
             svc.definitionService.processDefinition(
               {
                 textDocument: { uri: req.textDocument.uri },
@@ -2795,6 +3393,17 @@ const requestHandlers = {
               { prerequisitesPrepared: true },
             ),
           );
+          const stateAttributes = yield* Effect.promise(() =>
+            captureResolutionStateAttributes(
+              svc,
+              'definition',
+              req,
+              prepared,
+              definitionResult,
+            ),
+          );
+          yield* Effect.annotateCurrentSpan(stateAttributes);
+          return definitionResult;
         })();
 
         yield* writeBackPreparedLspRequest(svc, prepared);
@@ -2821,6 +3430,11 @@ const requestHandlers = {
         svc,
         req.textDocument.uri,
         req.content,
+        // The request worker does not yet own the cursor file's referenced
+        // type tables. Resolving here leaves the exact cursor reference
+        // unbound (or waits on a dependency that cannot be found locally).
+        // Load parser-declared type dependencies first, then bind once below.
+        { resolveCrossFileReferences: false },
       );
 
       // With no document text the cursor file stays at public-api detail and
@@ -2835,6 +3449,14 @@ const requestHandlers = {
         );
         return [];
       }
+
+      // Precise target selection must follow resolved parser identity. The
+      // full-detail cursor table contains the TYPE_DECLARATION / constructor
+      // references that identify its dependencies; ingest those type tables
+      // and materialize the cursor file's cross-file edges before asking for
+      // the symbol at the cursor. If loading fails, target selection preserves
+      // uncertainty and returns no result rather than guessing by name.
+      await loadReferencedTypesForFile(svc, req.textDocument.uri);
 
       // --- Phase-1: resolve the target, then lexically prefilter the workspace.
       const target = await targetSymbolForCursor(
@@ -3447,6 +4069,16 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 'data_owner.outcome',
                 'rejected-document-missing',
               );
+              yield* Effect.annotateCurrentSpan(
+                symbolStateAttributes({
+                  phase: 'enrichment.write_back.reject',
+                  uri: req.uri,
+                  workerId,
+                  workerRole: assignedRole ?? 'unassigned',
+                  documentVersion: req.documentVersion,
+                  outcome: 'rejected-document-missing',
+                }),
+              );
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back rejected: document not found for ${req.uri}`,
               );
@@ -3466,6 +4098,16 @@ const untracedHandlers: SerializedWorkerHandlers = {
               yield* Effect.annotateCurrentSpan({
                 'data_owner.outcome': 'rejected-version-mismatch',
                 'document.current_version': currentDoc.version,
+                ...symbolStateAttributes({
+                  phase: 'enrichment.write_back.reject',
+                  uri: req.uri,
+                  workerId,
+                  workerRole: assignedRole ?? 'unassigned',
+                  documentVersion: req.documentVersion,
+                  ownerVersion: currentDoc.version,
+                  content: currentDoc.getText(),
+                  outcome: 'rejected-version-mismatch',
+                }),
               });
               yield* Effect.logDebug(
                 '[DATA-OWNER] Write-back rejected: version mismatch ' +
@@ -3515,6 +4157,17 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 'data_owner.outcome': 'rejected-detail-level',
                 'document.cached_version': cachedVersion,
                 'symbol.current_detail_level': rawLevel ?? 'none',
+                ...symbolStateAttributes({
+                  phase: 'enrichment.write_back.skip',
+                  uri: req.uri,
+                  workerId,
+                  workerRole: assignedRole ?? 'unassigned',
+                  documentVersion: req.documentVersion,
+                  ownerVersion: currentDoc.version,
+                  content: currentDoc.getText(),
+                  detailLevel: rawLevel,
+                  outcome: 'already-current-or-richer',
+                }),
               });
               yield* Effect.logDebug(
                 `[DATA-OWNER] Write-back skipped: already have ${rawLevel ?? 'none'} ` +
@@ -3593,6 +4246,23 @@ const untracedHandlers: SerializedWorkerHandlers = {
               'data_owner.outcome': 'accepted',
               'symbol.count': mergedCount,
               'reference.count': referenceCount,
+              ...symbolStateAttributes({
+                phase: 'enrichment.write_back.accept',
+                uri: req.uri,
+                workerId,
+                workerRole: assignedRole ?? 'unassigned',
+                documentVersion: req.documentVersion,
+                ownerVersion: currentDoc.version,
+                tableVersion: enrichedSt.getMetadata().documentVersion,
+                parseCompleteness: enrichedSt.getMetadata().parseCompleteness,
+                content: currentDoc.getText(),
+                detailLevel: enrichedSt.getDetailLevel(),
+                symbols: enrichedSt.getAllSymbols().map(compactSymbolForState),
+                references: enrichedSt
+                  .getAllReferences()
+                  .map(compactReferenceForState),
+                outcome: 'accepted',
+              }),
             });
 
             // Symbols for this version are now in the graph — release any
@@ -4155,6 +4825,18 @@ const untracedHandlers: SerializedWorkerHandlers = {
         // compile, so the latch exists when a fast-following documentSymbol
         // awaits it.
         armReadiness(req.uri, req.version);
+        yield* Effect.annotateCurrentSpan(
+          symbolStateAttributes({
+            phase: 'document.open.store',
+            uri: req.uri,
+            workerId,
+            workerRole: assignedRole ?? 'unassigned',
+            documentVersion: req.version,
+            ownerVersion: req.version,
+            content: req.content,
+            outcome: 'stored-and-armed',
+          }),
+        );
         return { accepted: true };
       }),
   ),
@@ -4175,6 +4857,18 @@ const untracedHandlers: SerializedWorkerHandlers = {
         // Re-arm at the new version; supersedes the prior latch so an awaiter
         // for the old version stops waiting and re-evaluates.
         armReadiness(req.uri, req.version);
+        yield* Effect.annotateCurrentSpan(
+          symbolStateAttributes({
+            phase: 'document.change.store',
+            uri: req.uri,
+            workerId,
+            workerRole: assignedRole ?? 'unassigned',
+            documentVersion: req.version,
+            ownerVersion: req.version,
+            content: req.content,
+            outcome: 'stored-and-armed',
+          }),
+        );
         return { accepted: true };
       }),
   ),
@@ -4262,6 +4956,18 @@ const untracedHandlers: SerializedWorkerHandlers = {
                     ? 'rejected-document-missing'
                     : 'rejected-version-mismatch',
                   'document.current_version': currentDocument?.version ?? -1,
+                  ...symbolStateAttributes({
+                    phase: 'interactive.compile.reject',
+                    uri: req.uri,
+                    workerId,
+                    workerRole: assignedRole ?? 'unassigned',
+                    documentVersion: req.version,
+                    ownerVersion: currentDocument?.version,
+                    content: req.content,
+                    outcome: !currentDocument
+                      ? 'rejected-document-missing'
+                      : 'rejected-version-mismatch',
+                  }),
                 });
                 return 0;
               }
@@ -4318,6 +5024,26 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   compiled.metrics.payloadSizeBytes,
                 'symbol.count': compiled.metrics.symbolCount,
                 'reference.count': compiled.metrics.referenceCount,
+                ...symbolStateAttributes({
+                  phase: 'interactive.compile.commit',
+                  uri: req.uri,
+                  workerId,
+                  workerRole: assignedRole ?? 'unassigned',
+                  documentVersion: req.version,
+                  ownerVersion: req.version,
+                  tableVersion: symbolTable.getMetadata().documentVersion,
+                  parseCompleteness:
+                    symbolTable.getMetadata().parseCompleteness,
+                  content: req.content,
+                  detailLevel: symbolTable.getDetailLevel(),
+                  symbols: symbolTable
+                    .getAllSymbols()
+                    .map(compactSymbolForState),
+                  references: symbolTable
+                    .getAllReferences()
+                    .map(compactReferenceForState),
+                  outcome: 'accepted',
+                }),
               });
               return 1;
             }),

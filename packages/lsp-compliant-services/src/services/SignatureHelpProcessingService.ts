@@ -131,10 +131,14 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
       }
 
       // Analyze signature help context
-      const context = this.analyzeSignatureHelpContext(document, params);
+      const signatureContext = await this.analyzeSignatureHelpContext(
+        document,
+        params,
+      );
+      if (!signatureContext) return null;
 
       // Get signature information using ApexSymbolManager
-      const signatures = await this.getSignatureInformation(context);
+      const signatures = await this.getSignatureInformation(signatureContext);
 
       if (signatures.length === 0) {
         this.logger.debug(() => 'No signatures found for method');
@@ -145,12 +149,12 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
       const signatureHelp: SignatureHelp = {
         signatures,
         activeSignature: 0,
-        activeParameter: context.currentParameterIndex,
+        activeParameter: signatureContext.currentParameterIndex,
       };
 
       this.logger.debug(
         () =>
-          `Returning ${signatures.length} signatures for: ${context.methodName}`,
+          `Returning ${signatures.length} signatures for: ${signatureContext.methodName}`,
       );
 
       return signatureHelp;
@@ -163,40 +167,35 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
   /**
    * Analyze the signature help context from the document and position
    */
-  private analyzeSignatureHelpContext(
+  private async analyzeSignatureHelpContext(
     document: TextDocument,
     params: SignatureHelpParams,
-  ): SignatureHelpContext {
-    const text = document.getText();
-    const position = params.position;
-    const offset = document.offsetAt(position);
+  ): Promise<SignatureHelpContext | null> {
+    const invocation = await this.symbolManager.getInvocationAtPosition?.(
+      document.uri,
+      params.position,
+    );
+    const semantic = invocation?.semanticContext?.invocation;
+    if (!invocation || !semantic) return null;
 
-    // Extract method name and parameter context
-    const methodInfo = this.extractMethodInfo(text, offset);
-    const parameterIndex = this.getCurrentParameterIndex(text, offset);
-
-    // Extract argument types from context
-    const argumentTypes = this.extractArgumentTypes(text, offset);
-
-    // Determine if we're in a static context
-    const isStatic = this.isInStaticContext(text, offset);
-
-    // Determine access modifier context
-    const accessModifier = this.getAccessModifierContext(text, offset);
-
-    // Extract expected return type (simplified)
-    const expectedReturnType = this.extractExpectedReturnType(text, offset);
+    const parserLine = params.position.line + 1;
+    const parameterIndex = semantic.separatorRanges.filter(
+      (separator) =>
+        separator.startLine < parserLine ||
+        (separator.startLine === parserLine &&
+          separator.startColumn < params.position.character),
+    ).length;
 
     return {
       document,
-      position,
+      position: params.position,
       triggerCharacter: params.context?.triggerCharacter,
-      methodName: methodInfo.name,
+      methodName: invocation.name,
       currentParameterIndex: parameterIndex,
-      argumentTypes,
-      expectedReturnType,
-      isStatic,
-      accessModifier,
+      argumentTypes: invocation.argumentTypes ?? [],
+      expectedReturnType: undefined,
+      isStatic: invocation.isStatic ?? false,
+      accessModifier: 'public',
     };
   }
 
@@ -209,25 +208,6 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
     const signatures: SignatureInformation[] = [];
 
     try {
-      // Create resolution context for ApexSymbolManager
-      const _resolutionContext = {
-        sourceFile: context.document.uri,
-        importStatements: this.extractImportStatements(
-          context.document.getText(),
-        ),
-        namespaceContext: this.extractNamespaceContext(
-          context.document.getText(),
-        ),
-        currentScope: 'current-scope',
-        scopeChain: ['current-scope'],
-        expectedType: context.expectedReturnType,
-        parameterTypes: context.argumentTypes,
-        accessModifier: context.accessModifier,
-        isStatic: context.isStatic,
-        inheritanceChain: [],
-        interfaceImplementations: [],
-      };
-
       // Find method symbols by name (with yielding)
       const methodSymbols = await this.symbolManager.findSymbolByName(
         context.methodName,
@@ -517,79 +497,5 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
       kind: MarkupKind.Markdown,
       value: content.join('\n\n'),
     };
-  }
-
-  // Helper methods for context analysis (simplified implementations)
-
-  private extractMethodInfo(text: string, offset: number): { name: string } {
-    // Simplified - would use AST analysis in practice
-    const beforeCursor = text.substring(0, offset);
-    const methodMatch = beforeCursor.match(/(\w+)\s*\([^)]*$/);
-    return {
-      name: methodMatch ? methodMatch[1] : '',
-    };
-  }
-
-  private getCurrentParameterIndex(text: string, offset: number): number {
-    // Simplified - would use AST analysis in practice
-    const beforeCursor = text.substring(0, offset);
-    const commaCount = (beforeCursor.match(/,/g) || []).length;
-    return commaCount;
-  }
-
-  private extractArgumentTypes(text: string, offset: number): string[] {
-    // Simplified - would use AST analysis in practice
-    return [];
-  }
-
-  private isInStaticContext(text: string, offset: number): boolean {
-    // Simplified - would use AST analysis in practice
-    return false;
-  }
-
-  private getAccessModifierContext(
-    text: string,
-    offset: number,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    // Simplified - would use AST analysis in practice
-    return 'public';
-  }
-
-  /**
-   * Extract expected return type from context
-   * @param text The document text
-   * @param offset The offset in the text
-   * @returns The expected return type or undefined
-   */
-  public extractExpectedReturnType(
-    text: string,
-    offset: number,
-  ): string | undefined {
-    // For testing purposes, return a simple value
-    return 'String';
-  }
-
-  /**
-   * Extract import statements from text
-   * @param text The document text
-   * @returns Array of import statements
-   */
-  public extractImportStatements(text: string): string[] {
-    const imports: string[] = [];
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('import ')) {
-        imports.push(trimmed);
-      }
-    }
-
-    return imports;
-  }
-
-  private extractNamespaceContext(text: string): string {
-    // Simplified - would use AST analysis in practice
-    return 'default';
   }
 }

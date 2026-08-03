@@ -27,6 +27,7 @@ describe('SignatureHelpProcessingService', () => {
   let mockStorage: any;
   let mockDocument: TextDocument;
   let logger: any;
+  let mockSymbolManager: any;
 
   beforeEach(() => {
     // Reset mocks
@@ -63,8 +64,14 @@ describe('SignatureHelpProcessingService', () => {
       lineCount: jest.fn().mockReturnValue(10),
     } as any;
 
-    // Create service instance
-    service = new SignatureHelpProcessingService(logger);
+    mockSymbolManager = {
+      getInvocationAtPosition: jest.fn().mockResolvedValue(null),
+      findSymbolByName: jest.fn().mockResolvedValue([]),
+      findSymbolsInFile: jest.fn().mockResolvedValue([]),
+      findRelatedSymbols: jest.fn().mockResolvedValue([]),
+    };
+
+    service = new SignatureHelpProcessingService(logger, mockSymbolManager);
   });
 
   describe('processSignatureHelp', () => {
@@ -76,12 +83,43 @@ describe('SignatureHelpProcessingService', () => {
       };
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
+      mockSymbolManager.getInvocationAtPosition.mockResolvedValue({
+        name: 'doSomething',
+        isStatic: false,
+        argumentTypes: ['String'],
+        semanticContext: {
+          invocation: {
+            kind: 'invocation',
+            callRange: {
+              startLine: 6,
+              startColumn: 4,
+              endLine: 6,
+              endColumn: 24,
+            },
+            argumentRanges: [],
+            separatorRanges: [],
+          },
+        },
+      });
+      mockSymbolManager.findSymbolByName.mockResolvedValue([
+        {
+          name: 'doSomething',
+          kind: 'method',
+          modifiers: { isStatic: false, visibility: 'public' },
+          parameters: [
+            { name: 'param1', type: { name: 'String' } },
+            { name: 'param2', type: { name: 'Integer' } },
+          ],
+        },
+      ]);
 
       // Act
       const result = await service.processSignatureHelp(params);
 
       // Assert
-      expect(result).toBeDefined();
+      expect(result?.signatures[0].label).toBe(
+        'doSomething(String param1, Integer param2)',
+      );
       expect(mockStorage.getDocument).toHaveBeenCalledWith(
         params.textDocument.uri,
       );
@@ -139,134 +177,57 @@ describe('SignatureHelpProcessingService', () => {
     });
   });
 
-  describe('context analysis', () => {
-    it('should extract method info correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public void doSomething(String param1, Integer param2) {
-            // Method body
-          }
-        }
-      `;
+  describe('parser-owned context analysis', () => {
+    it('selects the active parameter from parser-recorded separators', async () => {
+      mockSymbolManager.getInvocationAtPosition.mockResolvedValue({
+        name: 'doSomething',
+        argumentTypes: ['String', 'Integer'],
+        semanticContext: {
+          invocation: {
+            kind: 'invocation',
+            callRange: {
+              startLine: 6,
+              startColumn: 4,
+              endLine: 6,
+              endColumn: 30,
+            },
+            argumentRanges: [],
+            separatorRanges: [
+              {
+                startLine: 6,
+                startColumn: 18,
+                endLine: 6,
+                endColumn: 19,
+              },
+            ],
+          },
+        },
+      });
 
-      // Act
-      const methodInfo = (service as any).extractMethodInfo(text, 50);
+      const context = await (service as any).analyzeSignatureHelpContext(
+        mockDocument,
+        {
+          textDocument: { uri: mockDocument.uri },
+          position: { line: 5, character: 22 },
+        },
+      );
 
-      // Assert
-      expect(methodInfo).toBeDefined();
-      expect(methodInfo.name).toBeDefined();
+      expect(context).toEqual(
+        expect.objectContaining({
+          methodName: 'doSomething',
+          currentParameterIndex: 1,
+          argumentTypes: ['String', 'Integer'],
+        }),
+      );
     });
 
-    it('should get current parameter index correctly', () => {
-      // Arrange
-      const text = `
-        doSomething(param1, param2, param3)
-      `;
-
-      // Act
-      const paramIndex = (service as any).getCurrentParameterIndex(text, 20);
-
-      // Assert
-      expect(typeof paramIndex).toBe('number');
-      expect(paramIndex).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should extract argument types correctly', () => {
-      // Arrange
-      const text = `
-        doSomething("string", 123, true)
-      `;
-
-      // Act
-      const argTypes = (service as any).extractArgumentTypes(text, 30);
-
-      // Assert
-      expect(Array.isArray(argTypes)).toBe(true);
-    });
-
-    it('should detect static context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public static void staticMethod() {
-            // Static context
-          }
-        }
-      `;
-
-      // Act
-      const isStatic = (service as any).isInStaticContext(text, 50);
-
-      // Assert
-      expect(typeof isStatic).toBe('boolean');
-    });
-
-    it('should extract access modifier context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          private void privateMethod() {}
-          public void publicMethod() {}
-        }
-      `;
-
-      // Act
-      const modifier = (service as any).getAccessModifierContext(text, 50);
-
-      // Assert
-      expect(['public', 'private', 'protected', 'global']).toContain(modifier);
-    });
-
-    it('should extract expected return type correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public void method() {
-            String variable: // cursor here
-          }
-        }
-      `;
-
-      // Act
-      const expectedType = (service as any).extractExpectedReturnType(text, 80);
-
-      // Assert
-      expect(expectedType).toBeDefined();
-    });
-
-    it('should extract import statements correctly', () => {
-      // Arrange
-      const text = `
-        import System.Debug;
-        import System.String;
-        
-        public class TestClass {
-          // Class content
-        }
-      `;
-
-      // Act
-      const imports = (service as any).extractImportStatements(text);
-
-      // Assert
-      expect(imports).toContain('import System.Debug;');
-      expect(imports).toContain('import System.String;');
-    });
-
-    it('should extract namespace context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          // Class content
-        }
-      `;
-
-      // Act
-      const namespace = (service as any).extractNamespaceContext(text);
-
-      // Assert
-      expect(namespace).toBeDefined();
+    it('returns no context when the parser records no invocation', async () => {
+      await expect(
+        (service as any).analyzeSignatureHelpContext(mockDocument, {
+          textDocument: { uri: mockDocument.uri },
+          position: { line: 0, character: 0 },
+        }),
+      ).resolves.toBeNull();
     });
   });
 

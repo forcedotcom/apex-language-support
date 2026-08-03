@@ -7,18 +7,12 @@
  */
 
 /**
- * Integration tests for TIER 2 semantic validation with missing artifact loading.
+ * Integration tests for TIER 2 validation at the missing-artifact boundary.
  *
- * These tests verify the complete flow documented in the sequence diagram:
- * 1. TIER 2 validator detects missing type (e.g., ClassHierarchyValidator finds missing superclass)
- * 2. Validator calls ArtifactLoadingHelper.loadMissingArtifacts()
- * 3. ArtifactLoadingHelper calls loadArtifactCallback (from DiagnosticProcessingService)
- * 4. MissingArtifactResolutionService.resolveBlocking() → LSPQueueManager.submitRequest()
- * 5. Queue routes to MissingArtifactProcessingService.processFindMissingArtifact()
- * 6. MissingArtifactProcessingService sends apex/findMissingArtifact request to client
- * 7. Client responds with FindMissingArtifactResult containing opened file URIs
- * 8. didOpen processing compiles artifact and adds to SymbolManager
- * 9. Validator re-checks and resolves the type
+ * Validators currently report missing type names without the parser reference
+ * and snapshot that produced them. These tests verify that such name-only facts
+ * remain unresolved and never become client artifact requests. Cursor and
+ * prerequisite paths, which retain exact references, cover artifact loading.
  *
  * NOTE: These tests use real services (CompilerService, ApexStorageManager, SymbolManager)
  * and only mock external dependencies (LSP client connection, settings). This ensures
@@ -261,7 +255,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
   });
 
   describe('TIER 2 Validation with Missing Artifact Loading', () => {
-    it('should load missing artifact via client request when TIER 2 validator needs cross-file type', async () => {
+    it('should not issue a name-only artifact request from a TIER 2 validator', async () => {
       // Test scenario: A class extends a missing superclass that needs to be loaded
       // Read fixtures from test/fixtures/classes directory
       const fixturesDir = join(__dirname, '../fixtures/classes');
@@ -379,27 +373,17 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       // The setTimeout in the mock adds the document after 10ms, then didOpen processing happens
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Verify client request was made
-      // Diagnostics use background mode - load files without opening in editor
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+      // Validator callbacks currently expose names, not parser references.
+      // Without semantic provenance the request must not leave the server.
+      expect(mockConnection.sendRequest).not.toHaveBeenCalledWith(
         'apex/findMissingArtifact',
-        expect.objectContaining({
-          identifiers: expect.arrayContaining([
-            expect.objectContaining({ name: 'MissingSuperClass' }),
-          ]),
-          mode: 'background',
-          origin: expect.objectContaining({
-            uri: classAUri,
-            requestKind: 'references',
-          }),
-        }),
+        expect.anything(),
       );
 
       // Verify MissingSuperClass was added to SymbolManager
       const missingSuperClassSymbols =
         await symbolManager.findSymbolByName('MissingSuperClass');
-      expect(missingSuperClassSymbols.length).toBeGreaterThan(0);
-      expect(missingSuperClassSymbols[0].kind.toLowerCase()).toBe('class');
+      expect(missingSuperClassSymbols).toHaveLength(0);
 
       // Verify diagnostics were processed (may or may not have errors depending on type compatibility)
       expect(result).toBeDefined();
@@ -439,14 +423,10 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
       const result = await service.processDiagnostic(params);
 
-      // Verify client request was made
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+      // A name-only miss is retained as unresolved rather than sent.
+      expect(mockConnection.sendRequest).not.toHaveBeenCalledWith(
         'apex/findMissingArtifact',
-        expect.objectContaining({
-          identifiers: expect.arrayContaining([
-            expect.objectContaining({ name: 'NonExistentSuperClass' }),
-          ]),
-        }),
+        expect.anything(),
       );
 
       // Verify NonExistentSuperClass was NOT added to SymbolManager
@@ -600,20 +580,16 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       // The setTimeout in the mock adds the documents after 10ms, then didOpen processing happens
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Verify both artifacts were requested (though second may be requested when validating MissingClass1)
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+      // Neither name-only validator result can become an artifact request.
+      expect(mockConnection.sendRequest).not.toHaveBeenCalledWith(
         'apex/findMissingArtifact',
-        expect.objectContaining({
-          identifiers: expect.arrayContaining([
-            expect.objectContaining({ name: 'MissingClass1' }),
-          ]),
-        }),
+        expect.anything(),
       );
 
       // Verify artifacts were added to SymbolManager
       const missingClass1Symbols =
         await symbolManager.findSymbolByName('MissingClass1');
-      expect(missingClass1Symbols.length).toBeGreaterThan(0);
+      expect(missingClass1Symbols).toHaveLength(0);
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);

@@ -133,6 +133,9 @@ describe('DefinitionProcessingService', () => {
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
         .mockResolvedValue([mockTypeReference] as any);
+      jest
+        .spyOn(service['symbolManager'], 'createResolutionContext')
+        .mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to return a symbol
       const mockSymbol = {
@@ -222,6 +225,9 @@ describe('DefinitionProcessingService', () => {
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
         .mockResolvedValue([mockTypeReference] as any);
+      jest
+        .spyOn(service['symbolManager'], 'createResolutionContext')
+        .mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to return no symbol
       jest
@@ -265,6 +271,9 @@ describe('DefinitionProcessingService', () => {
       jest
         .spyOn(service['symbolManager'], 'getReferencesAtPosition')
         .mockResolvedValue([mockTypeReference] as any);
+      jest
+        .spyOn(service['symbolManager'], 'createResolutionContext')
+        .mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to throw an error
       jest
@@ -323,6 +332,75 @@ describe('DefinitionProcessingService', () => {
       expect(
         service['missingArtifactUtils'].tryResolveMissingArtifactBlocking,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('definition targets', () => {
+    it('prefers an external definition target over graph ownership', async () => {
+      const target = {
+        uri: 'file:///workspace/objects/Account/fields/Name.field-meta.xml',
+        range: {
+          start: { line: 3, character: 2 },
+          end: { line: 3, character: 6 },
+        },
+      };
+      const symbol = {
+        name: 'Name',
+        kind: 'field',
+        fileUri: 'apex-internal-sobject:/Account',
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 4,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 4,
+          },
+        },
+        definitionTarget: target,
+      } as unknown as ApexSymbol;
+
+      await expect(
+        (service as any).createLocationFromSymbol(symbol),
+      ).resolves.toEqual(target);
+    });
+
+    it('uses a target URI with the symbol range when no target range exists', async () => {
+      const symbol = {
+        name: 'Account',
+        kind: 'sobject',
+        fileUri: 'apex-internal-sobject:/Account',
+        location: {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 0,
+            endLine: 4,
+            endColumn: 7,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 0,
+            endLine: 4,
+            endColumn: 7,
+          },
+        },
+        definitionTarget: { uri: 'sf-org-data:/Account' },
+      } as unknown as ApexSymbol;
+
+      await expect(
+        (service as any).createLocationFromSymbol(symbol),
+      ).resolves.toEqual({
+        uri: 'sf-org-data:/Account',
+        range: {
+          start: { line: 3, character: 0 },
+          end: { line: 3, character: 7 },
+        },
+      });
     });
   });
 
@@ -411,6 +489,275 @@ describe('DefinitionProcessingService', () => {
       // Assert
       expect(result).toBeDefined();
       expect(endTime - startTime).toBeLessThan(1000); // Should complete within 1 second
+    });
+  });
+
+  describe('exact chained-reference fallback', () => {
+    const range = (startColumn: number, endColumn: number) => ({
+      startLine: 3,
+      startColumn,
+      endLine: 3,
+      endColumn,
+    });
+
+    const symbol = (
+      id: string,
+      name: string,
+      fileUri: string,
+      parentId: string | null = null,
+    ) =>
+      ({
+        id,
+        name,
+        kind: parentId ? 'method' : 'class',
+        fileUri,
+        parentId,
+      }) as unknown as ApexSymbol;
+
+    const chain = (
+      qualifierId: string | undefined,
+      memberId: string | undefined,
+    ) => {
+      const qualifier = {
+        name: 'DuplicateName',
+        resolvedSymbolId: qualifierId,
+        context: 'TYPE_REFERENCE',
+        location: { identifierRange: range(0, 13) },
+      };
+      const member = {
+        name: 'run',
+        resolvedSymbolId: memberId,
+        context: 'METHOD_CALL',
+        location: { identifierRange: range(14, 17) },
+      };
+      return [
+        {
+          ...member,
+          chainNodes: [qualifier, member],
+        },
+      ] as any;
+    };
+
+    it('uses the resolved edge when duplicate simple type and member names exist', async () => {
+      const expectedOwner = symbol(
+        'namespace-a-owner',
+        'DuplicateName',
+        'file:///namespace-a/DuplicateName.cls',
+      );
+      const expectedMember = symbol(
+        'namespace-a-run',
+        'run',
+        expectedOwner.fileUri,
+        expectedOwner.id,
+      );
+      const wrongOwner = symbol(
+        'namespace-b-owner',
+        'DuplicateName',
+        'file:///namespace-b/DuplicateName.cls',
+      );
+      const wrongMember = symbol(
+        'namespace-b-run',
+        'run',
+        wrongOwner.fileUri,
+        wrongOwner.id,
+      );
+      const byId = new Map(
+        [expectedOwner, expectedMember, wrongOwner, wrongMember].map(
+          (entry) => [entry.id, entry],
+        ),
+      );
+      const manager = {
+        getSymbol: jest.fn(async (id: string) => byId.get(id) ?? null),
+        findSymbolByName: jest.fn(),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+
+      const result = await exactService['tryResolveFromChainedRef'](
+        chain(expectedOwner.id, expectedMember.id),
+        { line: 3, character: 15 },
+        'file:///consumer.cls',
+      );
+
+      expect(result).toBe(expectedMember);
+      expect(manager.findSymbolByName).not.toHaveBeenCalled();
+    });
+
+    it('uses a parser-owned FQN without degrading it to a simple-name lookup', async () => {
+      const expectedOwner = symbol(
+        'namespace-a-owner',
+        'DuplicateName',
+        'file:///namespace-a/DuplicateName.cls',
+      );
+      const qualifier = {
+        name: 'namespaceA.DuplicateName',
+        context: 'TYPE_REFERENCE',
+        location: { identifierRange: range(0, 24) },
+      };
+      const member = {
+        name: 'run',
+        context: 'METHOD_CALL',
+        location: { identifierRange: range(25, 28) },
+      };
+      const references = [
+        { ...member, chainNodes: [qualifier, member] },
+      ] as any;
+      const manager = {
+        getSymbol: jest.fn(),
+        findSymbolByFQN: jest
+          .fn()
+          .mockImplementation(async (fqn: string) =>
+            fqn === qualifier.name ? expectedOwner : null,
+          ),
+        findSymbolByName: jest.fn(),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+
+      const result = await exactService['tryResolveFromChainedRef'](
+        references,
+        { line: 3, character: 10 },
+        'file:///consumer.cls',
+      );
+
+      expect(result).toBe(expectedOwner);
+      expect(manager.findSymbolByFQN).toHaveBeenCalledWith(qualifier.name);
+      expect(manager.findSymbolByName).not.toHaveBeenCalled();
+    });
+
+    it('recovers a unique member only beneath the exactly resolved owner', async () => {
+      const owner = symbol(
+        'namespace-a-owner',
+        'DuplicateName',
+        'file:///namespace-a/DuplicateName.cls',
+      );
+      const ownerBlock = symbol(
+        'namespace-a-block',
+        'DuplicateName block',
+        owner.fileUri,
+        owner.id,
+      );
+      const expected = symbol(
+        'namespace-a-run',
+        'run',
+        owner.fileUri,
+        ownerBlock.id,
+      );
+      const unrelated = symbol(
+        'namespace-a-other-run',
+        'run',
+        owner.fileUri,
+        'different-owner',
+      );
+      const manager = {
+        getSymbol: jest.fn(async (id: string) =>
+          id === owner.id ? owner : null,
+        ),
+        findSymbolsInFile: jest
+          .fn()
+          .mockResolvedValue([owner, ownerBlock, expected, unrelated]),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+
+      const result = await exactService['tryResolveFromChainedRef'](
+        chain(owner.id, undefined),
+        { line: 3, character: 15 },
+        'file:///consumer.cls',
+      );
+
+      expect(result).toBe(expected);
+    });
+
+    it('does not return a qualifier when the requested member is unresolved', async () => {
+      const owner = symbol(
+        'namespace-a-owner',
+        'DuplicateName',
+        'file:///namespace-a/DuplicateName.cls',
+      );
+      const manager = {
+        getSymbol: jest.fn(async (id: string) =>
+          id === owner.id ? owner : null,
+        ),
+        findSymbolsInFile: jest.fn().mockResolvedValue([owner]),
+        findSymbolByName: jest.fn(),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+
+      const result = await exactService['tryResolveFromChainedRef'](
+        chain(owner.id, undefined),
+        { line: 3, character: 15 },
+        'file:///consumer.cls',
+      );
+
+      expect(result).toBeNull();
+      expect(manager.findSymbolByName).not.toHaveBeenCalled();
+    });
+
+    it('does not mistake an unresolved member result type for its definition', async () => {
+      const owner = symbol(
+        'namespace-a-owner',
+        'DuplicateName',
+        'file:///namespace-a/DuplicateName.cls',
+      );
+      const memberResultType = symbol(
+        'string-type',
+        'String',
+        'apexlib://System/String.cls',
+      );
+      const references = chain(owner.id, undefined);
+      references[0].chainNodes[1].resolvedTypeId = memberResultType.id;
+      const manager = {
+        getSymbol: jest.fn(async (id: string) =>
+          id === owner.id
+            ? owner
+            : id === memberResultType.id
+              ? memberResultType
+              : null,
+        ),
+        findSymbolsInFile: jest.fn().mockResolvedValue([owner]),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+
+      const result = await exactService['tryResolveFromChainedRef'](
+        references,
+        { line: 3, character: 15 },
+        'file:///consumer.cls',
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('does not recover a symbol URI from a global simple-name search', async () => {
+      const manager = {
+        findFilesForSymbol: jest
+          .fn()
+          .mockResolvedValue(['file:///wrong/DuplicateName.cls']),
+      };
+      const exactService = new DefinitionProcessingService(
+        logger,
+        manager as any,
+      );
+      const symbolWithoutIdentityUri = symbol('owner', 'DuplicateName', '');
+
+      const result = await exactService['getSymbolFileUri'](
+        symbolWithoutIdentityUri,
+      );
+
+      expect(result).toBeNull();
+      expect(manager.findFilesForSymbol).not.toHaveBeenCalled();
     });
   });
 });

@@ -27,6 +27,7 @@ describe('MissingArtifactUtils', () => {
     mockSymbolManager = {
       getReferencesAtPosition: jest.fn(),
       getSymbolAtPosition: jest.fn(),
+      getSymbolTableForFile: jest.fn(),
       findSymbolsInFile: jest.fn().mockResolvedValue([]),
     } as any;
 
@@ -56,7 +57,7 @@ describe('MissingArtifactUtils', () => {
     it('should return reference when TypeReference exists', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
-      const position = { line: 5, character: 10 };
+      const position = { line: 4, character: 10 };
 
       const mockReference = {
         name: 'MyClass',
@@ -104,54 +105,60 @@ describe('MissingArtifactUtils', () => {
       expect(result).toBeNull();
     });
 
-    it('should return first reference when multiple references found', async () => {
-      // Arrange
-      const uri = 'file:///test/TestClass.cls';
-      const position = { line: 5, character: 10 };
+    it.each([
+      ['unresolved-first', false],
+      ['resolved-first', true],
+    ] as const)(
+      'should select the resolved reference independent of result order (%s)',
+      async (_description, resolvedFirst) => {
+        // Arrange
+        const uri = 'file:///test/TestClass.cls';
 
-      const mockReference1 = {
-        name: 'FirstClass',
-        location: {
-          identifierRange: {
-            startLine: 5,
-            startColumn: 10,
-            endLine: 5,
-            endColumn: 20,
+        const mockReference1 = {
+          name: 'FirstClass',
+          location: {
+            identifierRange: {
+              startLine: 5,
+              startColumn: 10,
+              endLine: 5,
+              endColumn: 20,
+            },
           },
-        },
-        context: 1,
-        resolvedSymbolId: undefined,
-      };
+          context: 1,
+          resolvedSymbolId: undefined,
+        };
 
-      const mockReference2 = {
-        name: 'SecondClass',
-        location: {
-          identifierRange: {
-            startLine: 5,
-            startColumn: 10,
-            endLine: 5,
-            endColumn: 21,
+        const mockReference2 = {
+          name: 'SecondClass',
+          location: {
+            identifierRange: {
+              startLine: 5,
+              startColumn: 10,
+              endLine: 5,
+              endColumn: 20,
+            },
           },
-        },
-        context: 1,
-        resolvedSymbolId: undefined,
-      };
+          context: 1,
+          resolvedSymbolId: 'class:SecondClass',
+        };
 
-      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
-        mockReference1,
-        mockReference2,
-      ] as any);
+        mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
+          ...(resolvedFirst
+            ? [mockReference2, mockReference1]
+            : [mockReference1, mockReference2]),
+        ] as any);
 
-      // Act
-      const result = await (utils as any).extractReferenceAtPosition(
-        uri,
-        position,
-      );
+        // Act
+        const result = await (utils as any).extractReferenceAtPosition(uri, {
+          line: 4,
+          character: 10,
+        });
 
-      // Assert
-      expect(result).toEqual(mockReference1);
-      expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
-    });
+        // Assert
+        expect(result).toEqual(mockReference2);
+        expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
+      },
+    );
 
     it('should prioritize chained references over individual references when both exist', async () => {
       // Arrange
@@ -181,7 +188,7 @@ describe('MissingArtifactUtils', () => {
         location: {
           identifierRange: {
             startLine: 34,
-            startColumn: 57,
+            startColumn: 43,
             endLine: 34,
             endColumn: 66,
           },
@@ -194,9 +201,9 @@ describe('MissingArtifactUtils', () => {
             location: {
               identifierRange: {
                 startLine: 34,
-                startColumn: 57,
+                startColumn: 43,
                 endLine: 34,
-                endColumn: 70,
+                endColumn: 55,
               },
             },
             context: ReferenceContext.CLASS_REFERENCE,
@@ -206,9 +213,9 @@ describe('MissingArtifactUtils', () => {
             location: {
               identifierRange: {
                 startLine: 34,
-                startColumn: 71,
+                startColumn: 57,
                 endLine: 34,
-                endColumn: 80,
+                endColumn: 66,
               },
             },
             context: ReferenceContext.METHOD_CALL,
@@ -316,7 +323,7 @@ describe('MissingArtifactUtils', () => {
     it('should prioritize chained reference even when it comes after individual references', async () => {
       // Arrange
       const uri = 'file:///test/TestClass.cls';
-      const position = { line: 10, character: 20 };
+      const position = { line: 9, character: 36 };
 
       const individualRef1 = {
         name: 'FileUtilities',
@@ -375,6 +382,117 @@ describe('MissingArtifactUtils', () => {
       expect(result).toEqual(chainedRef);
       expect(result.name).toBe('FileUtilities.createFile');
       expect(isChainedSymbolReference(result)).toBe(true);
+    });
+
+    it.each([
+      ['chain-first', true],
+      ['leaf-first', false],
+    ] as const)(
+      'should preserve a local SObject receiver chain independent of result order (%s)',
+      async (_description, chainFirst) => {
+        const receiver = {
+          name: 'property',
+          context: ReferenceContext.VARIABLE_USAGE,
+          resolvedSymbolId: 'variable:property',
+          resolvedTypeId: 'type:Property__c',
+          location: {
+            identifierRange: {
+              startLine: 20,
+              startColumn: 8,
+              endLine: 20,
+              endColumn: 15,
+            },
+          },
+        };
+        const field = {
+          name: 'Beds__c',
+          context: ReferenceContext.FIELD_ACCESS,
+          location: {
+            identifierRange: {
+              startLine: 20,
+              startColumn: 17,
+              endLine: 20,
+              endColumn: 23,
+            },
+          },
+        };
+        const chain = {
+          name: 'property.Beds__c',
+          context: ReferenceContext.FIELD_ACCESS,
+          location: field.location,
+          chainNodes: [receiver, field],
+        };
+        const overlappingReceiverUsage = {
+          ...receiver,
+          location: {
+            identifierRange: {
+              startLine: 20,
+              startColumn: 8,
+              endLine: 20,
+              endColumn: 23,
+            },
+          },
+        };
+        mockSymbolManager.getReferencesAtPosition.mockResolvedValue(
+          (chainFirst
+            ? [chain, overlappingReceiverUsage, field]
+            : [overlappingReceiverUsage, field, chain]) as any,
+        );
+
+        const result = await (utils as any).extractReferenceAtPosition(
+          'file:///test/TestClass.cls',
+          { line: 19, character: 20 },
+        );
+
+        expect(result).toBe(chain);
+        expect(
+          (utils as any).inferQualifierType(
+            { ...chain, qualifier: 'property' },
+            null,
+          ),
+        ).toBe('variable');
+      },
+    );
+  });
+
+  describe('semantic provenance', () => {
+    it('captures snapshot version, completeness, exact range, and resolved identity', async () => {
+      mockSymbolManager.getSymbolTableForFile.mockResolvedValue({
+        getMetadata: () => ({
+          documentVersion: 12,
+          parseCompleteness: 'complete',
+        }),
+      } as any);
+      const reference = {
+        name: 'Property__c',
+        context: ReferenceContext.CLASS_REFERENCE,
+        resolvedSymbolId: 'symbol:Property__c',
+        resolvedTypeId: 'type:Property__c',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 8,
+            endLine: 5,
+            endColumn: 19,
+          },
+        },
+      };
+
+      await expect(
+        (utils as any).createSemanticProvenance(
+          'file:///PropertyConsumer.cls',
+          reference,
+        ),
+      ).resolves.toEqual({
+        sourceUri: 'file:///PropertyConsumer.cls',
+        documentVersion: 12,
+        referenceRange: reference.location.identifierRange,
+        referenceIdentity:
+          'symbol:Property__c|type:Property__c|1|Property__c|5|8|5|19',
+        resolvedSymbolId: 'symbol:Property__c',
+        resolvedTypeId: 'type:Property__c',
+        parseCompleteness: 'complete',
+      });
     });
   });
 });

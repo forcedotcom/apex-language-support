@@ -20,6 +20,8 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ISymbolManager,
   ApexSymbolProcessingManager,
+  ReferenceContext,
+  type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
@@ -27,6 +29,8 @@ import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { getDocumentStateCache } from './DocumentStateCache';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import type { LspRequestExecutionContext } from './LspRequestPreparationPolicy';
+import { transformLspToParserPosition } from '../utils/positionUtils';
+import { hasCompleteSemanticState } from '../utils/semanticStateUtils';
 import {
   CompletionStrategy,
   CompletionCandidate,
@@ -57,6 +61,7 @@ export interface ICompletionProcessor {
    */
   processCompletionWithReadiness?(
     params: CompletionParams,
+    context?: LspRequestExecutionContext,
   ): Promise<{ items: CompletionItem[]; isIncomplete: boolean }>;
 }
 
@@ -73,6 +78,8 @@ export interface CompletionContext {
   expectedType?: string;
   isStatic: boolean;
   accessModifier: 'public' | 'private' | 'protected' | 'global';
+  incompleteMemberAccess?: SymbolReference;
+  overrideCompletion?: SymbolReference;
 }
 
 /**
@@ -239,15 +246,6 @@ export class CompletionProcessingService implements ICompletionProcessor {
         return { items: [], isIncomplete: true };
       }
 
-      if (this.isInStringLiteral(document, params.position)) {
-        this.logger.debug(
-          () =>
-            `Skipping completion at ${params.position.line}:` +
-            `${params.position.character} — cursor is inside a string literal`,
-        );
-        return { items: [], isIncomplete: false };
-      }
-
       const cache = getDocumentStateCache();
       const alreadyEnriched =
         !!this.layerEnrichmentService &&
@@ -276,18 +274,65 @@ export class CompletionProcessingService implements ICompletionProcessor {
         enrichmentReady = false;
       }
 
-      const context = this.analyzeCompletionContext(document, params);
+      const semanticStateReady = await hasCompleteSemanticState(
+        this.symbolManager,
+        params.textDocument.uri,
+        params.position,
+      );
+      if (!semanticStateReady) {
+        this.logger.debug(
+          () =>
+            `Completion semantic state is incomplete for ${params.textDocument.uri}; ` +
+            'returning a retryable partial result',
+        );
+        return { items: [], isIncomplete: true };
+      }
+
+      if (
+        await this.isInParserRecordedStringLiteral(
+          params.textDocument.uri,
+          params.position,
+        )
+      ) {
+        this.logger.debug(
+          () =>
+            `Skipping completion at ${params.position.line}:` +
+            `${params.position.character} — cursor is inside a string literal`,
+        );
+        return { items: [], isIncomplete: false };
+      }
+
+      const memberAccess =
+        await this.symbolManager.getIncompleteMemberAccessAtPosition(
+          params.textDocument.uri,
+          params.position,
+        );
+      const overrideCompletion =
+        (await this.symbolManager.getOverrideCompletionAtPosition?.(
+          params.textDocument.uri,
+          params.position,
+        )) ?? null;
+      const context = this.analyzeCompletionContext(
+        document,
+        params,
+        memberAccess,
+        overrideCompletion,
+      );
       const candidates = await this.getCompletionCandidates(context);
       const dedupedCandidates = this.deduplicateCandidatesByLabel(candidates);
       const completionItems = dedupedCandidates.map((candidate) =>
         this.createCompletionItem(candidate, context),
       );
-
       this.logger.debug(
         () => `Returning ${completionItems.length} completion items`,
       );
 
-      return { items: completionItems, isIncomplete: !enrichmentReady };
+      return {
+        items: completionItems,
+        isIncomplete:
+          !enrichmentReady ||
+          (memberAccess !== null && completionItems.length === 0),
+      };
     } catch (error) {
       this.logger.error(() => `Error processing completion: ${error}`);
       return { items: [], isIncomplete: true };
@@ -300,39 +345,24 @@ export class CompletionProcessingService implements ICompletionProcessor {
   private analyzeCompletionContext(
     document: TextDocument,
     params: CompletionParams,
+    incompleteMemberAccess?: SymbolReference | null,
+    overrideCompletion?: SymbolReference | null,
   ): CompletionContext {
-    const text = document.getText();
-    const position = params.position;
-    const offset = document.offsetAt(position);
-
-    // Extract current scope (simplified - in practice would use AST analysis)
-    const currentScope = this.extractCurrentScope(text, offset);
-
-    // Extract import statements
-    const importStatements = this.extractImportStatements(text);
-
-    // Extract namespace context
-    const namespaceContext = this.extractNamespaceContext(text);
-
-    // Determine if we're in a static context
-    const isStatic = this.isInStaticContext(text, offset);
-
-    // Determine access modifier context
-    const accessModifier = this.getAccessModifierContext(text, offset);
-
-    // Extract expected type (simplified)
-    const expectedType = this.extractExpectedType(text, offset);
-
     return {
       document,
-      position,
+      position: params.position,
       triggerCharacter: params.context?.triggerCharacter,
-      currentScope,
-      importStatements,
-      namespaceContext,
-      expectedType,
-      isStatic,
-      accessModifier,
+      // These values must remain neutral until corresponding parser-owned
+      // scope/context queries exist. Supplying guesses is worse than omitting
+      // context because resolveSymbol treats them as semantic evidence.
+      currentScope: '',
+      importStatements: [],
+      namespaceContext: '',
+      expectedType: undefined,
+      isStatic: false,
+      accessModifier: 'public',
+      incompleteMemberAccess: incompleteMemberAccess ?? undefined,
+      overrideCompletion: overrideCompletion ?? undefined,
     };
   }
 
@@ -596,122 +626,18 @@ export class CompletionProcessingService implements ICompletionProcessor {
     return `${priorityPrefix}${relevancePrefix}${name}`;
   }
 
-  /**
-   * Detect whether the cursor is inside an Apex string literal on the
-   * current line. Apex uses single quotes for string delimiters, with `\'`
-   * as the escape sequence. The cursor is inside a literal when the line
-   * up to the cursor contains an odd number of unescaped single quotes.
-   */
-  public isInStringLiteral(
-    document: TextDocument,
+  private async isInParserRecordedStringLiteral(
+    uri: string,
     position: { line: number; character: number },
-  ): boolean {
-    const lineText = document.getText({
-      start: { line: position.line, character: 0 },
-      end: position,
-    });
-
-    let unescapedQuotes = 0;
-    for (let i = 0; i < lineText.length; i++) {
-      if (lineText[i] !== "'") continue;
-      // Count preceding consecutive backslashes; even count means the
-      // quote is unescaped (the backslashes pair off and escape each other).
-      let backslashes = 0;
-      for (let j = i - 1; j >= 0 && lineText[j] === '\\'; j--) {
-        backslashes++;
-      }
-      if (backslashes % 2 === 0) {
-        unescapedQuotes++;
-      }
-    }
-
-    return unescapedQuotes % 2 === 1;
-  }
-
-  // Helper methods for context analysis (simplified implementations)
-
-  private extractCurrentScope(text: string, offset: number): string {
-    // Simplified - would use AST analysis in practice
-    return 'current-scope';
-  }
-
-  private extractImportStatements(text: string): string[] {
-    const imports: string[] = [];
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('import ')) {
-        imports.push(trimmed);
-      }
-    }
-
-    return imports;
-  }
-
-  private extractNamespaceContext(text: string): string {
-    // Simplified - would use AST analysis in practice
-    return 'default';
-  }
-
-  /**
-   * Extract expected type from context
-   * @param text The document text
-   * @param offset The offset in the text
-   * @returns The expected type or undefined
-   */
-  public extractExpectedType(text: string, offset: number): string | undefined {
-    // Simple implementation - look for type hints before the offset
-    const beforeOffset = text.substring(0, offset);
-
-    // Look for pattern: type variable =
-    const typeMatch = beforeOffset.match(/(\w+)\s+\w+\s*=\s*$/);
-    if (typeMatch) {
-      return typeMatch[1];
-    }
-
-    // Look for pattern: type variable :
-    const typeMatch2 = beforeOffset.match(/(\w+)\s+\w+\s*:\s*$/);
-    if (typeMatch2) {
-      return typeMatch2[1];
-    }
-
-    // For the test case, return String if we see it in the text
-    if (beforeOffset.includes('String variable =')) {
-      return 'String';
-    }
-
-    // For now, return a default value to make tests pass
-    return 'String';
-  }
-
-  /**
-   * Check if the context is static
-   * @param text The document text
-   * @param offset The offset in the text
-   * @returns True if in static context
-   */
-  public isInStaticContext(text: string, offset: number): boolean {
-    const beforeOffset = text.substring(0, offset);
-    return beforeOffset.includes('static');
-  }
-
-  /**
-   * Get access modifier context
-   * @param text The document text
-   * @param offset The offset in the text
-   * @returns The access modifier or 'public' as default
-   */
-  public getAccessModifierContext(
-    text: string,
-    offset: number,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    const beforeOffset = text.substring(0, offset);
-
-    if (beforeOffset.includes('private')) return 'private';
-    if (beforeOffset.includes('protected')) return 'protected';
-    if (beforeOffset.includes('global')) return 'global';
-
-    return 'public'; // Default
+  ): Promise<boolean> {
+    const references = await this.symbolManager.getReferencesAtPosition(
+      uri,
+      transformLspToParserPosition(position),
+    );
+    return references.some(
+      (reference) =>
+        reference.context === ReferenceContext.LITERAL &&
+        reference.literalType === 'String',
+    );
   }
 }

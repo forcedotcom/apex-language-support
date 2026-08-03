@@ -50,6 +50,18 @@ const _mockSymbolManager = {
   // Add other ISymbolManager methods as needed
 } as any;
 
+const semanticProvenance = {
+  sourceUri: 'file:///test.cls',
+  referenceRange: {
+    startLine: 1,
+    startColumn: 0,
+    endLine: 1,
+    endColumn: 9,
+  },
+  referenceIdentity: 'ref:test:1:0:1:9',
+  parseCompleteness: 'complete' as const,
+};
+
 describe('MissingArtifactResolutionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,7 +103,7 @@ describe('MissingArtifactResolutionService', () => {
   describe('Service Parameters', () => {
     it('should accept valid FindMissingArtifactParams', () => {
       const params: FindMissingArtifactParams = {
-        identifiers: [{ name: 'TestClass' }],
+        identifiers: [{ name: 'TestClass', provenance: semanticProvenance }],
         origin: {
           uri: 'file:///test.cls',
           position: { line: 10, character: 5 },
@@ -110,7 +122,15 @@ describe('MissingArtifactResolutionService', () => {
 
     it('should accept background mode parameters', () => {
       const params: FindMissingArtifactParams = {
-        identifiers: [{ name: 'TestTrigger' }],
+        identifiers: [
+          {
+            name: 'TestTrigger',
+            provenance: {
+              ...semanticProvenance,
+              sourceUri: 'file:///test.trigger',
+            },
+          },
+        ],
         origin: {
           uri: 'file:///test.trigger',
           requestKind: 'hover',
@@ -119,6 +139,49 @@ describe('MissingArtifactResolutionService', () => {
       };
 
       expect(params.mode).toBe('background');
+    });
+  });
+
+  describe('Semantic provenance', () => {
+    const provenance = {
+      sourceUri: 'file:///test.cls',
+      documentVersion: 4,
+      referenceRange: {
+        startLine: 2,
+        startColumn: 3,
+        endLine: 2,
+        endColumn: 14,
+      },
+      referenceIdentity: 'ref:MissingClass:2:3:2:14',
+      parseCompleteness: 'complete' as const,
+    };
+
+    it('preserves provenance while sanitizing a semantic request', () => {
+      const service = createMissingArtifactResolutionService(mockLogger);
+      const params = {
+        identifiers: [{ name: 'MissingClass', provenance }],
+        origin: {
+          uri: 'file:///test.cls',
+          requestKind: 'definition' as const,
+        },
+        mode: 'blocking' as const,
+      };
+
+      expect((service as any).sanitizeParams(params)).toEqual(params);
+    });
+
+    it('rejects name-only semantic requests instead of degrading them', () => {
+      const service = createMissingArtifactResolutionService(mockLogger);
+      const params = {
+        identifiers: [{ name: 'MissingClass' }],
+        origin: {
+          uri: 'file:///test.cls',
+          requestKind: 'definition' as const,
+        },
+        mode: 'blocking' as const,
+      };
+
+      expect((service as any).sanitizeParams(params)).toBeNull();
     });
   });
 

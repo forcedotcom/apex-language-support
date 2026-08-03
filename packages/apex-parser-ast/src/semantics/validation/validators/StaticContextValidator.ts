@@ -16,6 +16,8 @@ import {
   TriggerUnitContext,
   BlockContext,
   PrimaryExpressionContext,
+  SuperPrimaryContext,
+  ThisPrimaryContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -49,7 +51,6 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import { extractReceiverExpressionBeforeDot } from '../utils/typeUtils';
 
 interface SuperThisLocation {
   isSuper: boolean;
@@ -66,11 +67,13 @@ class SuperThisListener extends BaseApexParserListener<void> {
     [];
 
   enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
-    const text = ctx.getText()?.toLowerCase().trim() ?? '';
-    const firstWord = text.split(/[.\s(]/)[0];
-    if (firstWord === 'super' || firstWord === 'this') {
+    const primary = ctx.primary();
+    if (
+      primary instanceof SuperPrimaryContext ||
+      primary instanceof ThisPrimaryContext
+    ) {
       this.locations.push({
-        isSuper: firstWord === 'super',
+        isSuper: primary instanceof SuperPrimaryContext,
         line: ctx.start.line,
         column: ctx.start.column,
       });
@@ -567,34 +570,6 @@ export const StaticContextValidator: Validator = {
               positionContainedIn(ref.location, r.location),
           );
           if (overlappingChain) continue;
-
-          // Fallback: use source to detect variable.field pattern (e.g. address.street)
-          if (options.sourceContent) {
-            const receiverExpr = extractReceiverExpressionBeforeDot(
-              ref,
-              options.sourceContent,
-            );
-            if (receiverExpr && !receiverExpr.includes('[')) {
-              const baseName = receiverExpr.trim().split(/[.[]/)[0];
-              const objectVar =
-                symbolTable.lookup(baseName, null) ??
-                allSymbols.find(
-                  (s) =>
-                    s.name === baseName &&
-                    (s.kind === SymbolKind.Variable ||
-                      s.kind === SymbolKind.Parameter ||
-                      s.kind === SymbolKind.Field),
-                );
-              if (
-                objectVar &&
-                (objectVar.kind === SymbolKind.Variable ||
-                  objectVar.kind === SymbolKind.Parameter ||
-                  objectVar.kind === SymbolKind.Field)
-              ) {
-                continue; // Instance receiver - variable.field
-              }
-            }
-          }
         }
 
         if (!ref.resolvedSymbolId) continue;

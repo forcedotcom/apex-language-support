@@ -38,7 +38,9 @@ const FILE_SIZE_LIMITS = {
  * Apex enforces maximum file sizes based on compilation unit type:
  * - Classes/Interfaces/Enums/Triggers: 1,000,000 characters
  * - Anonymous blocks: 32,000 characters
- * - Test anonymous blocks: 3,200,000 characters
+ *
+ * Test context is derived only from annotations recorded in the symbol table,
+ * never by scanning anonymous source text.
  *
  * This is a TIER 1 (IMMEDIATE) validation - fast, same-file only.
  * Requires source content to be provided in ValidationOptions.
@@ -92,7 +94,11 @@ export const SourceSizeValidator: Validator = {
 
       // Determine unit type from the first type symbol found
       let unitType: keyof typeof FILE_SIZE_LIMITS = 'class'; // Default
-      let isTestContext = false;
+      const isTestContext = allSymbols.some((symbol) =>
+        symbol.annotations?.some(
+          (annotation) => annotation.name.toLowerCase() === 'istest',
+        ),
+      );
 
       if (typeSymbols.length > 0) {
         const firstType = typeSymbols[0];
@@ -105,37 +111,25 @@ export const SourceSizeValidator: Validator = {
         } else {
           unitType = 'class';
         }
-
-        // Check if it's a test class (has @isTest annotation)
-        if (
-          firstType.kind === 'class' &&
-          firstType.annotations?.some(
-            (ann) => ann.name === 'isTest' || ann.name === 'IsTest',
-          )
-        ) {
-          isTestContext = true;
-        }
       } else {
         // No type symbols found - assume anonymous block
         unitType = 'anonymous';
-        // Check if source contains @isTest annotation
-        if (sourceContent.includes('@isTest')) {
-          isTestContext = true;
-        }
       }
 
       // Get the appropriate size limit
-      let sizeLimit: number = FILE_SIZE_LIMITS[unitType];
-      if (unitType === 'anonymous' && isTestContext) {
-        sizeLimit = FILE_SIZE_LIMITS.testAnonymous;
-      }
+      const sizeLimit: number =
+        unitType === 'anonymous' && isTestContext
+          ? FILE_SIZE_LIMITS.testAnonymous
+          : FILE_SIZE_LIMITS[unitType];
 
       // Validate file size using CompilationUnitValidator logic
+      // This comparison is transport-level accounting, not semantic inference.
+      // eslint-disable-next-line local/parser-owned-semantics
       if (sourceContent.length > sizeLimit) {
-        const preview = sourceContent.substring(0, 100);
+        const compilationUnitName = typeSymbols[0]?.name ?? 'anonymous block';
         const code = ErrorCodes.SCRIPT_TOO_LARGE;
         errors.push({
-          message: localizeTyped(code, preview),
+          message: localizeTyped(code, compilationUnitName),
           location: typeSymbols[0]?.location, // Use first type symbol location if available
           code,
         });

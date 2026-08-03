@@ -176,4 +176,44 @@ describe('ParameterizedTypeValidator', () => {
     expect(result.isValid).toBe(true);
     expect(result.errors.length).toBe(0);
   });
+
+  it('should retain malformed argument counts in nested parameterized types', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'NestedInvalidCount.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.IMMEDIATE },
+    );
+
+    const result = await runValidator(
+      ParameterizedTypeValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error) => error.code === ErrorCodes.INVALID_PARAMETERIZED_TYPE_COUNT,
+      ),
+    ).toBe(true);
+  });
+
+  it('should accept qualified types nested in parameterized types', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'QualifiedNestedParameterized.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.IMMEDIATE },
+    );
+
+    const result = await runValidator(
+      ParameterizedTypeValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toEqual([]);
+  });
 });

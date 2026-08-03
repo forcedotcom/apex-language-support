@@ -67,6 +67,21 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
   // this straight into structured clone (postMessage) throws DataCloneError.
   class NonCloneableTypeReference {
     name = 'MissingClass';
+    context = 'class-reference';
+    location = {
+      symbolRange: {
+        startLine: 0,
+        startColumn: 0,
+        endLine: 0,
+        endColumn: 12,
+      },
+      identifierRange: {
+        startLine: 0,
+        startColumn: 0,
+        endLine: 0,
+        endColumn: 12,
+      },
+    };
     resolve() {
       return this.name;
     }
@@ -76,6 +91,18 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
     identifiers: [
       {
         name: 'MissingClass',
+        provenance: {
+          sourceUri: 'file:///test.cls',
+          documentVersion: 1,
+          referenceRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 12,
+          },
+          referenceIdentity: 'class-ref|MissingClass|0|0|0|12',
+          parseCompleteness: 'complete',
+        },
         typeReference: new NonCloneableTypeReference(),
       } as any,
     ],

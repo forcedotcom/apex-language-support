@@ -1069,32 +1069,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       this.logger.debug(
         () =>
-          `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
-      );
-
-      try {
-        await this.artifactResolutionService.resolveInBackground({
-          identifiers: typesToLoad.map((name) => ({ name })),
-          origin: {
-            uri: contextFile,
-            requestKind: 'references',
-          },
-          mode: 'background',
-          timeoutMsHint: 2000,
-        });
-        this.logger.debug(
-          () =>
-            `Queued background artifact resolution for ${typesToLoad.length} types: ${typesToLoad.join(', ')}`,
-        );
-      } catch (error) {
-        this.logger.debug(
-          () =>
-            `Error loading artifacts for types [${typesToLoad.join(', ')}]: ${error}`,
-        );
-      }
-
-      this.logger.debug(
-        () => 'Artifact loading callback completed in background mode',
+          `Skipping validator name-only artifact request for ${typesToLoad.length} types: ${typesToLoad.join(', ')}`,
       );
       return [];
     };

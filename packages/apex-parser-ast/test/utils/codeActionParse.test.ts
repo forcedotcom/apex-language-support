@@ -11,6 +11,7 @@ import {
   findConstantExtractionFromExpression,
   findExpressionForCodeAction,
   findMethodCallForCodeAction,
+  nextExtractNameForCodeAction,
   parseForCodeActions,
 } from '../../src/utils/codeActionParse';
 import { LspRange } from '../../src/utils/expressionRangeFinder';
@@ -167,7 +168,23 @@ describe('parseForCodeActions', () => {
 
     expect(call).not.toBeNull();
     expect(call!.methodName).toBe('compute');
-    expect(call!.receiverText).toBeUndefined();
+    expect(call!.receiver).toBeUndefined();
     expect(call!.returnContext).toBe('variable-initializer');
+  });
+
+  it('chooses extraction names from parser-owned declarations', () => {
+    const source = [
+      'public class Sample {',
+      '  public void run() {',
+      '    Integer v1 = 1;',
+      '    Integer value = 2;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const context = parseForCodeActions(source, uri);
+
+    expect(nextExtractNameForCodeAction(context)).toBe('v2');
+    expect(nextExtractNameForCodeAction(null)).toBeNull();
   });
 });
