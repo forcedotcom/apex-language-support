@@ -10,10 +10,8 @@ import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import type * as Stream from 'effect/Stream';
-import * as vscode from 'vscode';
+import { getSalesforceServicesExtension } from './salesforce-services-extension';
 
-export const SALESFORCE_SERVICES_EXTENSION_ID =
-  'salesforce.salesforcedx-vscode-services';
 export const MAX_CONCURRENT_ORG_ARTIFACT_SEARCHES = 4;
 
 export type OrgArtifactRequest =
@@ -132,9 +130,7 @@ export const vscodeServicesApiProvider: ServicesApiProvider = {
   getServicesApi: () =>
     Effect.gen(function* () {
       const extension = yield* Effect.sync(() =>
-        vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(
-          SALESFORCE_SERVICES_EXTENSION_ID,
-        ),
+        getSalesforceServicesExtension(),
       );
       if (!extension) {
         return yield* Effect.fail(

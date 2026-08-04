@@ -66,12 +66,18 @@ function createDependencies(
     const result = resolve(request);
     return Effect.isEffect(result) ? result : Effect.succeed(result);
   });
+  const isServicesAvailable = jest.fn(() => true);
+  const notifyServicesUnavailable = jest.fn().mockResolvedValue(undefined);
   const dependencies: MissingArtifactHandlerDependencies = {
     orgAdapter: { search },
     sObjectAdapter: new OrgSObjectAdapter(fileSystem),
     fileSystem,
     workspaceComponentAdapter: {
       resolve: jest.fn().mockResolvedValue(new Map()),
+    },
+    servicesAvailability: {
+      isAvailable: isServicesAvailable,
+      notifyUnavailable: notifyServicesUnavailable,
     },
     recordTelemetry: (event) => telemetry.push(event),
   };
@@ -84,6 +90,8 @@ function createDependencies(
       .resolve as jest.MockedFunction<
       MissingArtifactHandlerDependencies['workspaceComponentAdapter']['resolve']
     >,
+    isServicesAvailable,
+    notifyServicesUnavailable,
   };
 }
 
@@ -601,5 +609,83 @@ describe('handleFindMissingArtifact', () => {
       ),
     ).resolves.toEqual({ notFound: true });
     expect(harness.search).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start Services-backed lookups when Services is unavailable', async () => {
+    const harness = createDependencies(() => ({
+      kind: 'not-found',
+      artifactKind: 'sobject',
+      name: 'Property__c',
+    }));
+    harness.isServicesAvailable.mockReturnValue(false);
+
+    await expect(
+      handleFindMissingArtifact(
+        params([{ name: 'Property__c', identifierType: 'sobject' }]),
+        context,
+        harness.dependencies,
+      ),
+    ).resolves.toEqual({ notFound: true });
+
+    expect(harness.workspaceResolve).not.toHaveBeenCalled();
+    expect(harness.search).not.toHaveBeenCalled();
+    expect(harness.notifyServicesUnavailable).toHaveBeenCalledWith([
+      'Property__c',
+    ]);
+    expect(harness.telemetry).toContainEqual({
+      type: 'org_artifact_resolution',
+      outcome: 'services-extension-unavailable',
+      artifactCount: 1,
+      identifierTypes: 'sobject',
+    });
+  });
+
+  it('does not show an availability prompt for background resolution', async () => {
+    const harness = createDependencies(() => ({
+      kind: 'not-found',
+      artifactKind: 'apex-class',
+      name: 'MissingClass',
+    }));
+    harness.isServicesAvailable.mockReturnValue(false);
+
+    await expect(
+      handleFindMissingArtifact(
+        params(
+          [{ name: 'MissingClass', identifierType: 'apex-class' }],
+          'background',
+        ),
+        context,
+        harness.dependencies,
+      ),
+    ).resolves.toEqual({ notFound: true });
+
+    expect(harness.notifyServicesUnavailable).not.toHaveBeenCalled();
+    expect(harness.workspaceResolve).not.toHaveBeenCalled();
+    expect(harness.search).not.toHaveBeenCalled();
+  });
+
+  it('offers the targeted Services extension view for a blocking request', async () => {
+    jest.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
+    jest
+      .mocked(vscode.window.showWarningMessage)
+      .mockResolvedValue('Show Salesforce Services');
+
+    await expect(
+      handleFindMissingArtifact(
+        params([{ name: 'Property__c', identifierType: 'sobject' }]),
+        context,
+      ),
+    ).resolves.toEqual({ notFound: true });
+
+    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Salesforce Services is required to resolve Property__c',
+      ),
+      'Show Salesforce Services',
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      'workbench.extensions.search',
+      '@id:salesforce.salesforcedx-vscode-services',
+    );
   });
 });

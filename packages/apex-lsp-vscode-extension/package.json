@@ -25,9 +25,6 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "extensionDependencies": [
-    "salesforce.salesforcedx-vscode-services"
-  ],
   "contributes": {
     "languages": [
       {
