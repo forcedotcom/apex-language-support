@@ -76,6 +76,15 @@ function canFirstChainNodeNameType(reference: SymbolReference): boolean {
   );
 }
 
+function isReferenceableTypeSymbol(symbol: ApexSymbol): boolean {
+  return (
+    symbol.kind === SymbolKind.Class ||
+    symbol.kind === SymbolKind.Interface ||
+    symbol.kind === SymbolKind.Enum ||
+    symbol.kind === SymbolKind.SObject
+  );
+}
+
 // ---------------------------------------------------------------------------
 // resolveChainedSymbolReference
 // ---------------------------------------------------------------------------
@@ -3568,7 +3577,8 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.NAMESPACE ||
       typeReference.context === ReferenceContext.RETURN_TYPE ||
       typeReference.context === ReferenceContext.INHERITANCE ||
-      typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION;
+      typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+      typeReference.context === ReferenceContext.SOQL_FROM_TYPE;
     if (canNameType) {
       const builtInSymbol =
         await self.resolveStandardLibraryType(typeReference);
@@ -3630,12 +3640,7 @@ export async function resolveSymbolReferenceToSymbol(
     let variableUsageLooksLikeClass = false;
     if (typeReference.context === ReferenceContext.VARIABLE_USAGE) {
       const candidates = await self.findSymbolByName(typeReference.name);
-      const hasClassMatch = candidates.some(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum,
-      );
+      const hasClassMatch = candidates.some(isReferenceableTypeSymbol);
       // Some legacy listener paths emit a genuine type token as
       // VARIABLE_USAGE. Preserve that compatibility only when the graph
       // already proves a class/interface with this name exists. Treating every
@@ -3652,17 +3657,15 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
       typeReference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
       typeReference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+      typeReference.context === ReferenceContext.INHERITANCE ||
+      typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+      typeReference.context === ReferenceContext.SOQL_FROM_TYPE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);
     if (isClassReferenceContext) {
       const candidates = await self.findSymbolByName(typeReference.name);
 
-      let classCandidates = candidates.filter(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum,
-      );
+      let classCandidates = candidates.filter(isReferenceableTypeSymbol);
 
       if (classCandidates.length === 0) {
         const sourceSymbolTable =
@@ -3671,10 +3674,7 @@ export async function resolveSymbolReferenceToSymbol(
           const allSymbols = sourceSymbolTable.getAllSymbols();
           classCandidates = allSymbols.filter(
             (s) =>
-              s.name === typeReference.name &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum),
+              s.name === typeReference.name && isReferenceableTypeSymbol(s),
           );
         }
 

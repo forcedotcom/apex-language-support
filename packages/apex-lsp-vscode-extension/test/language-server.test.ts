@@ -30,7 +30,10 @@ jest.mock('vscode-languageclient/node', () => ({
 }));
 
 import * as vscode from 'vscode';
-import { detectEnvironment } from '../src/language-server';
+import {
+  createWebDocumentSelector,
+  detectEnvironment,
+} from '../src/language-server';
 
 describe('detectEnvironment', () => {
   const originalUiKind = vscode.env.uiKind;
@@ -67,5 +70,28 @@ describe('detectEnvironment', () => {
       (vscode.env as { uiKind: number }).uiKind = vscode.UIKind.Desktop;
       expect(detectEnvironment()).toBe('desktop');
     });
+  });
+});
+
+describe('createWebDocumentSelector', () => {
+  it('adds only the temporary Apex class and trigger documents', () => {
+    const selectors = createWebDocumentSelector({});
+    const orgSelectors = selectors.filter(
+      (selector): selector is vscode.DocumentFilter =>
+        typeof selector !== 'string' && selector.scheme === 'apex-org-artifact',
+    );
+
+    expect(orgSelectors).toEqual([
+      {
+        scheme: 'apex-org-artifact',
+        language: 'apex',
+        pattern: '**/*.cls',
+      },
+      {
+        scheme: 'apex-org-artifact',
+        language: 'apex',
+        pattern: '**/*.trigger',
+      },
+    ]);
   });
 });

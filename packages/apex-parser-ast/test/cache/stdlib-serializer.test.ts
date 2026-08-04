@@ -117,6 +117,36 @@ describe('StandardLibrarySerializer', () => {
       expect(proto.namespaces[0].types[0].name).toBe('TestClass');
     });
 
+    it('does not serialize metadata-native sObjects as stdlib classes', () => {
+      const symbolTable = new SymbolTable();
+      symbolTable.setFileUri('apex-internal-sobject:/Account');
+      symbolTable.addSymbol(
+        SymbolFactory.createFullSymbol(
+          'Account',
+          SymbolKind.SObject,
+          createLocation(),
+          'apex-internal-sobject:/Account',
+          createModifiers(),
+          null,
+        ),
+      );
+
+      const binary = serializer.serialize(
+        [
+          {
+            name: 'Schema',
+            symbolTables: new Map([
+              ['apex-internal-sobject:/Account', symbolTable],
+            ]),
+          },
+        ],
+        'checksum',
+      );
+      const proto = StandardLibrary.fromBinary(binary);
+
+      expect(proto.namespaces[0].types).toEqual([]);
+    });
+
     it('serializes multiple namespaces', () => {
       const systemTable = new SymbolTable();
       systemTable.setFileUri('apex://stdlib/System/String');

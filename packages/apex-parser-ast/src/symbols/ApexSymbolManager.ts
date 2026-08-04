@@ -3320,42 +3320,96 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         candidate,
       );
     }
-    return (
-      references
-        .filter((reference) => {
-          const semantic = reference.semanticContext;
-          const memberAccess = semantic?.memberAccess;
-          if (!memberAccess?.incomplete) {
-            return false;
-          }
-          // During parser recovery the receiver and the refined member can be
-          // emitted by different grammar/error paths. The receiver owns the
-          // incomplete member-access fact while the member is still a precise
-          // FIELD_ACCESS reference immediately following the dot. Join those
-          // parser-owned records structurally so completion remains active for
-          // both `receiver.` and `receiver.prefix`.
-          const refinedMemberRange =
-            memberAccess.memberRange ??
-            fieldAccessByStart.get(
-              `${memberAccess.operatorRange.endLine}:${memberAccess.operatorRange.endColumn}`,
-            )?.location.identifierRange;
-          const endColumn =
-            refinedMemberRange?.endColumn ??
-            memberAccess.operatorRange.endColumn;
-          return (
-            memberAccess.operatorRange.startLine === line &&
-            position.character >= memberAccess.operatorRange.endColumn &&
-            position.character <= endColumn
-          );
-        })
-        .sort(
-          (left, right) =>
-            (right.semanticContext?.memberAccess?.operatorRange.startColumn ??
-              0) -
-            (left.semanticContext?.memberAccess?.operatorRange.startColumn ??
-              0),
-        )[0] ?? null
-    );
+    const incomplete = references
+      .filter((reference) => {
+        const semantic = reference.semanticContext;
+        const memberAccess = semantic?.memberAccess;
+        if (!memberAccess?.incomplete) {
+          return false;
+        }
+        // During parser recovery the receiver and the refined member can be
+        // emitted by different grammar/error paths. The receiver owns the
+        // incomplete member-access fact while the member is still a precise
+        // FIELD_ACCESS reference immediately following the dot. Join those
+        // parser-owned records structurally so completion remains active for
+        // both `receiver.` and `receiver.prefix`.
+        const refinedMemberRange =
+          memberAccess.memberRange ??
+          fieldAccessByStart.get(
+            `${memberAccess.operatorRange.endLine}:${memberAccess.operatorRange.endColumn}`,
+          )?.location.identifierRange;
+        const endColumn =
+          refinedMemberRange?.endColumn ?? memberAccess.operatorRange.endColumn;
+        return (
+          memberAccess.operatorRange.startLine === line &&
+          position.character >= memberAccess.operatorRange.endColumn &&
+          position.character <= endColumn
+        );
+      })
+      .sort(
+        (left, right) =>
+          (right.semanticContext?.memberAccess?.operatorRange.startColumn ??
+            0) -
+          (left.semanticContext?.memberAccess?.operatorRange.startColumn ?? 0),
+      )[0];
+    if (incomplete) {
+      return incomplete;
+    }
+
+    // Once a member prefix is accepted by the grammar (`receiver.Bed`), it is
+    // no longer represented by an error-recovery/incomplete marker. The
+    // parser-owned chain still records both the refined member and its receiver,
+    // so use that structural relationship to keep member completion active.
+    const refinedReceivers = references
+      .filter(isChainedSymbolReference)
+      .flatMap((reference) => {
+        const nodes = reference.chainNodes ?? [];
+        if (nodes.length < 2) return [];
+        const member = nodes[nodes.length - 1];
+        const receiver = nodes[nodes.length - 2];
+        const range = member.location.identifierRange;
+        const receiverRange = receiver.location.identifierRange;
+        // Error recovery can attach the next statement's leading identifier
+        // as the member of a trailing-dot expression (`receiver.` followed by
+        // `String value` on the next line). The chained parser references still
+        // preserve the receiver boundary. Treat the cursor immediately after
+        // that receiver as incomplete member access rather than accepting the
+        // cross-line recovery member.
+        const recoveryMemberStartsLater = range.startLine > line;
+        const recoveryMemberCollapsedOntoReceiver =
+          range.startLine === receiverRange.startLine &&
+          range.startColumn === receiverRange.startColumn &&
+          range.endLine === receiverRange.endLine &&
+          range.endColumn === receiverRange.endColumn;
+        if (
+          receiverRange.endLine === line &&
+          (recoveryMemberStartsLater || recoveryMemberCollapsedOntoReceiver) &&
+          position.character >= receiverRange.endColumn &&
+          position.character <= receiverRange.endColumn + 1
+        ) {
+          return [
+            {
+              receiver,
+              memberStartColumn: receiverRange.endColumn,
+            },
+          ];
+        }
+        if (
+          range.startLine !== line ||
+          position.character < range.startColumn ||
+          position.character > range.endColumn
+        ) {
+          return [];
+        }
+        return [
+          {
+            receiver,
+            memberStartColumn: range.startColumn,
+          },
+        ];
+      })
+      .sort((left, right) => right.memberStartColumn - left.memberStartColumn);
+    return refinedReceivers[0]?.receiver ?? null;
   }
 
   async getInvocationAtPosition(
@@ -4393,7 +4447,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 (s) =>
                   s.kind === SymbolKind.Class ||
                   s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum,
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.SObject,
               ) || null;
           } else {
             // For METHOD_CALL and FIELD_ACCESS: use Jorje-style resolution for qualifier

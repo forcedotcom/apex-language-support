@@ -86,6 +86,54 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     expect(count).toBe(0);
   });
 
+  it('refreshes an incomplete local sObject placeholder from the data-owner', async () => {
+    const placeholderUri = 'apex-sobject://graph/property__c';
+    const ingested: string[] = [];
+    const svc = {
+      symbolManager: {
+        findSymbolByName: jest.fn(async () => [
+          { name: 'Property__c', fileUri: placeholderUri },
+        ]),
+        getSymbolTableForFile: jest.fn(async () => ({
+          getMetadata: () => ({ parseCompleteness: 'incomplete' }),
+        })),
+        addSymbolTable: (_table: unknown, fileUri: string) =>
+          Effect.sync(() => {
+            ingested.push(fileUri);
+          }),
+      },
+    } as never;
+    const queryByName = jest.fn(async () => ({
+      matches: [{ name: 'Property__c', fileUri: placeholderUri }],
+      entries: {
+        [placeholderUri]: {
+          symbols: [],
+          references: [],
+          hierarchicalReferences: [],
+          metadata: {
+            fileUri: placeholderUri,
+            parseCompleteness: 'complete',
+          },
+          fileUri: placeholderUri,
+        },
+      },
+    }));
+
+    const count = await resolveMissingNamesViaDataOwner(
+      svc,
+      ['Property__c'],
+      queryByName,
+    );
+
+    expect(queryByName).toHaveBeenCalledWith(
+      'dataOwner:QuerySymbolByName',
+      { names: ['Property__c'] },
+      true,
+    );
+    expect(count).toBe(1);
+    expect(ingested).toEqual([placeholderUri]);
+  });
+
   it('sends all unresolved names in ONE batched query, filtering locally-known names', async () => {
     // 'Known' resolves locally; 'MissA'/'MissB' do not (and 'MissA' is
     // duplicated to prove de-duplication).

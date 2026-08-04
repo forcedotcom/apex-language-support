@@ -50,6 +50,10 @@ export * from './types/classInfo';
 export * from './types/ISymbolManager';
 export * from './types/graph';
 
+// Export canonical sObject name classification
+export * from './sobjects/SObjectRegistry';
+export * from './sobjects/SObjectSymbolTableComposer';
+
 // Export namespace resolution types and components
 export * from './namespace/NamespaceUtils';
 export * from './utils/BuiltInTypeTables';

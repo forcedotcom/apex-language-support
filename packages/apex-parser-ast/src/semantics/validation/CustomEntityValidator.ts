@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { ValidationScope, ValidationResult } from './ValidationResult';
+import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 /**
  * Information about a custom entity type
@@ -69,16 +70,6 @@ export interface CustomEntityVisibilityInfo {
  * Validates custom entity operations according to Apex semantic rules
  */
 export class CustomEntityValidator {
-  /**
-   * Valid custom entity type suffixes
-   */
-  private static readonly VALID_CUSTOM_ENTITY_SUFFIXES = new Set([
-    '__c', // Custom SObject
-    '__kav', // Knowledge Article Version
-    '__ka', // Knowledge Article
-    '__x', // External Object
-  ]);
-
   /**
    * Valid DML operations
    */
@@ -264,35 +255,7 @@ export class CustomEntityValidator {
       return false;
     }
 
-    // Must have a valid suffix
-    const hasValidSuffix = Array.from(this.VALID_CUSTOM_ENTITY_SUFFIXES).some(
-      (suffix) => name.endsWith(suffix),
-    );
-
-    if (!hasValidSuffix) {
-      return false;
-    }
-
-    // Must have content before the suffix
-    const suffix = Array.from(this.VALID_CUSTOM_ENTITY_SUFFIXES).find((s) =>
-      name.endsWith(s),
-    );
-    if (suffix && name.length <= suffix.length) {
-      return false;
-    }
-
-    // Must start with a letter
-    const nameWithoutSuffix = suffix ? name.slice(0, -suffix.length) : name;
-    if (!/^[A-Za-z]/.test(nameWithoutSuffix)) {
-      return false;
-    }
-
-    // Must only contain letters, numbers, and underscores
-    if (!/^[A-Za-z0-9_]+$/.test(nameWithoutSuffix)) {
-      return false;
-    }
-
-    return true;
+    return SObjectRegistry.isCustomSObjectName(name);
   }
 
   /**
@@ -304,28 +267,7 @@ export class CustomEntityValidator {
       return false;
     }
 
-    // Custom fields must end with __c
-    if (!name.endsWith('__c')) {
-      return false;
-    }
-
-    // Must have content before the suffix
-    if (name.length <= 3) {
-      return false;
-    }
-
-    // Must start with a letter
-    const nameWithoutSuffix = name.slice(0, -3);
-    if (!/^[A-Za-z]/.test(nameWithoutSuffix)) {
-      return false;
-    }
-
-    // Must only contain letters, numbers, and underscores
-    if (!/^[A-Za-z0-9_]+$/.test(nameWithoutSuffix)) {
-      return false;
-    }
-
-    return true;
+    return SObjectRegistry.isCustomFieldName(name);
   }
 
   /**

@@ -19,6 +19,10 @@ import {
   runValidator,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
+import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('VariableResolutionValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -45,6 +49,57 @@ describe('VariableResolutionValidator', () => {
   });
 
   describe('TIER 2: Qualified field access type resolution', () => {
+    it('resolves field access through native sObject children', async () => {
+      const ownerUri = ownerUriForSObject('Property__c');
+      const propertyTable = composeSObjectSymbolTable(
+        {
+          name: 'Property__c',
+          custom: true,
+          definitionTarget: { uri: 'org://Property__c' },
+          fields: [
+            {
+              name: 'foo__c',
+              type: 'string',
+              definitionTarget: { uri: 'org://Property__c/foo__c' },
+            },
+          ],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(propertyTable, ownerUri, 1, false),
+      );
+
+      const sourceCode = `
+        public class PropertyConsumer {
+          public String read(Property__c property) {
+            return property.foo__c;
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/PropertyConsumer.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error) => error.code === ErrorCodes.FIELD_DOES_NOT_EXIST,
+        ),
+      ).toEqual([]);
+    });
+
     it('should validate qualified field access with correct object types', async () => {
       // First compile the class with fields
       await compileFixtureWithOptions(

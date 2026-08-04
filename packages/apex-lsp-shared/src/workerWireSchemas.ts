@@ -22,6 +22,7 @@
  */
 
 import { Schema } from 'effect';
+import { MissingArtifactPayloadSchema } from './wireSchemas';
 
 // ---------------------------------------------------------------------------
 // Worker roles
@@ -921,6 +922,34 @@ export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
 >;
 
 // ---------------------------------------------------------------------------
+// InstallSObjectArtifacts — coordinator commits validated org metadata to the
+// authoritative data-owner graph.
+// ---------------------------------------------------------------------------
+
+export class InstallSObjectArtifacts extends Schema.TaggedRequest<InstallSObjectArtifacts>()(
+  'InstallSObjectArtifacts',
+  {
+    success: Schema.Struct({
+      installed: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('InstallSObjectArtifactsError'),
+      message: Schema.String,
+    }),
+    payload: {
+      artifacts: Schema.Array(MissingArtifactPayloadSchema),
+      originUri: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+export type InstallSObjectArtifactsSuccess = Schema.Schema.Type<
+  (typeof InstallSObjectArtifacts)['success']
+>;
+
+// ---------------------------------------------------------------------------
 // ResolveDepUris — enrichment worker asks data-owner to resolve class names
 // to file URIs and return the corresponding symbol tables in one round trip
 // ---------------------------------------------------------------------------
@@ -1168,6 +1197,7 @@ export const DataOwnerTags = [
   'QuerySymbolSubset',
   'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
+  'InstallSObjectArtifacts',
   'ResolveDepUris',
   'ResolveDependentUris',
   'FindOccurrenceCandidates',
@@ -1250,6 +1280,7 @@ export type DataOwnerRequest =
   | QuerySymbolSubset
   | AwaitSymbolReadiness
   | UpdateSymbolSubset
+  | InstallSObjectArtifacts
   | ResolveDepUris
   | ResolveDependentUris
   | FindOccurrenceCandidates

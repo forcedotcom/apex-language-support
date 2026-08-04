@@ -48,9 +48,14 @@ import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssis
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
 import {
+  dispatchProcessOnChangeDocument,
+  dispatchProcessOnOpenDocument,
+  LSPQueueManager,
+} from '@salesforce/apex-lsp-compliant-services';
+import {
   DispatchHover,
-  DispatchDefinition,
   DispatchCompletion,
+  DispatchDefinition,
   DispatchReferences,
   DispatchImplementation,
   DispatchCodeAction,
@@ -60,6 +65,7 @@ import {
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
@@ -145,6 +151,12 @@ function wireProductionMediator(
       connection: stubConnection,
       logger,
       getResourceLoaderProxy: () => resourceLoaderProxy,
+      installSObjectArtifacts: async (artifacts, originUri) => {
+        await dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts,
+          originUri,
+        });
+      },
     }),
     logger,
     (method, params) => dispatcher.queryDataOwner(method, params),
@@ -173,8 +185,8 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
   const runFeature = (
     makeRequest: () =>
       | DispatchHover
-      | DispatchDefinition
       | DispatchCompletion
+      | DispatchDefinition
       | DispatchReferences
       | DispatchImplementation
       | DispatchCodeAction,
@@ -281,6 +293,976 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     // hanging on an unsettled assistance call.
     expect(response).toBeDefined();
     expect('result' in response).toBe(true);
+  }, 120_000);
+
+  it('loads an sObject receiver dependency for member completion through the worker topology', async () => {
+    const completionUri = 'file:///test/PropertyCompletion.cls';
+    const completionSource = [
+      'public class PropertyCompletion {',
+      '  public void run() {',
+      '    Property__c property = new Property__c();',
+      '    property.Bed',
+      '    String contentDocumentLinkId = FileUtilities.createFile();',
+      '    FileUtilities.create',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 3,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => completionSource,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 3);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: completionUri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => completionSource,
+          },
+          textDocument: { uri: completionUri },
+          text: completionSource,
+        }),
+      );
+      yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts: [
+            {
+              identifierType: 'sobject' as const,
+              name: 'Property__c',
+              describe: {
+                name: 'Property__c',
+                custom: true,
+                fields: [
+                  {
+                    name: 'Beds__c',
+                    type: 'double',
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+                    },
+                  },
+                ],
+                definitionTarget: {
+                  uri: 'file:///objects/Property__c/Property__c.object-meta.xml',
+                },
+              },
+            },
+          ],
+          originUri: completionUri,
+        }),
+      );
+
+      const hoverSource = completionSource.replace(
+        'property.Bed',
+        'property.Beds__c',
+      );
+      const qualifierHover = yield* topology.requestPool.executeEffect(
+        new DispatchHover({
+          textDocument: { uri: completionUri },
+          position: { line: 3, character: 9 },
+          content: hoverSource,
+        }),
+      );
+      const fieldHover = yield* topology.requestPool.executeEffect(
+        new DispatchHover({
+          textDocument: { uri: completionUri },
+          position: { line: 3, character: 17 },
+          content: hoverSource,
+        }),
+      );
+      const completion = yield* topology.requestPool.executeEffect(
+        new DispatchCompletion({
+          textDocument: { uri: completionUri },
+          position: { line: 3, character: 16 },
+          content: completionSource,
+          context: { triggerKind: 1 },
+        }),
+      );
+      return { completion, qualifierHover, fieldHover };
+    }).pipe(Effect.scoped);
+
+    const response = (await Effect.runPromise(program)) as {
+      completion: { result: { items: Array<{ label?: string }> } };
+      qualifierHover: { result: unknown };
+      fieldHover: { result: unknown };
+    };
+    expect(
+      response.completion.result.items.map((item) => item.label),
+    ).toContain('Beds__c');
+    expect(JSON.stringify(response.qualifierHover.result)).toContain(
+      'Property__c',
+    );
+    expect(JSON.stringify(response.qualifierHover.result)).not.toContain(
+      'Searching for symbol',
+    );
+    expect(JSON.stringify(response.fieldHover.result)).toContain(
+      'Decimal Property__c.Beds__c',
+    );
+    expect(JSON.stringify(response.fieldHover.result)).not.toContain(
+      'Searching for symbol',
+    );
+  }, 120_000);
+
+  it('preserves sObject completion, hover, and definition across successive document changes', async () => {
+    const uri = 'file:///test/PropertyLifecycle.cls';
+    const openSource = [
+      'public class PropertyLifecycle {',
+      '  public void run() {',
+      '    Property__c property = new Property__c();',
+      '    String recordId = property.Id;',
+      "    String marker = 'after';",
+      '    FileUtilities.createFile()',
+      '  }',
+      '  public void second() {',
+      '    Property__c property = new Property__c();',
+      '    String secondRecordId = property.Id;',
+      '  }',
+      '  public void third() {',
+      '    Property__c property = new Property__c();',
+      '    String thirdRecordId = property.Id;',
+      '  }',
+      '}',
+    ].join('\n');
+    const completionSource = openSource.replace(
+      "    String marker = 'after';",
+      ['    property.Bed', "    String marker = 'after';"].join('\n'),
+    );
+    const resolvedSource = completionSource.replace(
+      'property.Bed',
+      'property.Beds__c',
+    );
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 3,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      let currentSource = openSource;
+      let currentVersion = 1;
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => currentSource,
+        () => currentVersion,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 3);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => openSource,
+          },
+          textDocument: { uri },
+          text: openSource,
+        }),
+      );
+      yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts: [
+            {
+              identifierType: 'sobject' as const,
+              name: 'Property__c',
+              describe: {
+                name: 'Property__c',
+                custom: true,
+                fields: [
+                  {
+                    name: 'Id',
+                    type: 'id',
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c/fields/Id.field-meta.xml',
+                    },
+                  },
+                  {
+                    name: 'Beds__c',
+                    type: 'double',
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+                    },
+                  },
+                ],
+                definitionTarget: {
+                  uri: 'file:///objects/Property__c/Property__c.object-meta.xml',
+                },
+              },
+            },
+          ],
+          originUri: uri,
+        }),
+      );
+
+      currentSource = completionSource;
+      currentVersion = 2;
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 2,
+            getText: () => completionSource,
+          },
+          textDocument: { uri, version: 2 },
+        }),
+      );
+      const completion = yield* Effect.promise(() =>
+        dispatcher.dispatch('completion', {
+          textDocument: { uri },
+          position: { line: 4, character: 16 },
+          context: { triggerKind: 1 },
+        }),
+      );
+
+      currentSource = resolvedSource;
+      currentVersion = 3;
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 3,
+            getText: () => resolvedSource,
+          },
+          textDocument: { uri, version: 3 },
+        }),
+      );
+      const hover = (character: number) =>
+        Effect.promise(() =>
+          dispatcher.dispatch('hover', {
+            textDocument: { uri },
+            position: { line: 4, character },
+          }),
+        );
+      const definition = (character: number) =>
+        Effect.promise(() =>
+          dispatcher.dispatch('definition', {
+            textDocument: { uri },
+            position: { line: 4, character },
+          }),
+        );
+
+      const settled = {
+        qualifierHover: yield* hover(7),
+        fieldHover: yield* hover(17),
+        qualifierDefinition: yield* definition(7),
+        fieldDefinition: yield* definition(17),
+      };
+
+      // Remove the member expression and let that version settle so no worker
+      // can satisfy the next requests from a table that already contains it.
+      currentSource = openSource;
+      currentVersion = 4;
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 4,
+            getText: () => openSource,
+          },
+          textDocument: { uri, version: 4 },
+        }),
+      );
+
+      // Re-add the expression, but deliberately do not await the data-owner
+      // compilation. Hover and definition must self-load the live version-5
+      // text while its documentChange compile/write-back is still in flight.
+      currentSource = resolvedSource;
+      currentVersion = 5;
+      const changeInFlight = dispatcher.dispatch('documentChange', {
+        document: {
+          uri,
+          languageId: 'apex',
+          version: 5,
+          getText: () => resolvedSource,
+        },
+        textDocument: { uri, version: 5 },
+      });
+      const concurrent = yield* Effect.all(
+        {
+          qualifierHover: hover(7),
+          fieldHover: hover(17),
+          qualifierDefinition: definition(7),
+          fieldDefinition: definition(17),
+        },
+        { concurrency: 'unbounded' },
+      );
+      yield* Effect.promise(() => changeInFlight);
+
+      return {
+        completion,
+        settled,
+        concurrent,
+      };
+    }).pipe(Effect.scoped);
+
+    const result = await Effect.runPromise(program);
+    expect(
+      (result.completion as { items: Array<{ label?: string }> }).items.map(
+        (item) => item.label,
+      ),
+    ).toContain('Beds__c');
+    for (const phase of [result.settled, result.concurrent]) {
+      expect(JSON.stringify(phase.qualifierHover)).toContain('Property__c');
+      expect(JSON.stringify(phase.qualifierHover)).not.toContain(
+        'Searching for symbol',
+      );
+      expect(JSON.stringify(phase.fieldHover)).toContain(
+        'Decimal Property__c.Beds__c',
+      );
+      expect(JSON.stringify(phase.fieldHover)).not.toContain(
+        'Searching for symbol',
+      );
+      expect(phase.qualifierDefinition).toEqual([
+        expect.objectContaining({ uri }),
+      ]);
+      expect(phase.fieldDefinition).toEqual([
+        expect.objectContaining({
+          uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+        }),
+      ]);
+    }
+  }, 120_000);
+
+  it('resolves an sObject member identically when present at open or added by didChange', async () => {
+    const openUri = 'file:///test/PropertyPresentAtOpen.cls';
+    const changedUri = 'file:///test/PropertyAddedByChange.cls';
+    const source = (className: string, includeMember: boolean) =>
+      [
+        `public class ${className} {`,
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        ...(includeMember ? ['    property.Beds__c;'] : []),
+        '  }',
+        '}',
+      ].join('\n');
+    const openFinalSource = source('PropertyPresentAtOpen', true);
+    const changedInitialSource = source('PropertyAddedByChange', false);
+    const changedFinalSource = source('PropertyAddedByChange', true);
+    const sources: Record<string, string> = {
+      [openUri]: openFinalSource,
+      [changedUri]: changedInitialSource,
+    };
+    const versions: Record<string, number> = {
+      [openUri]: 1,
+      [changedUri]: 1,
+    };
+
+    type FeatureSnapshot = {
+      qualifierHover: unknown;
+      fieldHover: unknown;
+      qualifierDefinition: unknown;
+      fieldDefinition: unknown;
+    };
+
+    const assertResolved = (
+      snapshots: FeatureSnapshot[],
+      expectedLocalUri: string,
+    ) => {
+      expect(snapshots).toHaveLength(6);
+      for (const snapshot of snapshots) {
+        const qualifierHover = JSON.stringify(snapshot.qualifierHover);
+        const fieldHover = JSON.stringify(snapshot.fieldHover);
+        expect(qualifierHover).toContain('Property__c');
+        expect(qualifierHover).not.toContain('Searching for symbol');
+        expect(fieldHover).toContain('Decimal Property__c.Beds__c');
+        expect(fieldHover).not.toContain('Searching for symbol');
+        expect(snapshot.qualifierDefinition).toEqual([
+          expect.objectContaining({ uri: expectedLocalUri }),
+        ]);
+        expect(snapshot.fieldDefinition).toEqual([
+          expect.objectContaining({
+            uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+          }),
+        ]);
+      }
+    };
+
+    let queueManager: LSPQueueManager | undefined;
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 3,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        serverMode: 'development',
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => sources[uri],
+        (uri) => versions[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 3);
+
+      queueManager = LSPQueueManager.getInstance();
+      queueManager.setWorkerDispatcher(dispatcher);
+
+      yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts: [
+            {
+              identifierType: 'sobject' as const,
+              name: 'Property__c',
+              describe: {
+                name: 'Property__c',
+                custom: true,
+                fields: [
+                  {
+                    name: 'Id',
+                    type: 'id',
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c/fields/Id.field-meta.xml',
+                    },
+                  },
+                  {
+                    name: 'Beds__c',
+                    type: 'double',
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+                    },
+                  },
+                ],
+                definitionTarget: {
+                  uri: 'file:///objects/Property__c/Property__c.object-meta.xml',
+                },
+              },
+            },
+          ],
+          originUri: changedUri,
+        }),
+      );
+
+      const openDocument = TextDocument.create(
+        openUri,
+        'apex',
+        1,
+        openFinalSource,
+      );
+      const changedInitialDocument = TextDocument.create(
+        changedUri,
+        'apex',
+        1,
+        changedInitialSource,
+      );
+      yield* Effect.promise(() =>
+        Promise.all([
+          dispatchProcessOnOpenDocument({ document: openDocument }),
+          dispatchProcessOnOpenDocument({ document: changedInitialDocument }),
+        ]).then(() => undefined),
+      );
+
+      const capture = (uri: string): Promise<FeatureSnapshot[]> =>
+        Promise.all(
+          Array.from({ length: 6 }, async () => {
+            const params = {
+              textDocument: { uri },
+              position: { line: 3, character: 7 },
+            };
+            const fieldParams = {
+              textDocument: { uri },
+              position: { line: 3, character: 16 },
+            };
+            const [
+              qualifierHover,
+              fieldHover,
+              qualifierDefinition,
+              fieldDefinition,
+            ] = await Promise.all([
+              queueManager!.submitHoverRequest(params),
+              queueManager!.submitHoverRequest(fieldParams),
+              queueManager!.submitDefinitionRequest(params),
+              queueManager!.submitDefinitionRequest(fieldParams),
+            ]);
+            return {
+              qualifierHover,
+              fieldHover,
+              qualifierDefinition,
+              fieldDefinition,
+            };
+          }),
+        );
+
+      // Control: this graph was compiled from a didOpen that already contained
+      // the complete member expression.
+      const presentAtOpen = yield* Effect.promise(() => capture(openUri));
+
+      // The editor's TextDocuments set already exposes version 2 when the
+      // notification is received, while DocumentChangeBatcher intentionally
+      // delays the data-owner compile. Requests launched now must self-load the
+      // live v2 text rather than resolve against the settled v1 graph.
+      sources[changedUri] = changedFinalSource;
+      versions[changedUri] = 2;
+      const changedFinalDocument = TextDocument.create(
+        changedUri,
+        'apex',
+        2,
+        changedFinalSource,
+      );
+      const changeInFlight = dispatchProcessOnChangeDocument({
+        document: changedFinalDocument,
+      });
+      const whileChangePending = yield* Effect.promise(() =>
+        capture(changedUri),
+      );
+      yield* Effect.promise(() => changeInFlight);
+
+      // Repeat after the debounced compile and version-checked write-back have
+      // settled. Repetition crosses all three request workers and catches a
+      // worker-local stale cursor table that a single warmed worker can hide.
+      const afterChangeSettled = yield* Effect.promise(() =>
+        capture(changedUri),
+      );
+
+      const currentState = yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('QuerySymbolSubset', {
+          uris: [changedUri],
+          includeEntries: true,
+        }),
+      );
+
+      return {
+        presentAtOpen,
+        whileChangePending,
+        afterChangeSettled,
+        currentState,
+      };
+    }).pipe(Effect.scoped);
+
+    try {
+      const result = await Effect.runPromise(program);
+      assertResolved(result.presentAtOpen, openUri);
+      assertResolved(result.whileChangePending, changedUri);
+      assertResolved(result.afterChangeSettled, changedUri);
+
+      const stateResponse = result.currentState as {
+        entries?: Record<
+          string,
+          {
+            metadata?: { documentVersion?: number };
+            symbols?: Array<{ name?: string; fileUri?: string; kind?: string }>;
+          }
+        >;
+        versions?: Record<string, number>;
+      };
+      expect(stateResponse.versions?.[changedUri]).toBe(2);
+      expect(stateResponse.entries?.[changedUri]).toBeDefined();
+      expect(
+        stateResponse.entries?.[changedUri]?.metadata?.documentVersion,
+      ).toBe(2);
+    } finally {
+      queueManager?.setWorkerDispatcher(null);
+      await queueManager?.shutdown();
+    }
+  }, 120_000);
+
+  it('loads an unresolved sObject while member access is typed incrementally without a prior hover', async () => {
+    const uri = 'file:///test/PropertyCompletionFirst.cls';
+    const openSource = [
+      'public class PropertyCompletionFirst {',
+      '  public void run() {',
+      '    Property__c property = new Property__c();',
+      '    insert property;',
+      "    String marker = 'after';",
+      '  }',
+      '}',
+    ].join('\n');
+    const sourceWithExpression = (expression: string) =>
+      openSource.replace(
+        "    String marker = 'after';",
+        [`    ${expression}`, "    String marker = 'after';"].join('\n'),
+      );
+    const resolvedSource = sourceWithExpression('property.Beds__c');
+    const submitSpy = jest
+      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
+      .mockResolvedValue({
+        artifacts: [
+          {
+            identifierType: 'sobject',
+            name: 'Property__c',
+            describe: {
+              name: 'Property__c',
+              custom: true,
+              fields: [
+                {
+                  name: 'Beds__c',
+                  type: 'double',
+                  definitionTarget: {
+                    uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+                  },
+                },
+              ],
+              definitionTarget: {
+                uri: 'file:///objects/Property__c/Property__c.object-meta.xml',
+              },
+            },
+          },
+        ],
+      });
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 3,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        serverMode: 'development',
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      let currentSource = openSource;
+      let currentVersion = 1;
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => currentSource,
+        () => currentVersion,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 3);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => openSource,
+          },
+          textDocument: { uri },
+          text: openSource,
+        }),
+      );
+
+      const complete = async (
+        expression: string,
+        version: number,
+        triggerCharacter?: '.',
+      ) => {
+        currentSource = sourceWithExpression(expression);
+        currentVersion = version;
+        await dispatcher.dispatch('documentChange', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version,
+            getText: () => currentSource,
+          },
+          textDocument: { uri, version },
+        });
+        const completion = (await dispatcher.dispatch('completion', {
+          textDocument: { uri },
+          position: { line: 4, character: 4 + expression.length },
+          context: triggerCharacter
+            ? { triggerKind: 2, triggerCharacter }
+            : { triggerKind: 1 },
+        })) as { items: Array<{ label?: string }> };
+        return {
+          expression,
+          labels: completion.items.map((item) => item.label),
+          artifactRequestCount: submitSpy.mock.calls.length,
+        };
+      };
+
+      const completionPhases = [];
+      completionPhases.push(yield* Effect.promise(() => complete('prop', 2)));
+      completionPhases.push(yield* Effect.promise(() => complete('proper', 3)));
+      completionPhases.push(
+        yield* Effect.promise(() => complete('property', 4)),
+      );
+      completionPhases.push(
+        yield* Effect.promise(() => complete('property.', 5, '.')),
+      );
+      completionPhases.push(
+        yield* Effect.promise(() => complete('property.b', 6)),
+      );
+      completionPhases.push(
+        yield* Effect.promise(() => complete('property.be', 7)),
+      );
+      completionPhases.push(
+        yield* Effect.promise(() => complete('property.bed', 8)),
+      );
+      const artifactRequestsAfterTyping = submitSpy.mock.calls.map(
+        ([params]) => params,
+      );
+
+      currentSource = resolvedSource;
+      currentVersion = 9;
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentChange', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 9,
+            getText: () => resolvedSource,
+          },
+          textDocument: { uri, version: 9 },
+        }),
+      );
+      const [qualifierHover, fieldHover, qualifierDefinition, fieldDefinition] =
+        yield* Effect.all(
+          [
+            Effect.promise(() =>
+              dispatcher.dispatch('hover', {
+                textDocument: { uri },
+                position: { line: 4, character: 7 },
+              }),
+            ),
+            Effect.promise(() =>
+              dispatcher.dispatch('hover', {
+                textDocument: { uri },
+                position: { line: 4, character: 17 },
+              }),
+            ),
+            Effect.promise(() =>
+              dispatcher.dispatch('definition', {
+                textDocument: { uri },
+                position: { line: 4, character: 7 },
+              }),
+            ),
+            Effect.promise(() =>
+              dispatcher.dispatch('definition', {
+                textDocument: { uri },
+                position: { line: 4, character: 17 },
+              }),
+            ),
+          ],
+          { concurrency: 'unbounded' },
+        );
+
+      return {
+        completionPhases,
+        artifactRequestsAfterTyping,
+        artifactRequestCountAfterAllFeatures: submitSpy.mock.calls.length,
+        qualifierHover,
+        fieldHover,
+        qualifierDefinition,
+        fieldDefinition,
+      };
+    }).pipe(Effect.scoped);
+
+    try {
+      const result = await Effect.runPromise(program);
+      const phases = Object.fromEntries(
+        result.completionPhases.map((phase) => [phase.expression, phase]),
+      );
+      for (const expression of ['prop', 'proper', 'property']) {
+        expect(phases[expression]?.labels).toContain('property');
+        expect(phases[expression]?.artifactRequestCount).toBe(0);
+      }
+      expect(phases['property.']?.labels).toContain('Beds__c');
+      expect(phases['property.']?.artifactRequestCount).toBe(1);
+      for (const expression of ['property.b', 'property.be', 'property.bed']) {
+        expect(phases[expression]?.labels).toContain('Beds__c');
+        expect(phases[expression]?.artifactRequestCount).toBe(1);
+      }
+      expect(result.artifactRequestsAfterTyping).toEqual([
+        expect.objectContaining({
+          identifiers: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'Property__c',
+              identifierType: 'sobject',
+            }),
+          ]),
+          origin: expect.objectContaining({
+            uri,
+            requestKind: 'completion',
+          }),
+        }),
+      ]);
+      expect(result.artifactRequestCountAfterAllFeatures).toBe(1);
+      expect(JSON.stringify(result.qualifierHover)).toContain('Property__c');
+      expect(JSON.stringify(result.qualifierHover)).not.toContain(
+        'Searching for symbol',
+      );
+      expect(JSON.stringify(result.fieldHover)).toContain(
+        'Decimal Property__c.Beds__c',
+      );
+      expect(JSON.stringify(result.fieldHover)).not.toContain(
+        'Searching for symbol',
+      );
+      expect(result.qualifierDefinition).toEqual([
+        expect.objectContaining({ uri }),
+      ]);
+      expect(result.fieldDefinition).toEqual([
+        expect.objectContaining({
+          uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+        }),
+      ]);
+    } finally {
+      submitSpy.mockRestore();
+    }
+  }, 120_000);
+
+  it('replaces an sObject searching hover after org metadata reaches the data owner', async () => {
+    const sobjectUri = 'apex-sobject://graph/property__c';
+    const source = [
+      'public class PropertyConsumer {',
+      '  public void run() {',
+      '    Property__c property;',
+      '    property.Beds__c;',
+      '  }',
+      '}',
+    ].join('\n');
+    const uri = 'file:///test/PropertyConsumer.cls';
+    const submitSpy = jest
+      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
+      .mockResolvedValue({
+        artifacts: [
+          {
+            identifierType: 'sobject',
+            name: 'Property__c',
+            describe: {
+              name: 'Property__c',
+              custom: true,
+              fields: [
+                {
+                  name: 'Beds__c',
+                  type: 'double',
+                  definitionTarget: {
+                    uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+                  },
+                },
+              ],
+              definitionTarget: {
+                uri: 'file:///objects/Property__c.object-meta.xml',
+              },
+            },
+          },
+        ],
+      });
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 3,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, () => source);
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 3);
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => source,
+          },
+          textDocument: { uri },
+          text: source,
+        }),
+      );
+
+      const hover = (line: number, character: number) =>
+        topology.requestPool.executeEffect(
+          new DispatchHover({
+            textDocument: { uri },
+            position: { line, character },
+            content: source,
+          }),
+        ) as Effect.Effect<{ result: unknown }, never, never>;
+
+      const first = yield* hover(2, 8);
+      expect(JSON.stringify(first.result)).toContain('Searching for symbol');
+
+      let installed = false;
+      for (let attempt = 0; attempt < 100 && !installed; attempt++) {
+        const subset = (yield* Effect.promise(() =>
+          dispatcher.queryDataOwner('QuerySymbolSubset', {
+            uris: [sobjectUri],
+          }),
+        )) as { entries: Record<string, unknown> };
+        installed = subset.entries[sobjectUri] != null;
+        if (!installed) {
+          yield* Effect.sleep('10 millis');
+        }
+      }
+      expect(installed).toBe(true);
+
+      return {
+        type: yield* hover(2, 8),
+        declaration: yield* hover(2, 20),
+        qualifier: yield* hover(3, 7),
+        field: yield* hover(3, 17),
+        qualifierDefinition: yield* topology.requestPool.executeEffect(
+          new DispatchDefinition({
+            textDocument: { uri },
+            position: { line: 3, character: 7 },
+            content: source,
+          }),
+        ),
+        fieldDefinition: yield* topology.requestPool.executeEffect(
+          new DispatchDefinition({
+            textDocument: { uri },
+            position: { line: 3, character: 17 },
+            content: source,
+          }),
+        ),
+      };
+    }).pipe(Effect.scoped);
+
+    const second = await Effect.runPromise(program);
+    const typeContent = JSON.stringify(second.type.result);
+    expect(typeContent).toContain('Property__c');
+    expect(typeContent).not.toContain('Searching for symbol');
+    const declarationContent = JSON.stringify(second.declaration.result);
+    expect(declarationContent).toContain('Property__c');
+    expect(declarationContent).not.toContain('Searching for symbol');
+    const qualifierContent = JSON.stringify(second.qualifier.result);
+    expect(qualifierContent).toContain('Property__c');
+    expect(qualifierContent).not.toContain('Searching for symbol');
+    const fieldContent = JSON.stringify(second.field.result);
+    expect(fieldContent).toContain('Decimal Property__c.Beds__c');
+    expect(fieldContent).not.toContain('Searching for symbol');
+    expect(second.qualifierDefinition.result).toEqual([
+      expect.objectContaining({ uri }),
+    ]);
+    expect(second.fieldDefinition.result).toEqual([
+      expect.objectContaining({
+        uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+      }),
+    ]);
+    expect(submitSpy).toHaveBeenCalledTimes(1);
+    expect(submitSpy.mock.calls[0][0].identifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Property__c',
+          identifierType: 'sobject',
+        }),
+      ]),
+    );
   }, 120_000);
 
   it('returns instance members for refined this-access through the worker topology', async () => {
