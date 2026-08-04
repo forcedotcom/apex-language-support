@@ -20,10 +20,6 @@ on:
           - 'false'
           - 'true'
 
-concurrency:
-  group: promote-prerelease
-  cancel-in-progress: false
-
 permissions:
   contents: write
   packages: write

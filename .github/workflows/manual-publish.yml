@@ -81,10 +81,6 @@ on:
           - 'false'
           - 'true'
 
-concurrency:
-  group: manual-publish
-  cancel-in-progress: false
-
 permissions:
   contents: write
   packages: write
