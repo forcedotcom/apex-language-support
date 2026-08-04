@@ -777,6 +777,7 @@ describe('worker.platform.shared', () => {
             (symbol) => symbol.name.toLowerCase() === name.toLowerCase(),
           ),
         ),
+        findSymbolByFQN: jest.fn(async () => null),
         resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
       },
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];

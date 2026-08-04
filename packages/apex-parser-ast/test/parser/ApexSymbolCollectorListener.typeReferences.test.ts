@@ -27,6 +27,27 @@ describe('ApexSymbolCollectorListener with Type References', () => {
   });
 
   describe('Method Call References', () => {
+    it('does not invent an unknown qualifier for an unsupported receiver shape', () => {
+      const sourceCode = `
+        public class TestClass {
+          class Target { void compute() {} }
+          void run() { new Target().compute(); }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        collectReferences: true,
+      });
+
+      expect(
+        listener
+          .getResult()
+          .getAllReferences()
+          .some((reference) => reference.name === 'unknown'),
+      ).toBe(false);
+    });
+
     it('preserves this as the receiver of a chained field reference', () => {
       const sourceCode = `
         public class TestClass {
@@ -1732,6 +1753,38 @@ describe('ApexSymbolCollectorListener with Type References', () => {
         (ref) => isChainedSymbolReference(ref) && ref.name.includes('contacts'),
       );
       expect(chainedRefs.length).toBe(0);
+    });
+  });
+
+  describe('Qualified type structure', () => {
+    it('does not classify a namespaced Map type as the built-in collection', () => {
+      const sourceCode = `
+        public class TestClass {
+          MyNs.Map<String, Integer> customMap;
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const customMap = listener
+        .getResult()
+        .getAllSymbols()
+        .find((symbol) => symbol.name === 'customMap');
+
+      expect(customMap).toBeDefined();
+      expect(
+        customMap && 'type' in customMap ? customMap.type.name : null,
+      ).toBe('Map');
+      expect(
+        customMap && 'type' in customMap
+          ? customMap.type.originalTypeString
+          : null,
+      ).toBe('MyNs.Map<String, Integer>');
+      expect(
+        customMap && 'type' in customMap
+          ? customMap.type.isCollection
+          : undefined,
+      ).toBe(false);
     });
   });
 });

@@ -106,7 +106,9 @@ export type WireSemanticArtifactProvenance = Schema.Schema.Type<
 /** Wire-safe form of IdentifierSpec — all plain-data fields, safe for postMessage. */
 export const WireIdentifierSpecSchema = Schema.Struct({
   name: Schema.String,
-  provenance: WireSemanticArtifactProvenanceSchema,
+  // Optional on the wire for rolling upgrades. The semantic boundary rejects
+  // identifiers without provenance before they can trigger artifact loading.
+  provenance: Schema.optional(WireSemanticArtifactProvenanceSchema),
   typeReference: Schema.optional(WireTypeReferenceSchema),
   searchHints: Schema.optional(Schema.Array(WireSearchHintSchema)),
   resolvedQualifier: Schema.optional(WireResolvedQualifierSchema),

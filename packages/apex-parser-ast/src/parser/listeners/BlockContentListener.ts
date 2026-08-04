@@ -218,13 +218,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         return;
       }
 
-      const existing = this.symbolTable.getAllReferences().find((reference) => {
-        const operator = reference.semanticContext?.memberAccess?.operatorRange;
-        return (
-          operator?.startLine === range.startLine &&
-          operator.startColumn === range.startColumn
-        );
-      });
+      const existing = this.symbolTable.getReferenceByMemberAccessOperatorStart(
+        range.startLine,
+        range.startColumn,
+      );
       if (existing) {
         this.pendingIncompleteMemberReference = existing;
         return;
@@ -787,11 +784,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
                   );
                 this.symbolTable.addTypeReference(objRef);
               }
+              const objectName = objectIdentifiers[0];
+              if (!objectName) return;
               const fieldRef =
                 SymbolReferenceFactory.createFieldAccessReference(
                   fieldName,
                   lhsLoc,
-                  objectIdentifiers[0] || 'unknown',
+                  objectName,
                   parentContext,
                   lhsAccess,
                 );
@@ -1072,10 +1071,12 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       // Do not create VARIABLE_USAGE for the base - it may be a class (SomeClass.STATIC_FIELD)
       // or variable (obj.field). Field access resolution handles both via the object name
 
+      const objectName = objectIdentifiers[0];
+      if (!objectName) return;
       const fieldRef = SymbolReferenceFactory.createFieldAccessReference(
         fieldName,
         fieldLocation,
-        objectIdentifiers[0] || 'unknown',
+        objectName,
         parentContext,
         'read',
       );

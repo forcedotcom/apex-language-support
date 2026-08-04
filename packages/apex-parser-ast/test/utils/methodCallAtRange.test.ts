@@ -139,6 +139,46 @@ describe('findMethodCallAtRange', () => {
     });
   });
 
+  it('preserves a parser-owned namespace in an unresolved type receiver', () => {
+    const source = [
+      'public class Caller {',
+      '  public void run() {',
+      '    MyNs.Target.computeValue();',
+      '  }',
+      '}',
+    ].join('\n');
+
+    expect(call(source, 'computeValue')!.receiver).toMatchObject({
+      name: 'Target',
+      kind: 'unresolved',
+      declaredTypeName: 'MyNs.Target',
+    });
+  });
+
+  it('uses CST terminals when the correlated symbol table is unavailable', () => {
+    const source = [
+      'public class Caller {',
+      '  public void run() {',
+      '    MyNs.Target.computeValue();',
+      '  }',
+      '}',
+    ].join('\n');
+    const result = compilerService.compile(
+      source,
+      'Caller.cls',
+      new ApexSymbolCollectorListener(undefined, 'full'),
+    );
+
+    expect(
+      findMethodCallAtRange(result.parseTree, rangeOf(source, 'computeValue'))
+        ?.receiver,
+    ).toMatchObject({
+      name: 'Target',
+      kind: 'unresolved',
+      declaredTypeName: 'MyNs.Target',
+    });
+  });
+
   it('does not lexically bind an intermediate member owned by an arbitrary value', () => {
     const source = [
       'public class Caller {',

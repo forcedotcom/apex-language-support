@@ -2317,6 +2317,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
         if (leftExpression) {
           const qualifier = this.extractQualifierFromExpression(leftExpression);
+          if (!qualifier) return;
           const qualifierLocation = this.getLocation(
             leftExpression as unknown as ParserRuleContext,
           );
@@ -2708,9 +2709,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     return [];
   }
 
-  private extractQualifierFromExpression(expr: any): string {
+  private extractQualifierFromExpression(expr: any): string | undefined {
     const identifiers = this.extractIdentifiersFromExpression(expr);
-    return identifiers.length > 0 ? identifiers[0] : 'unknown';
+    return identifiers[0];
   }
 
   /**

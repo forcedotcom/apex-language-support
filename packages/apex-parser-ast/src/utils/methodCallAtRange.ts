@@ -12,6 +12,7 @@ import {
   DotExpressionContext,
   ExpressionContext,
   ExpressionStatementContext,
+  IdPrimaryContext,
   LiteralPrimaryContext,
   LocalVariableDeclarationContext,
   MethodCallExpressionContext,
@@ -192,6 +193,10 @@ const describeReceiver = (
 
   const receiverOwner =
     receiverIndex > 0 ? nodes?.[receiverIndex - 1] : undefined;
+  const qualifiedReceiverName = nodes
+    .slice(0, receiverIndex + 1)
+    .map((node) => node.name)
+    .join('.');
   const isExplicitThisField =
     receiver.context === ReferenceContext.FIELD_ACCESS &&
     receiverIndex === 1 &&
@@ -233,7 +238,69 @@ const describeReceiver = (
         : 'unresolved',
     declaredTypeName:
       receiver.context === ReferenceContext.CLASS_REFERENCE
-        ? receiver.name
+        ? qualifiedReceiverName
+        : receiver.context === ReferenceContext.CHAIN_STEP && receiverIndex > 0
+          ? qualifiedReceiverName
+          : undefined,
+  };
+};
+
+/** Recover an unresolved qualified receiver from grammar-selected terminals. */
+const describeReceiverFromCst = (
+  expression: ExpressionContext | undefined,
+): MethodCallReceiver | undefined => {
+  if (!expression) return undefined;
+
+  const identifierTerminals = (
+    current: ExpressionContext,
+  ): Array<{ text: string; line: number; column: number }> => {
+    if (current instanceof PrimaryExpressionContext) {
+      const primary = current.primary();
+      if (primary instanceof IdPrimaryContext) {
+        const id = primary.id();
+        const token = id?.start;
+        return id && token
+          ? [{ text: id.getText(), line: token.line, column: token.column }]
+          : [];
+      }
+      return [];
+    }
+    if (current instanceof DotExpressionContext) {
+      const base = current.expression();
+      const member = current.anyId();
+      const token = member?.start;
+      return [
+        ...(base ? identifierTerminals(base) : []),
+        ...(member && token
+          ? [
+              {
+                text: member.getText(),
+                line: token.line,
+                column: token.column,
+              },
+            ]
+          : []),
+      ];
+    }
+    return [];
+  };
+
+  const identifiers = identifierTerminals(expression);
+  const receiver = identifiers.at(-1);
+  if (!receiver) return undefined;
+  return {
+    name: receiver.text,
+    range: {
+      start: { line: receiver.line - 1, character: receiver.column },
+      end: {
+        line: receiver.line - 1,
+        character: receiver.column + receiver.text.length,
+      },
+    },
+    kind: 'unresolved',
+    declaredTypeName:
+      identifiers.length > 1
+        ? identifiers.map(({ text }) => text).join('.')
         : undefined,
   };
 };
@@ -347,12 +414,13 @@ export const findMethodCallAtRange = (
       if (!methodName || !methodToken) {
         return null;
       }
-      const receiver = describeReceiver(
-        methodName,
-        methodToken.line,
-        methodToken.column,
-        symbolTable,
-      );
+      const receiver =
+        describeReceiver(
+          methodName,
+          methodToken.line,
+          methodToken.column,
+          symbolTable,
+        ) ?? describeReceiverFromCst(expression.expression());
       if (!receiver) {
         // The CST proves that this is qualified, but without the correlated
         // parser reference chain its receiver semantics are unknown.

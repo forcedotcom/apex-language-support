@@ -36,8 +36,6 @@ const TEXT_COMPARISON_OPERATORS = new Set([
 ]);
 const RAW_SOURCE_NAME = /^(?:sourceCode|sourceContent|sourceText)$/;
 const RAW_DOCUMENT_NAME = /^(?:document|textDocument)$/;
-const PARSER_CONTEXT_NAME =
-  /^(?:ctx|context|expr|expression|typeRef|creator|.*Context)$/;
 const COMPOSITE_CONTEXT_ACCESSORS = new Set([
   'creator',
   'expression',
@@ -140,7 +138,6 @@ const parserOwnedSemanticsRule = {
   },
   create(context) {
     const taintedVariables = new WeakMap();
-    const compositeContextVariables = new WeakSet();
     const terminalContextVariables = new WeakSet();
     const sourceCode = context.sourceCode;
 
@@ -171,11 +168,7 @@ const parserOwnedSemanticsRule = {
           if (variable && terminalContextVariables.has(variable)) {
             return false;
           }
-          return (
-            (variable !== undefined &&
-              compositeContextVariables.has(variable)) ||
-            PARSER_CONTEXT_NAME.test(identifier.name)
-          );
+          return true;
         })
       ) {
         return 'compositeText';
@@ -253,18 +246,6 @@ const parserOwnedSemanticsRule = {
         if (isTerminalContextAccessorCall(node.init)) {
           for (const variable of sourceCode.getDeclaredVariables(node)) {
             terminalContextVariables.add(variable);
-          }
-        }
-        const init = unwrapChain(node.init);
-        if (init?.type === 'CallExpression') {
-          const callee = unwrapChain(init.callee);
-          if (
-            callee?.type === 'MemberExpression' &&
-            COMPOSITE_CONTEXT_ACCESSORS.has(memberName(callee) ?? '')
-          ) {
-            for (const variable of sourceCode.getDeclaredVariables(node)) {
-              compositeContextVariables.add(variable);
-            }
           }
         }
         const origin = semanticTextOrigin(node.init);

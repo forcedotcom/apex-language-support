@@ -288,6 +288,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private deferredResolutions: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
+  // Declaration type-reference IDs are immutable after collection; index them
+  // once per table instead of scanning every symbol for every resolved type.
+  private readonly declarationsByTypeReferenceKey = new WeakMap<
+    SymbolTable,
+    Map<string, VariableSymbol[]>
+  >();
   // Batch size for initial reference processing
   private readonly initialReferenceBatchSize: number;
   // Track detail level per file for enrichment
@@ -3253,6 +3259,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return arityMatch ?? methods[0] ?? null;
     }
 
+    if (
+      typeRef.context === ReferenceContext.FIELD_ACCESS ||
+      typeRef.context === ReferenceContext.PROPERTY_REFERENCE
+    ) {
+      return (
+        candidates.find(
+          (symbol) =>
+            symbol.kind === SymbolKind.Field ||
+            symbol.kind === SymbolKind.Property,
+        ) ?? null
+      );
+    }
+
     return candidates[0];
   }
 
@@ -3292,6 +3311,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const line = position.line + 1;
     const references = symbolTable.getAllReferences();
+    const fieldAccessByStart = new Map<string, SymbolReference>();
+    for (const candidate of references) {
+      if (candidate.context !== ReferenceContext.FIELD_ACCESS) continue;
+      const range = candidate.location.identifierRange;
+      fieldAccessByStart.set(
+        `${range.startLine}:${range.startColumn}`,
+        candidate,
+      );
+    }
     return (
       references
         .filter((reference) => {
@@ -3308,15 +3336,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // both `receiver.` and `receiver.prefix`.
           const refinedMemberRange =
             memberAccess.memberRange ??
-            references.find((candidate) => {
-              const range = candidate.location.identifierRange;
-              return (
-                candidate !== reference &&
-                candidate.context === ReferenceContext.FIELD_ACCESS &&
-                range.startLine === memberAccess.operatorRange.endLine &&
-                range.startColumn === memberAccess.operatorRange.endColumn
-              );
-            })?.location.identifierRange;
+            fieldAccessByStart.get(
+              `${memberAccess.operatorRange.endLine}:${memberAccess.operatorRange.endColumn}`,
+            )?.location.identifierRange;
           const endColumn =
             refinedMemberRange?.endColumn ??
             memberAccess.operatorRange.endColumn;
@@ -4781,27 +4803,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return;
     }
 
+    let declarations = this.declarationsByTypeReferenceKey.get(symbolTable);
+    if (!declarations) {
+      declarations = new Map();
+      for (const symbol of symbolTable.getAllSymbols()) {
+        if (
+          symbol.kind !== SymbolKind.Variable &&
+          symbol.kind !== SymbolKind.Parameter &&
+          symbol.kind !== SymbolKind.Field &&
+          symbol.kind !== SymbolKind.Property
+        ) {
+          continue;
+        }
+        const declaration = symbol as VariableSymbol;
+        const referenceId = declaration.type?.typeReferenceId;
+        if (!referenceId) continue;
+        const referenceParts = referenceId.split(':');
+        if (referenceParts.length < 5) continue;
+        const referenceKey = `:${referenceParts.slice(-4).join(':')}`;
+        const matches = declarations.get(referenceKey) ?? [];
+        matches.push(declaration);
+        declarations.set(referenceKey, matches);
+      }
+      this.declarationsByTypeReferenceKey.set(symbolTable, declarations);
+    }
+
     const range = typeRef.location.identifierRange;
-    const referenceSuffix =
+    const referenceKey =
       `:${range.startLine}:${range.startColumn}:${typeRef.name}:` +
       ReferenceContext[typeRef.context];
-
-    for (const symbol of symbolTable.getAllSymbols()) {
-      if (
-        symbol.kind !== SymbolKind.Variable &&
-        symbol.kind !== SymbolKind.Parameter &&
-        symbol.kind !== SymbolKind.Field &&
-        symbol.kind !== SymbolKind.Property
-      ) {
-        continue;
-      }
-
-      const typeInfo = (symbol as VariableSymbol).type;
-      if (
-        typeInfo?.typeReferenceId?.endsWith(referenceSuffix) &&
-        !typeInfo.resolvedSymbol
-      ) {
-        typeInfo.resolvedSymbol = resolvedType;
+    for (const declaration of declarations.get(referenceKey) ?? []) {
+      if (declaration.type && !declaration.type.resolvedSymbol) {
+        declaration.type.resolvedSymbol = resolvedType;
       }
     }
   }
@@ -6142,11 +6175,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return name.startsWith('this.') || name.startsWith('super.');
       }) ?? relevantChains[0];
     const chainName = relevantChain?.name.trim().toLowerCase();
+    const chainReceiverName = relevantChain?.chainNodes?.[0]?.name
+      .trim()
+      .toLowerCase();
     const explicitReceiver =
       broadReceiverReference?.name.trim().toLowerCase() ??
-      (chainName?.startsWith('super.')
+      (chainReceiverName === 'super' || chainName?.startsWith('super.')
         ? 'super'
-        : chainName?.startsWith('this.')
+        : chainReceiverName === 'this' || chainName?.startsWith('this.')
           ? 'this'
           : null);
 
@@ -6426,7 +6462,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             return member !== null && member.index > 0;
           },
         );
-        if (!hasExplicitTypeReference && !positionOnNonRootChainMember) {
+        const hasExplicitInstanceReceiver = typeReferences.some((reference) => {
+          const name = reference.name.trim().toLowerCase();
+          if (name === 'this' || name === 'super') return true;
+          if (!isChainedSymbolReference(reference)) return false;
+          const receiver = reference.chainNodes?.[0]?.name.trim().toLowerCase();
+          return (
+            receiver === 'this' ||
+            receiver === 'super' ||
+            name.startsWith('this.') ||
+            name.startsWith('super.')
+          );
+        });
+        if (
+          !hasExplicitTypeReference &&
+          !positionOnNonRootChainMember &&
+          !hasExplicitInstanceReceiver
+        ) {
           const symbolTable =
             this.symbolRefManager.getSymbolTableForFile(fileUri);
           if (symbolTable) {

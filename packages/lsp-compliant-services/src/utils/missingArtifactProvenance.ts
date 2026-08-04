@@ -34,16 +34,17 @@ export const sanitizeMissingArtifactParams = (
       const decoded = decodeIdentifier(identifier);
       if (
         decoded.name.trim().length === 0 ||
+        !decoded.provenance ||
         decoded.provenance.sourceUri.trim().length === 0 ||
         decoded.provenance.sourceUri !== params.origin.uri ||
         decoded.provenance.referenceIdentity.trim().length === 0 ||
         !validRange(decoded.provenance.referenceRange)
       ) {
-        return null;
+        continue;
       }
       identifiers.push(decoded);
     } catch {
-      return null;
+      continue;
     }
   }
   if (identifiers.length === 0) return null;

@@ -183,6 +183,35 @@ describe('MissingArtifactResolutionService', () => {
 
       expect((service as any).sanitizeParams(params)).toBeNull();
     });
+
+    it('keeps valid semantic identifiers when another batch entry is invalid', () => {
+      const service = createMissingArtifactResolutionService(mockLogger);
+      const validIdentifier = { name: 'MissingClass', provenance };
+      const params = {
+        identifiers: [
+          { name: 'NameOnlyClass' },
+          validIdentifier,
+          {
+            name: 'WrongDocumentClass',
+            provenance: {
+              ...provenance,
+              sourceUri: 'file:///other.cls',
+              referenceIdentity: 'ref:WrongDocumentClass:2:3:2:14',
+            },
+          },
+        ],
+        origin: {
+          uri: 'file:///test.cls',
+          requestKind: 'definition' as const,
+        },
+        mode: 'blocking' as const,
+      };
+
+      expect((service as any).sanitizeParams(params)).toEqual({
+        ...params,
+        identifiers: [validIdentifier],
+      });
+    });
   });
 
   describe('Result Types', () => {
