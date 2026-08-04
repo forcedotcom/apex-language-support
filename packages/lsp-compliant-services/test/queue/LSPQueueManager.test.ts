@@ -1263,6 +1263,85 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     });
   });
 
+  // W-23631076 (Phase 0): the rename pipe is wired end-to-end but both legs are
+  // deliberate no-ops that return `null` (LSP "nothing to rename"). This block
+  // is the queue-level half of the Phase-0 deliverable: `submitRenameRequest`
+  // (exactly what LCSAdapter.onRenameRequest calls) drives the SAME `null`
+  // round-trip through BOTH dispatch legs of submitRequest —
+  //   1. the LIVE production path: pool-routed → the request-pool worker's
+  //      DispatchRename no-op handler;
+  //   2. the local fallback: dispatcher absent/not-routing → the in-process
+  //      GenericRequestHandler → RenameProcessingService.processRename stub.
+  // The worker-topology integration test (RenameThroughWorkerTopology) covers
+  // the pool leg from the dispatcher down; this covers the queue entry above it
+  // and pins that the fallback leg returns `null` too.
+  describe('rename Phase-0 no-op round-trip (W-23631076)', () => {
+    const renameParams = {
+      textDocument: { uri: 'file:///Rename.cls' },
+      position: { line: 0, character: 0 },
+      newName: 'newName',
+    };
+
+    afterEach(() => {
+      LSPQueueManager.getInstance().setWorkerDispatcher(null);
+    });
+
+    it('leg 1 (live path): dispatches rename to the pool and returns null', async () => {
+      const manager = LSPQueueManager.getInstance();
+      // The Phase-0 DispatchRename handler is a no-op returning null; model it
+      // as the dispatcher resolving null for a pool-routed rename.
+      const dispatch = jest.fn().mockResolvedValue(null);
+      const localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      const serviceRegistry = (manager as any)
+        .serviceRegistry as ServiceRegistry;
+      serviceRegistry.register({
+        requestType: 'rename' as LSPRequestType,
+        priority: Priority.Low,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: (t: LSPRequestType) => t === 'rename',
+        dispatchesToPool: (t: LSPRequestType) => t === 'rename',
+        dispatch,
+      });
+
+      const result = await manager.submitRenameRequest(renameParams);
+
+      // The request crossed to the pool (not the local handler) and settled null.
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        'rename',
+        expect.objectContaining({ newName: 'newName' }),
+      );
+      expect(localProcess).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+
+    it('leg 2 (local fallback): routes rename to the in-process handler and returns null', async () => {
+      const manager = LSPQueueManager.getInstance();
+      // No worker dispatcher → submitRequest falls through to the registered
+      // local handler, which stands in for the RenameProcessingService stub.
+      const localProcess = jest.fn().mockResolvedValue(null);
+      const serviceRegistry = (manager as any)
+        .serviceRegistry as ServiceRegistry;
+      serviceRegistry.register({
+        requestType: 'rename' as LSPRequestType,
+        priority: Priority.Low,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+
+      const result = await manager.submitRenameRequest(renameParams);
+
+      expect(localProcess).toHaveBeenCalledTimes(1);
+      expect(result).toBeNull();
+    });
+  });
+
   describe('Statistics', () => {
     it('should get queue statistics', async () => {
       const manager = LSPQueueManager.getInstance();
