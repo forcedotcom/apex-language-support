@@ -2055,6 +2055,33 @@ export async function recompileCursorFileAtFullDetail(
         return true;
       }
     }
+    // Authoritative-cursor-version guard: the live editor `content` IS the
+    // latest text for this file at request time, but the pool worker may
+    // already hold a table for `uri` tagged with a HIGHER documentVersion
+    // (e.g. a prior didChange/write-back from the data owner). Tagging this
+    // full-detail recompile with a lower `sourceVersion` makes
+    // registerSymbolTable reject it as stale and keep the field-less
+    // public-api table — the web-pool go-to-definition failure (W-23715603).
+    // Lift the recompile version to at least the stored version so the full
+    // table registers: a higher version replaces, an equal version merges
+    // (which upgrades detail and preserves body symbols). Either way the
+    // private field + its FIELD_ACCESS edge become canonical. Only the
+    // registration version is lifted; the reuse cache above still keys on the
+    // caller's requested version so content-identity reuse is unaffected.
+    let effectiveSourceVersion = options.sourceVersion;
+    if (effectiveSourceVersion !== undefined) {
+      const existingTable = await svc.symbolManager.getSymbolTableForFile(uri);
+      const storedVersion =
+        typeof existingTable?.getMetadata === 'function'
+          ? existingTable.getMetadata().documentVersion
+          : undefined;
+      if (
+        storedVersion !== undefined &&
+        storedVersion > effectiveSourceVersion
+      ) {
+        effectiveSourceVersion = storedVersion;
+      }
+    }
     const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
       await import('@salesforce/apex-lsp-parser-ast');
     const table = new SymbolTable();
@@ -2070,7 +2097,7 @@ export async function recompileCursorFileAtFullDetail(
     const st = result?.result instanceof SymbolTable ? result.result : table;
     const addStartedAt = performance.now();
     await Effect.runPromise(
-      svc.symbolManager.addSymbolTable(st, uri, options.sourceVersion),
+      svc.symbolManager.addSymbolTable(st, uri, effectiveSourceVersion),
     );
     if (options.telemetry) {
       options.telemetry.addSymbolTableMs = performance.now() - addStartedAt;
@@ -2219,7 +2246,25 @@ export function prepareLspRequestCursor(
       );
       cacheHit = recompileTelemetry.reused === true;
       localTableChanged = recompiled && !cacheHit;
-      if (recompiled) achievedDetailLevel = 'full';
+      // Honest readiness: `recompiled === true` only means the compile+register
+      // call ran, NOT that the full table became canonical. addSymbolTable
+      // silently drops a table rejected as stale, so trusting `recompiled`
+      // alone reports ready against a field-less public-api table and returns a
+      // wrong/empty definition (W-23715603). Confirm the canonical table for
+      // the cursor file actually reached full detail before claiming it.
+      if (recompiled) {
+        // Read the detail level from the canonical table itself rather than
+        // the manager's separate enrichment tracker (which addSymbolTable does
+        // not update). getDetailLevel() derives the level from the symbols the
+        // registered table actually holds, so a stale-rejected recompile
+        // (canonical stays public-api) is reported honestly.
+        const canonicalTable = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolTableForFile(uri),
+        );
+        if (canonicalTable?.getDetailLevel() === 'full') {
+          achievedDetailLevel = 'full';
+        }
+      }
 
       yield* Effect.annotateCurrentSpan({
         // `recompileCursorFileAtFullDetail` also returns true when an

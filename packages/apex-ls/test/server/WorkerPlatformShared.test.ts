@@ -948,4 +948,81 @@ describe('worker.platform.shared', () => {
     ).resolves.toBe(false);
     expect(assistance).not.toHaveBeenCalled();
   });
+
+  it('reaches full detail for a definition cursor despite a higher-versioned public-api table', async () => {
+    // Reproduces the web-pool go-to-definition failure: the worker already has
+    // a PUBLIC-API table for the file at a HIGHER documentVersion (e.g. from a
+    // prior write-back), then a definition request arrives carrying live
+    // content tagged with a LOWER version. Without the authoritative-cursor-
+    // version lift, the full-detail recompile is rejected as stale, the
+    // canonical table stays public-api (no private field, no in-body
+    // references), and the request reports ready against a table that cannot
+    // resolve `this.<field>` — cursor never navigates.
+    const uri = 'file:///ApexClassExample.cls';
+    const source = [
+      'public class ApexClassExample {',
+      '    private String instanceId;',
+      '',
+      '    public ApexClassExample(String instanceId) {',
+      '        this.instanceId = instanceId;',
+      '    }',
+      '}',
+    ].join('\n');
+
+    const symbolManager = new ApexSymbolManager();
+    // Seed the pool with a public-api table at version 2 (higher than the
+    // request version below). Public-api detail strips the private field.
+    const publicApiTable = new SymbolTable();
+    new CompilerService().compile(
+      source,
+      uri,
+      new VisibilitySymbolListener('public-api', publicApiTable),
+      {},
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(publicApiTable, uri, 2),
+    );
+
+    setAssistanceTransport(async (method) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return {
+          entries: {},
+          versions: { [uri]: 2 },
+          detailLevels: { [uri]: 'public-api' },
+        };
+      }
+      return { entries: {} };
+    });
+
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: jest.fn() }),
+      },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+
+    // Definition request at the lower version 1 with authoritative live content.
+    const prepared = await Effect.runPromise(
+      prepareLspRequestCursor(
+        svc,
+        'definition',
+        uri,
+        source,
+        { line: 4, character: 13 },
+        1,
+      ),
+    );
+
+    const canonicalTable = await symbolManager.getSymbolTableForFile(uri);
+    const symbolNames = canonicalTable
+      ?.getAllSymbols()
+      .map((symbol) => symbol.name);
+
+    // The full recompile must have won registration: canonical table is
+    // full-detail and carries the private field the definition needs.
+    expect(canonicalTable?.getDetailLevel()).toBe('full');
+    expect(symbolNames).toContain('instanceId');
+    // Honest readiness: detail actually reached full, so the request is ready.
+    expect(prepared.ready).toBe(true);
+  });
 });
