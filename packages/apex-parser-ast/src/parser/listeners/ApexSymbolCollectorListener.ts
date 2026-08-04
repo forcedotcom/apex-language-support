@@ -387,6 +387,7 @@ export class ApexSymbolCollectorListener
               incomplete: true,
             },
           };
+          this.symbolTable.indexReferenceSemanticContext(indexedReceiver);
           this.pendingIncompleteMemberReference = indexedReceiver;
           this.pendingIndexedReceiver = undefined;
           return;
@@ -396,8 +397,13 @@ export class ApexSymbolCollectorListener
         // error node. The parser has already emitted the METHOD_CALL reference;
         // attach the trailing operator to that semantic record instead of
         // reconstructing the expression from document text.
-        const callReceiver = this.symbolTable
-          .getAllReferences()
+        const callReceiver = [0, 1, 2]
+          .flatMap((distance) =>
+            this.symbolTable.getReferencesEndingAtPosition(
+              token.line,
+              token.column - distance,
+            ),
+          )
           .filter((reference) => {
             const candidate = reference.location.identifierRange;
             return (
@@ -422,6 +428,7 @@ export class ApexSymbolCollectorListener
               incomplete: true,
             },
           };
+          this.symbolTable.indexReferenceSemanticContext(callReceiver);
           this.pendingIncompleteMemberReference = callReceiver;
         } else {
           // Chained call references are finalized when their enclosing parser
@@ -460,6 +467,7 @@ export class ApexSymbolCollectorListener
         incomplete: true,
       },
     };
+    this.symbolTable.indexReferenceSemanticContext(reference);
     this.pendingIncompleteMemberReference = reference;
     this.pendingIncompleteCallOperator = undefined;
   }
@@ -3425,7 +3433,9 @@ export class ApexSymbolCollectorListener
 
     // Start a new chain expression scope
     if (!this.chainExpressionScope) {
-      this.chainExpressionScope = this.createNewChainScope(ctx);
+      const chainScope = this.createNewChainScope(ctx);
+      if (!chainScope) return;
+      this.chainExpressionScope = chainScope;
     } else {
       // We're already in a chain scope, increment depth
       this.chainExpressionScope.depth++;
@@ -4156,11 +4166,13 @@ export class ApexSymbolCollectorListener
                 );
               this.symbolTable.addTypeReference(objRef);
             }
+            const objectName = objectIdentifiers[0];
+            if (!objectName) return;
             // field write/readwrite
             const fieldRef = SymbolReferenceFactory.createFieldAccessReference(
               fieldName,
               lhsLoc,
-              objectIdentifiers[0] || 'unknown',
+              objectName,
               parentContext,
               lhsAccess,
             );
@@ -7261,6 +7273,7 @@ export class ApexSymbolCollectorListener
   ): void {
     try {
       const { baseExpression, chainNodes, startLocation } = chainScope;
+      if (!baseExpression) return;
 
       // Special handling for 'this' keyword - treat as instance member access
       if (baseExpression === 'this') {
@@ -7381,14 +7394,7 @@ export class ApexSymbolCollectorListener
   /**
    * Chain expression scope for capturing complete chains as single units
    */
-  private chainExpressionScope: {
-    isActive: boolean;
-    baseExpression: string;
-    chainNodes: SymbolReference[];
-    startLocation: SymbolLocation;
-    depth: number;
-    baseSemanticContext?: SymbolReferenceSemanticContext;
-  } | null = null;
+  private chainExpressionScope: ChainScope | null = null;
 
   /**
    * Get the location of the base expression in a chained expression
@@ -7540,11 +7546,13 @@ export class ApexSymbolCollectorListener
   /**
    * Create a new chain scope from a dot expression context
    */
-  private createNewChainScope(ctx: DotExpressionContext): ChainScope {
+  private createNewChainScope(ctx: DotExpressionContext): ChainScope | null {
     const indexedAccess = indexedAccessSemantic(ctx.expression());
+    const baseExpression = this.extractBaseExpressionFromParser(ctx);
+    if (!baseExpression) return null;
     return {
       isActive: true,
-      baseExpression: this.extractBaseExpressionFromParser(ctx),
+      baseExpression,
       chainNodes: [],
       startLocation: this.getLocation(ctx),
       depth: 0,
@@ -7656,7 +7664,9 @@ export class ApexSymbolCollectorListener
    * Extract base expression from parser structure using identifier extraction
    * This ensures we only get identifiers, not method calls or full expressions
    */
-  private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {
+  private extractBaseExpressionFromParser(
+    ctx: DotExpressionContext,
+  ): string | undefined {
     try {
       // Get the left-hand expression to find the base qualifier
       const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
@@ -7694,14 +7704,14 @@ export class ApexSymbolCollectorListener
           lhs as unknown as ParserRuleContext,
         );
         // Return the first identifier (base expression)
-        return identifiers.length > 0 ? identifiers[0] : 'unknown';
+        return identifiers[0];
       }
-      return 'unknown';
+      return undefined;
     } catch (error) {
       this.logger.warn(
         () => `Error extracting base expression from parser: ${error}`,
       );
-      return 'unknown';
+      return undefined;
     }
   }
 

@@ -79,6 +79,7 @@ import {
 import {
   getDocumentStateCache,
   getLspRequestPreparationPolicy,
+  isSearchingHover,
   type DataOwnerServices,
   type LSPRequestType,
   type LspRequestPreparationPolicy,
@@ -105,6 +106,7 @@ import {
 } from './compiler/CompilationWorkerHandler.ts';
 import { runWorkspaceCompilationPipeline } from './compiler/WorkspaceCompilationPipeline.ts';
 import {
+  clearSymbolStateForUri,
   recordSymbolStateEvent,
   selectSymbolStateReference,
   type SymbolStateReference,
@@ -1480,6 +1482,34 @@ export const dependencyReferencesAtCursor = (
  * The full-detail cursor table must already be installed so body references,
  * local variable types, method return types, and receiver keywords are visible.
  */
+const cursorTableResolutionInFlight = new WeakMap<object, Promise<void>>();
+
+async function materializeCursorCrossFileReferences(
+  svc: RequestServices,
+  uri: string,
+  symbolTable: object,
+): Promise<void> {
+  const existing = cursorTableResolutionInFlight.get(symbolTable);
+  if (existing) return existing;
+
+  const resolution = Effect.runPromise(
+    svc.symbolManager.resolveCrossFileReferencesForFile(uri).pipe(
+      Effect.tapError((error) =>
+        Effect.logDebug(
+          `[ENRICHMENT] Cursor cross-file resolution failed for ${uri}: ${String(error)}`,
+        ),
+      ),
+      Effect.catchAll(() => Effect.void),
+    ),
+  ).finally(() => {
+    if (cursorTableResolutionInFlight.get(symbolTable) === resolution) {
+      cursorTableResolutionInFlight.delete(symbolTable);
+    }
+  });
+  cursorTableResolutionInFlight.set(symbolTable, resolution);
+  return resolution;
+}
+
 function loadCursorTargetDependencies(
   svc: RequestServices,
   uri: string,
@@ -1518,6 +1548,17 @@ function loadCursorTargetDependencies(
         parserPosition,
       );
     }
+    const cursorReferenceNodes = references.flatMap((reference) => [
+      reference,
+      ...(reference.chainNodes ?? []),
+    ]);
+    const needsCrossFileResolution = cursorReferenceNodes.some(
+      (reference) =>
+        !reference.resolvedSymbolId &&
+        !reference.resolvedTypeId &&
+        reference.name.toLowerCase() !== 'this' &&
+        reference.name.toLowerCase() !== 'super',
+    );
     const candidateNames = new Map<
       string,
       { name: string; exactFqn?: string }
@@ -1671,17 +1712,11 @@ function loadCursorTargetDependencies(
     const missingNames: string[] = [];
     let localHitCount = 0;
     for (const candidateName of candidateNames.values()) {
-      const symbolManagerWithOptionalFqn =
-        svc.symbolManager as typeof svc.symbolManager & {
-          findSymbolByFQN?: (fqn: string) => Promise<ApexSymbol | null>;
-        };
-      const exact = symbolManagerWithOptionalFqn.findSymbolByFQN
-        ? yield* Effect.promise(() =>
-            symbolManagerWithOptionalFqn.findSymbolByFQN!(
-              candidateName.exactFqn ?? candidateName.name,
-            ),
-          )
-        : null;
+      const exact = yield* Effect.promise(() =>
+        svc.symbolManager.findSymbolByFQN(
+          candidateName.exactFqn ?? candidateName.name,
+        ),
+      );
       const candidates = exact
         ? [exact]
         : yield* Effect.promise(() =>
@@ -1734,10 +1769,10 @@ function loadCursorTargetDependencies(
     // retains the unresolved `property.Beds__c` chain and incorrectly falls
     // through to missing-artifact search. All downstream features consume this
     // parser-owned state; none reconstruct the receiver from document text.
-    if (candidateNames.size > 0) {
-      yield* svc.symbolManager
-        .resolveCrossFileReferencesForFile(uri)
-        .pipe(Effect.catchAll(() => Effect.void));
+    if (candidateNames.size > 0 && needsCrossFileResolution) {
+      yield* Effect.promise(() =>
+        materializeCursorCrossFileReferences(svc, uri, symbolTable),
+      );
     }
 
     const telemetry = {
@@ -2218,7 +2253,17 @@ export function prepareLspRequestCursor(
       shouldEnrich(initialDetailLevel, achievedDetailLevel);
 
     const stateSnapshot = symbolStateTracingEnabled()
-      ? yield* Effect.promise(() => captureSymbolStateTable(svc, uri, position))
+      ? yield* Effect.tryPromise({
+          try: () => captureSymbolStateTable(svc, uri, position),
+          catch: (cause) => cause,
+        }).pipe(
+          Effect.tapError((error) =>
+            Effect.logDebug(
+              `[SYMBOL-STATE] Skipping prepared-request tracing: ${String(error)}`,
+            ),
+          ),
+          Effect.catchAll(() => Effect.succeed(undefined)),
+        )
       : undefined;
     const stateAnomaly =
       ready && content !== undefined && stateSnapshot?.symbols.length === 0
@@ -3112,7 +3157,6 @@ async function captureResolutionStateAttributes(
   if (!symbolStateTracingEnabled()) return {};
   const uri = req.textDocument.uri;
   const snapshot = await captureSymbolStateTable(svc, uri, req.position);
-  const resultText = JSON.stringify(result);
   const resultMissing =
     result == null ||
     (Array.isArray(result) && result.length === 0) ||
@@ -3121,7 +3165,7 @@ async function captureResolutionStateAttributes(
       'items' in result &&
       Array.isArray((result as { items?: unknown[] }).items) &&
       (result as { items: unknown[] }).items.length === 0);
-  const searchingFallback = resultText.includes('Searching for symbol');
+  const searchingFallback = isSearchingHover(result);
   const unresolvedCursor =
     snapshot.cursorReferences.length > 0 &&
     snapshot.cursorReferences.every((reference) => !reference.resolvedSymbolId);
@@ -3193,6 +3237,27 @@ async function captureResolutionStateAttributes(
   });
 }
 
+function safelyCaptureResolutionStateAttributes(
+  svc: RequestServices,
+  requestType: 'hover' | 'completion' | 'definition',
+  req: PositionReq,
+  prepared: PreparedLspRequestContext,
+  result: unknown,
+): Effect.Effect<SymbolStateSpanAttributes> {
+  return Effect.tryPromise({
+    try: () =>
+      captureResolutionStateAttributes(svc, requestType, req, prepared, result),
+    catch: (cause) => cause,
+  }).pipe(
+    Effect.tapError((error) =>
+      Effect.logDebug(
+        `[SYMBOL-STATE] Skipping ${requestType} tracing: ${String(error)}`,
+      ),
+    ),
+    Effect.catchAll(() => Effect.succeed({})),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment dispatch handlers (Step 11 on the original file)
 // ---------------------------------------------------------------------------
@@ -3226,14 +3291,12 @@ const requestHandlers = {
               },
             ),
           );
-          const stateAttributes = yield* Effect.promise(() =>
-            captureResolutionStateAttributes(
-              svc,
-              'hover',
-              req,
-              prepared,
-              hoverResult,
-            ),
+          const stateAttributes = yield* safelyCaptureResolutionStateAttributes(
+            svc,
+            'hover',
+            req,
+            prepared,
+            hoverResult,
           );
           yield* Effect.annotateCurrentSpan(stateAttributes);
           return hoverResult;
@@ -3288,14 +3351,12 @@ const requestHandlers = {
               { prerequisitesPrepared: true },
             ),
           );
-          const stateAttributes = yield* Effect.promise(() =>
-            captureResolutionStateAttributes(
-              svc,
-              'completion',
-              req,
-              prepared,
-              completionResult,
-            ),
+          const stateAttributes = yield* safelyCaptureResolutionStateAttributes(
+            svc,
+            'completion',
+            req,
+            prepared,
+            completionResult,
           );
           yield* Effect.annotateCurrentSpan(stateAttributes);
           return completionResult;
@@ -3393,14 +3454,12 @@ const requestHandlers = {
               { prerequisitesPrepared: true },
             ),
           );
-          const stateAttributes = yield* Effect.promise(() =>
-            captureResolutionStateAttributes(
-              svc,
-              'definition',
-              req,
-              prepared,
-              definitionResult,
-            ),
+          const stateAttributes = yield* safelyCaptureResolutionStateAttributes(
+            svc,
+            'definition',
+            req,
+            prepared,
+            definitionResult,
           );
           yield* Effect.annotateCurrentSpan(stateAttributes);
           return definitionResult;
@@ -4909,6 +4968,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
         // Release any awaiter and drop the latch so the Map doesn't grow
         // unbounded across a long session of opens/closes.
         clearReadiness(req.uri);
+        clearSymbolStateForUri(req.uri);
         return { accepted: true };
       }),
   ),

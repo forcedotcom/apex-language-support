@@ -86,6 +86,7 @@ const MAX_EVENTS_PER_URI = 100;
 const MAX_SNAPSHOT_EVENTS = 24;
 const MAX_SNAPSHOT_ATTRIBUTE_CHARS = 16_000;
 const MAX_REFERENCES_PER_EVENT = 12;
+const MAX_FROZEN_SNAPSHOTS = 64;
 
 type ComparableRange = {
   startLine: number;
@@ -293,7 +294,17 @@ function snapshotAttribute(
   ) {
     compact.shift();
   }
-  return JSON.stringify(compact).slice(0, MAX_SNAPSHOT_ATTRIBUTE_CHARS);
+  let encoded = JSON.stringify(compact);
+  if (encoded.length > MAX_SNAPSHOT_ATTRIBUTE_CHARS && compact.length === 1) {
+    encoded = JSON.stringify([
+      {
+        truncated: true,
+        originalLength: compact[0].length,
+        eventHash: hashSymbolStateValue(compact[0]),
+      },
+    ]);
+  }
+  return encoded;
 }
 
 /**
@@ -387,6 +398,11 @@ export function recordSymbolStateEvent(
     const snapshotId = `${event.stateId}:${event.generation}:${event.sequence}`;
     const snapshot = history.slice(-MAX_SNAPSHOT_EVENTS);
     frozenSnapshots.set(snapshotId, snapshot);
+    while (frozenSnapshots.size > MAX_FROZEN_SNAPSHOTS) {
+      const oldestSnapshotId = frozenSnapshots.keys().next().value;
+      if (oldestSnapshotId === undefined) break;
+      frozenSnapshots.delete(oldestSnapshotId);
+    }
     attributes['symbol_state.anomaly'] = input.anomaly;
     attributes['debug.snapshot_id'] = snapshotId;
     attributes['debug.snapshot'] = snapshotAttribute(snapshot);
@@ -398,6 +414,17 @@ export function getFrozenSymbolStateSnapshot(
   snapshotId: string,
 ): readonly string[] | undefined {
   return frozenSnapshots.get(snapshotId)?.map(compactEvent);
+}
+
+/** Release development-only recorder state when an editor document closes. */
+export function clearSymbolStateForUri(uri: string): void {
+  histories.delete(uri);
+  generations.delete(uri);
+  for (const [snapshotId, events] of frozenSnapshots) {
+    if (events.some((event) => event.uri === uri)) {
+      frozenSnapshots.delete(snapshotId);
+    }
+  }
 }
 
 export function resetSymbolStateFlightRecorder(): void {

@@ -456,6 +456,10 @@ export type {
   WireSemanticArtifactProvenance,
   WireIdentifierSpec,
 } from './wireSchemas';
+export {
+  createApexOrgArtifactUri,
+  type ApexOrgArtifactKind,
+} from './utils/ApexOrgArtifactUri';
 
 // Worker wire schemas — internal worker IPC contract (Option B)
 export {

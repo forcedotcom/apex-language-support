@@ -731,7 +731,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
         ? {
             typeSymbol: parserResolvedType,
             fileUri: parserResolvedType.fileUri,
-            isStatic: receiver.kind === 'type',
+            isStatic: receiver.kind !== 'value',
           }
         : null;
     }

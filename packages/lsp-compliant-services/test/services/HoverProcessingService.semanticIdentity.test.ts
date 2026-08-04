@@ -17,7 +17,10 @@ import {
   type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexSettingsManager, getLogger } from '@salesforce/apex-lsp-shared';
-import { HoverProcessingService } from '../../src/services/HoverProcessingService';
+import {
+  HoverProcessingService,
+  isSearchingHover,
+} from '../../src/services/HoverProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -254,6 +257,7 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
 
     expect(content).toContain('Looking for: `ExactParserReference`');
     expect(content).not.toContain('BroadParserReference');
+    expect(isSearchingHover(result)).toBe(true);
     expect(backgroundLookup).toHaveBeenCalledTimes(1);
   });
 
@@ -270,5 +274,6 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     ).createSearchingHover(undefined);
 
     expect(result.contents.value).toContain('Looking for: `Unknown Symbol`');
+    expect(isSearchingHover(result)).toBe(true);
   });
 });

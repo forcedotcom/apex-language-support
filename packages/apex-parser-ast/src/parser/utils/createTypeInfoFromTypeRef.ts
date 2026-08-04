@@ -44,9 +44,11 @@ export function createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
   const collectionName = parts[parts.length - 1];
 
   let result: TypeInfo;
-  if (collectionName === 'Map' && typeParameters.length >= 2) {
+  const isUnqualified = parts.length === 1;
+  if (isUnqualified && collectionName === 'Map' && typeParameters.length >= 2) {
     result = createMapTypeInfo(typeParameters[0], typeParameters[1]);
   } else if (
+    isUnqualified &&
     (collectionName === 'List' || collectionName === 'Set') &&
     typeParameters.length > 0
   ) {

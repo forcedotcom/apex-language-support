@@ -7,6 +7,9 @@
  */
 
 import type { ISymbolManager, Position } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger } from '@salesforce/apex-lsp-shared';
+
+const logger = getLogger();
 
 /**
  * Report whether the current parser-owned snapshot can place the request
@@ -35,8 +38,30 @@ export async function hasCompleteSemanticState(
       position,
       fileUri,
     );
-    return context?.semanticState !== 'incomplete';
-  } catch {
+    if (context?.semanticState !== 'incomplete') return true;
+
+    // Top-level declarations legitimately have no lexical scope. Preserve an
+    // explicit parser-owned reference or declaration at the cursor instead of
+    // treating the lack of a containing scope as stale semantic state.
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const references = await symbolManager.getReferencesAtPosition(
+      fileUri,
+      parserPosition,
+    );
+    if (references.length > 0) return true;
+    const symbol = await symbolManager.getSymbolAtPosition(
+      fileUri,
+      parserPosition,
+      'precise',
+    );
+    return symbol != null;
+  } catch (error) {
+    logger.debug(
+      () => `Unable to inspect semantic state for ${fileUri}: ${String(error)}`,
+    );
     return false;
   }
 }

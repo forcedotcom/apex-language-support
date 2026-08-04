@@ -544,7 +544,12 @@ export const CollectionValidator: Validator = {
               !!elementType &&
               !!sourceElement &&
               compatibleTypeInfo(elementType, sourceElement);
-            if (!validCapacity && !validList && elementType) {
+            const validSet =
+              argumentType.name.toLowerCase() === 'set' &&
+              !!elementType &&
+              !!sourceElement &&
+              compatibleTypeInfo(elementType, sourceElement);
+            if (!validCapacity && !validList && !validSet && elementType) {
               errors.push({
                 message: localizeTyped(
                   ErrorCodes.INVALID_LIST_INITIALIZER,

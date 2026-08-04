@@ -8,6 +8,12 @@
 
 import { test, expect } from '../fixtures/apexFixtures';
 
+// Every test launches a compiler-backed VS Code web host against the same
+// workspace fixture. Running this file fully parallel can starve definition
+// requests and race the shared fixture, while CI already runs it with one
+// worker. Keep local and CI coverage deterministic.
+test.describe.configure({ mode: 'serial' });
+
 /**
  * E2E tests for Apex Go-to-Definition functionality.
  *
@@ -89,9 +95,11 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should navigate to field definition', async ({ apexEditor }) => {
     await test.step('Position cursor on field usage', async () => {
-      // Navigate past the declaration (line 7) so Find lands on a usage site
-      await apexEditor.goToPosition(24);
-      await apexEditor.positionCursorOnWord('instanceId');
+      // Line 24 contains two identical tokens:
+      // `this.instanceId = instanceId`. Find advances to the second match when
+      // Enter is pressed, which tests the constructor parameter rather than the
+      // field. Position directly on the qualified field (1-based column 14).
+      await apexEditor.goToPosition(24, 14);
     });
 
     await test.step('Trigger go-to-definition', async () => {

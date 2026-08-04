@@ -132,6 +132,19 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       params.origin?.uri ?? 'unknown'
     }|${normalizedIdentifiers || names.toLowerCase()}`;
     const now = Date.now();
+    for (const [
+      timeoutKey,
+      timestamp,
+    ] of EnhancedMissingArtifactResolutionService.recentBlockingTimeouts) {
+      if (
+        now - timestamp >=
+        EnhancedMissingArtifactResolutionService.BLOCKING_TIMEOUT_COOLDOWN_MS
+      ) {
+        EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
+          timeoutKey,
+        );
+      }
+    }
     const existing =
       EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.get(
         key,

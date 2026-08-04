@@ -49,6 +49,7 @@ import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrim
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
 import {
   DispatchHover,
+  DispatchDefinition,
   DispatchCompletion,
   DispatchReferences,
   DispatchImplementation,
@@ -172,6 +173,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
   const runFeature = (
     makeRequest: () =>
       | DispatchHover
+      | DispatchDefinition
       | DispatchCompletion
       | DispatchReferences
       | DispatchImplementation
@@ -323,6 +325,53 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     expect(completion.items.map((item) => item.label)).not.toContain(
       'maybeStatic()',
     );
+  }, 120_000);
+
+  it('resolves a shadowed this-field through the worker topology', async () => {
+    const definitionUri = 'file:///test/ApexClassExample.cls';
+    const definitionSource = [
+      'public with sharing class ApexClassExample {',
+      "  private static final String DEFAULT_STATUS = 'Active';",
+      '  private static Map<String, Object> configCache = new Map<String, Object>();',
+      '  private String instanceId;',
+      '  private List<Account> accounts;',
+      '  public ApexClassExample() {',
+      "    this('default-instance');",
+      '  }',
+      '  public ApexClassExample(String instanceId) {',
+      '    if (String.isBlank(instanceId)) {',
+      "      throw new IllegalArgumentException('Instance ID cannot be blank');",
+      '    }',
+      '    this.instanceId = instanceId;',
+      '    this.accounts = new List<Account>();',
+      '  }',
+      '}',
+    ].join('\n');
+    const memberCharacter = definitionSource
+      .split('\n')[12]
+      .indexOf('instanceId');
+
+    const response = await Effect.runPromise(
+      runFeature(
+        () =>
+          new DispatchDefinition({
+            textDocument: { uri: definitionUri },
+            position: { line: 12, character: memberCharacter },
+            content: definitionSource,
+            documentVersion: 1,
+          }),
+        { uri: definitionUri, source: definitionSource },
+      ),
+    );
+
+    expect(response.result).toEqual([
+      expect.objectContaining({
+        uri: definitionUri,
+        range: expect.objectContaining({
+          start: expect.objectContaining({ line: 3 }),
+        }),
+      }),
+    ]);
   }, 120_000);
 
   it('completes a references round-trip end-to-end', async () => {

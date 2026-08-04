@@ -50,6 +50,12 @@ import {
 import { Effect } from 'effect';
 import { hasCompleteSemanticState } from '../utils/semanticStateUtils';
 
+const searchingHovers = new WeakSet<object>();
+
+/** Identify the internal searching placeholder without inspecting display text. */
+export const isSearchingHover = (value: unknown): boolean =>
+  typeof value === 'object' && value !== null && searchingHovers.has(value);
+
 /**
  * Interface for hover processing functionality
  */
@@ -1198,9 +1204,11 @@ export class HoverProcessingService implements IHoverProcessor {
       value: content.join('\n'),
     };
 
-    return {
+    const hover: Hover = {
       contents: markupContent,
     };
+    searchingHovers.add(hover);
+    return hover;
   }
 
   /**

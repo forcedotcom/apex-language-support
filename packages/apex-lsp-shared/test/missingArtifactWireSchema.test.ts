@@ -33,9 +33,9 @@ describe('missing-artifact identifier wire provenance', () => {
     expect(decoded.provenance).toEqual(provenance);
   });
 
-  it('rejects a name-only identifier', () => {
-    expect(() =>
+  it('decodes a legacy name-only identifier for boundary validation', () => {
+    expect(
       Schema.decodeUnknownSync(WireIdentifierSpecSchema)({ name: 'Example' }),
-    ).toThrow();
+    ).toEqual({ name: 'Example' });
   });
 });

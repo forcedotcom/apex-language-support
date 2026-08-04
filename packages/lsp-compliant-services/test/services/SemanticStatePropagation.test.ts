@@ -13,6 +13,7 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { CompletionProcessingService } from '../../src/services/CompletionProcessingService';
 import { HoverProcessingService } from '../../src/services/HoverProcessingService';
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
+import { hasCompleteSemanticState } from '../../src/utils/semanticStateUtils';
 
 jest.mock('../../src/storage/ApexStorageManager');
 
@@ -69,13 +70,25 @@ describe('incomplete semantic state propagation', () => {
     expect(manager.getIncompleteMemberAccessAtPosition).not.toHaveBeenCalled();
   });
 
+  it('accepts a parser-owned top-level reference without a lexical scope', async () => {
+    const manager = createIncompleteManager();
+    manager.getReferencesAtPosition.mockResolvedValue([
+      { name: 'ActivelyEdited' },
+    ]);
+
+    await expect(
+      hasCompleteSemanticState(manager, uri, params.position),
+    ).resolves.toBe(true);
+    expect(manager.getSymbolAtPosition).not.toHaveBeenCalled();
+  });
+
   it('returns no hover without attempting symbol resolution', async () => {
     const manager = createIncompleteManager();
     const service = new HoverProcessingService(getLogger(), manager);
 
     await expect(service.processHover(params)).resolves.toBeNull();
-    expect(manager.getReferencesAtPosition).not.toHaveBeenCalled();
-    expect(manager.getSymbolAtPosition).not.toHaveBeenCalled();
+    expect(manager.getReferencesAtPosition).toHaveBeenCalledTimes(1);
+    expect(manager.getSymbolAtPosition).toHaveBeenCalledTimes(1);
   });
 
   it('returns no definition without launching fallback resolution', async () => {
@@ -83,7 +96,7 @@ describe('incomplete semantic state propagation', () => {
     const service = new DefinitionProcessingService(getLogger(), manager);
 
     await expect(service.processDefinition(params)).resolves.toEqual([]);
-    expect(manager.getReferencesAtPosition).not.toHaveBeenCalled();
-    expect(manager.getSymbolAtPosition).not.toHaveBeenCalled();
+    expect(manager.getReferencesAtPosition).toHaveBeenCalledTimes(1);
+    expect(manager.getSymbolAtPosition).toHaveBeenCalledTimes(1);
   });
 });

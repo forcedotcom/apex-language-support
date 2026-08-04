@@ -38,7 +38,11 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
-import { isAssignable } from '../utils/typeAssignability';
+import {
+  isAssignable,
+  isNumericType,
+  isPrimitiveType,
+} from '../utils/typeAssignability';
 import {
   resolveTypeName,
   ReferenceTypeEnum,
@@ -1309,7 +1313,7 @@ function validateMethodReturnType(
         expectedTypeShape,
         allSymbols,
       )
-    : isAssignable(returnType, expectedType, 'assignment', { allSymbols });
+    : isMethodReturnAssignable(returnType, expectedType, allSymbols);
   if (!assignable) {
     errors.push({
       message: localizeTyped(
@@ -1361,7 +1365,30 @@ function areTypeInfosAssignable(
     });
   }
 
-  return isAssignable(source.name, target.name, 'assignment', { allSymbols });
+  return isMethodReturnAssignable(source.name, target.name, allSymbols);
+}
+
+/** Preserve Apex method-return compatibility beyond ordinary assignment rules. */
+function isMethodReturnAssignable(
+  sourceType: string,
+  targetType: string,
+  allSymbols: ApexSymbol[],
+): boolean {
+  const baseName = (name: string): string =>
+    (name.trim().split('.').pop() ?? name).toLowerCase();
+  const source = baseName(sourceType);
+  const target = baseName(targetType);
+
+  if (
+    (source === 'id' && target === 'string') ||
+    (source === 'string' && target === 'id')
+  ) {
+    return true;
+  }
+  if (isNumericType(source) && isNumericType(target)) return true;
+  if (source === 'object' && !isPrimitiveType(target)) return true;
+
+  return isAssignable(sourceType, targetType, 'assignment', { allSymbols });
 }
 
 /**

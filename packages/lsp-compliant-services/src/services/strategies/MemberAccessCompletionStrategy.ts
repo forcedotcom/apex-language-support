@@ -7,7 +7,10 @@
  */
 
 import { Effect } from 'effect';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  createApexOrgArtifactUri,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
   ApexSymbol,
@@ -349,9 +352,10 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     namespace: string,
     typeName: string,
   ): Promise<TypeSymbol | null> {
-    const artifactUri =
-      'apex-org-artifact:/apex-class/' +
-      `${namespace.toLowerCase()}.${typeName.toLowerCase()}.cls`;
+    const artifactUri = createApexOrgArtifactUri(
+      'apex-class',
+      `${namespace}.${typeName}`,
+    );
     const table = await this.symbolManager.getSymbolTableForFile(artifactUri);
     if (!table) return null;
 

@@ -7,6 +7,7 @@
  */
 
 import {
+  clearSymbolStateForUri,
   getFrozenSymbolStateSnapshot,
   hashSymbolStateValue,
   recordSymbolStateEvent,
@@ -202,6 +203,69 @@ describe('SymbolStateFlightRecorder', () => {
     );
     expect(changed['symbol_state.table_generation']).toBe(
       Number(first['symbol_state.table_generation']) + 1,
+    );
+  });
+
+  it('bounds frozen anomaly snapshots and evicts the oldest entry', () => {
+    const snapshotIds: string[] = [];
+    for (let index = 0; index < 65; index++) {
+      const attributes = recordSymbolStateEvent({
+        phase: 'request.resolve.hover',
+        uri: `file:///Test${index}.cls`,
+        workerId: 'request-1',
+        workerRole: 'lspRequest',
+        anomaly: 'empty-result',
+      });
+      snapshotIds.push(String(attributes['debug.snapshot_id']));
+    }
+
+    expect(getFrozenSymbolStateSnapshot(snapshotIds[0])).toBeUndefined();
+    expect(getFrozenSymbolStateSnapshot(snapshotIds[64])).toHaveLength(1);
+  });
+
+  it('clears URI-owned history, generation, and snapshots on close', () => {
+    const uri = 'file:///Closed.cls';
+    const attributes = recordSymbolStateEvent({
+      phase: 'request.resolve.definition',
+      uri,
+      workerId: 'request-1',
+      workerRole: 'lspRequest',
+      anomaly: 'empty-result',
+    });
+    const snapshotId = String(attributes['debug.snapshot_id']);
+
+    clearSymbolStateForUri(uri);
+
+    expect(getFrozenSymbolStateSnapshot(snapshotId)).toBeUndefined();
+    const next = recordSymbolStateEvent({
+      phase: 'document.open',
+      uri,
+      workerId: 'data-owner',
+      workerRole: 'dataOwner',
+    });
+    expect(next['symbol_state.table_generation']).toBe(1);
+  });
+
+  it('keeps oversized snapshot attributes valid JSON', () => {
+    const attributes = recordSymbolStateEvent({
+      phase: 'request.resolve.hover',
+      uri: 'file:///Large.cls',
+      workerId: 'request-1',
+      workerRole: 'lspRequest',
+      anomaly: 'empty-result',
+      cursorReferences: [
+        {
+          name: 'x'.repeat(20_000),
+          context: 4,
+        },
+      ],
+    });
+
+    expect(() =>
+      JSON.parse(String(attributes['debug.snapshot'])),
+    ).not.toThrow();
+    expect(String(attributes['debug.snapshot']).length).toBeLessThanOrEqual(
+      16_000,
     );
   });
 });
