@@ -23,12 +23,14 @@ export const window = {
     command: '',
   })),
   showInformationMessage: jest.fn(),
+  showWarningMessage: jest.fn(),
   showErrorMessage: jest.fn(),
   showTextDocument: jest.fn(),
 };
 
 export const commands = {
   registerCommand: jest.fn(),
+  executeCommand: jest.fn(),
 };
 
 export const workspace = {
@@ -56,6 +58,12 @@ export const workspace = {
 export const extensions = {
   getExtension: jest.fn(),
 };
+
+export enum ExtensionMode {
+  Production = 1,
+  Development = 2,
+  Test = 3,
+}
 
 export class Uri {
   static parse(value: string): Uri {

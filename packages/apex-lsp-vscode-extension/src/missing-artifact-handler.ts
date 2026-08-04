@@ -31,6 +31,13 @@ import {
   type WorkspaceComponentResolution,
 } from './services/workspace-component-set-adapter';
 import { emitTelemetrySpan } from './observability/extensionTracing';
+import {
+  isSalesforceServicesAvailable,
+  SALESFORCE_SERVICES_EXTENSION_ID,
+} from './services/salesforce-services-extension';
+
+const SHOW_SALESFORCE_SERVICES = 'Show Salesforce Services';
+let servicesUnavailableNotice: Promise<void> | undefined;
 
 export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
@@ -45,6 +52,32 @@ export async function handleFindMissingArtifact(
   );
 
   if (identifiers.length === 0) {
+    return { notFound: true };
+  }
+
+  const servicesIdentifiers = identifiers.filter(requiresSalesforceServices);
+  if (
+    servicesIdentifiers.length > 0 &&
+    !dependencies.servicesAvailability.isAvailable()
+  ) {
+    const unavailableNames = servicesIdentifiers.map(({ name }) => name);
+    logToOutputChannel(
+      `⚠️ Salesforce Services is unavailable; cannot resolve: ${unavailableNames.join(', ')}`,
+      'warning',
+    );
+    dependencies.recordTelemetry?.({
+      type: 'org_artifact_resolution',
+      outcome: 'services-extension-unavailable',
+      artifactCount: servicesIdentifiers.length,
+      identifierTypes: Array.from(
+        new Set(servicesIdentifiers.map(identifierType)),
+      ).join(','),
+    });
+    if (params.mode === 'blocking') {
+      await dependencies.servicesAvailability.notifyUnavailable(
+        unavailableNames,
+      );
+    }
     return { notFound: true };
   }
 
@@ -92,6 +125,12 @@ export interface MissingArtifactHandlerDependencies {
     WorkspaceComponentSetAdapter,
     'resolve'
   >;
+  readonly servicesAvailability: {
+    readonly isAvailable: () => boolean;
+    readonly notifyUnavailable: (
+      artifactNames: readonly string[],
+    ) => Promise<void>;
+  };
   readonly recordTelemetry?: (event: Record<string, unknown>) => void;
 }
 
@@ -107,6 +146,10 @@ function createDefaultDependencies(): MissingArtifactHandlerDependencies {
     sObjectAdapter: new OrgSObjectAdapter(fileSystem),
     fileSystem,
     workspaceComponentAdapter: new WorkspaceComponentSetAdapter(),
+    servicesAvailability: {
+      isAvailable: isSalesforceServicesAvailable,
+      notifyUnavailable: notifySalesforceServicesUnavailable,
+    },
     recordTelemetry: emitTelemetrySpan,
   };
   return defaultDependencies;
@@ -321,6 +364,41 @@ function utf8Size(value: string): number {
 
 function identifierType(spec: WireIdentifierSpec): OrgArtifactRequest['kind'] {
   return spec.identifierType ?? 'apex-class';
+}
+
+function requiresSalesforceServices(spec: WireIdentifierSpec): boolean {
+  switch (identifierType(spec)) {
+    case 'sobject':
+    case 'apex-class':
+    case 'trigger':
+      return true;
+  }
+}
+
+async function notifySalesforceServicesUnavailable(
+  artifactNames: readonly string[],
+): Promise<void> {
+  if (!servicesUnavailableNotice) {
+    servicesUnavailableNotice = Promise.resolve(
+      vscode.window.showWarningMessage(
+        `Salesforce Services is required to resolve ${artifactNames.join(', ')}. ` +
+          'Install or enable the Salesforce Services extension and try again.',
+        SHOW_SALESFORCE_SERVICES,
+      ),
+    )
+      .then(async (selection) => {
+        if (selection === SHOW_SALESFORCE_SERVICES) {
+          await vscode.commands.executeCommand(
+            'workbench.extensions.search',
+            `@id:${SALESFORCE_SERVICES_EXTENSION_ID}`,
+          );
+        }
+      })
+      .finally(() => {
+        servicesUnavailableNotice = undefined;
+      });
+  }
+  await servicesUnavailableNotice;
 }
 
 async function openFiles(

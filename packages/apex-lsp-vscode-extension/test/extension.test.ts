@@ -49,6 +49,9 @@ describe('Apex Language Server Extension ()', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(vscode.extensions.getExtension).mockReturnValue({
+      isActive: true,
+    } as vscode.Extension<unknown>);
 
     mockContext = {
       subscriptions: [],
