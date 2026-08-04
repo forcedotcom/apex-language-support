@@ -23,6 +23,81 @@
 
 import { Schema } from 'effect';
 
+const PositionSchema = Schema.Struct({
+  line: Schema.Number,
+  character: Schema.Number,
+});
+
+const LspRangeSchema = Schema.Struct({
+  start: PositionSchema,
+  end: PositionSchema,
+});
+
+export const DefinitionTargetSchema = Schema.Struct({
+  uri: Schema.String,
+  range: Schema.optional(LspRangeSchema),
+});
+export type WireDefinitionTarget = Schema.Schema.Type<
+  typeof DefinitionTargetSchema
+>;
+
+export const SObjectDescribeFieldSchema = Schema.Struct({
+  name: Schema.String,
+  label: Schema.optional(Schema.String),
+  type: Schema.String,
+  referenceTo: Schema.optional(Schema.Array(Schema.String)),
+  relationshipName: Schema.optional(Schema.String),
+  nillable: Schema.optional(Schema.Boolean),
+  createable: Schema.optional(Schema.Boolean),
+  updateable: Schema.optional(Schema.Boolean),
+  calculated: Schema.optional(Schema.Boolean),
+  length: Schema.optional(Schema.Number),
+  precision: Schema.optional(Schema.Number),
+  scale: Schema.optional(Schema.Number),
+  definitionTarget: DefinitionTargetSchema,
+});
+export type WireSObjectDescribeField = Schema.Schema.Type<
+  typeof SObjectDescribeFieldSchema
+>;
+
+export const SObjectDescribeSchema = Schema.Struct({
+  name: Schema.String,
+  label: Schema.optional(Schema.String),
+  labelPlural: Schema.optional(Schema.String),
+  custom: Schema.Boolean,
+  queryable: Schema.optional(Schema.Boolean),
+  createable: Schema.optional(Schema.Boolean),
+  updateable: Schema.optional(Schema.Boolean),
+  deletable: Schema.optional(Schema.Boolean),
+  fields: Schema.Array(SObjectDescribeFieldSchema),
+  definitionTarget: DefinitionTargetSchema,
+});
+export type WireSObjectDescribe = Schema.Schema.Type<
+  typeof SObjectDescribeSchema
+>;
+
+export const MissingArtifactPayloadSchema = Schema.Struct({
+  identifierType: Schema.Literal('sobject'),
+  name: Schema.String,
+  describe: SObjectDescribeSchema,
+});
+export type WireMissingArtifactPayload = Schema.Schema.Type<
+  typeof MissingArtifactPayloadSchema
+>;
+
+export const FindMissingArtifactResultSchema = Schema.Union(
+  Schema.Struct({
+    artifacts: Schema.Array(MissingArtifactPayloadSchema),
+    opened: Schema.optional(Schema.Array(Schema.String)),
+  }),
+  Schema.Struct({ opened: Schema.Array(Schema.String) }),
+  Schema.Struct({ notFound: Schema.Literal(true) }),
+  Schema.Struct({ accepted: Schema.Literal(true) }),
+);
+export type WireFindMissingArtifactResult = Schema.Schema.Type<
+  typeof FindMissingArtifactResultSchema
+>;
+
 const RangeSchema = Schema.Struct({
   startLine: Schema.Number,
   startColumn: Schema.Number,
@@ -109,6 +184,9 @@ export const WireIdentifierSpecSchema = Schema.Struct({
   // Optional on the wire for rolling upgrades. The semantic boundary rejects
   // identifiers without provenance before they can trigger artifact loading.
   provenance: Schema.optional(WireSemanticArtifactProvenanceSchema),
+  identifierType: Schema.optional(
+    Schema.Literal('sobject', 'apex-class', 'trigger'),
+  ),
   typeReference: Schema.optional(WireTypeReferenceSchema),
   searchHints: Schema.optional(Schema.Array(WireSearchHintSchema)),
   resolvedQualifier: Schema.optional(WireResolvedQualifierSchema),

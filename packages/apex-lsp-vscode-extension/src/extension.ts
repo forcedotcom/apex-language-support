@@ -48,6 +48,10 @@ import {
   initializeExtensionTracing,
   shutdownExtensionTracing,
 } from './observability/extensionTracing';
+import {
+  getOrgArtifactFileSystem,
+  registerOrgArtifactFileSystem,
+} from './services/org-artifact-fs';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -74,6 +78,7 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
 export function activate(context: vscode.ExtensionContext): void {
   // Initialize simple extension logging
   initializeExtensionLogging(context);
+  registerOrgArtifactFileSystem(context);
 
   const extensionMode =
     context.extensionMode === vscode.ExtensionMode.Development
@@ -225,5 +230,6 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
   await stopLanguageServer();
+  getOrgArtifactFileSystem().clear();
   await shutdownExtensionTracing();
 }

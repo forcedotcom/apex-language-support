@@ -8,6 +8,7 @@
 
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
+import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 /**
  * Context for SObject validation
@@ -290,23 +291,7 @@ export class SObjectTypeValidator {
    * Check if SObject type name is valid
    */
   private static isValidSObjectTypeName(name: string): boolean {
-    // Custom SObject types must end with __c
-    if (name.endsWith('__c')) {
-      return true;
-    }
-
-    // Custom SObject types can also end with __kav (Knowledge Article Version)
-    if (name.endsWith('__kav')) {
-      return true;
-    }
-
-    // Custom SObject types can also end with __ka (Knowledge Article)
-    if (name.endsWith('__ka')) {
-      return true;
-    }
-
-    // Custom SObject types can also end with __x (External Object)
-    if (name.endsWith('__x')) {
+    if (SObjectRegistry.isCustomSObjectName(name)) {
       return true;
     }
 
@@ -390,8 +375,7 @@ export class SObjectTypeValidator {
       return true;
     }
 
-    // Custom fields must end with __c
-    if (fieldName.endsWith('__c')) {
+    if (SObjectRegistry.isCustomFieldName(fieldName)) {
       return true;
     }
 
@@ -412,10 +396,13 @@ export class SObjectTypeValidator {
    * Check if field name suggests it's a relationship field
    */
   private static isRelationshipFieldName(fieldName: string): boolean {
+    if (SObjectRegistry.isRelationshipName(fieldName)) {
+      return true;
+    }
+
     // Common relationship field patterns
     const relationshipPatterns = [
       /^[A-Z][a-zA-Z0-9]*$/, // PascalCase (e.g., Account, Contact)
-      /^[A-Z][a-zA-Z0-9]*__r$/, // Custom relationship fields
     ];
 
     // Exclude known non-relationship fields

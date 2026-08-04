@@ -10,72 +10,67 @@ import { logToOutputChannel } from './logging';
 import {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
+  MissingArtifactPayload,
   WireIdentifierSpec,
   formattedError,
 } from '@salesforce/apex-lsp-shared';
-import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
-
-/** sObject suffix patterns — these types have no .cls file. */
-const SOBJECT_SUFFIX_RE = /__[cCrReEbBmMxX]$/;
-
-/**
- * Reduce a URI to a scheme-independent path for origin comparison. The
- * missing-artifact request carries the origin URI in whatever scheme the
- * client opened it (file, vscode-vfs, vscode-test-web…), while candidate
- * matches come back from findFiles/walkDirectory. Comparing the decoded
- * path segment sidesteps scheme/encoding differences.
- */
-function originPathFor(uri: string | undefined): string | undefined {
-  if (!uri) return undefined;
-  try {
-    return vscode.Uri.parse(uri).path;
-  } catch {
-    return undefined;
-  }
-}
-
-/** True when a candidate URI is the origin file itself. */
-function isOriginFile(
-  candidate: vscode.Uri,
-  originPath: string | undefined,
-): boolean {
-  return originPath !== undefined && candidate.path === originPath;
-}
+import * as Effect from 'effect/Effect';
+import {
+  OrgArtifactAdapter,
+  type OrgArtifactRequest,
+  type OrgArtifactSearchResult,
+} from './services/org-artifact-adapter';
+import {
+  getOrgArtifactFileSystem,
+  type OrgArtifactFileSystem,
+} from './services/org-artifact-fs';
+import { OrgSObjectAdapter } from './sobjects/org-sobject-adapter';
+import {
+  WorkspaceComponentSetAdapter,
+  workspaceIdentifierKey,
+  type WorkspaceComponentResolution,
+} from './services/workspace-component-set-adapter';
+import { emitTelemetrySpan } from './observability/extensionTracing';
 
 export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
   _context: vscode.ExtensionContext,
+  dependencies: MissingArtifactHandlerDependencies = createDefaultDependencies(),
 ): Promise<FindMissingArtifactResult> {
-  // Strip sObject identifiers (e.g. Property__c) — they have no .cls file.
-  const filtered = params.identifiers.filter(
-    (s) => !SOBJECT_SUFFIX_RE.test(s.name),
-  );
-  const effectiveParams =
-    filtered.length < params.identifiers.length
-      ? { ...params, identifiers: filtered }
-      : params;
-
-  const names = effectiveParams.identifiers.map((s) => s.name).join(', ');
+  const identifiers = dedupeByTypedIdentifier(params.identifiers);
+  const names = identifiers.map((s) => s.name).join(', ');
   logToOutputChannel(
     `🔍 Handling missing artifact request for: ${names}`,
     'debug',
   );
 
-  if (effectiveParams.identifiers.length === 0) {
-    // All identifiers were sObjects — nothing to search for
+  if (identifiers.length === 0) {
     return { notFound: true };
   }
 
   try {
-    const workspaceResult = await resolveFromWorkspace(effectiveParams);
-    if (workspaceResult) {
-      return workspaceResult;
-    }
-
-    logToOutputChannel(
-      `❌ Could not find artifact in workspace: ${names}`,
-      'debug',
+    const workspace = await resolveFromWorkspace(
+      params,
+      identifiers,
+      dependencies,
     );
+    const org = await resolveFromOrg(
+      workspace.unresolved,
+      params.mode,
+      dependencies,
+    );
+    const opened = Array.from(new Set([...workspace.opened, ...org.opened]));
+    const artifacts = [...workspace.artifacts, ...org.artifacts];
+    if (artifacts.length > 0) {
+      return {
+        artifacts,
+        ...(opened.length > 0 && { opened }),
+      };
+    }
+    if (opened.length > 0) {
+      return { opened };
+    }
+    logToOutputChannel(`❌ Could not find artifact: ${names}`, 'debug');
     return { notFound: true };
   } catch (error) {
     logToOutputChannel(
@@ -86,13 +81,45 @@ export async function handleFindMissingArtifact(
   }
 }
 
-/** Dedupe specs by name; prefer spec with hints over minimal { name } */
-function dedupeByIdentifierName(
+export interface MissingArtifactHandlerDependencies {
+  readonly orgAdapter: Pick<OrgArtifactAdapter, 'search'>;
+  readonly sObjectAdapter: Pick<OrgSObjectAdapter, 'adapt'>;
+  readonly fileSystem: Pick<
+    OrgArtifactFileSystem,
+    'generation' | 'materializeSource'
+  >;
+  readonly workspaceComponentAdapter: Pick<
+    WorkspaceComponentSetAdapter,
+    'resolve'
+  >;
+  readonly recordTelemetry?: (event: Record<string, unknown>) => void;
+}
+
+let defaultDependencies: MissingArtifactHandlerDependencies | undefined;
+
+function createDefaultDependencies(): MissingArtifactHandlerDependencies {
+  if (defaultDependencies) {
+    return defaultDependencies;
+  }
+  const fileSystem = getOrgArtifactFileSystem();
+  defaultDependencies = {
+    orgAdapter: new OrgArtifactAdapter(),
+    sObjectAdapter: new OrgSObjectAdapter(fileSystem),
+    fileSystem,
+    workspaceComponentAdapter: new WorkspaceComponentSetAdapter(),
+    recordTelemetry: emitTelemetrySpan,
+  };
+  return defaultDependencies;
+}
+
+/** Dedupe by normalized type/name; prefer specs carrying resolution hints. */
+function dedupeByTypedIdentifier(
   specs: WireIdentifierSpec[],
 ): WireIdentifierSpec[] {
   const byName = new Map<string, WireIdentifierSpec>();
   for (const spec of specs) {
-    const existing = byName.get(spec.name);
+    const key = `${identifierType(spec)}:${spec.name.trim().toLowerCase()}`;
+    const existing = byName.get(key);
     const hasHints =
       spec.searchHints?.length ||
       spec.typeReference ||
@@ -104,205 +131,196 @@ function dedupeByIdentifierName(
       existing?.resolvedQualifier ||
       existing?.parentContext;
     if (!existing || (hasHints && !existingHasHints)) {
-      byName.set(spec.name, spec);
+      byName.set(key, spec);
     }
   }
   return Array.from(byName.values());
 }
 
+interface WorkspaceResolution {
+  readonly opened: string[];
+  readonly artifacts: MissingArtifactPayload[];
+  readonly unresolved: WireIdentifierSpec[];
+}
+
 async function resolveFromWorkspace(
   params: FindMissingArtifactParams,
-): Promise<FindMissingArtifactResult | null> {
-  const { identifiers, mode } = params;
-  const maxCandidates = params.maxCandidatesToOpen || 3;
+  identifiers: readonly WireIdentifierSpec[],
+  dependencies: MissingArtifactHandlerDependencies,
+): Promise<WorkspaceResolution> {
+  const { mode } = params;
 
   if (identifiers.length === 0) {
-    return { notFound: true };
+    return { opened: [], artifacts: [], unresolved: [] };
   }
 
-  // Exclude the origin file from candidates — it's already open, so re-opening
-  // it can never resolve a *missing* artifact. The parentContext.containingType
-  // strategy targets the class enclosing the reference (the origin file itself
-  // for supertype refs like `implements DataProcessor`), which otherwise sorts
-  // highest and short-circuits the loop before the correct target strategy runs.
-  const originPath = originPathFor(params.origin?.uri);
+  let componentResolutions: ReadonlyMap<string, WorkspaceComponentResolution> =
+    new Map();
+  try {
+    componentResolutions =
+      await dependencies.workspaceComponentAdapter.resolve(identifiers);
+  } catch (error) {
+    logToOutputChannel(
+      `⚠️ Workspace ComponentSet lookup failed: ${formattedError(error)}`,
+      'debug',
+    );
+  }
 
-  const uniqueSpecs = dedupeByIdentifierName(identifiers);
-  const allFiles = new Set<string>();
-
-  for (const spec of uniqueSpecs) {
-    const searchStrategies = generateSearchStrategiesForSpec(spec);
-
-    for (const strategy of searchStrategies) {
-      const found = await searchWithStrategy(strategy, maxCandidates);
-      const files = found.filter((f) => !isOriginFile(f, originPath));
-      for (const f of files) {
-        allFiles.add(f.toString());
-      }
-      if (files.length > 0) {
-        break; // Found for this spec, move to next
-      }
+  const opened = new Set<string>();
+  const originPath = uriPath(params.origin?.uri);
+  const artifacts: MissingArtifactPayload[] = [];
+  const unresolved: WireIdentifierSpec[] = [];
+  for (const spec of identifiers) {
+    const resolution = componentResolutions.get(workspaceIdentifierKey(spec));
+    if (resolution?.kind === 'sobject') {
+      artifacts.push(resolution.artifact);
+      continue;
     }
-  }
-
-  if (allFiles.size > 0) {
-    const filesToOpen = Array.from(allFiles)
-      .map((p) => vscode.Uri.parse(p))
-      .slice(0, maxCandidates);
-    const openedFiles = await openFiles(filesToOpen, mode);
-    if (openedFiles.length > 0) {
-      return { opened: openedFiles };
+    if (resolution?.kind !== 'source') {
+      unresolved.push(spec);
+      continue;
     }
+    if (originPath && resolution.uri.path === originPath) {
+      unresolved.push(spec);
+      continue;
+    }
+
+    if (opened.has(resolution.uri.toString())) {
+      continue;
+    }
+    const openedForSpec = await openFiles([resolution.uri], mode);
+    if (openedForSpec.length === 0) {
+      unresolved.push(spec);
+      continue;
+    }
+    openedForSpec.forEach((uri) => opened.add(uri));
   }
 
-  return null;
+  return { opened: Array.from(opened), artifacts, unresolved };
 }
 
-interface SearchStrategy {
-  searchPatterns: readonly string[];
-  priority: 'exact' | 'high' | 'medium' | 'low';
-  reasoning: string;
-  expectedFileType: string;
-  confidence: number;
-  fallbackPatterns?: readonly string[];
-  namespace?: string;
+function uriPath(uri: string | undefined): string | undefined {
+  if (!uri) return undefined;
+  try {
+    return vscode.Uri.parse(uri).path;
+  } catch {
+    return undefined;
+  }
 }
 
-function generateSearchStrategiesForSpec(
-  spec: WireIdentifierSpec,
-): SearchStrategy[] {
-  const strategies: SearchStrategy[] = [];
-  const identifier = spec.name;
-
-  if (spec.searchHints && spec.searchHints.length > 0) {
-    for (const hint of spec.searchHints) {
-      strategies.push({
-        searchPatterns: hint.searchPatterns || [
-          `**/${hint.expectedFileType || 'class'}.cls`,
-        ],
-        priority: hint.priority || 'high',
-        reasoning: hint.reasoning || 'Server-provided search hint',
-        expectedFileType: hint.expectedFileType || 'class',
-        confidence: hint.confidence || 0.8,
-        fallbackPatterns: hint.fallbackPatterns,
-        namespace: hint.namespace,
+async function resolveFromOrg(
+  identifiers: readonly WireIdentifierSpec[],
+  mode: 'blocking' | 'background',
+  dependencies: MissingArtifactHandlerDependencies,
+): Promise<{
+  readonly artifacts: MissingArtifactPayload[];
+  readonly opened: string[];
+}> {
+  const artifacts: MissingArtifactPayload[] = [];
+  const opened: string[] = [];
+  for (const identifier of identifiers) {
+    const startedAt = Date.now();
+    const generation = dependencies.fileSystem.generation;
+    const request: OrgArtifactRequest = {
+      kind: identifierType(identifier),
+      name: identifier.name,
+    };
+    const result = await Effect.runPromise(
+      dependencies.orgAdapter.search(request),
+    );
+    if (result.kind === 'sobject-describe') {
+      const adapted = dependencies.sObjectAdapter.adapt(
+        result.describe,
+        generation,
+      );
+      if (adapted.status === 'ok') {
+        artifacts.push({
+          identifierType: 'sobject',
+          name: adapted.describe.name,
+          describe: adapted.describe,
+        });
+      }
+      recordOrgArtifactTelemetry(dependencies, {
+        identifierType: request.kind,
+        outcome: adapted.status === 'ok' ? 'resolved' : adapted.status,
+        durationMs: Date.now() - startedAt,
+        placeholderLifetimeMs: Date.now() - startedAt,
+        ...(adapted.status === 'ok' && {
+          fieldCount: adapted.describe.fields.length,
+          serializedBytes: utf8Size(JSON.stringify(adapted.describe)),
+        }),
+        ...servicesCacheHit(result),
       });
+      continue;
     }
-  }
-
-  if (spec.resolvedQualifier) {
-    const qualifier = spec.resolvedQualifier;
-    strategies.push({
-      searchPatterns: [`**/${qualifier.name}.cls`],
-      priority: 'exact',
-      reasoning: `Resolved qualifier: ${qualifier.type} ${qualifier.name}`,
-      expectedFileType: 'class',
-      confidence: 0.9,
-      namespace: qualifier.namespace,
+    if (result.kind !== 'apex-source' && result.kind !== 'trigger-source') {
+      recordOrgArtifactTelemetry(dependencies, {
+        identifierType: request.kind,
+        outcome: result.kind === 'unavailable' ? result.reason : result.kind,
+        durationMs: Date.now() - startedAt,
+        ...servicesCacheHit(result),
+      });
+      continue;
+    }
+    const uri = dependencies.fileSystem.materializeSource(
+      {
+        kind: result.kind === 'apex-source' ? 'apex-class' : 'trigger',
+        name: result.name,
+        namespace: result.namespace,
+        source: result.source,
+      },
+      generation,
+    );
+    if (!uri) {
+      recordOrgArtifactTelemetry(dependencies, {
+        identifierType: request.kind,
+        outcome: 'stale',
+        durationMs: Date.now() - startedAt,
+        serializedBytes: utf8Size(result.source),
+        ...servicesCacheHit(result),
+      });
+      continue;
+    }
+    const openedFiles = await openFiles([uri], mode);
+    opened.push(...openedFiles);
+    recordOrgArtifactTelemetry(dependencies, {
+      identifierType: request.kind,
+      outcome: openedFiles.length > 0 ? 'resolved' : 'open-failed',
+      durationMs: Date.now() - startedAt,
+      serializedBytes: utf8Size(result.source),
+      ...servicesCacheHit(result),
     });
   }
-
-  if (identifier.includes('.')) {
-    const [className] = identifier.split('.', 2);
-    strategies.push({
-      searchPatterns: [`**/${className}.cls`],
-      priority: 'high',
-      reasoning: `Class.method reference: searching for class ${className}`,
-      expectedFileType: 'class',
-      confidence: 0.8,
-    });
-  } else {
-    strategies.push({
-      searchPatterns: [`**/${identifier}.cls`],
-      priority: 'medium',
-      reasoning: `Unqualified reference: searching for class ${identifier}`,
-      expectedFileType: 'class',
-      confidence: 0.6,
-    });
-  }
-
-  if (spec.typeReference?.qualifier) {
-    strategies.push({
-      searchPatterns: [`**/${spec.typeReference.qualifier}.cls`],
-      priority: 'exact',
-      reasoning: `TypeReference qualifier: ${spec.typeReference.qualifier}`,
-      expectedFileType: 'class',
-      confidence: 0.95,
-    });
-  }
-
-  if (spec.parentContext?.containingType?.name) {
-    strategies.push({
-      searchPatterns: [`**/${spec.parentContext.containingType.name}.cls`],
-      priority: 'high',
-      reasoning: `Parent context: ${spec.parentContext.containingType.name}`,
-      expectedFileType: 'class',
-      confidence: 0.7,
-    });
-  }
-
-  strategies.push({
-    searchPatterns: [`**/${identifier}*.cls`, `**/${identifier}*.trigger`],
-    priority: 'low',
-    reasoning: 'Fallback: broad pattern search',
-    expectedFileType: 'class',
-    confidence: 0.3,
-  });
-
-  return strategies.sort((a, b) => b.confidence - a.confidence);
+  return { artifacts, opened };
 }
 
-async function searchWithStrategy(
-  strategy: SearchStrategy,
-  maxCandidates: number,
-): Promise<vscode.Uri[]> {
-  const allFiles: vscode.Uri[] = [];
+function recordOrgArtifactTelemetry(
+  dependencies: MissingArtifactHandlerDependencies,
+  attributes: Record<string, unknown>,
+): void {
+  dependencies.recordTelemetry?.({
+    type: 'org_artifact_resolution',
+    ...attributes,
+  });
+}
 
-  for (const pattern of strategy.searchPatterns) {
-    try {
-      const files = await findFilesAcrossWorkspaceFolders(
-        pattern,
-        '**/.sf/**',
-        maxCandidates,
-      );
-      allFiles.push(...files);
+function servicesCacheHit(result: OrgArtifactSearchResult): {
+  readonly servicesCacheHit?: boolean;
+} {
+  const candidate = result as OrgArtifactSearchResult & {
+    readonly servicesCacheHit?: unknown;
+  };
+  return typeof candidate.servicesCacheHit === 'boolean'
+    ? { servicesCacheHit: candidate.servicesCacheHit }
+    : {};
+}
 
-      if (allFiles.length >= maxCandidates) {
-        break;
-      }
-    } catch (error) {
-      logToOutputChannel(
-        `⚠️ Error searching with pattern ${pattern}: ${formattedError(error)}`,
-        'debug',
-      );
-    }
-  }
+function utf8Size(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
 
-  if (allFiles.length < maxCandidates && strategy.fallbackPatterns) {
-    for (const pattern of strategy.fallbackPatterns) {
-      try {
-        const files = await findFilesAcrossWorkspaceFolders(
-          pattern,
-          '**/.sf/**',
-          maxCandidates - allFiles.length,
-        );
-        allFiles.push(...files);
-
-        if (allFiles.length >= maxCandidates) {
-          break;
-        }
-      } catch (error) {
-        logToOutputChannel(
-          `⚠️ Error searching with fallback pattern ${pattern}: ${formattedError(error)}`,
-          'debug',
-        );
-      }
-    }
-  }
-
-  return Array.from(new Set(allFiles.map((f) => f.toString())))
-    .map((path) => vscode.Uri.parse(path))
-    .slice(0, maxCandidates);
+function identifierType(spec: WireIdentifierSpec): OrgArtifactRequest['kind'] {
+  return spec.identifierType ?? 'apex-class';
 }
 
 async function openFiles(

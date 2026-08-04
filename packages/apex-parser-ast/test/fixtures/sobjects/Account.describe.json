@@ -1,0 +1,48 @@
+{
+  "name": "Account",
+  "label": "Account",
+  "labelPlural": "Accounts",
+  "custom": false,
+  "queryable": true,
+  "createable": true,
+  "updateable": true,
+  "deletable": true,
+  "definitionTarget": {
+    "uri": "sf-org-data://objects/Account/Account.object-meta.xml",
+    "range": {
+      "start": { "line": 0, "character": 0 },
+      "end": { "line": 0, "character": 7 }
+    }
+  },
+  "fields": [
+    {
+      "name": "Name",
+      "label": "Account Name",
+      "type": "string",
+      "length": 255,
+      "definitionTarget": {
+        "uri": "sf-org-data://objects/Account/fields/Name.field-meta.xml"
+      }
+    },
+    {
+      "name": "AnnualRevenue",
+      "label": "Annual Revenue",
+      "type": "currency",
+      "precision": 18,
+      "scale": 2,
+      "definitionTarget": {
+        "uri": "sf-org-data://objects/Account/fields/AnnualRevenue.field-meta.xml"
+      }
+    },
+    {
+      "name": "OwnerId",
+      "label": "Owner ID",
+      "type": "reference",
+      "referenceTo": ["User"],
+      "relationshipName": "Owner",
+      "definitionTarget": {
+        "uri": "sf-org-data://objects/Account/fields/OwnerId.field-meta.xml"
+      }
+    }
+  ]
+}

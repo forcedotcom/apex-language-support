@@ -121,7 +121,10 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
 
     const result = await service.resolveBlocking(makeParams());
 
-    expect(result).toBe('resolved');
+    expect(result).toEqual({
+      status: 'resolved',
+      opened: ['file:///Found.cls'],
+    });
     expect(proxy).toHaveBeenCalledTimes(1);
 
     // The forwarded identifier must be a plain, structured-clone-safe object:
@@ -149,7 +152,90 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
 
     const result = await fastService.resolveBlocking(makeParams());
 
-    expect(result).toBe('timeout');
+    expect(result).toEqual({ status: 'timeout' });
     expect(proxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a valid sObject artifact in the blocking outcome', async () => {
+    const artifact = {
+      identifierType: 'sobject' as const,
+      name: 'Invoice__c',
+      describe: {
+        name: 'Invoice__c',
+        custom: true,
+        fields: [],
+        definitionTarget: { uri: 'org://Invoice__c' },
+      },
+    };
+    const proxy = jest.fn().mockResolvedValue({ artifacts: [artifact] });
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+
+    const result = await service.resolveBlocking({
+      ...makeParams(),
+      identifiers: [
+        {
+          ...makeParams().identifiers[0],
+          name: 'Invoice__c',
+          identifierType: 'sobject' as const,
+        },
+      ],
+    });
+
+    expect(result).toEqual({ status: 'resolved', artifacts: [artifact] });
+  });
+
+  it('does not dedupe ambiguous Apex and evidenced sObject requests', async () => {
+    const artifact = {
+      identifierType: 'sobject' as const,
+      name: 'Account',
+      describe: {
+        name: 'Account',
+        custom: false,
+        fields: [],
+        definitionTarget: { uri: 'org://Account' },
+      },
+    };
+    const proxy = jest
+      .fn()
+      .mockImplementation(async (params: ReturnType<typeof makeParams>) =>
+        params.identifiers[0].identifierType === 'sobject'
+          ? { artifacts: [artifact] }
+          : { opened: ['file:///Account.cls'] },
+      );
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const common = {
+      mode: 'blocking' as const,
+      origin: {
+        uri: 'file:///test.cls',
+        requestKind: 'definition' as const,
+      },
+    };
+
+    const [apexResult, sObjectResult] = await Promise.all([
+      service.resolveBlocking({
+        ...common,
+        identifiers: [{ ...makeParams().identifiers[0], name: 'Account' }],
+      }),
+      service.resolveBlocking({
+        ...common,
+        identifiers: [
+          {
+            ...makeParams().identifiers[0],
+            name: 'Account',
+            identifierType: 'sobject',
+          },
+        ],
+      }),
+    ]);
+
+    expect(proxy).toHaveBeenCalledTimes(2);
+    expect(apexResult).toEqual({
+      status: 'resolved',
+      opened: ['file:///Account.cls'],
+    });
+    expect(sObjectResult).toEqual({
+      status: 'resolved',
+      artifacts: [artifact],
+    });
   });
 });
