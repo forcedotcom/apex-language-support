@@ -87,6 +87,24 @@ describe('Configuration Module', () => {
   });
 
   describe('getWorkspaceSettings', () => {
+    it('preserves custom capability overrides', () => {
+      mockGetConfiguration.mockImplementation((key: string) =>
+        key === 'apex'
+          ? {
+              custom: {
+                publishDiagnostics: false,
+                diagnosticProvider: false,
+              },
+            }
+          : undefined,
+      );
+
+      expect(getWorkspaceSettings().apex.custom).toEqual({
+        publishDiagnostics: false,
+        diagnosticProvider: false,
+      });
+    });
+
     it('should return workspace settings with default values', () => {
       // Mock configuration values
       mockGetConfiguration.mockImplementation(
@@ -102,6 +120,7 @@ describe('Configuration Module', () => {
 
       expect(settings).toEqual({
         apex: {
+          custom: {},
           commentCollection: {
             enableCommentCollection: true,
             includeSingleLineComments: false,
