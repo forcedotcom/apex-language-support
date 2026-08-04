@@ -539,6 +539,32 @@ Port for Node.js debugger.
 
 ---
 
+### Capability Overrides
+
+#### `apex.custom`
+
+**Type**: `object`
+
+**Default**: `{}`
+
+Override individual server capabilities after the selected server mode is
+applied. For example, disable semantic error reporting while retaining the
+other development-mode capabilities:
+
+```json
+{
+  "apex.custom": {
+    "publishDiagnostics": false,
+    "diagnosticProvider": false
+  }
+}
+```
+
+Restart the Apex language server after changing capability overrides so the
+client and server renegotiate their capabilities.
+
+---
+
 ### Legacy Settings
 
 #### `apex.enable`
@@ -554,15 +580,6 @@ Enable/disable the extension.
 **Default**: `"off"`
 
 LSP message tracing for debugging (logs to "Apex Language Server" output channel).
-
-#### `apex.custom`
-
-**Type**: `object`  
-**Default**: `{}`
-
-Reserved for custom configuration (not currently used).
-
----
 
 ## Commands
 
