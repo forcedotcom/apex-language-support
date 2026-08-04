@@ -187,6 +187,7 @@ export const LSP_SPAN_NAMES = {
   DEFINITION: 'extension.command.definition',
   IMPLEMENTATION: 'extension.command.implementation',
   REFERENCES: 'extension.command.references',
+  RENAME: 'extension.command.rename',
   DOCUMENT_SYMBOL: 'extension.command.documentSymbol',
   DIAGNOSTICS: 'extension.command.diagnostics',
   FOLDING_RANGE: 'extension.command.foldingRange',

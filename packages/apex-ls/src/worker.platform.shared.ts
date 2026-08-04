@@ -61,6 +61,7 @@ import {
   DispatchSignatureHelp,
   DispatchCodeAction,
   DispatchReferences,
+  DispatchRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
@@ -141,6 +142,7 @@ export const AllWorkerRequests = Schema.Union(
   DispatchSignatureHelp,
   DispatchCodeAction,
   DispatchReferences,
+  DispatchRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
@@ -855,6 +857,9 @@ export type DocWithContentReq = {
 };
 export type RefsReq = PositionReq & {
   context: { includeDeclaration: boolean };
+};
+export type RenameReq = PositionReq & {
+  newName: string;
 };
 export type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };
@@ -2941,6 +2946,19 @@ const requestHandlers = {
         `[REFERENCES] done (${locations.length} location(s))`,
       );
       return locations;
+    },
+  ),
+  // Phase 0 (W-23631069): pool-side rename dispatch is wired end-to-end but
+  // intentionally a no-op — it returns `null` (LSP: "nothing to rename") so the
+  // full pipe (LCSAdapter.onRename → queue → coordinator → pool worker → back)
+  // can be verified before any occurrence-resolution / WorkspaceEdit logic
+  // lands in later groups. `newName` is accepted on the wire now so the handler
+  // signature is stable once the real implementation arrives.
+  DispatchRename: requestHandler<RenameReq>(
+    'DispatchRename',
+    async (_svc, _req) => {
+      emitWorkerLog('info', '[RENAME] no-op dispatch (Phase 0)');
+      return null;
     },
   ),
   DispatchImplementation: effectRequestHandler<PositionReq>(

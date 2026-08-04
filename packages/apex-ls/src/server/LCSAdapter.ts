@@ -21,6 +21,8 @@ import {
   ImplementationParams,
   ReferenceParams,
   Location,
+  RenameParams,
+  WorkspaceEdit,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
@@ -744,6 +746,30 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.renameProvider) {
+      this.connection.onRenameRequest(
+        async (
+          params: RenameParams,
+          token: CancellationToken,
+        ): Promise<WorkspaceEdit | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.RENAME,
+            'textDocument/rename',
+            params,
+            (p) => LSPQueueManager.getInstance().submitRenameRequest(p, token),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Rename handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Rename handler not registered (capability disabled)',
       );
     }
 
@@ -1631,6 +1657,15 @@ export class LCSAdapter {
     if (allCapabilities.codeActionProvider) {
       staticCapabilities.codeActionProvider =
         allCapabilities.codeActionProvider;
+    }
+
+    // renameProvider must be in the initial response for the Rename Symbol (F2)
+    // UI to appear — like references/codeAction, VS Code gates the UI on the
+    // advertised capability and does not honor dynamic registration for it.
+    // Only set in the development profile, so rename stays dev-only until
+    // production enablement.
+    if (allCapabilities.renameProvider) {
+      staticCapabilities.renameProvider = allCapabilities.renameProvider;
     }
 
     if (
