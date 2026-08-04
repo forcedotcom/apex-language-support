@@ -104,9 +104,9 @@
     "jscpd": "^4.2.5",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.29.0",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
-    "semantic-release": "^25.0.7",
+    "semantic-release": "^25.0.8",
     "semver": "^7.8.5",
     "shelljs": "^0.10.0",
     "simple-git": "^3.36.0",
@@ -117,8 +117,8 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.2",
-    "@rollup/rollup-linux-x64-musl": "^4.62.2"
+    "@rollup/rollup-linux-x64-gnu": "^4.62.3",
+    "@rollup/rollup-linux-x64-musl": "^4.62.3"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "^3.17.5",
