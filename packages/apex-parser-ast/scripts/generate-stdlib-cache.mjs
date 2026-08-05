@@ -354,43 +354,20 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
     }
   }
 
-  // Add non-bundled types from API (not in TARGET_NAMESPACES)
+  // Add non-bundled types from tracked minimal index
   // These provide type awareness without full symbol data
-  const apiStubsDir = join(projectRoot, 'build', 'api-stubs');
-  if (existsSync(apiStubsDir)) {
-    console.log('   Adding non-bundled namespace types from API...');
-    const apiStubFiles = readdirSync(apiStubsDir).filter(f => f.endsWith('.json') && f !== 'fetch-metadata.json');
-    let nonBundledCount = 0;
+  const nonBundledIndexPath = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
+  if (existsSync(nonBundledIndexPath)) {
+    console.log('   Adding non-bundled namespace types from index...');
+    try {
+      const indexContent = readFileSync(nonBundledIndexPath, 'utf8');
+      const index = JSON.parse(indexContent);
 
-    for (const file of apiStubFiles) {
-      const namespace = basename(file, '.json');
+      let nonBundledCount = 0;
 
-      // Skip if this namespace is in TARGET_NAMESPACES (already processed from .cls files)
-      if (TARGET_NAMESPACES.includes(namespace)) {
-        continue;
-      }
-
-      try {
-        const jsonPath = join(apiStubsDir, file);
-        const jsonContent = readFileSync(jsonPath, 'utf8');
-        const data = JSON.parse(jsonContent);
-
-        if (!data.typeStubs || !Array.isArray(data.typeStubs)) {
-          continue;
-        }
-
-        for (const stub of data.typeStubs) {
-          // Only include top-level types (classes, interfaces, enums)
-          const kind = stub.kind;
-          if (!kind || !['CLASS', 'INTERFACE', 'ENUM'].includes(kind)) {
-            continue;
-          }
-
-          const name = stub.name;
-          if (!name) {
-            continue;
-          }
-
+      for (const [namespace, types] of Object.entries(index.namespaces)) {
+        for (const type of types) {
+          const { name, kind } = type;
           const fqn = `${namespace}.${name}`.toLowerCase();
           const fileUri = `apexlib://api-only/${namespace}/${name}.cls`;
 
@@ -415,13 +392,13 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
           );
           nonBundledCount++;
         }
-      } catch (error) {
-        console.warn(`   Warning: Failed to process ${file}: ${error.message}`);
       }
-    }
 
-    if (nonBundledCount > 0) {
-      console.log(`   Added ${nonBundledCount} non-bundled types`);
+      if (nonBundledCount > 0) {
+        console.log(`   Added ${nonBundledCount} non-bundled types from ${Object.keys(index.namespaces).length} namespaces`);
+      }
+    } catch (error) {
+      console.warn(`   Warning: Failed to load non-bundled index: ${error.message}`);
     }
   }
 
@@ -503,38 +480,15 @@ async function generateFqnIndex(namespaceData, sourceChecksum) {
   }
 
   // Also collect types from non-bundled namespaces (API-only)
-  const apiStubsDir = join(projectRoot, 'build', 'api-stubs');
-  if (existsSync(apiStubsDir)) {
-    const apiStubFiles = readdirSync(apiStubsDir).filter(f => f.endsWith('.json') && f !== 'fetch-metadata.json');
+  const nonBundledIndexPath = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
+  if (existsSync(nonBundledIndexPath)) {
+    try {
+      const indexContent = readFileSync(nonBundledIndexPath, 'utf8');
+      const index = JSON.parse(indexContent);
 
-    for (const file of apiStubFiles) {
-      const namespace = basename(file, '.json');
-
-      // Skip if this namespace is in TARGET_NAMESPACES (already processed from .cls files)
-      if (TARGET_NAMESPACES.includes(namespace)) {
-        continue;
-      }
-
-      try {
-        const jsonPath = join(apiStubsDir, file);
-        const jsonContent = readFileSync(jsonPath, 'utf8');
-        const data = JSON.parse(jsonContent);
-
-        if (!data.typeStubs || !Array.isArray(data.typeStubs)) {
-          continue;
-        }
-
-        for (const stub of data.typeStubs) {
-          const kind = stub.kind;
-          if (!kind || !['CLASS', 'INTERFACE', 'ENUM'].includes(kind)) {
-            continue;
-          }
-
-          const name = stub.name;
-          if (!name) {
-            continue;
-          }
-
+      for (const [namespace, types] of Object.entries(index.namespaces)) {
+        for (const type of types) {
+          const name = type.name;
           const canonicalFqn = `${namespace}.${name}`;
           allTypes.push({
             namespace,
@@ -543,9 +497,9 @@ async function generateFqnIndex(namespaceData, sourceChecksum) {
             fqn: canonicalFqn
           });
         }
-      } catch (error) {
-        // Silently skip - already logged in generateTypeRegistry
       }
+    } catch (error) {
+      // Silently skip - already logged in generateTypeRegistry
     }
   }
 
