@@ -15,10 +15,7 @@
  *
  * Usage:
  *   npm run generate:api-stubs
- *   node scripts/generate-api-stubs.mjs [--force]
- *
- * Options:
- *   --force  Force regeneration even if output is up-to-date
+ *   node scripts/generate-api-stubs.mjs
  */
 
 import {
@@ -132,15 +129,6 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
   ['DescribeSObjectResult.cls', 'Schema'],
 ]);
 
-/**
- * Parse command line arguments
- */
-function parseArgs() {
-  const args = process.argv.slice(2);
-  return {
-    force: args.includes('--force'),
-  };
-}
 
 /**
  * Check if a file should be skipped (is a builtin)
@@ -225,7 +213,6 @@ function generateNamespace(namespace, jsonFilePath) {
  */
 async function main() {
   const startTime = Date.now();
-  const config = parseArgs();
 
   console.log('=== Apex Stub Generator (from API JSON) ===');
   console.log(`Input: ${INPUT_DIR}`);
@@ -237,18 +224,6 @@ async function main() {
   console.log(`   Fetched at: ${fetchMetadata.fetchedAt}`);
   console.log(`   Total types: ${fetchMetadata.totalTypes}`);
   console.log(`   Namespaces: ${Object.keys(fetchMetadata.namespaces).length}`);
-
-  // Check if regeneration is needed
-  if (!config.force && existsSync(GENERATION_METADATA_FILE)) {
-    const genMetadata = JSON.parse(
-      readFileSync(GENERATION_METADATA_FILE, 'utf8'),
-    );
-    if (genMetadata.sourceChecksum === fetchMetadata.totalTypes) {
-      console.log('\n✅ Output is up-to-date, skipping regeneration');
-      console.log('   Use --force to regenerate anyway');
-      return;
-    }
-  }
 
   // Generate stubs for TARGET_NAMESPACES only
   console.log('\n2. Generating .cls files for embedded namespaces...');
