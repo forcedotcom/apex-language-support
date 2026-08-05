@@ -95,13 +95,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on inner enum shows enum information.
    */
   test('should show hover for inner enum', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('StatusType');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('StatusType');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'StatusType',
+      /StatusType/,
+    );
     expect(content).toBeTruthy();
     expect(content).toContain('StatusType');
     expect(content).toMatch(/enum\b/i);
@@ -166,13 +163,10 @@ test.describe('Apex Hover Functionality', () => {
   test('should show generic type for List variable', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('accounts');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('accounts');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'accounts',
+      /List|Account/,
+    );
     expect(content).toBeTruthy();
     expect(content).toMatch(/List|Account/);
   });
@@ -196,18 +190,15 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Multiple hovers can be triggered sequentially.
    */
   test('should handle multiple sequential hovers', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content1 = await hoverHelper.getHoverContent();
+    const content1 = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content1).toContain('ApexClassExample');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('Configuration');
-    const content2 = await hoverHelper.getHoverContent();
+    const content2 = await hoverHelper.hoverOnWordWithRetry('Configuration');
     expect(content2).toContain('Configuration');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('StatusType');
-    const content3 = await hoverHelper.getHoverContent();
+    const content3 = await hoverHelper.hoverOnWordWithRetry('StatusType');
     expect(content3).toContain('StatusType');
   });
 
@@ -215,13 +206,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on constructor shows constructor signature.
    */
   test('should show hover for constructor', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample()');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('ApexClassExample()');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'ApexClassExample()',
+      'ApexClassExample',
+    );
     expect(content).toBeTruthy();
     expect(content).toContain('ApexClassExample');
   });
@@ -230,8 +218,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover provides content (not empty).
    */
   test('should provide non-empty hover content', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
     expect(content.trim()).not.toBe('');
     expect(content).toContain('ApexClassExample');
@@ -241,8 +228,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on private method shows method information.
    */
   test('should show hover for private method', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('validateAccounts');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'validateAccounts',
+      /void/,
+    );
     expect(content).toContain('void');
     expect(content).toContain('validateAccounts');
   });
@@ -253,15 +242,17 @@ test.describe('Apex Hover Functionality', () => {
   test('should differentiate between symbol types in hover', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const classHover = await hoverHelper.getHoverContent();
+    const classHover =
+      await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(classHover).toContain('ApexClassExample');
     expect(classHover).toContain('Modifiers:');
 
     await hoverHelper.dismissHover();
 
-    await hoverHelper.hoverOnWord('sayHello');
-    const methodHover = await hoverHelper.getHoverContent();
+    const methodHover = await hoverHelper.hoverOnWordWithRetry(
+      'sayHello',
+      /void/,
+    );
     expect(methodHover).toMatch(/void/);
 
     expect(classHover).not.toBe(methodHover);
@@ -273,8 +264,7 @@ test.describe('Apex Hover Functionality', () => {
   test('should be able to capture hover screenshot', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
 
     await hoverHelper.captureHoverScreenshot('test-hover');
