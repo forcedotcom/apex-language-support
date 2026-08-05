@@ -155,6 +155,10 @@ export {
   type OccurrenceMatch,
 } from './symbols/ops/findOccurrencesInFile';
 export {
+  findLocalOccurrences,
+  type LocalOccurrences,
+} from './symbols/ops/findLocalOccurrences';
+export {
   analyzeDependencies as analyzeDependenciesOp,
   detectCircularDependencies as detectCircularDependenciesOp,
   getGraphData as getGraphDataOp,
