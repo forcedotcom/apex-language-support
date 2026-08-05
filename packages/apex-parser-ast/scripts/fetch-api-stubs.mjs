@@ -18,13 +18,16 @@
  *   node scripts/fetch-api-stubs.mjs [--org <alias>] [--api-version <version>]
  *
  * Options:
- *   --org <alias>         Salesforce org alias (default: gus)
+ *   --org <alias>         Salesforce org alias (default: $APEX_STUBS_ORG or 'gus')
  *   --api-version <ver>   API version to use (default: v67.0)
  *   --namespace <ns>      Fetch only specific namespace (default: all)
  *   --category <cat>      Category filter: BUILTIN, DATABASE, DYNAMIC (default: BUILTIN)
+ *
+ * Environment:
+ *   APEX_STUBS_ORG        Default org alias (overridden by --org flag)
  */
 
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -48,8 +51,8 @@ const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
 function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
-    org: 'gus',
-    apiVersion: 'v67.0',
+    org: process.env.APEX_STUBS_ORG || 'gus',
+     apiVersion: 'latest',
     namespace: null,
     category: 'BUILTIN', // Valid values: BUILTIN, DATABASE, DYNAMIC
   };
@@ -73,32 +76,60 @@ function parseArgs() {
  * Execute sf api request rest command
  */
 function sfApiRequest(url, orgAlias) {
-  try {
+  return new Promise((resolve, reject) => {
     console.log(`  Fetching: ${url}`);
-    const command = `sf api request rest "${url}" -o ${orgAlias}`;
-    const result = execSync(command, {
-      encoding: 'utf8',
-      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
+    const child = spawn('sf', ['api', 'request', 'rest', url, '-o', orgAlias], {
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    return JSON.parse(result);
-  } catch (error) {
-    console.error(`  ❌ Failed to fetch: ${url}`);
-    console.error(`     Error: ${error.message}`);
-    throw error;
-  }
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`  ❌ Failed to fetch: ${url}`);
+        console.error(`     Error: ${stderr || 'Command exited with code ' + code}`);
+        reject(new Error(stderr || `Command exited with code ${code}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (error) {
+        console.error(`  ❌ Failed to parse JSON response`);
+        console.error(`     Error: ${error.message}`);
+        reject(error);
+      }
+    });
+
+    child.on('error', (error) => {
+      console.error(`  ❌ Failed to spawn sf command`);
+      console.error(`     Error: ${error.message}`);
+      reject(error);
+    });
+  });
 }
 
 /**
  * Fetch symbols for a specific category and optional namespace
  */
-function fetchSymbols(config, category, namespace = null) {
+async function fetchSymbols(config, category, namespace = null) {
   let query = `category=${category}`;
   if (namespace !== null) {
     query += `&namespace=${encodeURIComponent(namespace)}`;
   }
 
   const url = `/services/data/${config.apiVersion}/tooling/symbols?${query}`;
-  const response = sfApiRequest(url, config.org);
+  const response = await sfApiRequest(url, config.org);
 
   return response.typeStubs || [];
 }
@@ -106,9 +137,9 @@ function fetchSymbols(config, category, namespace = null) {
 /**
  * Discover all unique namespaces by fetching all classes
  */
-function discoverNamespaces(config) {
+async function discoverNamespaces(config) {
   console.log('\n1. Discovering namespaces...');
-  const allStubs = fetchSymbols(config, 'CLASS');
+  const allStubs = await fetchSymbols(config, 'CLASS');
 
   const namespaces = new Set();
   for (const stub of allStubs) {
@@ -132,7 +163,7 @@ function discoverNamespaces(config) {
 /**
  * Fetch all stubs organized by namespace
  */
-function fetchAllStubs(config) {
+async function fetchAllStubs(config) {
   const startTime = Date.now();
 
   console.log('=== Apex Symbol Table API Stub Fetcher ===');
@@ -148,7 +179,7 @@ function fetchAllStubs(config) {
   // Discover namespaces if not specified
   const namespaces = config.namespace
     ? [config.namespace]
-    : discoverNamespaces(config);
+    : await discoverNamespaces(config);
 
   console.log(`\n2. Fetching stubs for ${namespaces.length} namespace(s)...`);
 
@@ -166,7 +197,7 @@ function fetchAllStubs(config) {
   for (const namespace of namespaces) {
     try {
       console.log(`\n   Namespace: ${namespace}`);
-      const stubs = fetchSymbols(config, config.category, namespace);
+      const stubs = await fetchSymbols(config, config.category, namespace);
 
       if (stubs.length === 0) {
         console.log(`   ⚠️  No types found in namespace ${namespace}`);
@@ -220,7 +251,7 @@ function fetchAllStubs(config) {
 async function main() {
   try {
     const config = parseArgs();
-    fetchAllStubs(config);
+    await fetchAllStubs(config);
   } catch (error) {
     console.error('\n❌ Fetch failed:', error.message);
     process.exit(1);
