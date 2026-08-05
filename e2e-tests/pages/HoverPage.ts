@@ -74,6 +74,31 @@ export class HoverPage extends BasePage {
   }
 
   /**
+   * Position the cursor on a word and re-issue hover requests until semantic
+   * content is returned. VS Code does not retry a hover request that returns
+   * null while the web worker pool is still warming, so merely waiting for a
+   * tooltip after one request can never recover on a slow runner.
+   *
+   * @param searchText Text used to position the cursor
+   * @param expectedContent Content that proves the semantic hover resolved;
+   *   defaults to the searched symbol name
+   * @param timeout Overall retry budget in milliseconds
+   * @returns The resolved hover content
+   */
+  async hoverOnWordWithRetry(
+    searchText: string,
+    expectedContent: string | RegExp = searchText,
+    timeout = 20_000,
+  ): Promise<string> {
+    await positionCursorOnWord(this.page, searchText);
+    return this.retryHoverRequest(
+      () => triggerHover(this.page),
+      expectedContent,
+      timeout,
+    );
+  }
+
+  /**
    * Wait for the hover widget to appear.
    * Tries multiple selectors as VS Code Web may use different DOM structures.
    * @param timeout - Optional timeout in milliseconds (defaults to mode-specific timeout)
@@ -164,28 +189,61 @@ export class HoverPage extends BasePage {
   }
 
   /**
-   * Hover at a position twice to handle cross-file resolution.
-   * The first hover triggers background missing artifact resolution.
-   * After waiting for the resolution to complete, the second hover
-   * returns the fully resolved content from the target file.
+   * Hover at a position until semantic content is available. Each attempt
+   * re-issues the hover request so both worker-pool warm-up and background
+   * missing-artifact resolution can make forward progress.
    * @param line - Line number (1-indexed)
    * @param column - Column number (1-indexed)
-   * @param resolutionWaitMs - Time to wait between hovers for background resolution (default 3000ms)
-   * @returns Hover content from the second (resolved) hover
+   * @param expectedContent - Optional content that proves resolution completed
+   * @param timeout - Overall retry budget in milliseconds
+   * @returns Resolved hover content
    */
   async hoverAtWithResolution(
     line: number,
     column: number,
-    resolutionWaitMs = 3000,
+    expectedContent?: string | RegExp,
+    timeout = 20_000,
   ): Promise<string> {
-    // First hover triggers background missing artifact resolution
-    await this.hoverAt(line, column);
-    await this.dismissHover();
-    // Wait for background resolution to open and index the target file
-    await this.page.waitForTimeout(resolutionWaitMs);
-    // Second hover should return resolved content
-    await this.hoverAt(line, column);
-    return await this.getHoverContent();
+    await goToLineInEditor(this.page, `${line}:${column}`);
+    await this.page.waitForTimeout(this.isDesktopMode ? 1000 : 500);
+    return this.retryHoverRequest(
+      () => triggerHover(this.page),
+      expectedContent,
+      timeout,
+    );
+  }
+
+  /**
+   * Re-issue a hover request until VS Code renders non-empty semantic content.
+   * Polling the DOM alone is insufficient: a null LSP result produces no future
+   * update, so every retry must send a new request.
+   */
+  private async retryHoverRequest(
+    trigger: () => Promise<boolean>,
+    expectedContent?: string | RegExp,
+    timeout = 20_000,
+  ): Promise<string> {
+    const { expect } = await import('@playwright/test');
+    let content = '';
+
+    await expect(async () => {
+      if (await this.isHoverVisible().catch(() => false)) {
+        await this.dismissHover();
+      }
+
+      const appeared = await trigger();
+      expect(appeared).toBe(true);
+      content = await this.getHoverContent();
+      expect(content.trim().length).toBeGreaterThan(0);
+
+      if (typeof expectedContent === 'string') {
+        expect(content).toContain(expectedContent);
+      } else if (expectedContent) {
+        expect(content).toMatch(expectedContent);
+      }
+    }).toPass({ timeout });
+
+    return content;
   }
 
   /**
@@ -216,8 +274,7 @@ export class HoverPage extends BasePage {
    * @returns Hover content or empty string if no hover
    */
   async getSymbolHover(symbolName: string): Promise<string> {
-    await this.hoverOnWord(symbolName);
-    return await this.getHoverContent();
+    return this.hoverOnWordWithRetry(symbolName);
   }
 
   /**
