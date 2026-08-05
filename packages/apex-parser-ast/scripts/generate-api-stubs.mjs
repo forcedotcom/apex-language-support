@@ -38,7 +38,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
 // Configuration
-const INPUT_DIR = join(projectRoot, 'src', 'resources', 'ApiStubs');
+const INPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const OUTPUT_DIR = join(projectRoot, 'src', 'resources', 'StandardApexLibrary');
 const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const METADATA_FILE = join(INPUT_DIR, 'fetch-metadata.json');

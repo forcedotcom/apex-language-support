@@ -67,6 +67,64 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
   ['DescribeSObjectResult.cls','Schema'],   // hand-crafted: correct Map/List return types on getters
 ]);
 
+// Target namespaces for full stub generation (.cls files)
+// All other namespaces fetched from API are included in TypeRegistry as "api-only" entries
+const TARGET_NAMESPACES = [
+  'ApexPages',
+  'AppLauncher',
+  'Approval',
+  'Auth',
+  'Cache',
+  'Canvas',
+  'ChatterAnswers',
+  'CommerceBuyGrp',
+  'CommerceExtension',
+  'CommercePayments',
+  'CommerceTax',
+  'Compression',
+  'DataSource',
+  'DataWeave',
+  'Database',
+  'Datacloud',
+  'Dom',
+  'EventBus',
+  'Flow',
+  'FormulaEval',
+  'Functions',
+  'Invocable',
+  'IsvPartners',
+  'KbManagement',
+  'LxScheduler',
+  'Messaging',
+  'Metadata',
+  'Pref_center',
+  'Process',
+  'QuickAction',
+  'Reports',
+  'RichMessaging',
+  'Schema',
+  'Search',
+  'Sfc',
+  'Sfdc_Checkout',
+  'Sfdc_Enablement',
+  'Sfdc_Surveys',
+  'Site',
+  'Slack',
+  'Support',
+  'System',
+  'TerritoryMgmt',
+  'TxnSecurity',
+  'UserProvisioning',
+  'VisualEditor',
+  'Wave',
+  'embeddedai',
+  'flowuiruntime',
+  'fsccashflow',
+  'industriesNlpSvc',
+  'ise_bots_apex',
+  'setup_flow_performance',
+];
+
 /**
  * Calculate SHA256 checksum of all source files
  */
@@ -296,6 +354,77 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
     }
   }
 
+  // Add non-bundled types from API (not in TARGET_NAMESPACES)
+  // These provide type awareness without full symbol data
+  const apiStubsDir = join(projectRoot, 'build', 'api-stubs');
+  if (existsSync(apiStubsDir)) {
+    console.log('   Adding non-bundled namespace types from API...');
+    const apiStubFiles = readdirSync(apiStubsDir).filter(f => f.endsWith('.json') && f !== 'fetch-metadata.json');
+    let nonBundledCount = 0;
+
+    for (const file of apiStubFiles) {
+      const namespace = basename(file, '.json');
+
+      // Skip if this namespace is in TARGET_NAMESPACES (already processed from .cls files)
+      if (TARGET_NAMESPACES.includes(namespace)) {
+        continue;
+      }
+
+      try {
+        const jsonPath = join(apiStubsDir, file);
+        const jsonContent = readFileSync(jsonPath, 'utf8');
+        const data = JSON.parse(jsonContent);
+
+        if (!data.typeStubs || !Array.isArray(data.typeStubs)) {
+          continue;
+        }
+
+        for (const stub of data.typeStubs) {
+          // Only include top-level types (classes, interfaces, enums)
+          const kind = stub.kind;
+          if (!kind || !['CLASS', 'INTERFACE', 'ENUM'].includes(kind)) {
+            continue;
+          }
+
+          const name = stub.name;
+          if (!name) {
+            continue;
+          }
+
+          const fqn = `${namespace}.${name}`.toLowerCase();
+          const fileUri = `apexlib://api-only/${namespace}/${name}.cls`;
+
+          // Map API kind string to TypeKind enum
+          let typeKind = TypeKind.CLASS;
+          if (kind === 'INTERFACE') {
+            typeKind = TypeKind.INTERFACE;
+          } else if (kind === 'ENUM') {
+            typeKind = TypeKind.ENUM;
+          }
+
+          entries.push(
+            TypeRegistryEntry.create({
+              fqn,
+              name,
+              namespace,
+              kind: typeKind,
+              symbolId: '', // No symbol table available
+              fileUri,
+              isStdlib: true, // Platform type, just not bundled
+            }),
+          );
+          nonBundledCount++;
+        }
+      } catch (error) {
+        console.warn(`   Warning: Failed to process ${file}: ${error.message}`);
+      }
+    }
+
+    if (nonBundledCount > 0) {
+      console.log(`   Added ${nonBundledCount} non-bundled types`);
+    }
+  }
+
   const registry = TypeRegistry.create({
     generatedAt: new Date().toISOString(),
     sourceChecksum,
@@ -369,6 +498,53 @@ async function generateFqnIndex(namespaceData, sourceChecksum) {
           const canonicalFqn = `${namespace}.${symbolName}`;
           allTypes.push({ namespace, className, symbolName, fqn: canonicalFqn });
         }
+      }
+    }
+  }
+
+  // Also collect types from non-bundled namespaces (API-only)
+  const apiStubsDir = join(projectRoot, 'build', 'api-stubs');
+  if (existsSync(apiStubsDir)) {
+    const apiStubFiles = readdirSync(apiStubsDir).filter(f => f.endsWith('.json') && f !== 'fetch-metadata.json');
+
+    for (const file of apiStubFiles) {
+      const namespace = basename(file, '.json');
+
+      // Skip if this namespace is in TARGET_NAMESPACES (already processed from .cls files)
+      if (TARGET_NAMESPACES.includes(namespace)) {
+        continue;
+      }
+
+      try {
+        const jsonPath = join(apiStubsDir, file);
+        const jsonContent = readFileSync(jsonPath, 'utf8');
+        const data = JSON.parse(jsonContent);
+
+        if (!data.typeStubs || !Array.isArray(data.typeStubs)) {
+          continue;
+        }
+
+        for (const stub of data.typeStubs) {
+          const kind = stub.kind;
+          if (!kind || !['CLASS', 'INTERFACE', 'ENUM'].includes(kind)) {
+            continue;
+          }
+
+          const name = stub.name;
+          if (!name) {
+            continue;
+          }
+
+          const canonicalFqn = `${namespace}.${name}`;
+          allTypes.push({
+            namespace,
+            className: name,
+            symbolName: name,
+            fqn: canonicalFqn
+          });
+        }
+      } catch (error) {
+        // Silently skip - already logged in generateTypeRegistry
       }
     }
   }

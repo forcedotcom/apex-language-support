@@ -231,21 +231,28 @@ packages/apex-parser-ast/
    - Generation is fast (local processing)
    - Can regenerate without re-fetching
 
+5. **Fixed Namespace Set**
+   - Fetches only a predefined list of ~54 namespaces
+   - Based on existing StandardApexLibrary (excluding ConnectApi)
+   - Avoids unbounded bundle growth from API changes
+   - Predictable, manageable bundle size
+
 ### Known Limitations
 
 1. **Bundle Size**
-   - 4x increase in types (~8,345 vs ~2,600)
-   - Cache size will grow (~12MB vs ~3MB estimated)
-   - Optimization deferred to Phase 5
+   - Fixed set of ~54 namespaces keeps bundle size predictable
+   - No longer includes all API types (filtered for relevance)
+   - ConnectApi excluded due to large size and frequent changes
 
 2. **API Availability**
    - Requires 264 org farm or later
    - Must have authenticated Salesforce org
    - API version must support Symbol Table endpoint
 
-3. **Namespace Discovery**
-   - Current implementation fetches all classes to discover namespaces
-   - Could be optimized with API metadata endpoint (if available)
+3. **Namespace Updates**
+   - New namespaces require manual addition to TARGET_NAMESPACES list
+   - Not automatically discovered from API
+   - Trade-off: stability vs. automatic coverage
 
 ## Timeline
 

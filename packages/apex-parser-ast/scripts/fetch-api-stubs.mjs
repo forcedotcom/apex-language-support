@@ -13,6 +13,20 @@
  * This uses `sf api request rest` to authenticate and fetch stub definitions
  * in JSON format from the Tooling API.
  *
+ * DESIGN DECISION: Fetch All, Filter During Generation
+ * -----------------------------------------------------
+ * This script fetches ALL available namespaces from the API by discovering
+ * them dynamically (no namespace filter in API call). The TARGET_NAMESPACES
+ * constant is used during generation, not fetch:
+ * - generate-api-stubs.mjs: Creates .cls files only for TARGET_NAMESPACES
+ * - generate-stdlib-cache.mjs: Includes bundled types (from .cls) +
+ *   non-bundled types (from JSON) in TypeRegistry
+ *
+ * This two-tier approach provides:
+ * - Full symbol data for 53 bundled namespaces (TARGET_NAMESPACES)
+ * - Type awareness for all other namespaces (e.g., ConnectApi)
+ * - Predictable bundle size (only TARGET_NAMESPACES generate .cls files)
+ *
  * Usage:
  *   npm run fetch:api-stubs
  *   node scripts/fetch-api-stubs.mjs [--org <alias>] [--api-version <version>]
@@ -20,11 +34,11 @@
  * Options:
  *   --org <alias>         Salesforce org alias (default: gus)
  *   --api-version <ver>   API version to use (default: v67.0)
- *   --namespace <ns>      Fetch only specific namespace (default: all)
+ *   --namespace <ns>      Fetch only specific namespace (skips discovery)
  *   --category <cat>      Category filter: BUILTIN, DATABASE, DYNAMIC (default: BUILTIN)
  */
 
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -39,8 +53,66 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
 // Configuration
-const OUTPUT_DIR = join(projectRoot, 'src', 'resources', 'ApiStubs');
+const OUTPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
+
+// Fixed list of namespaces to fetch from API
+// Based on existing StandardApexLibrary namespaces, excluding ConnectApi
+const TARGET_NAMESPACES = [
+  'ApexPages',
+  'AppLauncher',
+  'Approval',
+  'Auth',
+  'Cache',
+  'Canvas',
+  'ChatterAnswers',
+  'CommerceBuyGrp',
+  'CommerceExtension',
+  'CommercePayments',
+  'CommerceTax',
+  'Compression',
+  'DataSource',
+  'DataWeave',
+  'Database',
+  'Datacloud',
+  'Dom',
+  'EventBus',
+  'Flow',
+  'FormulaEval',
+  'Functions',
+  'Invocable',
+  'IsvPartners',
+  'KbManagement',
+  'LxScheduler',
+  'Messaging',
+  'Metadata',
+  'Pref_center',
+  'Process',
+  'QuickAction',
+  'Reports',
+  'RichMessaging',
+  'Schema',
+  'Search',
+  'Sfc',
+  'Sfdc_Checkout',
+  'Sfdc_Enablement',
+  'Sfdc_Surveys',
+  'Site',
+  'Slack',
+  'Support',
+  'System',
+  'TerritoryMgmt',
+  'TxnSecurity',
+  'UserProvisioning',
+  'VisualEditor',
+  'Wave',
+  'embeddedai',
+  'flowuiruntime',
+  'fsccashflow',
+  'industriesNlpSvc',
+  'ise_bots_apex',
+  'setup_flow_performance',
+];
 
 /**
  * Parse command line arguments
@@ -70,35 +142,64 @@ function parseArgs() {
 }
 
 /**
- * Execute sf api request rest command
+ * Execute sf api request rest command with streaming
  */
 function sfApiRequest(url, orgAlias) {
-  try {
+  return new Promise((resolve, reject) => {
     console.log(`  Fetching: ${url}`);
-    const command = `sf api request rest "${url}" -o ${orgAlias}`;
-    const result = execSync(command, {
-      encoding: 'utf8',
-      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
+
+    const child = spawn('sf', ['api', 'request', 'rest', url, '-o', orgAlias], {
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    return JSON.parse(result);
-  } catch (error) {
-    console.error(`  ❌ Failed to fetch: ${url}`);
-    console.error(`     Error: ${error.message}`);
-    throw error;
-  }
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`  ❌ Failed to fetch: ${url}`);
+        console.error(`     Error: ${stderr || 'Command exited with code ' + code}`);
+        reject(new Error(stderr || `Command exited with code ${code}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (error) {
+        console.error(`  ❌ Failed to parse JSON response`);
+        console.error(`     Error: ${error.message}`);
+        reject(error);
+      }
+    });
+
+    child.on('error', (error) => {
+      console.error(`  ❌ Failed to spawn sf command`);
+      console.error(`     Error: ${error.message}`);
+      reject(error);
+    });
+  });
 }
 
 /**
  * Fetch symbols for a specific category and optional namespace
  */
-function fetchSymbols(config, category, namespace = null) {
+async function fetchSymbols(config, category, namespace = null) {
   let query = `category=${category}`;
   if (namespace !== null) {
     query += `&namespace=${encodeURIComponent(namespace)}`;
   }
 
   const url = `/services/data/${config.apiVersion}/tooling/symbols?${query}`;
-  const response = sfApiRequest(url, config.org);
+  const response = await sfApiRequest(url, config.org);
 
   return response.typeStubs || [];
 }
@@ -106,17 +207,19 @@ function fetchSymbols(config, category, namespace = null) {
 /**
  * Discover all unique namespaces by fetching all classes
  */
-function discoverNamespaces(config) {
-  console.log('\n1. Discovering namespaces...');
-  const allStubs = fetchSymbols(config, 'CLASS');
+async function discoverNamespaces(config) {
+  console.log('\n1. Discovering namespaces from API...');
+  const allStubs = await fetchSymbols(config, 'BUILTIN');
 
   const namespaces = new Set();
   for (const stub of allStubs) {
     // Extract namespace from the stub
-    // Could be in stub.namespace or inferred from stub.name
+    // Could be in stub.namespace or stub.namespacePrefix
     let ns = 'System'; // default
     if (stub.namespace) {
       ns = stub.namespace;
+    } else if (stub.namespacePrefix) {
+      ns = stub.namespacePrefix;
     } else if (stub.name && stub.name.includes('.')) {
       // Handle names like "ConnectApi.Something"
       ns = stub.name.split('.')[0];
@@ -130,9 +233,23 @@ function discoverNamespaces(config) {
 }
 
 /**
+ * Get the list of target namespaces to fetch.
+ * If --namespace is specified, use only that one.
+ * Otherwise, discover all namespaces from the API.
+ */
+async function getTargetNamespaces(config) {
+  if (config.namespace) {
+    console.log(`\n1. Using specified namespace: ${config.namespace}`);
+    return [config.namespace];
+  }
+
+  return await discoverNamespaces(config);
+}
+
+/**
  * Fetch all stubs organized by namespace
  */
-function fetchAllStubs(config) {
+async function fetchAllStubs(config) {
   const startTime = Date.now();
 
   console.log('=== Apex Symbol Table API Stub Fetcher ===');
@@ -145,10 +262,8 @@ function fetchAllStubs(config) {
     mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  // Discover namespaces if not specified
-  const namespaces = config.namespace
-    ? [config.namespace]
-    : discoverNamespaces(config);
+  // Get target namespaces (fixed list or specific namespace if provided)
+  const namespaces = await getTargetNamespaces(config);
 
   console.log(`\n2. Fetching stubs for ${namespaces.length} namespace(s)...`);
 
@@ -166,7 +281,7 @@ function fetchAllStubs(config) {
   for (const namespace of namespaces) {
     try {
       console.log(`\n   Namespace: ${namespace}`);
-      const stubs = fetchSymbols(config, config.category, namespace);
+      const stubs = await fetchSymbols(config, config.category, namespace);
 
       if (stubs.length === 0) {
         console.log(`   ⚠️  No types found in namespace ${namespace}`);
@@ -220,7 +335,7 @@ function fetchAllStubs(config) {
 async function main() {
   try {
     const config = parseArgs();
-    fetchAllStubs(config);
+    await fetchAllStubs(config);
   } catch (error) {
     console.error('\n❌ Fetch failed:', error.message);
     process.exit(1);

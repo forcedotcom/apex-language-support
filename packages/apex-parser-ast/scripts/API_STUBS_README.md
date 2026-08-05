@@ -26,13 +26,13 @@ sf org login web -a gus
 ### Fetch Stubs from API
 
 ```bash
-# Fetch all namespaces from default org (gus)
+# Fetch fixed set of target namespaces from default org (gus)
 npm run fetch:api-stubs
 
 # Fetch from specific org
 npm run fetch:api-stubs -- --org myorg
 
-# Fetch specific namespace only
+# Fetch specific namespace only (for testing)
 npm run fetch:api-stubs -- --namespace System
 
 # Use specific API version
@@ -40,6 +40,8 @@ npm run fetch:api-stubs -- --api-version v68.0
 ```
 
 **Output:** `src/resources/ApiStubs/*.json` - One JSON file per namespace
+
+**Note:** The script fetches a fixed list of ~54 namespaces (all current StandardApexLibrary namespaces except ConnectApi). This ensures a predictable bundle size and avoids including large, rarely-used namespaces.
 
 ### Generate .cls Files
 

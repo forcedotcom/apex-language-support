@@ -31,7 +31,10 @@ The current system generates Apex stubs from scraped `.cls` files in `src/resour
 
 **Output Format:** JSON with `typeStubs` array (Type Stub Format)
 
-**Expected Coverage:** ~8,345 types from 136 namespaces (4x current coverage)
+**Target Coverage:** ~54 namespaces (fixed list, excluding ConnectApi)
+- Fixed set based on existing StandardApexLibrary namespaces
+- Avoids unbounded bundle growth
+- ConnectApi excluded due to large size and frequent changes
 
 **Upstream Blocker Status:** W-23491682 (List/Set/Map handling) is in "Ready for Review" - effectively unblocking
 
@@ -71,8 +74,7 @@ New files to create:
 
 **Responsibilities:**
 - Call `sf api request rest` with proper authentication
-- Handle pagination if needed
-- Fetch all categories and namespaces
+- Fetch fixed set of TARGET_NAMESPACES (~54 namespaces)
 - Save raw JSON responses organized by namespace
 - Generate checksums for fetched data
 
@@ -85,11 +87,13 @@ async function fetchSymbols(category, namespace, name) {
 }
 
 async function fetchAllStubs(orgAlias) {
-  // Discover all categories/namespaces
-  // Fetch in batches
+  // Iterate over TARGET_NAMESPACES list
+  // Fetch each namespace from API
   // Save to src/resources/ApiStubs/
 }
 ```
+
+**TARGET_NAMESPACES:** Fixed list of ~54 namespaces based on existing StandardApexLibrary directories (excluding ConnectApi)
 
 #### 2. Stub Generator (`generate-api-stubs.mjs`)
 
