@@ -33,8 +33,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on class name shows class information.
    */
   test('should show hover for class name', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
     expect(content).toContain('ApexClassExample');
     expect(content).toContain('Modifiers:');
@@ -55,8 +54,8 @@ test.describe('Apex Hover Functionality', () => {
     await apexEditor.openFile('ApexClassExample.cls');
     await apexEditor.waitForLanguageServerReady();
     // DEFAULT_STATUS usage at line 94: `acc.Type = DEFAULT_STATUS;`
-    // hoverAtWithResolution performs a double-hover with a 3 s warm-up gap.
-    const content = await hoverHelper.hoverAtWithResolution(94, 35);
+    // Reissue the hover request until the language server returns resolved content.
+    const content = await hoverHelper.hoverAtWithResolution(94, 35, 'String');
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -68,7 +67,7 @@ test.describe('Apex Hover Functionality', () => {
     // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
     // Field declarations near the top of the file don't reliably produce
     // hover tooltips in desktop mode, but references in method bodies do.
-    const content = await hoverHelper.hoverAtWithResolution(24, 14);
+    const content = await hoverHelper.hoverAtWithResolution(24, 14, 'String');
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -77,8 +76,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on method name shows method signature.
    */
   test('should show hover for method name', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('sayHello');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('sayHello');
     expect(content).toContain('void');
     expect(content).toContain('sayHello');
   });
@@ -87,8 +85,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on inner class shows type information.
    */
   test('should show hover for inner class', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('Configuration');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('Configuration');
     expect(content).toBeTruthy();
     expect(content).toContain('Configuration');
     expect(content).toMatch(/class\b/i);
@@ -115,7 +112,7 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should show type information in hover', async ({ hoverHelper }) => {
     // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
-    const content = await hoverHelper.hoverAtWithResolution(24, 14);
+    const content = await hoverHelper.hoverAtWithResolution(24, 14, 'String');
     // Verify actual type name appears, not just any keyword
     expect(content).toContain('String');
   });
