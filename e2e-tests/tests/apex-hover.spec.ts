@@ -111,8 +111,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover contains type information for typed symbols.
    */
   test('should show type information in hover', async ({ hoverHelper }) => {
-    // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
-    const content = await hoverHelper.hoverAtWithResolution(24, 14, 'String');
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'getCurrentUserName',
+      'String',
+    );
     // Verify actual type name appears, not just any keyword
     expect(content).toContain('String');
   });
@@ -151,8 +153,9 @@ test.describe('Apex Hover Functionality', () => {
   test('should show parameter types in method hover', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('add');
-    const content = await hoverHelper.getHoverContent();
+    // Target the declaration directly. A case-insensitive editor search for
+    // `add` can select the preceding Javadoc word "Adds" instead.
+    const content = await hoverHelper.hoverAtWithResolution(42, 27, /Integer/);
     expect(content).toMatch(/Integer/);
     expect(content).toMatch(/add/);
   });
@@ -180,8 +183,11 @@ test.describe('Apex Hover Functionality', () => {
   test('should show generic types for Map variable', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('accountMap');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverAtWithResolution(
+      79,
+      26,
+      /Map|Account/,
+    );
     expect(content).toBeTruthy();
     expect(content).toMatch(/Map|Account/);
   });
