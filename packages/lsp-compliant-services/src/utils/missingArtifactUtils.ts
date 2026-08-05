@@ -10,6 +10,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
   ReferenceContext,
+  SymbolReference,
   isChainedSymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 
@@ -26,7 +27,6 @@ export class MissingArtifactUtils {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private missingArtifactService?: MissingArtifactResolutionService;
-  private static recentBackgroundRequests = new Map<string, number>();
 
   constructor(
     logger: LoggerInterface,
@@ -116,13 +116,12 @@ export class MissingArtifactUtils {
       const identifierName = reference.qualifier
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
-      const dedupeKey = `${requestKind}|${uri}|${identifierName}`;
-      const now = Date.now();
-      MissingArtifactUtils.recentBackgroundRequests.set(dedupeKey, now);
+      const provenance = await this.createSemanticProvenance(uri, reference);
       service.resolveInBackground({
         identifiers: [
           {
             name: identifierName,
+            provenance,
             typeReference: reference,
             ...(parentContext && { parentContext }),
             ...(searchHints?.length && { searchHints }),
@@ -196,10 +195,12 @@ export class MissingArtifactUtils {
       const identifierName = reference.qualifier
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
+      const provenance = await this.createSemanticProvenance(uri, reference);
       const result = await service.resolveBlocking({
         identifiers: [
           {
             name: identifierName,
+            provenance,
             typeReference: reference,
             ...(parentContext && { parentContext }),
             ...(searchHints?.length && { searchHints }),
@@ -372,38 +373,36 @@ export class MissingArtifactUtils {
       );
 
       if (references && references.length > 0) {
-        // Prioritize chained references when they exist
-        // This ensures we get the full chain (e.g., "FileUtilities.createFile")
-        // instead of just the individual part (e.g., "createFile")
-        const chainedRefs = references.filter((ref) =>
-          isChainedSymbolReference(ref),
+        const preciseReference = this.selectReferenceAtPosition(
+          references,
+          parserPosition,
         );
+        if (!preciseReference) return null;
 
-        const receiverKeywordChain = chainedRefs.find((ref) => {
-          const name = ref.name.trim().toLowerCase();
-          return name.startsWith('this.') || name.startsWith('super.');
-        });
         // `this` and `super` are receiver keywords, never artifact/type names.
         // Prefer the standalone leaf so superclass hints can identify a real
         // missing owner instead of sending `this`, `super`, or `unknown` to
         // the client as a class candidate.
+        const receiverKeywordChain =
+          isChainedSymbolReference(preciseReference) &&
+          this.isReceiverKeyword(preciseReference.chainNodes?.[0]?.name);
         const receiverMember = receiverKeywordChain
-          ? references.find(
-              (ref) =>
-                !isChainedSymbolReference(ref) &&
-                ref.name.toLowerCase() !== 'unknown' &&
-                (ref.context === ReferenceContext.METHOD_CALL ||
-                  ref.context === ReferenceContext.FIELD_ACCESS ||
-                  ref.context === ReferenceContext.PROPERTY_REFERENCE),
+          ? this.selectReferenceAtPosition(
+              references.filter(
+                (ref) =>
+                  !isChainedSymbolReference(ref) &&
+                  ref.name.toLowerCase() !== 'unknown' &&
+                  (ref.context === ReferenceContext.METHOD_CALL ||
+                    ref.context === ReferenceContext.FIELD_ACCESS ||
+                    ref.context === ReferenceContext.PROPERTY_REFERENCE),
+              ),
+              parserPosition,
             )
           : undefined;
-        const reference =
-          receiverMember ??
-          (chainedRefs.length > 0 ? chainedRefs[0] : references[0]);
+        const reference = receiverMember ?? preciseReference;
         const referenceName = reference.name.trim().toLowerCase();
         if (
-          referenceName === 'this' ||
-          referenceName === 'super' ||
+          this.isReceiverKeyword(referenceName) ||
           referenceName === 'unknown'
         ) {
           this.logger.debug(
@@ -433,6 +432,144 @@ export class MissingArtifactUtils {
       );
       return null;
     }
+  }
+
+  /**
+   * Select the parser reference whose identifier, or exact chain node, contains
+   * the cursor. The symbol table can return an enclosing chain together with
+   * overlapping leaf references; their storage order has no semantic meaning.
+   */
+  private selectReferenceAtPosition(
+    references: SymbolReference[],
+    position: { line: number; character: number },
+  ): SymbolReference | undefined {
+    const candidates = references
+      .map((reference) => {
+        const matchingNode = isChainedSymbolReference(reference)
+          ? (reference.chainNodes ?? [])
+              .filter((node) => this.positionInIdentifierRange(position, node))
+              .sort(
+                (left, right) =>
+                  this.rangeSize(left) - this.rangeSize(right) ||
+                  this.referenceIdentity(left).localeCompare(
+                    this.referenceIdentity(right),
+                  ),
+              )[0]
+          : undefined;
+        if (
+          !matchingNode &&
+          !this.positionInIdentifierRange(position, reference)
+        ) {
+          return undefined;
+        }
+
+        const cursorReference = matchingNode ?? reference;
+        return {
+          reference,
+          resolved: Boolean(
+            cursorReference.resolvedSymbolId ||
+            cursorReference.resolvedTypeId ||
+            reference.resolvedSymbolId ||
+            reference.resolvedTypeId,
+          ),
+          size: this.rangeSize(cursorReference),
+          semanticChain:
+            isChainedSymbolReference(reference) &&
+            (reference.chainNodes?.length ?? 0) >= 2,
+        };
+      })
+      .filter((candidate) => candidate !== undefined);
+
+    candidates.sort((left, right) => {
+      if (left.size !== right.size) return left.size - right.size;
+      if (left.semanticChain !== right.semanticChain) {
+        return left.semanticChain ? -1 : 1;
+      }
+      if (left.resolved !== right.resolved) return left.resolved ? -1 : 1;
+      return this.referenceIdentity(left.reference).localeCompare(
+        this.referenceIdentity(right.reference),
+      );
+    });
+    return candidates[0]?.reference;
+  }
+
+  private positionInIdentifierRange(
+    position: { line: number; character: number },
+    reference: SymbolReference,
+  ): boolean {
+    const range = reference.location?.identifierRange;
+    if (!range) return false;
+    if (position.line < range.startLine || position.line > range.endLine) {
+      return false;
+    }
+    if (
+      position.line === range.startLine &&
+      position.character < range.startColumn
+    ) {
+      return false;
+    }
+    return !(
+      position.line === range.endLine && position.character > range.endColumn
+    );
+  }
+
+  private rangeSize(reference: SymbolReference): number {
+    const range = reference.location.identifierRange;
+    return (
+      (range.endLine - range.startLine) * 1_000_000 +
+      range.endColumn -
+      range.startColumn
+    );
+  }
+
+  private referenceIdentity(reference: SymbolReference): string {
+    const range = reference.location.identifierRange;
+    return [
+      reference.resolvedSymbolId ?? '',
+      reference.resolvedTypeId ?? '',
+      reference.context,
+      reference.name,
+      range.startLine,
+      range.startColumn,
+      range.endLine,
+      range.endColumn,
+    ].join('|');
+  }
+
+  private async createSemanticProvenance(
+    uri: string,
+    reference: SymbolReference,
+  ): Promise<{
+    sourceUri: string;
+    documentVersion?: number;
+    referenceRange: SymbolReference['location']['identifierRange'];
+    referenceIdentity: string;
+    resolvedSymbolId?: string;
+    resolvedTypeId?: string;
+    parseCompleteness: 'complete' | 'incomplete' | 'unknown';
+  }> {
+    const symbolTable = await this.symbolManager.getSymbolTableForFile(uri);
+    const metadata = symbolTable?.getMetadata();
+    return {
+      sourceUri: uri,
+      ...(metadata?.documentVersion !== undefined && {
+        documentVersion: metadata.documentVersion,
+      }),
+      referenceRange: reference.location.identifierRange,
+      referenceIdentity: this.referenceIdentity(reference),
+      ...(reference.resolvedSymbolId && {
+        resolvedSymbolId: reference.resolvedSymbolId,
+      }),
+      ...(reference.resolvedTypeId && {
+        resolvedTypeId: reference.resolvedTypeId,
+      }),
+      parseCompleteness: metadata?.parseCompleteness ?? 'unknown',
+    };
+  }
+
+  private isReceiverKeyword(name: string | undefined): boolean {
+    const normalized = name?.trim().toLowerCase();
+    return normalized === 'this' || normalized === 'super';
   }
 
   /**
@@ -643,10 +780,20 @@ export class MissingArtifactUtils {
         }
       }
 
-      // For chained references, the first part is often a class name
-      // (e.g., "FileUtilities.createFile" -> "FileUtilities" is likely a class)
+      // A chain is not evidence that its head is a class. The parser records
+      // instance receivers such as `property.Beds__c` as chains too. Only a
+      // parser-classified type/static head can be treated as a class qualifier.
       if (isChainedSymbolReference(reference)) {
-        return 'class';
+        const head = reference.chainNodes?.[0];
+        if (
+          head?.context === ReferenceContext.CLASS_REFERENCE ||
+          head?.context === ReferenceContext.TYPE_DECLARATION ||
+          head?.context === ReferenceContext.CONSTRUCTOR_CALL ||
+          head?.isStatic === true
+        ) {
+          return 'class';
+        }
+        return 'variable';
       }
 
       // Default to variable (instance, parameter, etc.)

@@ -10,4 +10,16 @@ public class MethodWithReturnType {
     public Boolean getBoolean() {
         return true;
     }
+
+    public Id getId() {
+        return null;
+    }
+
+    public Decimal getDecimal() {
+        return 42;
+    }
+
+    public Object getObject() {
+        return null;
+    }
 }

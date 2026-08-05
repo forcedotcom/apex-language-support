@@ -121,7 +121,7 @@ describe('LSPConfigurationManager', () => {
         workers: {
           enabled: true,
           poolSize: 2,
-          resourceLoader: true,
+          resourceLoader: { enabled: true },
         },
       },
       version: undefined,
@@ -193,6 +193,26 @@ describe('LSPConfigurationManager', () => {
   });
 
   describe('setInitialSettings', () => {
+    it('applies custom capability overrides from initialization settings', () => {
+      const result = configurationManager.setInitialSettings({
+        apex: {
+          custom: {
+            publishDiagnostics: false,
+            diagnosticProvider: false,
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>);
+
+      expect(result).toBe(true);
+      expect(configurationManager.getCapabilities()).toEqual(
+        expect.objectContaining({
+          publishDiagnostics: false,
+          diagnosticProvider: false,
+          foldingRangeProvider: true,
+        }),
+      );
+    });
+
     it('applies experimental worker settings before server initialization', () => {
       const experimental = {
         workers: {
@@ -237,7 +257,7 @@ describe('LSPConfigurationManager', () => {
       expect(extendedCapabilities.documentSymbolProvider).toBe(true);
     });
 
-    it('should return base capabilities without applying custom overrides', () => {
+    it('should apply custom overrides to extended capabilities', () => {
       const customCapabilities: Partial<ExtendedServerCapabilities> = {
         publishDiagnostics: false,
         documentSymbolProvider: false,
@@ -246,9 +266,8 @@ describe('LSPConfigurationManager', () => {
       configurationManager.setCustomCapabilities(customCapabilities);
       const result = configurationManager.getExtendedServerCapabilities();
 
-      // getExtendedServerCapabilities returns base capabilities without custom overrides
-      expect(result.publishDiagnostics).toBe(true);
-      expect(result.documentSymbolProvider).toBe(true);
+      expect(result.publishDiagnostics).toBe(false);
+      expect(result.documentSymbolProvider).toBe(false);
       expect(result.foldingRangeProvider).toBe(true);
     });
   });
@@ -361,6 +380,30 @@ describe('LSPConfigurationManager', () => {
         mockSettingsManager.updateFromLSPConfiguration,
       ).toHaveBeenCalledWith(config.settings);
       expect(result).toBe(true);
+    });
+
+    it('updates custom capability overrides from LSP configuration', () => {
+      const config = {
+        settings: {
+          apex: {
+            custom: {
+              publishDiagnostics: false,
+              diagnosticProvider: false,
+            },
+          },
+        },
+      };
+
+      const result = configurationManager.updateFromLSPConfiguration(config);
+
+      expect(result).toBe(true);
+      expect(configurationManager.getCapabilities()).toEqual(
+        expect.objectContaining({
+          publishDiagnostics: false,
+          diagnosticProvider: false,
+          foldingRangeProvider: true,
+        }),
+      );
     });
 
     it('should update settings directly', () => {

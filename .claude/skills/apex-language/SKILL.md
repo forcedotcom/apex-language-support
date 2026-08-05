@@ -5,6 +5,22 @@ description: Understand Apex language rules, ANTLR grammar structure, and how to
 
 # Apex Language Support
 
+## Hard Rule: Semantic Facts Come Only from Semantic Infrastructure
+
+Never scan raw Apex source text with regular expressions or other text
+heuristics to infer or recover semantic facts. This prohibition includes
+synthesizing symbols, declarations, types, references, scopes, member
+ownership, completion candidates, definition targets, and dependency or
+missing-artifact names.
+
+Use grammar-derived parser contexts, tree walkers, symbol tables, resolved
+references/xref data, or a prior stable semantic snapshot. Raw document text
+may be supplied to the lexer/parser and used for document transport or
+position/range mechanics, but it must not be independently interpreted as a
+semantic fallback. If semantic state is unavailable, incomplete, or stale,
+preserve that uncertainty: wait, retry, or return an incomplete result. Never
+invent semantic state from source text.
+
 ## ANTLR Grammar Reference
 
 The Apex parser uses ANTLR grammar files that are **not bundled** in the module. Reference them from GitHub:

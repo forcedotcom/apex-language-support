@@ -78,6 +78,7 @@ let Client: ClientInterface | undefined;
  * Note: This can be either browser or node LanguageClient, both extend BaseLanguageClient
  */
 let LanguageClientInstance: BaseLanguageClient | undefined;
+let lifecycleQueue: Promise<void> = Promise.resolve();
 
 /**
  * Shared workspace load layer - created once and reused across all requests
@@ -1418,10 +1419,17 @@ async function createDesktopLanguageClient(
 /**
  * Starts the language server
  */
-export async function startLanguageServer(
+async function startLanguageServerNow(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
+  if (Client) {
+    logToOutputChannel(
+      'Apex Language Server client already exists; skipping duplicate start',
+      'warning',
+    );
+    return;
+  }
   logToOutputChannel('🚀 Starting Apex Language Server...', 'info');
 
   try {
@@ -1439,35 +1447,54 @@ export async function startLanguageServer(
   }
 }
 
-/**
- * Restarts the language server
- */
-export async function restartLanguageServer(
+function enqueueLifecycleOperation(
+  operation: () => Promise<void>,
+): Promise<void> {
+  const result = lifecycleQueue.then(operation, operation);
+  lifecycleQueue = result.catch(() => undefined);
+  return result;
+}
+
+export function startLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logToOutputChannel('🔄 Restarting Apex Language Server...', 'info');
+  return enqueueLifecycleOperation(() =>
+    startLanguageServerNow(context, restartHandler),
+  );
+}
 
-  try {
-    await stopLanguageServer();
-    await startLanguageServer(context, restartHandler);
-  } catch (error) {
-    logToOutputChannel(
-      `Failed to restart language server: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
-    );
-    throw error;
-  }
+/**
+ * Restarts the language server
+ */
+export function restartLanguageServer(
+  context: vscode.ExtensionContext,
+  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
+): Promise<void> {
+  return enqueueLifecycleOperation(async () => {
+    logToOutputChannel('🔄 Restarting Apex Language Server...', 'info');
+
+    try {
+      await stopLanguageServerNow();
+      await startLanguageServerNow(context, restartHandler);
+    } catch (error) {
+      logToOutputChannel(
+        `Failed to restart language server: ${formattedError(error, {
+          includeStack: true,
+          includeProperties: true,
+          maxStackLines: 30,
+        })}`,
+        'error',
+      );
+      throw error;
+    }
+  });
 }
 
 /**
  * Stops the language server
  */
-export async function stopLanguageServer(): Promise<void> {
+async function stopLanguageServerNow(): Promise<void> {
   logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
   clearIngestionTimeout();
   if (Client) {
@@ -1485,6 +1512,10 @@ export async function stopLanguageServer(): Promise<void> {
   }
 
   updateApexServerStatusStopped();
+}
+
+export function stopLanguageServer(): Promise<void> {
+  return enqueueLifecycleOperation(stopLanguageServerNow);
 }
 
 /**

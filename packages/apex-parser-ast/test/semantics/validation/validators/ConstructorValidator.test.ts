@@ -70,6 +70,29 @@ describe('ConstructorValidator', () => {
     expect(hasSuperCallError).toBe(true);
   });
 
+  it('should use statement structure when an invalid super() call shares the first statement line', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'SameLineInvalidSuperCall.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      ConstructorValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some((e) => e.code === ErrorCodes.INVALID_SUPER_CALL),
+    ).toBe(true);
+  });
+
   it('should detect invalid this() call placement', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
@@ -175,6 +198,31 @@ describe('ConstructorValidator', () => {
       (e: any) => e.code === ErrorCodes.INVALID_CONSTRUCTOR_RETURN,
     );
     expect(hasReturnError).toBe(true);
+  });
+
+  it('should not infer a value return from string contents or a bare return', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'ReturnTextNotStatement.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      ConstructorValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (e) => e.code === ErrorCodes.INVALID_CONSTRUCTOR_RETURN,
+      ),
+    ).toBe(false);
   });
 
   it('should detect super() call without superclass', async () => {

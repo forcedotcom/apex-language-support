@@ -307,6 +307,180 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     expect(resolved?.name).toBe('Http');
   });
 
+  it('does not resolve an unknown declaration type token as its variable', async () => {
+    const uri = 'file:///test/UnknownDeclarationTypeHover.cls';
+    const source = `public class UnknownDeclarationTypeHover {
+  void run() {
+    Property__c property = new Property__c();
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const declarationLine = source.split('\n')[2];
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: declarationLine.indexOf('Property__c') + 1 },
+      'precise',
+    );
+
+    expect(resolved).toBeNull();
+  });
+
+  it('resolves an ambiguous member qualifier to its scoped variable', async () => {
+    const uri = 'file:///test/AmbiguousQualifierHover.cls';
+    const source = `public class AmbiguousQualifierHover {
+  void run() {
+    Property__c property = new Property__c();
+    property.Beds__c;
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const usageLine = source.split('\n')[3];
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: usageLine.indexOf('property') + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Variable);
+    expect(resolved?.name).toBe('property');
+    expect((resolved as any)?.type?.name).toBe('Property__c');
+    expect(resolved?.location.identifierRange.startLine).toBe(3);
+  });
+
+  it('does not report a resolved receiver for an unresolved chain member', async () => {
+    const uri = 'file:///test/UnresolvedMemberHover.cls';
+    const source = `public class UnresolvedMemberHover {
+  void run() {
+    Property__c property = new Property__c();
+    property.Beds__c;
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const usageLine = source.split('\n')[3];
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: usageLine.indexOf('Beds__c') + 1 },
+      'precise',
+    );
+
+    expect(resolved).toBeNull();
+  });
+
+  it('resolves each selected member through field and method return types', async () => {
+    await compileAndAdd(
+      'public class ChainLeaf { public String d; }',
+      'file:///test/ChainLeaf.cls',
+    );
+    await compileAndAdd(
+      'public class ChainBranch { public ChainLeaf c() { return null; } }',
+      'file:///test/ChainBranch.cls',
+    );
+    await compileAndAdd(
+      'public class ChainRoot { public ChainBranch b; }',
+      'file:///test/ChainRoot.cls',
+    );
+
+    const uri = 'file:///test/DeepChainConsumer.cls';
+    const source = `public class DeepChainConsumer {
+  void run() {
+    ChainRoot a = new ChainRoot();
+    String s = a.b.c().d;
+  }
+}`;
+    await compileAndAdd(source, uri);
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+
+    const expressionLine = source.split('\n')[3];
+    const resolve = (name: string) =>
+      symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 4, character: expressionLine.indexOf(name) + 1 },
+        'precise',
+      );
+
+    const [field, method, leaf] = await Promise.all([
+      resolve('b'),
+      resolve('c'),
+      resolve('d'),
+    ]);
+    expect(field).toEqual(
+      expect.objectContaining({ name: 'b', kind: SymbolKind.Field }),
+    );
+    expect(method).toEqual(
+      expect.objectContaining({ name: 'c', kind: SymbolKind.Method }),
+    );
+    expect(leaf).toEqual(
+      expect.objectContaining({ name: 'd', kind: SymbolKind.Field }),
+    );
+  });
+
+  it('returns a parser-owned local variable for prefix completion during an incomplete member edit', async () => {
+    const uri = 'file:///test/VisiblePropertyCompletion.cls';
+    const source = `public class VisiblePropertyCompletion {
+  void run() {
+    Property__c property = new Property__c();
+    insert property;
+    prop
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const visible = await symbolManager.getVisibleSymbolsAtPosition(uri, {
+      line: 4,
+      character: 8,
+    });
+
+    expect(visible).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: SymbolKind.Variable,
+          name: 'property',
+        }),
+      ]),
+    );
+  });
+
+  it('keeps same-named local reference edges scoped to the exact declaration', async () => {
+    const uri = 'file:///test/RepeatedLocalNames.cls';
+    const source = `public class RepeatedLocalNames {
+  void first() {
+    String value = 'first';
+    System.debug(value);
+  }
+  void second() {
+    String value = 'second';
+    System.debug(value);
+  }
+}`;
+    await compileAndAdd(source, uri);
+
+    const symbols = await symbolManager.findSymbolsInFile(uri);
+    const first = symbols.find(
+      (symbol) => symbol.kind === SymbolKind.Method && symbol.name === 'first',
+    );
+    const second = symbols.find(
+      (symbol) => symbol.kind === SymbolKind.Method && symbol.name === 'second',
+    );
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+
+    const firstValue = (await symbolManager.findReferencesFrom(first!)).find(
+      (reference) => reference.symbol.name === 'value',
+    )?.symbol;
+    const secondValue = (await symbolManager.findReferencesFrom(second!)).find(
+      (reference) => reference.symbol.name === 'value',
+    )?.symbol;
+
+    expect(firstValue?.location.identifierRange.startLine).toBe(3);
+    expect(secondValue?.location.identifierRange.startLine).toBe(7);
+    expect(firstValue?.id).not.toBe(secondValue?.id);
+  });
+
   it('resolves an explicitly typed enhanced-for variable as that variable', async () => {
     const uri = 'file:///test/EnhancedForHover.cls';
     const source = `public class EnhancedForHover {

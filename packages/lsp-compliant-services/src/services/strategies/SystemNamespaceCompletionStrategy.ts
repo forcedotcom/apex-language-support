@@ -9,9 +9,12 @@
 import { Effect } from 'effect';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CompletionContext } from '../CompletionProcessingService';
 import { CompletionStrategy, CompletionCandidate } from './CompletionStrategy';
+import {
+  getIdentifierCompletionQuery,
+  type IdentifierCompletionQuery,
+} from './IdentifierCompletionQuery';
 
 /**
  * Apex system namespaces (mirrors Jorje's `Namespaces.NAMESPACES` list).
@@ -92,21 +95,13 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    // Skip after a dot — member access is handled elsewhere.
-    if (context.triggerCharacter === '.') {
-      return false;
-    }
-    const lineText = context.document.getText({
-      start: { line: context.position.line, character: 0 },
-      end: context.position,
-    });
-    if (lineText.trimEnd().endsWith('.')) {
-      return false;
-    }
     // Only fire once the user has typed at least one identifier character —
     // prevents flooding every keystroke with all 55 namespaces.
-    const word = this.getWordAtPosition(context.document, context.position);
-    return word.length > 0;
+    const query = getIdentifierCompletionQuery(
+      context.document,
+      context.position,
+    );
+    return query.kind === 'identifier' || query.kind === 'member-access';
   }
 
   getCompletions(
@@ -115,22 +110,29 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
     const self = this;
     return Effect.gen(function* () {
       const candidates: CompletionCandidate[] = [];
-      const prefix = self
-        .getWordAtPosition(context.document, context.position)
-        .toLowerCase();
+      const query = getIdentifierCompletionQuery(
+        context.document,
+        context.position,
+      );
+      if (query.kind !== 'identifier') {
+        return candidates;
+      }
+      const prefix = query.prefix.toLowerCase();
 
       const batchSize = 25;
-      for (let i = 0; i < SYSTEM_NAMESPACES.length; i++) {
-        const ns = SYSTEM_NAMESPACES[i];
-        if (prefix.length === 0 || ns.toLowerCase().startsWith(prefix)) {
-          candidates.push({
-            symbol: self.makeNamespaceSymbol(ns),
-            relevance: 0.6,
-            context: 'system namespace',
-          });
-        }
-        if ((i + 1) % batchSize === 0 && i + 1 < SYSTEM_NAMESPACES.length) {
-          yield* Effect.yieldNow();
+      if (!query.qualifier) {
+        for (let i = 0; i < SYSTEM_NAMESPACES.length; i++) {
+          const ns = SYSTEM_NAMESPACES[i];
+          if (prefix.length === 0 || ns.toLowerCase().startsWith(prefix)) {
+            candidates.push({
+              symbol: self.makeNamespaceSymbol(ns),
+              relevance: 0.6,
+              context: 'system namespace',
+            });
+          }
+          if ((i + 1) % batchSize === 0 && i + 1 < SYSTEM_NAMESPACES.length) {
+            yield* Effect.yieldNow();
+          }
         }
       }
 
@@ -144,7 +146,7 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
           );
           for (const symbol of matches) {
             const ns = self.getNamespaceName(symbol);
-            if (ns && self.isSystemNamespace(ns)) {
+            if (ns && self.matchesSystemNamespaceQuery(ns, query)) {
               candidates.push({
                 symbol,
                 relevance: 0.55,
@@ -166,6 +168,19 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
   private isSystemNamespace(name: string): boolean {
     const lower = name.toLowerCase();
     return SYSTEM_NAMESPACES.some((n) => n.toLowerCase() === lower);
+  }
+
+  private matchesSystemNamespaceQuery(
+    namespace: string,
+    query: Extract<IdentifierCompletionQuery, { kind: 'identifier' }>,
+  ): boolean {
+    if (!this.isSystemNamespace(namespace)) {
+      return false;
+    }
+    return (
+      query.qualifier === undefined ||
+      namespace.toLowerCase() === query.qualifier.toLowerCase()
+    );
   }
 
   private getNamespaceName(symbol: any): string | undefined {
@@ -201,18 +216,5 @@ export class SystemNamespaceCompletionStrategy implements CompletionStrategy {
         },
       },
     };
-  }
-
-  private getWordAtPosition(
-    document: TextDocument,
-    position: { line: number; character: number },
-  ): string {
-    const text = document.getText();
-    const offset = document.offsetAt(position);
-    let start = offset;
-    while (start > 0 && /\w/.test(text[start - 1])) {
-      start--;
-    }
-    return text.substring(start, offset);
   }
 }

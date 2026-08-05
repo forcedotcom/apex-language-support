@@ -12,6 +12,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
 import {
   ApexSymbolManager,
+  type CompilationOptions,
   CompilerService,
   FullSymbolCollectorListener,
   SymbolTable,
@@ -42,11 +43,12 @@ export async function compileInlineAndRegister(
   symbolManager: ApexSymbolManager,
   content: string,
   uri: string,
+  options: CompilationOptions = {},
 ): Promise<void> {
   const compilerService = new CompilerService();
   const symbolTable = new SymbolTable();
   const listener = new FullSymbolCollectorListener(symbolTable);
-  compilerService.compile(content, uri, listener);
+  compilerService.compile(content, uri, listener, options);
   await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
 }
 

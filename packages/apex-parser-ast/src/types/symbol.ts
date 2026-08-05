@@ -846,6 +846,8 @@ export class SymbolTable {
   // idIndex removed: symbolMap now serves both purposes since keys are always unifiedId
   // and symbol.id is synchronized with key.unifiedId, so symbolMap.get(id) === idIndex.get(id)
   private references: SymbolReference[] = []; // Store symbol references
+  private referencesByEndPosition = new Map<string, SymbolReference[]>();
+  private memberAccessByOperatorStart = new Map<string, SymbolReference>();
   private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
   private symbolArray: ApexSymbol[] = [];
@@ -1946,6 +1948,40 @@ export class SymbolTable {
    */
   addTypeReference(ref: SymbolReference): void {
     this.references.push(ref);
+    const range = ref.location.identifierRange;
+    const key = `${range.endLine}:${range.endColumn}`;
+    const endingAtPosition = this.referencesByEndPosition.get(key) ?? [];
+    endingAtPosition.push(ref);
+    this.referencesByEndPosition.set(key, endingAtPosition);
+    this.indexReferenceSemanticContext(ref);
+  }
+
+  /** Refresh indexes after a listener attaches semantic context post-insert. */
+  indexReferenceSemanticContext(ref: SymbolReference): void {
+    const operator = ref.semanticContext?.memberAccess?.operatorRange;
+    if (operator) {
+      this.memberAccessByOperatorStart.set(
+        `${operator.startLine}:${operator.startColumn}`,
+        ref,
+      );
+    }
+  }
+
+  /** Return references whose identifier ends at the exact parser position. */
+  getReferencesEndingAtPosition(
+    line: number,
+    character: number,
+  ): SymbolReference[] {
+    return [
+      ...(this.referencesByEndPosition.get(`${line}:${character}`) ?? []),
+    ];
+  }
+
+  getReferenceByMemberAccessOperatorStart(
+    line: number,
+    character: number,
+  ): SymbolReference | undefined {
+    return this.memberAccessByOperatorStart.get(`${line}:${character}`);
   }
 
   /**

@@ -1,5 +1,5 @@
 public class NonVoidMethodReturnsValue {
-    public Integer testMethod() {
+    public Integer returnsValue() {
         return 5;
     }
 }
