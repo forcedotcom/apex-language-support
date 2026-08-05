@@ -79,7 +79,7 @@ function sfApiRequest(url, orgAlias) {
   return new Promise((resolve, reject) => {
     console.log(`  Fetching: ${url}`);
     const child = spawn('sf', ['api', 'request', 'rest', url, '-o', orgAlias], {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'], // collect stderr for error diagnostics
     });
 
     let stdout = '';
@@ -96,11 +96,12 @@ function sfApiRequest(url, orgAlias) {
     child.on('close', (code) => {
       if (code !== 0) {
         console.error(`  ❌ Failed to fetch: ${url}`);
-        console.error(`     Error: ${stderr || 'Command exited with code ' + code}`);
+        console.error(`     Error: ${stderr || `Command exited with code ${code}`}`);
         reject(new Error(stderr || `Command exited with code ${code}`));
         return;
       }
 
+      // Success: parse JSON from stdout (stderr warnings are ignored on exit code 0)
       try {
         const result = JSON.parse(stdout);
         resolve(result);
