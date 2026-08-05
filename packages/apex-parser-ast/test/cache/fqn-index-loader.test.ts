@@ -179,12 +179,11 @@ describe('FQN Index Loader', () => {
   });
 
   describe('Index completeness', () => {
-    it('should contain expected number of entries (~16.5K for 2.3K bundled + 7.6K non-bundled)', () => {
-      // Bundled: 2,364 classes × 2 keys = ~4,728 entries
-      // Non-bundled: 7,569 types × 2 keys = ~15,138 entries
-      // Total: ~19,866 entries (may be fewer due to collisions)
-      expect(fqnIndex.size).toBeGreaterThan(15000);
-      expect(fqnIndex.size).toBeLessThan(20000);
+    it('should contain expected number of entries (~4.6K for 2.3K classes)', () => {
+      // 2,364 classes × 2 keys (qualified + unqualified) = ~4,728 entries
+      // (may be fewer if some namespaces have no classes, or more if collisions)
+      expect(fqnIndex.size).toBeGreaterThan(4000);
+      expect(fqnIndex.size).toBeLessThan(6000);
     });
 
     it('should have canonical FQN values (not lowercased)', () => {

@@ -194,17 +194,14 @@ function main() {
 
   // Build output
   const output = {
-    version: '1.0',
-    generatedAt: new Date().toISOString(),
-    sourceOrg: metadata?.org || 'unknown',
     apiVersion: metadata?.apiVersion || 'unknown',
+    generatedAt: new Date().toISOString(),
     description: 'Minimal type index for non-bundled Salesforce platform namespaces. ' +
                  'Used to populate TypeRegistry with api-only entries during build.',
     namespaces,
     stats: {
       totalNamespaces: Object.keys(namespaces).length,
       totalTypes,
-      excludedNamespaces: skippedNamespaces,
     },
   };
 
@@ -216,7 +213,7 @@ function main() {
   console.log('\n=== Generation Complete ===');
   console.log(`   Non-bundled namespaces: ${output.stats.totalNamespaces}`);
   console.log(`   Total types: ${output.stats.totalTypes}`);
-  console.log(`   Excluded (bundled) namespaces: ${output.stats.excludedNamespaces}`);
+  console.log(`   Excluded (bundled) namespaces: ${skippedNamespaces}`);
   console.log(`   File size: ${(JSON.stringify(output).length / 1024).toFixed(1)} KB`);
 }
 
