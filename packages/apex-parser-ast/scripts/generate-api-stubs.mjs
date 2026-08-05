@@ -225,8 +225,24 @@ async function main() {
   console.log(`   Total types: ${fetchMetadata.totalTypes}`);
   console.log(`   Namespaces: ${Object.keys(fetchMetadata.namespaces).length}`);
 
+  // Clean existing namespace directories (all of them)
+  console.log('\n2. Cleaning existing namespace directories...');
+  if (existsSync(OUTPUT_DIR)) {
+    const existingDirs = readdirSync(OUTPUT_DIR, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+
+    for (const namespace of existingDirs) {
+      const nsDir = join(OUTPUT_DIR, namespace);
+      rmSync(nsDir, { recursive: true, force: true });
+    }
+    console.log(`   ✓ Removed ${existingDirs.length} namespace directories`);
+  } else {
+    console.log(`   ⊘ Output directory does not exist yet`);
+  }
+
   // Generate stubs for TARGET_NAMESPACES only
-  console.log('\n2. Generating .cls files for embedded namespaces...');
+  console.log('\n3. Generating .cls files for embedded namespaces...');
   console.log(`   Target namespaces: ${TARGET_NAMESPACES.size}`);
 
   const generationMetadata = {
@@ -281,7 +297,7 @@ async function main() {
   generationMetadata.totalSkipped = totalSkipped;
 
   // Write generation metadata
-  console.log('\n3. Writing generation metadata...');
+  console.log('\n4. Writing generation metadata...');
   writeFileSync(
     GENERATION_METADATA_FILE,
     JSON.stringify(generationMetadata, null, 2),
