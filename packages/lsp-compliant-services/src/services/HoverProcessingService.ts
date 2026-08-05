@@ -31,9 +31,10 @@ import {
   isConstructorSymbol,
   isVariableSymbol,
   VariableSymbol,
-  inTypeSymbolGroup,
   ReferenceContext,
   SymbolKind,
+  SymbolVisibility,
+  type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -47,6 +48,13 @@ import {
   formatPosition,
 } from '../utils/positionUtils';
 import { Effect } from 'effect';
+import { hasCompleteSemanticState } from '../utils/semanticStateUtils';
+
+const searchingHovers = new WeakSet<object>();
+
+/** Identify the internal searching placeholder without inspecting display text. */
+export const isSearchingHover = (value: unknown): boolean =>
+  typeof value === 'object' && value !== null && searchingHovers.has(value);
 
 /**
  * Interface for hover processing functionality
@@ -155,6 +163,21 @@ export class HoverProcessingService implements IHoverProcessor {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
+      if (
+        !(await hasCompleteSemanticState(
+          this.symbolManager,
+          params.textDocument.uri,
+          params.position,
+        ))
+      ) {
+        this.logger.debug(
+          () =>
+            `Hover semantic state is incomplete for ${params.textDocument.uri}; ` +
+            'preserving uncertainty',
+        );
+        return null;
+      }
+
       // Get TypeReferences at position first
       // This tells us if there's a parsed identifier at this position
       const referencesStartTime = Date.now();
@@ -194,6 +217,11 @@ export class HoverProcessingService implements IHoverProcessor {
         // method/class, which is not meaningful for arbitrary positions (keywords, whitespace, etc.).
         return null;
       }
+
+      const selectedChainMember = this.getNonRootChainMemberAtPosition(
+        references,
+        parserPosition,
+      );
 
       const receiverKeywordTarget =
         (await this.symbolManager.getReceiverKeywordTargetAtPosition?.(
@@ -383,6 +411,23 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
+      if (
+        symbol &&
+        selectedChainMember &&
+        (symbol.name.toLowerCase() !== selectedChainMember.name.toLowerCase() ||
+          this.isReceiverSymbolForSelectedMember(
+            symbol,
+            references,
+            selectedChainMember,
+          ))
+      ) {
+        this.logger.debug(
+          () =>
+            `[HOVER] Rejecting receiver symbol "${symbol?.name}" while cursor ` +
+            `selects chain member "${selectedChainMember.name}"`,
+        );
+        symbol = null;
+      }
       // No scope fallback: if precise resolution failed, return no hover
       // rather than showing the enclosing method/class container.
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
@@ -486,10 +531,8 @@ export class HoverProcessingService implements IHoverProcessor {
             (s.kind === SymbolKind.Variable ||
               s.kind === SymbolKind.Field ||
               s.kind === SymbolKind.Property) &&
-            s.location?.symbolRange &&
-            s.location.symbolRange.startLine === parserPosition.line &&
-            s.location.symbolRange.startColumn <= parserPosition.character &&
-            s.location.symbolRange.endColumn >= parserPosition.character,
+            s.location?.identifierRange &&
+            this.isPositionInRange(parserPosition, s.location.identifierRange),
         );
 
         if (variableAtPosition) {
@@ -530,14 +573,15 @@ export class HoverProcessingService implements IHoverProcessor {
         const earlySettings = ApexSettingsManager.getInstance().getSettings();
         if (earlySettings?.apex?.findMissingArtifact?.enabled) {
           // Check if this is a variable reference - skip missing artifact resolution
-          const variableRef =
-            references.find(
-              (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
-            ) ||
-            references.find(
-              (ref) =>
-                ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
-            );
+          const variableRef = selectedChainMember
+            ? undefined
+            : references.find(
+                (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+              ) ||
+              references.find(
+                (ref) =>
+                  ref.context === ReferenceContext.VARIABLE_USAGE && ref.name,
+              );
 
           if (!variableRef) {
             this.missingArtifactUtils.tryResolveMissingArtifactBackground(
@@ -546,9 +590,8 @@ export class HoverProcessingService implements IHoverProcessor {
               'hover',
             );
 
-            const searchingHover = await this.createSearchingHover(
-              params,
-              'path1-refs-no-symbol-early',
+            const searchingHover = this.createSearchingHover(
+              this.getSearchingSymbolName(references, parserPosition),
             );
             return searchingHover;
           }
@@ -578,22 +621,10 @@ export class HoverProcessingService implements IHoverProcessor {
                   params.textDocument.uri,
                 );
 
-                // First try exact position match
-                const symbolAtPos = symbols.find(
-                  (s) =>
-                    s.location?.symbolRange &&
-                    s.location.symbolRange.startLine === parserPosition.line &&
-                    s.location.symbolRange.startColumn <=
-                      parserPosition.character &&
-                    s.location.symbolRange.endColumn >=
-                      parserPosition.character,
-                );
-
-                if (symbolAtPos) {
-                  return symbolAtPos;
-                }
-
-                // Try identifier range match
+                // Only declaration identifiers are valid direct symbol
+                // matches. A declaration's symbolRange also covers its type
+                // token, which must remain unresolved so missing type
+                // enrichment can run.
                 const symbolAtIdRange = symbols.find(
                   (s) =>
                     s.location?.identifierRange &&
@@ -607,27 +638,30 @@ export class HoverProcessingService implements IHoverProcessor {
                   return symbolAtIdRange;
                 }
 
-                // Check for METHOD_CALL references first (prioritize method calls over variables)
-                // Find METHOD_CALL references on the same line, allowing for slight position variance
+                // Retry precise resolution after each enrichment layer. This is
+                // the only unresolved-reference fallback that can preserve the
+                // parser's exact call site, lexical scope, and owner identity.
+                // A global name lookup is unsafe here: same-named methods in
+                // unrelated owners and shadowed locals are both valid Apex.
+                const preciseSymbol =
+                  await this.symbolManager.getSymbolAtPosition(
+                    params.textDocument.uri,
+                    parserPosition,
+                    'precise',
+                  );
+
                 const methodCallRef = references.find(
                   (ref) =>
                     ref.context === ReferenceContext.METHOD_CALL &&
                     ref.location.identifierRange.startLine ===
                       parserPosition.line &&
-                    // Allow position to be within or very close to the reference range
-                    ((ref.location.identifierRange.startColumn <=
+                    ref.location.identifierRange.startColumn <=
                       parserPosition.character &&
-                      ref.location.identifierRange.endColumn >=
-                        parserPosition.character) ||
-                      // Also check if position is just before the reference (within 5 characters)
-                      (parserPosition.character >=
-                        ref.location.identifierRange.startColumn - 5 &&
-                        parserPosition.character <
-                          ref.location.identifierRange.startColumn)),
+                    ref.location.identifierRange.endColumn >=
+                      parserPosition.character,
                 );
 
                 if (methodCallRef) {
-                  // If the reference is already resolved, use the resolved symbol
                   if (methodCallRef.resolvedSymbolId) {
                     const resolvedSymbol = await this.symbolManager.getSymbol(
                       methodCallRef.resolvedSymbolId,
@@ -637,75 +671,57 @@ export class HoverProcessingService implements IHoverProcessor {
                     }
                   }
 
-                  // If not resolved, try to find the method symbol by name
-                  // This might be in the current file or in a standard library class
-                  if (methodCallRef.name) {
-                    const methodSymbols =
-                      await this.symbolManager.findSymbolByName(
-                        methodCallRef.name,
-                      );
-                    // Filter for method symbols
-                    const methodCandidates = methodSymbols.filter((s) =>
-                      isMethodSymbol(s),
-                    );
-
-                    // If we have a parent context (e.g., "EncodingUtil"), try to match it
-                    // parentContext is a string representing the type name
-                    if (
-                      methodCallRef.parentContext &&
-                      methodCandidates.length > 0
-                    ) {
-                      const parentClassSymbols =
-                        await this.symbolManager.findSymbolByName(
-                          methodCallRef.parentContext,
-                        );
-                      const parentClass = parentClassSymbols.find((c) =>
-                        isClassSymbol(c),
-                      );
-
-                      if (parentClass) {
-                        // Find method in the parent class
-                        const methodInParent = methodCandidates.find(
-                          (m) => m.parentId === parentClass.id,
-                        );
-                        if (methodInParent) {
-                          return methodInParent;
-                        }
-                      }
-                    }
-
-                    // Fallback: return first method symbol if found
-                    if (methodCandidates.length > 0) {
-                      return methodCandidates[0];
-                    }
+                  if (preciseSymbol && isMethodSymbol(preciseSymbol)) {
+                    return preciseSymbol;
                   }
+
+                  return null;
                 }
 
-                // Check for VARIABLE_USAGE or VARIABLE_DECLARATION references
-                const variableRef =
-                  references.find(
-                    (ref) =>
-                      ref.context === ReferenceContext.VARIABLE_DECLARATION,
-                  ) ||
-                  references.find(
-                    (ref) =>
-                      ref.context === ReferenceContext.VARIABLE_USAGE &&
-                      ref.name,
-                  );
+                const variableRef = selectedChainMember
+                  ? undefined
+                  : references.find(
+                      (ref) =>
+                        ref.context === ReferenceContext.VARIABLE_DECLARATION &&
+                        this.isPositionInRange(
+                          parserPosition,
+                          ref.location.identifierRange,
+                        ),
+                    ) ||
+                    references.find(
+                      (ref) =>
+                        ref.context === ReferenceContext.VARIABLE_USAGE &&
+                        this.isPositionInRange(
+                          parserPosition,
+                          ref.location.identifierRange,
+                        ),
+                    );
 
-                if (variableRef && variableRef.name) {
-                  const variableSymbol = symbols.find(
-                    (s) =>
-                      (s.kind === SymbolKind.Variable ||
-                        s.kind === SymbolKind.Field ||
-                        s.kind === SymbolKind.Property) &&
-                      s.name === variableRef.name &&
-                      s.fileUri === params.textDocument.uri,
-                  );
-
-                  if (variableSymbol) {
-                    return variableSymbol;
+                if (variableRef) {
+                  if (variableRef.resolvedSymbolId) {
+                    const resolvedSymbol = await this.symbolManager.getSymbol(
+                      variableRef.resolvedSymbolId,
+                    );
+                    if (
+                      resolvedSymbol &&
+                      (resolvedSymbol.kind === SymbolKind.Variable ||
+                        resolvedSymbol.kind === SymbolKind.Field ||
+                        resolvedSymbol.kind === SymbolKind.Property)
+                    ) {
+                      return resolvedSymbol;
+                    }
                   }
+
+                  if (
+                    preciseSymbol &&
+                    (preciseSymbol.kind === SymbolKind.Variable ||
+                      preciseSymbol.kind === SymbolKind.Field ||
+                      preciseSymbol.kind === SymbolKind.Property)
+                  ) {
+                    return preciseSymbol;
+                  }
+
+                  return null;
                 }
 
                 return null;
@@ -779,9 +795,8 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          const searchingHover = await this.createSearchingHover(
-            params,
-            'path2-after-enrichment-no-symbol',
+          const searchingHover = this.createSearchingHover(
+            this.getSearchingSymbolName(references, parserPosition),
           );
           return searchingHover;
         }
@@ -875,10 +890,7 @@ export class HoverProcessingService implements IHoverProcessor {
             'hover',
           );
 
-          return await this.createSearchingHover(
-            params,
-            'path3-workspace-not-loaded-no-refs',
-          );
+          return this.createSearchingHover(undefined);
         }
       }
 
@@ -937,6 +949,75 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
+   * Return the parser-owned member selected after a receiver in a chained
+   * expression. Recovery references may overlap that member with a broad
+   * VARIABLE_USAGE for the receiver; callers must not treat that overlap as
+   * resolution of the selected member.
+   */
+  private getNonRootChainMemberAtPosition(
+    references: SymbolReference[],
+    position: { line: number; character: number },
+  ): SymbolReference | undefined {
+    const candidates: Array<{
+      member: SymbolReference;
+      index: number;
+      size: number;
+      tokenWidthDelta: number;
+    }> = [];
+    for (const reference of references) {
+      const chainNodes = reference.chainNodes;
+      if (!chainNodes || chainNodes.length < 2) continue;
+
+      chainNodes.forEach((member, index) => {
+        if (this.isPositionInRange(position, member.location.identifierRange)) {
+          const range = member.location.identifierRange;
+          candidates.push({
+            member,
+            index,
+            size:
+              (range.endLine - range.startLine) * 1_000_000 +
+              range.endColumn -
+              range.startColumn,
+            tokenWidthDelta:
+              range.startLine === range.endLine
+                ? Math.abs(
+                    range.endColumn - range.startColumn - member.name.length,
+                  )
+                : Number.MAX_SAFE_INTEGER,
+          });
+        }
+      });
+    }
+
+    candidates.sort(
+      (left, right) =>
+        left.tokenWidthDelta - right.tokenWidthDelta ||
+        left.size - right.size ||
+        left.index - right.index,
+    );
+    const selected = candidates[0];
+    return selected && selected.index > 0 ? selected.member : undefined;
+  }
+
+  private isReceiverSymbolForSelectedMember(
+    symbol: ApexSymbol,
+    references: SymbolReference[],
+    selectedMember: SymbolReference,
+  ): boolean {
+    return references.some((reference) => {
+      const chainNodes = reference.chainNodes;
+      if (!chainNodes) return false;
+      const memberIndex = chainNodes.indexOf(selectedMember);
+      return (
+        memberIndex > 0 &&
+        chainNodes
+          .slice(0, memberIndex)
+          .some((receiver) => receiver.resolvedSymbolId === symbol.id)
+      );
+    });
+  }
+
+  /**
    * In worker threads, `ApexCapabilitiesManager` may not share the same module
    * instance as `HoverProcessingService` after bundling; `WorkerInit` stores
    * the authoritative mode on `globalThis` for dev-only hover extras.
@@ -971,6 +1052,9 @@ export class HoverProcessingService implements IHoverProcessor {
     const fqn = await calculateDisplayFQN(symbol, this.symbolManager, {
       normalizeCase: false,
     });
+    const isLocalValue =
+      symbol.kind === SymbolKind.Variable ||
+      symbol.kind === SymbolKind.Parameter;
 
     // Header: IDE-style signature for all symbol kinds
     content.push('');
@@ -1026,17 +1110,29 @@ export class HoverProcessingService implements IHoverProcessor {
     } else if (isVariableSymbol(symbol)) {
       const variableSymbol = symbol as VariableSymbol;
       const type = this.formatTypeDisplay(variableSymbol.type) ?? 'unknown';
-      content.push(`${type} ${fqn || symbol.name}`);
+      content.push(
+        `${type} ${isLocalValue ? symbol.name : fqn || symbol.name}`,
+      );
     } else {
       content.push(fqn || symbol.name);
     }
     content.push('```');
 
+    if (isLocalValue && fqn.endsWith(`.${symbol.name}`)) {
+      const scope = fqn.slice(0, -(symbol.name.length + 1));
+      if (scope) {
+        content.push(`**Scope:** ${scope}`);
+      }
+    }
+
     // Add modifiers
-    if (symbol.modifiers) {
+    if (symbol.modifiers && !isLocalValue) {
       const modifiers = [];
       if (symbol.modifiers.isStatic) modifiers.push('static');
-      if (symbol.modifiers.visibility)
+      if (
+        symbol.modifiers.visibility &&
+        symbol.modifiers.visibility !== SymbolVisibility.Default
+      )
         modifiers.push(symbol.modifiers.visibility);
       if (symbol.modifiers.isFinal) modifiers.push('final');
       if (symbol.modifiers.isAbstract) modifiers.push('abstract');
@@ -1048,17 +1144,6 @@ export class HoverProcessingService implements IHoverProcessor {
     }
     const devMode = this.getEffectiveServerMode();
     if (devMode === 'development') {
-      // Add type information (compact) for value-like symbols
-      const isTypeLike = inTypeSymbolGroup(symbol);
-      if (!isMethodSymbol(symbol) && !isTypeLike && isVariableSymbol(symbol)) {
-        const variableSymbol = symbol as VariableSymbol;
-        if (variableSymbol.type?.name) {
-          content.push(
-            `**Type:** ${this.formatTypeDisplay(variableSymbol.type)}`,
-          );
-        }
-      }
-
       if (isMethodSymbol(symbol)) {
         // Method details already shown in signature; skip verbose duplication
       }
@@ -1100,14 +1185,9 @@ export class HoverProcessingService implements IHoverProcessor {
   /**
    * Create a hover that shows the user we're searching for a missing artifact
    */
-  private async createSearchingHover(
-    params: HoverParams,
-    callerTag?: string,
-  ): Promise<Hover> {
+  private createSearchingHover(selectedReferenceName?: string): Hover {
     const content: string[] = [];
-
-    // Extract the symbol name from the text at the hover position
-    const symbolName = await this.extractSymbolNameAtPosition(params);
+    const symbolName = selectedReferenceName || 'Unknown Symbol';
 
     content.push('🔍 **Searching for symbol...**');
     content.push('');
@@ -1124,55 +1204,52 @@ export class HoverProcessingService implements IHoverProcessor {
       value: content.join('\n'),
     };
 
-    return {
+    const hover: Hover = {
       contents: markupContent,
     };
+    searchingHovers.add(hover);
+    return hover;
   }
 
   /**
-   * Extract the symbol name at the hover position for display purposes
+   * Select the narrowest parser-owned reference that contains the hover
+   * position. This value is display-only: it is passed to the searching
+   * placeholder after semantic resolution has already failed and is never fed
+   * back into symbol or missing-artifact resolution.
    */
-  private async extractSymbolNameAtPosition(
-    params: HoverParams,
-  ): Promise<string> {
-    try {
-      // Get the document from storage to extract the symbol name
-      const storage = ApexStorageManager.getInstance().getStorage();
-      const document = await storage.getDocument(params.textDocument.uri);
+  private getSearchingSymbolName(
+    references: SymbolReference[],
+    position: { line: number; character: number },
+  ): string | undefined {
+    const candidates: Array<{ reference: SymbolReference; depth: number }> = [];
 
-      if (!document) {
-        return 'Unknown Symbol';
+    const collect = (reference: SymbolReference, depth: number): void => {
+      const range = reference.location.identifierRange;
+      if (this.isPositionInRange(position, range)) {
+        candidates.push({ reference, depth });
       }
+      reference.chainNodes?.forEach((node) => collect(node, depth + 1));
+    };
 
-      const position = params.position;
-      const line = document.getText().split('\n')[position.line] || '';
+    references.forEach((reference) => collect(reference, 0));
 
-      // Simple word extraction at the cursor position
-      const words = line.split(/\W+/);
-      const charIndex = position.character;
+    candidates.sort((left, right) => {
+      const leftRange = left.reference.location.identifierRange;
+      const rightRange = right.reference.location.identifierRange;
+      const leftLineSpan = leftRange.endLine - leftRange.startLine;
+      const rightLineSpan = rightRange.endLine - rightRange.startLine;
+      const leftColumnSpan = leftRange.endColumn - leftRange.startColumn;
+      const rightColumnSpan = rightRange.endColumn - rightRange.startColumn;
 
-      // Find the word that contains the cursor position
-      let currentPos = 0;
-      for (const word of words) {
-        const wordStart = line.indexOf(word, currentPos);
-        const wordEnd = wordStart + word.length;
+      return (
+        leftLineSpan - rightLineSpan ||
+        leftColumnSpan - rightColumnSpan ||
+        right.depth - left.depth
+      );
+    });
 
-        if (charIndex >= wordStart && charIndex <= wordEnd && word.length > 0) {
-          return word;
-        }
-        currentPos = wordEnd;
-      }
-
-      // Fallback: try to extract a simple identifier
-      const match = line
-        .substring(Math.max(0, charIndex - 20), charIndex + 20)
-        .match(/([a-zA-Z_][a-zA-Z0-9_]*)/);
-
-      return match ? match[1] : 'Unknown Symbol';
-    } catch (error) {
-      this.logger.debug(() => `Error extracting symbol name: ${error}`);
-      return 'Unknown Symbol';
-    }
+    const selectedName = candidates[0]?.reference.name;
+    return selectedName && selectedName.length > 0 ? selectedName : undefined;
   }
 
   /**

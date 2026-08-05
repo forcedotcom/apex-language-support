@@ -97,15 +97,18 @@ export interface ValidationOptions extends ArtifactLoadingOptions {
   tier: ValidationTier;
 
   /**
-   * Optional source file content for validators that need raw source text
-   * (e.g., source size validation)
+   * Optional source file content for transport-level checks (for example,
+   * source size) or as input to the Apex lexer/parser. Validators must not
+   * interpret this text independently to infer semantic facts.
    */
   sourceContent?: string;
 
   /**
    * Optional cached parse tree for validators that need to walk the AST
    * Provided when available from DocumentStateCache to avoid redundant parsing
-   * Validators should use this if available, falling back to parsing sourceContent if not
+   * Validators should use this if available. If absent, sourceContent may be
+   * passed through the Apex lexer/parser; it must not be scanned as a semantic
+   * fallback.
    */
   parseTree?:
     | import('@apexdevtools/apex-parser').CompilationUnitContext

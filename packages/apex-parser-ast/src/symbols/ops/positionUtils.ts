@@ -160,8 +160,16 @@ export function isPositionOnFirstNode(
     position,
   );
   const isAtStart = isPositionAtStartOfChainedRef(typeReference, position);
+  const chainedStart = typeReference.location.identifierRange;
+  const chainedStartIsFirstNode =
+    chainedStart.startLine === firstNodeStart.startLine &&
+    chainedStart.startColumn === firstNodeStart.startColumn;
 
-  return isAtStartOfFirstNode || isWithinFirstNode || isAtStart;
+  return (
+    isAtStartOfFirstNode ||
+    isWithinFirstNode ||
+    (isAtStart && chainedStartIsFirstNode)
+  );
 }
 
 /** Find the specific chain member at a given position within a chained expression */

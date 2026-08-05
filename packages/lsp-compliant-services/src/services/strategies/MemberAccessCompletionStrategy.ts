@@ -6,9 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  createApexOrgArtifactUri,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
   ApexSymbol,
@@ -16,6 +18,8 @@ import {
   TypeSymbol,
   MethodSymbol,
   VariableSymbol,
+  type TypeInfo,
+  type SymbolReference,
   inTypeSymbolGroup,
   isBlockSymbol,
   isMethodSymbol as isMethodSymbolNarrowing,
@@ -31,24 +35,6 @@ export interface MemberCompletionCandidate {
   relevance: number;
   source: 'direct' | 'inherited' | 'interface' | 'object';
   isStatic: boolean;
-}
-
-/**
- * Describes the expression context before the dot.
- */
-export interface DotExpressionContext {
-  /** The kind of expression before the dot */
-  kind:
-    | 'variable' // myVar.
-    | 'this' // this.
-    | 'super' // super.
-    | 'type' // ClassName.  (static access)
-    | 'method-chain' // obj.method().
-    | 'unknown';
-  /** The text segments of the expression (e.g. ['obj', 'getAccount()'] for obj.getAccount().) */
-  segments: string[];
-  /** Whether we expect static members */
-  expectStatic: boolean;
 }
 
 /**
@@ -70,25 +56,7 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    const lineText = context.document.getText({
-      start: { line: context.position.line, character: 0 },
-      end: context.position,
-    });
-    const trimmed = lineText.trimEnd();
-    const endsWithDot =
-      context.triggerCharacter === '.' || trimmed.endsWith('.');
-    if (!endsWithDot) {
-      return false;
-    }
-    // Reject literal dots — numeric (e.g. `1.`) and dots inside string
-    // literals are not member-access receivers. The character preceding the
-    // dot must look like a valid receiver: identifier char, `)`, or `]`.
-    const dotIdx = trimmed.lastIndexOf('.');
-    const prev = dotIdx > 0 ? trimmed[dotIdx - 1] : '';
-    if (!prev) {
-      return false;
-    }
-    return /[A-Za-z_$)\]]/.test(prev);
+    return context.document.uri.length > 0;
   }
 
   getCompletions(
@@ -98,30 +66,41 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
     return Effect.gen(function* () {
       const fileUri = context.document.uri;
 
-      const exprContext = self.parseDotExpression(
-        context.document,
-        context.position,
-      );
-      if (exprContext.kind === 'unknown' || exprContext.segments.length === 0) {
+      const receiverReference =
+        context.incompleteMemberAccess ??
+        (yield* Effect.promise(() =>
+          self.symbolManager.getIncompleteMemberAccessAtPosition(
+            fileUri,
+            context.position,
+          ),
+        ));
+      if (!receiverReference) {
         return [];
       }
 
       self.logger.debug(
         () =>
-          `MemberAccess: kind=${exprContext.kind}, segments=[${exprContext.segments.join(', ')}]`,
+          `MemberAccess: parser receiver=${receiverReference.name}, ` +
+          `resolved=${receiverReference.resolvedSymbolId ?? 'no'}`,
       );
 
-      const resolvedType = yield* Effect.promise(() =>
-        self.resolveExpressionType(exprContext, fileUri, context.position),
+      const receiver = yield* Effect.promise(() =>
+        self.resolveReceiverReference(
+          receiverReference,
+          fileUri,
+          context.position,
+        ),
       );
 
-      if (!resolvedType) {
+      if (!receiver) {
         self.logger.debug(
           () =>
-            `MemberAccess: could not resolve type for ${exprContext.segments.join('.')}`,
+            `MemberAccess: could not resolve parser receiver ${receiverReference.name}`,
         );
         return [];
       }
+
+      const { type: resolvedType, expectStatic } = receiver;
 
       self.logger.debug(
         () =>
@@ -130,7 +109,7 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
 
       const candidates = yield* self.getMembersOfTypeEffect(
         resolvedType,
-        exprContext.expectStatic,
+        expectStatic,
         fileUri,
       );
 
@@ -147,186 +126,103 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   }
 
   // ---------------------------------------------------------------------------
-  // Expression Parsing
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Parse the dot-expression text before the cursor to determine what to resolve.
-   */
-  parseDotExpression(
-    document: TextDocument,
-    position: { line: number; character: number },
-  ): DotExpressionContext {
-    // Get text from start of line up to cursor
-    const lineText = document.getText({
-      start: { line: position.line, character: 0 },
-      end: position,
-    });
-
-    // Remove the trailing dot
-    const trimmed = lineText.trimEnd();
-    const beforeDot = trimmed.endsWith('.')
-      ? trimmed.slice(0, -1).trimEnd()
-      : trimmed;
-
-    if (!beforeDot) {
-      return { kind: 'unknown', segments: [], expectStatic: false };
-    }
-
-    // Extract the expression from the end of the line working backwards.
-    // Stop at characters that cannot be part of a member access chain:
-    // space (outside parens), semicolons, braces, operators, etc.
-    const expr = this.extractExpressionBackward(beforeDot);
-
-    if (!expr) {
-      return { kind: 'unknown', segments: [], expectStatic: false };
-    }
-
-    // Split into segments on '.'
-    const segments = this.splitChainSegments(expr);
-
-    if (segments.length === 0) {
-      return { kind: 'unknown', segments: [], expectStatic: false };
-    }
-
-    // Identify the kind of expression
-    const firstSegment = segments[0].toLowerCase();
-
-    if (firstSegment === 'this') {
-      return { kind: 'this', segments, expectStatic: false };
-    }
-
-    if (firstSegment === 'super') {
-      return { kind: 'super', segments, expectStatic: false };
-    }
-
-    // If there is only one segment and it starts with uppercase, it might be a type (static access).
-    // We'll check later during resolution if it's actually a type or a variable.
-    if (segments.length === 1) {
-      const seg = segments[0];
-      // Heuristic: if first letter is uppercase and it's not a method call, likely a type
-      if (
-        seg[0] &&
-        seg[0] === seg[0].toUpperCase() &&
-        seg[0] !== seg[0].toLowerCase() &&
-        !seg.includes('(')
-      ) {
-        return { kind: 'type', segments, expectStatic: true };
-      }
-      return { kind: 'variable', segments, expectStatic: false };
-    }
-
-    // Multi-segment: could be chained access (method-chain)
-    const lastSegment = segments[segments.length - 1];
-    if (lastSegment.includes('(')) {
-      return { kind: 'method-chain', segments, expectStatic: false };
-    }
-
-    return { kind: 'variable', segments, expectStatic: false };
-  }
-
-  /**
-   * Extract a dotted expression from the end of a text, respecting parentheses.
-   */
-  private extractExpressionBackward(text: string): string {
-    let parenDepth = 0;
-    let i = text.length - 1;
-
-    while (i >= 0) {
-      const ch = text[i];
-      if (ch === ')') {
-        parenDepth++;
-        i--;
-        continue;
-      }
-      if (ch === '(') {
-        parenDepth--;
-        if (parenDepth < 0) break; // unmatched open-paren — stop
-        i--;
-        continue;
-      }
-      if (parenDepth > 0) {
-        // Inside parentheses — skip everything
-        i--;
-        continue;
-      }
-
-      // Outside parens: valid expression chars are alphanumeric, _, .
-      if (/[a-zA-Z0-9_.]/.test(ch)) {
-        i--;
-        continue;
-      }
-      // Any other char stops the expression
-      break;
-    }
-
-    return text.slice(i + 1).trim();
-  }
-
-  /**
-   * Split 'obj.method(arg).field' into ['obj', 'method(arg)', 'field']
-   * respecting parentheses.
-   */
-  private splitChainSegments(expr: string): string[] {
-    const segments: string[] = [];
-    let current = '';
-    let parenDepth = 0;
-
-    for (const ch of expr) {
-      if (ch === '(') {
-        parenDepth++;
-        current += ch;
-      } else if (ch === ')') {
-        parenDepth--;
-        current += ch;
-      } else if (ch === '.' && parenDepth === 0) {
-        if (current.trim()) {
-          segments.push(current.trim());
-        }
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    if (current.trim()) {
-      segments.push(current.trim());
-    }
-    return segments;
-  }
-
-  // ---------------------------------------------------------------------------
   // Expression Type Resolution
   // ---------------------------------------------------------------------------
 
-  /**
-   * Resolve the expression before the dot to its resulting type symbol.
-   */
-  private async resolveExpressionType(
-    exprContext: DotExpressionContext,
+  private async resolveReceiverReference(
+    reference: SymbolReference,
     fileUri: string,
-    cursorPosition: { line: number; character: number },
-  ): Promise<TypeSymbol | null> {
-    const { kind, segments } = exprContext;
-
-    switch (kind) {
-      case 'this':
-        return this.resolveThisType(fileUri, cursorPosition);
-
-      case 'super':
-        return this.resolveSuperType(fileUri, cursorPosition);
-
-      case 'type':
-        return this.resolveAsType(segments[0]);
-
-      case 'variable':
-        return this.resolveVariableType(segments[0], fileUri, cursorPosition);
-
-      case 'method-chain':
-        return this.resolveChainType(segments, fileUri, cursorPosition);
-
-      default:
-        return null;
+    position: { line: number; character: number },
+  ): Promise<{ type: TypeSymbol; expectStatic: boolean } | null> {
+    const receiverNode =
+      reference.chainNodes?.[reference.chainNodes.length - 1] ?? reference;
+    const normalizedName = receiverNode.name.toLowerCase();
+    const isIndexedReceiver = [reference, ...(reference.chainNodes ?? [])].some(
+      (node) =>
+        (
+          node.semanticContext as
+            { indexedAccess?: { kind: 'indexed-access' } } | undefined
+        )?.indexedAccess !== undefined,
+    );
+    if (normalizedName === 'this') {
+      const type = await this.resolveThisType(fileUri, position);
+      return type ? { type, expectStatic: false } : null;
     }
+    if (normalizedName === 'super') {
+      const type = await this.resolveSuperType(fileUri, position);
+      return type ? { type, expectStatic: false } : null;
+    }
+
+    // A completed chain can carry the resolved final member on the aggregate
+    // reference while its final chain node remains unresolved. Both ids are
+    // parser-owned identities; prefer the most specific node, then the
+    // aggregate identity, without attempting a global name lookup.
+    const resolvedSymbolIds = [
+      receiverNode.resolvedSymbolId,
+      reference.resolvedSymbolId,
+    ].filter(
+      (id, index, ids): id is string =>
+        id !== undefined && ids.indexOf(id) === index,
+    );
+    for (const resolvedSymbolId of resolvedSymbolIds) {
+      const resolved = await this.symbolManager.getSymbol(resolvedSymbolId);
+      if (resolved && inTypeSymbolGroup(resolved)) {
+        return {
+          type: await this.currentTypeSymbol(resolved),
+          expectStatic: true,
+        };
+      }
+      if (
+        resolved &&
+        (resolved.kind === SymbolKind.Variable ||
+          resolved.kind === SymbolKind.Field ||
+          resolved.kind === SymbolKind.Property ||
+          resolved.kind === SymbolKind.Parameter)
+      ) {
+        const type = await this.resolveVariableSymbolType(
+          resolved as VariableSymbol,
+          isIndexedReceiver,
+        );
+        if (type) {
+          return { type, expectStatic: false };
+        }
+      }
+      if (resolved && isMethodSymbolNarrowing(resolved)) {
+        const returnType = this.receiverResultType(
+          (resolved as MethodSymbol).returnType,
+          isIndexedReceiver,
+        );
+        const type = returnType ? await this.resolveTypeInfo(returnType) : null;
+        if (type) {
+          return { type, expectStatic: false };
+        }
+      }
+    }
+
+    const visible = await this.symbolManager.getVisibleSymbolsAtPosition(
+      fileUri,
+      position,
+    );
+    const value = visible.find(
+      (symbol) =>
+        symbol.name.toLowerCase() === normalizedName &&
+        (symbol.kind === SymbolKind.Variable ||
+          symbol.kind === SymbolKind.Field ||
+          symbol.kind === SymbolKind.Property ||
+          symbol.kind === SymbolKind.Parameter),
+    );
+    if (value) {
+      const type = await this.resolveVariableSymbolType(
+        value as VariableSymbol,
+        isIndexedReceiver,
+      );
+      if (type) {
+        return { type, expectStatic: false };
+      }
+    }
+
+    const type = await this.resolveAsType(receiverNode.name);
+    return type ? { type, expectStatic: true } : null;
   }
 
   /**
@@ -363,107 +259,23 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
    * Falls back to resolving as a variable if not a known type.
    */
   private async resolveAsType(name: string): Promise<TypeSymbol | null> {
-    const symbols = await this.symbolManager.findSymbolByName(name);
-    const typeSymbol = symbols.find(
-      (s) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
+    const byFqn = await this.symbolManager.findSymbolByFQN(name);
+    if (byFqn && inTypeSymbolGroup(byFqn)) {
+      return this.currentTypeSymbol(byFqn);
+    }
+
+    const types = this.uniqueTypes(
+      (await this.symbolManager.findSymbolByName(name)).filter(
+        inTypeSymbolGroup,
+      ),
     );
-    if (typeSymbol && inTypeSymbolGroup(typeSymbol)) {
-      return typeSymbol;
+    if (types.length === 1) {
+      return this.currentTypeSymbol(types[0]);
     }
 
-    // Try standard library
-    const isStdLib = await this.symbolManager.isStandardLibraryType(name);
-    if (isStdLib) {
-      const stdSymbols = await this.symbolManager.findSymbolByName(name);
-      const stdType = stdSymbols.find(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum,
-      );
-      if (stdType && inTypeSymbolGroup(stdType)) {
-        return stdType;
-      }
-    }
-
+    // Never let name-index insertion order decide between distinct type
+    // identities. An unresolved ambiguous receiver produces no candidates.
     return null;
-  }
-
-  /**
-   * Resolve a variable name to its declared type.
-   */
-  private async resolveVariableType(
-    name: string,
-    fileUri: string,
-    position: { line: number; character: number },
-  ): Promise<TypeSymbol | null> {
-    const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
-    if (!symbolTable) return null;
-
-    const allSymbols = symbolTable.getAllSymbols();
-
-    // Search for variable/field/parameter in scope hierarchy
-    const variable = this.findVariableInScope(allSymbols, name, position);
-    if (variable) {
-      return this.resolveVariableSymbolType(variable);
-    }
-
-    // No in-scope match. If the symbol resembles a type (a class typed in
-    // lowercase, e.g.), fall through to type resolution.
-    return this.resolveAsType(name);
-  }
-
-  /**
-   * Resolve a chain of segments like ['obj', 'getAccount()', 'Name'] to the final type.
-   */
-  private async resolveChainType(
-    segments: string[],
-    fileUri: string,
-    position: { line: number; character: number },
-  ): Promise<TypeSymbol | null> {
-    if (segments.length === 0) return null;
-
-    // Resolve the first segment
-    const firstSeg = segments[0];
-    let currentType: TypeSymbol | null;
-
-    if (firstSeg.toLowerCase() === 'this') {
-      currentType = await this.resolveThisType(fileUri, position);
-    } else if (firstSeg.toLowerCase() === 'super') {
-      currentType = await this.resolveSuperType(fileUri, position);
-    } else if (firstSeg.includes('(')) {
-      // Method call as first segment — look up in current class
-      const methodName = firstSeg.replace(/\(.*\)$/, '');
-      const thisType = await this.resolveThisType(fileUri, position);
-      if (thisType) {
-        currentType = await this.resolveMethodReturnType(thisType, methodName);
-      } else {
-        currentType = null;
-      }
-    } else {
-      currentType = await this.resolveVariableType(firstSeg, fileUri, position);
-    }
-
-    // Walk subsequent segments
-    for (let i = 1; i < segments.length && currentType; i++) {
-      const seg = segments[i];
-      if (seg.includes('(')) {
-        // Method call
-        const methodName = seg.replace(/\(.*\)$/, '');
-        currentType = await this.resolveMethodReturnType(
-          currentType,
-          methodName,
-        );
-      } else {
-        // Field/property access
-        currentType = await this.resolveFieldType(currentType, seg);
-      }
-    }
-
-    return currentType;
   }
 
   // ---------------------------------------------------------------------------
@@ -476,21 +288,151 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   private async resolveTypeByName(
     typeName: string,
   ): Promise<TypeSymbol | null> {
-    // Strip generic parameters and array brackets
-    const baseName = typeName.replace(/<.*>/, '').replace(/\[\]$/, '');
+    return this.resolveAsType(typeName);
+  }
 
-    const symbols = await this.symbolManager.findSymbolByName(baseName);
-    const typeSymbol = symbols.find(
-      (s) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum,
-    );
-    if (typeSymbol && inTypeSymbolGroup(typeSymbol)) {
-      return typeSymbol;
+  /** Resolve parser-owned TypeInfo without reparsing its display string. */
+  private async resolveTypeInfo(
+    typeInfo: TypeInfo,
+  ): Promise<TypeSymbol | null> {
+    if (typeInfo.resolvedSymbol && inTypeSymbolGroup(typeInfo.resolvedSymbol)) {
+      const current = await this.symbolManager.getSymbol(
+        typeInfo.resolvedSymbol.id,
+      );
+      if (current && inTypeSymbolGroup(current)) {
+        return this.currentTypeSymbol(current);
+      }
+      return this.currentTypeSymbol(typeInfo.resolvedSymbol);
     }
 
-    return null;
+    if (typeInfo.resolvedType && typeInfo.resolvedType !== typeInfo) {
+      const resolved = await this.resolveTypeInfo(typeInfo.resolvedType);
+      if (resolved) return resolved;
+    }
+
+    const namespace =
+      typeInfo.namespace?.toString() ?? typeInfo.getNamespace()?.toString();
+    if (namespace) {
+      const byFqn = await this.symbolManager.findSymbolByFQN(
+        `${namespace}.${typeInfo.name}`,
+      );
+      if (byFqn && inTypeSymbolGroup(byFqn)) {
+        return this.currentTypeSymbol(byFqn);
+      }
+
+      // Managed Apex artifacts are keyed by their canonical VFS owner URI.
+      // Older remote symbol tables do not always copy that owner namespace
+      // onto the parsed TypeSymbol, so a namespace-filtered name lookup would
+      // incorrectly discard the authoritative type. Resolve only the exact
+      // namespace/type artifact requested by the structured TypeInfo.
+      const managedType = await this.resolveManagedArtifactType(
+        namespace,
+        typeInfo.name,
+      );
+      if (managedType) return managedType;
+
+      const namespaceMatches = this.uniqueTypes(
+        (await this.symbolManager.findSymbolByName(typeInfo.name))
+          .filter(inTypeSymbolGroup)
+          .filter(
+            (candidate) =>
+              this.symbolNamespace(candidate).toLowerCase() ===
+              namespace.toLowerCase(),
+          ),
+      );
+      return namespaceMatches.length === 1
+        ? this.currentTypeSymbol(namespaceMatches[0])
+        : null;
+    }
+
+    return this.resolveAsType(typeInfo.name);
+  }
+
+  private async resolveManagedArtifactType(
+    namespace: string,
+    typeName: string,
+  ): Promise<TypeSymbol | null> {
+    const artifactUri = createApexOrgArtifactUri(
+      'apex-class',
+      `${namespace}.${typeName}`,
+    );
+    const table = await this.symbolManager.getSymbolTableForFile(artifactUri);
+    if (!table) return null;
+
+    const ownedTypes = this.uniqueTypes(
+      table
+        .getAllSymbols()
+        .filter(inTypeSymbolGroup)
+        .filter(
+          (candidate) =>
+            (candidate.parentId === null || candidate.parentId === 'null') &&
+            candidate.fileUri === artifactUri &&
+            candidate.name.toLowerCase() === typeName.toLowerCase(),
+        ),
+    );
+    return ownedTypes.length === 1
+      ? this.currentTypeSymbol(ownedTypes[0])
+      : null;
+  }
+
+  private receiverResultType(
+    declaredType: TypeInfo | undefined,
+    indexed: boolean,
+  ): TypeInfo | null {
+    if (!declaredType) return null;
+    if (!indexed) return declaredType;
+
+    if (declaredType.isArray) {
+      return declaredType.typeParameters?.length === 1
+        ? declaredType.typeParameters[0]
+        : null;
+    }
+    if (!declaredType.isCollection) return null;
+
+    const collectionName = declaredType.name.toLowerCase();
+    if (collectionName !== 'list' && collectionName !== 'map') {
+      return null;
+    }
+    // Map stores its key independently and its value as the sole type
+    // parameter. List/Set likewise carry one structural element parameter.
+    return declaredType.typeParameters?.length === 1
+      ? declaredType.typeParameters[0]
+      : null;
+  }
+
+  private uniqueTypes(types: TypeSymbol[]): TypeSymbol[] {
+    return [...new Map(types.map((type) => [type.id, type])).values()];
+  }
+
+  private symbolNamespace(symbol: TypeSymbol): string {
+    if (typeof symbol.namespace === 'string') return symbol.namespace;
+    return symbol.namespace?.toString() ?? '';
+  }
+
+  private async currentTypeSymbol(type: TypeSymbol): Promise<TypeSymbol> {
+    if (!type.fileUri) return type;
+    const table = await this.symbolManager.getSymbolTableForFile(type.fileUri);
+    if (table?.getMetadata().parseCompleteness !== 'complete') return type;
+
+    const exactId = table
+      .getAllSymbols()
+      .find((symbol) => symbol.id === type.id);
+    if (exactId && inTypeSymbolGroup(exactId)) return exactId;
+
+    const exactIdentity = table
+      .getAllSymbols()
+      .find(
+        (symbol) =>
+          inTypeSymbolGroup(symbol) &&
+          symbol.name.toLowerCase() === type.name.toLowerCase() &&
+          (type.fqn
+            ? symbol.fqn?.toLowerCase() === type.fqn.toLowerCase()
+            : this.symbolNamespace(symbol).toLowerCase() ===
+              this.symbolNamespace(type).toLowerCase()),
+      );
+    return exactIdentity && inTypeSymbolGroup(exactIdentity)
+      ? exactIdentity
+      : type;
   }
 
   /**
@@ -498,103 +440,12 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
    */
   private async resolveVariableSymbolType(
     variable: ApexSymbol,
+    indexed = false,
   ): Promise<TypeSymbol | null> {
     const varSym = variable as VariableSymbol;
     if (!varSym.type) return null;
-
-    // If the type has a resolved symbol already, use it
-    if (
-      varSym.type.resolvedSymbol &&
-      inTypeSymbolGroup(varSym.type.resolvedSymbol)
-    ) {
-      return varSym.type.resolvedSymbol as TypeSymbol;
-    }
-
-    // Otherwise resolve by name
-    const typeName = varSym.type.name;
-    if (!typeName) return null;
-
-    return this.resolveTypeByName(typeName);
-  }
-
-  /**
-   * Resolve the return type of a method on a given type.
-   */
-  private async resolveMethodReturnType(
-    ownerType: TypeSymbol,
-    methodName: string,
-    visited: Set<string> = new Set(),
-  ): Promise<TypeSymbol | null> {
-    if (visited.has(ownerType.id)) {
-      return null;
-    }
-    visited.add(ownerType.id);
-
-    const members = await this.getDirectMembers(ownerType);
-    const method = members.find(
-      (s) =>
-        s.kind === SymbolKind.Method &&
-        s.name.toLowerCase() === methodName.toLowerCase(),
-    );
-
-    if (method && isMethodSymbolNarrowing(method)) {
-      const methodSym = method as MethodSymbol;
-      if (methodSym.returnType) {
-        if (
-          methodSym.returnType.resolvedSymbol &&
-          inTypeSymbolGroup(methodSym.returnType.resolvedSymbol)
-        ) {
-          return methodSym.returnType.resolvedSymbol as TypeSymbol;
-        }
-        if (methodSym.returnType.name) {
-          return this.resolveTypeByName(methodSym.returnType.name);
-        }
-      }
-    }
-
-    // Try inherited methods, guarded against cyclic inheritance chains.
-    if (ownerType.superClass) {
-      const superType = await this.resolveTypeByName(ownerType.superClass);
-      if (superType) {
-        return this.resolveMethodReturnType(superType, methodName, visited);
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Resolve the type of a field/property on a given type.
-   */
-  private async resolveFieldType(
-    ownerType: TypeSymbol,
-    fieldName: string,
-    visited: Set<string> = new Set(),
-  ): Promise<TypeSymbol | null> {
-    if (visited.has(ownerType.id)) {
-      return null;
-    }
-    visited.add(ownerType.id);
-
-    const members = await this.getDirectMembers(ownerType);
-    const field = members.find(
-      (s) =>
-        (s.kind === SymbolKind.Field || s.kind === SymbolKind.Property) &&
-        s.name.toLowerCase() === fieldName.toLowerCase(),
-    );
-
-    if (field) {
-      return this.resolveVariableSymbolType(field);
-    }
-
-    if (ownerType.superClass) {
-      const superType = await this.resolveTypeByName(ownerType.superClass);
-      if (superType) {
-        return this.resolveFieldType(superType, fieldName, visited);
-      }
-    }
-
-    return null;
+    const resultType = this.receiverResultType(varSym.type, indexed);
+    return resultType ? this.resolveTypeInfo(resultType) : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -887,138 +738,6 @@ export class MemberAccessCompletionStrategy implements CompletionStrategy {
   // ---------------------------------------------------------------------------
   // Scope Helpers
   // ---------------------------------------------------------------------------
-
-  /**
-   * Find a variable/field/parameter by name in the scope hierarchy at the given position.
-   */
-  private findVariableInScope(
-    allSymbols: ApexSymbol[],
-    name: string,
-    position: { line: number; character: number },
-  ): VariableSymbol | null {
-    const lowerName = name.toLowerCase();
-    const matches = allSymbols.filter(
-      (s) =>
-        s.name.toLowerCase() === lowerName &&
-        (s.kind === SymbolKind.Variable ||
-          s.kind === SymbolKind.Field ||
-          s.kind === SymbolKind.Property ||
-          s.kind === SymbolKind.Parameter),
-    );
-
-    if (matches.length === 0) return null;
-
-    // Build an id -> symbol index once for parent-walk scope checks.
-    const byId = new Map<string, ApexSymbol>();
-    for (const s of allSymbols) {
-      byId.set(s.id, s);
-    }
-
-    // Locals/parameters must be declared before the cursor in (line, column)
-    // order AND must live in a scope that encloses the cursor. Fields and
-    // properties can be referenced ahead of their declaration line, so they
-    // skip the position-precedes check.
-    const eligible = matches.filter((s) => {
-      const isLocalLike =
-        s.kind === SymbolKind.Variable || s.kind === SymbolKind.Parameter;
-      if (isLocalLike && !this.isDeclaredBefore(s, position)) {
-        return false;
-      }
-      return this.isPositionInSymbolScope(s, position, byId, allSymbols);
-    });
-
-    if (eligible.length === 0) {
-      return null;
-    }
-
-    // Closest declaration wins — descending by (line, column).
-    eligible.sort((a, b) => {
-      const al = a.location.symbolRange.startLine;
-      const bl = b.location.symbolRange.startLine;
-      if (al !== bl) return bl - al;
-      return (
-        b.location.symbolRange.startColumn - a.location.symbolRange.startColumn
-      );
-    });
-    return eligible[0] as VariableSymbol;
-  }
-
-  /**
-   * True when the symbol's declaration starts strictly before `position`.
-   * Symbol ranges are 1-based; LSP positions are 0-based. We compare the
-   * symbol range against the 1-based equivalent of `position`.
-   */
-  private isDeclaredBefore(
-    symbol: ApexSymbol,
-    position: { line: number; character: number },
-  ): boolean {
-    const r = symbol.location.symbolRange;
-    const pLine = position.line + 1;
-    if (r.startLine < pLine) return true;
-    if (r.startLine > pLine) return false;
-    return r.startColumn < position.character;
-  }
-
-  /**
-   * True when `position` lies inside the scope that encloses `symbol`.
-   * Walks parents up to the file root and returns true as soon as a parent's
-   * range contains the position. Fields/properties at class scope are
-   * accepted when the cursor lies within their owning class.
-   */
-  private isPositionInSymbolScope(
-    symbol: ApexSymbol,
-    position: { line: number; character: number },
-    byId: Map<string, ApexSymbol>,
-    allSymbols: ApexSymbol[],
-  ): boolean {
-    let parent: ApexSymbol | undefined = symbol.parentId
-      ? byId.get(symbol.parentId)
-      : undefined;
-    let walked = 0;
-    while (parent && walked < 50) {
-      if (this.rangeContainsPosition(parent.location.symbolRange, position)) {
-        return true;
-      }
-      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
-      walked++;
-    }
-    if (
-      symbol.kind === SymbolKind.Field ||
-      symbol.kind === SymbolKind.Property
-    ) {
-      const owner = this.findContainingClass(allSymbols, position);
-      if (owner && symbol.parentId === owner.id) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * True when `position` (0-based LSP coords) lies within the inclusive
-   * 1-based `range`.
-   */
-  private rangeContainsPosition(
-    range: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    },
-    position: { line: number; character: number },
-  ): boolean {
-    const pLine = position.line + 1;
-    if (pLine < range.startLine || pLine > range.endLine) {
-      return false;
-    }
-    if (pLine === range.startLine && position.character < range.startColumn) {
-      return false;
-    }
-    if (pLine === range.endLine && position.character > range.endColumn) {
-      return false;
-    }
-    return true;
-  }
 
   /**
    * Find the class that contains the given position.

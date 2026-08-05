@@ -53,12 +53,8 @@ describe('DmlStatementValidator', () => {
     expect(DmlStatementValidator.priority).toBe(9);
   });
 
-  it('should pass validation for valid DML statements', async () => {
+  it('validates all DML operations without source content', async () => {
     const symbolTable = await compileFixtureForValidator(
-      'ValidDmlStatements.cls',
-    );
-    const sourceContent = loadFixture(
-      VALIDATOR_CATEGORY,
       'ValidDmlStatements.cls',
     );
 
@@ -68,7 +64,7 @@ describe('DmlStatementValidator', () => {
         createValidationOptions(symbolManager, {
           tier: ValidationTier.IMMEDIATE,
           allowArtifactLoading: false,
-          sourceContent,
+          sourceContent: undefined,
         }),
       ),
       symbolManager,
@@ -78,16 +74,8 @@ describe('DmlStatementValidator', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it('should not report errors for DML with unknown variable types (permissive without org access)', async () => {
-    // Without the stdlib loaded in the test symbol manager, primitive type names
-    // like String and Integer are not in the graph. isSObjectTypeName is permissive
-    // for unknown names to avoid false positives. In production (with stdlib loaded)
-    // these would be identified as non-SObjects via graph lookup.
+  it('reports invalid DML from parser-owned primitive and collection types', async () => {
     const symbolTable = await compileFixtureForValidator(
-      'InvalidDmlStatements.cls',
-    );
-    const sourceContent = loadFixture(
-      VALIDATOR_CATEGORY,
       'InvalidDmlStatements.cls',
     );
 
@@ -97,13 +85,18 @@ describe('DmlStatementValidator', () => {
         createValidationOptions(symbolManager, {
           tier: ValidationTier.IMMEDIATE,
           allowArtifactLoading: false,
-          sourceContent,
+          sourceContent: undefined,
         }),
       ),
       symbolManager,
     );
 
-    expect(result.isValid).toBe(true);
+    expect(result.isValid).toBe(false);
+    expect(
+      result.errors.filter(
+        (error) => error.code === ErrorCodes.INVALID_DML_TYPE,
+      ),
+    ).toHaveLength(5);
   });
 
   it('should pass validation for valid merge with concrete types', async () => {
@@ -163,6 +156,32 @@ describe('DmlStatementValidator', () => {
         (e: any) => e.code === ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
       ),
     ).toBe(true);
+  });
+
+  it('validates merge operands from parser-owned semantic references without source content', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'MergeInvalidTypes.cls',
+    );
+
+    const result = await runValidator(
+      DmlStatementValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent: undefined,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.map((error) => error.code)).toEqual(
+      expect.arrayContaining([
+        ErrorCodes.MERGE_REQUIRES_CONCRETE_TYPE,
+        ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
+      ]),
+    );
   });
 
   it('should pass validation for upsert with field spec and concrete type', async () => {

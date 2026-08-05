@@ -7,30 +7,20 @@
  */
 
 import { Effect } from 'effect';
-import { CommonTokenStream } from 'antlr4';
-import {
-  ApexParser,
-  ApexParserFactory,
-  ApexParseTreeWalker,
-  CompilationUnitContext,
-  TriggerUnitContext,
-  BlockContext,
-  InsertStatementContext,
-  UpdateStatementContext,
-  DeleteStatementContext,
-  UndeleteStatementContext,
-  UpsertStatementContext,
-  MergeStatementContext,
-} from '@apexdevtools/apex-parser';
 import type {
-  SymbolTable,
   SymbolLocation,
+  SymbolTable,
   VariableSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import type { TypeInfo } from '../../../types/typeInfo';
 import type {
-  ValidationResult,
+  DmlSemanticContext,
+  SymbolReference,
+} from '../../../types/symbolReference';
+import type {
   ValidationErrorInfo,
+  ValidationResult,
   ValidationWarningInfo,
 } from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
@@ -38,641 +28,198 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
-import type { ParserRuleContext } from 'antlr4';
-import { isPrimitiveType } from '../../../utils/primitiveTypes';
 
-/**
- * Helper function to create SymbolLocation from parse tree context
- */
-function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
-  const start = ctx.start;
-  const stop = ctx.stop || start;
-  const textLength = stop.text?.length || 0;
+type DmlOperand = {
+  reference: SymbolReference;
+  context: DmlSemanticContext;
+  type?: TypeInfo;
+};
 
-  const symbolRange = {
-    startLine: start.line,
-    startColumn: start.column,
-    endLine: stop.line,
-    endColumn: stop.column + textLength,
-  };
+const isValueSymbol = (kind: SymbolKind): boolean =>
+  kind === SymbolKind.Variable ||
+  kind === SymbolKind.Parameter ||
+  kind === SymbolKind.Field ||
+  kind === SymbolKind.Property;
 
-  return {
-    symbolRange,
-    identifierRange: symbolRange,
-  };
-}
+const resolveOperandType = (
+  symbolTable: SymbolTable,
+  reference: SymbolReference,
+): TypeInfo | undefined => {
+  if (!reference.resolvedSymbolId) return undefined;
+  const symbol = symbolTable.getSymbolById(reference.resolvedSymbolId);
+  if (!symbol || !isValueSymbol(symbol.kind) || !('type' in symbol)) {
+    return undefined;
+  }
+  return (symbol as VariableSymbol).type;
+};
 
-/**
- * Collected DML statement with optional merge/upsert metadata
- */
-type DmlStatementEntry = {
-  ctx: ParserRuleContext;
-  operation: string;
-  expressionText: string;
-  mergeRole?: 'master' | 'duplicates';
-  upsertHasFieldSpec?: boolean;
+const collectDmlOperands = (symbolTable: SymbolTable): DmlOperand[] =>
+  symbolTable
+    .getAllReferences()
+    .flatMap((reference): DmlOperand[] => {
+      const context = reference.semanticContext?.dml;
+      if (!context?.isOperandRoot) return [];
+      return [
+        {
+          reference,
+          context,
+          type: resolveOperandType(symbolTable, reference),
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        left.context.statementRange.startLine -
+          right.context.statementRange.startLine ||
+        left.context.statementRange.startColumn -
+          right.context.statementRange.startColumn ||
+        left.context.operandRange.startLine -
+          right.context.operandRange.startLine ||
+        left.context.operandRange.startColumn -
+          right.context.operandRange.startColumn,
+    );
+
+const locationForOperand = (context: DmlSemanticContext): SymbolLocation => ({
+  symbolRange: context.operandRange,
+  identifierRange: context.operandRange,
+});
+
+const normalizedTypeName = (type: TypeInfo): string =>
+  (type.name || type.originalTypeString || '').toLowerCase();
+
+const collectionElementType = (type: TypeInfo): TypeInfo | undefined =>
+  type.isCollection ? type.typeParameters?.[0] : undefined;
+
+const isDmlCompatibleType = (type: TypeInfo | undefined): boolean => {
+  // Preserve semantic uncertainty. A method result or unresolved chain must be
+  // resolved by a later tier; the immediate validator must not invent a type.
+  if (!type) return true;
+
+  const name = normalizedTypeName(type);
+  if (type.isCollection) {
+    if (name === 'map') return false;
+    const element = collectionElementType(type);
+    return element ? isDmlCompatibleType(element) : true;
+  }
+  if (name === 'sobject') return true;
+  return !type.isPrimitive;
+};
+
+const concreteSObjectTypeName = (
+  type: TypeInfo | undefined,
+): string | undefined => {
+  if (!type) return undefined;
+  const element = collectionElementType(type);
+  if (type.isCollection) {
+    return element ? concreteSObjectTypeName(element) : undefined;
+  }
+  const name = type.name || type.originalTypeString || '';
+  if (!name || name.toLowerCase() === 'sobject' || type.isPrimitive) {
+    return undefined;
+  }
+  return name;
+};
+
+const statementKey = (context: DmlSemanticContext): string => {
+  const range = context.statementRange;
+  return `${range.startLine}:${range.startColumn}:${range.endLine}:${range.endColumn}`;
 };
 
 /**
- * Listener to collect DML statement information
- */
-class DmlStatementListener extends BaseApexParserListener<void> {
-  private dmlStatements: DmlStatementEntry[] = [];
-
-  enterInsertStatement(ctx: InsertStatementContext): void {
-    const expr = ctx.expression();
-    if (expr) {
-      this.dmlStatements.push({
-        ctx,
-        operation: 'insert',
-        expressionText: expr.getText() || '',
-      });
-    }
-  }
-
-  enterUpdateStatement(ctx: UpdateStatementContext): void {
-    const expr = ctx.expression();
-    if (expr) {
-      this.dmlStatements.push({
-        ctx,
-        operation: 'update',
-        expressionText: expr.getText() || '',
-      });
-    }
-  }
-
-  enterDeleteStatement(ctx: DeleteStatementContext): void {
-    const expr = ctx.expression();
-    if (expr) {
-      this.dmlStatements.push({
-        ctx,
-        operation: 'delete',
-        expressionText: expr.getText() || '',
-      });
-    }
-  }
-
-  enterUndeleteStatement(ctx: UndeleteStatementContext): void {
-    const expr = ctx.expression();
-    if (expr) {
-      this.dmlStatements.push({
-        ctx,
-        operation: 'undelete',
-        expressionText: expr.getText() || '',
-      });
-    }
-  }
-
-  enterUpsertStatement(ctx: UpsertStatementContext): void {
-    const expr = ctx.expression();
-    if (expr) {
-      this.dmlStatements.push({
-        ctx,
-        operation: 'upsert',
-        expressionText: expr.getText() || '',
-        upsertHasFieldSpec: ctx.qualifiedName() !== undefined,
-      });
-    }
-  }
-
-  enterMergeStatement(ctx: MergeStatementContext): void {
-    // Merge has two expressions - check both
-    const expressions = ctx.expression_list();
-    if (expressions && expressions.length >= 1) {
-      // Check first expression (master record)
-      this.dmlStatements.push({
-        ctx: expressions[0],
-        operation: 'merge',
-        expressionText: expressions[0].getText() || '',
-        mergeRole: 'master',
-      });
-      // Check second expression (duplicate records) if present
-      if (expressions.length >= 2) {
-        this.dmlStatements.push({
-          ctx: expressions[1],
-          operation: 'merge',
-          expressionText: expressions[1].getText() || '',
-          mergeRole: 'duplicates',
-        });
-      }
-    }
-  }
-
-  getDmlStatements(): DmlStatementEntry[] {
-    return this.dmlStatements;
-  }
-
-  getResult(): void {
-    return undefined as void;
-  }
-}
-
-/**
- * Check if expression text represents an SObject or SObject list type
- * Uses text-based heuristics and symbol table lookup for TIER 1 validation
- *
- * For TIER 1, we detect:
- * - Obvious non-SObject types (primitives, collections of primitives)
- * - Variable types from symbol table (if available)
- * - Method calls and complex expressions are allowed (require TIER 2 resolution)
- */
-function isSObjectTypeExpression(
-  expressionText: string,
-  symbolTable?: SymbolTable,
-): boolean {
-  if (!expressionText) {
-    return false;
-  }
-
-  const normalized = expressionText.trim();
-
-  // Check for List<PrimitiveType> or Set<PrimitiveType> - these are definitely not SObject lists
-  const listPattern = /^(List|Set)\s*<\s*([^>]+)\s*>$/i;
-  const listMatch = normalized.match(listPattern);
-  if (listMatch) {
-    const elementType = listMatch[2].trim();
-    // If it's a known primitive type, it's not an SObject list
-    if (isPrimitiveType(elementType)) {
-      return false;
-    }
-    // If it's a known SObject type, it's valid
-    if (isSObjectTypeName(elementType)) {
-      return true;
-    }
-    // Unknown type - allow it (could be SObject, variable name, etc.)
-    return true;
-  }
-
-  // Check for Map - Maps are not valid for DML
-  if (normalized.match(/^Map\s*</i)) {
-    return false;
-  }
-
-  // Check for direct primitive types - these are definitely not SObject
-  if (isPrimitiveType(normalized)) {
-    return false;
-  }
-
-  // Check for direct SObject type - these are valid
-  if (isSObjectTypeName(normalized)) {
-    return true;
-  }
-
-  // Try to look up variable in symbol table (for simple identifier expressions)
-  if (symbolTable && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(normalized)) {
-    // Try case-sensitive lookup first
-    let variableSymbol = symbolTable.lookup(normalized, null);
-
-    // If not found, try case-insensitive lookup
-    if (!variableSymbol) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variableSymbol = allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.name.toLowerCase() === normalized.toLowerCase(),
-      );
-    }
-
-    if (
-      variableSymbol &&
-      (variableSymbol.kind === SymbolKind.Variable ||
-        variableSymbol.kind === SymbolKind.Parameter ||
-        variableSymbol.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variableSymbol as VariableSymbol;
-      if (varSymbol.type) {
-        const typeName = varSymbol.type.name || '';
-        // If variable type is a primitive, it's not an SObject
-        if (varSymbol.type.isPrimitive || isPrimitiveType(typeName)) {
-          return false;
-        }
-        // If variable type is a collection, check element type
-        if (varSymbol.type.isCollection && varSymbol.type.typeParameters) {
-          const elementType = varSymbol.type.typeParameters[0];
-          if (elementType) {
-            // If collection element is a primitive, it's not an SObject list
-            if (
-              elementType.isPrimitive ||
-              isPrimitiveType(elementType.name || '')
-            ) {
-              return false;
-            }
-            // If collection element is an SObject type, it's valid
-            if (isSObjectTypeName(elementType.name || '')) {
-              return true;
-            }
-          }
-        }
-        // If variable type is an SObject type, it's valid
-        if (isSObjectTypeName(typeName)) {
-          return true;
-        }
-      }
-    }
-  }
-
-  // Everything else (method calls, complex expressions, unknown variables) - allow it
-  // We can't determine type without TIER 2 resolution
-  return true;
-}
-
-/**
- * Check if a type name is an SObject type
- */
-function isSObjectTypeName(typeName: string): boolean {
-  if (!typeName) {
-    return false;
-  }
-
-  const normalized = typeName.trim();
-
-  // Direct SObject type
-  if (normalized === 'SObject') {
-    return true;
-  }
-
-  // Custom SObject types (end with __c, __kav, __ka, __x)
-  if (
-    normalized.endsWith('__c') ||
-    normalized.endsWith('__kav') ||
-    normalized.endsWith('__ka') ||
-    normalized.endsWith('__x')
-  ) {
-    return true;
-  }
-
-  // Check for qualified names (e.g., Schema.Account)
-  const parts = normalized.split('.');
-  if (parts.length === 2) {
-    const typePart = parts[1];
-    if (
-      typePart === 'SObject' ||
-      typePart.endsWith('__c') ||
-      typePart.endsWith('__kav') ||
-      typePart.endsWith('__ka') ||
-      typePart.endsWith('__x')
-    ) {
-      return true;
-    }
-  }
-
-  // Unknown type — cannot confirm it is NOT an SObject without org access.
-  // Permissive to avoid false positives.
-  return true;
-}
-
-/**
- * Check if a type name is a concrete SObject type (not generic SObject or List<SObject>).
- * Merge and upsert with field spec require concrete types.
- */
-function isConcreteSObjectType(
-  typeName: string,
-  symbolTable?: SymbolTable,
-): boolean {
-  if (!typeName) {
-    return false;
-  }
-
-  const normalized = typeName.trim();
-
-  // Generic SObject is NOT concrete
-  if (normalized === 'SObject') {
-    return false;
-  }
-
-  // List<SObject> or Set<SObject> is NOT concrete
-  const listPattern = /^(List|Set)\s*<\s*([^>]+)\s*>$/i;
-  const listMatch = normalized.match(listPattern);
-  if (listMatch) {
-    const elementType = listMatch[2].trim();
-    if (elementType === 'SObject') {
-      return false;
-    }
-    return isConcreteSObjectType(elementType, symbolTable);
-  }
-
-  // Check for qualified names (e.g., Schema.Account)
-  const parts = normalized.split('.');
-  const typePart = parts.length === 2 ? parts[1] : normalized;
-  if (typePart === 'SObject') {
-    return false;
-  }
-
-  // Concrete: custom object pattern
-  if (
-    typePart.endsWith('__c') ||
-    typePart.endsWith('__kav') ||
-    typePart.endsWith('__ka') ||
-    typePart.endsWith('__x')
-  ) {
-    return true;
-  }
-
-  // Variable lookup: resolve from symbol table
-  if (symbolTable && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(normalized)) {
-    let variableSymbol = symbolTable.lookup(normalized, null);
-    if (!variableSymbol) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variableSymbol = allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.name.toLowerCase() === normalized.toLowerCase(),
-      );
-    }
-    if (
-      variableSymbol &&
-      (variableSymbol.kind === SymbolKind.Variable ||
-        variableSymbol.kind === SymbolKind.Parameter ||
-        variableSymbol.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variableSymbol as VariableSymbol;
-      if (varSymbol.type) {
-        const name = varSymbol.type.name || '';
-        if (varSymbol.type.isCollection && varSymbol.type.typeParameters?.[0]) {
-          return isConcreteSObjectType(
-            varSymbol.type.typeParameters[0].name || '',
-            symbolTable,
-          );
-        }
-        return isConcreteSObjectType(name, symbolTable);
-      }
-    }
-  }
-
-  // Unknown - allow (could be concrete from method call etc.)
-  return true;
-}
-
-/**
- * Get resolved type for expression (for merge/upsert concrete type checks).
- * Returns inferred type from expression text and symbol table.
- */
-function getExpressionType(
-  expressionText: string,
-  symbolTable?: SymbolTable,
-): string | null {
-  if (!expressionText) {
-    return null;
-  }
-
-  const normalized = expressionText.trim();
-
-  // List<X> or Set<X>
-  const listPattern = /^(List|Set)\s*<\s*([^>]+)\s*>$/i;
-  const listMatch = normalized.match(listPattern);
-  if (listMatch) {
-    return `List<${listMatch[2].trim()}>`;
-  }
-
-  // Simple identifier - lookup variable type
-  if (symbolTable && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(normalized)) {
-    let variableSymbol = symbolTable.lookup(normalized, null);
-    if (!variableSymbol) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variableSymbol = allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.name.toLowerCase() === normalized.toLowerCase(),
-      );
-    }
-    if (
-      variableSymbol &&
-      (variableSymbol.kind === SymbolKind.Variable ||
-        variableSymbol.kind === SymbolKind.Parameter ||
-        variableSymbol.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variableSymbol as VariableSymbol;
-      if (varSymbol.type?.name) {
-        if (varSymbol.type.isCollection && varSymbol.type.typeParameters?.[0]) {
-          return `List<${varSymbol.type.typeParameters[0].name || 'SObject'}>`;
-        }
-        return varSymbol.type.name;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Extract element type from List<X> or return as-is for single SObject
- */
-function getConcreteSObjectTypeFromExpression(
-  typeOrExpr: string,
-  symbolTable?: SymbolTable,
-): string | null {
-  const listPattern = /^List\s*<\s*([^>]+)\s*>$/i;
-  const match = typeOrExpr.match(listPattern);
-  if (match) {
-    return match[1].trim();
-  }
-  return typeOrExpr;
-}
-
-/**
- * Validates DML statements according to Apex semantic rules.
- *
- * Rules:
- * - INSERT, UPDATE, DELETE, UNDELETE, UPSERT require SObject or List<SObject> types
- * - MERGE requires two SObject expressions (master and duplicate records)
- *
- * This is a TIER 1 (IMMEDIATE) validation - fast, same-file only.
- *
- * @see prioritize-missing-validations.md Phase 7.2
+ * Validates parser-recorded DML operands. Source text is intentionally not an
+ * input: operation, operand role, ranges, reference identity, and declared
+ * types all originate in the parser-owned symbol table.
  */
 export const DmlStatementValidator: Validator = {
   id: 'dml-statement',
   name: 'DML Statement Validator',
   tier: ValidationTier.IMMEDIATE,
-  priority: 9, // Run after ExpressionTypeValidator
+  priority: 9,
   prerequisites: {
-    requiredDetailLevel: 'private', // Need private to access variable types
-    requiresReferences: false,
+    requiredDetailLevel: 'private',
+    requiresReferences: true,
     requiresCrossFileResolution: false,
   },
 
   validate: (
     symbolTable: SymbolTable,
-    options: ValidationOptions,
+    _options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
+      const operands = collectDmlOperands(symbolTable);
+      const mergeMasterTypes = new Map<string, string>();
 
-      // Source content is required for this validator
-      if (!options.sourceContent) {
-        yield* Effect.logDebug(
-          'DmlStatementValidator: sourceContent not provided, skipping validation',
-        );
-        return {
-          isValid: true,
-          errors: [],
-          warnings: [],
-        };
-      }
+      for (const operand of operands) {
+        const { reference, context, type } = operand;
+        const displayName = reference.name;
+        const location = locationForOperand(context);
 
-      const sourceContent = options.sourceContent;
-      const fileUri = symbolTable.getFileUri() || 'unknown.cls';
-
-      try {
-        // Use cached parse tree if available, otherwise parse source content
-        let parseTree:
-          CompilationUnitContext | TriggerUnitContext | BlockContext;
-        if (options.parseTree) {
-          // Use cached parse tree from DocumentStateCache
-          parseTree = options.parseTree;
-        } else {
-          // Fallback to parsing source content
-          const isTrigger = fileUri.endsWith('.trigger');
-          const isAnonymous = fileUri.endsWith('.apex');
-          const contentToParse = isAnonymous
-            ? `{${sourceContent}}`
-            : sourceContent;
-
-          const lexer = ApexParserFactory.createLexer(contentToParse);
-          const tokenStream = new CommonTokenStream(lexer);
-          const parser = new ApexParser(tokenStream);
-
-          // Suppress error listeners to avoid console noise
-          parser.removeErrorListeners();
-          lexer.removeErrorListeners();
-
-          if (isTrigger) {
-            parseTree = parser.triggerUnit();
-          } else if (isAnonymous) {
-            parseTree = parser.block();
-          } else {
-            parseTree = parser.compilationUnit();
-          }
+        if (!isDmlCompatibleType(type)) {
+          errors.push({
+            message: localizeTyped(ErrorCodes.INVALID_DML_TYPE, displayName),
+            location,
+            code: ErrorCodes.INVALID_DML_TYPE,
+          });
+          continue;
         }
 
-        // Walk the parse tree to collect DML statement information
-        const listener = new DmlStatementListener();
-
-        ApexParseTreeWalker.DEFAULT.walk(listener, parseTree);
-
-        // Validate each DML statement
-        const dmlStatements = listener.getDmlStatements();
-        let mergeMasterType: string | null = null;
-
-        for (const entry of dmlStatements) {
-          const {
-            ctx,
-            operation,
-            expressionText,
-            mergeRole,
-            upsertHasFieldSpec,
-          } = entry;
-
-          // Base check: must be SObject-compatible
-          if (!isSObjectTypeExpression(expressionText, symbolTable)) {
-            const location = getLocationFromContext(ctx);
-            errors.push({
-              message: localizeTyped(
-                ErrorCodes.INVALID_DML_TYPE,
-                expressionText,
-              ),
-              location,
-              code: ErrorCodes.INVALID_DML_TYPE,
-            });
-            continue;
-          }
-
-          // Merge: require concrete SObject types
-          if (operation === 'merge' && mergeRole) {
-            const resolvedType = getExpressionType(expressionText, symbolTable);
-            const concreteType = resolvedType
-              ? getConcreteSObjectTypeFromExpression(resolvedType, symbolTable)
-              : null;
-
-            if (mergeRole === 'master') {
-              if (!isConcreteSObjectType(expressionText, symbolTable)) {
-                errors.push({
-                  message: localizeTyped(
-                    ErrorCodes.MERGE_REQUIRES_CONCRETE_TYPE,
-                    expressionText,
-                  ),
-                  location: getLocationFromContext(ctx),
-                  code: ErrorCodes.MERGE_REQUIRES_CONCRETE_TYPE,
-                });
-              } else if (concreteType) {
-                mergeMasterType = concreteType;
-              }
-            } else if (mergeRole === 'duplicates') {
-              // Duplicates must be List<ConcreteSObject> matching master.
-              // Only validate when we can resolve types (e.g. variable refs).
-              const dupType = getExpressionType(expressionText, symbolTable);
-              if (dupType) {
-                const dupElementType = getConcreteSObjectTypeFromExpression(
-                  dupType,
-                  symbolTable,
-                );
-                const isList = /^List\s*<\s*[^>]+\>$/i.test(dupType);
-                const isListMatch =
-                  isList &&
-                  dupElementType &&
-                  mergeMasterType &&
-                  dupElementType.toLowerCase() ===
-                    mergeMasterType.toLowerCase();
-
-                if (
-                  !isList ||
-                  !dupElementType ||
-                  !isConcreteSObjectType(dupElementType, symbolTable) ||
-                  (mergeMasterType && !isListMatch)
-                ) {
-                  errors.push({
-                    message: localizeTyped(
-                      ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
-                    ),
-                    location: getLocationFromContext(ctx),
-                    code: ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
-                  });
-                }
-              }
+        if (context.operation === 'merge') {
+          const key = statementKey(context);
+          const concreteType = concreteSObjectTypeName(type);
+          if (context.operandRole === 'master') {
+            if (type && !concreteType) {
+              errors.push({
+                message: localizeTyped(
+                  ErrorCodes.MERGE_REQUIRES_CONCRETE_TYPE,
+                  displayName,
+                ),
+                location,
+                code: ErrorCodes.MERGE_REQUIRES_CONCRETE_TYPE,
+              });
+            } else if (concreteType) {
+              mergeMasterTypes.set(key, concreteType);
+            }
+          } else if (context.operandRole === 'duplicate' && type) {
+            const masterType = mergeMasterTypes.get(key);
+            const elementType = collectionElementType(type);
+            const duplicateType = concreteSObjectTypeName(elementType);
+            const isList = normalizedTypeName(type) === 'list';
+            const matchesMaster =
+              !masterType ||
+              (duplicateType !== undefined &&
+                duplicateType.toLowerCase() === masterType.toLowerCase());
+            if (!isList || !duplicateType || !matchesMaster) {
+              errors.push({
+                message: localizeTyped(
+                  ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
+                ),
+                location,
+                code: ErrorCodes.INVALID_MERGE_DUPLICATE_RECORDS,
+              });
             }
           }
-
-          // Upsert with field spec: require concrete SObject type
-          if (
-            operation === 'upsert' &&
-            upsertHasFieldSpec &&
-            !isConcreteSObjectType(expressionText, symbolTable)
-          ) {
-            errors.push({
-              message: localizeTyped(ErrorCodes.UPSERT_REQUIRES_CONCRETE_TYPE),
-              location: getLocationFromContext(ctx),
-              code: ErrorCodes.UPSERT_REQUIRES_CONCRETE_TYPE,
-            });
-          }
         }
 
-        yield* Effect.logDebug(
-          `DmlStatementValidator: checked ${dmlStatements.length} DML statements, ` +
-            `found ${errors.length} violations`,
-        );
-
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-        };
-      } catch (error) {
-        yield* Effect.logWarning(
-          `DmlStatementValidator: Error during validation: ${error}`,
-        );
-        return {
-          isValid: true,
-          errors: [],
-          warnings: [],
-        };
+        if (
+          context.operation === 'upsert' &&
+          context.upsertFieldRange &&
+          type &&
+          !concreteSObjectTypeName(type)
+        ) {
+          errors.push({
+            message: localizeTyped(ErrorCodes.UPSERT_REQUIRES_CONCRETE_TYPE),
+            location,
+            code: ErrorCodes.UPSERT_REQUIRES_CONCRETE_TYPE,
+          });
+        }
       }
+
+      yield* Effect.logDebug(
+        `DmlStatementValidator: checked ${operands.length} parser-owned DML operands, ` +
+          `found ${errors.length} violations`,
+      );
+      return { isValid: errors.length === 0, errors, warnings };
     }),
 };

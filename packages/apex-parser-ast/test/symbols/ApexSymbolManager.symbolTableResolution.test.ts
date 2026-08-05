@@ -655,7 +655,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
 
       const testClassCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             String result = ServiceClass.processData('test'); // Cross-file reference
           }
         }
@@ -688,6 +688,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         'file:///TestClass.cls',
         testListener,
       );
+      expect(testResult.errors).toHaveLength(0);
       expect(testResult.result).toBeDefined();
       await Effect.runPromise(
         symbolManager.addSymbolTable(
@@ -699,19 +700,19 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // Wait for same-file reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Before cross-file resolution, testMethod should not have references to ServiceClass
-      // Get all symbols in TestClass to find testMethod
+      // Before cross-file resolution, runTest should not have references to ServiceClass
+      // Get all symbols in TestClass to find runTest
       const testClassSymbols = await symbolManager.findSymbolsInFile(
         'file:///TestClass.cls',
       );
-      const testMethod = testClassSymbols.find(
-        (s) => s.kind === SymbolKind.Method && s.name === 'testMethod',
+      const runTest = testClassSymbols.find(
+        (s) => s.kind === SymbolKind.Method && s.name === 'runTest',
       );
-      expect(testMethod).toBeDefined();
+      expect(runTest).toBeDefined();
 
-      if (testMethod) {
+      if (runTest) {
         const referencesBefore =
-          await symbolManager.findReferencesFrom(testMethod);
+          await symbolManager.findReferencesFrom(runTest);
         const serviceClassRefBefore = referencesBefore.find(
           (ref) => ref.symbol.name === 'ServiceClass',
         );
@@ -729,10 +730,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // Wait for cross-file resolution to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // After cross-file resolution, testMethod should have references to ServiceClass
-      if (testMethod) {
-        const referencesAfter =
-          await symbolManager.findReferencesFrom(testMethod);
+      // After cross-file resolution, runTest should have references to ServiceClass
+      if (runTest) {
+        const referencesAfter = await symbolManager.findReferencesFrom(runTest);
         // Look for ServiceClass reference (could be the class itself or processData method)
         const serviceClassRefAfter = referencesAfter.find(
           (ref) =>

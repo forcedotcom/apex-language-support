@@ -1,7 +1,7 @@
 @isTest
 public class ValidTestClass {
     @isTest
-    public static void testMethod() {
+    public static void verifiesBehavior() {
         // Valid: no parameters
     }
     

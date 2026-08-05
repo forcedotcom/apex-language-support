@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.9.39",
+  "version": "0.9.40",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -310,6 +310,27 @@
         "apex.custom": {
           "type": "object",
           "default": {},
+          "properties": {
+            "publishDiagnostics": {
+              "type": "boolean",
+              "description": "%configuration.apex-ls-ts.custom.publishDiagnostics.description%"
+            },
+            "diagnosticProvider": {
+              "description": "%configuration.apex-ls-ts.custom.diagnosticProvider.description%",
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            }
+          },
+          "additionalProperties": true,
           "description": "%configuration.apex-ls-ts.custom.description%"
         },
         "apex.findMissingArtifact": {

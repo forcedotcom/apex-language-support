@@ -16,6 +16,10 @@ import {
   TriggerUnitContext,
   BlockContext,
   NewExpressionContext,
+  AssignExpressionContext,
+  PrimaryExpressionContext,
+  IdPrimaryContext,
+  ExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import { isPrimitiveType } from '../../../utils/primitiveTypes';
@@ -53,39 +57,28 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
   };
 }
 
-/**
- * Extract type name from new expression (e.g., "new Account(Name='x')" -> "Account")
- */
+/** Extract a simple created type name from its parser-owned identifier token. */
 function extractTypeNameFromCreator(ctx: NewExpressionContext): string | null {
-  const creator = ctx.creator();
-  if (!creator) return null;
-  const text = creator.getText() || '';
-  // creator text is typically "Account(Name='x')" or "String()" - type before first '('
-  const parenIdx = text.indexOf('(');
-  if (parenIdx < 0) return null;
-  const typePart = text.substring(0, parenIdx).trim();
-  return typePart || null;
+  const nameParts =
+    ctx.creator()?.createdName()?.idCreatedNamePair_list() ?? [];
+  if (nameParts.length !== 1) return null;
+  return nameParts[0].anyId().start?.text ?? null;
 }
 
 /**
- * Extract field name from an assignment expression (e.g., "Name='Test'" -> "Name")
- * Field initializers in constructors use the syntax: fieldName=value
+ * Extract a field initializer's name from the assignment and identifier parser
+ * contexts. Other assignment target shapes are not name-value initializers.
  */
-function extractFieldName(expressionText: string): string | null {
-  if (!expressionText) {
-    return null;
-  }
+function extractFieldName(expression: ExpressionContext): string | null {
+  if (!(expression instanceof AssignExpressionContext)) return null;
+  if (!expression.ASSIGN()) return null;
 
-  const trimmed = expressionText.trim();
+  const [target] = expression.expression_list();
+  if (!(target instanceof PrimaryExpressionContext)) return null;
+  const primary = target.primary();
+  if (!(primary instanceof IdPrimaryContext)) return null;
 
-  // Look for assignment pattern: identifier = value
-  // Match field name before the first '=' that's not inside quotes
-  const assignmentMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
-  if (assignmentMatch) {
-    return assignmentMatch[1];
-  }
-
-  return null;
+  return primary.id().start?.text ?? null;
 }
 
 /**
@@ -128,13 +121,10 @@ class DuplicateFieldInitListener extends BaseApexParserListener<void> {
     }
 
     // Extract field names from expressions (assuming they're field initializers)
-    const fieldNames = new Map<string, number>(); // fieldName -> first occurrence index
     const seenFields = new Set<string>();
 
-    for (let i = 0; i < expressions.length; i++) {
-      const expr = expressions[i];
-      const exprText = expr.getText() || '';
-      const fieldName = extractFieldName(exprText);
+    for (const expr of expressions) {
+      const fieldName = extractFieldName(expr);
 
       if (fieldName) {
         const normalizedFieldName = fieldName.toLowerCase();
@@ -146,7 +136,6 @@ class DuplicateFieldInitListener extends BaseApexParserListener<void> {
           });
         } else {
           seenFields.add(normalizedFieldName);
-          fieldNames.set(normalizedFieldName, i);
         }
       }
     }
@@ -217,10 +206,10 @@ export const DuplicateFieldInitValidator: Validator = {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
 
-      // Source content is required for this validator
-      if (!options.sourceContent) {
+      // Either a cached parse tree or source to parse is required.
+      if (!options.parseTree && !options.sourceContent) {
         yield* Effect.logDebug(
-          'DuplicateFieldInitValidator: sourceContent not provided, skipping validation',
+          'DuplicateFieldInitValidator: parse tree and sourceContent not provided, skipping validation',
         );
         return {
           isValid: true,
@@ -244,8 +233,8 @@ export const DuplicateFieldInitValidator: Validator = {
           const isTrigger = fileUri.endsWith('.trigger');
           const isAnonymous = fileUri.endsWith('.apex');
           const contentToParse = isAnonymous
-            ? `{${sourceContent}}`
-            : sourceContent;
+            ? `{${sourceContent ?? ''}}`
+            : (sourceContent ?? '');
 
           const lexer = ApexParserFactory.createLexer(contentToParse);
           const tokenStream = new CommonTokenStream(lexer);
