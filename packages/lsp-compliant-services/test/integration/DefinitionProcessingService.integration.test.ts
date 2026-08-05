@@ -96,6 +96,138 @@ describe('DefinitionProcessingService Integration Tests - Keyword Context', () =
   });
 
   describe('SystemKeywordTestClass fixture', () => {
+    it('navigates a native sObject field to its definition target', async () => {
+      const propertyUri = 'file:///Property__c.cls';
+      const propertySource = [
+        'public class Property__c {',
+        '  public String foo__c;',
+        '}',
+      ].join('\n');
+      const propertyTable = new SymbolTable();
+      new CompilerService().compile(
+        propertySource,
+        propertyUri,
+        new FullSymbolCollectorListener(propertyTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(propertyTable, propertyUri, 1, false),
+      );
+
+      const source = [
+        'public class PropertyDefinitionTest {',
+        '  public String read() {',
+        '    Property__c property = new Property__c();',
+        '    return property.foo__c;',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///PropertyDefinitionTest.cls';
+      const initialSource = [
+        'public class PropertyDefinitionTest {',
+        '  public String read() {',
+        '    Property__c property = new Property__c();',
+        "    return '';",
+        '  }',
+        '}',
+      ].join('\n');
+      const initialTable = new SymbolTable();
+      new CompilerService().compile(
+        initialSource,
+        uri,
+        new FullSymbolCollectorListener(initialTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(initialTable, uri, 1),
+      );
+
+      const consumerTable = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(consumerTable);
+      new CompilerService().compile(source, uri, listener, {});
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(consumerTable, uri, 2),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+
+      const typeResult = await definitionService.processDefinition({
+        textDocument: { uri },
+        position: { line: 2, character: 5 },
+      });
+      const result = await definitionService.processDefinition({
+        textDocument: { uri },
+        position: { line: 3, character: 21 },
+      });
+
+      expect(typeResult).toEqual([
+        expect.objectContaining({ uri: propertyUri }),
+      ]);
+      expect(result).toEqual([expect.objectContaining({ uri: propertyUri })]);
+    });
+
+    it('navigates a managed class reference to its VFS-backed real source', async () => {
+      const remoteUri =
+        'apex-org-artifact:/apex-class/billing.remoteservice.cls';
+      const remoteSource = [
+        'global class RemoteService {',
+        "  global String greet() { return 'hello'; }",
+        '}',
+      ].join('\n');
+      const remoteTable = new SymbolTable();
+      const remoteListener = new FullSymbolCollectorListener(remoteTable);
+      new CompilerService().compile(
+        remoteSource,
+        remoteUri,
+        remoteListener,
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(remoteTable, remoteUri),
+      );
+
+      const consumerSource = [
+        'public class RemoteConsumer {',
+        '  public String run() {',
+        '    RemoteService service;',
+        '    return service.greet();',
+        '  }',
+        '}',
+      ].join('\n');
+      const consumerUri = 'file:///RemoteConsumer.cls';
+      const consumerTable = new SymbolTable();
+      const consumerListener = new FullSymbolCollectorListener(consumerTable);
+      new CompilerService().compile(
+        consumerSource,
+        consumerUri,
+        consumerListener,
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(consumerTable, consumerUri),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(consumerUri),
+      );
+
+      const classDefinition = await definitionService.processDefinition({
+        textDocument: { uri: consumerUri },
+        position: { line: 2, character: 8 },
+      });
+      const memberDefinition = await definitionService.processDefinition({
+        textDocument: { uri: consumerUri },
+        position: { line: 3, character: 20 },
+      });
+
+      expect(classDefinition).toEqual([
+        expect.objectContaining({ uri: remoteUri }),
+      ]);
+      expect(memberDefinition).toEqual([
+        expect.objectContaining({ uri: remoteUri }),
+      ]);
+    });
+
     it('should return [] for definition at system in insert as system', async () => {
       const content = readFileSync(
         join(__dirname, '../fixtures/classes/SystemKeywordTestClass.cls'),

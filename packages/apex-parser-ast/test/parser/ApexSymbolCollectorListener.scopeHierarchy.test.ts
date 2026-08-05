@@ -590,7 +590,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should set method block parentId to method symbol', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             String x = 'test';
           }
         }
@@ -603,6 +603,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         'TestClass.cls',
         listener,
       );
+      expect(result.errors).toHaveLength(0);
 
       const symbolTable = result.result;
       if (!symbolTable) {
@@ -611,7 +612,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
 
       const allSymbols = symbolTable.getAllSymbols();
       const methodSymbol = allSymbols.find(
-        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+        (s) => s.name === 'runTest' && s.kind === SymbolKind.Method,
       );
       // Method blocks now use block counter names (e.g., block2), not the method name
       // Find by scopeType and parentId pointing to the method symbol
@@ -629,7 +630,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         expect(methodBlockSymbol.parentId).toBe(methodSymbol.id);
         // Stable ID format uses # separator and dot-qualified names
         expect(methodBlockSymbol.parentId).toContain('#');
-        expect(methodBlockSymbol.parentId).toContain('testMethod');
+        expect(methodBlockSymbol.parentId).toContain('runTest');
       }
     });
 
@@ -680,7 +681,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should set regular block parentId to parent block symbol', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             if (true) {
               String x = 'test';
             }
@@ -704,7 +705,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const allSymbols = symbolTable.getAllSymbols();
       // Find method symbol first
       const methodSymbol = allSymbols.find(
-        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+        (s) => s.name === 'runTest' && s.kind === SymbolKind.Method,
       );
       // Method blocks now use block counter names (e.g., block2), not the method name
       // Find by scopeType and parentId pointing to the method symbol
@@ -730,7 +731,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should handle nested blocks with correct parentId chain', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             if (true) {
               while (false) {
                 String x = 'test';
@@ -756,7 +757,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const allSymbols = symbolTable.getAllSymbols();
       // Find method symbol first
       const methodSymbol = allSymbols.find(
-        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+        (s) => s.name === 'runTest' && s.kind === SymbolKind.Method,
       );
       // Method blocks now use block counter names (e.g., block2), not the method name
       // Find by scopeType and parentId pointing to the method symbol
@@ -805,7 +806,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create scope symbols for if statements', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             if (true) {
               Integer x = 1;
             }
@@ -839,7 +840,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create scope symbols for while statements', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             while (true) {
               Integer x = 1;
             }
@@ -873,7 +874,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create scope symbols for for statements', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             for (Integer i = 0; i < 10; i++) {
               Integer x = 1;
             }
@@ -907,7 +908,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create scope symbols with proper locations', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             if (true) {
               Integer x = 1;
             }
@@ -1110,7 +1111,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create only try scope (not duplicate block scope) for try block', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             try {
               Integer x = 1;
             } catch (Exception e) {
@@ -1159,7 +1160,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create only catch scope (not duplicate block scope) for catch block', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             try {
             } catch (Exception e) {
               Integer x = 1;
@@ -1200,7 +1201,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create only finally scope (not duplicate block scope) for finally block', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             try {
             } finally {
               Integer x = 1;
@@ -1243,7 +1244,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create proper scope hierarchy: try → catch → finally', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             try {
               Integer x = 1;
             } catch (Exception e) {
@@ -1321,7 +1322,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create only doWhile scope (not duplicate block scope) for doWhile block', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             do {
               Integer x = 1;
             } while (true);
@@ -1363,7 +1364,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should create only runAs scope (not duplicate block scope) for runAs block', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             System.runAs(new User()) {
               Integer x = 1;
             }
@@ -1405,7 +1406,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     it('should maintain correct scope stack depth for nested structures', () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void runTest() {
             if (true) {
               try {
                 Integer x = 1;
@@ -1513,7 +1514,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle missing closing brace in method body gracefully', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               Integer x = 1;
               // Missing closing brace for method
           }
@@ -1555,7 +1556,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle missing closing brace in if statement', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               if (true) {
                 Integer x = 1;
                 // Missing closing brace for if
@@ -1594,7 +1595,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle missing closing brace in try block', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               try {
                 Integer x = 1;
                 // Missing closing brace for try
@@ -1679,7 +1680,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle missing closing brace in nested structures', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               if (true) {
                 try {
                   Integer x = 1;
@@ -1734,7 +1735,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle unclosed while loop block', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               while (true) {
                 Integer x = 1;
                 // Missing closing brace
@@ -1771,7 +1772,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle unclosed for loop block', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               for (Integer i = 0; i < 10; i++) {
                 Integer x = 1;
                 // Missing closing brace
@@ -1808,7 +1809,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle unclosed doWhile block', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               do {
                 Integer x = 1;
                 // Missing closing brace
@@ -1884,7 +1885,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle multiple unclosed scopes gracefully', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               if (true) {
                 while (true) {
                   for (Integer i = 0; i < 10; i++) {
@@ -1941,7 +1942,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle try-catch-finally with missing braces', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               try {
                 Integer x = 1;
                 // Missing closing brace for try
@@ -1995,7 +1996,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should maintain valid scope stack even with syntax errors', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               if (true) {
                 try {
                   Integer x = 1;
@@ -2073,7 +2074,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle class with only syntax errors', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               String x = "test"
               // Missing semicolon and closing brace
           }
@@ -2114,7 +2115,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       it('should handle switch statement with missing braces', () => {
         const apexCode = `
           public class TestClass {
-            public void testMethod() {
+            public void runTest() {
               switch on 'test' {
                 when 'test' {
                   Integer x = 1;

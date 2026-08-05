@@ -38,6 +38,24 @@ describe('LiteralValidator', () => {
   });
 
   const VALIDATOR_CATEGORY = 'literal';
+  const location = (
+    startLine: number,
+    startColumn: number,
+    endColumn: number,
+  ) => ({
+    symbolRange: {
+      startLine,
+      startColumn,
+      endLine: startLine,
+      endColumn,
+    },
+    identifierRange: {
+      startLine,
+      startColumn,
+      endLine: startLine,
+      endColumn,
+    },
+  });
 
   it('should have correct metadata', () => {
     expect(LiteralValidator.id).toBe('literal');
@@ -94,7 +112,7 @@ describe('LiteralValidator', () => {
     expect(result.errors.length).toBe(0);
   });
 
-  it('should report ILLEGAL_DOUBLE_LITERAL for invalid double literal', async () => {
+  it('does not infer decimal spelling from source text when parser metadata is valid', async () => {
     const sourceContent = 'Double d = 1.5.5d;';
     const symbolTable = new SymbolTable('file:///test.cls');
     symbolTable.addTypeReference({
@@ -137,9 +155,111 @@ describe('LiteralValidator', () => {
       LiteralValidator.validate(symbolTable, options),
     );
 
-    expect(result.isValid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: ErrorCodes.ILLEGAL_DOUBLE_LITERAL }),
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('reports non-finite decimals from parser-owned literal metadata', async () => {
+    const symbolTable = new SymbolTable('file:///test.cls');
+    symbolTable.addTypeReference({
+      name: 'Infinity',
+      location: location(1, 12, 20),
+      context: ReferenceContext.LITERAL,
+      literalValue: Number.POSITIVE_INFINITY,
+      literalType: 'Decimal',
+    });
+
+    const result = await Effect.runPromise(
+      LiteralValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent: 'Decimal d = 1.0;',
+        }),
+      ),
     );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: ErrorCodes.ILLEGAL_DECIMAL_LITERAL }),
+    );
+  });
+
+  it('validates string escapes from parser-owned literal metadata', async () => {
+    const symbolTable = new SymbolTable('file:///test.cls');
+    symbolTable.addTypeReference({
+      name: '\\u00GG',
+      location: location(1, 11, 19),
+      context: ReferenceContext.LITERAL,
+      literalValue: '\\u00GG',
+      literalType: 'String',
+    });
+
+    const result = await Effect.runPromise(
+      LiteralValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent: "String s = 'valid';",
+        }),
+      ),
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_STRING_LITERAL_ILLEGAL_UNICODE,
+      }),
+    );
+  });
+
+  it('reports control characters carried by string literal metadata', async () => {
+    const symbolTable = new SymbolTable('file:///test.cls');
+    symbolTable.addTypeReference({
+      name: `a${String.fromCharCode(1)}b`,
+      location: location(3, 10, 15),
+      context: ReferenceContext.LITERAL,
+      literalValue: `a${String.fromCharCode(1)}b`,
+      literalType: 'String',
+    });
+
+    const result = await Effect.runPromise(
+      LiteralValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_CONTROL_CHARACTER,
+        location: expect.objectContaining({
+          identifierRange: expect.objectContaining({
+            startLine: 3,
+            startColumn: 12,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('does not scan unrelated source text for control characters', async () => {
+    const symbolTable = new SymbolTable('file:///test.cls');
+    const result = await Effect.runPromise(
+      LiteralValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent: `public class Test {${String.fromCharCode(1)}}`,
+        }),
+      ),
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 });

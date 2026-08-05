@@ -225,7 +225,22 @@ describe('ApexMethods typed surface', () => {
       expect(registeredHandler).toBeDefined();
 
       const params: FindMissingArtifactParams = {
-        identifiers: [{ name: 'MyClass' }],
+        identifiers: [
+          {
+            name: 'MyClass',
+            provenance: {
+              sourceUri: 'file:///Test.cls',
+              referenceRange: {
+                startLine: 1,
+                startColumn: 0,
+                endLine: 1,
+                endColumn: 7,
+              },
+              referenceIdentity: 'ref:MyClass:1:0:1:7',
+              parseCompleteness: 'complete',
+            },
+          },
+        ],
         origin: {
           uri: 'file:///Test.cls',
           requestKind: 'definition',

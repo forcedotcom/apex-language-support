@@ -39,7 +39,9 @@ export class ResourceLoaderProxy {
   private standardNamespaces?: Promise<Record<string, string[]>>;
 
   constructor(
-    private readonly worker: Worker.SerializedWorker<ResourceLoaderRequest>,
+    private readonly worker:
+      | Worker.SerializedWorker<ResourceLoaderRequest>
+      | Worker.SerializedWorkerPool<ResourceLoaderRequest>,
     private readonly logger: LoggerInterface,
   ) {}
 

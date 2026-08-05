@@ -41,6 +41,7 @@ export function createMockSymbolManager(
     }),
     getAllReferencesInFile: jest.fn().mockResolvedValue([]),
     getAllSymbolsForCompletion: jest.fn().mockResolvedValue([]),
+    getVisibleSymbolsAtPosition: jest.fn().mockResolvedValue([]),
     findReferencesTo: jest.fn().mockResolvedValue([]),
     findReferencesFrom: jest.fn().mockResolvedValue([]),
     findRelatedSymbols: jest.fn().mockResolvedValue([]),
@@ -88,6 +89,7 @@ export function createMockSymbolManager(
     setCommentAssociations: jest.fn().mockResolvedValue(undefined),
     getBlockCommentsForSymbol: jest.fn().mockResolvedValue([]),
     getReferencesAtPosition: jest.fn().mockResolvedValue([]),
+    getIncompleteMemberAccessAtPosition: jest.fn().mockResolvedValue(null),
     getSymbolAtPosition: jest.fn().mockResolvedValue(null),
     getSymbolAtPositionWithinScope: jest.fn().mockResolvedValue(null),
     createResolutionContextWithRequestType: jest.fn().mockResolvedValue({

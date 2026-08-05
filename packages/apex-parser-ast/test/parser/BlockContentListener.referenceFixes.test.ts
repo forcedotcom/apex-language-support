@@ -132,4 +132,65 @@ describe('BlockContentListener reference fixes', () => {
       expect(helperVarUsages).toHaveLength(0);
     });
   });
+
+  describe('incomplete member access', () => {
+    it('records the receiver and operator during private layered enrichment', () => {
+      const sourceCode = [
+        'public class TestClass {',
+        '  void m() {',
+        '    Property__c property = new Property__c();',
+        '    property.',
+        '  }',
+        '}',
+      ].join('\n');
+
+      const result = compilerService.compileLayered(
+        sourceCode,
+        'Test.cls',
+        ['protected', 'private'],
+        undefined,
+        { collectReferences: true, resolveReferences: true },
+      );
+      expect(result.result).toBeDefined();
+
+      const incomplete = result
+        .result!.getAllReferences()
+        .filter(
+          (reference) =>
+            reference.name === 'property' &&
+            reference.semanticContext?.memberAccess?.incomplete,
+        );
+
+      expect(incomplete).toHaveLength(1);
+      expect(incomplete[0].semanticContext?.memberAccess).toEqual(
+        expect.objectContaining({
+          receiverRange: expect.objectContaining({
+            startLine: 4,
+            startColumn: 4,
+            endColumn: 12,
+          }),
+          operatorRange: expect.objectContaining({
+            startLine: 4,
+            startColumn: 12,
+            endColumn: 13,
+          }),
+        }),
+      );
+    });
+
+    it('does not duplicate the fact when full collection also records it', () => {
+      const result = compileWithBlockContent(
+        'public class TestClass { void m() { String value; value. } }',
+      );
+      const incomplete = result
+        .result!.getAllReferences()
+        .filter(
+          (reference) =>
+            reference.name === 'value' &&
+            reference.semanticContext?.memberAccess?.incomplete,
+        );
+
+      expect(incomplete).toHaveLength(1);
+    });
+  });
 });

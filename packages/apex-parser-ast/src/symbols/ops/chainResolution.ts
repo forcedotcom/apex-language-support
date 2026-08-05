@@ -40,6 +40,7 @@ import {
   createGenericTypeSubstitutionMap,
   type GenericTypeSubstitutionMap,
 } from '../../utils/genericTypeSubstitution';
+import { indexedAccessResultType } from '../../utils/indexedAccess';
 import {
   GlobalTypeRegistry,
   GlobalTypeRegistryLive,
@@ -208,7 +209,61 @@ export async function resolveChainedSymbolReference(
               return resolvedSymbol;
             }
           }
-          if (chainMember.index === 1 && chainNodes.length === 2) {
+
+          // A parser pass may resolve an earlier method in a chain before its
+          // return type's artifact is available. Once that method identity is
+          // present, continue from the nearest resolved prefix instead of
+          // restarting at an explicit `this`/`super` node that carries no
+          // declaration symbol of its own.
+          for (
+            let prefixIndex = chainMember.index - 1;
+            prefixIndex >= 0;
+            prefixIndex--
+          ) {
+            const prefixId = chainNodes[prefixIndex].resolvedSymbolId;
+            if (!prefixId) continue;
+            const prefixSymbol = await self.getSymbol(prefixId);
+            if (!prefixSymbol) continue;
+
+            let prefixContext: ChainResolutionContext = {
+              type: 'symbol',
+              symbol: prefixSymbol,
+            };
+            let resolvedSelectedMember: ApexSymbol | null = null;
+            for (
+              let stepIndex = prefixIndex + 1;
+              stepIndex <= chainMember.index;
+              stepIndex++
+            ) {
+              const step = chainNodes[stepIndex];
+              const preResolvedStep = step.resolvedSymbolId
+                ? await self.getSymbol(step.resolvedSymbolId)
+                : null;
+              const resolvedStep: ApexSymbol | null =
+                preResolvedStep ??
+                (await tryResolveAsMember(
+                  self,
+                  step,
+                  prefixContext,
+                  chainNodes[stepIndex + 1],
+                ));
+              if (!resolvedStep) {
+                resolvedSelectedMember = null;
+                break;
+              }
+              resolvedSelectedMember = resolvedStep;
+              prefixContext = { type: 'symbol', symbol: resolvedStep };
+            }
+            if (resolvedSelectedMember) {
+              return resolvedSelectedMember;
+            }
+          }
+
+          if (
+            chainMember.index === 1 &&
+            chainNodes.length === 2 &&
+            !chainNodes[0].semanticContext?.indexedAccess
+          ) {
             const receiverSymbol = chainNodes[0].resolvedSymbolId
               ? await self.getSymbol(chainNodes[0].resolvedSymbolId)
               : null;
@@ -519,11 +574,19 @@ export async function exploreResolutionPaths(
   const nextStep =
     stepIndex + 1 < chainNodes.length ? chainNodes[stepIndex + 1] : undefined;
 
+  const previousStep = stepIndex > 0 ? chainNodes[stepIndex - 1] : undefined;
+  const effectiveCurrentContext = await promoteIndexedReceiverContext(
+    self,
+    previousStep,
+    currentContext,
+    fileUri,
+  );
+
   // Get ALL possible resolutions for this step
   const possibleResolutions = await getAllPossibleResolutions(
     self,
     step,
-    currentContext,
+    effectiveCurrentContext,
     nextStep,
     fileUri,
   );
@@ -550,6 +613,48 @@ export async function exploreResolutionPaths(
     );
     pathStack.pop(); // Backtrack
   }
+}
+
+async function promoteIndexedReceiverContext(
+  self: SymbolManagerOps,
+  receiverStep: SymbolReference | undefined,
+  currentContext: ChainResolutionContext,
+  fileUri?: string,
+): Promise<ChainResolutionContext> {
+  if (
+    !receiverStep?.semanticContext?.indexedAccess ||
+    currentContext?.type !== 'symbol'
+  ) {
+    return currentContext;
+  }
+
+  const receiverSymbol = currentContext.symbol;
+  if (
+    receiverSymbol.kind !== SymbolKind.Variable &&
+    receiverSymbol.kind !== SymbolKind.Parameter &&
+    receiverSymbol.kind !== SymbolKind.Field &&
+    receiverSymbol.kind !== SymbolKind.Property
+  ) {
+    return currentContext;
+  }
+
+  const resultType = indexedAccessResultType(
+    (receiverSymbol as VariableSymbol).type,
+  );
+  if (!resultType) return currentContext;
+
+  const symbolTable = fileUri
+    ? self.symbolRefManager.getSymbolTableForFile(fileUri)
+    : undefined;
+  const resultTypeSymbol = await resolvePreferredTypeOp(
+    self,
+    resultType.originalTypeString || resultType.name,
+    fileUri,
+    symbolTable,
+  );
+  return resultTypeSymbol
+    ? { type: 'symbol', symbol: resultTypeSymbol }
+    : currentContext;
 }
 
 // ---------------------------------------------------------------------------

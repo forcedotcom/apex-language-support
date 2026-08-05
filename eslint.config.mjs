@@ -119,6 +119,24 @@ export default [
     },
   },
   {
+    files: ['packages/apex-parser-ast/src/parser/listeners/**/*.ts'],
+    rules: {
+      'local/parser-owned-semantics': 'error',
+    },
+  },
+  {
+    files: [
+      'packages/apex-parser-ast/src/semantics/**/*.ts',
+      'packages/apex-parser-ast/src/symbols/**/*.ts',
+      'packages/apex-parser-ast/src/utils/methodCallAtRange.ts',
+      'packages/lsp-compliant-services/src/documentSymbol/ApexDocumentSymbolProvider.ts',
+      'packages/lsp-compliant-services/src/services/CodeActionProcessingService.ts',
+    ],
+    rules: {
+      'local/parser-owned-semantics': 'error',
+    },
+  },
+  {
     // e2e-tests: import plugin cannot resolve @playwright/test re-exports (Page, Locator, etc.)
     files: ['e2e-tests/**/*.ts'],
     rules: {

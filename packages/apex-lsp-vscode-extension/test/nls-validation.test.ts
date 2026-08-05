@@ -134,6 +134,8 @@ describe('NLS Validation', () => {
         'configuration.apex-ls-ts.worker.enablePerformanceLogs.description',
         'configuration.apex-ls-ts.worker.logCategories.description',
         'configuration.apex-ls-ts.custom.description',
+        'configuration.apex-ls-ts.custom.publishDiagnostics.description',
+        'configuration.apex-ls-ts.custom.diagnosticProvider.description',
         'configuration.apex-ls-ts.findMissingArtifact.description',
         'configuration.apex-ls-ts.findMissingArtifact.enabled.description',
         'configuration.apex-ls-ts.findMissingArtifact.blockingWaitTimeoutMs.description',

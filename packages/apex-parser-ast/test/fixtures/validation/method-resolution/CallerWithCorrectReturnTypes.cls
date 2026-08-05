@@ -10,5 +10,11 @@ public class CallerWithCorrectReturnTypes {
         
         // Correct: Boolean method assigned to Boolean variable
         Boolean flag = obj.getBoolean();
+
+        // Apex method-return compatibility is broader than simple widening.
+        String idAsString = obj.getId();
+        Id stringAsId = obj.getString();
+        Integer numeric = obj.getDecimal();
+        MethodWithReturnType typedObject = obj.getObject();
     }
 }

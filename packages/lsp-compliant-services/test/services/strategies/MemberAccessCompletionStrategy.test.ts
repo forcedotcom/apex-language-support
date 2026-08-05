@@ -49,10 +49,16 @@ describe('MemberAccessCompletionStrategy', () => {
       expect(strategy.canHandle(context)).toBe(true);
     });
 
+    it('should continue handling while the member name is refined', () => {
+      const doc = makeTextDocument('    this.may', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 12);
+      expect(strategy.canHandle(context)).toBe(true);
+    });
+
     it('should not handle when no dot present', () => {
       const doc = makeTextDocument('    someVar', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 11);
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should not handle when dot is in a string literal', () => {
@@ -61,7 +67,7 @@ describe('MemberAccessCompletionStrategy', () => {
         'file:///test/Test.cls',
       );
       const context = makeCompletionContext(doc, 0, 28);
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should not handle when the dot is part of a numeric literal', () => {
@@ -71,7 +77,7 @@ describe('MemberAccessCompletionStrategy', () => {
         'file:///test/Test.cls',
       );
       const context = makeCompletionContext(doc, 0, 18);
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should handle dot after a method call result (closing paren)', () => {
@@ -87,93 +93,30 @@ describe('MemberAccessCompletionStrategy', () => {
     });
   });
 
-  describe('parseDotExpression', () => {
-    it('should identify this. as this-kind expression', () => {
-      const doc = makeTextDocument('    this.', 'file:///test/Test.cls');
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 9,
-      });
-      expect(result.kind).toBe('this');
-      expect(result.segments).toContain('this');
-      expect(result.expectStatic).toBe(false);
-    });
-
-    it('should identify super. as super-kind expression', () => {
-      const doc = makeTextDocument('    super.', 'file:///test/Test.cls');
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 10,
-      });
-      expect(result.kind).toBe('super');
-      expect(result.segments).toContain('super');
-      expect(result.expectStatic).toBe(false);
-    });
-
-    it('should identify ClassName. as type-kind (static access)', () => {
-      const doc = makeTextDocument(
-        '    MemberAccessTestClass.',
-        'file:///test/Test.cls',
-      );
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 26,
-      });
-      expect(result.kind).toBe('type');
-      expect(result.segments).toContain('MemberAccessTestClass');
-      expect(result.expectStatic).toBe(true);
-    });
-
-    it('should identify variable. as variable-kind', () => {
-      const doc = makeTextDocument('    myInstance.', 'file:///test/Test.cls');
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 15,
-      });
-      expect(result.kind).toBe('variable');
-      expect(result.segments).toContain('myInstance');
-      expect(result.expectStatic).toBe(false);
-    });
-
-    it('should identify method chain as method-chain kind', () => {
-      const doc = makeTextDocument(
-        '    obj.getAccount().',
-        'file:///test/Test.cls',
-      );
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 21,
-      });
-      expect(result.kind).toBe('method-chain');
-      expect(result.segments.length).toBe(2);
-      expect(result.segments[0]).toBe('obj');
-      expect(result.segments[1]).toBe('getAccount()');
-    });
-
-    it('should return unknown for empty expression', () => {
-      const doc = makeTextDocument('.', 'file:///test/Test.cls');
-      const result = strategy.parseDotExpression(doc, {
-        line: 0,
-        character: 1,
-      });
-      expect(result.kind).toBe('unknown');
-    });
-  });
-
   describe('getCompletions', () => {
     it('should return members for static access (ClassName.)', async () => {
-      const content = loadFixture('MemberAccessTestClass.cls');
-      const doc = makeTextDocument(
-        content + '\n// MemberAccessTestClass.',
-        'file:///test/MemberAccessTestClass.cls',
+      const content = loadFixture('MemberAccessTestClass.cls').replace(
+        '  public void testMemberAccess() {',
+        [
+          '  public void completeStaticAccess() {',
+          '    MemberAccessTestClass.',
+          '  }',
+          '',
+          '  public void testMemberAccess() {',
+        ].join('\n'),
       );
+      const uri = 'file:///test/MemberAccessTestClass.cls';
+      await compileInlineAndRegister(symbolManager, content, uri);
+      const doc = makeTextDocument(content, uri);
       const lines = doc.getText().split('\n');
-      const lastLine = lines.length - 1;
+      const completionLine = lines.findIndex((line) =>
+        line.includes('MemberAccessTestClass.'),
+      );
 
       const context = makeCompletionContext(
         doc,
-        lastLine,
-        lines[lastLine].length,
+        completionLine,
+        lines[completionLine].length,
         {
           triggerCharacter: '.',
         },
@@ -223,6 +166,44 @@ describe('MemberAccessCompletionStrategy', () => {
       const names = candidates.map((c) => c.symbol.label ?? c.symbol.name);
       expect(names).toContain('myField');
       expect(names).toContain('myMethod');
+    });
+
+    it('should retain the this receiver while a member name is refined', async () => {
+      const content = [
+        'public class DoesItOpen {',
+        '  public DoesItOpen() {',
+        '    this.may',
+        '  }',
+        '  public String maybeItOpens() {',
+        "    return 'Yes';",
+        '  }',
+        '  public static String maybeStatic() {',
+        "    return 'Static';",
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/DoesItOpen.cls';
+      await compileInlineAndRegister(symbolManager, content, uri);
+      const document = makeTextDocument(content, uri);
+      const memberAccess =
+        await symbolManager.getIncompleteMemberAccessAtPosition(uri, {
+          line: 2,
+          character: 12,
+        });
+
+      expect(memberAccess?.name).toBe('this');
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(
+          makeCompletionContext(document, 2, 12, {
+            incompleteMemberAccess: memberAccess ?? undefined,
+          }),
+        ),
+      );
+      const names = candidates.map((candidate) => candidate.symbol.name);
+
+      expect(names).toContain('maybeItOpens');
+      expect(names).not.toContain('maybeStatic');
     });
 
     it('should return instance members for local variable dot-completion', async () => {
@@ -352,6 +333,50 @@ describe('MemberAccessCompletionStrategy', () => {
       const names = candidates.map((c) => c.symbol.name);
       expect(names).toContain('publicField');
       expect(names).toContain('getPublicValue');
+    });
+
+    it('returns members from a managed VFS-backed Apex class', async () => {
+      const remoteUri =
+        'apex-org-artifact:/apex-class/billing.remoteservice.cls';
+      await compileInlineAndRegister(
+        symbolManager,
+        [
+          'global class RemoteService {',
+          "  global String greet() { return 'hello'; }",
+          '  global Integer remoteVersion;',
+          '}',
+        ].join('\n'),
+        remoteUri,
+      );
+      const content = [
+        'public class RemoteConsumer {',
+        '  public void run() {',
+        '    billing.RemoteService service;',
+        '    service.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/RemoteConsumer.cls';
+      await compileInlineAndRegister(symbolManager, content, uri);
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const document = makeTextDocument(content, uri);
+      const context = makeCompletionContext(document, 3, 12, {
+        triggerCharacter: '.',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+      const names = candidates.map((candidate) => candidate.symbol.name);
+
+      expect(names).toContain('greet');
+      expect(names).toContain('remoteVersion');
+      expect(
+        candidates.find((candidate) => candidate.symbol.name === 'greet')
+          ?.symbol.fileUri,
+      ).toBe(remoteUri);
     });
   });
 
@@ -688,6 +713,7 @@ describe('MemberAccessCompletionStrategy', () => {
       ].join('\n');
       const uri = 'file:///test/ChainTest.cls';
       await compileInlineAndRegister(sm, content, uri);
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
 
       const doc = makeTextDocument(content, uri);
       const context = makeCompletionContext(doc, 3, 21, {
@@ -702,6 +728,212 @@ describe('MemberAccessCompletionStrategy', () => {
       expect(names).not.toContain('describeAccount');
       expect(names).not.toContain('getAccount');
       expect(names).not.toContain('getName');
+    });
+
+    it('uses the resolved FQN when duplicate simple type names exist', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      await compileInlineAndRegister(
+        sm,
+        'public class Widget { public String alphaOnly; }',
+        'file:///alpha/Widget.cls',
+        { projectNamespace: 'Alpha' },
+      );
+      await compileInlineAndRegister(
+        sm,
+        'public class Widget { public String betaOnly; }',
+        'file:///beta/Widget.cls',
+        { projectNamespace: 'Beta' },
+      );
+
+      const content = [
+        'public class QualifiedCaller {',
+        '  public void run() {',
+        '    Alpha.Widget widget;',
+        '    widget.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/QualifiedCaller.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
+
+      const context = makeCompletionContext(
+        makeTextDocument(content, uri),
+        3,
+        11,
+        { triggerCharacter: '.' },
+      );
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((candidate) => candidate.symbol.name);
+
+      expect(names).toContain('alphaOnly');
+      expect(names).not.toContain('betaOnly');
+    });
+
+    it('preserves uncertainty for an ambiguous simple type name', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      await compileInlineAndRegister(
+        sm,
+        'public class Widget { public static String alphaOnly; }',
+        'file:///alpha/Widget.cls',
+        { projectNamespace: 'Alpha' },
+      );
+      await compileInlineAndRegister(
+        sm,
+        'public class Widget { public static String betaOnly; }',
+        'file:///beta/Widget.cls',
+        { projectNamespace: 'Beta' },
+      );
+
+      const content = [
+        'public class AmbiguousCaller {',
+        '  public void run() {',
+        '    Widget.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/AmbiguousCaller.cls';
+      await compileInlineAndRegister(sm, content, uri);
+
+      const context = makeCompletionContext(
+        makeTextDocument(content, uri),
+        2,
+        11,
+        { triggerCharacter: '.' },
+      );
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+
+      expect(candidates).toEqual([]);
+    });
+
+    it('uses the structured element type for an indexed receiver', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+
+      await compileInlineAndRegister(
+        sm,
+        'public class Row { public String rowValue; }',
+        'file:///test/Row.cls',
+      );
+      const content = [
+        'public class IndexedCaller {',
+        '  public void run() {',
+        '    List<Row> rows = new List<Row>();',
+        '    rows[0].',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/IndexedCaller.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
+
+      const context = makeCompletionContext(
+        makeTextDocument(content, uri),
+        3,
+        12,
+        { triggerCharacter: '.' },
+      );
+      const candidates = await Effect.runPromise(strat.getCompletions(context));
+      const names = candidates.map((candidate) => candidate.symbol.name);
+
+      expect(names).toContain('rowValue');
+      expect(names).not.toContain('add');
+    });
+
+    it('returns every member on the first dot after layered current-version editing', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+      await compileInlineAndRegister(
+        sm,
+        [
+          'public class Property__c {',
+          '  public Decimal Beds__c;',
+          '  public String Address__c;',
+          '}',
+        ].join('\n'),
+        'file:///test/Property__c.cls',
+      );
+
+      const parserAst = await import('@salesforce/apex-lsp-parser-ast');
+      const compiler = new parserAst.CompilerService();
+      const uri = 'file:///test/LayeredActiveEdit.cls';
+      const initialSource = [
+        'public class LayeredActiveEdit {',
+        '  void run() {',
+        '    Property__c property = new Property__c();',
+        '  }',
+        '}',
+      ].join('\n');
+      const initialResult = compiler.compileLayered(initialSource, uri, [
+        'public-api',
+      ]);
+      expect(initialResult?.result).toBeDefined();
+      await Effect.runPromise(
+        sm.addSymbolTable(initialResult!.result!, uri, 1),
+      );
+
+      const editedSource = [
+        'public class LayeredActiveEdit {',
+        '  void run() {',
+        '    Property__c property = new Property__c();',
+        '    property.',
+        '  }',
+        '}',
+      ].join('\n');
+      const currentPublicResult = compiler.compileLayered(editedSource, uri, [
+        'public-api',
+      ]);
+      expect(currentPublicResult?.result).toBeDefined();
+      await Effect.runPromise(
+        sm.addSymbolTable(
+          currentPublicResult!.result!,
+          uri,
+          2,
+          currentPublicResult!.errors.length > 0,
+        ),
+      );
+
+      const currentTable = await sm.getSymbolTableForFile(uri);
+      const enrichedResult = compiler.compileLayered(
+        editedSource,
+        uri,
+        ['protected', 'private'],
+        currentTable,
+      );
+      expect(enrichedResult?.result).toBeDefined();
+      await Effect.runPromise(
+        sm.addSymbolTable(
+          enrichedResult!.result!,
+          uri,
+          2,
+          enrichedResult!.errors.length > 0,
+        ),
+      );
+
+      const visible = await sm.getVisibleSymbolsAtPosition(uri, {
+        line: 3,
+        character: 13,
+      });
+      expect(visible).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'property', kind: 'variable' }),
+        ]),
+      );
+
+      const candidates = await Effect.runPromise(
+        strat.getCompletions(
+          makeCompletionContext(makeTextDocument(editedSource, uri), 3, 13, {
+            triggerCharacter: '.',
+          }),
+        ),
+      );
+      const names = candidates.map((candidate) => candidate.symbol.name);
+
+      expect(names).toEqual(expect.arrayContaining(['Beds__c', 'Address__c']));
     });
   });
 

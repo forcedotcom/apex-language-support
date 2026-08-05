@@ -1,5 +1,5 @@
 public class VoidMethodReturnsValue {
-    public void testMethod() {
+    public void returnsValue() {
         return 5;
     }
 }

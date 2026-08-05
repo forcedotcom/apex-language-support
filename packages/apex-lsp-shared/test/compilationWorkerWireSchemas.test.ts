@@ -84,7 +84,7 @@ describe('compilationWorkerWireSchemas', () => {
 
   it('rejects unsupported compilation detail levels', () => {
     expect(() =>
-      Schema.decodeSync(CompileApexFile)({
+      Schema.decodeUnknownSync(CompileApexFile)({
         _tag: 'CompileApexFile',
         uri: 'file:///workspace/Example.cls',
         content: 'public class Example {}',

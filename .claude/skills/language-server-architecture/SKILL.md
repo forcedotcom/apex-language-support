@@ -5,6 +5,20 @@ description: Apex Language Server data architecture — type sources, worker top
 
 # Language Server Architecture
 
+## Hard Rule: No Raw-Text Semantic Fallbacks
+
+Language features must never scan raw Apex source with regular expressions or
+other text heuristics to infer symbols, declarations, types, references,
+scopes, members, completion candidates, definitions, or dependency and
+missing-artifact names. Semantic results must come from the Apex lexer/parser,
+grammar-derived tree walkers, symbol tables, resolved references/xref data, or
+a prior stable semantic snapshot.
+
+Raw text may be passed to the parser and used for document transport or
+position/range mechanics only. When semantic state is incomplete or stale,
+wait, retry, or return an incomplete result; do not invent semantic state from
+source text.
+
 ## Three Sources of Apex Types
 
 The language server works with three distinct sources of Apex type artifacts:

@@ -26,7 +26,14 @@ export { TypePromotionSystem } from './TypePromotionSystem';
 export { BinaryExpressionValidator } from './BinaryExpressionValidator';
 export { BooleanExpressionValidator } from './BooleanExpressionValidator';
 export { VariableExpressionValidator } from './VariableExpressionValidator';
-export { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
+export type {
+  VariableEnvironment,
+  VariableReferencePosition,
+} from './VariableExpressionValidator';
+export {
+  ConstructorExpressionValidator,
+  type ConstructorExpressionSemanticContext,
+} from './ConstructorExpressionValidator';
 export { ExpressionValidator } from './ExpressionValidator';
 
 export type {

@@ -422,7 +422,23 @@ import type {
 
 // Request to find and load missing type definitions
 const params: FindMissingArtifactParams = {
-  identifiers: [{ name: 'MyCustomClass' }],
+  identifiers: [
+    {
+      name: 'MyCustomClass',
+      provenance: {
+        sourceUri: 'file:///workspace/MyFile.cls',
+        documentVersion: 7,
+        referenceRange: {
+          startLine: 4,
+          startColumn: 8,
+          endLine: 4,
+          endColumn: 21,
+        },
+        referenceIdentity: 'class-ref:MyCustomClass:4:8:4:21',
+        parseCompleteness: 'complete',
+      },
+    },
+  ],
   origin: {
     uri: 'file:///workspace/MyFile.cls',
     requestKind: 'definition',

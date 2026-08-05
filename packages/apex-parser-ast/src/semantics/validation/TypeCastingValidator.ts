@@ -7,7 +7,17 @@
  */
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
+import type { ApexSymbol, TypeSymbol } from '../../types/symbol';
+import { SymbolKind } from '../../types/symbol';
 import { isNumericType, isPrimitiveType } from '../../utils/primitiveTypes';
+import { isAssignable } from './utils/typeAssignability';
+
+interface SemanticCastingScope {
+  allSymbols?: ApexSymbol[];
+  symbolTable?: {
+    getAllSymbols?: () => ApexSymbol[];
+  };
+}
 
 /**
  * Validates type casting operations
@@ -37,7 +47,7 @@ export class TypeCastingValidator {
     }
 
     // Check if types are compatible for casting
-    if (!this.isCompatibleForCast(sourceType, targetType)) {
+    if (!this.isCompatibleForCast(sourceType, targetType, scope)) {
       errors.push('incompatible.cast.types');
       return { isValid: false, errors, warnings };
     }
@@ -75,14 +85,15 @@ export class TypeCastingValidator {
   private static isCompatibleForCast(
     source: TypeInfo,
     target: TypeInfo,
+    scope: ValidationScope,
   ): boolean {
     // Handle collection types first (even if same collection type, need to check elements)
     if (source.isCollection || target.isCollection) {
-      return this.areCollectionTypesCompatible(source, target);
+      return this.areCollectionTypesCompatible(source, target, scope);
     }
 
     // Same type is always compatible (for non-collections)
-    if (source.name === target.name) {
+    if (source.name.toLowerCase() === target.name.toLowerCase()) {
       return true;
     }
 
@@ -106,8 +117,7 @@ export class TypeCastingValidator {
       return this.arePrimitiveTypesCompatible(source.name, target.name);
     }
 
-    // Handle class hierarchy (simplified - would need actual inheritance info)
-    return this.areClassTypesCompatible(source, target);
+    return this.areClassTypesCompatible(source, target, scope);
   }
 
   /**
@@ -167,9 +177,13 @@ export class TypeCastingValidator {
       return false;
     }
 
-    // SObject to SObject casting (simplified - would need actual SObject hierarchy)
+    // Generic SObject is the semantic base type for concrete SObjects. Casts
+    // between it and a concrete SObject are valid in either direction.
     if (source.isSObject && target.isSObject) {
-      return true; // Simplified - in reality would check SObject compatibility
+      return (
+        source.name.toLowerCase() === 'sobject' ||
+        target.name.toLowerCase() === 'sobject'
+      );
     }
 
     return false;
@@ -181,6 +195,7 @@ export class TypeCastingValidator {
   private static areCollectionTypesCompatible(
     source: TypeInfo,
     target: TypeInfo,
+    scope: ValidationScope,
   ): boolean {
     // Both must be collections
     if (!source.isCollection || !target.isCollection) {
@@ -191,7 +206,11 @@ export class TypeCastingValidator {
     if (source.name === target.name) {
       // Check element type compatibility
       if (source.elementType && target.elementType) {
-        return this.isCompatibleForCast(source.elementType, target.elementType);
+        return this.isCompatibleForCast(
+          source.elementType,
+          target.elementType,
+          scope,
+        );
       }
       return true;
     }
@@ -219,23 +238,74 @@ export class TypeCastingValidator {
     return false;
   }
 
-  /**
-   * Check if class types are compatible for casting (simplified)
-   */
+  /** Check whether resolved class/interface hierarchy permits a cast. */
   private static areClassTypesCompatible(
     source: TypeInfo,
     target: TypeInfo,
+    scope: ValidationScope,
   ): boolean {
-    // This is a simplified implementation
-    // In a real implementation, this would check inheritance hierarchy
+    const semanticScope = scope as ValidationScope & SemanticCastingScope;
+    const allSymbols =
+      semanticScope.allSymbols ??
+      semanticScope.symbolTable?.getAllSymbols?.() ??
+      [];
+    const sourceSymbol = findResolvedType(source.name, allSymbols);
+    const targetSymbol = findResolvedType(target.name, allSymbols);
 
-    // For now, allow parent to child casting (simplified)
-    // This would need to be enhanced with actual class hierarchy information
-    if (source.name === 'ParentClass' && target.name === 'ChildClass') {
+    // Missing symbols mean the semantic snapshot cannot prove that the cast
+    // is invalid. Preserve that uncertainty instead of guessing from names.
+    if (!sourceSymbol || !targetSymbol) {
       return true;
     }
 
-    // Assume unrelated classes are not compatible
+    // A cast is possible when either side is assignable to the other: the
+    // first direction covers widening casts, and the reverse covers checked
+    // downcasts within one resolved hierarchy.
+    return (
+      isAssignable(source.name, target.name, 'assignment', { allSymbols }) ||
+      isAssignable(target.name, source.name, 'assignment', { allSymbols }) ||
+      isResolvedSubtype(source.name, target.name, allSymbols) ||
+      isResolvedSubtype(target.name, source.name, allSymbols)
+    );
+  }
+}
+
+function findResolvedType(
+  typeName: string,
+  allSymbols: ApexSymbol[],
+): TypeSymbol | undefined {
+  const normalizedName = typeName.split('.').pop()?.toLowerCase();
+  return allSymbols.find(
+    (symbol) =>
+      (symbol.kind === SymbolKind.Class ||
+        symbol.kind === SymbolKind.Interface ||
+        symbol.kind === SymbolKind.Enum) &&
+      symbol.name.toLowerCase() === normalizedName,
+  ) as TypeSymbol | undefined;
+}
+
+function isResolvedSubtype(
+  sourceName: string,
+  targetName: string,
+  allSymbols: ApexSymbol[],
+  visited = new Set<string>(),
+): boolean {
+  const source = findResolvedType(sourceName, allSymbols);
+  const normalizedTarget = targetName.split('.').pop()?.toLowerCase();
+  if (!source || !normalizedTarget || visited.has(source.name.toLowerCase())) {
     return false;
   }
+
+  visited.add(source.name.toLowerCase());
+  const parentNames = [source.superClass, ...source.interfaces].filter(
+    (name): name is string => Boolean(name),
+  );
+
+  return parentNames.some((parentName) => {
+    const normalizedParent = parentName.split('.').pop()?.toLowerCase();
+    return (
+      normalizedParent === normalizedTarget ||
+      isResolvedSubtype(parentName, targetName, allSymbols, visited)
+    );
+  });
 }
