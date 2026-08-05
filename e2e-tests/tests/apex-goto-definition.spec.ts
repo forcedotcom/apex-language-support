@@ -103,7 +103,10 @@ test.describe('Apex Go-to-Definition', () => {
     });
 
     await test.step('Trigger go-to-definition', async () => {
-      await apexEditor.goToDefinition();
+      // Retry F12 until navigation lands on the field declaration: in the web
+      // pool a definition issued during full-detail ingest returns null and is
+      // not auto-retried by VS Code (W-23715603).
+      await apexEditor.goToDefinition(7);
     });
 
     await test.step('Verify navigation to field declaration', async () => {
@@ -155,7 +158,7 @@ test.describe('Apex Go-to-Definition', () => {
     // Navigate past the declaration (line 183) so Find lands on a usage site
     await apexEditor.goToPosition(190);
     await apexEditor.positionCursorOnWord('StatusType');
-    await apexEditor.goToDefinition();
+    await apexEditor.goToDefinition(183);
 
     await apexEditor.expectCursorAtLine(183);
 
@@ -315,19 +318,19 @@ test.describe('Apex Go-to-Definition', () => {
   }) => {
     await test.step('First navigation: class definition', async () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition([1, 13]);
       await apexEditor.expectCursorAtLine([1, 13]);
     });
 
     await test.step('Second navigation: inner class definition', async () => {
       await apexEditor.positionCursorOnWord('Configuration');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition(151);
       await apexEditor.expectCursorAtLine(151);
     });
 
     await test.step('Third navigation: inner enum definition', async () => {
       await apexEditor.positionCursorOnWord('StatusType');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition(183);
       await apexEditor.expectCursorAtLine(183);
     });
 
