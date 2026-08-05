@@ -13,6 +13,20 @@
  * This uses `sf api request rest` to authenticate and fetch stub definitions
  * in JSON format from the Tooling API.
  *
+ * DESIGN DECISION: Fetch All, Filter During Generation
+ * -----------------------------------------------------
+ * This script fetches ALL available namespaces from the API by discovering
+ * them dynamically (no namespace filter in API call). The TARGET_NAMESPACES
+ * constant is used during generation, not fetch:
+ * - generate-api-stubs.mjs: Creates .cls files only for TARGET_NAMESPACES
+ * - generate-stdlib-cache.mjs: Includes bundled types (from .cls) +
+ *   non-bundled types (from JSON) in TypeRegistry
+ *
+ * This two-tier approach provides:
+ * - Full symbol data for 53 bundled namespaces (TARGET_NAMESPACES)
+ * - Type awareness for all other namespaces (e.g., ConnectApi)
+ * - Predictable bundle size (only TARGET_NAMESPACES generate .cls files)
+ *
  * Usage:
  *   npm run fetch:api-stubs
  *   node scripts/fetch-api-stubs.mjs [--org <alias>] [--api-version <version>]
@@ -20,7 +34,7 @@
  * Options:
  *   --org <alias>         Salesforce org alias (default: $APEX_STUBS_ORG or 'gus')
  *   --api-version <ver>   API version to use (default: v67.0)
- *   --namespace <ns>      Fetch only specific namespace (default: all)
+ *   --namespace <ns>      Fetch only specific namespace (skips discovery)
  *   --category <cat>      Category filter: BUILTIN, DATABASE, DYNAMIC (default: BUILTIN)
  *
  * Environment:
@@ -42,8 +56,66 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
 // Configuration
-const OUTPUT_DIR = join(projectRoot, 'src', 'resources', 'ApiStubs');
+const OUTPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
+
+// Fixed list of namespaces to fetch from API
+// Based on existing StandardApexLibrary namespaces, excluding ConnectApi
+const TARGET_NAMESPACES = [
+  'ApexPages',
+  'AppLauncher',
+  'Approval',
+  'Auth',
+  'Cache',
+  'Canvas',
+  'ChatterAnswers',
+  'CommerceBuyGrp',
+  'CommerceExtension',
+  'CommercePayments',
+  'CommerceTax',
+  'Compression',
+  'DataSource',
+  'DataWeave',
+  'Database',
+  'Datacloud',
+  'Dom',
+  'EventBus',
+  'Flow',
+  'FormulaEval',
+  'Functions',
+  'Invocable',
+  'IsvPartners',
+  'KbManagement',
+  'LxScheduler',
+  'Messaging',
+  'Metadata',
+  'Pref_center',
+  'Process',
+  'QuickAction',
+  'Reports',
+  'RichMessaging',
+  'Schema',
+  'Search',
+  'Sfc',
+  'Sfdc_Checkout',
+  'Sfdc_Enablement',
+  'Sfdc_Surveys',
+  'Site',
+  'Slack',
+  'Support',
+  'System',
+  'TerritoryMgmt',
+  'TxnSecurity',
+  'UserProvisioning',
+  'VisualEditor',
+  'Wave',
+  'embeddedai',
+  'flowuiruntime',
+  'fsccashflow',
+  'industriesNlpSvc',
+  'ise_bots_apex',
+  'setup_flow_performance',
+];
 
 /**
  * Parse command line arguments
@@ -52,7 +124,7 @@ function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
     org: process.env.APEX_STUBS_ORG || 'gus',
-     apiVersion: 'latest',
+    apiVersion: 'v67.0',
     namespace: null,
     category: 'BUILTIN', // Valid values: BUILTIN, DATABASE, DYNAMIC
   };
@@ -73,11 +145,12 @@ function parseArgs() {
 }
 
 /**
- * Execute sf api request rest command
+ * Execute sf api request rest command with streaming
  */
 function sfApiRequest(url, orgAlias) {
   return new Promise((resolve, reject) => {
     console.log(`  Fetching: ${url}`);
+
     const child = spawn('sf', ['api', 'request', 'rest', url, '-o', orgAlias], {
       stdio: ['ignore', 'pipe', 'pipe'], // collect stderr for error diagnostics
     });
@@ -136,29 +209,50 @@ async function fetchSymbols(config, category, namespace = null) {
 }
 
 /**
- * Discover all unique namespaces by fetching all classes
+ * Extract namespace from a type stub
  */
-async function discoverNamespaces(config) {
-  console.log('\n1. Discovering namespaces...');
-  const allStubs = await fetchSymbols(config, 'CLASS');
+function extractNamespace(stub) {
+  if (stub.namespace) {
+    return stub.namespace;
+  } else if (stub.namespacePrefix) {
+    return stub.namespacePrefix;
+  } else if (stub.name && stub.name.includes('.')) {
+    return stub.name.split('.')[0];
+  }
+  return 'System'; // default
+}
 
-  const namespaces = new Set();
-  for (const stub of allStubs) {
-    // Extract namespace from the stub
-    // Could be in stub.namespace or inferred from stub.name
-    let ns = 'System'; // default
-    if (stub.namespace) {
-      ns = stub.namespace;
-    } else if (stub.name && stub.name.includes('.')) {
-      // Handle names like "ConnectApi.Something"
-      ns = stub.name.split('.')[0];
-    }
-    namespaces.add(ns);
+/**
+ * Fetch all stubs and group by namespace
+ */
+async function fetchAndGroupByNamespace(config) {
+  console.log('\n1. Fetching all stubs from API...');
+
+  // If specific namespace requested, fetch only that one
+  if (config.namespace) {
+    console.log(`   Fetching specific namespace: ${config.namespace}`);
+    const stubs = await fetchSymbols(config, config.category, config.namespace);
+    return { [config.namespace]: stubs };
   }
 
-  const nsList = Array.from(namespaces).sort();
-  console.log(`   Found ${nsList.length} namespaces: ${nsList.slice(0, 10).join(', ')}${nsList.length > 10 ? '...' : ''}`);
-  return nsList;
+  // Otherwise fetch all namespaces in one call
+  const allStubs = await fetchSymbols(config, config.category);
+  console.log(`   ✓ Fetched ${allStubs.length} total types`);
+
+  // Group by namespace
+  const grouped = {};
+  for (const stub of allStubs) {
+    const ns = extractNamespace(stub);
+    if (!grouped[ns]) {
+      grouped[ns] = [];
+    }
+    grouped[ns].push(stub);
+  }
+
+  const namespaceList = Object.keys(grouped).sort();
+  console.log(`   Found ${namespaceList.length} namespaces: ${namespaceList.slice(0, 10).join(', ')}${namespaceList.length > 10 ? '...' : ''}`);
+
+  return grouped;
 }
 
 /**
@@ -177,12 +271,10 @@ async function fetchAllStubs(config) {
     mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  // Discover namespaces if not specified
-  const namespaces = config.namespace
-    ? [config.namespace]
-    : await discoverNamespaces(config);
+  // Fetch all stubs in one API call and group by namespace
+  const groupedStubs = await fetchAndGroupByNamespace(config);
 
-  console.log(`\n2. Fetching stubs for ${namespaces.length} namespace(s)...`);
+  console.log('\n2. Writing namespace files...');
 
   const metadata = {
     fetchedAt: new Date().toISOString(),
@@ -195,17 +287,14 @@ async function fetchAllStubs(config) {
 
   let totalTypes = 0;
 
-  for (const namespace of namespaces) {
+  for (const [namespace, stubs] of Object.entries(groupedStubs)) {
     try {
-      console.log(`\n   Namespace: ${namespace}`);
-      const stubs = await fetchSymbols(config, config.category, namespace);
-
       if (stubs.length === 0) {
         console.log(`   ⚠️  No types found in namespace ${namespace}`);
         continue;
       }
 
-      console.log(`   ✓ Fetched ${stubs.length} types`);
+      console.log(`   ${namespace}: ${stubs.length} types`);
 
       // Save to file
       const filename = `${namespace}.json`;
@@ -224,7 +313,7 @@ async function fetchAllStubs(config) {
 
       totalTypes += stubs.length;
     } catch (error) {
-      console.error(`   ❌ Failed to fetch namespace ${namespace}: ${error.message}`);
+      console.error(`   ❌ Failed to write namespace ${namespace}: ${error.message}`);
       metadata.namespaces[namespace] = {
         error: error.message,
       };
