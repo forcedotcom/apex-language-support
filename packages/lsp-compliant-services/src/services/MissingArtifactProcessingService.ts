@@ -14,6 +14,7 @@ import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
+import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
 
 /**
  * Service for processing missing artifact requests in the queue system
@@ -32,6 +33,14 @@ export class MissingArtifactProcessingService {
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
     const names = params.identifiers.map((s) => s.name).join(', ');
+    const safeParams = sanitizeMissingArtifactParams(params);
+    if (!safeParams) {
+      this.logger.debug(
+        () =>
+          'Rejecting queued missing-artifact request without complete semantic provenance',
+      );
+      return { notFound: true };
+    }
     this.logger.debug(
       () =>
         `MissingArtifactProcessingService processing queued request for: ${names}`,
@@ -48,7 +57,7 @@ export class MissingArtifactProcessingService {
 
       const result = await connection.sendRequest<FindMissingArtifactResult>(
         'apex/findMissingArtifact',
-        params,
+        safeParams,
       );
 
       this.logger.debug(

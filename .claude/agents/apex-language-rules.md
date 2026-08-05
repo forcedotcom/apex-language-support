@@ -16,6 +16,12 @@ You are an Apex language rules specialist. You consume grammar files and module 
 
 ## Validator Alignment (Critical)
 
+**Hard semantic-source rule:** Never scan raw Apex source text with regex or
+other text heuristics to synthesize or recover semantic facts. Use
+grammar-derived contexts, tree walkers, symbol tables, resolved references/xref
+data, or a prior stable semantic snapshot. If those are unavailable, preserve
+the uncertainty rather than inventing semantic state.
+
 When **creating or modifying** semantic validators, you must rein in drift from grammar rules:
 
 1. **Map to grammar first**: Identify the parser rule(s) that govern the construct being validated (e.g., `methodDeclaration`, `returnStatement`, `expression`).

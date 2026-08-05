@@ -34,7 +34,108 @@ import {
   ExpressionListContext,
   MethodCallContext,
   CreatedNameContext,
+  ExpressionContext,
+  PrimaryExpressionContext,
+  LiteralPrimaryContext,
+  IdPrimaryContext,
+  PreOpExpressionContext,
+  ModifierContext,
+  AssignExpressionContext,
+  ArrayExpressionContext,
 } from '@apexdevtools/apex-parser';
+import type {
+  CallArgumentSemantic,
+  IndexedAccessSemanticContext,
+  InvocationSemanticContext,
+  SemanticTypeShape,
+} from '../types/symbolReference';
+import type { Range } from '../types/symbol';
+import type { TypeInfo } from '../types/typeInfo';
+import { createTypeInfoFromTypeRef } from '../parser/utils/createTypeInfoFromTypeRef';
+
+/** Return the grammar-selected modifier without interpreting composite text. */
+export function modifierKeywordFromContext(
+  ctx: ModifierContext,
+): string | null {
+  if (ctx.GLOBAL()) return 'global';
+  if (ctx.PUBLIC()) return 'public';
+  if (ctx.PROTECTED()) return 'protected';
+  if (ctx.PRIVATE()) return 'private';
+  if (ctx.TRANSIENT()) return 'transient';
+  if (ctx.STATIC()) return 'static';
+  if (ctx.ABSTRACT()) return 'abstract';
+  if (ctx.FINAL()) return 'final';
+  if (ctx.WEBSERVICE()) return 'webservice';
+  if (ctx.OVERRIDE()) return 'override';
+  if (ctx.VIRTUAL()) return 'virtual';
+  if (ctx.TESTMETHOD()) return 'testmethod';
+  if (ctx.WITH() && ctx.SHARING()) return 'with sharing';
+  if (ctx.WITHOUT() && ctx.SHARING()) return 'without sharing';
+  if (ctx.INHERITED() && ctx.SHARING()) return 'inherited sharing';
+  return null;
+}
+
+/** Test lexer token identity within a parser subtree, including error nodes. */
+export function parserContextContainsToken(
+  ctx: ParserRuleContext,
+  tokenType: number,
+): boolean {
+  for (const child of ctx.children ?? []) {
+    const symbol = (child as { symbol?: { type?: number } }).symbol;
+    if (symbol?.type === tokenType) return true;
+    if (
+      child instanceof ParserRuleContext &&
+      parserContextContainsToken(child, tokenType)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const parserRuleRange = (ctx: ParserRuleContext): Range => {
+  const start = ctx.start;
+  const stop = ctx.stop ?? start;
+  return {
+    startLine: start?.line ?? 1,
+    startColumn: start?.column ?? 0,
+    endLine: stop?.line ?? start?.line ?? 1,
+    endColumn: (stop?.column ?? start?.column ?? 0) + (stop?.text?.length ?? 0),
+  };
+};
+
+const terminalRange = (terminal: {
+  symbol?: { line?: number; column?: number; text?: string };
+}): Range => {
+  const token = terminal.symbol;
+  return {
+    startLine: token?.line ?? 1,
+    startColumn: token?.column ?? 0,
+    endLine: token?.line ?? 1,
+    endColumn: (token?.column ?? 0) + (token?.text?.length ?? 0),
+  };
+};
+
+/**
+ * Describe an indexed expression from its grammar nodes. Consumers can use this
+ * fact to resolve `items[index].member` against the collection element type.
+ */
+export function indexedAccessSemantic(
+  ctx: ParserRuleContext | undefined,
+): IndexedAccessSemanticContext | undefined {
+  if (!(ctx instanceof ArrayExpressionContext)) return undefined;
+
+  const receiver = ctx.expression(0);
+  const index = ctx.expression(1);
+  if (!receiver || !index) return undefined;
+
+  return {
+    kind: 'indexed-access',
+    receiverRange: parserRuleRange(receiver),
+    indexRange: parserRuleRange(index),
+    accessRange: parserRuleRange(ctx),
+  };
+}
 
 /**
  * Generic type guard function for ParserRuleContext subclasses
@@ -256,6 +357,140 @@ export function countCallArguments(
   return ctx.expressionList()?.expression_list()?.length ?? 0;
 }
 
+const literalArgumentSemantic = (
+  literal: LiteralPrimaryContext,
+): CallArgumentSemantic => {
+  const value = literal.literal();
+  if (value.IntegerLiteral())
+    return { kind: 'literal', literalType: 'Integer' };
+  if (value.LongLiteral()) return { kind: 'literal', literalType: 'Long' };
+  if (value.NumberLiteral()) return { kind: 'literal', literalType: 'Decimal' };
+  if (value.StringLiteral() || value.MultilineStringLiteral()) {
+    return { kind: 'literal', literalType: 'String' };
+  }
+  if (value.BooleanLiteral())
+    return { kind: 'literal', literalType: 'Boolean' };
+  if (value.NULL()) return { kind: 'literal', literalType: 'Null' };
+  return { kind: 'unresolved' };
+};
+
+/** Classify an argument from parser contexts without interpreting source text. */
+export function callArgumentSemantic(
+  expression: ExpressionContext,
+): CallArgumentSemantic {
+  if (expression instanceof PrimaryExpressionContext) {
+    const primary = expression.primary();
+    if (primary instanceof LiteralPrimaryContext) {
+      return literalArgumentSemantic(primary);
+    }
+    if (primary instanceof IdPrimaryContext) {
+      return { kind: 'identifier', name: primary.id().getText() };
+    }
+  }
+
+  // A unary +/- does not change the primitive numeric literal type.
+  if (expression instanceof PreOpExpressionContext) {
+    const operand = callArgumentSemantic(expression.expression());
+    if (
+      operand.kind === 'literal' &&
+      (operand.literalType === 'Integer' ||
+        operand.literalType === 'Long' ||
+        operand.literalType === 'Decimal')
+    ) {
+      return operand;
+    }
+  }
+
+  return { kind: 'unresolved' };
+}
+
+/** Parser-owned positional argument facts for a method call. */
+export function callArgumentSemantics(
+  ctx: MethodCallContext | DotMethodCallContext,
+): CallArgumentSemantic[] {
+  return (ctx.expressionList()?.expression_list() ?? []).map(
+    callArgumentSemantic,
+  );
+}
+
+const invocationResultTarget = (
+  ctx: MethodCallContext | DotMethodCallContext,
+): InvocationSemanticContext['resultTarget'] => {
+  let expression: ExpressionContext | undefined;
+  let current: ParserRuleContext | undefined = ctx.parentCtx;
+  while (current) {
+    if (current instanceof ExpressionContext) {
+      expression = current;
+      break;
+    }
+    current = current.parentCtx;
+  }
+  if (!expression) return undefined;
+  let resultExpression: ExpressionContext = expression;
+
+  while (resultExpression.parentCtx instanceof ExpressionContext) {
+    const parent: ExpressionContext = resultExpression.parentCtx;
+    if (parent instanceof AssignExpressionContext) {
+      const [target, value] = parent.expression_list();
+      if (value !== resultExpression || !target) return undefined;
+      const targetPrimary =
+        target instanceof PrimaryExpressionContext
+          ? target.primary()
+          : undefined;
+      const targetIdentifier =
+        targetPrimary instanceof IdPrimaryContext
+          ? targetPrimary.id().getText()
+          : undefined;
+      return {
+        kind: 'assignment',
+        targetRange: parserRuleRange(target),
+        targetIdentifier,
+      };
+    }
+    resultExpression = parent;
+  }
+
+  const declarator = resultExpression.parentCtx;
+  if (!(declarator instanceof VariableDeclaratorContext)) return undefined;
+  const declaration = declarator.parentCtx?.parentCtx;
+  if (!(declaration instanceof LocalVariableDeclarationContext)) {
+    return undefined;
+  }
+  const target = declarator.id();
+  const typeRef = declaration.typeRef();
+  if (!target || !typeRef) return undefined;
+  const expectedTypeInfo = createTypeInfoFromTypeRef(typeRef);
+  return {
+    kind: 'declared-variable',
+    targetRange: parserRuleRange(target),
+    targetIdentifier: target.getText(),
+    expectedType: expectedTypeInfo.originalTypeString,
+    expectedTypeShape: semanticTypeShape(expectedTypeInfo),
+  };
+};
+
+const semanticTypeShape = (type: TypeInfo): SemanticTypeShape => ({
+  name: type.name,
+  isArray: type.isArray,
+  isCollection: type.isCollection,
+  typeParameters: type.typeParameters?.map(semanticTypeShape),
+  keyType: type.keyType ? semanticTypeShape(type.keyType) : undefined,
+});
+
+/** Parser-owned call and separator ranges used by cursor language features. */
+export function callInvocationSemantic(
+  ctx: MethodCallContext | DotMethodCallContext,
+): InvocationSemanticContext {
+  const list = ctx.expressionList();
+  return {
+    kind: 'invocation',
+    callRange: parserRuleRange(ctx),
+    argumentRanges: (list?.expression_list() ?? []).map(parserRuleRange),
+    separatorRanges: (list?.COMMA_list() ?? []).map(terminalRange),
+    resultTarget: invocationResultTarget(ctx),
+  };
+}
+
 /**
  * Count the call-site arguments of a constructor call (`new Foo(a, b)`).
  *
@@ -276,41 +511,29 @@ export function countConstructorArguments(ctx: NewExpressionContext): number {
   return rest?.arguments()?.expressionList()?.expression_list()?.length ?? 0;
 }
 
-/**
- * Raw source text of each positional argument in an `expressionList`, in order.
- *
- * This is a purely *syntactic* capture — `expr.getText()` of each argument
- * expression, e.g. `['"hi"', 'x', 'new Account()']` for `f("hi", x, new
- * Account())`. It deliberately does NOT resolve types: an identifier argument
- * stays as its source name (`x`), to be resolved to a declared type later
- * during semantic resolution. Capturing it here is necessary because the
- * argument-expression AST does not survive the parser listener walk — only the
- * reference object persists — so the raw text must be lifted onto the reference
- * now for the semantic phase to work with.
- */
-const argumentExpressionTexts = (
-  list: ExpressionListContext | null,
-): string[] => (list?.expression_list() ?? []).map((expr) => expr.getText());
-
-/**
- * Positional source texts of a method call's arguments (see
- * {@link argumentExpressionTexts}). Mirrors {@link countCallArguments}; returns
- * `[]` for a bare call `f()`.
- */
-export function callArgumentExpressions(
-  ctx: MethodCallContext | DotMethodCallContext,
-): string[] {
-  return argumentExpressionTexts(ctx.expressionList());
+/** Parser-owned positional argument facts for a constructor call. */
+export function constructorArgumentSemantics(
+  ctx: NewExpressionContext,
+): CallArgumentSemantic[] {
+  const rest = ctx.creator()?.classCreatorRest?.();
+  return (rest?.arguments()?.expressionList()?.expression_list() ?? []).map(
+    callArgumentSemantic,
+  );
 }
 
-/**
- * Positional source texts of a constructor call's arguments (see
- * {@link argumentExpressionTexts}). Mirrors {@link countConstructorArguments};
- * returns `[]` for `new Foo()` or a non-class creator.
- */
-export function constructorArgumentExpressions(
+/** Parser-owned constructor invocation and argument ranges. */
+export function constructorInvocationSemantic(
   ctx: NewExpressionContext,
-): string[] {
-  const rest = ctx.creator()?.classCreatorRest?.();
-  return argumentExpressionTexts(rest?.arguments()?.expressionList() ?? null);
+): InvocationSemanticContext {
+  const list = ctx
+    .creator()
+    ?.classCreatorRest?.()
+    ?.arguments()
+    ?.expressionList();
+  return {
+    kind: 'invocation',
+    callRange: parserRuleRange(ctx),
+    argumentRanges: (list?.expression_list() ?? []).map(parserRuleRange),
+    separatorRanges: (list?.COMMA_list() ?? []).map(terminalRange),
+  };
 }

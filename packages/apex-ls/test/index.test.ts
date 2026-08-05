@@ -1013,6 +1013,37 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       );
     });
 
+    it('returns an incomplete completion list when queue dispatch fails', async () => {
+      const { LSPQueueManager } = jest.requireMock(
+        '@salesforce/apex-lsp-compliant-services',
+      ) as {
+        LSPQueueManager: {
+          getInstance: () => {
+            submitCompletionRequest: (params: unknown) => Promise<unknown>;
+          };
+        };
+      };
+      const getInstance = jest
+        .spyOn(LSPQueueManager, 'getInstance')
+        .mockReturnValue({
+          submitCompletionRequest: jest
+            .fn()
+            .mockRejectedValue(new Error('completion timeout')),
+        });
+      const handler = mockConnection.onCompletion.mock.calls.at(-1)?.[0] as (
+        params: unknown,
+      ) => Promise<unknown>;
+
+      await expect(
+        handler({
+          textDocument: { uri: 'file:///Completion.cls' },
+          position: { line: 0, character: 10 },
+        }),
+      ).resolves.toEqual({ items: [], isIncomplete: true });
+
+      getInstance.mockRestore();
+    });
+
     it('should register definition handler on the connection', () => {
       expect(mockConnection.onDefinition).toHaveBeenCalledWith(
         expect.any(Function),

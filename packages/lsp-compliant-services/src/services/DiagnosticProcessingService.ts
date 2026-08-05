@@ -47,10 +47,6 @@ import { transformParserToLspPosition } from '../utils/positionUtils';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
 
-import {
-  createMissingArtifactResolutionService,
-  type MissingArtifactResolutionService,
-} from './MissingArtifactResolutionService';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { isWorkspaceLoading } from './WorkspaceLoadCoordinator';
@@ -100,7 +96,6 @@ export interface IDiagnosticProcessor {
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
-  private readonly artifactResolutionService: MissingArtifactResolutionService;
   private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
     null;
   private static validatorsInitialized = false;
@@ -113,8 +108,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
-    this.artifactResolutionService =
-      createMissingArtifactResolutionService(logger);
     this.prerequisiteOrchestrationService =
       new PrerequisiteOrchestrationService(
         logger,
@@ -445,7 +438,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             progressToken: params.workDoneToken,
             symbolManager: this.symbolManager,
             loadArtifactCallback: allowArtifactLoading
-              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              ? this.createRejectNameOnlyArtifactCallback()
               : undefined,
             sourceContent: document.getText(), // Provide source content for SourceSizeValidator
             parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
@@ -658,7 +651,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             progressToken: params.workDoneToken,
             symbolManager: this.symbolManager,
             loadArtifactCallback: fullPathAllowArtifactLoading
-              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              ? this.createRejectNameOnlyArtifactCallback()
               : undefined,
             parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
             sourceContent: document.getText(), // For VariableResolutionValidator, MethodResolutionValidator
@@ -1042,59 +1035,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
-   * Create a callback for loading missing artifacts during validation
-   *
-   * This callback is passed to validators via ValidationOptions and allows
-   * them to enqueue artifact loading using the existing MissingArtifactResolutionService.
-   * The callback is intentionally non-blocking and always returns an empty array.
-   *
-   * @param contextFile - The file URI that triggered validation (for context)
-   * @returns Callback function that queues background loads and returns []
+   * Reject validator requests that contain only inferred type names. Artifact
+   * loading requires an exact parser reference and semantic provenance, which
+   * the validator callback contract cannot currently carry.
    */
-  private createLoadArtifactCallback(
-    contextFile: string,
-  ): (typeNames: string[]) => Promise<string[]> {
+  private createRejectNameOnlyArtifactCallback(): (
+    typeNames: string[],
+  ) => Promise<string[]> {
     return async (typeNames: string[]): Promise<string[]> => {
-      // Exclude stdlib types: findMissingArtifact is for org/user artifacts only.
-      // Stdlib (String, List, System, etc.) is loaded by the symbol manager.
-      const stdLibChecks = await Promise.all(
-        typeNames.map(async (name) => ({
-          name,
-          isStd: await this.symbolManager.isStandardLibraryType(name),
-        })),
-      );
-      const typesToLoad = stdLibChecks
-        .filter(({ isStd }) => !isStd)
-        .map(({ name }) => name);
-
       this.logger.debug(
         () =>
-          `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
-      );
-
-      try {
-        await this.artifactResolutionService.resolveInBackground({
-          identifiers: typesToLoad.map((name) => ({ name })),
-          origin: {
-            uri: contextFile,
-            requestKind: 'references',
-          },
-          mode: 'background',
-          timeoutMsHint: 2000,
-        });
-        this.logger.debug(
-          () =>
-            `Queued background artifact resolution for ${typesToLoad.length} types: ${typesToLoad.join(', ')}`,
-        );
-      } catch (error) {
-        this.logger.debug(
-          () =>
-            `Error loading artifacts for types [${typesToLoad.join(', ')}]: ${error}`,
-        );
-      }
-
-      this.logger.debug(
-        () => 'Artifact loading callback completed in background mode',
+          `Skipping validator name-only artifact request for ${typeNames.length} types: ${typeNames.join(', ')}`,
       );
       return [];
     };

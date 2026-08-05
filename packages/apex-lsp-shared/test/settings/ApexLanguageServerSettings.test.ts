@@ -442,7 +442,7 @@ describe('ApexLanguageServerSettings Validation', () => {
               workers: {
                 enabled: true,
                 poolSize: 2,
-                resourceLoader: true,
+                resourceLoader: { enabled: true },
               },
             },
           },
@@ -577,7 +577,7 @@ describe('ApexLanguageServerSettings Validation', () => {
             workers: {
               enabled: true,
               poolSize: 2,
-              resourceLoader: true,
+              resourceLoader: { enabled: true },
             },
           },
         },

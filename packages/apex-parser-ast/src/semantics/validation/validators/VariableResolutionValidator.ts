@@ -40,13 +40,10 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
-import {
-  extractElementTypeFromCollection,
-  extractReceiverExpressionBeforeDot,
-} from '../utils/typeUtils';
 import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
 import { AnnotationUtils } from '../../../utils/AnnotationUtils';
 import { getImplicitQualifiedCandidates } from '../../../namespace/NamespaceResolutionPolicy';
+import { indexedAccessResultType } from '../../../utils/indexedAccess';
 
 /**
  * Validates variable and field references for:
@@ -176,55 +173,6 @@ export const VariableResolutionValidator: Validator = {
           return false;
         }
 
-        // Skip if it's inside a string literal (heuristic check)
-        // This handles cases where the parser incorrectly creates VARIABLE_USAGE for string literals
-        if (options.sourceContent && ref.location) {
-          const refLine =
-            ref.location?.symbolRange?.startLine ??
-            ref.location?.identifierRange?.startLine;
-          const refCol =
-            ref.location?.symbolRange?.startColumn ??
-            ref.location?.identifierRange?.startColumn;
-          if (refLine && refCol) {
-            const lines = options.sourceContent.split('\n');
-            const line = lines[refLine - 1];
-            if (line && refCol > 0 && refCol <= line.length + 1) {
-              // Check if the character at the reference start position is a quote
-              // refCol is 1-based, so refCol - 1 is 0-based index
-              const startIdx = refCol - 1;
-              if (startIdx >= 0 && startIdx < line.length) {
-                const startChar = line[startIdx];
-                if (startChar === '"') {
-                  return false; // Skip - reference starts with quote, it's a string literal (parser bug)
-                }
-              }
-
-              // Also check if we're inside quotes by counting quotes before the reference start
-              const beforeRef = line.substring(
-                0,
-                Math.min(refCol - 1, line.length),
-              );
-              // Count unescaped quotes before the reference
-              let quoteCount = 0;
-              let escaped = false;
-              for (let i = 0; i < beforeRef.length; i++) {
-                if (beforeRef[i] === '\\' && !escaped) {
-                  escaped = true;
-                  continue;
-                }
-                if (beforeRef[i] === '"' && !escaped) {
-                  quoteCount++;
-                }
-                escaped = false;
-              }
-              // If odd number of quotes before, we're inside a string literal
-              if (quoteCount % 2 === 1) {
-                return false; // Skip - it's inside a string literal (parser bug)
-              }
-            }
-          }
-        }
-
         const refLine =
           ref.location?.symbolRange?.startLine ??
           ref.location?.identifierRange?.startLine;
@@ -241,12 +189,19 @@ export const VariableResolutionValidator: Validator = {
       });
 
       // Combine regular field accesses with extracted ones from chains
-      const fieldAccesses = [
-        ...allReferences.filter(
-          (ref) => ref.context === ReferenceContext.FIELD_ACCESS,
-        ),
+      const fieldAccesses = uniqueReferencesByLocation([
+        ...allReferences
+          .filter((ref) => ref.context === ReferenceContext.FIELD_ACCESS)
+          .filter(
+            (ref) =>
+              !extractedWriteFieldAccesses.some(
+                (writeRef) =>
+                  writeRef.name.toLowerCase() === ref.name.toLowerCase() &&
+                  referencesStartAtSameLocation(writeRef, ref),
+              ),
+          ),
         ...extractedFieldAccesses,
-      ];
+      ]);
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -268,52 +223,6 @@ export const VariableResolutionValidator: Validator = {
         );
 
         if (!variable) {
-          // Variable not found - check if it might be a string literal (parser bug workaround)
-          if (options.sourceContent && refLocation) {
-            const refLine =
-              refLocation?.symbolRange?.startLine ??
-              refLocation?.identifierRange?.startLine;
-            const refCol =
-              refLocation?.symbolRange?.startColumn ??
-              refLocation?.identifierRange?.startColumn;
-            if (refLine && refCol) {
-              const lines = options.sourceContent.split('\n');
-              const line = lines[refLine - 1];
-              if (line && refCol > 0) {
-                // Check if the reference starts with a quote (parser created VARIABLE_USAGE for string literal)
-                // refCol is 1-based, so refCol - 1 is 0-based index of the start character
-                const startChar =
-                  refCol - 1 < line.length ? line[refCol - 1] : null;
-                if (startChar === '"') {
-                  continue; // Skip - reference starts with quote, it's a string literal (parser bug)
-                }
-
-                // Also check if we're inside quotes by counting quotes before the reference start
-                const beforeRef = line.substring(
-                  0,
-                  Math.min(refCol - 1, line.length),
-                );
-                // Count unescaped quotes before the reference
-                let quoteCount = 0;
-                let escaped = false;
-                for (let i = 0; i < beforeRef.length; i++) {
-                  if (beforeRef[i] === '\\' && !escaped) {
-                    escaped = true;
-                    continue;
-                  }
-                  if (beforeRef[i] === '"' && !escaped) {
-                    quoteCount++;
-                  }
-                  escaped = false;
-                }
-                // If odd number of quotes before, we're inside a string literal
-                if (quoteCount % 2 === 1) {
-                  continue; // Skip - it's inside a string literal (parser bug)
-                }
-              }
-            }
-          }
-
           // Defensive: skip if another ref at same location has type/method/field context
           // (VARIABLE_USAGE may be misclassified for constructor types, method names, etc.)
           const refLine =
@@ -404,13 +313,12 @@ export const VariableResolutionValidator: Validator = {
 
       // Validate field accesses
       for (const fieldRef of fieldAccesses) {
-        // Extract just the field name (handle cases where name might be "obj.field" instead of "field")
-        let fieldName = fieldRef.name;
-        // If field name contains a dot, extract the part after the last dot
-        if (fieldName.includes('.')) {
-          const parts = fieldName.split('.');
-          fieldName = parts[parts.length - 1];
-        }
+        const matchingChain = findFieldAccessChain(fieldRef, chainedTypeRefs);
+        const finalChainNode = matchingChain?.chainNodes?.at(-1);
+        const fieldName = finalChainNode?.name ?? fieldRef.name;
+        // A qualified name without a structured chain cannot be interpreted
+        // reliably. Preserve that uncertainty rather than parsing the name.
+        if (!matchingChain && fieldName.includes('.')) continue;
         const refLocation = fieldRef.location;
 
         // Skip if this is a method call (e.g. System.debug) - METHOD_CALL ref or chain node at same location
@@ -430,14 +338,7 @@ export const VariableResolutionValidator: Validator = {
                   : r.name;
               if (lastName?.toLowerCase() !== fieldName.toLowerCase())
                 return false;
-              const rLine =
-                r.location?.symbolRange?.startLine ??
-                r.location?.identifierRange?.startLine;
-              const rCol =
-                r.location?.symbolRange?.startColumn ??
-                r.location?.identifierRange?.startColumn ??
-                0;
-              return rLine === fieldLine && Math.abs(rCol - fieldCol) < 25;
+              return referencesStartAtSameLocation(r, fieldRef);
             }) ||
             chainedTypeRefs.some((c) => {
               const last = c.chainNodes?.[(c.chainNodes?.length ?? 0) - 1];
@@ -446,14 +347,7 @@ export const VariableResolutionValidator: Validator = {
                 last?.name?.toLowerCase() !== fieldName.toLowerCase()
               )
                 return false;
-              const rLine =
-                last.location?.symbolRange?.startLine ??
-                last.location?.identifierRange?.startLine;
-              const rCol =
-                last.location?.symbolRange?.startColumn ??
-                last.location?.identifierRange?.startColumn ??
-                0;
-              return rLine === fieldLine && Math.abs(rCol - fieldCol) < 25;
+              return referencesStartAtSameLocation(last, fieldRef);
             });
           if (isMethodCall) continue;
         }
@@ -466,78 +360,28 @@ export const VariableResolutionValidator: Validator = {
         let targetType: TypeSymbol | null = null;
 
         // Try to resolve target type from chain context first (for f.getB().x, resolve through method return types)
-        let chainBaseVar: VariableSymbol | null = null;
-        for (const chainedRef of chainedTypeRefs) {
-          if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
-            const finalNode =
-              chainedRef.chainNodes[chainedRef.chainNodes.length - 1];
-            if (
-              finalNode.name === fieldName &&
-              finalNode.context === ReferenceContext.FIELD_ACCESS
-            ) {
-              const baseNode = chainedRef.chainNodes[0];
-              chainBaseVar = baseNode?.name
-                ? findVariableInScope(
-                    baseNode.name,
-                    fieldRef.parentContext,
-                    allSymbols,
-                    symbolTable,
-                  )
-                : null;
-              const resolvedType = yield* resolveChainTargetType(
-                chainedRef,
-                symbolManager,
-                allSymbols,
-                symbolTable,
-              );
-              if (resolvedType) {
-                const typeForElement =
-                  chainBaseVar?.type?.originalTypeString ||
-                  chainBaseVar?.type?.name;
-                targetType = yield* resolveTargetTypeWithArrayAccess(
-                  resolvedType,
-                  typeForElement,
-                  fieldRef,
-                  options.sourceContent,
-                  symbolManager,
-                );
-                break;
-              }
-            }
-          }
+        if (matchingChain) {
+          targetType = yield* resolveChainTargetType(
+            matchingChain,
+            symbolManager,
+            allSymbols,
+            symbolTable,
+          );
         }
 
         // Fallback: extract object name and resolve from first node only
         let suppressDueToUnresolvedDeclaredType = false;
         let objectName: string | null = null;
         if (!targetType) {
-          for (const chainedRef of chainedTypeRefs) {
-            if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
-              const finalNode =
-                chainedRef.chainNodes[chainedRef.chainNodes.length - 1];
-              if (
-                finalNode.name === fieldName &&
-                finalNode.context === ReferenceContext.FIELD_ACCESS
-              ) {
-                const baseNode = chainedRef.chainNodes[0];
-                if (
-                  baseNode.name?.toLowerCase() === 'this' ||
-                  baseNode.context === ReferenceContext.VARIABLE_USAGE ||
-                  baseNode.context === ReferenceContext.CLASS_REFERENCE ||
-                  baseNode.context === ReferenceContext.CHAIN_STEP
-                ) {
-                  objectName = baseNode.name ?? null;
-                  break;
-                }
-              }
-            }
-          }
-
-          if (!objectName && options.sourceContent) {
-            objectName = extractObjectNameFromFieldAccess(
-              fieldRef,
-              options.sourceContent,
-            );
+          const baseNode = matchingChain?.chainNodes?.[0];
+          if (
+            baseNode &&
+            (baseNode.name?.toLowerCase() === 'this' ||
+              baseNode.context === ReferenceContext.VARIABLE_USAGE ||
+              baseNode.context === ReferenceContext.CLASS_REFERENCE ||
+              baseNode.context === ReferenceContext.CHAIN_STEP)
+          ) {
+            objectName = baseNode.name ?? null;
           }
 
           if (objectName) {
@@ -583,44 +427,15 @@ export const VariableResolutionValidator: Validator = {
                 const resolvedType =
                   typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
                 if (resolvedType) {
-                  targetType = yield* resolveTargetTypeWithArrayAccess(
-                    resolvedType,
-                    objName,
-                    fieldRef,
-                    options.sourceContent,
-                    symbolManager,
-                  );
+                  targetType = resolvedType;
                 } else {
                   suppressDueToUnresolvedDeclaredType = true;
                 }
               }
             }
 
-            if (!objectVariable) {
-              for (const chainedRef of chainedTypeRefs) {
-                if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
-                  const firstNode = chainedRef.chainNodes[0];
-                  if (
-                    firstNode.name === objectName &&
-                    (firstNode.context === ReferenceContext.VARIABLE_USAGE ||
-                      firstNode.context === ReferenceContext.CHAIN_STEP)
-                  ) {
-                    objectVariable = findVariableInScope(
-                      objectName,
-                      fieldRef.parentContext,
-                      allSymbols,
-                      symbolTable,
-                    );
-                    if (objectVariable) break;
-                  }
-                }
-              }
-            }
-
             if (objectVariable?.type?.name) {
               const varTypeName = objectVariable.type.name;
-              const fullTypeStr =
-                objectVariable.type.originalTypeString || varTypeName;
               let typeSymbols = yield* Effect.promise(() =>
                 symbolManager.findSymbolByName(varTypeName),
               );
@@ -642,15 +457,8 @@ export const VariableResolutionValidator: Validator = {
                   );
                 }
               }
-              let resolvedTargetType =
+              const resolvedTargetType =
                 typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
-              resolvedTargetType = yield* resolveTargetTypeWithArrayAccess(
-                resolvedTargetType,
-                fullTypeStr,
-                fieldRef,
-                options.sourceContent,
-                symbolManager,
-              );
               if (resolvedTargetType) {
                 targetType = resolvedTargetType;
               } else {
@@ -667,18 +475,9 @@ export const VariableResolutionValidator: Validator = {
           if (suppressDueToUnresolvedDeclaredType) {
             continue;
           }
-          // Fallback: try source extraction when objectName not from chain (e.g. "this")
-          const effectiveObjectName =
-            objectName ??
-            (options.sourceContent
-              ? extractObjectNameFromFieldAccess(
-                  fieldRef,
-                  options.sourceContent,
-                )
-              : null);
           const isThisOrClass =
-            effectiveObjectName?.toLowerCase() === 'this' ||
-            effectiveObjectName === containingClass?.name;
+            objectName?.toLowerCase() === 'this' ||
+            objectName === containingClass?.name;
           if (isThisOrClass) {
             targetType = containingClass;
           } else {
@@ -777,7 +576,10 @@ export const VariableResolutionValidator: Validator = {
       // Validate write field accesses (from chains with write/readwrite access)
       // These need additional validation for write visibility
       for (const fieldRef of extractedWriteFieldAccesses) {
-        const fieldName = fieldRef.name;
+        const matchingChain = findFieldAccessChain(fieldRef, chainedTypeRefs);
+        const fieldName =
+          matchingChain?.chainNodes?.at(-1)?.name ?? fieldRef.name;
+        if (!matchingChain && fieldName.includes('.')) continue;
         const refLocation = fieldRef.location;
 
         if (!containingClass) {
@@ -787,85 +589,59 @@ export const VariableResolutionValidator: Validator = {
         // Resolve object type for qualified field access
         let targetType: TypeSymbol | null = null;
 
-        for (const chainedRef of chainedTypeRefs) {
-          if (
-            chainedRef.chainNodes &&
-            chainedRef.chainNodes.length > 0 &&
-            chainedRef.chainNodes[chainedRef.chainNodes.length - 1].name ===
-              fieldName
-          ) {
-            const resolvedType = yield* resolveChainTargetType(
-              chainedRef,
-              symbolManager,
-              allSymbols,
-              symbolTable,
-            );
-            if (resolvedType) {
-              targetType = resolvedType;
-              break;
-            }
-          }
+        if (matchingChain) {
+          targetType = yield* resolveChainTargetType(
+            matchingChain,
+            symbolManager,
+            allSymbols,
+            symbolTable,
+          );
         }
 
         // Fallback: resolve from first node (variable) when chain resolution failed
         let suppressDueToUnresolvedDeclaredType = false;
         let objectName: string | null = null;
         if (!targetType) {
-          for (const chainedRef of chainedTypeRefs) {
-            if (
-              chainedRef.chainNodes &&
-              chainedRef.chainNodes.length >= 2 &&
-              chainedRef.chainNodes[chainedRef.chainNodes.length - 1].name ===
-                fieldName
-            ) {
-              const baseNode = chainedRef.chainNodes[0];
-              objectName = baseNode.name ?? null;
-              const objectVariable = findVariableInScope(
-                baseNode.name,
-                fieldRef.parentContext,
-                allSymbols,
-                symbolTable,
+          const baseNode = matchingChain?.chainNodes?.[0];
+          if (baseNode) {
+            objectName = baseNode.name ?? null;
+            const objectVariable = findVariableInScope(
+              baseNode.name,
+              fieldRef.parentContext,
+              allSymbols,
+              symbolTable,
+            );
+            if (objectVariable?.type?.name) {
+              const varTypeName = objectVariable.type.name;
+              let typeSymbols = yield* Effect.promise(() =>
+                symbolManager.findSymbolByName(varTypeName),
               );
-              if (objectVariable?.type?.name) {
-                const varTypeName = objectVariable.type.name;
-                let typeSymbols = yield* Effect.promise(() =>
-                  symbolManager.findSymbolByName(varTypeName),
+              if (
+                typeSymbols.length === 0 &&
+                varTypeName.includes('.') &&
+                symbolManager.findSymbolByFQN
+              ) {
+                const fqn = yield* Effect.promise(() =>
+                  symbolManager.findSymbolByFQN(varTypeName),
                 );
-                if (
-                  typeSymbols.length === 0 &&
-                  varTypeName.includes('.') &&
-                  symbolManager.findSymbolByFQN
-                ) {
-                  const fqn = yield* Effect.promise(() =>
-                    symbolManager.findSymbolByFQN(varTypeName),
+                if (fqn) typeSymbols = [fqn];
+              }
+              if (typeSymbols.length === 0 && varTypeName.includes('.')) {
+                const lastPart = varTypeName.split('.').pop();
+                if (lastPart)
+                  typeSymbols = yield* Effect.promise(() =>
+                    symbolManager.findSymbolByName(lastPart),
                   );
-                  if (fqn) typeSymbols = [fqn];
-                }
-                if (typeSymbols.length === 0 && varTypeName.includes('.')) {
-                  const lastPart = varTypeName.split('.').pop();
-                  if (lastPart)
-                    typeSymbols = yield* Effect.promise(() =>
-                      symbolManager.findSymbolByName(lastPart),
-                    );
-                }
-                const resolvedTargetType =
-                  typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
-                if (resolvedTargetType) {
-                  targetType = resolvedTargetType;
-                } else {
-                  suppressDueToUnresolvedDeclaredType = true;
-                }
-                break;
+              }
+              const resolvedTargetType =
+                typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+              if (resolvedTargetType) {
+                targetType = resolvedTargetType;
+              } else {
+                suppressDueToUnresolvedDeclaredType = true;
               }
             }
           }
-        }
-
-        if (!objectName && options.sourceContent) {
-          objectName = extractObjectNameFromFieldAccess(
-            fieldRef,
-            options.sourceContent,
-          );
         }
 
         // Use containingClass only when receiver is deterministic: "this" or class-name static access
@@ -873,18 +649,9 @@ export const VariableResolutionValidator: Validator = {
           if (suppressDueToUnresolvedDeclaredType) {
             continue;
           }
-          // Fallback: try source extraction when objectName not from chain (e.g. "this")
-          const effectiveObjectName =
-            objectName ??
-            (options.sourceContent
-              ? extractObjectNameFromFieldAccess(
-                  fieldRef,
-                  options.sourceContent,
-                )
-              : null);
           const isThisOrClass =
-            effectiveObjectName?.toLowerCase() === 'this' ||
-            effectiveObjectName === containingClass?.name;
+            objectName?.toLowerCase() === 'this' ||
+            objectName === containingClass?.name;
           if (isThisOrClass) {
             targetType = containingClass;
           } else {
@@ -960,13 +727,65 @@ export const VariableResolutionValidator: Validator = {
     }),
 };
 
+function getReferenceStart(
+  reference: SymbolReference,
+): { line: number; column: number } | null {
+  const range =
+    reference.location?.identifierRange ?? reference.location?.symbolRange;
+  if (!range) return null;
+  return { line: range.startLine, column: range.startColumn };
+}
+
+function referencesStartAtSameLocation(
+  left: SymbolReference,
+  right: SymbolReference,
+): boolean {
+  const leftStart = getReferenceStart(left);
+  const rightStart = getReferenceStart(right);
+  return (
+    leftStart !== null &&
+    rightStart !== null &&
+    leftStart.line === rightStart.line &&
+    leftStart.column === rightStart.column
+  );
+}
+
+function findFieldAccessChain(
+  fieldRef: SymbolReference,
+  chainedRefs: SymbolReference[],
+): SymbolReference | undefined {
+  return chainedRefs.find((chain) => {
+    const finalNode = chain.chainNodes?.at(-1);
+    return (
+      finalNode?.context === ReferenceContext.FIELD_ACCESS &&
+      finalNode.name.toLowerCase() === fieldRef.name.toLowerCase() &&
+      referencesStartAtSameLocation(finalNode, fieldRef)
+    );
+  });
+}
+
+function uniqueReferencesByLocation(
+  references: SymbolReference[],
+): SymbolReference[] {
+  return references.filter(
+    (reference, index) =>
+      references.findIndex(
+        (candidate) =>
+          candidate === reference ||
+          (candidate.name.toLowerCase() === reference.name.toLowerCase() &&
+            candidate.context === reference.context &&
+            referencesStartAtSameLocation(candidate, reference)),
+      ) === index,
+  );
+}
+
 /**
  * Resolve the target type for a chained reference by walking through the chain.
  * For f.getB().x: resolves f -> Foo, getB() -> FooB, returns FooB for field x.
  */
 function resolveChainTargetType(
   chainedRef: {
-    chainNodes?: Array<{ name: string; context: ReferenceContext }>;
+    chainNodes?: SymbolReference[];
   },
   symbolManager: ISymbolManagerInterface,
   allSymbols: ApexSymbol[],
@@ -987,7 +806,11 @@ function resolveChainTargetType(
       symbolTable,
     );
     if (firstVar?.type?.name) {
-      const typeName = firstVar.type.name;
+      const effectiveType = firstNode.semanticContext?.indexedAccess
+        ? indexedAccessResultType(firstVar.type)
+        : firstVar.type;
+      if (!effectiveType) return null;
+      const typeName = effectiveType.name;
       let typeSymbols = yield* Effect.promise(() =>
         symbolManager.findSymbolByName(typeName),
       );
@@ -1117,117 +940,6 @@ function findMethodInClassHierarchy(
     }
     return null;
   });
-}
-
-/**
- * When targetType is List/Set and the expression has array access (arr[0].field),
- * resolve to the element type. Otherwise return targetType unchanged.
- */
-function resolveTargetTypeWithArrayAccess(
-  targetType: TypeSymbol | null,
-  variableTypeName: string | undefined,
-  fieldRef: SymbolReference,
-  sourceContent: string | undefined,
-  symbolManager: ISymbolManagerInterface,
-): Effect.Effect<TypeSymbol | null, never, never> {
-  return Effect.gen(function* () {
-    if (!targetType || !variableTypeName) return targetType;
-    const receiverExpr = extractReceiverExpressionBeforeDot(
-      fieldRef,
-      sourceContent,
-    );
-    const hasArrayAccess = receiverExpr != null && receiverExpr.includes('[');
-    const isListOrSet =
-      targetType.name?.toLowerCase() === 'list' ||
-      targetType.name?.toLowerCase() === 'set';
-    if (!hasArrayAccess || !isListOrSet) return targetType;
-    const elementType = extractElementTypeFromCollection(variableTypeName);
-    if (!elementType) return targetType;
-    const elementSymbols = yield* Effect.promise(() =>
-      symbolManager.findSymbolByName(elementType),
-    );
-    const elementTypeSymbol = elementSymbols.find(isClassOrInterfaceSymbol);
-    return elementTypeSymbol ?? targetType;
-  });
-}
-
-/**
- * Extract object name from field access reference by parsing source content
- * For qualified field access like "obj.field", extracts "obj"
- */
-function extractObjectNameFromFieldAccess(
-  fieldRef: SymbolReference,
-  sourceContent: string,
-): string | null {
-  if (!sourceContent || !fieldRef.location) {
-    return null;
-  }
-
-  const location = fieldRef.location;
-  const startLine =
-    location.identifierRange?.startLine ?? location.symbolRange.startLine;
-  const startColumn =
-    location.identifierRange?.startColumn ?? location.symbolRange.startColumn;
-
-  const lines = sourceContent.split('\n');
-  if (startLine < 1 || startLine > lines.length) {
-    return null;
-  }
-
-  const fieldAccessLine = lines[startLine - 1];
-  if (!fieldAccessLine) {
-    return null;
-  }
-
-  // Find the dot before the field name
-  const fieldName = fieldRef.name?.includes('.')
-    ? (fieldRef.name.split('.').pop() ?? fieldRef.name)
-    : fieldRef.name;
-
-  // Try location-based extraction first
-  const fieldNameIndex = fieldAccessLine
-    .substring(startColumn - 1)
-    .toLowerCase()
-    .indexOf(fieldName.toLowerCase());
-  let dotIndex = -1;
-  if (fieldNameIndex >= 0) {
-    dotIndex = startColumn - 1 + fieldNameIndex - 1;
-  }
-
-  // Fallback: search whole line for ".fieldName" when location-based fails
-  if (dotIndex < 0 || fieldAccessLine[dotIndex] !== '.') {
-    const dotFieldMatch = fieldAccessLine.match(
-      new RegExp(
-        `([a-zA-Z_][a-zA-Z0-9_]*)\\.${fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
-      ),
-    );
-    if (dotFieldMatch) {
-      return dotFieldMatch[1];
-    }
-    return null;
-  }
-
-  // Extract object name (everything before the dot, trimmed)
-  // Handle cases like "obj.field", "obj.field.field2", etc.
-  const beforeDot = fieldAccessLine.substring(0, dotIndex).trim();
-
-  // Extract the last identifier before the dot
-  // This handles cases like "myObj.field" or "this.field"
-  const identifierMatch = beforeDot.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*\.?\s*$/);
-  if (identifierMatch) {
-    return identifierMatch[1];
-  }
-
-  // Fallback: try to extract any identifier-like string
-  const parts = beforeDot.split(/[^a-zA-Z0-9_]+/);
-  if (parts.length > 0) {
-    const lastPart = parts[parts.length - 1];
-    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(lastPart)) {
-      return lastPart;
-    }
-  }
-
-  return null;
 }
 
 /**

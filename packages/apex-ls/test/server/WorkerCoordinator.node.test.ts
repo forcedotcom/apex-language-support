@@ -573,7 +573,7 @@ describe('WorkerCoordinator', () => {
         expect(roles).toEqual(['dataOwner', 'dataOwner']);
         expect(
           transport.sendCalls.map(
-            (call: { request: { _tag: string } }) => call.request._tag,
+            (call) => (call.request as { _tag: string })._tag,
           ),
         ).toEqual([storageTag, 'CompileDocument']);
       },

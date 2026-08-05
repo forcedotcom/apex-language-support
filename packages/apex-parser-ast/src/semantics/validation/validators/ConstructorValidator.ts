@@ -17,13 +17,11 @@ import {
   BlockContext,
   ConstructorDeclarationContext,
   MethodCallExpressionContext,
+  MethodCallContext,
   StatementContext,
   ExpressionListContext,
   IdPrimaryContext,
-  PrimaryExpressionContext,
-  ExpressionContext,
-  LiteralContext,
-  LiteralPrimaryContext,
+  ReturnStatementContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -33,6 +31,7 @@ import type {
   VariableSymbol,
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
+import type { CallArgumentSemantic } from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -46,7 +45,11 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type { ErrorCodeKey } from '../../../generated/messages_en_US';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
-import { isContextType } from '../../../utils/contextTypeGuards';
+import {
+  callArgumentSemantics,
+  isContextType,
+} from '../../../utils/contextTypeGuards';
+import { resolveArgumentSemantics } from '../../../utils/argumentTypeResolution';
 import {
   isBlockSymbol,
   isClassSymbol,
@@ -60,7 +63,8 @@ interface ConstructorCallInfo {
   isSuper: boolean;
   line: number;
   column: number;
-  args: string; // Arguments as string for compatibility
+  argumentCount: number;
+  argumentSemantics: CallArgumentSemantic[];
   argsContext?: ExpressionListContext; // Parse tree context for arguments
   statementContext: StatementContext; // The statement containing this call
 }
@@ -73,7 +77,8 @@ interface ConstructorInfo {
   startLine: number;
   endLine: number;
   calls: ConstructorCallInfo[];
-  firstStatementLine?: number;
+  firstStatement?: StatementContext;
+  valueReturns: ReturnStatementContext[];
 }
 
 /**
@@ -94,6 +99,7 @@ class ConstructorListener extends BaseApexParserListener<void> {
       startLine: start.line,
       endLine: stop.line,
       calls: [],
+      valueReturns: [],
     };
     this.constructorInfos.push(info);
     this.currentConstructor = info;
@@ -112,12 +118,11 @@ class ConstructorListener extends BaseApexParserListener<void> {
     // Only track statements inside constructors
     if (this.currentConstructor) {
       this.statementStack.push(ctx);
-      const line = ctx.start.line;
       if (
-        this.currentConstructor.firstStatementLine === undefined &&
-        this.isNonEmptyStatement(ctx)
+        this.currentConstructor.firstStatement === undefined &&
+        this.statementStack.length === 1
       ) {
-        this.currentConstructor.firstStatementLine = line;
+        this.currentConstructor.firstStatement = ctx;
       }
     }
   }
@@ -148,9 +153,6 @@ class ConstructorListener extends BaseApexParserListener<void> {
       const column = ctx.start.column;
 
       const expressionList = methodCall.expressionList?.();
-      const args = expressionList
-        ? this.extractArgumentsAsString(expressionList)
-        : '';
 
       const statementContext: StatementContext =
         this.statementStack.length > 0
@@ -161,7 +163,8 @@ class ConstructorListener extends BaseApexParserListener<void> {
         isSuper,
         line,
         column,
-        args,
+        argumentCount: expressionList?.expression_list()?.length ?? 0,
+        argumentSemantics: callArgumentSemantics(methodCall),
         argsContext: expressionList || undefined,
         statementContext,
       };
@@ -170,24 +173,10 @@ class ConstructorListener extends BaseApexParserListener<void> {
     }
   }
 
-  /**
-   * Extract arguments as string from expressionList for compatibility
-   */
-  private extractArgumentsAsString(
-    expressionList: ExpressionListContext,
-  ): string {
-    // Get the text of the expression list
-    return expressionList.getText() || '';
-  }
-
-  /**
-   * Check if a statement is non-empty (not just a semicolon or comment)
-   */
-  private isNonEmptyStatement(ctx: StatementContext): boolean {
-    // Check if statement has meaningful content
-    // Empty statements are typically just semicolons
-    const text = ctx.getText().trim();
-    return text.length > 0 && text !== ';';
+  enterReturnStatement(ctx: ReturnStatementContext): void {
+    if (this.currentConstructor && ctx.expression()) {
+      this.currentConstructor.valueReturns.push(ctx);
+    }
   }
 
   getResult(): void {
@@ -215,20 +204,22 @@ interface ConstructorBodyCheckResult {
   hasThisCall: boolean;
   thisCallLine?: number;
   thisCallColumn?: number;
-  superCallArgs?: string; // Arguments passed to super()
-  thisCallArgs?: string; // Arguments passed to this()
+  superCallArgumentCount?: number;
+  superCallArgumentTypes?: string[];
+  thisCallArgumentCount?: number;
+  thisCallArgumentTypes?: string[];
 }
 
 /**
  * Check constructor body for super()/this() placement and instance references
  * Uses parse tree structure instead of regex
  * @param constructorInfo - Constructor information from parse tree listener
- * @param parameterNames - Names of constructor parameters (allowed in super()/this() calls)
+ * @param parameters - Constructor parameters, which are legal call arguments
  * @param symbolTable - Symbol table for validating argument references
  */
 function checkConstructorBody(
   constructorInfo: ConstructorInfo,
-  parameterNames: string[] = [],
+  parameters: VariableSymbol[] = [],
   symbolTable: SymbolTable,
 ): ConstructorBodyCheckResult {
   const errors: Array<{
@@ -254,13 +245,16 @@ function checkConstructorBody(
   const superCallColumn = hasSuperCall ? firstCall.column : undefined;
   const thisCallLine = hasThisCall ? firstCall.line : undefined;
   const thisCallColumn = hasThisCall ? firstCall.column : undefined;
-  const superCallArgs = hasSuperCall ? firstCall.args : undefined;
-  const thisCallArgs = hasThisCall ? firstCall.args : undefined;
+  const argumentTypes = resolveCallArgumentTypes(
+    firstCall,
+    parameters,
+    symbolTable,
+  );
 
   // Check if super()/this() is the first statement
   if (
-    constructorInfo.firstStatementLine !== undefined &&
-    firstCall.line !== constructorInfo.firstStatementLine
+    constructorInfo.firstStatement !== undefined &&
+    firstCall.statementContext !== constructorInfo.firstStatement
   ) {
     errors.push({
       code: hasSuperCall
@@ -276,15 +270,10 @@ function checkConstructorBody(
   if (firstCall.argsContext) {
     validateConstructorCallArguments(
       firstCall.argsContext,
-      firstCall.line,
-      firstCall.column,
-      parameterNames,
+      parameters.map((parameter) => parameter.name),
       symbolTable,
       errors,
     );
-  } else if (firstCall.args && firstCall.args.trim()) {
-    // Fallback: if argsContext is not available, skip validation
-    // This shouldn't happen with proper parse tree, but handle gracefully
   }
 
   return {
@@ -295,9 +284,43 @@ function checkConstructorBody(
     hasThisCall,
     thisCallLine,
     thisCallColumn,
-    superCallArgs,
-    thisCallArgs,
+    superCallArgumentCount: hasSuperCall ? firstCall.argumentCount : undefined,
+    superCallArgumentTypes: hasSuperCall ? argumentTypes : undefined,
+    thisCallArgumentCount: hasThisCall ? firstCall.argumentCount : undefined,
+    thisCallArgumentTypes: hasThisCall ? argumentTypes : undefined,
   };
+}
+
+/** Resolve parser-classified call arguments against the lexical scope at the call. */
+function resolveCallArgumentTypes(
+  call: ConstructorCallInfo,
+  parameters: VariableSymbol[],
+  symbolTable: SymbolTable,
+): string[] | undefined {
+  const scopes = symbolTable.getScopeHierarchy({
+    line: call.line,
+    character: call.column,
+  });
+  const scope = scopes.length > 0 ? scopes[scopes.length - 1] : null;
+  return resolveArgumentSemantics(call.argumentSemantics, (identifier) => {
+    const parameter = parameters.find(
+      (candidate) => candidate.name.toLowerCase() === identifier.toLowerCase(),
+    );
+    if (parameter) {
+      return parameter.type?.originalTypeString ?? parameter.type?.name;
+    }
+    const symbol = symbolTable.lookupInScopeChain(identifier, scope);
+    if (
+      symbol &&
+      (symbol.kind === SymbolKind.Variable ||
+        symbol.kind === SymbolKind.Parameter ||
+        symbol.kind === SymbolKind.Field)
+    ) {
+      const variable = symbol as VariableSymbol;
+      return variable.type?.originalTypeString ?? variable.type?.name;
+    }
+    return undefined;
+  });
 }
 
 /**
@@ -305,8 +328,6 @@ function checkConstructorBody(
  */
 function validateConstructorCallArguments(
   expressionList: ExpressionListContext,
-  callLine: number,
-  callColumn: number,
   parameterNames: string[],
   symbolTable: SymbolTable,
   errors: Array<{
@@ -325,512 +346,139 @@ function validateConstructorCallArguments(
   }
 
   for (const expr of expressions) {
-    // First check if this is a literal - if so, skip validation
-    if (
-      isStringLiteral(expr) ||
-      isNumericLiteral(expr) ||
-      isBooleanLiteral(expr)
-    ) {
-      continue;
-    }
-
-    // Check for method calls in arguments (e.g., super(getValue()))
-    if (containsMethodCall(expr)) {
-      const methodName = extractMethodName(expr);
-      if (methodName) {
-        // Found an instance method call
+    // Parser structure identifies calls; lexical symbols determine whether a
+    // call is actually an instance method. Unknown calls remain unknown.
+    const methodCalls = collectMethodCalls(expr);
+    for (const methodCall of methodCalls) {
+      const id = methodCall.id?.();
+      if (!id) continue;
+      const methodName = id.getText();
+      const method = lookupClassMember(
+        symbolTable,
+        methodName,
+        expr.start.line,
+        expr.start.column,
+        SymbolKind.Method,
+      );
+      if (method?.kind === SymbolKind.Method && !method.modifiers.isStatic) {
         errors.push({
           code: ErrorCodes.ILLEGAL_INSTANCE_METHOD_REFERENCE_IN_CONSTRUCTOR,
           line: expr.start.line,
           column: expr.start.column,
           message: methodName,
         });
-        // Don't check for variables if we already found a method call
-        continue;
+        break;
       }
     }
+    if (methodCalls.length > 0) continue;
 
-    // Check for instance variable references (e.g., super(value))
-    const identifiers = extractIdentifiers(expr);
+    // Parser identifier nodes plus lexical resolution distinguish fields from
+    // parameters and locals. An unresolved identifier is not guessed to be a field.
+    const identifiers = collectIdentifiers(expr);
     for (const identifier of identifiers) {
-      const varName = identifier.toLowerCase();
-      const excluded = [
-        'super',
-        'this',
-        'null',
-        'true',
-        'false',
-        'new',
-        'instanceof',
-      ];
-      const isNumeric = /^\d/.test(identifier);
+      const name = identifier.id().getText();
       const isParameter = parameterNames.some(
-        (paramName) => paramName.toLowerCase() === varName,
+        (paramName) => paramName.toLowerCase() === name.toLowerCase(),
       );
-
-      if (!excluded.includes(varName) && !isNumeric && !isParameter) {
-        // Found an instance variable reference
+      const symbol = lookupClassMember(
+        symbolTable,
+        name,
+        identifier.start.line,
+        identifier.start.column,
+        SymbolKind.Field,
+      );
+      if (
+        !isParameter &&
+        symbol?.kind === SymbolKind.Field &&
+        !symbol.modifiers.isStatic
+      ) {
         errors.push({
           code: ErrorCodes.ILLEGAL_INSTANCE_VARIABLE_REFERENCE_IN_CONSTRUCTOR,
-          line: expr.start.line,
-          column: expr.start.column,
-          message: identifier,
+          line: identifier.start.line,
+          column: identifier.start.column,
+          message: name,
         });
       }
     }
   }
 }
 
-/**
- * Check if an expression contains a method call
- */
-function containsMethodCall(
-  expr: ExpressionContext | ParserRuleContext,
-): boolean {
-  if (!expr) return false;
-
-  // Check if expression is a method call expression
-  if (isContextType(expr, MethodCallExpressionContext)) {
-    return true;
-  }
-
-  // Recursively check child expressions
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      if (containsMethodCall(child as ExpressionContext)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Extract method name from an expression if it's a method call
- */
-function extractMethodName(
-  expr: ExpressionContext | ParserRuleContext,
-): string | null {
-  if (!expr) return null;
-
-  if (isContextType(expr, MethodCallExpressionContext)) {
-    const methodCallExpr = expr as MethodCallExpressionContext;
-    const methodCall = methodCallExpr.methodCall?.();
-    if (methodCall) {
-      // MethodCallContext can have: id LPAREN | THIS LPAREN | SUPER LPAREN
-      const id = methodCall.id?.();
-      if (id) {
-        return id.getText() || null;
-      }
-      // For this() and super() calls, return null (they're constructor calls, not instance methods)
-      const thisToken = methodCall.THIS?.();
-      const superToken = methodCall.SUPER?.();
-      if (thisToken || superToken) {
-        return null; // Constructor calls are allowed
-      }
-    }
-  }
-
-  // Recursively check child expressions
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      const methodName = extractMethodName(child as ExpressionContext);
-      if (methodName) {
-        return methodName;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Extract identifier names from an expression (recursively)
- * Only extracts identifiers that are variables/fields, not method calls
- */
-function extractIdentifiers(
-  expr: ExpressionContext | ParserRuleContext,
-): string[] {
-  const identifiers: string[] = [];
-  if (!expr) return identifiers;
-
-  // Handle IdPrimaryContext (simple identifier like "value")
-  if (isContextType(expr, IdPrimaryContext)) {
-    const idPrimary = expr as IdPrimaryContext;
-    const id = idPrimary.id?.();
-    if (id) {
-      identifiers.push(id.getText());
-    }
-    return identifiers;
-  }
-
-  // Handle PrimaryExpressionContext (wraps primary like idPrimary)
-  if (isContextType(expr, PrimaryExpressionContext)) {
-    const primaryExpr = expr as PrimaryExpressionContext;
-    const primary = primaryExpr.primary?.();
-    if (primary) {
-      // Recursively extract from the primary
-      return extractIdentifiers(primary);
-    }
-    return identifiers;
-  }
-
-  // Handle MethodCallExpressionContext - don't extract identifiers from method calls
-  // Method calls are handled separately by containsMethodCall/extractMethodName
-  if (isContextType(expr, MethodCallExpressionContext)) {
-    // Don't extract identifiers from method calls - they're handled separately
-    return [];
-  }
-
-  // Handle ExpressionContext - it wraps other expression types
-  // Check if it's wrapping a primary expression
-  if (expr instanceof ExpressionContext) {
-    // ExpressionContext can wrap various expression types
-    // Try to get the underlying expression by checking children
-    const children = expr.children || [];
-    for (const child of children) {
-      if ('start' in child) {
-        // Skip method call expressions - they're handled separately
-        if (
-          !isContextType(
-            child as ParserRuleContext,
-            MethodCallExpressionContext,
-          )
-        ) {
-          const childIds = extractIdentifiers(child as ExpressionContext);
-          identifiers.push(...childIds);
-        }
-      }
-    }
-    return identifiers;
-  }
-
-  // For other ParserRuleContext types, recursively check children
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      // Skip method call expressions - they're handled separately
-      if (
-        !isContextType(child as ParserRuleContext, MethodCallExpressionContext)
-      ) {
-        const childIds = extractIdentifiers(child as ExpressionContext);
-        identifiers.push(...childIds);
-      }
-    }
-  }
-
-  return identifiers;
-}
-
-/**
- * Check if expression is a string literal
- */
-function isStringLiteral(expr: ExpressionContext | ParserRuleContext): boolean {
-  if (!expr) return false;
-
-  // Handle ExpressionContext - it wraps other expression types
-  // Check if it directly contains a PrimaryExpressionContext
-  if (expr instanceof ExpressionContext) {
-    const children = expr.children || [];
-    for (const child of children) {
-      if ('start' in child) {
-        if (isStringLiteral(child as ExpressionContext)) {
-          return true;
-        }
-      }
-    }
-  }
-
-  // Check for PrimaryExpressionContext -> literalPrimary -> literal -> StringLiteral()
-  if (isContextType(expr, PrimaryExpressionContext)) {
-    const primaryExpr = expr as PrimaryExpressionContext;
-    const primary = primaryExpr.primary?.();
-    if (primary) {
-      // Check if primary is a LiteralPrimaryContext
-      if (isContextType(primary, LiteralPrimaryContext)) {
-        const literalPrimary = primary as LiteralPrimaryContext;
-        const literal = literalPrimary.literal?.() as
-          LiteralContext | undefined;
-        if (literal) {
-          // Use StringLiteral() method to check for string literal
-          return !!literal.StringLiteral?.();
-        }
-      }
-      // LiteralPrimaryContext extends PrimaryContext — the instanceof check
-      // above already covers this case; no fallback needed.
-    }
-  }
-
-  // Recursively check children for other context types
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      if (isStringLiteral(child as ExpressionContext)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Check if expression is a numeric literal
- */
-function isNumericLiteral(
-  expr: ExpressionContext | ParserRuleContext,
-): boolean {
-  if (!expr) return false;
-
-  if (isContextType(expr, PrimaryExpressionContext)) {
-    const primaryExpr = expr as PrimaryExpressionContext;
-    const primary = primaryExpr.primary?.();
-    if (primary && isContextType(primary, LiteralPrimaryContext)) {
-      const literal = (primary as LiteralPrimaryContext).literal?.() as
-        LiteralContext | undefined;
-      if (literal) {
-        const intLiteral = literal.IntegerLiteral?.();
-        const longLiteral = literal.LongLiteral?.();
-        const numberLiteral = literal.NumberLiteral?.();
-        return !!(intLiteral || longLiteral || numberLiteral);
-      }
-    }
-  }
-
-  // Recursively check children
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      if (isNumericLiteral(child as ExpressionContext)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Check if expression is a boolean literal (true/false)
- */
-function isBooleanLiteral(
-  expr: ExpressionContext | ParserRuleContext,
-): boolean {
-  if (!expr) return false;
-
-  if (isContextType(expr, PrimaryExpressionContext)) {
-    const primaryExpr = expr as PrimaryExpressionContext;
-    const primary = primaryExpr.primary?.();
-    if (primary && isContextType(primary, LiteralPrimaryContext)) {
-      const literal = (primary as LiteralPrimaryContext).literal?.();
-      if (literal) {
-        return !!literal.BooleanLiteral?.();
-      }
-    }
-  }
-
-  // Recursively check children
-  const children = expr.children || [];
-  for (const child of children) {
-    if ('start' in child) {
-      if (isBooleanLiteral(child as ExpressionContext)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Count arguments in a constructor call argument string
- * Handles nested parentheses and commas
- */
-function countConstructorArguments(args: string): number {
-  if (!args || args.trim() === '') {
-    return 0;
-  }
-
-  let count = 0;
-  let depth = 0;
-  let currentArg = '';
-
-  for (let i = 0; i < args.length; i++) {
-    const char = args[i];
-    if (char === '(') {
-      depth++;
-      currentArg += char;
-    } else if (char === ')') {
-      depth--;
-      currentArg += char;
-    } else if (char === ',' && depth === 0) {
-      // Top-level comma - argument separator
-      if (currentArg.trim()) {
-        count++;
-      }
-      currentArg = '';
-    } else {
-      currentArg += char;
-    }
-  }
-
-  // Count the last argument
-  if (currentArg.trim()) {
-    count++;
-  }
-
-  return count;
-}
-
-/**
- * Split constructor call arguments into individual argument strings
- * Handles nested parentheses and commas
- */
-function splitConstructorArguments(args: string): string[] {
-  if (!args || args.trim() === '') {
-    return [];
-  }
-
-  const argList: string[] = [];
-  let depth = 0;
-  let currentArg = '';
-
-  for (let i = 0; i < args.length; i++) {
-    const char = args[i];
-    if (char === '(') {
-      depth++;
-      currentArg += char;
-    } else if (char === ')') {
-      depth--;
-      currentArg += char;
-    } else if (char === ',' && depth === 0) {
-      // Top-level comma - argument separator
-      if (currentArg.trim()) {
-        argList.push(currentArg.trim());
-      }
-      currentArg = '';
-    } else {
-      currentArg += char;
-    }
-  }
-
-  // Add the last argument
-  if (currentArg.trim()) {
-    argList.push(currentArg.trim());
-  }
-
-  return argList;
-}
-
-/**
- * Determine the type of a single argument expression
- * Returns the type name or null if unable to determine
- */
-function getArgumentType(
-  argExpr: string,
+function lookupClassMember(
   symbolTable: SymbolTable,
-): string | null {
-  const trimmed = argExpr.trim();
+  name: string,
+  line: number,
+  column: number,
+  kind: SymbolKind.Method | SymbolKind.Field,
+): ApexSymbol | undefined {
+  const scopes = symbolTable.getScopeHierarchy({ line, character: column });
+  const lexical = symbolTable.lookupInScopeChain(
+    name,
+    scopes.length > 0 ? scopes[scopes.length - 1] : null,
+  );
+  if (lexical?.kind === kind) return lexical;
 
-  // String literals (single or double quoted)
-  if (
-    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-  ) {
-    return 'String';
-  }
-
-  // Boolean literals
-  if (trimmed === 'true' || trimmed === 'false') {
-    return 'Boolean';
-  }
-
-  // null literal
-  if (trimmed === 'null') {
-    return 'null'; // Special marker for null literal (compatible with any object type)
-  }
-
-  // Integer literals (check if it's a number)
-  if (/^-?\d+$/.test(trimmed)) {
-    return 'Integer';
-  }
-
-  // Decimal literals
-  if (/^-?\d+\.\d+$/.test(trimmed)) {
-    return 'Decimal';
-  }
-
-  // Constructor calls: new TypeName(...)
-  const newMatch = trimmed.match(/^new\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s*\(/i);
-  if (newMatch) {
-    return newMatch[1];
-  }
-
-  // Variable identifiers - try to lookup in symbol table
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-    // Try case-sensitive lookup first
-    let variableSymbol = symbolTable.lookup(trimmed, null);
-
-    // If not found, try case-insensitive lookup
-    if (!variableSymbol) {
-      const allSymbols = symbolTable.getAllSymbols();
-      variableSymbol = allSymbols.find(
-        (s) =>
-          (s.kind === SymbolKind.Variable ||
-            s.kind === SymbolKind.Parameter ||
-            s.kind === SymbolKind.Field) &&
-          s.name.toLowerCase() === trimmed.toLowerCase(),
-      );
-    }
-
-    if (
-      variableSymbol &&
-      (variableSymbol.kind === SymbolKind.Variable ||
-        variableSymbol.kind === SymbolKind.Parameter ||
-        variableSymbol.kind === SymbolKind.Field)
-    ) {
-      const varSymbol = variableSymbol as VariableSymbol;
-      if (varSymbol.type?.name) {
-        return varSymbol.type.name;
-      }
-    }
-  }
-
-  // Method calls and complex expressions - unable to determine type without full resolution
-  // Return null to indicate unknown type (will be treated as compatible)
-  return null;
+  const allSymbols = symbolTable.getAllSymbols();
+  const containingClass = allSymbols
+    .filter(
+      (symbol) =>
+        isBlockSymbol(symbol) &&
+        symbol.scopeType === 'class' &&
+        containsPosition(symbol.location.symbolRange, line, column),
+    )
+    .sort(
+      (left, right) =>
+        right.location.symbolRange.startLine -
+        left.location.symbolRange.startLine,
+    )[0];
+  if (!containingClass) return undefined;
+  return allSymbols.find(
+    (symbol) =>
+      symbol.kind === kind &&
+      symbol.parentId === containingClass.id &&
+      symbol.name.toLowerCase() === name.toLowerCase(),
+  );
 }
 
-/**
- * Extract parameter type names from constructor call arguments
- * Enhanced TIER 2 version that attempts to determine actual argument types
- * Returns array of type names, or 'Object' if type cannot be determined
- */
-function getCallArgumentTypes(
-  callArgs: string,
-  symbolTable: SymbolTable,
-): string[] {
-  if (!callArgs || callArgs.trim() === '') {
-    return [];
-  }
-
-  const argList = splitConstructorArguments(callArgs);
-  return argList.map((arg) => {
-    const type = getArgumentType(arg, symbolTable);
-    return type || 'Object'; // Fallback to 'Object' if type cannot be determined
-  });
+function containsPosition(
+  range: ApexSymbol['location']['symbolRange'],
+  line: number,
+  column: number,
+): boolean {
+  if (line < range.startLine || line > range.endLine) return false;
+  if (line === range.startLine && column < range.startColumn) return false;
+  if (line === range.endLine && column > range.endColumn) return false;
+  return true;
 }
 
-/**
- * Validate constructor signature match (TIER 2)
- * Checks if super()/this() arguments match available constructors
- */
+function collectMethodCalls(root: ParserRuleContext): MethodCallContext[] {
+  if (isContextType(root, MethodCallExpressionContext)) {
+    const call = root.methodCall?.();
+    return call && call.id?.() ? [call] : [];
+  }
+  const result: MethodCallContext[] = [];
+  for (const child of root.children ?? []) {
+    if ('start' in child) {
+      result.push(...collectMethodCalls(child as ParserRuleContext));
+    }
+  }
+  return result;
+}
+
+function collectIdentifiers(root: ParserRuleContext): IdPrimaryContext[] {
+  if (isContextType(root, MethodCallExpressionContext)) return [];
+  if (isContextType(root, IdPrimaryContext)) return [root];
+  const result: IdPrimaryContext[] = [];
+  for (const child of root.children ?? []) {
+    if ('start' in child) {
+      result.push(...collectIdentifiers(child as ParserRuleContext));
+    }
+  }
+  return result;
+}
 function validateConstructorSignature(
   targetClassName: string,
-  callArgs: string,
+  argumentCount: number,
+  argumentTypes: string[] | undefined,
   callLine: number,
   callColumn: number,
   errors: ValidationErrorInfo[],
@@ -988,15 +636,9 @@ function validateConstructorSignature(
       }
     }
 
-    // Count arguments in the call
-    const argCount = countConstructorArguments(callArgs);
-
-    // Extract argument types (enhanced TIER 2)
-    const callArgTypes = getCallArgumentTypes(callArgs, symbolTable);
-
     // Find constructors that match argument count
     const matchingCountConstructors = targetConstructors.filter(
-      (ctor) => ctor.parameters.length === argCount,
+      (ctor) => ctor.parameters.length === argumentCount,
     );
 
     if (
@@ -1004,8 +646,10 @@ function validateConstructorSignature(
       targetConstructors.length > 0
     ) {
       // No constructor matches argument count - report error
-      const signature =
-        callArgTypes.length > 0 ? `(${callArgTypes.join(', ')})` : '()';
+      const signature = formatConstructorSignature(
+        argumentCount,
+        argumentTypes,
+      );
       errors.push({
         message: localizeTyped(
           ErrorCodes.UNKNOWN_CONSTRUCTOR,
@@ -1034,9 +678,11 @@ function validateConstructorSignature(
     ) {
       // No constructors found - might be default constructor only
       // If arguments are provided, it's an error
-      if (argCount > 0) {
-        const signature =
-          callArgTypes.length > 0 ? `(${callArgTypes.join(', ')})` : '()';
+      if (argumentCount > 0) {
+        const signature = formatConstructorSignature(
+          argumentCount,
+          argumentTypes,
+        );
         errors.push({
           message: localizeTyped(
             ErrorCodes.UNKNOWN_CONSTRUCTOR,
@@ -1064,46 +710,47 @@ function validateConstructorSignature(
       // Check if any constructor matches argument types (TIER 2 enhancement)
       // For now, we check exact type matches; full type compatibility checking
       // (subtypes, etc.) would require more complex type resolution
-      const matchingTypeConstructor = matchingCountConstructors.find((ctor) => {
-        if (ctor.parameters.length !== callArgTypes.length) {
-          return false;
-        }
-        // Compare each parameter type with argument type
-        for (let i = 0; i < ctor.parameters.length; i++) {
-          const paramType = ctor.parameters[i]?.type?.name?.toLowerCase();
-          const argType = callArgTypes[i]?.toLowerCase();
-          // null is compatible with any object type
-          if (argType === null || argType === 'null') {
-            continue;
-          }
-          // If we couldn't determine argument type (Object fallback), skip type checking
-          if (!argType || argType === 'object') {
-            continue;
-          }
-          // If parameter type is not available, we can't validate - assume mismatch to be safe
-          // This should not happen for properly parsed constructors
-          if (!paramType) {
-            return false;
-          }
-          // Exact type match
-          if (paramType === argType) {
-            continue;
-          }
-          // Type mismatch
-          return false;
-        }
-        return true;
-      });
+      const matchingTypeConstructor = argumentTypes
+        ? matchingCountConstructors.find((ctor) => {
+            if (ctor.parameters.length !== argumentTypes.length) {
+              return false;
+            }
+            // Compare each parameter type with argument type
+            for (let i = 0; i < ctor.parameters.length; i++) {
+              const paramType = ctor.parameters[i]?.type?.name?.toLowerCase();
+              const argType = argumentTypes[i]?.toLowerCase();
+              // null is compatible with any object type
+              if (argType === null || argType === 'null') {
+                continue;
+              }
+              // If we couldn't determine argument type (Object fallback), skip type checking
+              if (!argType || argType === 'object') {
+                continue;
+              }
+              // If parameter type is not available, we can't validate - assume mismatch to be safe
+              // This should not happen for properly parsed constructors
+              if (!paramType) {
+                return false;
+              }
+              // Exact type match
+              if (paramType === argType) {
+                continue;
+              }
+              // Type mismatch
+              return false;
+            }
+            return true;
+          })
+        : undefined;
 
       // If no exact type match found but we have count matches, report error
       // This catches cases like super("String") when constructor expects Integer
-      if (
-        !matchingTypeConstructor &&
-        callArgTypes.some((t) => t !== 'Object')
-      ) {
+      if (argumentTypes !== undefined && !matchingTypeConstructor) {
         // We have some type information, so we can report a type mismatch
-        const signature =
-          callArgTypes.length > 0 ? `(${callArgTypes.join(', ')})` : '()';
+        const signature = formatConstructorSignature(
+          argumentCount,
+          argumentTypes,
+        );
         errors.push({
           message: localizeTyped(
             ErrorCodes.UNKNOWN_CONSTRUCTOR,
@@ -1129,6 +776,14 @@ function validateConstructorSignature(
       }
     }
   });
+}
+
+function formatConstructorSignature(
+  argumentCount: number,
+  argumentTypes: string[] | undefined,
+): string {
+  if (argumentTypes) return `(${argumentTypes.join(', ')})`;
+  return `(${Array.from({ length: argumentCount }, () => 'unknown').join(', ')})`;
 }
 
 /**
@@ -1320,12 +975,10 @@ export const ConstructorValidator: Validator = {
             // Check for super()/this() placement and instance references
             if (matchingInfo) {
               // Get constructor parameter names (parameters are allowed in super()/this() calls)
-              const parameterNames =
-                constructor.parameters?.map((p: VariableSymbol) => p.name) ||
-                [];
+              const parameters = constructor.parameters ?? [];
               const bodyCheckResult = checkConstructorBody(
                 matchingInfo,
-                parameterNames,
+                parameters,
                 symbolTable,
               );
 
@@ -1364,14 +1017,15 @@ export const ConstructorValidator: Validator = {
                 } else if (
                   containingClass &&
                   containingClass.superClass &&
-                  bodyCheckResult.superCallArgs !== undefined &&
+                  bodyCheckResult.superCallArgumentCount !== undefined &&
                   options.tier === ValidationTier.THOROUGH &&
                   options.symbolManager
                 ) {
                   // TIER 2: Validate super() constructor signature match
                   yield* validateConstructorSignature(
                     containingClass.superClass,
-                    bodyCheckResult.superCallArgs!,
+                    bodyCheckResult.superCallArgumentCount,
+                    bodyCheckResult.superCallArgumentTypes,
                     bodyCheckResult.superCallLine!,
                     bodyCheckResult.superCallColumn!,
                     errors,
@@ -1421,7 +1075,7 @@ export const ConstructorValidator: Validator = {
               // TIER 2: Validate this() constructor signature match
               if (
                 bodyCheckResult.hasThisCall &&
-                bodyCheckResult.thisCallArgs !== undefined &&
+                bodyCheckResult.thisCallArgumentCount !== undefined &&
                 options.tier === ValidationTier.THOROUGH &&
                 options.symbolManager
               ) {
@@ -1432,7 +1086,8 @@ export const ConstructorValidator: Validator = {
                 if (containingClass) {
                   yield* validateConstructorSignature(
                     containingClass.name,
-                    bodyCheckResult.thisCallArgs,
+                    bodyCheckResult.thisCallArgumentCount,
+                    bodyCheckResult.thisCallArgumentTypes,
                     bodyCheckResult.thisCallLine!,
                     bodyCheckResult.thisCallColumn!,
                     errors,
@@ -1466,35 +1121,29 @@ export const ConstructorValidator: Validator = {
               }
             }
 
-            // Check for return statements with values in constructor body
-            const lines = sourceContent.split('\n');
-            const endLine = location.symbolRange.endLine;
-            for (let i = startLine; i <= endLine && i <= lines.length; i++) {
-              const line = lines[i - 1];
-              // Look for return statements with values (not just "return;")
-              const returnWithValue = line.match(/\breturn\s+[^;]+;/);
-              if (returnWithValue) {
-                const column = line.indexOf('return');
-                errors.push({
-                  message: localizeTyped(ErrorCodes.INVALID_CONSTRUCTOR_RETURN),
-                  location: {
-                    symbolRange: {
-                      startLine: i,
-                      startColumn: column,
-                      endLine: i,
-                      endColumn: column + 6,
-                    },
-                    identifierRange: {
-                      startLine: i,
-                      startColumn: column,
-                      endLine: i,
-                      endColumn: column + 6,
-                    },
+            // Return-with-value is a grammar fact; a bare `return;` has no expression.
+            const valueReturn = matchingInfo?.valueReturns[0];
+            if (valueReturn) {
+              const line = valueReturn.start.line;
+              const column = valueReturn.start.column;
+              errors.push({
+                message: localizeTyped(ErrorCodes.INVALID_CONSTRUCTOR_RETURN),
+                location: {
+                  symbolRange: {
+                    startLine: line,
+                    startColumn: column,
+                    endLine: line,
+                    endColumn: column + 6,
                   },
-                  code: ErrorCodes.INVALID_CONSTRUCTOR_RETURN,
-                });
-                break;
-              }
+                  identifierRange: {
+                    startLine: line,
+                    startColumn: column,
+                    endLine: line,
+                    endColumn: column + 6,
+                  },
+                },
+                code: ErrorCodes.INVALID_CONSTRUCTOR_RETURN,
+              });
             }
           }
         }

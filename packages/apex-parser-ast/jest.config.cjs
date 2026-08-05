@@ -14,6 +14,16 @@ module.exports = {
     '**/test/**/*.test.ts',
     '**/test/**/generate-Standard-Apex-Library.ts',
   ],
+  // The shared config also transforms JavaScript for packages that consume ESM
+  // dependencies. Parser tests load compiled workspace packages during teardown;
+  // sending that entire JavaScript graph through ts-jest can exhaust the worker
+  // heap. Only TypeScript sources need transformation in this package.
+  transform: {
+    '^.+\\.tsx?$': 'ts-jest',
+  },
+  // Bundling and Wireit caching both produce package.json copies beneath this
+  // package root. Exclude generated output from Jest's haste package map.
+  modulePathIgnorePatterns: ['<rootDir>/(dist|\\.wireit)/'],
   moduleNameMapper: {
     // Tests now use real embedded archives with disk fallback
     // Map workspace packages to their source files for Jest
@@ -37,20 +47,23 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],
   automock: false,
   resetMocks: false,
-  testTimeout:  120_000, // 2 minutes default timeout for tests
+  testTimeout: 120_000, // 2 minutes default timeout for tests
   // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
   // Without this, parallel runs can hit SIGSEGV in heavy suites (e.g. ApexSymbolManager.references).
   workerIdleMemoryLimit: '1024MB',
   // Cap parallelism to reduce aggregate memory pressure in CI while keeping some concurrency.
   // Override with JEST_MAX_WORKERS (number or Jest string like "75%") when needed.
   maxWorkers: process.env.JEST_MAX_WORKERS || '25%',
-  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
+  // Parser suites own the scheduler/manager instances inside their isolated test
+  // environments. Loading the shared teardown here creates a second copy of the
+  // parser and services barrels in Jest's teardown environment; it cannot clean
+  // the instances from the test environments and needlessly starts their module
+  // graphs during shutdown.
+  globalTeardown: undefined,
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
   detectOpenHandles: process.env.DETECT_OPEN_HANDLES === 'true',
-  // Force exit after tests complete to prevent hanging on open handles
-  // NOTE: This is a workaround - the warning will still appear, allowing us to track the issue
-  // The warning appears before forceExit takes effect, so we don't lose visibility
-  // Can be disabled with JEST_FORCE_EXIT=false if needed for debugging
-  forceExit: process.env.JEST_FORCE_EXIT !== 'false', // Default to true, can disable with JEST_FORCE_EXIT=false
+  // Parser tests must release the resources they create. Keeping this false
+  // makes leaked handles visible instead of masking them with Jest's force-exit.
+  forceExit: false,
 };

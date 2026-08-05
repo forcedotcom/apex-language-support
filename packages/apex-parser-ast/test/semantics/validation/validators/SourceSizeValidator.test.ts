@@ -18,6 +18,12 @@ import type { ValidationError } from '../../../../src/semantics/validation/Valid
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
 import {
+  SymbolFactory,
+  SymbolKind,
+  SymbolTable,
+  type SymbolLocation,
+} from '../../../../src/types/symbol';
+import {
   compileFixture,
   createValidationOptions,
 } from './helpers/validation-test-helpers';
@@ -38,6 +44,20 @@ describe('SourceSizeValidator', () => {
   });
 
   const VALIDATOR_CATEGORY = 'source-size';
+  const testLocation: SymbolLocation = {
+    symbolRange: {
+      startLine: 1,
+      startColumn: 0,
+      endLine: 1,
+      endColumn: 1,
+    },
+    identifierRange: {
+      startLine: 1,
+      startColumn: 0,
+      endLine: 1,
+      endColumn: 1,
+    },
+  };
 
   it('should pass validation for class within size limit', async () => {
     const smallClass = 'public class TestClass { }';
@@ -193,9 +213,7 @@ describe('SourceSizeValidator', () => {
   it('should handle anonymous block size limit', async () => {
     // Anonymous blocks have 32K limit
     const smallAnonymous = 'System.debug("test");';
-    const symbolTable = new (
-      await import('../../../../src/types/symbol')
-    ).SymbolTable();
+    const symbolTable = new SymbolTable();
 
     const result = await Effect.runPromise(
       SourceSizeValidator.validate(symbolTable, {
@@ -217,9 +235,7 @@ describe('SourceSizeValidator', () => {
   it('should detect anonymous block exceeding size limit', async () => {
     // Create anonymous block exceeding 32K limit
     const largeAnonymous = 'System.debug("' + 'a'.repeat(32001) + '");';
-    const symbolTable = new (
-      await import('../../../../src/types/symbol')
-    ).SymbolTable();
+    const symbolTable = new SymbolTable();
 
     const result = await Effect.runPromise(
       SourceSizeValidator.validate(symbolTable, {
@@ -244,5 +260,57 @@ describe('SourceSizeValidator', () => {
         ErrorCodes.SCRIPT_TOO_LARGE,
       );
     }
+  });
+
+  it('should not infer a test context from anonymous source text', async () => {
+    const sourceWithTestText = "System.debug('@isTest');\n" + 'a'.repeat(32001);
+    const symbolTable = new SymbolTable();
+
+    const result = await Effect.runPromise(
+      SourceSizeValidator.validate(symbolTable, {
+        ...createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+        sourceContent: sourceWithTestText,
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
+    );
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: ErrorCodes.SCRIPT_TOO_LARGE,
+    });
+  });
+
+  it('uses parser-owned annotation facts for anonymous test context', async () => {
+    const symbolTable = new SymbolTable();
+    const anonymousScope = SymbolFactory.createMinimalSymbol(
+      'anonymous',
+      SymbolKind.Block,
+      testLocation,
+      'file:///anonymous.apex',
+    );
+    anonymousScope.annotations = [{ name: 'IsTest', location: testLocation }];
+    symbolTable.addSymbol(anonymousScope);
+
+    const result = await Effect.runPromise(
+      SourceSizeValidator.validate(symbolTable, {
+        ...createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+        sourceContent: 'a'.repeat(32001),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 });

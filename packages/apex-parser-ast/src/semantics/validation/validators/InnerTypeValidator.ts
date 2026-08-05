@@ -16,6 +16,7 @@ import {
   TriggerUnitContext,
   BlockContext,
   ClassDeclarationContext,
+  ClassBodyDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import type {
   SymbolTable,
@@ -83,13 +84,11 @@ class StaticBlockListener extends BaseApexParserListener<void> {
 
   private isStaticBlock(ctx: BlockContext): boolean {
     const parent = ctx.parentCtx;
-    if (!parent) return false;
-    const children = parent.children ?? [];
-    const idx = children.indexOf(ctx);
-    if (idx <= 0) return false;
-    const prev = children[idx - 1];
-    const text = prev?.getText()?.toLowerCase().trim();
-    return text === 'static';
+    return (
+      parent instanceof ClassBodyDeclarationContext &&
+      parent.block() === ctx &&
+      parent.STATIC() !== undefined
+    );
   }
 
   getClassesWithStaticBlocks(): ClassWithStaticBlock[] {

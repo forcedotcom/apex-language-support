@@ -130,21 +130,10 @@ class ReturnStatementListener extends BaseApexParserListener<void> {
   }
 
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
-    // Extract method name - use same approach as ApexSymbolCollectorListener
-    const idNode = ctx.id();
-    let methodName = idNode?.getText() ?? 'unknownMethod';
-
-    // If the ID node is empty, try to extract from formal parameters
-    if (!methodName || methodName.trim() === '') {
-      const formalParams = ctx.formalParameters();
-      if (formalParams) {
-        // The method name is typically the first part before the parentheses
-        const paramsText = formalParams.getText();
-        const match = paramsText.match(/^([^(]+)\(/);
-        if (match) {
-          methodName = match[1].trim();
-        }
-      }
+    const methodName = ctx.id()?.getText();
+    if (!methodName) {
+      this.methodStack.push({ isVoid: false, isTrigger: false });
+      return;
     }
 
     // Use lowercase for case-insensitive matching (Apex is case-insensitive)

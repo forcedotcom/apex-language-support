@@ -539,6 +539,34 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect(result!.some((s) => s.name === 'ErrorClass')).toBe(true);
     });
 
+    it('does not synthesize class symbols from declaration-shaped text', async () => {
+      const docUri = 'file:///RealClass.cls';
+      const content = [
+        'public class RealClass {',
+        '  // public class RealClass {',
+        "  private String example = 'public class RealClass {';",
+        '  public void doWork() {}',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('RealClass');
+      expect((result![0] as DocumentSymbol).children).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'doWork() : void' }),
+        ]),
+      );
+    });
+
     it('shows duplicate method declarations in document symbols', async () => {
       const docUri = 'file:///DuplicateMethodClass.cls';
       const content = [

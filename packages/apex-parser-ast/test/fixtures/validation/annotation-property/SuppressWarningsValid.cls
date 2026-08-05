@@ -1,5 +1,5 @@
 public class SuppressWarningsValid {
     @SuppressWarnings('PMD')
-    public void testMethod() {
+    public void suppressedMethod() {
     }
 }

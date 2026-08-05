@@ -83,8 +83,29 @@ const pickHighestDetailLevel = (
   return getLayerOrderIndex(a) >= getLayerOrderIndex(b) ? a : b;
 };
 
-/** Map SymbolReference to IdentifierSpec with typeReference, searchHints, qualifier */
-function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
+const artifactReferenceIdentity = (ref: SymbolReference): string => {
+  const range = ref.location.identifierRange;
+  return [
+    ref.resolvedSymbolId ?? '',
+    ref.resolvedTypeId ?? '',
+    ref.context,
+    ref.name,
+    range.startLine,
+    range.startColumn,
+    range.endLine,
+    range.endColumn,
+  ].join('|');
+};
+
+/** Map a parser reference and its owning snapshot to an artifact identifier. */
+function symbolRefToIdentifierSpec(
+  ref: SymbolReference,
+  sourceUri: string,
+  metadata: {
+    documentVersion?: number;
+    parseCompleteness?: 'complete' | 'incomplete' | 'unknown';
+  },
+): IdentifierSpec {
   const typeRef: TypeReference = {
     name: ref.name,
     location: ref.location,
@@ -98,6 +119,17 @@ function symbolRefToIdentifierSpec(ref: SymbolReference): IdentifierSpec {
   const searchHints = contextToSearchHints(ref);
   return {
     name: ref.name,
+    provenance: {
+      sourceUri,
+      ...(metadata.documentVersion !== undefined && {
+        documentVersion: metadata.documentVersion,
+      }),
+      referenceRange: ref.location.identifierRange,
+      referenceIdentity: artifactReferenceIdentity(ref),
+      ...(ref.resolvedSymbolId && { resolvedSymbolId: ref.resolvedSymbolId }),
+      ...(ref.resolvedTypeId && { resolvedTypeId: ref.resolvedTypeId }),
+      parseCompleteness: metadata.parseCompleteness ?? 'unknown',
+    },
     typeReference: typeRef,
     searchHints,
     ...(isChainedSymbolReference(ref) &&
@@ -138,11 +170,12 @@ function contextToSearchHints(ref: SymbolReference): SearchHint[] {
   ];
 }
 
-/** Dedupe specs by name; prefer spec with hints over minimal */
-function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
+/** Dedupe only identical parser references; same-named sites retain provenance. */
+function dedupeByReferenceIdentity(specs: IdentifierSpec[]): IdentifierSpec[] {
   const byName = new Map<string, IdentifierSpec>();
   for (const spec of specs) {
-    const existing = byName.get(spec.name);
+    const key = spec.provenance.referenceIdentity;
+    const existing = byName.get(key);
     const hasHints =
       (spec.searchHints?.length ?? 0) > 0 ||
       spec.typeReference ||
@@ -154,7 +187,7 @@ function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
       existing?.resolvedQualifier ||
       existing?.parentContext;
     if (!existing || (hasHints && !existingHasHints)) {
-      byName.set(spec.name, spec);
+      byName.set(key, spec);
     }
   }
   return Array.from(byName.values());
@@ -582,8 +615,10 @@ export class PrerequisiteOrchestrationService {
     }
 
     // Map SymbolReferences to IdentifierSpecs with typeReference, searchHints, qualifier
-    const identifierSpecs = dedupeByIdentifierName(
-      nonStdlibRefs.map((r) => symbolRefToIdentifierSpec(r)),
+    const identifierSpecs = dedupeByReferenceIdentity(
+      nonStdlibRefs.map((r) =>
+        symbolRefToIdentifierSpec(r, fileUri, symbolTable.getMetadata()),
+      ),
     );
     const missingTypes = identifierSpecs.map((s) => s.name);
     const isStrictBlockingRequest =

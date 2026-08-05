@@ -410,6 +410,144 @@ describe('HoverProcessingService Integration Tests', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
+  describe('Native sObject hover', () => {
+    it('recovers qualifier and field hover from an incomplete member expression', async () => {
+      const propertyUri = 'file:///Property__c.cls';
+      const propertySource = [
+        'public class Property__c {',
+        '  public Decimal Beds__c;',
+        '}',
+      ].join('\n');
+      const propertyTable = new SymbolTable();
+      new CompilerService().compile(
+        propertySource,
+        propertyUri,
+        new FullSymbolCollectorListener(propertyTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(propertyTable, propertyUri, 1, false),
+      );
+      const source = [
+        'public class PropertyHoverRecoveryTest {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    insert property;',
+        '    property.Beds__c',
+        '    FileUtilities.create',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///PropertyHoverRecoveryTest.cls';
+      const initialSource = [
+        'public class PropertyHoverRecoveryTest {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    insert property;',
+        '  }',
+        '}',
+      ].join('\n');
+      const initialTable = new SymbolTable();
+      new CompilerService().compile(
+        initialSource,
+        uri,
+        new FullSymbolCollectorListener(initialTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(initialTable, uri, 1),
+      );
+
+      const document = TextDocument.create(uri, 'apex', 1, source);
+      const consumerTable = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(consumerTable);
+      new CompilerService().compile(source, uri, listener, {});
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(consumerTable, uri, 2, true),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      const qualifier = await hoverService.processHover({
+        textDocument: { uri },
+        position: { line: 4, character: 7 },
+      });
+      const field = await hoverService.processHover({
+        textDocument: { uri },
+        position: { line: 4, character: 17 },
+      });
+
+      const qualifierContent = (qualifier?.contents as { value: string }).value;
+      expect(qualifierContent).toContain('```apex\nProperty__c property\n```');
+      expect(qualifierContent).toContain(
+        '**Scope:** PropertyHoverRecoveryTest.run',
+      );
+      expect(qualifierContent).not.toContain('**Modifiers:** default');
+      expect(qualifierContent).not.toContain(
+        'PropertyHoverRecoveryTest.run.property',
+      );
+      expect(qualifierContent).not.toContain('Searching for symbol');
+      expect(JSON.stringify(field)).toContain('Decimal Property__c.Beds__c');
+      expect(JSON.stringify(field)).not.toContain('Searching for symbol');
+    });
+  });
+
+  describe('VFS-backed Apex hover', () => {
+    it('uses members parsed from the real remote class body', async () => {
+      const remoteUri =
+        'apex-org-artifact:/apex-class/billing.remoteservice.cls';
+      const remoteSource = [
+        'global class RemoteService {',
+        "  global String greet() { return 'hello'; }",
+        '}',
+      ].join('\n');
+      const remoteTable = new SymbolTable();
+      const remoteListener = new FullSymbolCollectorListener(remoteTable);
+      new CompilerService().compile(
+        remoteSource,
+        remoteUri,
+        remoteListener,
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(remoteTable, remoteUri),
+      );
+
+      const source = [
+        'public class RemoteHoverConsumer {',
+        '  public String run() {',
+        '    RemoteService service;',
+        '    return service.greet();',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///RemoteHoverConsumer.cls';
+      const document = TextDocument.create(uri, 'apex', 1, source);
+      const consumerTable = new SymbolTable();
+      const listener = new FullSymbolCollectorListener(consumerTable);
+      new CompilerService().compile(source, uri, listener, {});
+      await Effect.runPromise(symbolManager.addSymbolTable(consumerTable, uri));
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      const result = await hoverService.processHover({
+        textDocument: { uri },
+        position: { line: 3, character: 20 },
+      });
+
+      expect(result).not.toBeNull();
+      expect((result?.contents as { value: string }).value).toContain('greet');
+      expect(
+        remoteTable.getAllSymbols().find((symbol) => symbol.name === 'greet')
+          ?.fileUri,
+      ).toBe(remoteUri);
+    });
+  });
+
   describe('Apex Access Modifier Context Analysis', () => {
     it('should resolve global class when in global access modifier context', async () => {
       mockStorage.getDocument.mockResolvedValue(testClassDocument);
@@ -652,9 +790,9 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        // TODO: Revisit hover data quality - should include clear parameter labels and type info
-        // Parameter is now correctly owned by method, so FQN includes method name
-        expect(content).toContain('String FileUtilities.createFile.base64data');
+        expect(content).toContain('```apex\nString base64data\n```');
+        expect(content).toContain('**Scope:** FileUtilities.createFile');
+        expect(content).not.toContain('**Modifiers:** default');
       }
     });
 
@@ -1110,11 +1248,11 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        // TODO: Revisit hover data quality - should include clear variable labels
-        // Variable is in testFileUtilities method, so FQN includes method name
+        expect(content).toContain('```apex\nBoolean exists\n```');
         expect(content).toContain(
-          'Boolean ComplexTestClass.testFileUtilities.exists',
+          '**Scope:** ComplexTestClass.testFileUtilities',
         );
+        expect(content).not.toContain('**Modifiers:** default');
       }
     });
 
@@ -1670,14 +1808,15 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        // Should show the local variable in method1, not the class field
+        // Keep the primary signature concise while retaining scope as
+        // development metadata for disambiguating shadowed locals.
         expect(content).toContain('```apex');
-        expect(content).toContain('String');
-        // Verify it's method1's local variable (FQN includes method1)
-        expect(content).toContain('method1.a');
+        expect(content).toContain('String a');
+        expect(content).toContain('**Scope:** ScopeExample.method1');
+        expect(content).not.toContain('**Modifiers:** default');
         // Should NOT be the class field (which would be just ScopeExample.a)
         expect(content).not.toContain('ScopeExample.a');
-        expect(content).not.toContain('method2.a');
+        expect(content).not.toContain('ScopeExample.method2');
       }
     });
 
@@ -1711,11 +1850,11 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         // Should show the local variable in method2, not method1's or the class field
         expect(content).toContain('```apex');
-        expect(content).toContain('String');
-        // Verify it's method2's local variable (FQN includes method2)
-        expect(content).toContain('method2.a');
+        expect(content).toContain('String a');
+        expect(content).toContain('**Scope:** ScopeExample.method2');
+        expect(content).not.toContain('**Modifiers:** default');
         // Should NOT be method1's variable or the class field
-        expect(content).not.toContain('method1.a');
+        expect(content).not.toContain('ScopeExample.method1');
         expect(content).not.toContain('ScopeExample.a');
       }
     });
@@ -2864,6 +3003,64 @@ public class RecordTypeModel {}`;
           ? (result!.contents as { value: string }).value
           : '';
       expect(content).toContain('Searching for symbol');
+    });
+
+    it('should trigger missing-artifact resolution for a field on a local with an unresolved type', async () => {
+      const source = [
+        'public class UnresolvedSObjectHoverTest {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    property.Beds__c;',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///UnresolvedSObjectHoverTest.cls';
+      const document = TextDocument.create(uri, 'apex', 1, source);
+      const table = new SymbolTable();
+      new CompilerService().compile(
+        source,
+        uri,
+        new FullSymbolCollectorListener(table),
+        {},
+      );
+      await Effect.runPromise(
+        coldStartSymbolManager.addSymbolTable(table, uri),
+      );
+      coldStartStorage.getDocument.mockResolvedValue(document);
+
+      const backgroundLookup = jest.fn();
+      (
+        coldStartHoverService as unknown as {
+          missingArtifactUtils: {
+            tryResolveMissingArtifactBackground: typeof backgroundLookup;
+          };
+        }
+      ).missingArtifactUtils = {
+        tryResolveMissingArtifactBackground: backgroundLookup,
+      };
+
+      const fieldLine = source
+        .split('\n')
+        .findIndex((line) => line.includes('property.Beds__c'));
+      const result = await coldStartHoverService.processHover({
+        textDocument: { uri },
+        position: {
+          line: fieldLine,
+          character: source.split('\n')[fieldLine].indexOf('Beds__c') + 1,
+        },
+      });
+      const content =
+        typeof result?.contents === 'object' && 'value' in result.contents
+          ? result.contents.value
+          : '';
+
+      expect(content).toContain('Looking for: `Beds__c`');
+      expect(content).not.toContain('Property__c property');
+      expect(backgroundLookup).toHaveBeenCalledWith(
+        uri,
+        expect.objectContaining({ line: fieldLine }),
+        'hover',
+      );
     });
 
     it('should not fall back to enclosing-method hover when qualifier class is not loaded', async () => {
