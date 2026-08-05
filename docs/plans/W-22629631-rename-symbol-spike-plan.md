@@ -93,7 +93,7 @@ Intra-group sequential dependencies (e.g. 3.2 waits on 3.1) are encoded as `Depe
 
 | # | Subject | Notes |
 |---|---|---|
-| 3.1 | Scope-aware local occurrence matching (bind to declaring symbol, handles shadowing) + WorkspaceEdit construction + wire first non-null return into `processRename` | The genuinely new logic the original plan missed. |
+| 3.1 | Scope-aware local occurrence matching (bind to declaring symbol, handles shadowing) + WorkspaceEdit construction + wire first non-null return into `processRename` | The genuinely new logic the original plan missed. **Implemented (W-23631077):** new `findLocalOccurrences` op in apex-parser-ast binds each name+context candidate back to the cursor's declaring symbol via `SymbolTable.resolveVariableAtPosition` (shadowing-safe, innermost-scope-wins) and drops sibling-scope same-named locals; the declaration's own `identifierRange` is always the first edit. Wired into the **worker `DispatchRename` handler** (the live request-pool path, mirroring `DispatchReferences`), NOT `RenameProcessingService.processRename` — a local is single-file and lexically scoped, so `resolveLocalRename` parses the cursor file STANDALONE (throwaway `SymbolTable`) rather than running the workspace-wide two-phase scan (which would wrongly surface same-named locals in other files). Returns a `changes`-map `WorkspaceEdit`; a non-local cursor (field/method/type) still returns `null` for later groups. |
 | 3.2 | renameLocal validation (`IdentifierValidator` + `canBeRenamed` guard) + `prepareRename` support for locals | Depends on 3.1. |
 | 3.3 | renameLocal e2e: `apex-rename-symbol.spec.ts` + new `ApexEditorPage.rename()` helper | First e2e coverage; helper reused by later groups. |
 
