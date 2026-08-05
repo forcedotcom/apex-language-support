@@ -132,49 +132,77 @@ export class ApexEditorPage extends BasePage {
    * Trigger go-to-definition at the current cursor position.
    * Uses F12 keyboard shortcut.
    * Waits for peek widget or editor to update, then closes peek if open.
+   *
+   * @param expectedLines - Optional 1-indexed line(s) the cursor should reach.
+   *   When provided, F12 is RE-PRESSED (the request re-issued) within a bounded
+   *   loop until the cursor lands on one of these lines. This matters in the web
+   *   worker pool: a definition issued while the pool is still ingesting the
+   *   cursor file at full detail returns null, and VS Code does NOT auto-retry a
+   *   null definition — so a single F12 on a slow runner never navigates even
+   *   though a moment later it would succeed. Re-pressing mirrors what a real
+   *   user does and makes the outcome deterministic. Omit it to keep the legacy
+   *   single-press behavior (callers that assert non-navigation, cross-file
+   *   peeks, etc.).
    */
-  async goToDefinition(): Promise<void> {
-    // Ensure the Find widget is fully closed and the editor has keyboard focus before
-    // pressing F12. If positionCursorOnWord left the Find widget open (e.g. Escape
-    // didn't dismiss it within 2 s), F12 lands in the Find input rather than the
-    // editor and no go-to-definition is triggered.
-    // Ensure the Find widget is fully closed before pressing F12. If
-    // positionCursorOnWord left the widget open, F12 lands in the Find input
-    // rather than triggering go-to-definition. Escape closes the widget and
-    // returns focus + cursor to the editor at the found position — no click
-    // needed (clicking the editor would move the cursor off the target word).
-    const findWidget = this.page.locator('.editor-widget.find-widget');
-    if (await findWidget.isVisible()) {
-      await this.page.keyboard.press('Escape');
-      await findWidget
-        .waitFor({ state: 'hidden', timeout: 3000 })
-        .catch(() => {});
-    }
-
-    await this.page.keyboard.press('F12');
-
-    // Wait only for an actual peek view widget (not the broad .editor-widget which
-    // is always visible). The broad selector caused Escapes to fire immediately after
-    // F12, canceling VS Code's pending cross-file definition request before the LSP
-    // responded. The .peekview-widget only appears for multi-result definitions.
-    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
-    await peekWidget
-      .waitFor({ state: 'visible', timeout: 200 })
-      .catch(() => {});
-
-    // Only close the peek if it actually appeared
-    if (await peekWidget.isVisible()) {
-      for (let i = 0; i < 3; i++) {
+  async goToDefinition(expectedLines?: number | number[]): Promise<void> {
+    const pressF12AndSettle = async (): Promise<void> => {
+      // Ensure the Find widget is fully closed before pressing F12. If
+      // positionCursorOnWord left the widget open, F12 lands in the Find input
+      // rather than triggering go-to-definition. Escape closes the widget and
+      // returns focus + cursor to the editor at the found position — no click
+      // needed (clicking the editor would move the cursor off the target word).
+      const findWidget = this.page.locator('.editor-widget.find-widget');
+      if (await findWidget.isVisible()) {
         await this.page.keyboard.press('Escape');
-        await peekWidget
-          .waitFor({ state: 'hidden', timeout: 500 })
+        await findWidget
+          .waitFor({ state: 'hidden', timeout: 3000 })
           .catch(() => {});
       }
+
+      await this.page.keyboard.press('F12');
+
+      // Wait only for an actual peek view widget (not the broad .editor-widget
+      // which is always visible). The broad selector caused Escapes to fire
+      // immediately after F12, canceling VS Code's pending cross-file
+      // definition request before the LSP responded. The .peekview-widget only
+      // appears for multi-result definitions.
+      const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+      await peekWidget
+        .waitFor({ state: 'visible', timeout: 200 })
+        .catch(() => {});
+
+      // Only close the peek if it actually appeared
+      if (await peekWidget.isVisible()) {
+        for (let i = 0; i < 3; i++) {
+          await this.page.keyboard.press('Escape');
+          await peekWidget
+            .waitFor({ state: 'hidden', timeout: 500 })
+            .catch(() => {});
+        }
+      }
+
+      await this.activeEditorContent
+        .waitFor({ state: 'visible', timeout: this.defaultTimeout })
+        .catch(() => {});
+    };
+
+    if (expectedLines === undefined) {
+      await pressF12AndSettle();
+      return;
     }
 
-    await this.activeEditorContent
-      .waitFor({ state: 'visible', timeout: this.defaultTimeout })
-      .catch(() => {});
+    // Re-issue the definition request until the cursor reaches an expected
+    // line or the bound elapses. Each iteration re-presses F12 so a request
+    // that raced pool warm-up (returned null) is retried, not just re-checked.
+    const { expect } = await import('@playwright/test');
+    const validLines = Array.isArray(expectedLines)
+      ? expectedLines
+      : [expectedLines];
+    await expect(async () => {
+      await pressF12AndSettle();
+      const { line } = await this.getCursorPosition();
+      expect(validLines).toContain(line);
+    }).toPass({ timeout: this.defaultTimeout });
   }
 
   /**
