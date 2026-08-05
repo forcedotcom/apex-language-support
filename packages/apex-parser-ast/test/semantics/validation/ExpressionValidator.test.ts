@@ -10,9 +10,32 @@ import { ExpressionValidator } from '../../../src/semantics/validation/Expressio
 import { TypePromotionSystem } from '../../../src/semantics/validation/TypePromotionSystem';
 import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 import type { ExpressionType } from '../../../src/semantics/validation/TypePromotionSystem';
-import type { VariableSymbol } from '../../../src/types/symbol';
+import { CompilerService } from '../../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../../src/parser/listeners/ApexSymbolCollectorListener';
+import {
+  SymbolKind,
+  type SymbolTable,
+  type TypeSymbol,
+  type VariableSymbol,
+} from '../../../src/types/symbol';
+import { createPrimitiveType } from '../../../src/types/typeInfo';
+import type { ConstructorExpressionSemanticContext } from '../../../src/semantics/validation';
 
 describe('ExpressionValidator', () => {
+  const compileSymbols = (source: string): SymbolTable => {
+    const compiler = new CompilerService();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    const result = compiler.compile(
+      source,
+      'file:///ExpressionScopes.cls',
+      listener,
+      { collectReferences: true, resolveReferences: true },
+    );
+
+    expect(result.result).not.toBeNull();
+    return result.result!;
+  };
+
   const createMockScope = (version = 58): ValidationScope => ({
     version,
     namespace: 'default',
@@ -59,6 +82,33 @@ describe('ExpressionValidator', () => {
     } as VariableSymbol);
     return symbolTable;
   };
+
+  const createConstructorContext = (
+    typeName: string,
+    fields: Record<string, string>,
+  ): ConstructorExpressionSemanticContext => {
+    const targetSymbol = {
+      id: `type:${typeName}`,
+      name: typeName,
+      kind: SymbolKind.Class,
+    } as TypeSymbol;
+    const memberSymbols = Object.entries(fields).map(
+      ([name, fieldType]) =>
+        ({
+          id: `field:${typeName}.${name}`,
+          name,
+          kind: SymbolKind.Field,
+          parentId: targetSymbol.id,
+          type: createPrimitiveType(fieldType),
+        }) as VariableSymbol,
+    );
+    return { targetSymbol, memberSymbols };
+  };
+
+  const accountConstructorContext = createConstructorContext('Account', {
+    Name: 'String',
+    Phone: 'String',
+  });
 
   let validator: ExpressionValidator;
   let scope: ValidationScope;
@@ -172,6 +222,107 @@ describe('ExpressionValidator', () => {
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
+
+    it('resolves shadowed names from the reference lexical position', () => {
+      const symbols = compileSymbols(
+        [
+          'public class ExpressionScopes {',
+          '  String value;',
+          '  void first() {',
+          '    Integer value = 1;',
+          '    value++;',
+          '  }',
+          '  void second() {',
+          '    value.length();',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+      const semanticValidator = new ExpressionValidator(scope, symbols);
+
+      const local = semanticValidator.validateExpression({
+        kind: 'variable',
+        name: 'value',
+        referencePosition: { line: 5, character: 4 },
+      });
+      const field = semanticValidator.validateVariableExpression('value', {
+        line: 8,
+        character: 4,
+      });
+
+      expect(local.isValid).toBe(true);
+      expect(local.type?.name).toBe('Integer');
+      expect(field.isValid).toBe(true);
+      expect(field.type?.name).toBe('String');
+    });
+
+    it('does not leak a declaration moved by an edit into a sibling method', () => {
+      const beforeEdit = compileSymbols(
+        [
+          'public class ExpressionScopes {',
+          '  void first() {}',
+          '  void second() {',
+          "    String editedValue = 'ready';",
+          '    editedValue.length();',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+      const afterEdit = compileSymbols(
+        [
+          'public class ExpressionScopes {',
+          '  void first() {',
+          "    String editedValue = 'moved';",
+          '  }',
+          '  void second() {',
+          '    editedValue.length();',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+
+      const beforeResult = new ExpressionValidator(
+        scope,
+        beforeEdit,
+      ).validateVariableExpression('editedValue', {
+        line: 5,
+        character: 4,
+      });
+      const afterResult = new ExpressionValidator(
+        scope,
+        afterEdit,
+      ).validateVariableExpression('editedValue', {
+        line: 6,
+        character: 4,
+      });
+
+      expect(beforeResult.isValid).toBe(true);
+      expect(beforeResult.type?.name).toBe('String');
+      expect(afterResult.isValid).toBe(false);
+      expect(afterResult.errors).toContain('variable.not.visible');
+    });
+
+    it('preserves uncertainty when the semantic facade has no reference position', () => {
+      const symbols = compileSymbols(
+        [
+          'public class ExpressionScopes {',
+          '  void first() {',
+          "    String value = 'ready';",
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+
+      const result = new ExpressionValidator(
+        scope,
+        symbols,
+      ).validateVariableExpression('value');
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toContain(
+        'variable.visibility.cannot.be.determined',
+      );
+    });
   });
 
   describe('validateNotExpression', () => {
@@ -210,6 +361,7 @@ describe('ExpressionValidator', () => {
       const result = validator.validateConstructorExpression(
         createMockType('Account'),
         fieldInitializers,
+        accountConstructorContext,
       );
 
       expect(result.isValid).toBe(true);
@@ -225,6 +377,7 @@ describe('ExpressionValidator', () => {
       const result = validator.validateConstructorExpression(
         createMockType('Account'),
         fieldInitializers,
+        accountConstructorContext,
       );
 
       expect(result.isValid).toBe(false);
@@ -239,6 +392,7 @@ describe('ExpressionValidator', () => {
       const result = validator.validateConstructorExpression(
         createMockType('Account'),
         fieldInitializers,
+        accountConstructorContext,
       );
 
       expect(result.isValid).toBe(false);
@@ -253,6 +407,7 @@ describe('ExpressionValidator', () => {
       const result = validator.validateConstructorExpression(
         createMockType('Account'),
         fieldInitializers,
+        accountConstructorContext,
       );
 
       expect(result.isValid).toBe(false);
@@ -334,6 +489,7 @@ describe('ExpressionValidator', () => {
         fieldInitializers: new Map<string, ExpressionType>([
           ['Name', createMockType('String')],
         ]),
+        semanticContext: accountConstructorContext,
       };
 
       const result = validator.validateExpression(expression);

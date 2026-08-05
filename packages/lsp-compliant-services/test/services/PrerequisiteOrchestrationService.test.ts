@@ -96,6 +96,10 @@ describe('PrerequisiteOrchestrationService', () => {
     };
     const symbolTable = {
       getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: jest.fn().mockReturnValue({
+        documentVersion: 9,
+        parseCompleteness: 'complete',
+      }),
     };
     const symbolManager = {
       getDetailLevelForFile: jest.fn().mockReturnValue('full'),
@@ -120,6 +124,16 @@ describe('PrerequisiteOrchestrationService', () => {
     await service.runPrerequisitesForLspRequestType('references', uri);
 
     expect(mockMissingArtifactService.resolveBlocking).toHaveBeenCalledTimes(1);
+    expect(
+      mockMissingArtifactService.resolveBlocking.mock.calls[0][0].identifiers[0]
+        .provenance,
+    ).toEqual({
+      sourceUri: uri,
+      documentVersion: 9,
+      referenceRange: unresolvedRef.location.identifierRange,
+      referenceIdentity: '||2|CustomType|1|1|1|10',
+      parseCompleteness: 'complete',
+    });
     expect(
       mockMissingArtifactService.resolveInBackground,
     ).not.toHaveBeenCalled();
@@ -150,6 +164,10 @@ describe('PrerequisiteOrchestrationService', () => {
     };
     const symbolTable = {
       getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: jest.fn().mockReturnValue({
+        documentVersion: 10,
+        parseCompleteness: 'complete',
+      }),
     };
     const symbolManager = {
       getDetailLevelForFile: jest.fn().mockReturnValue('full'),
@@ -180,6 +198,129 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(
       symbolManager.resolveCrossFileReferencesForFile,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads a missing receiver type and retries the same semantic chain without another request', async () => {
+    const typeReference = {
+      name: 'Property__c',
+      resolvedSymbolId: undefined as string | undefined,
+      context: ReferenceContext.TYPE_DECLARATION,
+      location: {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 4,
+          endLine: 3,
+          endColumn: 15,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 4,
+          endLine: 3,
+          endColumn: 15,
+        },
+      },
+    };
+    const receiver = {
+      name: 'property',
+      resolvedSymbolId: 'variable:property',
+      resolvedTypeId: undefined as string | undefined,
+      context: ReferenceContext.VARIABLE_USAGE,
+      location: {
+        symbolRange: {
+          startLine: 4,
+          startColumn: 4,
+          endLine: 4,
+          endColumn: 12,
+        },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 4,
+          endLine: 4,
+          endColumn: 12,
+        },
+      },
+    };
+    const member = {
+      name: 'Beds__c',
+      resolvedSymbolId: undefined as string | undefined,
+      context: ReferenceContext.FIELD_ACCESS,
+      location: {
+        symbolRange: {
+          startLine: 4,
+          startColumn: 13,
+          endLine: 4,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 13,
+          endLine: 4,
+          endColumn: 20,
+        },
+      },
+    };
+    const chain = {
+      ...member,
+      name: 'property.Beds__c',
+      chainNodes: [receiver, member],
+    };
+    const symbolTable = {
+      getAllReferences: jest
+        .fn()
+        .mockReturnValue([typeReference, receiver, member, chain]),
+      getMetadata: jest.fn().mockReturnValue({
+        documentVersion: 14,
+        parseCompleteness: 'complete',
+      }),
+    };
+    const resolveCrossFileReferencesForFile = jest.fn(() =>
+      Effect.sync(() => {
+        typeReference.resolvedSymbolId = 'type:Property__c';
+        receiver.resolvedTypeId = 'type:Property__c';
+        member.resolvedSymbolId = 'field:Property__c.Beds__c';
+      }),
+    );
+    const symbolManager = {
+      getSymbolTableForFile: jest.fn().mockResolvedValue(symbolTable),
+      resolveCrossFileReferencesForFile,
+      isStandardLibraryType: jest.fn().mockResolvedValue(false),
+      findSymbolByName: jest.fn().mockResolvedValue([{ name: 'Property__c' }]),
+    };
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      { enrichFiles: jest.fn() } as never,
+    );
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue('resolved');
+
+    await (service as any).handleMissingArtifactsAfterCrossFileResolution(
+      uri,
+      'references',
+      true,
+    );
+    await (service as any).handleMissingArtifactsAfterCrossFileResolution(
+      uri,
+      'references',
+      true,
+    );
+
+    expect(mockMissingArtifactService.resolveBlocking).toHaveBeenCalledTimes(1);
+    expect(
+      mockMissingArtifactService.resolveBlocking.mock.calls[0][0].identifiers,
+    ).toEqual([
+      expect.objectContaining({
+        name: 'Property__c',
+        provenance: expect.objectContaining({
+          sourceUri: uri,
+          documentVersion: 14,
+          referenceIdentity: '||2|Property__c|3|4|3|15',
+          parseCompleteness: 'complete',
+        }),
+      }),
+    ]);
+    expect(resolveCrossFileReferencesForFile).toHaveBeenCalledTimes(1);
+    expect(receiver.resolvedTypeId).toBe('type:Property__c');
+    expect(member.resolvedSymbolId).toBe('field:Property__c.Beds__c');
   });
 
   it('deduplicates concurrent prerequisite requests for the same file and version', async () => {

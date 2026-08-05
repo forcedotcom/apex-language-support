@@ -6,23 +6,58 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ConstructorExpressionValidator } from '../../../src/semantics/validation/ConstructorExpressionValidator';
+import {
+  ConstructorExpressionValidator,
+  type ConstructorExpressionSemanticContext,
+} from '../../../src/semantics/validation/ConstructorExpressionValidator';
 import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 import type { ExpressionType } from '../../../src/semantics/validation/TypePromotionSystem';
+import {
+  SymbolKind,
+  type TypeSymbol,
+  type VariableSymbol,
+} from '../../../src/types/symbol';
+import { createPrimitiveType } from '../../../src/types/typeInfo';
 
 describe('ConstructorExpressionValidator', () => {
   const createMockScope = (version = 58): ValidationScope => ({
     version,
-    namespace: 'default',
-    currentClass: 'TestClass',
-    currentMethod: 'testMethod',
-    isStatic: false,
+    supportsLongIdentifiers: true,
+    isFileBased: true,
   });
 
   const createMockType = (name: string): ExpressionType => ({
+    kind: 'primitive',
     name,
-    isPrimitive: true,
-    isVoid: false,
+    isNullable: false,
+    isArray: false,
+  });
+
+  const createSemanticContext = (
+    typeName: string,
+    fields: Record<string, string>,
+  ): ConstructorExpressionSemanticContext => {
+    const targetSymbol = {
+      id: `type:${typeName}`,
+      name: typeName,
+      kind: SymbolKind.Class,
+    } as TypeSymbol;
+    const memberSymbols = Object.entries(fields).map(
+      ([name, typeName]) =>
+        ({
+          id: `field:${targetSymbol.name}.${name}`,
+          name,
+          kind: SymbolKind.Field,
+          parentId: targetSymbol.id,
+          type: createPrimitiveType(typeName),
+        }) as VariableSymbol,
+    );
+    return { targetSymbol, memberSymbols };
+  };
+
+  const accountContext = createSemanticContext('Account', {
+    Name: 'String',
+    Phone: 'String',
   });
 
   describe('validateConstructorExpression', () => {
@@ -56,6 +91,7 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          accountContext,
         );
 
       expect(result.isValid).toBe(true);
@@ -99,6 +135,7 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          accountContext,
         );
 
       expect(result.isValid).toBe(false);
@@ -117,6 +154,7 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          accountContext,
         );
 
       expect(result.isValid).toBe(false);
@@ -154,6 +192,19 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          accountContext,
+        );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('preserves uncertainty when custom SObject members are unresolved', () => {
+      const result =
+        ConstructorExpressionValidator.validateConstructorExpression(
+          createMockType('Property__c'),
+          new Map([['Invented__c', createMockType('Integer')]]),
+          createMockScope(),
         );
 
       expect(result.isValid).toBe(true);
@@ -190,17 +241,22 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          createSemanticContext('Contact', {
+            FirstName: 'String',
+            LastName: 'String',
+            Email: 'String',
+          }),
         );
 
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate custom object constructors', () => {
+    it('should validate custom SObject fields from resolved member symbols', () => {
       const scope = createMockScope();
-      const targetType = createMockType('CustomObject__c');
+      const targetType = createMockType('Property__c');
       const fieldInitializers = new Map<string, ExpressionType>([
-        ['CustomField__c', createMockType('String')],
+        ['Beds__c', createMockType('Integer')],
       ]);
 
       const result =
@@ -208,10 +264,24 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          createSemanticContext('Property__c', { Beds__c: 'Decimal' }),
         );
 
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
+    });
+
+    it('should reject a value incompatible with a resolved custom field type', () => {
+      const result =
+        ConstructorExpressionValidator.validateConstructorExpression(
+          createMockType('Property__c'),
+          new Map([['Beds__c', createMockType('String')]]),
+          createMockScope(),
+          createSemanticContext('Property__c', { Beds__c: 'Decimal' }),
+        );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('illegal.assignment');
     });
 
     it('should handle multiple validation errors', () => {
@@ -229,6 +299,7 @@ describe('ConstructorExpressionValidator', () => {
           targetType,
           fieldInitializers,
           scope,
+          accountContext,
         );
 
       expect(result.isValid).toBe(false);
@@ -246,6 +317,7 @@ describe('ConstructorExpressionValidator', () => {
       const result = ConstructorExpressionValidator.validateFieldExistence(
         targetType,
         fieldName,
+        accountContext,
       );
 
       expect(result.isValid).toBe(true);
@@ -259,6 +331,7 @@ describe('ConstructorExpressionValidator', () => {
       const result = ConstructorExpressionValidator.validateFieldExistence(
         targetType,
         fieldName,
+        accountContext,
       );
 
       expect(result.isValid).toBe(false);
@@ -272,6 +345,7 @@ describe('ConstructorExpressionValidator', () => {
       const result = ConstructorExpressionValidator.validateFieldExistence(
         targetType,
         fieldName,
+        accountContext,
       );
 
       expect(result.isValid).toBe(true);

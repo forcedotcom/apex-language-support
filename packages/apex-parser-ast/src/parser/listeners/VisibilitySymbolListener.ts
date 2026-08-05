@@ -67,6 +67,11 @@ import {
   MethodModifierValidator,
 } from '../../semantics/modifiers/index';
 import { ErrorReporter } from '../../utils/ErrorReporter';
+import { modifierKeywordFromContext } from '../../utils/contextTypeGuards';
+import {
+  EnhancedSymbolReference,
+  ReferenceContext,
+} from '../../types/symbolReference';
 
 /**
  * Consolidated listener for visibility-based symbol collection.
@@ -133,28 +138,10 @@ export class VisibilitySymbolListener
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
-      // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
-      // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
-      // So ctx.id() returns undefined. We need to check for these keyword tokens.
-      let name = ctx.id()?.getText();
+      const name = ctx.id()?.getText();
       if (!name) {
-        // Check if class name is a keyword token (LIST, MAP, SET)
-        const children = ctx.children || [];
-        for (const child of children) {
-          const childText = child.getText();
-          if (
-            childText &&
-            (childText.toLowerCase() === 'list' ||
-              childText.toLowerCase() === 'map' ||
-              childText.toLowerCase() === 'set')
-          ) {
-            name = childText;
-            break;
-          }
-        }
-      }
-      if (!name) {
-        name = 'unknownClass';
+        this.enterStructuralTypeScope(ctx);
+        return;
       }
 
       const modifiers = this.getCurrentModifiers();
@@ -194,12 +181,18 @@ export class VisibilitySymbolListener
         );
 
         // Get superclass and interfaces
-        const superclass = ctx.typeRef()?.getText();
+        const superclassType = ctx.typeRef();
+        const superclass = superclassType
+          ? this.createTypeInfoFromTypeRef(superclassType).originalTypeString
+          : undefined;
         const interfaces =
           ctx
             .typeList()
             ?.typeRef_list()
-            .map((t) => t.getText()) || [];
+            .map(
+              (typeRef) =>
+                this.createTypeInfoFromTypeRef(typeRef).originalTypeString,
+            ) || [];
 
         // Create class symbol
         const classSymbol = this.createTypeSymbol(
@@ -270,7 +263,11 @@ export class VisibilitySymbolListener
    */
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
-      const name = ctx.id()?.getText() ?? 'unknownInterface';
+      const name = ctx.id()?.getText();
+      if (!name) {
+        this.enterStructuralTypeScope(ctx);
+        return;
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -282,7 +279,10 @@ export class VisibilitySymbolListener
           ctx
             .typeList()
             ?.typeRef_list()
-            .map((t) => t.getText()) || [];
+            .map(
+              (typeRef) =>
+                this.createTypeInfoFromTypeRef(typeRef).originalTypeString,
+            ) || [];
 
         const interfaceSymbol = this.createTypeSymbol(
           ctx,
@@ -346,7 +346,11 @@ export class VisibilitySymbolListener
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
-      const name = ctx.id()?.getText() ?? 'unknownEnum';
+      const name = ctx.id()?.getText();
+      if (!name) {
+        this.enterStructuralTypeScope(ctx);
+        return;
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -467,7 +471,10 @@ export class VisibilitySymbolListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
-      const name = ctx.id()?.getText() ?? 'unknownMethod';
+      const name = ctx.id()?.getText();
+      if (!name) {
+        return;
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Validate method modifiers using MethodModifierValidator
@@ -574,7 +581,10 @@ export class VisibilitySymbolListener
     ctx: InterfaceMethodDeclarationContext,
   ): void {
     try {
-      const name = ctx.id()?.getText() ?? 'unknownMethod';
+      const name = ctx.id()?.getText();
+      if (!name) {
+        return;
+      }
 
       // Interface methods are implicitly public and abstract
       // Always process them regardless of detail level (they're part of the interface contract)
@@ -664,18 +674,19 @@ export class VisibilitySymbolListener
 
       // Validate that constructor name is not a dotted name (semantic error)
       if (ids && ids.length > 1) {
+        const constructorName = ids.map((id) => id.getText()).join('.');
         const qualifiedNameError =
           'Invalid constructor declaration: Constructor names cannot use qualified names. Found: ' +
-          this.getTextFromContext(qualifiedName);
+          constructorName;
         this.addError(qualifiedNameError, ctx);
         return;
       }
 
       const currentType = this.getCurrentType(ctx);
-      const name =
-        ids && ids.length > 0
-          ? ids[0].getText()
-          : (currentType?.name ?? 'unknownConstructor');
+      const name = ids?.[0]?.getText();
+      if (!name) {
+        return;
+      }
 
       // Validate that constructor name matches the enclosing class name
       if (currentType && name !== currentType.name) {
@@ -964,8 +975,29 @@ export class VisibilitySymbolListener
 
   // Modifier and annotation tracking
   enterModifier(ctx: ModifierContext): void {
-    const modifierText = ctx.getText().toLowerCase();
+    const modifierText = modifierKeywordFromContext(ctx);
+    if (!modifierText) return;
     applyModifierKeyword(this.currentModifiers, modifierText);
+
+    if (modifierText === 'override' && this.currentModifiers.visibility) {
+      const location = this.getLocation(ctx);
+      this.symbolTable.addTypeReference(
+        new EnhancedSymbolReference(
+          'override',
+          location,
+          ReferenceContext.KEYWORD_USAGE,
+          {
+            parentContext: this.getCurrentType()?.name,
+            semanticContext: {
+              overrideCompletion: {
+                kind: 'override-completion',
+                keywordRange: location.identifierRange,
+              },
+            },
+          },
+        ),
+      );
+    }
   }
 
   exitModifier(): void {
@@ -976,10 +1008,10 @@ export class VisibilitySymbolListener
     // Extract annotation name similar to ApexSymbolCollectorListener
     const qn = ctx.qualifiedName?.();
     const ids = qn?.id_list();
-    const name =
-      ids && ids.length > 0
-        ? ids.map((i) => i.getText()).join('.')
-        : (ctx.getText() || '').replace(/^@/, '');
+    const name = ids?.map((id) => id.getText()).join('.');
+    if (!name) {
+      return;
+    }
 
     const annotation: Annotation = {
       name,
@@ -1000,7 +1032,11 @@ export class VisibilitySymbolListener
   enterTriggerUnit(ctx: TriggerUnitContext): void {
     try {
       // Get the trigger name from the first id
-      const name = ctx.id(0)?.getText() ?? 'unknownTrigger';
+      const name = ctx.id(0)?.getText();
+      if (!name) {
+        this.enterStructuralTypeScope(ctx);
+        return;
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Triggers don't have visibility modifiers - they're always public
@@ -1072,7 +1108,11 @@ export class VisibilitySymbolListener
       // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
       const triggerUnit = ctx.parentCtx?.parentCtx
         ?.parentCtx as TriggerUnitContext;
-      const name = triggerUnit?.id?.(0)?.getText() ?? 'unknownTrigger';
+      const name = triggerUnit?.id?.(0)?.getText();
+      if (!name) {
+        this.enterStructuralTypeScope(ctx);
+        return;
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -1410,6 +1450,20 @@ export class VisibilitySymbolListener
   private generateBlockName(scopeType: ScopeType): string {
     this.blockCounter++;
     return `${scopeType}_${this.blockCounter}`;
+  }
+
+  private enterStructuralTypeScope(ctx: ParserRuleContext): void {
+    const blockSymbol = this.createBlockSymbol(
+      this.generateBlockName('class'),
+      'class',
+      this.getLocation(ctx),
+      this.getCurrentScopeSymbol(ctx),
+      undefined,
+      ctx,
+    );
+    if (blockSymbol) {
+      this.scopeStack.push(blockSymbol);
+    }
   }
 
   /**
@@ -1882,11 +1936,6 @@ export class VisibilitySymbolListener
   /**
    * Extract text from a parser context
    */
-  private getTextFromContext(ctx: ParserRuleContext | any): string {
-    if (!ctx) return '';
-    return ctx.getText() || '';
-  }
-
   /**
    * Determine namespace for a type symbol
    * Only used when detailLevel is 'public-api'

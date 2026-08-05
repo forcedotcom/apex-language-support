@@ -765,6 +765,26 @@ export class DispatchReferences extends Schema.TaggedRequest<DispatchReferences>
   },
 ) {}
 
+export class DispatchRename extends Schema.TaggedRequest<DispatchRename>()(
+  'DispatchRename',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      newName: Schema.String,
+      // Live (possibly unsaved) document text, threaded in for the same reason
+      // as DispatchReferences: the stateless request-pool worker has no document
+      // in local storage unless we pass the text, so cursor→symbol resolution
+      // (and therefore the whole rename) would otherwise miss.
+      content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
 export class DispatchImplementation extends Schema.TaggedRequest<DispatchImplementation>()(
   'DispatchImplementation',
   {
@@ -1176,6 +1196,7 @@ export const LspRequestTags = [
   'DispatchSignatureHelp',
   'DispatchCodeAction',
   'DispatchReferences',
+  'DispatchRename',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
   'DispatchCodeLens',
@@ -1255,6 +1276,7 @@ export type LspRequestMessage =
   | DispatchSignatureHelp
   | DispatchCodeAction
   | DispatchReferences
+  | DispatchRename
   | DispatchImplementation
   | DispatchDocumentSymbol
   | DispatchCodeLens

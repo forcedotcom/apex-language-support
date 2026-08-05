@@ -61,10 +61,42 @@ describe('ExpressionValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const hasError = result.errors.some(
+    const comparisonError = result.errors.find(
       (e: any) => e.code === ErrorCodes.INVALID_COMPARISON_TYPES,
     );
-    expect(hasError).toBe(true);
+    expect(comparisonError).toBeDefined();
+    expect(comparisonError?.message).toContain('integer, string');
+    expect(comparisonError?.message).not.toContain("5, 'test'");
+  });
+
+  it('should classify comparison and ternary operands from parser facts', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'ParserOwnedOperandFacts.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      ExpressionValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    const comparisonError = result.errors.find(
+      (error) => error.code === ErrorCodes.INVALID_COMPARISON_TYPES,
+    );
+    const ternaryError = result.errors.find(
+      (error) =>
+        error.code === ErrorCodes.INCOMPATIBLE_TERNARY_EXPRESSION_TYPES,
+    );
+
+    expect(comparisonError?.message).toContain('integer, string');
+    expect(ternaryError?.message).toContain('integer, string');
   });
 
   it('should detect invalid numeric arguments in arithmetic', async () => {
@@ -831,9 +863,7 @@ describe('ExpressionValidator', () => {
       ).toBe(true);
     });
 
-    // TODO: LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE - expression structure
-    // may vary; refine SOQL detection for Contact vs Account mismatch
-    it.skip('should report LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE for Contact in Account query', async () => {
+    it('should report LOOP_VARIABLE_MISMATCH_CONCRETE_SOBJECT_TYPE for Contact in Account query', async () => {
       const { symbolTable, options } = await compileFixtureWithOptions(
         'dml-statement',
         'LoopVariableConcreteMismatch.cls',
@@ -881,5 +911,30 @@ describe('ExpressionValidator', () => {
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
+  });
+
+  it('uses collection TypeInfo to validate enhanced-for element types', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'EnhancedForCollectionMismatch.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      ExpressionValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error) => error.code === ErrorCodes.INVALID_LOOP_TYPE,
+      ),
+    ).toBe(true);
   });
 });

@@ -12,11 +12,10 @@ module.exports = {
     ...(baseConfig.testPathIgnorePatterns ?? []),
     'BrowserCompilationPool\\.browser\\.node\\.test\\.ts$',
   ],
-  // Global teardown to ensure scheduler is shut down after all tests
-  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
-  // Force exit after tests complete to prevent hanging on open handles
-  // NOTE: This is a workaround - the warning will still appear, allowing us to track the issue
-  // The warning appears before forceExit takes effect, so we don't lose visibility
-  // Can be disabled with JEST_FORCE_EXIT=false if needed for debugging
-  forceExit: process.env.JEST_FORCE_EXIT !== 'false', // Default to true, can disable with JEST_FORCE_EXIT=false
+  // Test environments own the instances they create; teardown in a separate
+  // Jest environment cannot clean those instances and starts a second module
+  // graph during shutdown.
+  globalTeardown: undefined,
+  // Keep leaked handles visible instead of masking them with Jest force-exit.
+  forceExit: false,
 };

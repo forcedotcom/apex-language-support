@@ -72,32 +72,68 @@ describe('OverrideCompletionStrategy', () => {
     );
   });
 
+  const parserOwnedContext = async (
+    document: ReturnType<typeof makeTextDocument>,
+    line: number,
+    character: number,
+  ) => ({
+    ...makeCompletionContext(document, line, character),
+    overrideCompletion:
+      (await symbolManager.getOverrideCompletionAtPosition(document.uri, {
+        line,
+        character,
+      })) ?? undefined,
+  });
+
+  const markedContext = (content: string) => {
+    const document = makeTextDocument(content, 'file:///test/Test.cls');
+    return {
+      ...makeCompletionContext(document, 0, content.length),
+      overrideCompletion: {
+        name: 'override',
+        context: 18,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: content.length - 8,
+            endLine: 1,
+            endColumn: content.length,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: content.length - 8,
+            endLine: 1,
+            endColumn: content.length,
+          },
+        },
+        semanticContext: {
+          overrideCompletion: {
+            kind: 'override-completion' as const,
+            keywordRange: {
+              startLine: 1,
+              startColumn: content.length - 8,
+              endLine: 1,
+              endColumn: content.length,
+            },
+          },
+        },
+      },
+    };
+  };
+
   describe('canHandle', () => {
     it('should handle when line matches "public override"', () => {
-      const doc = makeTextDocument(
-        '  public override',
-        'file:///test/Test.cls',
-      );
-      const context = makeCompletionContext(doc, 0, 17);
-      expect(strategy.canHandle(context)).toBe(true);
+      expect(strategy.canHandle(markedContext('  public override'))).toBe(true);
     });
 
     it('should handle when line matches "protected override"', () => {
-      const doc = makeTextDocument(
-        '  protected override',
-        'file:///test/Test.cls',
+      expect(strategy.canHandle(markedContext('  protected override'))).toBe(
+        true,
       );
-      const context = makeCompletionContext(doc, 0, 20);
-      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should handle when line matches "global override"', () => {
-      const doc = makeTextDocument(
-        '  global override',
-        'file:///test/Test.cls',
-      );
-      const context = makeCompletionContext(doc, 0, 17);
-      expect(strategy.canHandle(context)).toBe(true);
+      expect(strategy.canHandle(markedContext('  global override'))).toBe(true);
     });
 
     it('should not handle when line is just a visibility modifier', () => {
@@ -113,6 +149,14 @@ describe('OverrideCompletionStrategy', () => {
       );
       const context = makeCompletionContext(doc, 0, 26);
       expect(strategy.canHandle(context)).toBe(false);
+    });
+
+    it('does not infer override context from comments', () => {
+      const doc = makeTextDocument(
+        '// public override',
+        'file:///test/Test.cls',
+      );
+      expect(strategy.canHandle(makeCompletionContext(doc, 0, 18))).toBe(false);
     });
 
     it('should not handle when no visibility keyword precedes override', () => {
@@ -133,7 +177,7 @@ describe('OverrideCompletionStrategy', () => {
       const uri = 'file:///test/ChildClass.cls';
       const doc = makeTextDocument(childContent, uri);
 
-      const context = makeCompletionContext(doc, 2, 17);
+      const context = await parserOwnedContext(doc, 2, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -153,7 +197,7 @@ describe('OverrideCompletionStrategy', () => {
       const uri = 'file:///test/ChildClass.cls';
       const doc = makeTextDocument(childContent, uri);
 
-      const context = makeCompletionContext(doc, 1, 17);
+      const context = await parserOwnedContext(doc, 1, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -172,7 +216,7 @@ describe('OverrideCompletionStrategy', () => {
       const uri = 'file:///test/ChildClass.cls';
       const doc = makeTextDocument(childContent, uri);
 
-      const context = makeCompletionContext(doc, 1, 17);
+      const context = await parserOwnedContext(doc, 1, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -197,7 +241,7 @@ describe('OverrideCompletionStrategy', () => {
       compilerService.compile(content, uri, listener);
       await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
 
-      const context = makeCompletionContext(doc, 1, 17);
+      const context = await parserOwnedContext(doc, 1, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -215,7 +259,7 @@ describe('OverrideCompletionStrategy', () => {
       const uri = 'file:///test/ChildClass.cls';
       const doc = makeTextDocument(childContent, uri);
 
-      const context = makeCompletionContext(doc, 1, 17);
+      const context = await parserOwnedContext(doc, 1, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),
@@ -239,7 +283,7 @@ describe('OverrideCompletionStrategy', () => {
       const uri = 'file:///test/ChildClass.cls';
       const doc = makeTextDocument(childContent, uri);
 
-      const context = makeCompletionContext(doc, 1, 17);
+      const context = await parserOwnedContext(doc, 1, 17);
 
       const candidates = await Effect.runPromise(
         strategy.getCompletions(context),

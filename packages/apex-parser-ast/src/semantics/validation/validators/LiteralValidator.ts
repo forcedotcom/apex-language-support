@@ -13,7 +13,6 @@ import type {
   ValidationErrorInfo,
   ValidationWarningInfo,
 } from '../ValidationResult';
-import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
@@ -44,37 +43,6 @@ const LONG_MAX = 2n ** 63n - 1n;
 const LONG_MIN = -(2n ** 63n);
 
 /**
- * Extract text from source content using location
- */
-function extractTextFromLocation(
-  sourceContent: string,
-  location: SymbolLocation,
-): string {
-  const range = location.symbolRange || location.identifierRange;
-  if (!range) return '';
-  const lines = sourceContent.split('\n');
-  const startLine = Math.max(0, range.startLine - 1);
-  const endLine = Math.max(0, range.endLine - 1);
-  if (startLine >= lines.length) return '';
-  if (startLine === endLine) {
-    return lines[startLine].substring(range.startColumn, range.endColumn + 1);
-  }
-  const parts: string[] = [];
-  for (let i = startLine; i <= endLine; i++) {
-    if (i >= lines.length) break;
-    const line = lines[i];
-    if (i === startLine) {
-      parts.push(line.substring(range.startColumn));
-    } else if (i === endLine) {
-      parts.push(line.substring(0, range.endColumn + 1));
-    } else {
-      parts.push(line);
-    }
-  }
-  return parts.join('\n');
-}
-
-/**
  * Validate string literal raw text for invalid escapes, trailing backslash, unescaped newlines.
  * Exported for testing.
  */
@@ -85,7 +53,17 @@ export function validateStringLiteral(rawText: string):
     }
   | undefined {
   if (rawText.length < 2) return undefined;
-  const inner = rawText.slice(1, -1);
+  return validateStringLiteralValue(rawText.slice(1, -1));
+}
+
+/** Validate the lexer-derived value stored on a literal reference. */
+function validateStringLiteralValue(value: string):
+  | {
+      code: string;
+      illegalSequence?: string;
+    }
+  | undefined {
+  const inner = value;
   for (let i = 0; i < inner.length; i++) {
     const c = inner[i];
     if (c === '\\') {
@@ -129,33 +107,45 @@ export function validateStringLiteral(rawText: string):
 }
 
 /**
- * Scan source for control characters (0x00-0x1F except tab, newline, cr)
+ * Find control characters in a parser-owned string literal value.
  */
-function findControlCharacters(
-  sourceContent: string,
-): Array<{ code: string; line: number; col: number }> {
-  const results: Array<{ code: string; line: number; col: number }> = [];
-  const lines = sourceContent.split('\n');
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const line = lines[lineIdx];
-    for (let col = 0; col < line.length; col++) {
-      const code = line.charCodeAt(col);
-      if (
-        code >= 0 &&
-        code <= 0x1f &&
-        code !== 9 &&
-        code !== 10 &&
-        code !== 13
-      ) {
-        results.push({
-          code: code.toString(16),
-          line: lineIdx + 1,
-          col,
-        });
-      }
+function findControlCharacters(value: string): Array<{
+  code: string;
+  offset: number;
+}> {
+  const results: Array<{ code: string; offset: number }> = [];
+  for (let offset = 0; offset < value.length; offset++) {
+    const code = value.charCodeAt(offset);
+    if (code >= 0 && code <= 0x1f && code !== 9 && code !== 10 && code !== 13) {
+      results.push({ code: code.toString(16), offset });
     }
   }
   return results;
+}
+
+function controlCharacterLocation(
+  literalLocation: SymbolLocation,
+  offset: number,
+): SymbolLocation {
+  const range = literalLocation.identifierRange ?? literalLocation.symbolRange;
+  if (!range || range.startLine !== range.endLine) return literalLocation;
+
+  // String literal values omit the opening quote, hence the additional column.
+  const column = range.startColumn + offset + 1;
+  return {
+    symbolRange: {
+      startLine: range.startLine,
+      startColumn: column,
+      endLine: range.startLine,
+      endColumn: column + 1,
+    },
+    identifierRange: {
+      startLine: range.startLine,
+      startColumn: column,
+      endLine: range.startLine,
+      endColumn: column + 1,
+    },
+  };
 }
 
 /**
@@ -174,13 +164,11 @@ export const LiteralValidator: Validator = {
 
   validate: (
     symbolTable: SymbolTable,
-    options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
 
-      const sourceContent = options.sourceContent;
       const allReferences = symbolTable.getAllReferences();
       const literalRefs = allReferences.filter(
         (r) => r.context === ReferenceContext.LITERAL,
@@ -235,24 +223,10 @@ export const LiteralValidator: Validator = {
           }
         }
 
-        if (literalType === 'Decimal' && sourceContent && location) {
-          const rawText = extractTextFromLocation(
-            sourceContent,
-            location,
-          ).trim();
-          const doubleErrorCode = validateDoubleLiteral(rawText);
-          if (doubleErrorCode) {
-            errors.push({
-              message: localizeTyped(ErrorCodes.ILLEGAL_DOUBLE_LITERAL),
-              location,
-              code: ErrorCodes.ILLEGAL_DOUBLE_LITERAL,
-            });
-          }
-        }
-        if (literalType === 'String' && sourceContent) {
-          const rawText = extractTextFromLocation(sourceContent, location);
-          const stringError = validateStringLiteral(rawText);
+        if (literalType === 'String' && typeof literalValue === 'string') {
+          const stringError = validateStringLiteralValue(literalValue);
           if (stringError) {
+            const literalDisplay = `'${literalValue}'`;
             const message =
               stringError.code ===
               ErrorCodes.INVALID_STRING_LITERAL_ILLEGAL_LINEBREAKS
@@ -262,44 +236,32 @@ export const LiteralValidator: Validator = {
                 : stringError.illegalSequence
                   ? localizeTyped(
                       stringError.code as ErrorCodeKey,
-                      rawText,
+                      literalDisplay,
                       stringError.illegalSequence,
                     )
-                  : localizeTyped(stringError.code as ErrorCodeKey, rawText);
+                  : localizeTyped(
+                      stringError.code as ErrorCodeKey,
+                      literalDisplay,
+                    );
             errors.push({
               message,
               location,
               code: stringError.code,
             });
           }
-        }
-      }
-
-      if (sourceContent) {
-        const controlChars = findControlCharacters(sourceContent);
-        for (const { code: hexCode, line, col } of controlChars) {
-          errors.push({
-            message: localizeTyped(
-              ErrorCodes.INVALID_CONTROL_CHARACTER,
-              hexCode,
-              parseInt(hexCode, 16),
-            ),
-            location: {
-              symbolRange: {
-                startLine: line,
-                startColumn: col,
-                endLine: line,
-                endColumn: col + 1,
-              },
-              identifierRange: {
-                startLine: line,
-                startColumn: col,
-                endLine: line,
-                endColumn: col + 1,
-              },
-            },
-            code: ErrorCodes.INVALID_CONTROL_CHARACTER,
-          });
+          for (const { code: hexCode, offset } of findControlCharacters(
+            literalValue,
+          )) {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.INVALID_CONTROL_CHARACTER,
+                hexCode,
+                parseInt(hexCode, 16),
+              ),
+              location: controlCharacterLocation(location, offset),
+              code: ErrorCodes.INVALID_CONTROL_CHARACTER,
+            });
+          }
         }
       }
 

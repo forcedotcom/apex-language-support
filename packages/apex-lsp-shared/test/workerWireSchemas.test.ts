@@ -25,6 +25,7 @@ import {
   DispatchHover,
   DispatchDefinition,
   DispatchReferences,
+  DispatchRename,
   DispatchDocumentSymbol,
   DispatchCodeLens,
   DispatchGenericLspRequest,
@@ -334,6 +335,20 @@ describe('workerWireSchemas', () => {
     });
   });
 
+  describe('DispatchRename', () => {
+    it('should encode and decode round-trip', () => {
+      const req = new DispatchRename({
+        textDocument: { uri: 'file:///MyClass.cls' },
+        position: { line: 3, character: 7 },
+        newName: 'renamedSymbol',
+      });
+      const encoded = Schema.encodeSync(DispatchRename)(req);
+      const decoded = Schema.decodeSync(DispatchRename)(encoded);
+      expect(decoded.newName).toBe('renamedSymbol');
+      expect(decoded.textDocument.uri).toBe('file:///MyClass.cls');
+    });
+  });
+
   describe('DispatchDocumentSymbol', () => {
     it('should encode and decode round-trip', () => {
       const req = new DispatchDocumentSymbol({
@@ -510,6 +525,7 @@ describe('workerWireSchemas', () => {
         'DispatchHover',
         'DispatchDefinition',
         'DispatchReferences',
+        'DispatchRename',
         'DispatchDocumentSymbol',
         'DispatchCodeLens',
         'DispatchDiagnostic',

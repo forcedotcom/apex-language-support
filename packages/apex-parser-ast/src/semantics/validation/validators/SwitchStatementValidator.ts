@@ -43,47 +43,11 @@ import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { SymbolKind } from '../../../types/symbol';
 import { isEnumSymbol, isVariableSymbol } from '../../../utils/symbolNarrowing';
+import { createTypeInfoFromTypeRef } from '../../../parser/utils/createTypeInfoFromTypeRef';
 import {
   resolveExpressionTypeRecursive,
   type ExpressionTypeInfo,
 } from './ExpressionValidator';
-
-/**
- * Check if a type name represents an SObject (Account, Contact, custom __c, etc.)
- */
-function isSObjectType(typeName: string): boolean {
-  const lower = typeName.toLowerCase().trim();
-  if (lower === 'sobject') {
-    return true;
-  }
-  // Custom SObjects end with __c, __r, etc.
-  if (lower.endsWith('__c') || lower.endsWith('__r')) {
-    return true;
-  }
-  // Standard SObjects (common ones)
-  const standardSObjects = new Set([
-    'account',
-    'contact',
-    'lead',
-    'opportunity',
-    'case',
-    'user',
-    'profile',
-    'recordtype',
-    'task',
-    'event',
-    'campaign',
-    'asset',
-    'order',
-    'quote',
-    'contract',
-    'product2',
-    'pricebookentry',
-    'pricebook2',
-    'opportunitylineitem',
-  ]);
-  return standardSObjects.has(lower);
-}
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -111,7 +75,8 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
  */
 interface WhenLiteralInfo {
   literalType?: 'integer' | 'long' | 'decimal' | 'string' | 'boolean' | 'null';
-  identifierText?: string;
+  literalValue?: string;
+  identifierParts?: string[];
   ctx: WhenLiteralContext;
 }
 
@@ -123,8 +88,7 @@ interface WhenBlockInfo {
   switchCtx: SwitchStatementContext;
   isElse: boolean;
   isTypeVariable: boolean;
-  typeRefText?: string;
-  whenValueText?: string;
+  typeName?: string;
   whenLiterals: WhenLiteralInfo[];
 }
 
@@ -135,7 +99,6 @@ class SwitchListener extends BaseApexParserListener<void> {
   private switchStatements: Array<{
     ctx: SwitchStatementContext;
     expression?: ExpressionContext;
-    expressionText?: string;
   }> = [];
   private whenBlocks: WhenBlockInfo[] = [];
   private literalTypes: Map<
@@ -182,8 +145,7 @@ class SwitchListener extends BaseApexParserListener<void> {
 
   enterSwitchStatement(ctx: SwitchStatementContext): void {
     const expression = ctx.expression();
-    const expressionText = expression?.getText() || '';
-    this.switchStatements.push({ ctx, expression, expressionText });
+    this.switchStatements.push({ ctx, expression });
   }
 
   enterWhenControl(ctx: WhenControlContext): void {
@@ -209,14 +171,14 @@ class SwitchListener extends BaseApexParserListener<void> {
     }
 
     const isElse = !!whenValue.ELSE();
-    const whenValueText = whenValue.getText() || '';
-
     // Type variable form: when Account acc (typeRef + id present)
     const typeRef = whenValue.typeRef();
     const typeVarId = whenValue.id();
     const isTypeVariable =
       !!typeRef && !!typeVarId && !whenValue.whenLiteral_list().length;
-    const typeRefText = typeRef?.getText() || undefined;
+    const typeName = typeRef
+      ? createTypeInfoFromTypeRef(typeRef).originalTypeString
+      : undefined;
 
     // Extract when literals
     const whenLiterals: WhenLiteralInfo[] = [];
@@ -230,8 +192,7 @@ class SwitchListener extends BaseApexParserListener<void> {
       switchCtx,
       isElse,
       isTypeVariable,
-      typeRefText,
-      whenValueText,
+      typeName,
       whenLiterals,
     });
   }
@@ -243,7 +204,6 @@ class SwitchListener extends BaseApexParserListener<void> {
   getSwitchStatements(): Array<{
     ctx: SwitchStatementContext;
     expression?: ExpressionContext;
-    expressionText?: string;
   }> {
     return this.switchStatements;
   }
@@ -264,21 +224,27 @@ class SwitchListener extends BaseApexParserListener<void> {
  * Extract literal type or identifier from WhenLiteralContext
  */
 function extractWhenLiteralInfo(wl: WhenLiteralContext): WhenLiteralInfo {
-  if (wl.IntegerLiteral()) {
-    return { literalType: 'integer', ctx: wl };
+  const integer = wl.IntegerLiteral();
+  if (integer) {
+    return { literalType: 'integer', literalValue: integer.getText(), ctx: wl };
   }
-  if (wl.LongLiteral()) {
-    return { literalType: 'long', ctx: wl };
+  const long = wl.LongLiteral();
+  if (long) {
+    return { literalType: 'long', literalValue: long.getText(), ctx: wl };
   }
-  if (wl.StringLiteral()) {
-    return { literalType: 'string', ctx: wl };
+  const string = wl.StringLiteral();
+  if (string) {
+    return { literalType: 'string', literalValue: string.getText(), ctx: wl };
   }
   if (wl.NULL()) {
-    return { literalType: 'null', ctx: wl };
+    return { literalType: 'null', literalValue: 'null', ctx: wl };
   }
   const qualifiedName = wl.qualifiedName();
   if (qualifiedName) {
-    return { identifierText: qualifiedName.getText(), ctx: wl };
+    return {
+      identifierParts: qualifiedName.id_list().map((id) => id.getText()),
+      ctx: wl,
+    };
   }
   // Parenthesized whenLiteral - recurse
   const inner = wl.whenLiteral();
@@ -289,44 +255,56 @@ function extractWhenLiteralInfo(wl: WhenLiteralContext): WhenLiteralInfo {
 }
 
 /**
- * Resolve type of an identifier (field, variable, enum value) - sync, same-file only
+ * Resolve a when-clause identifier using the same name-resolution boundaries
+ * as Apex source:
+ *
+ * - an unqualified name is resolved lexically at the when expression;
+ * - a qualified name is an exact FQN lookup.
+ *
+ * An unresolved name remains unresolved. In particular, do not fall back to a
+ * file-wide or last-segment search: either can bind to a shadowed declaration
+ * or to an identically named constant owned by another type/namespace.
  */
+async function resolveWhenIdentifier(
+  identifierParts: string[],
+  ctx: WhenLiteralContext,
+  symbolTable: SymbolTable,
+  symbolManager: ISymbolManagerInterface,
+): Promise<ApexSymbol | undefined> {
+  if (identifierParts.length === 0) {
+    return undefined;
+  }
+
+  if (identifierParts.length === 1) {
+    return symbolTable.resolveVariableAtPosition(
+      identifierParts[0],
+      ctx.start.line,
+      ctx.start.column,
+    );
+  }
+
+  return (
+    (await symbolManager.findSymbolByFQN(identifierParts.join('.'))) ??
+    undefined
+  );
+}
+
+/** Resolve the declared type only when the constant itself resolves exactly. */
 async function resolveIdentifierType(
-  identifierText: string,
+  identifierParts: string[],
+  ctx: WhenLiteralContext,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
 ): Promise<string | null> {
-  const trimmed = identifierText?.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const name = trimmed.includes('.') ? trimmed.split('.').pop()! : trimmed;
-  const nameLower = name.toLowerCase();
-
-  const symbol = symbolTable.lookup(nameLower, null);
-  if (
-    symbol &&
-    (symbol.kind === SymbolKind.Field ||
-      symbol.kind === SymbolKind.Variable ||
-      symbol.kind === SymbolKind.Property)
-  ) {
-    const varSymbol = symbol as VariableSymbol;
-    return varSymbol.type?.name?.toLowerCase() ?? null;
-  }
-
-  const found = await symbolManager.findSymbolByName(trimmed);
-  const enumVal = found.find(
-    (s: ApexSymbol) => s.kind === SymbolKind.EnumValue,
+  const symbol = await resolveWhenIdentifier(
+    identifierParts,
+    ctx,
+    symbolTable,
+    symbolManager,
   );
-  if (enumVal) {
-    const parentId = enumVal.parentId;
-    const allSymbols = symbolTable.getAllSymbols();
-    const parent = allSymbols.find((s) => s.id === parentId);
-    if (isEnumSymbol(parent)) {
-      return parent.name?.toLowerCase() ?? null;
-    }
-  }
-  return null;
+  return isVariableSymbol(symbol)
+    ? (symbol.type?.name?.toLowerCase() ?? null)
+    : null;
 }
 
 /**
@@ -349,82 +327,75 @@ function isWhenTypeCompatible(whenType: string, switchType: string): boolean {
   return false;
 }
 
-/**
- * Find symbol by name in symbol table or symbol manager (handles fields in class scope)
- */
-async function findSymbolForWhenIdentifier(
-  name: string,
-  symbolTable: SymbolTable,
+type SwitchExpressionKind =
+  'scalar' | 'sobject' | 'enum' | 'unsupported' | 'unknown';
+
+async function classifySwitchExpressionType(
+  typeName: string,
   symbolManager: ISymbolManagerInterface,
-): Promise<ApexSymbol | undefined> {
-  const nameLower = name.toLowerCase();
-
-  // Try symbol table lookup first (finds variables, params in scope)
-  let symbol = symbolTable.lookup(nameLower, null);
-  if (symbol) {
-    return symbol;
+): Promise<SwitchExpressionKind> {
+  const normalizedType = typeName.toLowerCase();
+  if (['integer', 'long', 'string', 'id'].includes(normalizedType)) {
+    return 'scalar';
+  }
+  if (normalizedType === 'sobject') {
+    return 'sobject';
   }
 
-  // Try getAllSymbols - fields may not be found by lookup from method scope
-  const allSymbols = symbolTable.getAllSymbols();
-  const fileUri = symbolTable.getFileUri();
-  symbol = allSymbols.find(
-    (s) => s.name?.toLowerCase() === nameLower && isVariableSymbol(s),
-  );
-  if (symbol) {
-    return symbol;
+  const symbols = await symbolManager.findSymbolByName(typeName);
+  if (symbols.some(isEnumSymbol)) {
+    return 'enum';
   }
 
-  // Try symbol manager (cross-file, e.g. enum values)
-  const found = await symbolManager.findSymbolByName(name);
-  return found.find(
-    (s: ApexSymbol) => s.fileUri === fileUri && isVariableSymbol(s),
-  );
+  if (await symbolManager.findSObjectType(typeName)) {
+    return 'sobject';
+  }
+
+  if (symbols.length > 0) {
+    return 'unsupported';
+  }
+  return 'unknown';
+}
+
+function whenLiteralKey(literal: WhenLiteralInfo): string | undefined {
+  if (literal.identifierParts?.length) {
+    return `identifier:${literal.identifierParts
+      .map((part) => part.toLowerCase())
+      .join('.')}`;
+  }
+  if (literal.literalType && literal.literalValue !== undefined) {
+    return `${literal.literalType}:${literal.literalValue.toLowerCase()}`;
+  }
+  return undefined;
+}
+
+function whenLiteralDisplay(literal: WhenLiteralInfo): string {
+  return literal.identifierParts?.join('.') ?? literal.literalValue ?? '';
 }
 
 /**
  * Validate when clause identifier (field, enum, or variable)
  */
 function validateWhenIdentifier(
-  identifierText: string,
+  identifierParts: string[],
   ctx: WhenLiteralContext,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
-  tier: ValidationTier,
   errors: ValidationErrorInfo[],
 ): Effect.Effect<void, never, never> {
   return Effect.gen(function* () {
-    const trimmed = identifierText?.trim();
-    if (!trimmed) {
+    if (identifierParts.length === 0) {
       return;
     }
 
-    // Extract unqualified name (EnumType.VALUE -> VALUE)
-    const name = trimmed.includes('.') ? trimmed.split('.').pop()! : trimmed;
-    const nameLower = name.toLowerCase();
-
-    // Look up in symbol table (field, variable, enum value)
+    const qualifiedName = identifierParts.join('.');
+    // Resolve at the expression position or by exact FQN. If semantic state is
+    // incomplete, preserve that uncertainty; another compilation pass can
+    // validate once the declaration is available.
     const symbol = yield* Effect.promise(() =>
-      findSymbolForWhenIdentifier(nameLower, symbolTable, symbolManager),
+      resolveWhenIdentifier(identifierParts, ctx, symbolTable, symbolManager),
     );
     if (!symbol) {
-      // Could be enum value from another type - try findSymbolByName
-      const found = yield* Effect.promise(() =>
-        symbolManager.findSymbolByName(trimmed),
-      );
-      const enumVal = found.find(
-        (s: ApexSymbol) => s.kind === SymbolKind.EnumValue,
-      );
-      if (!enumVal) {
-        errors.push({
-          message: localizeTyped(
-            ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
-            trimmed,
-          ),
-          location: getLocationFromContext(ctx),
-          code: ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
-        });
-      }
       return;
     }
 
@@ -445,7 +416,7 @@ function validateWhenIdentifier(
         errors.push({
           message: localizeTyped(
             ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
-            trimmed,
+            qualifiedName,
           ),
           location: getLocationFromContext(ctx),
           code: ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
@@ -458,7 +429,7 @@ function validateWhenIdentifier(
         errors.push({
           message: localizeTyped(
             ErrorCodes.INVALID_WHEN_FIELD_CONSTANT,
-            trimmed,
+            qualifiedName,
           ),
           location: getLocationFromContext(ctx),
           code: ErrorCodes.INVALID_WHEN_FIELD_CONSTANT,
@@ -467,16 +438,15 @@ function validateWhenIdentifier(
       }
 
       // Check for null literal (field must be non-null)
-      const initVal = varSymbol.initialValue?.toLowerCase().trim();
       const initType = varSymbol.initializerType;
       const initTypeIsNull =
         initType?.name?.toLowerCase() === 'null' ||
         initType?.originalTypeString?.toLowerCase().trim() === 'null';
-      if (initVal === 'null' || initTypeIsNull) {
+      if (initTypeIsNull) {
         errors.push({
           message: localizeTyped(
             ErrorCodes.INVALID_WHEN_FIELD_LITERAL,
-            trimmed,
+            qualifiedName,
           ),
           location: getLocationFromContext(ctx),
           code: ErrorCodes.INVALID_WHEN_FIELD_LITERAL,
@@ -589,7 +559,7 @@ export const SwitchStatementValidator: Validator = {
         // Resolve switch expression types (for TIER 2 or when expression available)
         const resolvedSwitchTypes = new Map<
           SwitchStatementContext,
-          { type: string; isSObject: boolean }
+          { type: string; kind: SwitchExpressionKind }
         >();
         for (const switchStmt of switchStatements) {
           if (switchStmt.expression) {
@@ -606,9 +576,15 @@ export const SwitchStatementValidator: Validator = {
               options.tier,
             );
             if (typeInfo?.resolvedType) {
+              const kind = yield* Effect.promise(() =>
+                classifySwitchExpressionType(
+                  typeInfo.resolvedType!,
+                  symbolManager,
+                ),
+              );
               resolvedSwitchTypes.set(switchStmt.ctx, {
                 type: typeInfo.resolvedType.toLowerCase(),
-                isSObject: isSObjectType(typeInfo.resolvedType),
+                kind,
               });
             }
           }
@@ -616,7 +592,7 @@ export const SwitchStatementValidator: Validator = {
 
         // Validate each switch statement
         for (const switchStmt of switchStatements) {
-          const { ctx: switchCtx, expressionText } = switchStmt;
+          const { ctx: switchCtx } = switchStmt;
           const switchLocation = getLocationFromContext(switchCtx);
           const whenBlocks = whenBlocksBySwitch.get(switchCtx) || [];
           const switchTypeInfo = resolvedSwitchTypes.get(switchCtx);
@@ -646,33 +622,52 @@ export const SwitchStatementValidator: Validator = {
           // 3. Check for duplicate when values/types
           const seenWhenValues = new Set<string>();
           for (const whenBlock of whenBlocks) {
-            if (!whenBlock.isElse && whenBlock.whenValueText) {
-              const normalizedValue = whenBlock.whenValueText
-                .toLowerCase()
-                .trim();
-              if (normalizedValue && seenWhenValues.has(normalizedValue)) {
+            if (whenBlock.isElse) {
+              continue;
+            }
+            const values = whenBlock.isTypeVariable
+              ? whenBlock.typeName
+                ? [
+                    {
+                      key: `type:${whenBlock.typeName.toLowerCase()}`,
+                      display: whenBlock.typeName,
+                    },
+                  ]
+                : []
+              : whenBlock.whenLiterals.flatMap((literal) => {
+                  const key = whenLiteralKey(literal);
+                  return key
+                    ? [{ key, display: whenLiteralDisplay(literal) }]
+                    : [];
+                });
+            for (const value of values) {
+              if (seenWhenValues.has(value.key)) {
                 errors.push({
                   message: localizeTyped(
                     ErrorCodes.NOT_UNIQUE_WHEN_VALUE_OR_TYPE,
-                    whenBlock.whenValueText,
+                    value.display,
                   ),
                   location: getLocationFromContext(whenBlock.ctx),
                   code: ErrorCodes.NOT_UNIQUE_WHEN_VALUE_OR_TYPE,
                 });
-              } else if (normalizedValue) {
-                seenWhenValues.add(normalizedValue);
+              } else {
+                seenWhenValues.add(value.key);
               }
             }
           }
 
           // 4. ILLEGAL_WHEN_TYPE: Non-SObject switch cannot use when type variable
-          if (switchTypeInfo && !switchTypeInfo.isSObject) {
+          if (
+            switchTypeInfo &&
+            switchTypeInfo.kind !== 'sobject' &&
+            switchTypeInfo.kind !== 'unknown'
+          ) {
             for (const whenBlock of whenBlocks) {
               if (!whenBlock.isElse && whenBlock.isTypeVariable) {
                 errors.push({
                   message: localizeTyped(
                     ErrorCodes.ILLEGAL_WHEN_TYPE,
-                    whenBlock.typeRefText || 'Type',
+                    whenBlock.typeName || 'Type',
                   ),
                   location: getLocationFromContext(whenBlock.ctx),
                   code: ErrorCodes.ILLEGAL_WHEN_TYPE,
@@ -682,7 +677,7 @@ export const SwitchStatementValidator: Validator = {
           }
 
           // 5. ILLEGAL_NON_WHEN_TYPE: SObject switch must use when type variable or when null
-          if (switchTypeInfo?.isSObject) {
+          if (switchTypeInfo?.kind === 'sobject') {
             for (const whenBlock of whenBlocks) {
               if (whenBlock.isElse) {
                 continue;
@@ -702,23 +697,21 @@ export const SwitchStatementValidator: Validator = {
           }
 
           // 5.5. INVALID_ALREADY_MATCH_TYPE: When clause type variable already matches switch expression type
-          if (switchTypeInfo?.isSObject && switchTypeInfo.type) {
+          if (switchTypeInfo?.kind === 'sobject' && switchTypeInfo.type) {
             const switchTypeLower = switchTypeInfo.type.toLowerCase();
             for (const whenBlock of whenBlocks) {
               if (whenBlock.isElse || !whenBlock.isTypeVariable) {
                 continue;
               }
               // Check if the when type variable type matches the switch expression type
-              if (whenBlock.typeRefText) {
-                const whenTypeLower = whenBlock.typeRefText
-                  .toLowerCase()
-                  .trim();
+              if (whenBlock.typeName) {
+                const whenTypeLower = whenBlock.typeName.toLowerCase();
                 // If the when type matches the switch type, it's redundant
                 if (whenTypeLower === switchTypeLower) {
                   errors.push({
                     message: localizeTyped(
                       ErrorCodes.INVALID_ALREADY_MATCH_TYPE,
-                      whenBlock.typeRefText,
+                      whenBlock.typeName,
                     ),
                     location: getLocationFromContext(whenBlock.ctx),
                     code: ErrorCodes.INVALID_ALREADY_MATCH_TYPE,
@@ -729,7 +722,11 @@ export const SwitchStatementValidator: Validator = {
           }
 
           // 6. INVALID_WHEN_EXPRESSION_TYPE: When value type must match switch type
-          if (switchTypeInfo && !switchTypeInfo.isSObject) {
+          if (
+            switchTypeInfo &&
+            switchTypeInfo.kind !== 'sobject' &&
+            switchTypeInfo.kind !== 'unknown'
+          ) {
             for (const whenBlock of whenBlocks) {
               if (whenBlock.isElse || whenBlock.isTypeVariable) {
                 continue;
@@ -738,10 +735,14 @@ export const SwitchStatementValidator: Validator = {
                 let whenType: string | null = null;
                 if (wl.literalType) {
                   whenType = wl.literalType;
-                } else if (wl.identifierText) {
-                  const idText = wl.identifierText;
+                } else if (wl.identifierParts) {
                   whenType = yield* Effect.promise(() =>
-                    resolveIdentifierType(idText, symbolTable, symbolManager),
+                    resolveIdentifierType(
+                      wl.identifierParts!,
+                      wl.ctx,
+                      symbolTable,
+                      symbolManager,
+                    ),
                   );
                 }
                 if (whenType) {
@@ -772,40 +773,29 @@ export const SwitchStatementValidator: Validator = {
               continue;
             }
             for (const wl of whenBlock.whenLiterals) {
-              if (wl.identifierText) {
+              if (wl.identifierParts) {
                 yield* validateWhenIdentifier(
-                  wl.identifierText,
+                  wl.identifierParts,
                   wl.ctx,
                   symbolTable,
                   symbolManager,
-                  options.tier,
                   errors,
                 );
               }
             }
           }
 
-          // 8. Check switch expression type (basic validation)
-          // For now, we do a simple text-based check
-          // Full type resolution would require TIER 2
-          if (expressionText) {
-            const normalizedExpr = expressionText.toLowerCase().trim();
-            // Check if it's clearly an invalid type (collections, void, etc.)
-            const invalidPatterns = ['list<', 'set<', 'map<', 'void', 'null'];
-            const isInvalid = invalidPatterns.some((pattern) =>
-              normalizedExpr.includes(pattern),
-            );
-
-            if (isInvalid) {
-              errors.push({
-                message: localizeTyped(
-                  ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
-                  expressionText,
-                ),
-                location: switchLocation,
-                code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
-              });
-            }
+          // 8. Check the resolved switch expression type. If resolution is
+          // incomplete, preserve that uncertainty rather than interpreting text.
+          if (switchTypeInfo?.kind === 'unsupported') {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+                switchTypeInfo.type,
+              ),
+              location: switchLocation,
+              code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+            });
           }
 
           // TIER 2: Enum switch validation
@@ -816,20 +806,6 @@ export const SwitchStatementValidator: Validator = {
             yield* validateEnumSwitch(
               switchStmt.expression,
               whenBlocks,
-              switchLocation,
-              symbolTable,
-              symbolManager,
-              errors,
-            );
-          } else if (
-            options.tier === ValidationTier.THOROUGH &&
-            expressionText
-          ) {
-            // Fallback to text-based enum validation
-            yield* validateEnumSwitchText(
-              expressionText,
-              whenBlocks,
-              switchLocation,
               symbolTable,
               symbolManager,
               errors,
@@ -866,12 +842,7 @@ export const SwitchStatementValidator: Validator = {
  */
 function validateEnumSwitch(
   expression: ExpressionContext,
-  whenBlocks: Array<{
-    ctx: WhenControlContext;
-    isElse: boolean;
-    whenValueText?: string;
-  }>,
-  switchLocation: SymbolLocation,
+  whenBlocks: WhenBlockInfo[],
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
   errors: ValidationErrorInfo[],
@@ -920,116 +891,34 @@ function validateEnumSwitch(
 
     // Validate when values match enum constants
     for (const whenBlock of whenBlocks) {
-      if (whenBlock.isElse || !whenBlock.whenValueText) {
-        continue; // Skip else blocks and empty when values
-      }
-
-      const whenValue = whenBlock.whenValueText.trim();
-
-      // INVALID_FULLY_QUALIFIED_ENUM: enum switch when must be unqualified (VALUE1 not MyEnum.VALUE1)
-      if (whenValue.includes('.')) {
-        errors.push({
-          message: localizeTyped(ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM),
-          location: getLocationFromContext(whenBlock.ctx),
-          code: ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM,
-        });
+      if (whenBlock.isElse || whenBlock.isTypeVariable) {
         continue;
       }
 
-      const constantNameLower = whenValue.toLowerCase();
-      if (!enumConstantNames.has(constantNameLower)) {
-        errors.push({
-          message: localizeTyped(ErrorCodes.INVALID_SWITCH_ENUM),
-          location: getLocationFromContext(whenBlock.ctx),
-          code: ErrorCodes.INVALID_SWITCH_ENUM,
-        });
-      }
-    }
-  });
-}
+      for (const literal of whenBlock.whenLiterals) {
+        const parts = literal.identifierParts;
+        if (!parts?.length) {
+          continue;
+        }
 
-/**
- * Validate enum switch statement (TIER 2) - fallback text-based approach
- * Used when ExpressionContext is not available
- */
-function validateEnumSwitchText(
-  expressionText: string,
-  whenBlocks: Array<{
-    ctx: WhenControlContext;
-    isElse: boolean;
-    whenValueText?: string;
-  }>,
-  switchLocation: SymbolLocation,
-  symbolTable: SymbolTable,
-  symbolManager: ISymbolManagerInterface,
-  errors: ValidationErrorInfo[],
-): Effect.Effect<void, never, never> {
-  return Effect.gen(function* () {
-    // Try to resolve the switch expression type
-    // For now, we'll try to extract a variable name or simple expression
-    const trimmedExpr = expressionText.trim();
+        // Enum switch constants are grammar-level qualified names. More than
+        // one identifier means the constant was explicitly qualified.
+        if (parts.length > 1) {
+          errors.push({
+            message: localizeTyped(ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM),
+            location: getLocationFromContext(literal.ctx),
+            code: ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM,
+          });
+          continue;
+        }
 
-    // Check if it's a simple variable identifier
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmedExpr)) {
-      // Complex expression - skip enum validation for now
-      return;
-    }
-
-    // Look up the variable in the symbol table
-    const variable = symbolTable.lookup(trimmedExpr, null);
-    if (!variable || variable.kind !== SymbolKind.Variable) {
-      // Not a variable or not found - skip
-      return;
-    }
-
-    const varSymbol = variable as VariableSymbol;
-    if (!varSymbol.type?.name) {
-      return;
-    }
-
-    // Check if the variable type is an enum
-    const enumTypeName = varSymbol.type.name;
-    const enumSymbols = yield* Effect.promise(() =>
-      symbolManager.findSymbolByName(enumTypeName),
-    );
-    const enumSymbol = enumSymbols.find(isEnumSymbol);
-
-    if (!enumSymbol) {
-      // Not an enum type - skip validation
-      return;
-    }
-
-    // Get enum constants
-    const enumConstants = enumSymbol.values || [];
-    const enumConstantNames = new Set(
-      enumConstants.map((c) => c.name.toLowerCase()),
-    );
-
-    // Validate when values match enum constants
-    for (const whenBlock of whenBlocks) {
-      if (whenBlock.isElse || !whenBlock.whenValueText) {
-        continue; // Skip else blocks and empty when values
-      }
-
-      const whenValue = whenBlock.whenValueText.trim();
-
-      // INVALID_FULLY_QUALIFIED_ENUM: enum switch when must be unqualified (VALUE1 not MyEnum.VALUE1)
-      if (whenValue.includes('.')) {
-        errors.push({
-          message: localizeTyped(ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM),
-          location: getLocationFromContext(whenBlock.ctx),
-          code: ErrorCodes.INVALID_FULLY_QUALIFIED_ENUM,
-        });
-        continue;
-      }
-
-      const constantNameLower = whenValue.toLowerCase();
-      if (!enumConstantNames.has(constantNameLower)) {
-        errors.push({
-          message: localizeTyped(ErrorCodes.INVALID_SWITCH_ENUM),
-          location: getLocationFromContext(whenBlock.ctx),
-          code: ErrorCodes.INVALID_SWITCH_ENUM,
-        });
+        if (!enumConstantNames.has(parts[0].toLowerCase())) {
+          errors.push({
+            message: localizeTyped(ErrorCodes.INVALID_SWITCH_ENUM),
+            location: getLocationFromContext(literal.ctx),
+            code: ErrorCodes.INVALID_SWITCH_ENUM,
+          });
+        }
       }
     }
   });

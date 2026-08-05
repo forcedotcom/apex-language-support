@@ -15,7 +15,12 @@ import {
   CompilationUnitContext,
   TriggerUnitContext,
   BlockContext,
+  DotExpressionContext,
   ForStatementContext,
+  IdPrimaryContext,
+  PrimaryExpressionContext,
+  SoqlPrimaryContext,
+  type ExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import type {
@@ -31,23 +36,59 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4';
 
-/**
- * Regex to detect inline SOQL: [SELECT ... FROM ...]
- */
-const INLINE_SOQL_PATTERN = /\[[\s\S]*SELECT[\s\S]*FROM[\s\S]*\]/i;
+function parserIdentifierText(ctx: { start?: { text?: string } }): string {
+  return ctx.start?.text?.toLowerCase() ?? '';
+}
 
 /**
- * Heuristic: expression looks like a SOQL query or Database.getQueryLocator
+ * Return whether an expression is the Database type reference accepted as the
+ * receiver of getQueryLocator. This deliberately follows parser contexts
+ * rather than interpreting the expression's source text.
  */
-function isQueryIterable(expressionText: string): boolean {
-  if (!expressionText || !expressionText.trim()) {
+function isDatabaseReceiver(expression: ExpressionContext): boolean {
+  if (expression instanceof PrimaryExpressionContext) {
+    const primary = expression.primary();
+    return (
+      primary instanceof IdPrimaryContext &&
+      parserIdentifierText(primary.id()) === 'database'
+    );
+  }
+
+  if (!(expression instanceof DotExpressionContext)) {
     return false;
   }
-  const t = expressionText.trim();
+
+  const member = expression.anyId();
+  const namespaceExpression = expression.expression();
+  if (!(namespaceExpression instanceof PrimaryExpressionContext)) {
+    return false;
+  }
+  const namespacePrimary = namespaceExpression.primary();
   return (
-    INLINE_SOQL_PATTERN.test(t) ||
-    t.includes('getQueryLocator') ||
-    /Database\.getQueryLocator\s*\(/i.test(t)
+    member !== undefined &&
+    parserIdentifierText(member) === 'database' &&
+    namespacePrimary instanceof IdPrimaryContext &&
+    parserIdentifierText(namespacePrimary.id()) === 'system'
+  );
+}
+
+/**
+ * Determine query iterability entirely from the parser's expression shape.
+ */
+function isQueryIterable(expression: ExpressionContext): boolean {
+  if (expression instanceof PrimaryExpressionContext) {
+    return expression.primary() instanceof SoqlPrimaryContext;
+  }
+
+  if (!(expression instanceof DotExpressionContext)) {
+    return false;
+  }
+
+  const methodCall = expression.dotMethodCall();
+  return (
+    methodCall !== undefined &&
+    parserIdentifierText(methodCall.anyId()) === 'getquerylocator' &&
+    isDatabaseReceiver(expression.expression())
   );
 }
 
@@ -73,8 +114,6 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
 }
 
 type LoopWithQueryEntry = {
-  forCtx: ForStatementContext;
-  iterableText: string;
   hasStatement: boolean;
   location: SymbolLocation;
 };
@@ -101,8 +140,7 @@ class LoopWithQueryListener extends BaseApexParserListener<void> {
       return;
     }
 
-    const iterableText = iterableExpr.getText() || '';
-    if (!isQueryIterable(iterableText)) {
+    if (!isQueryIterable(iterableExpr)) {
       return;
     }
 
@@ -110,8 +148,6 @@ class LoopWithQueryListener extends BaseApexParserListener<void> {
     const hasStatement = stmt !== undefined && stmt !== null;
 
     this.loops.push({
-      forCtx: ctx,
-      iterableText,
       hasStatement,
       location: getLocationFromContext(ctx),
     });
@@ -152,9 +188,9 @@ export const DmlLoopQueryValidator: Validator = {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
 
-      if (!options.sourceContent) {
+      if (!options.parseTree && !options.sourceContent) {
         yield* Effect.logDebug(
-          'DmlLoopQueryValidator: sourceContent not provided, skipping',
+          'DmlLoopQueryValidator: parser input not provided, skipping',
         );
         return {
           isValid: true,
@@ -163,7 +199,7 @@ export const DmlLoopQueryValidator: Validator = {
         };
       }
 
-      const sourceContent = options.sourceContent;
+      const sourceContent = options.sourceContent ?? '';
       const fileUri = symbolTable.getFileUri() || 'unknown.cls';
 
       try {

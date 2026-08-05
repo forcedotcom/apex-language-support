@@ -62,7 +62,22 @@ describe('MissingArtifactResolutionService — capability gating', () => {
   });
 
   const makeParams = () => ({
-    identifiers: [{ name: 'MissingClass' }],
+    identifiers: [
+      {
+        name: 'MissingClass',
+        provenance: {
+          sourceUri: 'file:///test.cls',
+          referenceRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 12,
+          },
+          referenceIdentity: 'ref:MissingClass:1:0:1:12',
+          parseCompleteness: 'complete' as const,
+        },
+      },
+    ],
     mode: 'background' as const,
     origin: {
       uri: 'file:///test.cls',
@@ -80,7 +95,12 @@ describe('MissingArtifactResolutionService — capability gating', () => {
     expect(mockConnection.sendRequest).toHaveBeenCalledWith(
       'apex/findMissingArtifact',
       expect.objectContaining({
-        identifiers: [{ name: 'MissingClass' }],
+        identifiers: [
+          expect.objectContaining({
+            name: 'MissingClass',
+            provenance: expect.any(Object),
+          }),
+        ],
       }),
     );
   });
@@ -98,7 +118,12 @@ describe('MissingArtifactResolutionService — capability gating', () => {
     expect(mockConnection.sendRequest).toHaveBeenCalledWith(
       'apex/findMissingArtifact',
       expect.objectContaining({
-        identifiers: [{ name: 'MissingClass' }],
+        identifiers: [
+          expect.objectContaining({
+            name: 'MissingClass',
+            provenance: expect.any(Object),
+          }),
+        ],
       }),
     );
   });

@@ -128,6 +128,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       isBuiltInNamespace: jest.fn(),
       isSObjectContainerNamespace: jest.fn(),
       findSymbolsInFile: jest.fn(),
+      getVisibleSymbolsAtPosition: jest.fn(),
+      getIncompleteMemberAccessAtPosition: jest.fn(),
       findFilesForSymbol: jest.fn(),
       resolveCrossFileReferencesForFile: jest.fn(),
       resolveSymbol: jest.fn(),
@@ -1058,7 +1060,22 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     it('should submit find missing artifact request', async () => {
       const manager = LSPQueueManager.getInstance();
       const result = await manager.submitFindMissingArtifactRequest({
-        identifiers: [{ name: 'TestClass' }],
+        identifiers: [
+          {
+            name: 'TestClass',
+            provenance: {
+              sourceUri: 'test',
+              referenceRange: {
+                startLine: 1,
+                startColumn: 0,
+                endLine: 1,
+                endColumn: 9,
+              },
+              referenceIdentity: 'ref:TestClass:1:0:1:9',
+              parseCompleteness: 'complete',
+            },
+          },
+        ],
         origin: { uri: 'test', requestKind: 'hover' },
         mode: 'standard',
       });

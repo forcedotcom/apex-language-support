@@ -47,6 +47,8 @@ export interface SymbolResolutionContext {
   relationshipType?: EnumValue<typeof ReferenceType>;
   inheritanceChain: string[];
   interfaceImplementations: string[];
+  /** Whether parser-owned state was sufficient to describe the cursor. */
+  semanticState?: 'complete' | 'incomplete';
 }
 
 /**
@@ -98,6 +100,16 @@ export interface ISymbolManager extends SymbolProvider {
   getAllReferencesInFile(fileUri: string): Promise<SymbolReference[]>;
 
   getAllSymbolsForCompletion(): Promise<ApexSymbol[]>;
+
+  /**
+   * Return declarations visible at an LSP cursor position in a single file.
+   * Results are derived exclusively from the current symbol table's lexical
+   * scopes and declaration ranges.
+   */
+  getVisibleSymbolsAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<ApexSymbol[]>;
 
   /**
    * Find symbols whose name starts with the given prefix (case-insensitive).
@@ -192,6 +204,21 @@ export interface ISymbolManager extends SymbolProvider {
     fileUri: string,
     position: { line: number; character: number },
   ): Promise<SymbolReference[]>;
+
+  getIncompleteMemberAccessAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null>;
+
+  getInvocationAtPosition?(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null>;
+
+  getOverrideCompletionAtPosition?(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): Promise<SymbolReference | null>;
 
   getSymbolAtPosition(
     fileUri: string,

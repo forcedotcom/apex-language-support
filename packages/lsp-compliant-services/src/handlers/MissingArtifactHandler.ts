@@ -17,6 +17,7 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import type { BlockingResult } from '../services/MissingArtifactResolutionService';
 import { LSPQueueManager } from '../queue';
+import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
 
 /**
  * Interface for LSP connection to communicate with client
@@ -48,6 +49,14 @@ export class MissingArtifactHandler {
   public async handleFindMissingArtifact(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
+    const safeParams = sanitizeMissingArtifactParams(params);
+    if (!safeParams) {
+      this.logger.debug(
+        () =>
+          'Rejecting missing-artifact handler request without complete semantic provenance',
+      );
+      return { notFound: true };
+    }
     const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
       () => `Processing apex/findMissingArtifact request for: ${names}`,
@@ -56,12 +65,12 @@ export class MissingArtifactHandler {
     try {
       if (params.mode === 'blocking') {
         this.logger.debug(() => `Processing blocking resolution for: ${names}`);
-        return await this.processBlockingRequest(params);
+        return await this.processBlockingRequest(safeParams);
       }
 
       if (params.mode === 'background') {
         this.logger.debug(() => `Queueing background resolution for: ${names}`);
-        return await this.processBackgroundRequest(params);
+        return await this.processBackgroundRequest(safeParams);
       }
 
       this.logger.warn(() => `Unknown mode '${params.mode}' for: ${names}`);

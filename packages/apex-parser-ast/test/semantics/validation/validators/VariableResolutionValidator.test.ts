@@ -289,6 +289,48 @@ describe('VariableResolutionValidator', () => {
   });
 
   describe('List element field access (arr[0].field)', () => {
+    it('validates an indexed member against the element type', async () => {
+      await compileSourceLayeredWithOptions(
+        'public class IndexedRow { public Integer value; }',
+        'file:///test/IndexedRow.cls',
+        symbolManager,
+        compilerService,
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        `
+          public class IndexedCaller {
+            void exercise() {
+              List<IndexedRow> rows = new List<IndexedRow>();
+              Integer value = rows[0].missingValue;
+            }
+          }
+        `,
+        'file:///test/IndexedCaller.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.some(
+          (error) =>
+            error.code === ErrorCodes.FIELD_DOES_NOT_EXIST &&
+            error.message.includes('missingValue') &&
+            error.message.includes('IndexedRow'),
+        ),
+      ).toBe(true);
+    });
+
     it('should NOT report FIELD_DOES_NOT_EXIST for computedCoordinates[0].lat (List element has lat)', async () => {
       const testSource = loadFixture('geocoding', 'GeocodingServiceTest.cls');
 
@@ -390,6 +432,48 @@ describe('VariableResolutionValidator', () => {
           (e.message?.includes('postalcode') ?? false),
       );
       expect(postalCodeFieldErrors).toHaveLength(0);
+    });
+  });
+
+  describe('Parser-owned chain identity', () => {
+    it('resolves repeated member names against the chain at the same location', async () => {
+      const sourceCode = `
+        public class RepeatedMemberAccess {
+          public class HasValue { public Integer value; }
+          public class MissingValue {}
+
+          public static void verify() {
+            HasValue validTarget = new HasValue();
+            MissingValue invalidTarget = new MissingValue();
+            Integer valid = validTarget.value;
+            Integer invalid = invalidTarget.value;
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/RepeatedMemberAccess.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const valueErrors = result.errors.filter(
+        (error) =>
+          error.code === ErrorCodes.FIELD_DOES_NOT_EXIST &&
+          error.message.includes('value'),
+      );
+      expect(valueErrors).toHaveLength(1);
+      expect(valueErrors[0].message).toContain('MissingValue');
     });
   });
 

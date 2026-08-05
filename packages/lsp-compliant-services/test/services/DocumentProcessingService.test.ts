@@ -210,6 +210,44 @@ describe('DocumentProcessingService - Batch Processing', () => {
       expect(mockStorage.setDocument).toHaveBeenCalledTimes(2);
     });
 
+    it.each([
+      [
+        'class',
+        'apex-org-artifact:/apex-class/remoteservice.cls',
+        "global class RemoteService { global String greet() { return 'hi'; } }",
+      ],
+      [
+        'trigger',
+        'apex-org-artifact:/trigger/accounttrigger.trigger',
+        'trigger AccountTrigger on Account (before insert) {}',
+      ],
+    ])(
+      'routes VFS-backed Apex %s source through the normal compiler',
+      async (_kind, uri, source) => {
+        const event = createMockEvent(uri, 1);
+        (event.document.getText as jest.Mock).mockReturnValue(source);
+        mockCompileMultipleWithConfigs.mockReturnValue(
+          Effect.succeed([
+            {
+              fileName: uri,
+              result: null,
+              errors: [],
+              warnings: [],
+            },
+          ]),
+        );
+
+        await service.processDocumentOpenBatch([event]);
+
+        expect(mockCompileMultipleWithConfigs).toHaveBeenCalledWith([
+          expect.objectContaining({
+            content: source,
+            fileName: uri,
+          }),
+        ]);
+      },
+    );
+
     it('should handle cached documents', async () => {
       const event1 = createMockEvent('file:///test1.cls', 1);
       const event2 = createMockEvent('file:///test2.cls', 1);

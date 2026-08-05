@@ -329,9 +329,6 @@ export class SdkSpanReplay {
     }
 
     this.pruneReplayedContexts();
-    this.log(
-      `Replayed ${trace.spans.size} spans from trace ${traceId} through SDK exporters`,
-    );
   }
 
   private async replaySpan(

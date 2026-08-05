@@ -16,7 +16,8 @@ import { SymbolIndexStore } from '../services/symbolIndexStore';
 import { CacheStore } from '../services/cacheStore';
 import { FileStateStore } from '../services/fileStateStore';
 import { ResourceLoaderService } from '../services/ResourceLoaderService';
-import { findByName, findInFile } from './symbolLookup';
+import { findByName, getSymbolTableForFile } from './symbolLookup';
+import { createResolutionContextFromSymbolTable } from './resolutionContext';
 
 type ResolutionDeps =
   SymbolIndexStore | CacheStore | FileStateStore | ResourceLoaderService;
@@ -61,30 +62,17 @@ export const resolveSymbol = (
 
 /** Create comprehensive resolution context for symbol lookup */
 export const createResolutionContext = (
-  documentText: string,
+  _documentText: string,
   position: Position,
   fileUri: string,
 ): Effect.Effect<SymbolResolutionContext, never, ResolutionDeps> =>
   Effect.gen(function* () {
-    yield* findInFile(fileUri);
-
-    const namespaceContext = extractNamespaceFromUri(fileUri);
-    const currentScope = extractCurrentScope(documentText, position);
-    const importStatements = extractImportStatements(documentText);
-    const accessModifier = extractAccessModifier(documentText, position);
-
-    return {
-      sourceFile: fileUri,
-      importStatements,
-      namespaceContext,
-      currentScope,
-      scopeChain: [currentScope],
-      parameterTypes: [],
-      accessModifier,
-      isStatic: false,
-      inheritanceChain: [],
-      interfaceImplementations: [],
-    };
+    const symbolTable = yield* getSymbolTableForFile(fileUri);
+    return createResolutionContextFromSymbolTable(
+      symbolTable,
+      position,
+      fileUri,
+    );
   });
 
 /** Create enhanced resolution context with request type information */
@@ -120,37 +108,3 @@ export const getDetailLevelForFile = (
     const fileState = yield* FileStateStore;
     return yield* fileState.getDetailLevel(fileUri);
   });
-
-function extractNamespaceFromUri(fileUri: string): string {
-  if (fileUri.includes('test')) return 'public';
-  const match = fileUri.match(/\/([^\/]+)\.cls$/);
-  return match ? match[1] : 'public';
-}
-
-function extractCurrentScope(documentText: string, position: Position): string {
-  const lines = documentText.split('\n');
-  const currentLine = lines[position.line] || '';
-  if (currentLine.includes('public class')) return 'class';
-  if (currentLine.includes('public static')) return 'static';
-  if (currentLine.includes('public')) return 'instance';
-  return 'global';
-}
-
-function extractAccessModifier(
-  documentText: string,
-  position: Position,
-): 'public' | 'private' | 'protected' | 'global' {
-  const lines = documentText.split('\n');
-  const currentLine = lines[position.line] || '';
-  if (currentLine.includes('private')) return 'private';
-  if (currentLine.includes('protected')) return 'protected';
-  if (currentLine.includes('global')) return 'global';
-  return 'public';
-}
-
-function extractImportStatements(documentText: string): string[] {
-  return documentText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('import '));
-}

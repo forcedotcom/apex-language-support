@@ -8,6 +8,7 @@
   "scripts": {
     "typecheck": "wireit",
     "test": "wireit",
+    "test:eslint-rules": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
     "test:perf:quick": "QUICK=true npm run test:perf",
@@ -104,7 +105,7 @@
     "jscpd": "^4.2.5",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.29.0",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.8",
     "semver": "^7.8.5",
@@ -117,7 +118,7 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.2",
+    "@rollup/rollup-linux-x64-gnu": "^4.62.3",
     "@rollup/rollup-linux-x64-musl": "^4.62.3"
   },
   "dependencies": {
@@ -201,6 +202,7 @@
       "command": "node scripts/test-summary.js",
       "dependencies": [
         "compile",
+        "test:eslint-rules",
         "./packages/apex-ls:test",
         "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",
@@ -210,6 +212,13 @@
         "./packages/apex-parser-ast:test",
         "./packages/custom-services:test",
         "./packages/lsp-compliant-services:test"
+      ]
+    },
+    "test:eslint-rules": {
+      "command": "node --test eslint-rules/parser-owned-semantics.test.mjs",
+      "files": [
+        "eslint-rules/index.mjs",
+        "eslint-rules/parser-owned-semantics.test.mjs"
       ]
     },
     "test:coverage": {

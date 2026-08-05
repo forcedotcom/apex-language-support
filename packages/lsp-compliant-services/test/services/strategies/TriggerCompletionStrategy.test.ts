@@ -11,192 +11,120 @@ import { TriggerCompletionStrategy } from '../../../src/services/strategies/Trig
 import { makeTextDocument, makeCompletionContext } from './testHelpers';
 
 describe('TriggerCompletionStrategy', () => {
-  let strategy: TriggerCompletionStrategy;
+  const strategy = new TriggerCompletionStrategy();
 
-  beforeEach(() => {
-    strategy = new TriggerCompletionStrategy();
+  const triggerContext = (
+    content = 'Trigger.',
+    uri = 'file:///test/MyTrigger.trigger',
+    receiver = 'Trigger',
+  ) => {
+    const document = makeTextDocument(content, uri);
+    return {
+      ...makeCompletionContext(document, 0, content.length),
+      incompleteMemberAccess: {
+        name: receiver,
+        context: 5,
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: receiver.length,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: receiver.length,
+          },
+        },
+        semanticContext: {
+          memberAccess: {
+            kind: 'member-access' as const,
+            receiverRange: {
+              startLine: 1,
+              startColumn: 0,
+              endLine: 1,
+              endColumn: receiver.length,
+            },
+            operatorRange: {
+              startLine: 1,
+              startColumn: receiver.length,
+              endLine: 1,
+              endColumn: receiver.length + 1,
+            },
+            incomplete: true,
+          },
+        },
+      },
+    };
+  };
+
+  it('handles parser-recorded Trigger member access in trigger files', () => {
+    expect(strategy.canHandle(triggerContext())).toBe(true);
+    expect(
+      strategy.canHandle(triggerContext('trigger.', undefined, 'trigger')),
+    ).toBe(true);
   });
 
-  describe('canHandle', () => {
-    it('should handle trigger files with Trigger. prefix', () => {
-      const doc = makeTextDocument(
-        '  Trigger.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
-      expect(strategy.canHandle(context)).toBe(true);
-    });
-
-    it('should handle trigger files at top level (no dot)', () => {
-      const doc = makeTextDocument('  tri', 'file:///test/MyTrigger.trigger');
-      const context = makeCompletionContext(doc, 0, 5);
-      expect(strategy.canHandle(context)).toBe(true);
-    });
-
-    it('should not handle non-trigger files', () => {
-      const doc = makeTextDocument('  Trigger.', 'file:///test/MyClass.cls');
-      const context = makeCompletionContext(doc, 0, 10);
-      expect(strategy.canHandle(context)).toBe(false);
-    });
-
-    it('should not handle trigger files when line ends with a non-Trigger dot', () => {
-      const doc = makeTextDocument(
-        '  someVar.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
-      expect(strategy.canHandle(context)).toBe(false);
-    });
-
-    it('should handle case-insensitive Trigger. prefix', () => {
-      const doc = makeTextDocument(
-        '  trigger.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
-      expect(strategy.canHandle(context)).toBe(true);
-    });
-
-    it('should handle partial prefix after Trigger.', () => {
-      const doc = makeTextDocument(
-        '  Trigger.is',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 12);
-      expect(strategy.canHandle(context)).toBe(true);
-    });
+  it('does not infer Trigger access from document text', () => {
+    const document = makeTextDocument(
+      '// Trigger. appears only in a comment',
+      'file:///test/MyTrigger.trigger',
+    );
+    expect(strategy.canHandle(makeCompletionContext(document, 0, 11))).toBe(
+      false,
+    );
   });
 
-  describe('getCompletions', () => {
-    it('should return all trigger context variables after Trigger.', async () => {
-      const doc = makeTextDocument(
-        '  Trigger.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
+  it('does not handle a different receiver or a class file', () => {
+    expect(
+      strategy.canHandle(triggerContext('someVar.', undefined, 'someVar')),
+    ).toBe(false);
+    expect(
+      strategy.canHandle(
+        triggerContext('Trigger.', 'file:///test/MyClass.cls', 'Trigger'),
+      ),
+    ).toBe(false);
+  });
 
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
+  it('returns all typed trigger context variables', async () => {
+    const candidates = await Effect.runPromise(
+      strategy.getCompletions(triggerContext()),
+    );
 
-      expect(candidates.length).toBe(12);
+    expect(candidates).toHaveLength(12);
+    expect(candidates.map((candidate) => candidate.symbol.name)).toEqual(
+      expect.arrayContaining([
+        'isExecuting',
+        'isInsert',
+        'isUpdate',
+        'isDelete',
+        'isBefore',
+        'isAfter',
+        'isUndelete',
+        'new',
+        'newMap',
+        'old',
+        'oldMap',
+        'size',
+      ]),
+    );
+    expect(
+      candidates.find((candidate) => candidate.symbol.name === 'new')?.symbol
+        .type.name,
+    ).toBe('List<SObject>');
+  });
 
-      const names = candidates.map((c) => c.symbol.name);
-      expect(names).toContain('isExecuting');
-      expect(names).toContain('isInsert');
-      expect(names).toContain('isUpdate');
-      expect(names).toContain('isDelete');
-      expect(names).toContain('isBefore');
-      expect(names).toContain('isAfter');
-      expect(names).toContain('isUndelete');
-      expect(names).toContain('new');
-      expect(names).toContain('newMap');
-      expect(names).toContain('old');
-      expect(names).toContain('oldMap');
-      expect(names).toContain('size');
-    });
-
-    it('should set relevance to 0.95 for trigger context variables', async () => {
-      const doc = makeTextDocument(
-        '  Trigger.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      for (const candidate of candidates) {
-        expect(candidate.relevance).toBe(0.95);
-        expect(candidate.context).toBe('trigger context variable');
-      }
-    });
-
-    it('should include correct type information for trigger variables', async () => {
-      const doc = makeTextDocument(
-        '  Trigger.',
-        'file:///test/MyTrigger.trigger',
-      );
-      const context = makeCompletionContext(doc, 0, 10);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      const newVar = candidates.find((c) => c.symbol.name === 'new');
-      expect(newVar).toBeDefined();
-      expect(newVar!.symbol.type.name).toBe('List<SObject>');
-
-      const newMapVar = candidates.find((c) => c.symbol.name === 'newMap');
-      expect(newMapVar).toBeDefined();
-      expect(newMapVar!.symbol.type.name).toBe('Map<Id,SObject>');
-
-      const isInsert = candidates.find((c) => c.symbol.name === 'isInsert');
-      expect(isInsert).toBeDefined();
-      expect(isInsert!.symbol.type.name).toBe('Boolean');
-
-      const size = candidates.find((c) => c.symbol.name === 'size');
-      expect(size).toBeDefined();
-      expect(size!.symbol.type.name).toBe('Integer');
-    });
-
-    it('should suggest trigger keyword at top-level with matching prefix', async () => {
-      const doc = makeTextDocument('tri', 'file:///test/MyTrigger.trigger');
-      const context = makeCompletionContext(doc, 0, 3);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      const triggerKeyword = candidates.find(
-        (c) => c.symbol.name === 'trigger',
-      );
-      expect(triggerKeyword).toBeDefined();
-      expect(triggerKeyword!.relevance).toBe(0.9);
-      expect(triggerKeyword!.context).toBe('trigger keyword');
-    });
-
-    it('should suggest trigger keyword at empty top-level line', async () => {
-      const doc = makeTextDocument('', 'file:///test/MyTrigger.trigger');
-      const context = makeCompletionContext(doc, 0, 0);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      const triggerKeyword = candidates.find(
-        (c) => c.symbol.name === 'trigger',
-      );
-      expect(triggerKeyword).toBeDefined();
-    });
-
-    it('should not suggest trigger keyword when prefix does not match', async () => {
-      const doc = makeTextDocument('class', 'file:///test/MyTrigger.trigger');
-      const context = makeCompletionContext(doc, 0, 5);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      const triggerKeyword = candidates.find(
-        (c) => c.symbol.name === 'trigger',
-      );
-      expect(triggerKeyword).toBeUndefined();
-    });
-
-    it('should not suggest trigger keyword when line has other content before', async () => {
-      const doc = makeTextDocument('x tri', 'file:///test/MyTrigger.trigger');
-      const context = makeCompletionContext(doc, 0, 5);
-
-      const candidates = await Effect.runPromise(
-        strategy.getCompletions(context),
-      );
-
-      const triggerKeyword = candidates.find(
-        (c) => c.symbol.name === 'trigger',
-      );
-      expect(triggerKeyword).toBeUndefined();
-    });
+  it('returns no candidates without parser-owned member access', async () => {
+    const document = makeTextDocument(
+      'Trigger.',
+      'file:///test/MyTrigger.trigger',
+    );
+    await expect(
+      Effect.runPromise(
+        strategy.getCompletions(makeCompletionContext(document, 0, 8)),
+      ),
+    ).resolves.toEqual([]);
   });
 });

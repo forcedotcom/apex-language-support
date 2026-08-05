@@ -186,33 +186,40 @@ describe('signature keying — F11-2 SymbolReference.argumentCount', () => {
   });
 });
 
-describe('signature keying — W-23182862 SymbolReference.argumentExpressions', () => {
-  it('argumentExpressions is a plain post-construction field', () => {
-    // Stamped by the parser listener after construction (alongside
-    // argumentCount); the raw arg texts are the input to semantic argument-type
-    // resolution.
+describe('signature keying — parser-owned argument semantics', () => {
+  it('argumentSemantics is a plain post-construction field', () => {
     const ref = SymbolReferenceFactory.createMethodCallReference(
       'f',
       LOCATION,
       'caller',
     );
-    expect(ref.argumentExpressions).toBeUndefined();
+    expect(ref.argumentSemantics).toBeUndefined();
 
-    ref.argumentExpressions = ["'hi'", 'x'];
-    expect(ref.argumentExpressions).toEqual(["'hi'", 'x']);
+    ref.argumentSemantics = [
+      { kind: 'literal', literalType: 'String' },
+      { kind: 'identifier', name: 'x' },
+    ];
+    expect(ref.argumentSemantics).toEqual([
+      { kind: 'literal', literalType: 'String' },
+      { kind: 'identifier', name: 'x' },
+    ]);
   });
 
-  it('argumentExpressions survives JSON serialization (worker pass captures, data-owner resolves)', () => {
-    // Phase A runs on the (possibly worker) reference pass; Phase B resolves on
-    // the data-owner. The captured texts must cross the wire intact.
+  it('argumentSemantics survives JSON serialization', () => {
     const ref = new EnhancedSymbolReference(
       'f',
       LOCATION,
       ReferenceContext.METHOD_CALL,
     );
-    ref.argumentExpressions = ["'hi'", 'x'];
+    ref.argumentSemantics = [
+      { kind: 'literal', literalType: 'String' },
+      { kind: 'identifier', name: 'x' },
+    ];
 
     const wire = JSON.parse(JSON.stringify(ref));
-    expect(wire.argumentExpressions).toEqual(["'hi'", 'x']);
+    expect(wire.argumentSemantics).toEqual([
+      { kind: 'literal', literalType: 'String' },
+      { kind: 'identifier', name: 'x' },
+    ]);
   });
 });
