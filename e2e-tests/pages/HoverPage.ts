@@ -33,15 +33,25 @@ export class HoverPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    // Monaco retains hidden hover widgets for inactive editors. Scope all
-    // reads to the visible editor in the active group so first() cannot bind to
-    // a stale diagnostic or semantic hover from another editor instance.
-    this.hoverWidget = page.locator(
-      '.editor-group-container.active .monaco-editor:visible .monaco-hover:visible',
-    );
-    this.hoverContent = this.hoverWidget.locator(
-      '.monaco-hover-content, .hover-contents',
-    );
+    // VS Code Web renders hover as a role="tooltip" overlay that lives OUTSIDE
+    // the .monaco-editor element, while desktop Monaco renders it as an in-editor
+    // .monaco-hover. Match both. getByRole('tooltip') excludes hidden nodes by
+    // default, and :visible scopes the Monaco path, so a stale hidden hover from
+    // an inactive editor cannot bind first.
+    this.hoverWidget = page
+      .getByRole('tooltip')
+      .or(
+        page.locator(
+          '.editor-group-container.active .monaco-editor .monaco-hover:visible',
+        ),
+      );
+    this.hoverContent = page
+      .getByRole('tooltip')
+      .or(
+        page.locator(
+          '.monaco-hover:visible .monaco-hover-content, .monaco-hover:visible .hover-contents',
+        ),
+      );
     this.defaultTimeout = this.isDesktopMode ? 10000 : 5000;
   }
 
@@ -137,17 +147,22 @@ export class HoverPage extends BasePage {
       // Fallback: use page.evaluate to find tooltip in DOM (handles shadow DOM, etc.)
       content =
         (await this.page.evaluate(() => {
-          const editors = Array.from(
+          const isVisible = (node: Element) =>
+            (node as HTMLElement).offsetParent !== null;
+          // VS Code Web hover overlay: role="tooltip", rendered outside the editor.
+          const tooltip = Array.from(
+            document.querySelectorAll('[role="tooltip"]'),
+          ).find(isVisible);
+          if (tooltip) return (tooltip as HTMLElement).innerText;
+          // Desktop Monaco: in-editor .monaco-hover on the active editor.
+          const activeEditor = Array.from(
             document.querySelectorAll(
               '.editor-group-container.active .monaco-editor',
             ),
-          );
-          const activeEditor = editors.find(
-            (editor) => (editor as HTMLElement).offsetParent !== null,
-          );
+          ).find(isVisible);
           const el = Array.from(
             activeEditor?.querySelectorAll('.monaco-hover') ?? [],
-          ).find((hover) => (hover as HTMLElement).offsetParent !== null);
+          ).find(isVisible);
           return el ? (el as HTMLElement).innerText : '';
         })) || '';
       return content;
