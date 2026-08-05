@@ -20,6 +20,8 @@ import type {
  */
 export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   apex: {
+    custom: {},
+
     commentCollection: {
       enableCommentCollection: true,
       includeSingleLineComments: false,
@@ -278,6 +280,7 @@ export function validateApexSettings(obj: any): ValidationResult {
     validation: 'object',
     experimental: 'object',
     telemetry: 'object',
+    custom: 'object',
     worker: 'object',
     version: 'string',
     logLevel: 'string',
@@ -438,6 +441,10 @@ export function mergeWithDefaults(
             ...userSettings.apex?.telemetry,
           }
         : userSettings.apex?.telemetry,
+      custom: {
+        ...baseApex.custom,
+        ...userSettings.apex?.custom,
+      },
       experimental: baseApex.experimental
         ? {
             ...baseApex.experimental,
@@ -463,6 +470,10 @@ export function mergeWithExisting(
 ): ApexLanguageServerSettings {
   return {
     apex: {
+      custom: {
+        ...existingSettings.apex.custom,
+        ...partialSettings.apex?.custom,
+      },
       commentCollection: {
         ...existingSettings.apex.commentCollection,
         ...partialSettings.apex?.commentCollection,

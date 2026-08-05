@@ -340,7 +340,7 @@ describe('WorkerCoordinator', () => {
         dispatcher = makeWorkerDispatcher({} as WorkerTopology, logger);
       });
 
-      it.each(['rename', 'foldingRange', 'workspaceSymbol'] as const)(
+      it.each(['foldingRange', 'workspaceSymbol'] as const)(
         'blocks coordinator-only type: %s',
         (type) => {
           expect(dispatcher.canDispatch(type)).toBe(false);
@@ -360,6 +360,7 @@ describe('WorkerCoordinator', () => {
         'definition',
         'implementation',
         'references',
+        'rename',
         'documentSymbol',
         'codeLens',
       ] as const)('allows worker-dispatchable type: %s', (type) => {
@@ -520,7 +521,8 @@ describe('WorkerCoordinator', () => {
 
       expect(dispatcher.canDispatch('hover')).toBe(true);
       expect(dispatcher.canDispatch('completion')).toBe(true);
-      expect(dispatcher.canDispatch('rename')).toBe(false);
+      expect(dispatcher.canDispatch('rename')).toBe(true);
+      expect(dispatcher.canDispatch('workspaceSymbol')).toBe(false);
       expect(dispatcher.canDispatch('documentOpen')).toBe(true);
       expect(dispatcher.getTopologyStatus?.().compilation).toEqual({
         active: true,
@@ -571,7 +573,7 @@ describe('WorkerCoordinator', () => {
         expect(roles).toEqual(['dataOwner', 'dataOwner']);
         expect(
           transport.sendCalls.map(
-            (call: { request: { _tag: string } }) => call.request._tag,
+            (call) => (call.request as { _tag: string })._tag,
           ),
         ).toEqual([storageTag, 'CompileDocument']);
       },

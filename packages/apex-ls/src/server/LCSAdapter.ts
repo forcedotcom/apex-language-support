@@ -21,6 +21,8 @@ import {
   ImplementationParams,
   ReferenceParams,
   Location,
+  RenameParams,
+  WorkspaceEdit,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
@@ -35,8 +37,8 @@ import {
   ExecuteCommandParams,
   CancellationToken,
   CompletionParams,
-  CompletionItem,
-  CompletionList,
+  type CompletionItem,
+  type CompletionList,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
@@ -63,6 +65,7 @@ import {
   collectStartupSnapshot,
   type WorkspaceLoadReason,
   type LspSpanAttributes,
+  type GraphDataParams,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -607,6 +610,20 @@ export class LCSAdapter {
   }
 
   /**
+   * Read graph data from the graph that owns workspace symbols. With worker
+   * topology enabled that is the data-owner worker; the coordinator-local
+   * symbol manager is intentionally empty. Retain the local processor only for
+   * the non-worker path; a data-owner query failure must remain visible rather
+   * than being disguised as a successful empty coordinator graph.
+   */
+  private async processGraphData(params: GraphDataParams): Promise<unknown> {
+    if (this.workerDispatcher?.isAvailable()) {
+      return this.workerDispatcher.queryGraphData(params);
+    }
+    return dispatchProcessOnGraphData(params);
+  }
+
+  /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
   private setupProtocolHandlers(): void {
@@ -747,6 +764,30 @@ export class LCSAdapter {
       );
     }
 
+    if (capabilities.renameProvider) {
+      this.connection.onRenameRequest(
+        async (
+          params: RenameParams,
+          token: CancellationToken,
+        ): Promise<WorkspaceEdit | null> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.RENAME,
+            'textDocument/rename',
+            params,
+            (p) => LSPQueueManager.getInstance().submitRenameRequest(p, token),
+            null,
+            {
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          ),
+      );
+      this.logger.debug('✅ Rename handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Rename handler not registered (capability disabled)',
+      );
+    }
+
     if (capabilities.codeActionProvider) {
       this.connection.onCodeAction(
         async (
@@ -784,7 +825,7 @@ export class LCSAdapter {
             'textDocument/completion',
             params,
             (p) => LSPQueueManager.getInstance().submitCompletionRequest(p),
-            null,
+            { items: [], isIncomplete: true },
             {
               'document.position': `${params.position.line}:${params.position.character}`,
             },
@@ -1229,7 +1270,7 @@ export class LCSAdapter {
       // Register apex/graphData handler (development mode only)
       this.connection.onRequest(
         'apex/graphData',
-        async (params: any) => await dispatchProcessOnGraphData(params),
+        async (params: GraphDataParams) => await this.processGraphData(params),
       );
       this.logger.debug(
         '✅ apex/graphData handler registered (development mode)',
@@ -1631,6 +1672,15 @@ export class LCSAdapter {
     if (allCapabilities.codeActionProvider) {
       staticCapabilities.codeActionProvider =
         allCapabilities.codeActionProvider;
+    }
+
+    // renameProvider must be in the initial response for the Rename Symbol (F2)
+    // UI to appear — like references/codeAction, VS Code gates the UI on the
+    // advertised capability and does not honor dynamic registration for it.
+    // Only set in the development profile, so rename stays dev-only until
+    // production enablement.
+    if (allCapabilities.renameProvider) {
+      staticCapabilities.renameProvider = allCapabilities.renameProvider;
     }
 
     if (

@@ -42,12 +42,7 @@ describe('CollectionValidator', () => {
     expect(CollectionValidator.priority).toBe(7);
   });
 
-  // Note: TIER 1 CollectionValidator uses basic text-based checks and may not catch
-  // all invalid initializers. Full validation requires TIER 2 type resolution.
-  it.skip('should detect invalid list initializer', async () => {
-    // This test is skipped because the TIER 1 validator uses pattern matching
-    // on initializer text and may not catch all cases. Full validation requires
-    // TIER 2 cross-file type resolution.
+  it('should detect an invalid list initializer from parser literal semantics', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InvalidListInitializer.cls',
@@ -99,11 +94,7 @@ describe('CollectionValidator', () => {
     expect(hasError).toBe(true);
   });
 
-  // Note: This test may fail if the validator detects false positives.
-  // TIER 1 validators use basic pattern matching and may flag valid code.
-  it.skip('should pass validation for valid collections', async () => {
-    // This test is skipped because TIER 1 validators may have false positives
-    // due to basic text-based pattern matching. Full validation requires TIER 2.
+  it('should pass validation for valid collection constructors', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'ValidCollections.cls',
@@ -213,6 +204,60 @@ describe('CollectionValidator', () => {
       );
       expect(hasError).toBe(true);
     });
+
+    it('compares nested Map value types from structured TypeInfo', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'InvalidNestedMapPutAll.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        },
+      );
+
+      const result = await runValidator(
+        CollectionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: ErrorCodes.INVALID_MAP_PUTALL }),
+        ]),
+      );
+    });
+  });
+
+  describe('sort validation', () => {
+    it('compares Comparator element types from structured TypeInfo', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'InvalidSortComparator.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        },
+      );
+
+      const result = await runValidator(
+        CollectionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: ErrorCodes.ILLEGAL_COMPARATOR_FOR_SORT,
+          }),
+        ]),
+      );
+    });
   });
 
   describe('SObject List validation', () => {
@@ -270,13 +315,7 @@ describe('CollectionValidator', () => {
   });
 
   describe('Map initializer type validation', () => {
-    // Note: Map initializer type validation requires TIER 2 type resolution
-    // to determine the type of the variable being passed to the Map constructor.
-    // TIER 1 can only do basic text-based pattern matching.
-    it.skip('should detect invalid Map initializer key type', async () => {
-      // This test is skipped because TIER 1 validation cannot resolve
-      // the type of variables passed to Map constructors.
-      // Full validation requires TIER 2 cross-file type resolution.
+    it('should detect an invalid Map initializer key from lexical symbol types', async () => {
       const { symbolTable, options } = await compileFixtureWithOptions(
         VALIDATOR_CATEGORY,
         'InvalidMapInitializerKeyType.cls',
@@ -308,10 +347,7 @@ describe('CollectionValidator', () => {
       expect(hasError).toBe(true);
     });
 
-    it.skip('should detect invalid Map initializer value type', async () => {
-      // This test is skipped because TIER 1 validation cannot resolve
-      // the type of variables passed to Map constructors.
-      // Full validation requires TIER 2 cross-file type resolution.
+    it('should detect an invalid Map initializer value from lexical symbol types', async () => {
       const { symbolTable, options } = await compileFixtureWithOptions(
         VALIDATOR_CATEGORY,
         'InvalidMapInitializerValueType.cls',

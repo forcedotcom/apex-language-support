@@ -19,7 +19,9 @@ import {
   ApexSymbolManager,
   CompilerService,
   FullSymbolCollectorListener,
+  SymbolKind,
   SymbolTable,
+  SymbolVisibility,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -209,81 +211,44 @@ describe('CodeActionProcessingService', () => {
   });
 
   describe('context analysis', () => {
-    it('should extract symbol info correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public void method1() {
-            String variable = 'test';
-          }
-        }
-      `;
+    it('derives context from the symbol manager result', async () => {
+      const symbolManager = (service as any).symbolManager;
+      jest.spyOn(symbolManager, 'getSymbolAtPosition').mockResolvedValue({
+        name: 'testVar',
+        kind: SymbolKind.Variable,
+        parentId: 'method-scope',
+        modifiers: {
+          visibility: SymbolVisibility.Private,
+          isStatic: true,
+        },
+      });
 
-      const range: Range = {
-        start: { line: 3, character: 10 },
-        end: { line: 3, character: 15 },
-      };
+      const context = await (service as any).analyzeCodeActionContext(
+        mockDocument,
+        {
+          textDocument: { uri: mockDocument.uri },
+          range: {
+            start: { line: 3, character: 10 },
+            end: { line: 3, character: 15 },
+          },
+          context: { diagnostics: [] },
+        },
+      );
 
-      // Act
-      const symbolInfo = (service as any).extractSymbolInfo(text, range);
-
-      // Assert
-      expect(symbolInfo).toBeDefined();
-      expect(symbolInfo.name).toBeDefined();
-      expect(symbolInfo.kind).toBeDefined();
-    });
-
-    it('should detect static context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public static void staticMethod() {
-            // Static context
-          }
-        }
-      `;
-
-      // Act
-      const isStatic = (service as any).isInStaticContext(text, 50);
-
-      // Assert
-      expect(typeof isStatic).toBe('boolean');
-    });
-
-    it('should extract access modifier context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          private String privateField;
-          public String publicField;
-        }
-      `;
-
-      // Act
-      const modifier = (service as any).getAccessModifierContext(text, 50);
-
-      // Assert
-      expect(['public', 'private', 'protected', 'global']).toContain(modifier);
-    });
-
-    it('should extract current scope correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public void method1() {
-            // Inside method1
-          }
-          public void method2() {
-            // Inside method2
-          }
-        }
-      `;
-
-      // Act
-      const scope = (service as any).extractCurrentScope(text, 50);
-
-      // Assert
-      expect(scope).toBeDefined();
+      expect(context).toEqual(
+        expect.objectContaining({
+          symbolName: 'testVar',
+          symbolKind: SymbolKind.Variable,
+          currentScope: 'method-scope',
+          isStatic: true,
+          accessModifier: SymbolVisibility.Private,
+        }),
+      );
+      expect(symbolManager.getSymbolAtPosition).toHaveBeenCalledWith(
+        mockDocument.uri,
+        { line: 4, character: 10 },
+        'precise',
+      );
     });
   });
 
@@ -390,6 +355,65 @@ describe('CodeActionProcessingService', () => {
 
       // Assert
       expect(Array.isArray(actions)).toBe(true);
+    });
+
+    it('keeps import and relationship actions bound to the exact selected symbol', async () => {
+      const selected = {
+        id: 'selected',
+        name: 'Duplicate',
+        fqn: 'ns2.Duplicate',
+        kind: SymbolKind.Class,
+        fileUri: 'file:///ns2/Duplicate.cls',
+        modifiers: { visibility: SymbolVisibility.Public },
+      } as any;
+      const sameName = {
+        ...selected,
+        id: 'other',
+        fqn: 'ns1.Duplicate',
+        fileUri: 'file:///ns1/Duplicate.cls',
+      };
+      const symbolManager = {
+        findSymbolByName: jest.fn().mockResolvedValue([sameName, selected]),
+        findReferencesTo: jest
+          .fn()
+          .mockImplementation((symbol) =>
+            Promise.resolve(symbol === selected ? [{}] : [{}, {}]),
+          ),
+        analyzeDependencies: jest.fn().mockResolvedValue({
+          dependencies: [],
+          dependents: [],
+        }),
+      } as any;
+      const exactService = new CodeActionProcessingService(
+        logger,
+        symbolManager,
+      );
+      const context = {
+        document: mockDocument,
+        range: {
+          start: { line: 1, character: 1 },
+          end: { line: 1, character: 10 },
+        },
+        diagnostics: [],
+        symbolName: selected.name,
+        selectedSymbol: selected,
+      };
+
+      const quickFixes = await (exactService as any).getQuickFixActions(
+        context,
+      );
+      const relationships = await (exactService as any).getRelationshipActions(
+        context,
+      );
+
+      expect(quickFixes.map((action: CodeAction) => action.title)).toEqual([
+        "Add import for 'ns2.Duplicate'",
+      ]);
+      expect(relationships.map((action: CodeAction) => action.title)).toEqual([
+        'Show all references (1)',
+      ]);
+      expect(symbolManager.findReferencesTo).toHaveBeenCalledWith(selected);
+      expect(symbolManager.findSymbolByName).not.toHaveBeenCalled();
     });
   });
 
@@ -961,6 +985,162 @@ describe('CodeActionProcessingService', () => {
       // Uses the document (caller) but writes into Target — no reliance on
       // reading the (unloaded) target document.
       expect(document.uri).toBe(CALLER_URI);
+    });
+
+    it('resolves a shadowed receiver at the call range instead of by file-wide name', async () => {
+      const wrongUri = 'file:///test/WrongTarget.cls';
+      const callerSource = [
+        'public class Caller {',
+        '  WrongTarget target;',
+        '  public void run() {',
+        '    Target target = new Target();',
+        '    Integer r = target.computeValue(42);',
+        '  }',
+        '}',
+      ].join('\n');
+      const callRange = rangeOf(callerSource, 'computeValue');
+
+      const { service } = await buildService(callerSource, [
+        { uri: wrongUri, source: 'public class WrongTarget {}' },
+        { uri: TARGET_URI, source: TARGET_SOURCE },
+        { uri: CALLER_URI, source: callerSource },
+      ]);
+
+      const actions = await service.processCodeAction({
+        textDocument: { uri: CALLER_URI },
+        range: callRange,
+        context: {
+          diagnostics: [methodNotFoundDiagnostic(callRange)],
+          triggerKind: 1,
+        },
+      });
+
+      expect(
+        actions.find((action) =>
+          action.title.startsWith("Declare method 'computeValue'"),
+        )?.title,
+      ).toBe("Declare method 'computeValue' in Target");
+    });
+
+    it('resolves a chained field receiver from parser-owned chain facts', async () => {
+      const callerSource = [
+        'public class Caller {',
+        '  Target target;',
+        '  public void run() {',
+        '    Integer r = this.target.computeValue(42);',
+        '  }',
+        '}',
+      ].join('\n');
+      const callRange = rangeOf(callerSource, 'computeValue');
+
+      const { service } = await buildService(callerSource, [
+        { uri: TARGET_URI, source: TARGET_SOURCE },
+        { uri: CALLER_URI, source: callerSource },
+      ]);
+
+      const actions = await service.processCodeAction({
+        textDocument: { uri: CALLER_URI },
+        range: callRange,
+        context: {
+          diagnostics: [methodNotFoundDiagnostic(callRange)],
+          triggerKind: 1,
+        },
+      });
+
+      expect(
+        actions.find((action) =>
+          action.title.startsWith("Declare method 'computeValue'"),
+        )?.title,
+      ).toBe("Declare method 'computeValue' in Target");
+    });
+
+    it('uses the exact resolved receiver type when duplicate simple names exist', async () => {
+      const ns1Target = {
+        id: 'ns1-target',
+        name: 'Target',
+        fqn: 'ns1.Target',
+        kind: SymbolKind.Class,
+        fileUri: 'file:///ns1/Target.cls',
+        modifiers: { isBuiltIn: false },
+      } as any;
+      const ns2Target = {
+        ...ns1Target,
+        id: 'ns2-target',
+        fqn: 'ns2.Target',
+        fileUri: 'file:///ns2/Target.cls',
+      };
+      const receiverVariable = {
+        id: 'receiver',
+        name: 'target',
+        kind: SymbolKind.Variable,
+        fileUri: CALLER_URI,
+        type: {
+          name: 'Target',
+          originalTypeString: 'Target',
+          resolvedSymbol: ns2Target,
+        },
+      } as any;
+      const symbolManager = {
+        getSymbolAtPosition: jest.fn().mockResolvedValue(receiverVariable),
+        findSymbolByFQN: jest.fn().mockResolvedValue(null),
+        findSymbolByName: jest.fn().mockResolvedValue([ns1Target, ns2Target]),
+      } as any;
+      const exactService = new CodeActionProcessingService(
+        getLogger(),
+        symbolManager,
+      );
+
+      const target = await (exactService as any).resolveReceiverType(
+        {
+          document: TextDocument.create(CALLER_URI, 'apex', 1, ''),
+        },
+        {
+          name: 'target',
+          range: {
+            start: { line: 2, character: 16 },
+            end: { line: 2, character: 22 },
+          },
+          kind: 'value',
+          declaredTypeName: 'Target',
+        },
+      );
+
+      expect(target?.typeSymbol).toBe(ns2Target);
+      expect(target?.fileUri).toBe('file:///ns2/Target.cls');
+      expect(symbolManager.findSymbolByName).not.toHaveBeenCalled();
+    });
+
+    it('targets the innermost containing class for an implicit-this call', async () => {
+      const callerSource = [
+        'public class Caller {',
+        '  public class Inner {',
+        '    public void run() {',
+        '      Integer r = computeValue(42);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n');
+      const callRange = rangeOf(callerSource, 'computeValue');
+      const { service } = await buildService(callerSource, [
+        { uri: CALLER_URI, source: callerSource },
+      ]);
+
+      const actions = await service.processCodeAction({
+        textDocument: { uri: CALLER_URI },
+        range: callRange,
+        context: {
+          diagnostics: [methodNotFoundDiagnostic(callRange)],
+          triggerKind: 1,
+        },
+      });
+      const declare = actions.find((action) =>
+        action.title.startsWith("Declare method 'computeValue'"),
+      );
+
+      expect(declare?.title).toBe("Declare method 'computeValue' in Inner");
+      expect(
+        (declare?.edit?.documentChanges as any[])[0].textDocument.uri,
+      ).toBe(CALLER_URI);
     });
 
     it('inserts the stub before the closing brace, inside the class body', async () => {

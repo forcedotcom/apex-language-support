@@ -17,14 +17,26 @@
  * 3. Cleans up ApexSymbolProcessingManager singleton
  * 4. Allows time for cleanup to complete
  */
-module.exports = async () => {
-  // Set a timeout for teardown to prevent hanging
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Teardown timeout')), 30000),
-  );
+const withTimeout = async (promise, timeoutMs, message) => {
+  let timeoutId;
 
   try {
-    await Promise.race([
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
+module.exports = async () => {
+  try {
+    await withTimeout(
       (async () => {
         // Import scheduler utilities from parser-ast
         const {
@@ -37,12 +49,11 @@ module.exports = async () => {
         // Try multiple times to ensure it shuts down (in case of race conditions)
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            await Promise.race([
+            await withTimeout(
               Effect.runPromise(schedulerShutdown()),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Shutdown timeout')), 5000),
-              ),
-            ]);
+              5000,
+              'Shutdown timeout',
+            );
             // If shutdown succeeded, break out of retry loop
             break;
           } catch (_error) {
@@ -60,12 +71,11 @@ module.exports = async () => {
         // Try multiple times to ensure it resets
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            await Promise.race([
+            await withTimeout(
               Effect.runPromise(schedulerReset()),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Reset timeout')), 5000),
-              ),
-            ]);
+              5000,
+              'Reset timeout',
+            );
             // If reset succeeded, break out of retry loop
             break;
           } catch (_error) {
@@ -113,7 +123,9 @@ module.exports = async () => {
         // Daemon fibers created with Effect.forkDaemon don't get cleaned up automatically
         // when scopes close, so we must explicitly call clear() which interrupts them
         try {
-          const { ApexSymbolRefManager } = require('@salesforce/apex-lsp-parser-ast');
+          const {
+            ApexSymbolRefManager,
+          } = require('@salesforce/apex-lsp-parser-ast');
           if (ApexSymbolRefManager) {
             // Get the current instance and clear it (which shuts down workers and interrupts daemon fibers)
             const instance = ApexSymbolRefManager.getInstance();
@@ -136,15 +148,16 @@ module.exports = async () => {
         // This is important because LSPQueueManager initializes a scheduler
         // that runs a background loop which must be explicitly shut down
         try {
-          const { LSPQueueManager } = require('@salesforce/apex-lsp-compliant-services');
+          const {
+            LSPQueueManager,
+          } = require('@salesforce/apex-lsp-compliant-services');
           const queueManager = LSPQueueManager.getInstance();
           if (queueManager && !queueManager.isShutdownState()) {
-            await Promise.race([
+            await withTimeout(
               queueManager.shutdown(),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('LSPQueueManager shutdown timeout')), 5000),
-              ),
-            ]);
+              5000,
+              'LSPQueueManager shutdown timeout',
+            );
           } else {
             // If already shutdown, just reset the singleton to clear it
             LSPQueueManager.reset();
@@ -152,7 +165,9 @@ module.exports = async () => {
         } catch (_error) {
           // Module might not be available or other error - try reset anyway
           try {
-            const { LSPQueueManager } = require('@salesforce/apex-lsp-compliant-services');
+            const {
+              LSPQueueManager,
+            } = require('@salesforce/apex-lsp-compliant-services');
             LSPQueueManager.reset();
           } catch (_resetError) {
             // Ignore reset errors - module might not be loaded
@@ -163,7 +178,9 @@ module.exports = async () => {
         // Important: This must be done AFTER shutting down the scheduler,
         // as resetting the singleton alone does NOT shut down the scheduler
         try {
-          const { SchedulerInitializationService } = require('@salesforce/apex-lsp-parser-ast');
+          const {
+            SchedulerInitializationService,
+          } = require('@salesforce/apex-lsp-parser-ast');
           if (
             SchedulerInitializationService &&
             typeof SchedulerInitializationService.resetInstance === 'function'
@@ -182,7 +199,8 @@ module.exports = async () => {
           } = require('@salesforce/apex-lsp-compliant-services');
           if (
             BackgroundProcessingInitializationService &&
-            typeof BackgroundProcessingInitializationService.reset === 'function'
+            typeof BackgroundProcessingInitializationService.reset ===
+              'function'
           ) {
             await BackgroundProcessingInitializationService.reset();
           }
@@ -196,7 +214,10 @@ module.exports = async () => {
           const {
             clearCleanupInterval,
           } = require('@salesforce/apex-language-server/src/server/WorkspaceBatchHandler');
-          if (clearCleanupInterval && typeof clearCleanupInterval === 'function') {
+          if (
+            clearCleanupInterval &&
+            typeof clearCleanupInterval === 'function'
+          ) {
             clearCleanupInterval();
           }
         } catch (_error) {
@@ -212,8 +233,9 @@ module.exports = async () => {
         // The scheduler's scope may keep fibers alive, so we need extra time for them to complete
         await new Promise((resolve) => setTimeout(resolve, 3000));
       })(),
-      timeout,
-    ]);
+      30000,
+      'Teardown timeout',
+    );
   } catch (error) {
     // Ignore errors during teardown - modules might not be available or timeout occurred
     if (error.message !== 'Teardown timeout') {
@@ -221,4 +243,3 @@ module.exports = async () => {
     }
   }
 };
-

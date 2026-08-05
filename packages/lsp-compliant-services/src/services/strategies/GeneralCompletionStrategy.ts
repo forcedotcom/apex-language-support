@@ -9,9 +9,9 @@
 import { Effect } from 'effect';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CompletionContext } from '../CompletionProcessingService';
 import { CompletionStrategy, CompletionCandidate } from './CompletionStrategy';
+import { getIdentifierCompletionQuery } from './IdentifierCompletionQuery';
 
 /**
  * Strategy for general completions (no specific trigger character)
@@ -28,15 +28,7 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    // Skip after a dot — member access is handled by MemberAccessCompletionStrategy.
-    if (context.triggerCharacter === '.') {
-      return false;
-    }
-    const lineText = context.document.getText({
-      start: { line: context.position.line, character: 0 },
-      end: context.position,
-    });
-    return !lineText.trimEnd().endsWith('.');
+    return context.document.uri.length > 0;
   }
 
   getCompletions(
@@ -47,10 +39,18 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
       const candidates: CompletionCandidate[] = [];
       const batchSize = 50;
 
-      const currentWord = self.getWordAtPosition(
+      const completionQuery = getIdentifierCompletionQuery(
         context.document,
         context.position,
       );
+      if (
+        completionQuery.kind === 'non-code' ||
+        completionQuery.kind === 'member-access'
+      ) {
+        return candidates;
+      }
+      const currentWord =
+        completionQuery.kind === 'identifier' ? completionQuery.prefix : '';
 
       // Empty-prefix path: surface all symbols once (wildcard). Skipped when
       // the user has typed at least one character to avoid drowning prefix
@@ -92,11 +92,35 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
       };
 
       try {
+        const visibleSymbols = yield* Effect.promise(() =>
+          self.symbolManager.getVisibleSymbolsAtPosition(
+            context.document.uri,
+            context.position,
+          ),
+        );
+        for (const symbol of visibleSymbols) {
+          if (
+            !symbol.name.toLowerCase().startsWith(currentWord.toLowerCase())
+          ) {
+            continue;
+          }
+          candidates.push({
+            symbol,
+            relevance: 1,
+            context: 'visible symbol',
+          });
+        }
+
         const result = yield* Effect.promise(() =>
           self.symbolManager.resolveSymbol(currentWord, resolutionContext),
         );
 
-        if (result.symbol) {
+        if (
+          result.symbol &&
+          !candidates.some(
+            (candidate) => candidate.symbol.id === result.symbol?.id,
+          )
+        ) {
           candidates.push({
             symbol: result.symbol,
             relevance: result.confidence,
@@ -111,25 +135,5 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
 
       return candidates;
     });
-  }
-
-  private getWordAtPosition(
-    document: TextDocument,
-    position: { line: number; character: number },
-  ): string {
-    // Simplified - would use proper word boundary detection
-    const text = document.getText();
-    const offset = document.offsetAt(position);
-    let start = offset;
-    let end = offset;
-
-    while (start > 0 && /\w/.test(text[start - 1])) {
-      start--;
-    }
-    while (end < text.length && /\w/.test(text[end])) {
-      end++;
-    }
-
-    return text.substring(start, end);
   }
 }

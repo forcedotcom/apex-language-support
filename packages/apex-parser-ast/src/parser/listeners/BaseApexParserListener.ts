@@ -10,6 +10,7 @@ import {
   ApexParserBaseListener,
   type ApexParserRuleContext,
   type ApexErrorNode,
+  type ApexTerminalNode,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4';
 
@@ -24,7 +25,7 @@ export abstract class BaseApexParserListener<T> extends ApexParserBaseListener {
   enterEveryRule(ctx: ApexParserRuleContext): void {}
 
   exitEveryRule(ctx: ApexParserRuleContext): void {}
-  visitTerminal(): void {}
+  visitTerminal(_node: ApexTerminalNode): void {}
   visitErrorNode(node: ApexErrorNode): void {}
   protected warnings: string[] = [];
   protected errorListener: ApexErrorListener | null = null;

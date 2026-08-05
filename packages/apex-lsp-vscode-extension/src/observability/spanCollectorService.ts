@@ -49,7 +49,7 @@ export async function startSpanCollector(
   }
 
   sdkSpanReplay = new SdkSpanReplay(runtimeFactory, (message) =>
-    logToOutputChannel(`[spanCollector] ${message}`, 'debug'),
+    logToOutputChannel(`[spanCollector] ${message}`, 'warning'),
   );
 
   logToOutputChannel(
@@ -110,11 +110,6 @@ export async function startSpanCollector(
  * Handle incoming HTTP requests (POST /v1/traces).
  */
 function handleRequest(req: IncomingMessage, res: ServerResponse): void {
-  logToOutputChannel(
-    `[spanCollector] Received ${req.method} ${req.url} from ${req.socket.remoteAddress}`,
-    'debug',
-  );
-
   if (req.method !== 'POST' || req.url !== '/v1/traces') {
     res.writeHead(404);
     res.end();
@@ -130,17 +125,9 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     try {
       const body = Buffer.concat(chunks).toString('utf-8');
       const json = JSON.parse(body) as Record<string, unknown>;
-      logToOutputChannel(
-        `[spanCollector] Processing ${body.length} byte trace export`,
-        'debug',
-      );
-      const spanCount = await processTraceExport(json);
+      await processTraceExport(json);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('');
-      logToOutputChannel(
-        `[spanCollector] Accepted ${spanCount} spans for SDK export`,
-        'debug',
-      );
     } catch (error) {
       logToOutputChannel(
         `Error processing trace request: ${formattedError(error)}`,

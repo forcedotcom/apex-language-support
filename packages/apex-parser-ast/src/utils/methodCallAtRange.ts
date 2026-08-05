@@ -12,6 +12,7 @@ import {
   DotExpressionContext,
   ExpressionContext,
   ExpressionStatementContext,
+  IdPrimaryContext,
   LiteralPrimaryContext,
   LocalVariableDeclarationContext,
   MethodCallExpressionContext,
@@ -23,6 +24,14 @@ import {
 } from '@apexdevtools/apex-parser';
 
 import { findExpressionAtRange, LspRange } from './expressionRangeFinder';
+import {
+  ApexSymbol,
+  inTypeSymbolGroup,
+  SymbolKind,
+  SymbolTable,
+  VariableSymbol,
+} from '../types/symbol';
+import { ReferenceContext, SymbolReference } from '../types/symbolReference';
 
 /**
  * How a method call's result is consumed. This determines whether the call is
@@ -47,10 +56,19 @@ export type CallReturnContext =
  * type cannot be determined syntactically (callers fall back to `Object`).
  */
 export interface MethodCallArgument {
-  /** Source text of the argument expression (whitespace-normalized). */
-  text: string;
   /** Apex type inferred from a literal / constructor, or `undefined`. */
   inferredType?: string;
+}
+
+export interface MethodCallReceiver {
+  /** Parser-recorded identifier at the immediate receiver position. */
+  name: string;
+  /** Exact receiver identifier range, suitable for semantic lookup. */
+  range: LspRange;
+  /** Whether parser-owned facts identify a type or value receiver. */
+  kind: 'type' | 'value' | 'unresolved';
+  /** Declared receiver type when the same-file symbol table can prove it. */
+  declaredTypeName?: string;
 }
 
 /**
@@ -62,11 +80,10 @@ export interface MethodCallAtRange {
   /** The simple method name being invoked. */
   methodName: string;
   /**
-   * The receiver expression text (e.g. `acct`, `MyClass`) for a qualified
-   * call `receiver.method(...)`, or `undefined` for an unqualified /
-   * implicit-`this` call `method(...)`.
+   * The immediate receiver node from the parser-recorded reference chain, or
+   * `undefined` for an unqualified / implicit-`this` call `method(...)`.
    */
-  receiverText?: string;
+  receiver?: MethodCallReceiver;
   /** Arguments in call order. */
   arguments: MethodCallArgument[];
   /** How the call result is used (drives the non-void requirement). */
@@ -125,9 +142,167 @@ const describeArguments = (
     return [];
   }
   return expressionList.expression_list().map((expression) => ({
-    text: expression.getText(),
     inferredType: inferArgumentType(expression),
   }));
+};
+
+const isVariableLike = (symbol: ApexSymbol): symbol is VariableSymbol =>
+  symbol.kind === SymbolKind.Variable ||
+  symbol.kind === SymbolKind.Parameter ||
+  symbol.kind === SymbolKind.Field ||
+  symbol.kind === SymbolKind.Property;
+
+const referenceRange = (reference: SymbolReference): LspRange => {
+  const range = reference.location.identifierRange;
+  return {
+    start: { line: range.startLine - 1, character: range.startColumn },
+    end: { line: range.endLine - 1, character: range.endColumn },
+  };
+};
+
+const describeReceiver = (
+  methodName: string,
+  methodLine: number,
+  methodColumn: number,
+  symbolTable: SymbolTable | undefined,
+): MethodCallReceiver | undefined => {
+  if (!symbolTable) {
+    return undefined;
+  }
+
+  const chainedCall = symbolTable
+    .getReferencesAtPosition({ line: methodLine, character: methodColumn })
+    .find((reference) => {
+      const nodes = reference.chainNodes;
+      const finalNode = nodes?.[nodes.length - 1];
+      return (
+        nodes !== undefined &&
+        nodes.length >= 2 &&
+        finalNode?.context === ReferenceContext.METHOD_CALL &&
+        finalNode.name.toLowerCase() === methodName.toLowerCase() &&
+        finalNode.location.identifierRange.startLine === methodLine &&
+        finalNode.location.identifierRange.startColumn === methodColumn
+      );
+    });
+  const nodes = chainedCall?.chainNodes;
+  const receiverIndex = nodes ? nodes.length - 2 : -1;
+  const receiver = nodes?.[receiverIndex];
+  if (!receiver) {
+    return undefined;
+  }
+
+  const receiverOwner =
+    receiverIndex > 0 ? nodes?.[receiverIndex - 1] : undefined;
+  const qualifiedReceiverName = nodes
+    .slice(0, receiverIndex + 1)
+    .map((node) => node.name)
+    .join('.');
+  const isExplicitThisField =
+    receiver.context === ReferenceContext.FIELD_ACCESS &&
+    receiverIndex === 1 &&
+    receiverOwner?.context === ReferenceContext.CHAIN_STEP &&
+    receiverOwner.name.toLowerCase() === 'this';
+  const resolved = receiver.resolvedSymbolId
+    ? symbolTable.getSymbolById(receiver.resolvedSymbolId)
+    : receiver.context === ReferenceContext.FIELD_ACCESS &&
+        (nodes.length === 2 || isExplicitThisField)
+      ? symbolTable.resolveVariableAtPosition(
+          receiver.name,
+          receiver.location.identifierRange.startLine,
+          receiver.location.identifierRange.startColumn,
+        )
+      : undefined;
+  if (resolved && inTypeSymbolGroup(resolved)) {
+    return {
+      name: receiver.name,
+      range: referenceRange(receiver),
+      kind: 'type',
+      declaredTypeName: resolved.name,
+    };
+  }
+  if (resolved && isVariableLike(resolved)) {
+    return {
+      name: receiver.name,
+      range: referenceRange(receiver),
+      kind: 'value',
+      declaredTypeName: resolved.type.name,
+    };
+  }
+
+  return {
+    name: receiver.name,
+    range: referenceRange(receiver),
+    kind:
+      receiver.context === ReferenceContext.CLASS_REFERENCE
+        ? 'type'
+        : 'unresolved',
+    declaredTypeName:
+      receiver.context === ReferenceContext.CLASS_REFERENCE
+        ? qualifiedReceiverName
+        : receiver.context === ReferenceContext.CHAIN_STEP && receiverIndex > 0
+          ? qualifiedReceiverName
+          : undefined,
+  };
+};
+
+/** Recover an unresolved qualified receiver from grammar-selected terminals. */
+const describeReceiverFromCst = (
+  expression: ExpressionContext | undefined,
+): MethodCallReceiver | undefined => {
+  if (!expression) return undefined;
+
+  const identifierTerminals = (
+    current: ExpressionContext,
+  ): Array<{ text: string; line: number; column: number }> => {
+    if (current instanceof PrimaryExpressionContext) {
+      const primary = current.primary();
+      if (primary instanceof IdPrimaryContext) {
+        const id = primary.id();
+        const token = id?.start;
+        return id && token
+          ? [{ text: id.getText(), line: token.line, column: token.column }]
+          : [];
+      }
+      return [];
+    }
+    if (current instanceof DotExpressionContext) {
+      const base = current.expression();
+      const member = current.anyId();
+      const token = member?.start;
+      return [
+        ...(base ? identifierTerminals(base) : []),
+        ...(member && token
+          ? [
+              {
+                text: member.getText(),
+                line: token.line,
+                column: token.column,
+              },
+            ]
+          : []),
+      ];
+    }
+    return [];
+  };
+
+  const identifiers = identifierTerminals(expression);
+  const receiver = identifiers.at(-1);
+  if (!receiver) return undefined;
+  return {
+    name: receiver.text,
+    range: {
+      start: { line: receiver.line - 1, character: receiver.column },
+      end: {
+        line: receiver.line - 1,
+        character: receiver.column + receiver.text.length,
+      },
+    },
+    kind: 'unresolved',
+    declaredTypeName:
+      identifiers.length > 1
+        ? identifiers.map(({ text }) => text).join('.')
+        : undefined,
+  };
 };
 
 /** Walk up to the nearest enclosing method declaration, or `null`. */
@@ -203,6 +378,7 @@ const classifyReturnContext = (
 export const findMethodCallAtRange = (
   parseTree: ParserRuleContext | null | undefined,
   range: LspRange,
+  symbolTable?: SymbolTable,
 ): MethodCallAtRange | null => {
   try {
     const found = findExpressionAtRange(parseTree, range);
@@ -234,12 +410,25 @@ export const findMethodCallAtRange = (
         return null;
       }
       const methodName = dotMethodCall.anyId()?.getText();
-      if (!methodName) {
+      const methodToken = dotMethodCall.anyId()?.start;
+      if (!methodName || !methodToken) {
+        return null;
+      }
+      const receiver =
+        describeReceiver(
+          methodName,
+          methodToken.line,
+          methodToken.column,
+          symbolTable,
+        ) ?? describeReceiverFromCst(expression.expression());
+      if (!receiver) {
+        // The CST proves that this is qualified, but without the correlated
+        // parser reference chain its receiver semantics are unknown.
         return null;
       }
       return {
         methodName,
-        receiverText: expression.expression()?.getText(),
+        receiver,
         arguments: describeArguments(dotMethodCall.expressionList()),
         ...classifyReturnContext(expression),
       };

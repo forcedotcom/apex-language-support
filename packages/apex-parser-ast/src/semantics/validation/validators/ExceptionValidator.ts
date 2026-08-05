@@ -105,23 +105,7 @@ class ExceptionListener extends BaseApexParserListener<void> {
   }> = [];
 
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
-    let name = ctx.id()?.getText();
-    if (!name) {
-      // Handle special case where LIST, MAP, SET are lexer keywords
-      const children = ctx.children || [];
-      for (const child of children) {
-        const childText = child.getText();
-        if (
-          childText &&
-          (childText.toLowerCase() === 'list' ||
-            childText.toLowerCase() === 'map' ||
-            childText.toLowerCase() === 'set')
-        ) {
-          name = childText;
-          break;
-        }
-      }
-    }
+    const name = ctx.id()?.getText();
     if (name) {
       this.exceptionClasses.push({ ctx, name });
     }
@@ -140,9 +124,9 @@ class ExceptionListener extends BaseApexParserListener<void> {
   }
 
   enterCatchClause(ctx: CatchClauseContext): void {
-    const qualifiedName = ctx.qualifiedName();
-    const typeName = qualifiedName
-      ? this.getTextFromContext(qualifiedName)
+    const identifiers = ctx.qualifiedName()?.id_list() ?? [];
+    const typeName = identifiers.length
+      ? identifiers.map((identifier) => identifier.getText()).join('.')
       : undefined;
     const tryBlock = this.tryStack[this.tryStack.length - 1];
     this.catchClauses.push({ ctx, exceptionType: typeName, tryBlock });
@@ -155,10 +139,6 @@ class ExceptionListener extends BaseApexParserListener<void> {
       const className = ids[0].getText();
       this.constructors.push({ ctx, className });
     }
-  }
-
-  private getTextFromContext(ctx: ParserRuleContext): string {
-    return ctx.getText() || '';
   }
 
   getResult(): void {

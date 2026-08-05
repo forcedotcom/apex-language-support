@@ -78,7 +78,7 @@ describe('ModifierValidator', () => {
     expect(hasConflictingError).toBe(true);
   });
 
-  it('should detect ENCLOSING_TYPE_FOR when inner has global but enclosing does not', async () => {
+  it('does not reconstruct a rejected inner global modifier from source text', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InvalidInnerTypeModifier.cls',
@@ -96,12 +96,13 @@ describe('ModifierValidator', () => {
       symbolManager,
     );
 
-    expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
     const hasEnclosingError = result.errors.some(
       (e: any) => e.code === ErrorCodes.ENCLOSING_TYPE_FOR,
     );
-    expect(hasEnclosingError).toBe(true);
+    // The declaration walker diagnoses and normalizes the invalid visibility.
+    // Until the symbol retains the originally declared modifier, this later
+    // validation pass preserves that uncertainty.
+    expect(hasEnclosingError).toBe(false);
   });
 
   it('should detect missing required modifiers', async () => {
@@ -232,7 +233,7 @@ describe('ModifierValidator', () => {
     expect(protectedStaticErrors.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('should detect invalid modifiers on fields', async () => {
+  it('does not reconstruct rejected field modifiers from source text', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InvalidFieldModifiers.cls',
@@ -249,13 +250,23 @@ describe('ModifierValidator', () => {
       ModifierValidator.validate(symbolTable, options),
       symbolManager,
     );
+    const resultWithoutSource = await runValidator(
+      ModifierValidator.validate(symbolTable, {
+        ...options,
+        sourceContent: undefined,
+      }),
+      symbolManager,
+    );
 
-    expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
     const hasNotAllowedError = result.errors.some(
       (e: any) => e.code === ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
     );
-    expect(hasNotAllowedError).toBe(true);
+    // FieldModifierValidator reports these while walking the parse tree and
+    // removes them from the normalized symbol. This validator must not infer
+    // those discarded facts from the raw document.
+    expect(hasNotAllowedError).toBe(false);
+    expect(result.errors).toEqual(resultWithoutSource.errors);
+    expect(result.warnings).toEqual(resultWithoutSource.warnings);
   });
 
   it('should pass valid modifiers', async () => {
@@ -409,7 +420,7 @@ describe('ModifierValidator', () => {
     expect(hasError).toBe(true);
   });
 
-  it('should detect TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL when interface has no visibility', async () => {
+  it('does not reconstruct omitted interface visibility from source text', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InterfaceWithoutVisibility.cls',
@@ -427,14 +438,16 @@ describe('ModifierValidator', () => {
       symbolManager,
     );
 
-    expect(result.isValid).toBe(false);
     const hasError = result.errors.some(
       (e: any) => e.code === ErrorCodes.TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL,
     );
-    expect(hasError).toBe(true);
+    // The interface declaration walker reports this and normalizes visibility
+    // to public. The normalized symbol alone cannot distinguish an omitted
+    // modifier from an explicitly public interface.
+    expect(hasError).toBe(false);
   });
 
-  it('should detect ENCLOSING_TYPE_FOR when inner class has global but enclosing does not', async () => {
+  it('preserves uncertainty for normalized inner class visibility', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InnerGlobalClassWithoutGlobalEnclosing.cls',
@@ -452,11 +465,10 @@ describe('ModifierValidator', () => {
       symbolManager,
     );
 
-    expect(result.isValid).toBe(false);
     const hasError = result.errors.some(
       (e: any) => e.code === ErrorCodes.ENCLOSING_TYPE_FOR,
     );
-    expect(hasError).toBe(true);
+    expect(hasError).toBe(false);
   });
 
   it('should detect TYPE_MUST_BE_TOP_LEVEL when inner class implements Database.Batchable', async () => {

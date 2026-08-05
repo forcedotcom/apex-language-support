@@ -382,6 +382,15 @@ export type { TelemetrySettings } from '../observability/sdkLayerConfig';
  */
 export interface ApexLanguageServerSettings {
   apex: {
+    /**
+     * Top-level LSP server capability overrides.
+     *
+     * Values are applied after the selected server mode so individual
+     * capabilities can be disabled without switching the entire server to a
+     * different mode.
+     */
+    custom?: Record<string, unknown>;
+
     /** Comment collection configuration */
     commentCollection: CommentCollectionSettings;
 

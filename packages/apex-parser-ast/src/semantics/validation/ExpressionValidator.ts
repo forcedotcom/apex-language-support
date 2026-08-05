@@ -8,11 +8,17 @@
 
 import { BinaryExpressionValidator } from './BinaryExpressionValidator';
 import { BooleanExpressionValidator } from './BooleanExpressionValidator';
-import { VariableExpressionValidator } from './VariableExpressionValidator';
-import { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
+import {
+  VariableExpressionValidator,
+  type VariableEnvironment,
+  type VariableReferencePosition,
+} from './VariableExpressionValidator';
+import {
+  ConstructorExpressionValidator,
+  type ConstructorExpressionSemanticContext,
+} from './ConstructorExpressionValidator';
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
-import type { VariableSymbol } from '../../types/symbol';
 
 /**
  * Expression types for validation
@@ -34,6 +40,8 @@ export interface ComparisonExpression {
 export interface VariableExpression {
   kind: 'variable';
   name: string;
+  /** Parser-owned position of this identifier (1-based line, 0-based column). */
+  referencePosition?: VariableReferencePosition;
 }
 
 export interface NotExpression {
@@ -45,6 +53,7 @@ export interface ConstructorExpression {
   kind: 'constructor';
   targetType: ExpressionType;
   fieldInitializers: Map<string, ExpressionType>;
+  semanticContext?: ConstructorExpressionSemanticContext;
 }
 
 export type Expression =
@@ -59,12 +68,9 @@ export type Expression =
  */
 export class ExpressionValidator {
   private scope: ValidationScope;
-  private symbolTable: Map<string, VariableSymbol>;
+  private symbolTable: VariableEnvironment;
 
-  constructor(
-    scope: ValidationScope,
-    symbolTable: Map<string, VariableSymbol>,
-  ) {
+  constructor(scope: ValidationScope, symbolTable: VariableEnvironment) {
     this.scope = scope;
     this.symbolTable = symbolTable;
   }
@@ -135,11 +141,15 @@ export class ExpressionValidator {
   /**
    * Validate variable expressions
    */
-  validateVariableExpression(variableName: string): ValidationResult {
+  validateVariableExpression(
+    variableName: string,
+    referencePosition?: VariableReferencePosition,
+  ): ValidationResult {
     return VariableExpressionValidator.validateVariableExpression(
       variableName,
       this.symbolTable,
       this.scope,
+      referencePosition,
     );
   }
 
@@ -156,11 +166,13 @@ export class ExpressionValidator {
   validateConstructorExpression(
     targetType: ExpressionType,
     fieldInitializers: Map<string, ExpressionType>,
+    semanticContext?: ConstructorExpressionSemanticContext,
   ): ValidationResult {
     return ConstructorExpressionValidator.validateConstructorExpression(
       targetType,
       fieldInitializers,
       this.scope,
+      semanticContext,
     );
   }
 
@@ -182,13 +194,17 @@ export class ExpressionValidator {
           expression.operation,
         );
       case 'variable':
-        return this.validateVariableExpression(expression.name);
+        return this.validateVariableExpression(
+          expression.name,
+          expression.referencePosition,
+        );
       case 'not':
         return this.validateNotExpression(expression.operand);
       case 'constructor':
         return this.validateConstructorExpression(
           expression.targetType,
           expression.fieldInitializers,
+          expression.semanticContext,
         );
       default:
         return {

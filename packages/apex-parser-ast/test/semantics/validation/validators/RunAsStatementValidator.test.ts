@@ -15,6 +15,7 @@ import {
   loadFixture,
   runValidator,
   createValidationOptions,
+  compileSourceLayeredWithOptions,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 
@@ -106,5 +107,92 @@ describe('RunAsStatementValidator', () => {
       (e: any) => e.code === ErrorCodes.INVALID_RUNAS,
     );
     expect(hasInvalidRunAsError).toBe(true);
+  });
+
+  it('resolves an identifier argument in its lexical scope', async () => {
+    const source = `
+      public class LexicalRunAs {
+        User subject;
+
+        void invalidInnerScope() {
+          String subject = 'not a user';
+          System.runAs(subject) {}
+        }
+
+        void validFieldReference() {
+          System.runAs(subject) {}
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/LexicalRunAs.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.IMMEDIATE, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      RunAsStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.filter((error) => error.code === ErrorCodes.INVALID_RUNAS),
+    ).toHaveLength(1);
+  });
+
+  it('rejects parser-classified literal arguments', async () => {
+    const source = `
+      public class LiteralRunAs {
+        void invalidLiteral() {
+          System.runAs('not a user') {}
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/LiteralRunAs.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.IMMEDIATE, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      RunAsStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.filter((error) => error.code === ErrorCodes.INVALID_RUNAS),
+    ).toHaveLength(1);
+  });
+
+  it('preserves uncertainty for an unresolved complex argument', async () => {
+    const source = `
+      public class ComplexRunAs {
+        static User currentUser() {
+          return new User();
+        }
+
+        void unresolvedCall() {
+          System.runAs(currentUser()) {}
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/ComplexRunAs.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.IMMEDIATE, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      RunAsStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toHaveLength(0);
   });
 });

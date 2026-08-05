@@ -28,6 +28,7 @@ import {
   findConstantExtractionFromExpression,
   findMethodCallForCodeAction,
   inferTypeForCodeAction,
+  nextExtractNameForCodeAction,
   CodeActionParseContext,
   ConstantExtraction,
   ApexSymbol,
@@ -35,6 +36,8 @@ import {
   SymbolKind,
   SymbolVisibility,
   MethodCallAtRange,
+  MethodCallReceiver,
+  TypeInfo,
   ErrorCodes,
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -93,9 +96,11 @@ export interface CodeActionContext {
   triggerKind?: string;
   symbolName?: string;
   symbolKind?: string;
-  currentScope: string;
-  isStatic: boolean;
-  accessModifier: 'public' | 'private' | 'protected' | 'global';
+  currentScope?: string;
+  isStatic?: boolean;
+  accessModifier?: 'public' | 'private' | 'protected' | 'global';
+  /** Exact semantic symbol selected at the request position. */
+  selectedSymbol?: ApexSymbol;
   /**
    * Opaque, parsed-once handle from apex-parser-ast, used by the eager Extract
    * Variable / Extract Constant refactorings and the Declare-Missing-Method
@@ -147,7 +152,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       }
 
       // Analyze code action context
-      const context = this.analyzeCodeActionContext(document, params);
+      const context = await this.analyzeCodeActionContext(document, params);
 
       // Get code actions using ApexSymbolManager
       const codeActions = await this.getCodeActions(context);
@@ -164,21 +169,34 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   /**
    * Analyze the code action context from the document and parameters
    */
-  private analyzeCodeActionContext(
+  private async analyzeCodeActionContext(
     document: TextDocument,
     params: CodeActionParams,
-  ): CodeActionContext {
+  ): Promise<CodeActionContext> {
     const text = document.getText();
     const range = params.range;
-    const offset = document.offsetAt(range.start);
+    let symbol: ApexSymbol | null = null;
+    try {
+      symbol = await this.symbolManager.getSymbolAtPosition(
+        document.uri,
+        {
+          line: range.start.line + 1,
+          character: range.start.character,
+        },
+        'precise',
+      );
+    } catch (error) {
+      this.logger.debug(() => `Code-action symbol lookup failed: ${error}`);
+    }
 
-    // Extract symbol information at the range
-    const symbolInfo = this.extractSymbolInfo(text, range);
-
-    // Determine context information
-    const isStatic = this.isInStaticContext(text, offset);
-    const accessModifier = this.getAccessModifierContext(text, offset);
-    const currentScope = this.extractCurrentScope(text, offset);
+    const visibility = symbol?.modifiers?.visibility;
+    const accessModifier =
+      visibility === SymbolVisibility.Public ||
+      visibility === SymbolVisibility.Private ||
+      visibility === SymbolVisibility.Protected ||
+      visibility === SymbolVisibility.Global
+        ? visibility
+        : undefined;
     // apex-parser-ast owns the parse: it constructs the CompilerService, chooses
     // the listener, and applies the compile options, returning an opaque handle
     // the finders consume. Parsed once here and reused across all finders.
@@ -200,11 +218,12 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       diagnostics: params.context.diagnostics,
       only: params.context.only,
       triggerKind: params.context.triggerKind?.toString(),
-      symbolName: symbolInfo.name,
-      symbolKind: symbolInfo.kind,
-      currentScope,
-      isStatic,
+      symbolName: symbol?.name,
+      symbolKind: symbol?.kind,
+      currentScope: symbol?.parentId ?? undefined,
+      isStatic: symbol?.modifiers?.isStatic,
       accessModifier,
+      selectedSymbol: symbol ?? undefined,
       parseContext,
     };
   }
@@ -302,7 +321,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       expressionEnd,
       expressionText: exprText,
     } = found;
-    const text = context.document.getText();
     if (!exprText) {
       return actions;
     }
@@ -318,7 +336,10 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       end: context.document.positionAt(expressionEnd),
     };
 
-    const variableName = this.generateExtractName(text);
+    const variableName = nextExtractNameForCodeAction(context.parseContext);
+    if (!variableName) {
+      return actions;
+    }
 
     // Infer the declared type over the single parse's same-file symbol table
     // (story 01.1). Falls back to `Object` when the type cannot be resolved
@@ -333,7 +354,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
 
     const variableAction = this.buildExtractVariableAction(
       context,
-      text,
       statementStart,
       indent,
       exprText,
@@ -381,7 +401,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    */
   private buildExtractVariableAction(
     context: CodeActionContext,
-    text: string,
     statementStart: number,
     indent: string,
     exprText: string,
@@ -467,22 +486,6 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   }
 
   /**
-   * Generate an extracted-symbol name (`v1`, `v2`, …) that does not collide with
-   * an identifier already present in the document. This is a pragmatic,
-   * text-based collision check; precise scope analysis is out of scope here.
-   */
-  private generateExtractName(text: string): string {
-    for (let index = 1; index < 1000; index++) {
-      const candidate = `v${index}`;
-      const wordBoundary = new RegExp(`\\b${candidate}\\b`);
-      if (!wordBoundary.test(text)) {
-        return candidate;
-      }
-    }
-    return `v${Date.now()}`;
-  }
-
-  /**
    * Get quick fix actions
    */
   private async getQuickFixActions(
@@ -501,61 +504,58 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       );
     }
 
-    if (!context.symbolName) {
+    if (!context.selectedSymbol) {
       return actions;
     }
 
     try {
-      // Find symbol in ApexSymbolManager
-      const symbols = await this.symbolManager.findSymbolByName(
-        context.symbolName,
-      );
-
-      for (const symbol of symbols) {
-        // Add import statement action
-        if (symbol.fqn && !symbol.fqn.startsWith('default.')) {
-          const displayFQN = toDisplayFQN(symbol.fqn);
-          const importAction: CodeAction = {
-            title: `Add import for '${displayFQN}'`,
-            kind: CodeActionKind.QuickFix,
-            edit: {
-              changes: {
-                [context.document.uri]: [
-                  {
-                    range: {
-                      start: { line: 0, character: 0 },
-                      end: { line: 0, character: 0 },
-                    },
-                    newText: `import ${displayFQN};\n`,
+      // The precise lookup performed during context analysis already selected
+      // the semantic identity at the request position. Do not expand that
+      // identity back into every workspace symbol with the same simple name.
+      const symbol = context.selectedSymbol;
+      // Add import statement action
+      if (symbol.fqn && !symbol.fqn.startsWith('default.')) {
+        const displayFQN = toDisplayFQN(symbol.fqn);
+        const importAction: CodeAction = {
+          title: `Add import for '${displayFQN}'`,
+          kind: CodeActionKind.QuickFix,
+          edit: {
+            changes: {
+              [context.document.uri]: [
+                {
+                  range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 0 },
                   },
-                ],
-              },
+                  newText: `import ${displayFQN};\n`,
+                },
+              ],
             },
-          };
-          actions.push(importAction);
-        }
+          },
+        };
+        actions.push(importAction);
+      }
 
-        // Add access modifier fix
-        if (
-          context.accessModifier === 'private' &&
-          symbol.modifiers?.visibility !== 'private'
-        ) {
-          const accessFixAction: CodeAction = {
-            title: `Change access modifier to '${context.accessModifier}'`,
-            kind: CodeActionKind.QuickFix,
-            edit: {
-              changes: {
-                [context.document.uri]: [
-                  {
-                    range: context.range,
-                    newText: `${context.accessModifier} ${symbol.name}`,
-                  },
-                ],
-              },
+      // Add access modifier fix
+      if (
+        context.accessModifier === 'private' &&
+        symbol.modifiers?.visibility !== 'private'
+      ) {
+        const accessFixAction: CodeAction = {
+          title: `Change access modifier to '${context.accessModifier}'`,
+          kind: CodeActionKind.QuickFix,
+          edit: {
+            changes: {
+              [context.document.uri]: [
+                {
+                  range: context.range,
+                  newText: `${context.accessModifier} ${symbol.name}`,
+                },
+              ],
             },
-          };
-          actions.push(accessFixAction);
-        }
+          },
+        };
+        actions.push(accessFixAction);
       }
     } catch (error) {
       this.logger.debug(() => `Error getting quick fix actions: ${error}`);
@@ -666,9 +666,8 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
    * Resolve the call's receiver to a user-defined class and its declaring
    * document URI — the multi-file integration point.
    *
-   * - Qualified call `receiver.method(...)`: the receiver text (a variable,
-   *   field, or the type name itself) is resolved to a type via the symbol
-   *   manager. `static` iff the receiver text *is* the type name.
+   * - Qualified call `receiver.method(...)`: the parser-correlated receiver
+   *   node is resolved at its exact range via the symbol manager.
    * - Unqualified call `method(...)`: an implicit-`this` call, so the target is
    *   the enclosing class (the current document's own type). Instance call.
    *
@@ -679,12 +678,17 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
     context: CodeActionContext,
     callInfo: MethodCallAtRange,
   ): Promise<TargetClass | null> {
-    if (callInfo.receiverText) {
-      return this.resolveReceiverType(context, callInfo.receiverText);
+    if (callInfo.receiver) {
+      return this.resolveReceiverType(context, callInfo.receiver);
     }
 
-    // Unqualified call -> enclosing (current) class; instance call.
-    const currentType = await this.findTypeInFile(context.document.uri);
+    // Unqualified call -> lexically enclosing class; instance call. A source
+    // file may contain nested classes, so "first class in file" is not a
+    // semantic substitute for the containing type.
+    const currentType = await this.findContainingType(
+      context.document.uri,
+      context.range.start,
+    );
     if (!currentType) {
       return null;
     }
@@ -696,34 +700,85 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   }
 
   /**
-   * Resolve a receiver expression (e.g. `acct`, `MyClass`) to the user class it
-   * refers to. The receiver may be the type name (static call) or a variable /
-   * field whose declared type is the target (instance call).
+   * Resolve the parser-recorded immediate receiver node to its user class.
+   * Same-file parser facts are preferred; otherwise the exact identifier range
+   * is handed to the symbol manager. No file-wide name matching is performed.
    */
   private async resolveReceiverType(
     context: CodeActionContext,
-    receiverText: string,
+    receiver: MethodCallReceiver,
   ): Promise<TargetClass | null> {
-    // 1) Receiver is itself a type name -> static call on that type.
-    const directType = await this.findUserClassByName(receiverText);
-    if (directType) {
+    let receiverSymbol: ApexSymbol | null = null;
+    try {
+      receiverSymbol = await this.symbolManager.getSymbolAtPosition(
+        context.document.uri,
+        {
+          // MethodCallReceiver exposes an LSP range (0-based line); the parser
+          // symbol manager consumes parser positions (1-based line).
+          line: receiver.range.start.line + 1,
+          character: receiver.range.start.character,
+        },
+        'precise',
+      );
+    } catch (error) {
+      this.logger.debug(() => `Code-action receiver lookup failed: ${error}`);
+    }
+    if (!receiverSymbol) {
+      const parserResolvedType = receiver.declaredTypeName
+        ? await this.findUserClassByIdentity(receiver.declaredTypeName)
+        : null;
+      return parserResolvedType
+        ? {
+            typeSymbol: parserResolvedType,
+            fileUri: parserResolvedType.fileUri,
+            isStatic: receiver.kind !== 'value',
+          }
+        : null;
+    }
+
+    if (inTypeSymbolGroup(receiverSymbol)) {
+      if (!this.isUserClass(receiverSymbol)) {
+        return null;
+      }
       return {
-        typeSymbol: directType,
-        fileUri: directType.fileUri,
+        typeSymbol: receiverSymbol,
+        fileUri: receiverSymbol.fileUri,
         isStatic: true,
       };
     }
 
-    // 2) Receiver is a variable / field -> resolve its declared type name,
-    //    then look that type up. Instance call.
-    const typeName = await this.findReceiverDeclaredTypeName(
-      context.document.uri,
-      receiverText,
-    );
-    if (!typeName) {
+    const receiverType: TypeInfo | undefined =
+      'type' in receiverSymbol &&
+      typeof receiverSymbol.type === 'object' &&
+      receiverSymbol.type !== null
+        ? (receiverSymbol.type as TypeInfo)
+        : undefined;
+    if (!receiverType) {
       return null;
     }
-    const instanceType = await this.findUserClassByName(typeName);
+    const resolvedTypeSymbol =
+      inTypeSymbolGroup(
+        receiverType.resolvedSymbol as ApexSymbol | undefined,
+      ) && this.isUserClass(receiverType.resolvedSymbol)
+        ? receiverType.resolvedSymbol
+        : receiverType.resolvedType &&
+            inTypeSymbolGroup(
+              receiverType.resolvedType.resolvedSymbol as
+                ApexSymbol | undefined,
+            ) &&
+            this.isUserClass(receiverType.resolvedType.resolvedSymbol)
+          ? receiverType.resolvedType.resolvedSymbol
+          : null;
+    const typeIdentity =
+      'originalTypeString' in receiverType &&
+      typeof receiverType.originalTypeString === 'string'
+        ? receiverType.originalTypeString
+        : 'name' in receiverType && typeof receiverType.name === 'string'
+          ? receiverType.name
+          : receiver.declaredTypeName;
+    const instanceType =
+      resolvedTypeSymbol ??
+      (typeIdentity ? await this.findUserClassByIdentity(typeIdentity) : null);
     if (!instanceType) {
       return null;
     }
@@ -735,48 +790,77 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   }
 
   /**
-   * Find the declared type name of a variable/field named `receiverText` in the
-   * given file (the receiver of an instance call).
-   */
-  private async findReceiverDeclaredTypeName(
-    fileUri: string,
-    receiverText: string,
-  ): Promise<string | undefined> {
-    const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
-    const variable = symbols.find(
-      (s) =>
-        s.name === receiverText &&
-        (s.kind === SymbolKind.Variable ||
-          s.kind === SymbolKind.Field ||
-          s.kind === SymbolKind.Property ||
-          s.kind === SymbolKind.Parameter),
-    );
-    if (variable && 'type' in variable) {
-      const typeInfo = (variable as { type?: { name?: string } }).type;
-      return typeInfo?.name;
-    }
-    return undefined;
-  }
-
-  /**
    * Resolve a type name to a user-defined class symbol (not enum/interface, not
    * a standard-library type). Returns null otherwise.
    */
-  private async findUserClassByName(name: string): Promise<TypeSymbol | null> {
-    const candidates = await this.symbolManager.findSymbolByName(name);
-    const typeSymbol = candidates.find(
-      (s) => inTypeSymbolGroup(s) && this.isUserClass(s),
-    );
-    return typeSymbol && inTypeSymbolGroup(typeSymbol) ? typeSymbol : null;
+  private async findUserClassByIdentity(
+    identity: string,
+  ): Promise<TypeSymbol | null> {
+    if (identity.includes('.')) {
+      const byFqn = await this.symbolManager.findSymbolByFQN(identity);
+      if (byFqn && inTypeSymbolGroup(byFqn) && this.isUserClass(byFqn)) {
+        return byFqn;
+      }
+    }
+
+    const candidates = (await this.symbolManager.findSymbolByName(identity))
+      .filter((symbol): symbol is TypeSymbol => inTypeSymbolGroup(symbol))
+      .filter((symbol) => this.isUserClass(symbol));
+    const uniqueCandidates = [
+      ...new Map(
+        candidates.map((symbol) => {
+          const range = symbol.location?.identifierRange;
+          const declarationIdentity =
+            symbol.fqn ??
+            `${symbol.fileUri}:${range?.startLine ?? 0}:${range?.startColumn ?? 0}`;
+          return [declarationIdentity.toLowerCase(), symbol] as const;
+        }),
+      ).values(),
+    ];
+
+    // A simple type name is usable only when it identifies exactly one user
+    // class. Choosing the first global match silently targets the wrong file
+    // in workspaces containing namespaces or duplicate nested type names.
+    return uniqueCandidates.length === 1 ? uniqueCandidates[0] : null;
   }
 
-  /** Find the top-level type declared in a file (used for implicit-`this` calls). */
-  private async findTypeInFile(fileUri: string): Promise<TypeSymbol | null> {
+  /** Find the innermost class lexically containing an implicit-this call. */
+  private async findContainingType(
+    fileUri: string,
+    position: Position,
+  ): Promise<TypeSymbol | null> {
     const symbols = await this.symbolManager.findSymbolsInFile(fileUri);
-    const typeSymbol = symbols.find(
-      (s) => inTypeSymbolGroup(s) && this.isUserClass(s),
+    const containing = symbols
+      .filter((symbol): symbol is TypeSymbol => inTypeSymbolGroup(symbol))
+      .filter((symbol) => this.isUserClass(symbol))
+      .filter((symbol) => {
+        const range = symbol.location?.symbolRange;
+        if (!range) return false;
+        const line = position.line + 1;
+        return (
+          (line > range.startLine ||
+            (line === range.startLine &&
+              position.character >= range.startColumn)) &&
+          (line < range.endLine ||
+            (line === range.endLine && position.character <= range.endColumn))
+        );
+      });
+
+    return (
+      containing.sort((left, right) => {
+        const leftRange = left.location.symbolRange;
+        const rightRange = right.location.symbolRange;
+        const leftSpan =
+          (leftRange.endLine - leftRange.startLine) * 1_000_000 +
+          leftRange.endColumn -
+          leftRange.startColumn;
+        const rightSpan =
+          (rightRange.endLine - rightRange.startLine) * 1_000_000 +
+          rightRange.endColumn -
+          rightRange.startColumn;
+        return leftSpan - rightSpan;
+      })[0] ?? null
     );
-    return typeSymbol && inTypeSymbolGroup(typeSymbol) ? typeSymbol : null;
   }
 
   /** True iff the symbol is a user-defined class (not enum/interface, not stdlib). */
@@ -929,102 +1013,67 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
   ): Promise<CodeAction[]> {
     const actions: CodeAction[] = [];
 
-    if (!context.symbolName) {
+    if (!context.selectedSymbol) {
       return actions;
     }
 
     try {
-      // Find symbol in ApexSymbolManager
-      const symbols = await this.symbolManager.findSymbolByName(
-        context.symbolName,
-      );
+      // Preserve the exact selected symbol identity; same-name symbols may
+      // have different reference/dependency graphs.
+      const symbol = context.selectedSymbol;
+      // Get references to this symbol to determine relationship statistics
+      const referencesTo = await this.symbolManager.findReferencesTo(symbol);
+      const totalReferences = referencesTo.length;
 
-      for (const symbol of symbols) {
-        // Get references to this symbol to determine relationship statistics
-        const referencesTo = await this.symbolManager.findReferencesTo(symbol);
-        const totalReferences = referencesTo.length;
+      // Show references action
+      if (totalReferences > 0) {
+        const referencesAction: CodeAction = {
+          title: `Show all references (${totalReferences})`,
+          kind: CodeActionKind.Source,
+          command: {
+            title: 'Show references',
+            command: 'apex.showReferences',
+            arguments: [symbol.name, context.document.uri],
+          },
+        };
+        actions.push(referencesAction);
+      }
 
-        // Show references action
-        if (totalReferences > 0) {
-          const referencesAction: CodeAction = {
-            title: `Show all references (${totalReferences})`,
-            kind: CodeActionKind.Source,
-            command: {
-              title: 'Show references',
-              command: 'apex.showReferences',
-              arguments: [symbol.name, context.document.uri],
-            },
-          };
-          actions.push(referencesAction);
-        }
+      // Get dependency analysis
+      const dependencyAnalysis =
+        await this.symbolManager.analyzeDependencies(symbol);
 
-        // Get dependency analysis
-        const dependencyAnalysis =
-          await this.symbolManager.analyzeDependencies(symbol);
+      // Show dependencies action
+      if (dependencyAnalysis.dependencies.length > 0) {
+        const dependenciesAction: CodeAction = {
+          title: `Show dependencies (${dependencyAnalysis.dependencies.length})`,
+          kind: CodeActionKind.Source,
+          command: {
+            title: 'Show dependencies',
+            command: 'apex.showDependencies',
+            arguments: [symbol.name, context.document.uri],
+          },
+        };
+        actions.push(dependenciesAction);
+      }
 
-        // Show dependencies action
-        if (dependencyAnalysis.dependencies.length > 0) {
-          const dependenciesAction: CodeAction = {
-            title: `Show dependencies (${dependencyAnalysis.dependencies.length})`,
-            kind: CodeActionKind.Source,
-            command: {
-              title: 'Show dependencies',
-              command: 'apex.showDependencies',
-              arguments: [symbol.name, context.document.uri],
-            },
-          };
-          actions.push(dependenciesAction);
-        }
-
-        // Show dependents action
-        if (dependencyAnalysis.dependents.length > 0) {
-          const dependentsAction: CodeAction = {
-            title: `Show dependents (${dependencyAnalysis.dependents.length})`,
-            kind: CodeActionKind.Source,
-            command: {
-              title: 'Show dependents',
-              command: 'apex.showDependents',
-              arguments: [symbol.name, context.document.uri],
-            },
-          };
-          actions.push(dependentsAction);
-        }
+      // Show dependents action
+      if (dependencyAnalysis.dependents.length > 0) {
+        const dependentsAction: CodeAction = {
+          title: `Show dependents (${dependencyAnalysis.dependents.length})`,
+          kind: CodeActionKind.Source,
+          command: {
+            title: 'Show dependents',
+            command: 'apex.showDependents',
+            arguments: [symbol.name, context.document.uri],
+          },
+        };
+        actions.push(dependentsAction);
       }
     } catch (error) {
       this.logger.debug(() => `Error getting relationship actions: ${error}`);
     }
 
     return actions;
-  }
-
-  // Helper methods for context analysis (simplified implementations)
-
-  private extractSymbolInfo(
-    text: string,
-    range: Range,
-  ): { name: string; kind: string } {
-    // Simplified - would use AST analysis in practice
-    return {
-      name: 'symbol',
-      kind: 'unknown',
-    };
-  }
-
-  private isInStaticContext(text: string, offset: number): boolean {
-    // Simplified - would use AST analysis in practice
-    return false;
-  }
-
-  private getAccessModifierContext(
-    text: string,
-    offset: number,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    // Simplified - would use AST analysis in practice
-    return 'public';
-  }
-
-  private extractCurrentScope(text: string, offset: number): string {
-    // Simplified - would use AST analysis in practice
-    return 'current-scope';
   }
 }

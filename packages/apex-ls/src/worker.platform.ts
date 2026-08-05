@@ -515,6 +515,7 @@ export {
   scanCandidatesForOccurrences,
   targetSymbolForCursor,
   declarationLocationForCursor,
+  resolveOccurrencesForCursor,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 

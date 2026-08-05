@@ -139,7 +139,9 @@ export const findMethodCallForCodeAction = (
   context: CodeActionParseContext | null | undefined,
   range: LspRange,
 ): MethodCallAtRange | null =>
-  context ? findMethodCallAtRange(context.parseTree, range) : null;
+  context
+    ? findMethodCallAtRange(context.parseTree, range, context.symbolTable)
+    : null;
 
 /**
  * Infer the Apex type of an expression already located via
@@ -161,3 +163,30 @@ export const inferTypeForCodeAction = (
   context && found
     ? inferExpressionType(found.expression, context.symbolTable, options)
     : null;
+
+/**
+ * Choose an extraction name from declarations in the parser-owned symbol
+ * table. Apex identifiers are case-insensitive, so collision checks are too.
+ * Returns `null` when the current parse has no semantic table rather than
+ * scanning document text for identifier-shaped words.
+ */
+export const nextExtractNameForCodeAction = (
+  context: CodeActionParseContext | null | undefined,
+): string | null => {
+  if (!context?.symbolTable) {
+    return null;
+  }
+
+  const names = new Set(
+    context.symbolTable
+      .getAllSymbols()
+      .map((symbol) => symbol.name.toLowerCase()),
+  );
+  for (let index = 1; index < 1000; index++) {
+    const candidate = `v${index}`;
+    if (!names.has(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};

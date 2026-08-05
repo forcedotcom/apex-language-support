@@ -105,4 +105,59 @@ describe('DmlLoopQueryValidator', () => {
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
+
+  it('should recognize Database.getQueryLocator from its parser expression shape', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'LoopWithQueryLocatorEmptyBody.cls',
+    );
+    const sourceContent = loadFixture(
+      VALIDATOR_CATEGORY,
+      'LoopWithQueryLocatorEmptyBody.cls',
+    );
+
+    const result = await runValidator(
+      DmlLoopQueryValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: ErrorCodes.LOOP_WITH_QUERY_REQUIRES_STATEMENT,
+        }),
+      ]),
+    );
+  });
+
+  it('should not infer query loops from query-shaped text or an unrelated method name', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'LoopWithQueryLookalikes.cls',
+    );
+    const sourceContent = loadFixture(
+      VALIDATOR_CATEGORY,
+      'LoopWithQueryLookalikes.cls',
+    );
+
+    const result = await runValidator(
+      DmlLoopQueryValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          sourceContent,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
 });

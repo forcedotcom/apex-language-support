@@ -1896,12 +1896,18 @@ export class ApexSymbolRefManager {
       normalizedSourceSymbol = containingSymbol;
     }
 
-    const sourceSymbolInGraph = this.findSymbolInFileByName(
-      normalizedSourceSymbol.fileUri,
-      normalizedSourceSymbol.name,
-    );
+    const sourceSymbolInGraph =
+      this.getSymbolByIdAndFile(
+        normalizedSourceSymbol.id,
+        normalizedSourceSymbol.fileUri,
+      ) ??
+      this.findSymbolInFileByName(
+        normalizedSourceSymbol.fileUri,
+        normalizedSourceSymbol.name,
+      );
     const targetSymbolInGraph = targetSymbol.fileUri
-      ? this.findSymbolInFileByName(targetSymbol.fileUri, targetSymbol.name)
+      ? (this.getSymbolByIdAndFile(targetSymbol.id, targetSymbol.fileUri) ??
+        this.findSymbolInFileByName(targetSymbol.fileUri, targetSymbol.name))
       : null;
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {

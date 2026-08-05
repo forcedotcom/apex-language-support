@@ -8,6 +8,12 @@
 
 import { test, expect } from '../fixtures/apexFixtures';
 
+// Every test launches a compiler-backed VS Code web host against the same
+// workspace fixture. Running this file fully parallel can starve definition
+// requests and race the shared fixture, while CI already runs it with one
+// worker. Keep local and CI coverage deterministic.
+test.describe.configure({ mode: 'serial' });
+
 /**
  * E2E tests for Apex Go-to-Definition functionality.
  *
@@ -89,13 +95,18 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should navigate to field definition', async ({ apexEditor }) => {
     await test.step('Position cursor on field usage', async () => {
-      // Navigate past the declaration (line 7) so Find lands on a usage site
-      await apexEditor.goToPosition(24);
-      await apexEditor.positionCursorOnWord('instanceId');
+      // Line 24 contains two identical tokens:
+      // `this.instanceId = instanceId`. Find advances to the second match when
+      // Enter is pressed, which tests the constructor parameter rather than the
+      // field. Position directly on the qualified field (1-based column 14).
+      await apexEditor.goToPosition(24, 14);
     });
 
     await test.step('Trigger go-to-definition', async () => {
-      await apexEditor.goToDefinition();
+      // Retry F12 until navigation lands on the field declaration: in the web
+      // pool a definition issued during full-detail ingest returns null and is
+      // not auto-retried by VS Code (W-23715603).
+      await apexEditor.goToDefinition(7);
     });
 
     await test.step('Verify navigation to field declaration', async () => {
@@ -147,7 +158,7 @@ test.describe('Apex Go-to-Definition', () => {
     // Navigate past the declaration (line 183) so Find lands on a usage site
     await apexEditor.goToPosition(190);
     await apexEditor.positionCursorOnWord('StatusType');
-    await apexEditor.goToDefinition();
+    await apexEditor.goToDefinition(183);
 
     await apexEditor.expectCursorAtLine(183);
 
@@ -307,19 +318,19 @@ test.describe('Apex Go-to-Definition', () => {
   }) => {
     await test.step('First navigation: class definition', async () => {
       await apexEditor.positionCursorOnWord('ApexClassExample');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition([1, 13]);
       await apexEditor.expectCursorAtLine([1, 13]);
     });
 
     await test.step('Second navigation: inner class definition', async () => {
       await apexEditor.positionCursorOnWord('Configuration');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition(151);
       await apexEditor.expectCursorAtLine(151);
     });
 
     await test.step('Third navigation: inner enum definition', async () => {
       await apexEditor.positionCursorOnWord('StatusType');
-      await apexEditor.goToDefinition();
+      await apexEditor.goToDefinition(183);
       await apexEditor.expectCursorAtLine(183);
     });
 
