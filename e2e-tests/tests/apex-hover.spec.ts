@@ -134,8 +134,7 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should be able to dismiss hover', async ({ hoverHelper }) => {
     await test.step('Trigger hover', async () => {
-      await hoverHelper.hoverOnWord('ApexClassExample');
-      await hoverHelper.waitForHover();
+      await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     });
 
     await test.step('Dismiss hover', async () => {
@@ -293,12 +292,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileCaller.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file class reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(11, 27);
+      const content = await hoverHelper.hoverAtWithResolution(
+        11,
+        27,
+        'CrossFileUtility',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });
@@ -313,12 +318,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileCaller.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file static method reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(11, 44);
+      const content = await hoverHelper.hoverAtWithResolution(
+        11,
+        44,
+        'formatName',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });
@@ -333,12 +344,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
+      await apexEditor.openFile('CrossFileBaseClass.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileChildClass.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file base class reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(6, 42);
+      const content = await hoverHelper.hoverAtWithResolution(
+        6,
+        42,
+        'CrossFileBaseClass',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });

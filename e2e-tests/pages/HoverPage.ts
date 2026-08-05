@@ -33,15 +33,15 @@ export class HoverPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    // VS Code Web uses role="tooltip" for hover; Monaco uses .monaco-hover
-    this.hoverWidget = page
-      .getByRole('tooltip')
-      .or(page.locator('.monaco-hover, .monaco-editor .hover-row, .hover-row'));
-    this.hoverContent = page
-      .getByRole('tooltip')
-      .or(
-        page.locator('.monaco-hover-content, .hover-contents, .monaco-hover'),
-      );
+    // Monaco retains hidden hover widgets for inactive editors. Scope all
+    // reads to the visible editor in the active group so first() cannot bind to
+    // a stale diagnostic or semantic hover from another editor instance.
+    this.hoverWidget = page.locator(
+      '.editor-group-container.active .monaco-editor:visible .monaco-hover:visible',
+    );
+    this.hoverContent = this.hoverWidget.locator(
+      '.monaco-hover-content, .hover-contents',
+    );
     this.defaultTimeout = this.isDesktopMode ? 10000 : 5000;
   }
 
@@ -105,9 +105,7 @@ export class HoverPage extends BasePage {
    */
   async waitForHover(timeout?: number): Promise<void> {
     const effectiveTimeout = timeout || this.defaultTimeout;
-    const combinedSelector =
-      '[role="tooltip"], .monaco-hover, .monaco-editor .hover-row, .hover-row, .monaco-hover-content';
-    await this.page.locator(combinedSelector).first().waitFor({
+    await this.hoverWidget.first().waitFor({
       state: 'visible',
       timeout: effectiveTimeout,
     });
@@ -139,10 +137,17 @@ export class HoverPage extends BasePage {
       // Fallback: use page.evaluate to find tooltip in DOM (handles shadow DOM, etc.)
       content =
         (await this.page.evaluate(() => {
-          const el =
-            document.querySelector('[role="tooltip"]') ||
-            document.querySelector('.monaco-hover') ||
-            document.querySelector('.hover-row');
+          const editors = Array.from(
+            document.querySelectorAll(
+              '.editor-group-container.active .monaco-editor',
+            ),
+          );
+          const activeEditor = editors.find(
+            (editor) => (editor as HTMLElement).offsetParent !== null,
+          );
+          const el = Array.from(
+            activeEditor?.querySelectorAll('.monaco-hover') ?? [],
+          ).find((hover) => (hover as HTMLElement).offsetParent !== null);
           return el ? (el as HTMLElement).innerText : '';
         })) || '';
       return content;
@@ -235,6 +240,11 @@ export class HoverPage extends BasePage {
       expect(appeared).toBe(true);
       content = await this.getHoverContent();
       expect(content.trim().length).toBeGreaterThan(0);
+      // Missing-artifact hover placeholders echo the requested symbol name,
+      // so a name-only assertion would mistake "Looking for: Foo" for resolved
+      // semantic content. Keep reissuing until the placeholder is replaced.
+      expect(content).not.toContain('Searching for symbol');
+      expect(content).not.toContain('Looking for:');
 
       if (typeof expectedContent === 'string') {
         expect(content).toContain(expectedContent);
@@ -383,11 +393,8 @@ export class HoverPage extends BasePage {
   ): Promise<boolean> {
     const effectiveMaxTime = maxTime || (this.isDesktopMode ? 5000 : 2000);
     const startTime = Date.now();
-
-    await this.hoverOnWord(searchText);
-
     try {
-      await this.waitForHover(effectiveMaxTime);
+      await this.hoverOnWordWithRetry(searchText, searchText, effectiveMaxTime);
       const elapsedTime = Date.now() - startTime;
       return elapsedTime <= effectiveMaxTime;
     } catch {

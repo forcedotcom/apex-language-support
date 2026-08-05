@@ -371,8 +371,11 @@ export const triggerHover = async (
     // LSP hover can take time to resolve; wait before checking for widget
     await page.waitForTimeout(800 * waitMultiplier);
 
+    // Monaco keeps hidden hover widgets in inactive editor instances. Waiting
+    // globally can therefore report a stale tooltip or block on the first
+    // hidden widget while the active editor has a visible hover.
     const combinedSelector =
-      '[role="tooltip"], .monaco-editor .hover-row, .monaco-hover, .monaco-hover-content';
+      '.editor-group-container.active .monaco-editor:visible .monaco-hover:visible';
     try {
       await page.waitForSelector(combinedSelector, {
         state: 'visible',
