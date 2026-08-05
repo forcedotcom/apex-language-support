@@ -32,10 +32,13 @@
  *   node scripts/fetch-api-stubs.mjs [--org <alias>] [--api-version <version>]
  *
  * Options:
- *   --org <alias>         Salesforce org alias (default: gus)
+ *   --org <alias>         Salesforce org alias (default: $APEX_STUBS_ORG or 'gus')
  *   --api-version <ver>   API version to use (default: v67.0)
  *   --namespace <ns>      Fetch only specific namespace (skips discovery)
  *   --category <cat>      Category filter: BUILTIN, DATABASE, DYNAMIC (default: BUILTIN)
+ *
+ * Environment:
+ *   APEX_STUBS_ORG        Default org alias (overridden by --org flag)
  */
 
 import { spawn } from 'child_process';
@@ -120,7 +123,7 @@ const TARGET_NAMESPACES = [
 function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
-    org: 'gus',
+    org: process.env.APEX_STUBS_ORG || 'gus',
     apiVersion: 'v67.0',
     namespace: null,
     category: 'BUILTIN', // Valid values: BUILTIN, DATABASE, DYNAMIC
@@ -169,6 +172,12 @@ function sfApiRequest(url, orgAlias) {
         console.error(`     Error: ${stderr || 'Command exited with code ' + code}`);
         reject(new Error(stderr || `Command exited with code ${code}`));
         return;
+      }
+
+      // SF CLI writes warnings to stderr even on success (exit code 0)
+      // Only log stderr if it contains something other than the beta warning
+      if (stderr && !stderr.includes('currently in beta')) {
+        console.warn(`  ⚠️  Warnings: ${stderr.trim()}`);
       }
 
       try {
