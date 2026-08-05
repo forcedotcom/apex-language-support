@@ -196,18 +196,17 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Multiple hovers can be triggered sequentially.
    */
   test('should handle multiple sequential hovers', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content1 = await hoverHelper.getHoverContent();
+    // Re-issue each hover until it resolves: a single request can fire before
+    // the web worker pool is warm and return null, which never self-recovers.
+    const content1 = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content1).toContain('ApexClassExample');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('Configuration');
-    const content2 = await hoverHelper.getHoverContent();
+    const content2 = await hoverHelper.hoverOnWordWithRetry('Configuration');
     expect(content2).toContain('Configuration');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('StatusType');
-    const content3 = await hoverHelper.getHoverContent();
+    const content3 = await hoverHelper.hoverOnWordWithRetry('StatusType');
     expect(content3).toContain('StatusType');
   });
 
@@ -230,8 +229,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover provides content (not empty).
    */
   test('should provide non-empty hover content', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
     expect(content.trim()).not.toBe('');
     expect(content).toContain('ApexClassExample');
@@ -241,8 +239,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on private method shows method information.
    */
   test('should show hover for private method', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('validateAccounts');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'validateAccounts',
+      'validateAccounts',
+    );
     expect(content).toContain('void');
     expect(content).toContain('validateAccounts');
   });
