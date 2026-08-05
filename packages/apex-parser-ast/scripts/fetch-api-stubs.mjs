@@ -209,45 +209,50 @@ async function fetchSymbols(config, category, namespace = null) {
 }
 
 /**
- * Discover all unique namespaces by fetching all classes
+ * Extract namespace from a type stub
  */
-async function discoverNamespaces(config) {
-  console.log('\n1. Discovering namespaces from API...');
-  const allStubs = await fetchSymbols(config, 'BUILTIN');
-
-  const namespaces = new Set();
-  for (const stub of allStubs) {
-    // Extract namespace from the stub
-    // Could be in stub.namespace or stub.namespacePrefix
-    let ns = 'System'; // default
-    if (stub.namespace) {
-      ns = stub.namespace;
-    } else if (stub.namespacePrefix) {
-      ns = stub.namespacePrefix;
-    } else if (stub.name && stub.name.includes('.')) {
-      // Handle names like "ConnectApi.Something"
-      ns = stub.name.split('.')[0];
-    }
-    namespaces.add(ns);
+function extractNamespace(stub) {
+  if (stub.namespace) {
+    return stub.namespace;
+  } else if (stub.namespacePrefix) {
+    return stub.namespacePrefix;
+  } else if (stub.name && stub.name.includes('.')) {
+    return stub.name.split('.')[0];
   }
-
-  const nsList = Array.from(namespaces).sort();
-  console.log(`   Found ${nsList.length} namespaces: ${nsList.slice(0, 10).join(', ')}${nsList.length > 10 ? '...' : ''}`);
-  return nsList;
+  return 'System'; // default
 }
 
 /**
- * Get the list of target namespaces to fetch.
- * If --namespace is specified, use only that one.
- * Otherwise, discover all namespaces from the API.
+ * Fetch all stubs and group by namespace
  */
-async function getTargetNamespaces(config) {
+async function fetchAndGroupByNamespace(config) {
+  console.log('\n1. Fetching all stubs from API...');
+
+  // If specific namespace requested, fetch only that one
   if (config.namespace) {
-    console.log(`\n1. Using specified namespace: ${config.namespace}`);
-    return [config.namespace];
+    console.log(`   Fetching specific namespace: ${config.namespace}`);
+    const stubs = await fetchSymbols(config, config.category, config.namespace);
+    return { [config.namespace]: stubs };
   }
 
-  return await discoverNamespaces(config);
+  // Otherwise fetch all namespaces in one call
+  const allStubs = await fetchSymbols(config, config.category);
+  console.log(`   ✓ Fetched ${allStubs.length} total types`);
+
+  // Group by namespace
+  const grouped = {};
+  for (const stub of allStubs) {
+    const ns = extractNamespace(stub);
+    if (!grouped[ns]) {
+      grouped[ns] = [];
+    }
+    grouped[ns].push(stub);
+  }
+
+  const namespaceList = Object.keys(grouped).sort();
+  console.log(`   Found ${namespaceList.length} namespaces: ${namespaceList.slice(0, 10).join(', ')}${namespaceList.length > 10 ? '...' : ''}`);
+
+  return grouped;
 }
 
 /**
@@ -266,10 +271,10 @@ async function fetchAllStubs(config) {
     mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  // Get target namespaces (fixed list or specific namespace if provided)
-  const namespaces = await getTargetNamespaces(config);
+  // Fetch all stubs in one API call and group by namespace
+  const groupedStubs = await fetchAndGroupByNamespace(config);
 
-  console.log(`\n2. Fetching stubs for ${namespaces.length} namespace(s)...`);
+  console.log('\n2. Writing namespace files...');
 
   const metadata = {
     fetchedAt: new Date().toISOString(),
@@ -282,17 +287,14 @@ async function fetchAllStubs(config) {
 
   let totalTypes = 0;
 
-  for (const namespace of namespaces) {
+  for (const [namespace, stubs] of Object.entries(groupedStubs)) {
     try {
-      console.log(`\n   Namespace: ${namespace}`);
-      const stubs = await fetchSymbols(config, config.category, namespace);
-
       if (stubs.length === 0) {
         console.log(`   ⚠️  No types found in namespace ${namespace}`);
         continue;
       }
 
-      console.log(`   ✓ Fetched ${stubs.length} types`);
+      console.log(`   ${namespace}: ${stubs.length} types`);
 
       // Save to file
       const filename = `${namespace}.json`;
@@ -311,7 +313,7 @@ async function fetchAllStubs(config) {
 
       totalTypes += stubs.length;
     } catch (error) {
-      console.error(`   ❌ Failed to fetch namespace ${namespace}: ${error.message}`);
+      console.error(`   ❌ Failed to write namespace ${namespace}: ${error.message}`);
       metadata.namespaces[namespace] = {
         error: error.message,
       };
