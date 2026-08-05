@@ -53,6 +53,7 @@ import {
   setWorkerId,
   setResourceLoaderLayerFactory,
   setWarmRemoteStdlibNamespaceCache,
+  setFqnIndex,
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
@@ -193,13 +194,9 @@ async function warmRemoteStdlibNamespaceCache(): Promise<void> {
   }
 }
 
-async function makeResourceLoaderRemoteLayer() {
-  const { ResourceLoaderService } =
-    await import('@salesforce/apex-lsp-parser-ast');
-  const L = await import('effect/Layer');
-
-  // Load FQN index from embedded artifact for local stdlib class resolution
-  let fqnIndex: Map<string, string> | null = null;
+// Load FQN index at module level for worker use
+let fqnIndex: Map<string, string> | null = null;
+(async () => {
   try {
     const { getEmbeddedFqnIndexDataUrl, loadFqnIndexFromGzip } =
       await import('@salesforce/apex-lsp-parser-ast');
@@ -212,6 +209,12 @@ async function makeResourceLoaderRemoteLayer() {
   } catch {
     // Expected in unbundled/dev builds; fall through to IPC
   }
+})();
+
+async function makeResourceLoaderRemoteLayer() {
+  const { ResourceLoaderService } =
+    await import('@salesforce/apex-lsp-parser-ast');
+  const L = await import('effect/Layer');
 
   const impl = {
     isStdApexNamespace(ns: string): boolean {
@@ -314,6 +317,7 @@ setWorkerId(workerId);
 setAssistanceTransport(requestCoordinatorAssistancePromise);
 setResourceLoaderLayerFactory(makeResourceLoaderRemoteLayer);
 setWarmRemoteStdlibNamespaceCache(warmRemoteStdlibNamespaceCache);
+setFqnIndex(fqnIndex);
 
 // ---------------------------------------------------------------------------
 // Worker→coordinator log transport (browser variant)

@@ -44,6 +44,64 @@ const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const METADATA_FILE = join(INPUT_DIR, 'fetch-metadata.json');
 const GENERATION_METADATA_FILE = join(INPUT_DIR, 'generation-metadata.json');
 
+// Embedded namespaces - only these generate .cls files
+// All other namespaces go into non-bundled-types.json (type awareness only)
+const TARGET_NAMESPACES = new Set([
+  'ApexPages',
+  'AppLauncher',
+  'Approval',
+  'Auth',
+  'Cache',
+  'Canvas',
+  'ChatterAnswers',
+  'CommerceBuyGrp',
+  'CommerceExtension',
+  'CommercePayments',
+  'CommerceTax',
+  'Compression',
+  'DataSource',
+  'DataWeave',
+  'Database',
+  'Datacloud',
+  'Dom',
+  'EventBus',
+  'Flow',
+  'FormulaEval',
+  'Functions',
+  'Invocable',
+  'IsvPartners',
+  'KbManagement',
+  'LxScheduler',
+  'Messaging',
+  'Metadata',
+  'Pref_center',
+  'Process',
+  'QuickAction',
+  'Reports',
+  'RichMessaging',
+  'Schema',
+  'Search',
+  'Sfc',
+  'Sfdc_Checkout',
+  'Sfdc_Enablement',
+  'Sfdc_Surveys',
+  'Site',
+  'Slack',
+  'Support',
+  'System',
+  'TerritoryMgmt',
+  'TxnSecurity',
+  'UserProvisioning',
+  'VisualEditor',
+  'Wave',
+  'embeddedai',
+  'flowuiruntime',
+  'fsccashflow',
+  'industriesNlpSvc',
+  'ise_bots_apex',
+  'setup_flow_performance',
+]);
+
 // List of builtin classes that should NOT be overwritten
 // These are hand-crafted and live in src/resources/builtins/
 // W-23491682: List/Map/Set returned with generic parameters from API,
@@ -192,8 +250,9 @@ async function main() {
     }
   }
 
-  // Generate stubs for each namespace
-  console.log('\n2. Generating .cls files...');
+  // Generate stubs for TARGET_NAMESPACES only
+  console.log('\n2. Generating .cls files for embedded namespaces...');
+  console.log(`   Target namespaces: ${TARGET_NAMESPACES.size}`);
 
   const generationMetadata = {
     generatedAt: new Date().toISOString(),
@@ -205,8 +264,15 @@ async function main() {
 
   let totalGenerated = 0;
   let totalSkipped = 0;
+  let totalExcluded = 0;
 
   for (const [namespace, info] of Object.entries(fetchMetadata.namespaces)) {
+    // Skip namespaces not in TARGET_NAMESPACES (embedded set)
+    if (!TARGET_NAMESPACES.has(namespace)) {
+      totalExcluded++;
+      continue;
+    }
+
     if (info.error) {
       console.log(`\n   Namespace: ${namespace}`);
       console.log(`   ⚠️  Skipping due to fetch error: ${info.error}`);
@@ -247,6 +313,7 @@ async function main() {
     'utf8',
   );
   console.log(`   ✓ ${GENERATION_METADATA_FILE}`);
+  console.log(`   Excluded ${totalExcluded} non-embedded namespaces`);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('\n=== Generation Complete ===');
