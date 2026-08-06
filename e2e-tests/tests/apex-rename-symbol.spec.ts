@@ -45,10 +45,12 @@ test.describe('Apex Rename Symbol', () => {
     });
 
     await test.step('Position on the local variable `total` in compute()', async () => {
-      // Fixture line 23 (1-based): `        Integer total = 0;`
-      // Position on the declaration of `total` — the word appears multiple
-      // times within the method (the declaration and several usages), so
-      // positionCursorOnWord lands on the first occurrence (the declaration).
+      // The fixture is terse (23 lines, fits in viewport), but position
+      // explicitly on the declaration for clarity. positionCursorOnWord('total')
+      // finds the first occurrence, which is the declaration on line 7. Rename
+      // works from any occurrence (declaration or usage), but starting at the
+      // declaration documents the intent.
+      await apexEditor.goToPosition(7, 1);
       await apexEditor.positionCursorOnWord('total');
     });
 
@@ -58,15 +60,14 @@ test.describe('Apex Rename Symbol', () => {
 
     await test.step('Assert all `total` occurrences in compute() are now `renamed`', async () => {
       // The WorkspaceEdit should have renamed all four occurrences of `total`
-      // within compute(): the declaration on line 23, and the three usages on
-      // lines 24-26. Wait for the new name to appear, then fetch the content
-      // and assert the structure.
+      // within compute(): the declaration and three usages. Wait for the new
+      // name to appear, then fetch content and assert.
       await apexEditor.waitForContentToInclude('renamed');
 
       const content = await apexEditor.getContent();
       // Monaco renders indentation with non-breaking spaces (U+00A0); normalize
       // to regular spaces so the structural assertions match reliably.
-      const normalized = content.replace(/ /g, ' ');
+      const normalized = content.replace(/ /g, ' ');
 
       // The declaration is now `Integer renamed = 0;`
       expect(normalized).toMatch(/Integer\s+renamed\s*=\s*0\s*;/);
@@ -82,7 +83,7 @@ test.describe('Apex Rename Symbol', () => {
 
       // The old name `total` should NOT appear in the compute() method anymore.
       // To avoid a false positive from the sibling method's unchanged `total`,
-      // match within the compute() method's context (between `public Integer compute()` and `}`).
+      // match within the compute() method's context.
       const computeMethodMatch = normalized.match(
         /public\s+Integer\s+compute\s*\(\s*\)\s*\{([\s\S]*?)\}/,
       );
@@ -94,12 +95,13 @@ test.describe('Apex Rename Symbol', () => {
     await test.step('Assert the sibling method computeOther() is untouched', async () => {
       // The fixture has a second method, computeOther(), with its own local
       // variable ALSO named `total`. Scope-aware rename should NOT touch that
-      // symbol — it lives in a different scope. Verify the sibling's `total`
-      // is still present and unchanged.
+      // symbol — it lives in a different scope. The fixture is terse (23 lines)
+      // and fits in a single viewport on CI (~30-40 lines), so getContent()
+      // includes both methods. Verify the sibling's `total` is unchanged.
       const content = await apexEditor.getContent();
-      const normalized = content.replace(/ /g, ' ');
+      const normalized = content.replace(/ /g, ' ');
 
-      // Extract the computeOther() method body (between `public Integer computeOther()` and `}`).
+      // Extract the computeOther() method body.
       const otherMethodMatch = normalized.match(
         /public\s+Integer\s+computeOther\s*\(\s*\)\s*\{([\s\S]*?)\}/,
       );
@@ -125,10 +127,9 @@ test.describe('Apex Rename Symbol', () => {
     });
 
     await test.step('Position on the parameter `value` in addValue()', async () => {
-      // Fixture line 43 (1-based): `    public Integer addValue(Integer value) {`
-      // Position on the parameter name `value` — renameLocal targets parameters
-      // as well as local variables.
-      await apexEditor.goToPosition(43, 1);
+      // positionCursorOnWord('value') alone finds the first (and only) 'value'
+      // in the fixture, which is the parameter in addValue(). No explicit
+      // goToPosition needed — the word is unique.
       await apexEditor.positionCursorOnWord('value');
     });
 
@@ -140,7 +141,7 @@ test.describe('Apex Rename Symbol', () => {
       await apexEditor.waitForContentToInclude('inputParam');
 
       const content = await apexEditor.getContent();
-      const normalized = content.replace(/ /g, ' ');
+      const normalized = content.replace(/ /g, ' ');
 
       // The parameter declaration is now `public Integer addValue(Integer inputParam)`
       expect(normalized).toMatch(
