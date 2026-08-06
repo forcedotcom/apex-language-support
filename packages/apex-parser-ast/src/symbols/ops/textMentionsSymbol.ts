@@ -23,9 +23,10 @@ export const escapeForRegExp = (s: string): string =>
  * Case-insensitive (`i` flag): Apex identifiers are case-insensitive, so a
  * reference to `myField` must surface a file even when the target declares
  * `MyField`. This prefilter is phase 1 of occurrence discovery; phase 2
- * (`findOccurrencesInFile`) already case-folds, so a case-sensitive prefilter
- * here would silently drop candidate files before phase 2 could match them —
- * for rename that means occurrences left unrenamed with no error.
+ * (`findOccurrencesInFile`, in `src/symbols/ops/findOccurrencesInFile.ts`)
+ * already case-folds, so a case-sensitive prefilter here would silently drop
+ * candidate files before phase 2 could match them — for rename that means
+ * occurrences left unrenamed with no error.
  *
  * Best effort: a bad pattern degrades to "no textual match" rather than
  * throwing.

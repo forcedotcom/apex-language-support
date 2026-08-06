@@ -434,6 +434,20 @@ describe('find-references through the worker topology (location count)', () => {
 
     // The differently-cased call site in CaseCaller must come back.
     expect(uris.some((u) => u.includes('CaseCaller'))).toBe(true);
+
+    // Assert the EXACT range of the differently-cased `GREET` occurrence, not
+    // just that the file is present. In CaseCaller.cls the call sits on
+    //   `        return u.GREET('a');`  (LSP line 3)
+    // where `GREET` begins at 0-based character 17 (8-space indent + `return ` +
+    // `u.`) and spans 5 characters, ending at character 22.
+    const caseCallerRefs = locations.filter((l) =>
+      (l.uri ?? l.targetUri ?? '').includes('CaseCaller'),
+    );
+    expect(caseCallerRefs).toHaveLength(1);
+    expect((caseCallerRefs[0] as { range?: unknown }).range).toMatchObject({
+      start: { line: 3, character: 17 },
+      end: { line: 3, character: 22 },
+    });
   }, 120_000);
 
   it('omits the declaration when includeDeclaration is false', async () => {
