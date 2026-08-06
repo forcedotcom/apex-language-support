@@ -59,6 +59,7 @@ describe('SObjectSymbolTableComposer', () => {
     });
     expect(fields.map((field) => field.name)).toEqual([
       'AnnualRevenue',
+      'Id',
       'Name',
       'Owner',
       'OwnerId',
@@ -67,12 +68,14 @@ describe('SObjectSymbolTableComposer', () => {
     expect(fields.every((field) => field.parentId === root.id)).toBe(true);
     expect(fields.map((field) => field.fqn)).toEqual([
       'Account.AnnualRevenue',
+      'Account.Id',
       'Account.Name',
       'Account.Owner',
       'Account.OwnerId',
     ]);
     expect(fields.map((field) => field.type.name)).toEqual([
       'Decimal',
+      'Id',
       'String',
       'User',
       'Id',
@@ -136,6 +139,35 @@ describe('SObjectSymbolTableComposer', () => {
       isBuiltIn: false,
       needsNamespaceResolution: true,
     });
+  });
+
+  it('does not classify mapped platform classes as Apex primitives', () => {
+    const describe: SObjectDescribe = {
+      ...account,
+      fields: ['address', 'location', 'base64', 'anytype', 'string'].map(
+        (type) => ({
+          name: `${type}Field`,
+          type,
+          definitionTarget: { uri: `org://Account/${type}Field` },
+        }),
+      ),
+    };
+    const table = composeSObjectSymbolTable(describe, 1);
+    const root = table.getRoots()[0];
+
+    for (const name of [
+      'addressField',
+      'locationField',
+      'base64Field',
+      'anytypeField',
+    ]) {
+      expect(table.findSymbolInScope(root.id, name)?.type?.isPrimitive).toBe(
+        false,
+      );
+    }
+    expect(
+      table.findSymbolInScope(root.id, 'stringField')?.type?.isPrimitive,
+    ).toBe(true);
   });
 
   it('retains all polymorphic relationship targets without guessing one type', () => {
@@ -227,18 +259,24 @@ describe('SObjectSymbolTableComposer', () => {
         startLine: 3,
         startColumn: 2,
         endLine: 3,
-        endColumn: 6,
+        endColumn: 4,
       },
       {
         startLine: 4,
         startColumn: 2,
         endLine: 4,
-        endColumn: 7,
+        endColumn: 6,
       },
       {
         startLine: 5,
         startColumn: 2,
         endLine: 5,
+        endColumn: 7,
+      },
+      {
+        startLine: 6,
+        startColumn: 2,
+        endLine: 6,
         endColumn: 9,
       },
     ]);

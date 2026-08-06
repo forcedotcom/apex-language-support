@@ -3657,8 +3657,6 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
       typeReference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
       typeReference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
-      typeReference.context === ReferenceContext.INHERITANCE ||
-      typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
       typeReference.context === ReferenceContext.SOQL_FROM_TYPE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);

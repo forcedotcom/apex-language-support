@@ -23,6 +23,21 @@
 
 import { Schema } from 'effect';
 
+export const MAX_SOBJECT_WIRE_BYTES = 5 * 1024 * 1024;
+
+const NonEmptyWireString = Schema.NonEmptyTrimmedString;
+
+export function isWithinSObjectWireLimit(value: unknown): boolean {
+  try {
+    return (
+      new TextEncoder().encode(JSON.stringify(value)).byteLength <=
+      MAX_SOBJECT_WIRE_BYTES
+    );
+  } catch {
+    return false;
+  }
+}
+
 const PositionSchema = Schema.Struct({
   line: Schema.Number,
   character: Schema.Number,
@@ -34,7 +49,7 @@ const LspRangeSchema = Schema.Struct({
 });
 
 export const DefinitionTargetSchema = Schema.Struct({
-  uri: Schema.String,
+  uri: NonEmptyWireString,
   range: Schema.optional(LspRangeSchema),
 });
 export type WireDefinitionTarget = Schema.Schema.Type<
@@ -42,9 +57,9 @@ export type WireDefinitionTarget = Schema.Schema.Type<
 >;
 
 export const SObjectDescribeFieldSchema = Schema.Struct({
-  name: Schema.String,
+  name: NonEmptyWireString,
   label: Schema.optional(Schema.String),
-  type: Schema.String,
+  type: NonEmptyWireString,
   referenceTo: Schema.optional(Schema.Array(Schema.String)),
   relationshipName: Schema.optional(Schema.String),
   nillable: Schema.optional(Schema.Boolean),
@@ -61,7 +76,7 @@ export type WireSObjectDescribeField = Schema.Schema.Type<
 >;
 
 export const SObjectDescribeSchema = Schema.Struct({
-  name: Schema.String,
+  name: NonEmptyWireString,
   label: Schema.optional(Schema.String),
   labelPlural: Schema.optional(Schema.String),
   custom: Schema.Boolean,
@@ -78,9 +93,14 @@ export type WireSObjectDescribe = Schema.Schema.Type<
 
 export const MissingArtifactPayloadSchema = Schema.Struct({
   identifierType: Schema.Literal('sobject'),
-  name: Schema.String,
+  name: NonEmptyWireString,
   describe: SObjectDescribeSchema,
-});
+}).pipe(
+  Schema.filter(isWithinSObjectWireLimit, {
+    message: () =>
+      `SObject artifact exceeds the ${MAX_SOBJECT_WIRE_BYTES}-byte wire limit`,
+  }),
+);
 export type WireMissingArtifactPayload = Schema.Schema.Type<
   typeof MissingArtifactPayloadSchema
 >;

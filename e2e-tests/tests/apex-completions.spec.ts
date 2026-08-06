@@ -37,9 +37,12 @@ test.describe('Apex Completions', () => {
     const page = apexEditor.getPage();
 
     await test.step('Type object reference followed by dot', async () => {
-      await apexEditor.goToPosition(10, 1);
-      await apexEditor.typeText("String s = 'hello';\n");
-      await apexEditor.typeText('s.');
+      // Insert inside the default constructor. Line 10 is the constructor's
+      // doc comment, so editing there produces an invalid class-level local
+      // declaration and cannot have semantic member completions.
+      await apexEditor.goToPosition(14, 9);
+      await apexEditor.typeText("String s = 'hello';\n        s.");
+      await apexEditor.triggerCompletion();
     });
 
     await test.step('Verify suggest widget appears with member methods', async () => {
@@ -66,7 +69,9 @@ test.describe('Apex Completions', () => {
     const page = apexEditor.getPage();
 
     await test.step('Type a type prefix and trigger completion', async () => {
-      await apexEditor.goToPosition(10, 1);
+      // Insert within the default constructor. Line 10 begins its doc comment
+      // and is not a valid Apex type-expression context.
+      await apexEditor.goToPosition(14, 9);
       await apexEditor.typeText('Str');
       await apexEditor.triggerCompletion();
     });
@@ -77,9 +82,14 @@ test.describe('Apex Completions', () => {
       );
       await suggestWidget.waitFor({ state: 'visible', timeout: 10000 });
 
-      const content = await suggestWidget.textContent();
-      expect(content).toBeTruthy();
-      expect(content!).toMatch(/String/i);
+      // Widget visibility precedes the completion response and initially shows
+      // only "Loading...". Wait for the matching result row itself.
+      await expect(
+        suggestWidget
+          .locator('.monaco-list-row')
+          .filter({ hasText: /String/i })
+          .first(),
+      ).toBeVisible({ timeout: 20000 });
 
       await page.keyboard.press('Escape');
     });

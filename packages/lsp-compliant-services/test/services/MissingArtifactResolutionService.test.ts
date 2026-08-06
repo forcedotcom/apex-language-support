@@ -11,6 +11,7 @@ import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
+import { MAX_SOBJECT_WIRE_BYTES } from '@salesforce/apex-lsp-shared';
 import {
   MissingArtifactConfig,
   DEFAULT_MISSING_ARTIFACT_CONFIG,
@@ -289,6 +290,82 @@ describe('MissingArtifactResolutionService', () => {
       expect(
         decodeFindMissingArtifactResult(
           { artifacts: [{ name: 'Invoice__c' }] },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it.each([
+      ['artifact name', { ...artifact, name: '   ' }],
+      [
+        'describe name',
+        { ...artifact, describe: { ...artifact.describe, name: '   ' } },
+      ],
+      [
+        'field name',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            fields: [
+              {
+                name: '   ',
+                type: 'string',
+                definitionTarget: { uri: 'org://Invoice__c/Name' },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        'field type',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            fields: [
+              {
+                name: 'Name',
+                type: '   ',
+                definitionTarget: { uri: 'org://Invoice__c/Name' },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        'definition URI',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            definitionTarget: { uri: '   ' },
+          },
+        },
+      ],
+    ])('rejects an empty %s at the wire boundary', (_label, malformed) => {
+      expect(
+        decodeFindMissingArtifactResult(
+          { artifacts: [malformed] },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it('rejects an sObject artifact larger than the shared wire limit', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          {
+            artifacts: [
+              {
+                ...artifact,
+                describe: {
+                  ...artifact.describe,
+                  label: 'x'.repeat(MAX_SOBJECT_WIRE_BYTES),
+                },
+              },
+            ],
+          },
           sObjectParams,
         ),
       ).toBeUndefined();

@@ -77,6 +77,8 @@ import {
   LocalVariableDeclarationContext,
   FromNameListContext,
   QueryContext,
+  SoqlLiteralContext,
+  SoqlPrimaryContext,
   InsertStatementContext,
   UpdateStatementContext,
   DeleteStatementContext,
@@ -4685,17 +4687,36 @@ export class ApexSymbolCollectorListener
   private findQueryDeclarationTypeRef(
     query: QueryContext,
   ): TypeRefContext | undefined {
-    let current: ParserRuleContext | undefined = query.parentCtx;
-    while (current) {
-      if (isContextType(current, LocalVariableDeclarationContext)) {
-        return current.typeRef();
-      }
-      if (isContextType(current, EnhancedForControlContext)) {
-        return current.typeRef();
-      }
-      current = current.parentCtx;
+    const literal = query.parentCtx;
+    const soqlPrimary = literal?.parentCtx;
+    const primaryExpression = soqlPrimary?.parentCtx;
+    if (
+      !literal ||
+      !isContextType(literal, SoqlLiteralContext) ||
+      !soqlPrimary ||
+      !isContextType(soqlPrimary, SoqlPrimaryContext) ||
+      !primaryExpression ||
+      !isContextType(primaryExpression, PrimaryExpressionContext)
+    ) {
+      return undefined;
     }
-    return undefined;
+
+    const initializerOwner = primaryExpression.parentCtx;
+    if (
+      initializerOwner &&
+      isContextType(initializerOwner, VariableDeclaratorContext)
+    ) {
+      const declarators = initializerOwner.parentCtx;
+      const declaration = declarators?.parentCtx;
+      return declaration &&
+        isContextType(declaration, LocalVariableDeclarationContext)
+        ? declaration.typeRef()
+        : undefined;
+    }
+    return initializerOwner &&
+      isContextType(initializerOwner, EnhancedForControlContext)
+      ? initializerOwner.typeRef()
+      : undefined;
   }
 
   private markDeclaredQueryTypeAsSObject(typeRef: TypeRefContext): void {

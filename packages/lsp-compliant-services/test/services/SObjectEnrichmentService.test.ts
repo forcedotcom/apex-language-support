@@ -170,6 +170,20 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 }
 
 describe('SObjectEnrichmentService', () => {
+  it('fails closed when the platform does not identify the coordinator role', async () => {
+    const harness = createHarness();
+    const service = new SObjectEnrichmentService(
+      logger,
+      harness.symbolManager as never,
+      harness.resolver,
+    );
+
+    await expect(
+      service.applyArtifacts([artifact], new Map([['account', 1]])),
+    ).resolves.toBe(0);
+    expect(harness.symbolManager.addSymbolTable).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -440,6 +454,24 @@ describe('SObjectEnrichmentService', () => {
     const table = harness.tables.get(ownerUriForSObject('Invoice__c'));
     expect(table?.getMetadata().parseCompleteness).toBe('incomplete');
     expect(table?.getAllSymbols()).toHaveLength(1);
+  });
+
+  it('temporarily caches not-found enrichment requests', async () => {
+    const harness = createHarness();
+    (
+      harness.resolver.resolveBlocking as jest.MockedFunction<
+        MissingArtifactResolutionService['resolveBlocking']
+      >
+    ).mockResolvedValue({ status: 'not-found' });
+
+    await expect(harness.service.resolveBlocking(params)).resolves.toEqual({
+      status: 'not-found',
+    });
+    await expect(harness.service.resolveBlocking(params)).resolves.toEqual({
+      status: 'not-found',
+    });
+
+    expect(harness.resolver.resolveBlocking).toHaveBeenCalledTimes(1);
   });
 
   it('does not let an older synthetic version replace newer data', async () => {

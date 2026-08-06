@@ -9,6 +9,7 @@
 import { Schema } from 'effect';
 import {
   FindMissingArtifactResultSchema,
+  MAX_SOBJECT_WIRE_BYTES,
   WireIdentifierSpecSchema,
 } from '../src/wireSchemas';
 
@@ -72,6 +73,65 @@ describe('missing artifact wire schemas', () => {
               name: 'Account',
               custom: 'false',
               fields: [{ name: 'Name', type: 'string' }],
+              definitionTarget: { uri: 'sf-org-data:/Account' },
+            },
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it.each([
+    ['artifact name', { artifactName: '   ' }],
+    ['describe name', { describeName: '   ' }],
+    ['field name', { fieldName: '   ' }],
+    ['field type', { fieldType: '   ' }],
+    ['definition URI', { uri: '   ' }],
+  ])('rejects an empty %s', (_label, override) => {
+    const values = override as Partial<
+      Record<
+        'artifactName' | 'describeName' | 'fieldName' | 'fieldType' | 'uri',
+        string
+      >
+    >;
+    expect(() =>
+      Schema.decodeUnknownSync(FindMissingArtifactResultSchema)({
+        artifacts: [
+          {
+            identifierType: 'sobject',
+            name: values.artifactName ?? 'Account',
+            describe: {
+              name: values.describeName ?? 'Account',
+              custom: false,
+              fields: [
+                {
+                  name: values.fieldName ?? 'Name',
+                  type: values.fieldType ?? 'string',
+                  definitionTarget: { uri: 'sf-org-data:/Account/fields/Name' },
+                },
+              ],
+              definitionTarget: {
+                uri: values.uri ?? 'sf-org-data:/Account',
+              },
+            },
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an artifact larger than the shared wire limit', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(FindMissingArtifactResultSchema)({
+        artifacts: [
+          {
+            identifierType: 'sobject',
+            name: 'Account',
+            describe: {
+              name: 'Account',
+              label: 'x'.repeat(MAX_SOBJECT_WIRE_BYTES),
+              custom: false,
+              fields: [],
               definitionTarget: { uri: 'sf-org-data:/Account' },
             },
           },

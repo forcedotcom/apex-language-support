@@ -19,6 +19,7 @@ import { filterErrors } from '../shared/utils/helpers';
 import { resolveRepoRoot } from '../shared/utils/repoRoot';
 import { createDesktopTestWorkspace } from './desktopWorkspace';
 import { WORKBENCH } from '../shared/utils/locators';
+import { getDesktopExtensionsDir } from '../shared/config/downloadVSCode';
 
 /**
  * Dismiss the VS Code Welcome sign-in page and any other startup prompts.
@@ -66,20 +67,13 @@ type CreateDesktopTestOptions = {
   fixturesDir: string;
   /** Additional extension directory paths to load alongside the Apex extension */
   additionalExtensionDirs?: string[];
-  /** When false, do not pass --disable-extensions. Default true. */
-  disableOtherExtensions?: boolean;
   /** Optional user settings to write to User/settings.json */
   userSettings?: Record<string, unknown>;
 };
 
 /** Creates a Playwright test instance configured for desktop Electron testing */
 export const createDesktopTest = (options: CreateDesktopTestOptions) => {
-  const {
-    fixturesDir,
-    additionalExtensionDirs = [],
-    disableOtherExtensions = true,
-    userSettings,
-  } = options;
+  const { fixturesDir, additionalExtensionDirs = [], userSettings } = options;
 
   const test = base.extend<TestFixtures, WorkerFixtures>({
     vscodeExecutable: [
@@ -111,10 +105,11 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
           JSON.stringify(userSettings, null, 2),
         );
       }
-      const extensionsDir = path.join(workspaceDir, '.vscode-test-extensions');
-      await fs.mkdir(extensionsDir, { recursive: true });
-
       const repoRoot = resolveRepoRoot(fixturesDir);
+      // Global setup installs only Salesforce Services here. Keeping the
+      // directory isolated from the user's extensions gives development mode
+      // its required dependency without enabling unrelated extensions.
+      const extensionsDir = getDesktopExtensionsDir(repoRoot);
       const extensionPath = path.join(
         repoRoot,
         'packages',
@@ -140,7 +135,6 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
         `--user-data-dir=${userDataDir}`,
         `--extensions-dir=${extensionsDir}`,
         ...extensionArgs,
-        ...(disableOtherExtensions ? ['--disable-extensions'] : []),
         '--disable-workspace-trust',
         '--no-sandbox',
         workspaceDir,

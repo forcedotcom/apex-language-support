@@ -234,6 +234,7 @@ export class PrerequisiteOrchestrationService {
       logger,
       symbolManager,
       this.artifactResolutionService,
+      { isCoordinator: () => true },
     );
   }
 

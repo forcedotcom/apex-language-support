@@ -44,7 +44,7 @@ test.describe('Apex Extract Constant Code Action', () => {
     });
 
     await test.step('Invoke Refactor and assert Extract constant is offered', async () => {
-      const titles = await apexEditor.openCodeActions();
+      const titles = await apexEditor.openCodeActions('Extract constant');
       expect(
         titles.some((t) => t.includes('Extract constant')),
         `Expected an "Extract constant" action but got: ${titles.join(', ')}`,

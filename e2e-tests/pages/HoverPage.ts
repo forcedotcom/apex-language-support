@@ -199,14 +199,14 @@ export class HoverPage extends BasePage {
    * missing-artifact resolution can make forward progress.
    * @param line - Line number (1-indexed)
    * @param column - Column number (1-indexed)
-   * @param expectedContent - Optional content that proves resolution completed
+   * @param expectedContent - Content that proves resolution completed
    * @param timeout - Overall retry budget in milliseconds
    * @returns Resolved hover content
    */
   async hoverAtWithResolution(
     line: number,
     column: number,
-    expectedContent?: string | RegExp,
+    expectedContent: string | RegExp,
     timeout = 20_000,
   ): Promise<string> {
     await goToLineInEditor(this.page, `${line}:${column}`);
@@ -225,7 +225,7 @@ export class HoverPage extends BasePage {
    */
   private async retryHoverRequest(
     trigger: () => Promise<boolean>,
-    expectedContent?: string | RegExp,
+    expectedContent: string | RegExp,
     timeout = 20_000,
   ): Promise<string> {
     const { expect } = await import('@playwright/test');
@@ -248,7 +248,7 @@ export class HoverPage extends BasePage {
 
       if (typeof expectedContent === 'string') {
         expect(content).toContain(expectedContent);
-      } else if (expectedContent) {
+      } else {
         expect(content).toMatch(expectedContent);
       }
     }).toPass({ timeout });

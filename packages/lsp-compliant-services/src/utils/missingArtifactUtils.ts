@@ -31,7 +31,6 @@ export class MissingArtifactUtils {
   private readonly symbolManager: ISymbolManager;
   private missingArtifactService?: MissingArtifactResolutionService;
   private sObjectEnrichmentService?: SObjectEnrichmentService;
-  private static recentBackgroundRequests = new Map<string, number>();
 
   constructor(
     logger: LoggerInterface,
@@ -137,9 +136,6 @@ export class MissingArtifactUtils {
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
       const provenance = await this.createSemanticProvenance(uri, reference);
-      const dedupeKey = `${requestKind}|${uri}|${identifierName}`;
-      const now = Date.now();
-      MissingArtifactUtils.recentBackgroundRequests.set(dedupeKey, now);
       const identifierType = classifyMissingArtifactIdentifier({
         ...reference,
         name: identifierName,

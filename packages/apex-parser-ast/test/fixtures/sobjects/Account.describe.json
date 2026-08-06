@@ -16,6 +16,14 @@
   },
   "fields": [
     {
+      "name": "Id",
+      "label": "Account ID",
+      "type": "id",
+      "definitionTarget": {
+        "uri": "sf-org-data://objects/Account/fields/Id.field-meta.xml"
+      }
+    },
+    {
       "name": "Name",
       "label": "Account Name",
       "type": "string",

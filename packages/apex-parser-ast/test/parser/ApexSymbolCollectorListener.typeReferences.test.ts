@@ -447,6 +447,31 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       ).toBe(false);
     });
 
+    it('does not mark a declaration when SOQL is nested inside its initializer', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Contact row = choose([SELECT Id FROM Account]);
+          }
+        }
+      `);
+      const declaration = references.find(
+        (ref) =>
+          ref.name === 'Contact' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(declaration?.isSObject).toBeUndefined();
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'Account' &&
+            ref.context === ReferenceContext.SOQL_FROM_TYPE &&
+            ref.isSObject,
+        ),
+      ).toBe(true);
+    });
+
     it('keeps full and layered collection evidence in parity without duplicates', () => {
       const sourceCode = `
         public class SoqlEvidence {

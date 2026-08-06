@@ -99,6 +99,7 @@ import {
   composeSObjectSymbolTable,
   ownerUriForSObject,
   STANDARD_APEX_LIBRARY_URI,
+  SymbolKind,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -701,12 +702,8 @@ const processItem = (item: DOQueueItem) =>
     // queued work actually executes.
     execution = workerTracingHooks.provide(execution);
 
-    const result = yield* Effect.either(execution);
-    if (result._tag === 'Right') {
-      yield* Deferred.succeed(item.deferred, result.right);
-    } else {
-      yield* Deferred.fail(item.deferred, result.left);
-    }
+    const result = yield* Effect.exit(execution);
+    yield* Deferred.done(item.deferred, result);
   });
 
 const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
@@ -1894,7 +1891,19 @@ function loadCursorTargetDependencies(
               svc.symbolManager.getSymbolTableForFile(ownerUri),
             );
             const version = (existing?.getMetadata().documentVersion ?? 0) + 1;
-            const table = composeSObjectSymbolTable(artifact.describe, version);
+            const table = yield* Effect.try({
+              try: () => composeSObjectSymbolTable(artifact.describe, version),
+              catch: (error) => error,
+            }).pipe(
+              Effect.catchAll((error) =>
+                Effect.logWarning(
+                  `[ENRICHMENT] Rejected malformed sObject artifact ${artifact.name}: ${error}`,
+                ).pipe(Effect.as(undefined)),
+              ),
+            );
+            if (!table) {
+              continue;
+            }
             yield* svc.symbolManager.addSymbolTable(
               table,
               ownerUri,
@@ -2087,7 +2096,10 @@ async function hasCompleteLocalSymbolTable(
     if (!table) {
       continue;
     }
-    if (table.getMetadata().parseCompleteness !== 'incomplete') {
+    if (
+      symbol.kind !== SymbolKind.SObject ||
+      table.getMetadata().parseCompleteness !== 'incomplete'
+    ) {
       return true;
     }
   }
@@ -4819,10 +4831,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
               );
               const version =
                 (existing?.getMetadata().documentVersion ?? 0) + 1;
-              const table = composeSObjectSymbolTable(
-                artifact.describe,
-                version,
-              );
+              const table = yield* Effect.try({
+                try: () =>
+                  composeSObjectSymbolTable(artifact.describe, version),
+                catch: (error) => ({
+                  _tag: 'InstallSObjectArtifactsError' as const,
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                }),
+              });
               yield* svc.symbolManager.addSymbolTable(
                 table,
                 ownerUri,

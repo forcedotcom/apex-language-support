@@ -33,6 +33,7 @@ export interface SObjectEnrichmentOptions {
 
 interface SObjectEnrichmentCoordinationState {
   readonly inFlightByIdentifier: Map<string, Promise<BlockingResult>>;
+  readonly notFoundUntilByIdentifier: Map<string, number>;
   readonly placeholderInFlight: Map<string, Promise<void>>;
   readonly latestVersionByName: Map<string, number>;
 }
@@ -51,19 +52,12 @@ function coordinationStateFor(
   }
   const created: SObjectEnrichmentCoordinationState = {
     inFlightByIdentifier: new Map(),
+    notFoundUntilByIdentifier: new Map(),
     placeholderInFlight: new Map(),
     latestVersionByName: new Map(),
   };
   coordinationStateBySymbolManager.set(symbolManager, created);
   return created;
-}
-
-function isMainThreadCoordinator(): boolean {
-  try {
-    return require('node:worker_threads').isMainThread;
-  } catch {
-    return true;
-  }
 }
 
 function identifierKey(identifier: IdentifierSpec): string {
@@ -77,7 +71,9 @@ function identifierKey(identifier: IdentifierSpec): string {
  * sObject symbol tables.
  */
 export class SObjectEnrichmentService {
+  private static readonly NOT_FOUND_TTL_MS = 3_000;
   private readonly inFlightByIdentifier: Map<string, Promise<BlockingResult>>;
+  private readonly notFoundUntilByIdentifier: Map<string, number>;
   private readonly placeholderInFlight: Map<string, Promise<void>>;
   private readonly latestVersionByName: Map<string, number>;
   private readonly isCoordinator: () => boolean;
@@ -91,9 +87,14 @@ export class SObjectEnrichmentService {
   ) {
     const coordinationState = coordinationStateFor(symbolManager);
     this.inFlightByIdentifier = coordinationState.inFlightByIdentifier;
+    this.notFoundUntilByIdentifier =
+      coordinationState.notFoundUntilByIdentifier;
     this.placeholderInFlight = coordinationState.placeholderInFlight;
     this.latestVersionByName = coordinationState.latestVersionByName;
-    this.isCoordinator = options.isCoordinator ?? isMainThreadCoordinator;
+    // Graph mutation is coordinator-owned. Platform-neutral code cannot infer
+    // that role safely (notably in browser workers), so unknown roles fail
+    // closed and coordinator construction sites opt in explicitly.
+    this.isCoordinator = options.isCoordinator ?? (() => false);
     this.signalDiagnosticRefresh =
       options.signalDiagnosticRefresh ??
       (() =>
@@ -108,9 +109,22 @@ export class SObjectEnrichmentService {
     const normalizedParams = this.normalizeParams(params);
     const joined = new Set<Promise<BlockingResult>>();
     const fresh: IdentifierSpec[] = [];
+    const now = Date.now();
+    for (const [key, expiresAt] of this.notFoundUntilByIdentifier) {
+      if (expiresAt <= now) {
+        this.notFoundUntilByIdentifier.delete(key);
+      }
+    }
 
     for (const identifier of normalizedParams.identifiers) {
-      const existing = this.inFlightByIdentifier.get(identifierKey(identifier));
+      const key = identifierKey(identifier);
+      const notFoundUntil = this.notFoundUntilByIdentifier.get(key);
+      if (notFoundUntil !== undefined) {
+        if (notFoundUntil > now) {
+          continue;
+        }
+      }
+      const existing = this.inFlightByIdentifier.get(key);
       if (existing) {
         joined.add(existing);
       } else {
@@ -129,6 +143,22 @@ export class SObjectEnrichmentService {
         this.inFlightByIdentifier.set(identifierKey(identifier), request);
       }
       joined.add(request);
+      void request.then(
+        (outcome) => {
+          for (const identifier of fresh) {
+            const key = identifierKey(identifier);
+            if (outcome.status === 'not-found') {
+              this.notFoundUntilByIdentifier.set(
+                key,
+                Date.now() + SObjectEnrichmentService.NOT_FOUND_TTL_MS,
+              );
+            } else if (outcome.status === 'resolved') {
+              this.notFoundUntilByIdentifier.delete(key);
+            }
+          }
+        },
+        () => undefined,
+      );
       const cleanup = () => {
         for (const identifier of fresh) {
           const key = identifierKey(identifier);
@@ -140,7 +170,10 @@ export class SObjectEnrichmentService {
       void request.then(cleanup, cleanup);
     }
 
-    const outcome = mergeBlockingResults(await Promise.all(joined));
+    const outcome =
+      joined.size === 0
+        ? ({ status: 'not-found' } as const)
+        : mergeBlockingResults(await Promise.all(joined));
     if (
       this.isCoordinator() &&
       outcome.status === 'resolved' &&
