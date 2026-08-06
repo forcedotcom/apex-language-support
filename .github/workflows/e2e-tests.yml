@@ -42,6 +42,7 @@ jobs:
           - apex-hover-stdlib.spec.ts
           - apex-lsp-integration.spec.ts
           - apex-outline.spec.ts
+          - apex-rename-symbol.spec.ts
 
     steps:
       - name: Checkout code

@@ -294,6 +294,71 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Rename the symbol at the current cursor position using the F2 keyboard
+   * shortcut. Waits for the rename input box to appear, types the new name,
+   * and confirms with Enter.
+   *
+   * Uses the standard VS Code Monaco rename UI: F2 opens a `.rename-box` with
+   * a `.rename-input` text field prefilled with the current symbol name. The
+   * input is selected, so `keyboard.type(newName)` replaces it. Enter confirms
+   * the rename and applies the WorkspaceEdit; Escape cancels.
+   *
+   * Re-presses F2 if the input box does not appear: on the web worker pool the
+   * LSP may not have resolved the symbol on the first invocation (a transient
+   * no-op), so a single F2 can race pool warm-up. The retry loop mirrors what
+   * a real user does and makes the outcome deterministic.
+   *
+   * @param newName - The new name for the symbol
+   */
+  async rename(newName: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
+
+    await expect(async () => {
+      // Ensure the Find widget is fully closed before pressing F2. If
+      // positionCursorOnWord left the widget open, F2 lands in the Find input
+      // rather than triggering rename. Escape closes the widget and returns
+      // focus + cursor to the editor at the found position (same hazard
+      // guarded against in goToDefinition / openCodeActions / findReferences).
+      const findWidget = this.page.locator('.editor-widget.find-widget');
+      if (await findWidget.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await findWidget
+          .waitFor({ state: 'hidden', timeout: 3000 })
+          .catch(() => {});
+      }
+
+      // Dismiss any lingering rename box from a prior attempt
+      const renameBox = this.page.locator('.rename-box');
+      if (await renameBox.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await renameBox
+          .waitFor({ state: 'hidden', timeout: 1000 })
+          .catch(() => {});
+      }
+
+      await this.page.keyboard.press('F2');
+
+      // Wait for the rename input to appear. Monaco renders the input inside
+      // a `.rename-box` widget; the input itself is `.rename-input`.
+      const renameInput = this.page.locator(
+        '.rename-box .rename-input, .monaco-editor .rename-box input',
+      );
+      await renameInput.waitFor({ state: 'visible', timeout: 3000 });
+
+      // The input is prefilled with the current symbol name and selected.
+      // Type the new name to replace the selection.
+      await this.page.keyboard.type(newName);
+
+      // Confirm the rename with Enter. The WorkspaceEdit is applied and the
+      // rename box closes.
+      await this.page.keyboard.press('Enter');
+
+      // Wait for the rename box to be hidden, confirming the edit applied.
+      await renameBox.waitFor({ state: 'hidden', timeout: 3000 });
+    }).toPass({ timeout: this.defaultTimeout });
+  }
+
+  /**
    * Select a range in the editor by positioning at a start line/column and
    * extending the selection a number of characters to the right.
    *
