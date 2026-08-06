@@ -267,8 +267,8 @@ describe('handleFindMissingArtifact', () => {
       ]),
     );
     expect(harness.search.mock.calls.map(([request]) => request)).toEqual([
-      { kind: 'sobject', name: 'Invoice__c' },
-      { kind: 'trigger', name: 'InvoiceTrigger' },
+      { kind: 'sobject', name: 'Invoice__c', generation: 0 },
+      { kind: 'trigger', name: 'InvoiceTrigger', generation: 0 },
     ]);
     expect(vscode.window.showTextDocument).toHaveBeenCalledTimes(2);
     expect(harness.telemetry).toEqual(
@@ -424,6 +424,7 @@ describe('handleFindMissingArtifact', () => {
     expect(harness.search).toHaveBeenCalledWith({
       kind: 'apex-class',
       name: 'Account',
+      generation: 0,
     });
   });
 

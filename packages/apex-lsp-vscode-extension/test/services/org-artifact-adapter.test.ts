@@ -141,6 +141,58 @@ describe('OrgArtifactAdapter', () => {
     expect(harness.describe).toHaveBeenCalledTimes(2);
   });
 
+  it('does not deduplicate concurrent searches across org generations', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const harness = createHarness({
+      describe: (name) =>
+        Effect.promise(async () => {
+          await gate;
+          return { name, custom: false, fields: [] };
+        }),
+    });
+
+    const search = (generation: number) =>
+      Effect.runPromise(
+        harness.adapter.search({
+          kind: 'sobject',
+          name: 'Account',
+          generation,
+        } as Parameters<typeof harness.adapter.search>[0] & {
+          generation: number;
+        }),
+      );
+    const first = search(1);
+    await waitFor(() => harness.describe.mock.calls.length === 1);
+    const second = search(2);
+    await waitFor(() => harness.describe.mock.calls.length === 2);
+    release();
+    await Promise.all([first, second]);
+
+    expect(harness.describe).toHaveBeenCalledTimes(2);
+  });
+
+  it('temporarily caches not-found searches within an org generation', async () => {
+    const harness = createHarness({
+      describe: () => Effect.fail(new Error('INVALID_TYPE: not found')),
+    });
+
+    const request = {
+      kind: 'sobject' as const,
+      name: 'Missing__c',
+      generation: 7,
+    };
+    await Effect.runPromise(harness.adapter.search(request));
+    await Effect.runPromise(harness.adapter.search(request));
+    await Effect.runPromise(
+      harness.adapter.search({ ...request, generation: 8 }),
+    );
+
+    expect(harness.describe).toHaveBeenCalledTimes(2);
+  });
+
   it('bounds concurrent services requests without caching their results', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

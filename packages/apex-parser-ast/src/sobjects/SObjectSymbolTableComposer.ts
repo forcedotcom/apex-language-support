@@ -59,6 +59,13 @@ export const SALESFORCE_FIELD_TYPE_TO_APEX = Object.freeze({
   url: 'String',
 } satisfies Readonly<Record<string, string>>);
 
+const SOBJECT_PLATFORM_VALUE_TYPES = new Set([
+  'Address',
+  'Location',
+  'Blob',
+  'Object',
+]);
+
 export interface SObjectFieldSymbol extends VariableSymbol {
   /** Original describe field that produced this symbol. */
   sObjectFieldName: string;
@@ -270,10 +277,10 @@ function compareComposedFields(a: ComposedField, b: ComposedField): number {
 }
 
 function createFieldTypeInfo(apexType: string): TypeInfo {
-  const mappedType = Object.values(SALESFORCE_FIELD_TYPE_TO_APEX).includes(
+  const mappedScalar = Object.values(SALESFORCE_FIELD_TYPE_TO_APEX).includes(
     apexType,
   );
-  if (mappedType) {
+  if (mappedScalar && !SOBJECT_PLATFORM_VALUE_TYPES.has(apexType)) {
     return createPrimitiveType(apexType);
   }
   return {

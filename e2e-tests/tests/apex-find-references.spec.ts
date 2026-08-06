@@ -61,7 +61,9 @@ test.describe('Apex Find All References', () => {
     await test.step('Warm up cross-file resolution via hover', async () => {
       // The Apex LSP lazily loads cross-file dependents; a hover primes the
       // resolver (same warm-up the cross-file goto-definition tests use).
-      await hoverHelper.hoverAtWithResolution(9, 25);
+      await apexEditor.openFile('CrossFileCaller.cls');
+      await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
+      await apexEditor.openFile('CrossFileUtility.cls');
     });
 
     await test.step('Find references to the utility class from its declaration', async () => {

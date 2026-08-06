@@ -502,6 +502,8 @@ export {
   WireParentContextSchema,
   WireSemanticArtifactProvenanceSchema,
   WireIdentifierSpecSchema,
+  MAX_SOBJECT_WIRE_BYTES,
+  isWithinSObjectWireLimit,
 } from './wireSchemas';
 export type {
   WireDefinitionTarget,

@@ -8,6 +8,7 @@
 
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
+import { MAX_SOBJECT_WIRE_BYTES } from '@salesforce/apex-lsp-shared';
 import type { OrgArtifactServicesApi } from '../../src/services/org-artifact-adapter';
 import { WorkspaceComponentSetAdapter } from '../../src/services/workspace-component-set-adapter';
 
@@ -149,6 +150,39 @@ describe('WorkspaceComponentSetAdapter', () => {
     const result = await adapter.resolve([
       { name: 'Missing__c', identifierType: 'sobject' },
     ]);
+    expect(result.size).toBe(0);
+  });
+
+  it('does not produce an sObject artifact larger than the wire limit', async () => {
+    const object = {
+      name: 'TooLarge__c',
+      fullName: 'TooLarge__c',
+      type: { name: 'CustomObject' },
+      xml: objectPath,
+      getChildren: () => [],
+      parseXml: async () => ({
+        CustomObject: {
+          label: 'x'.repeat(MAX_SOBJECT_WIRE_BYTES),
+        },
+      }),
+    };
+    const api = {
+      services: {
+        prebuiltServicesDependencies: Context.empty(),
+        ComponentSetService: {
+          getComponentSetFromProjectDirectories: () =>
+            Effect.succeed({ getSourceComponents: () => [object] }),
+        },
+      },
+    } as unknown as OrgArtifactServicesApi;
+    const adapter = new WorkspaceComponentSetAdapter({
+      getServicesApi: () => Effect.succeed(api),
+    });
+
+    const result = await adapter.resolve([
+      { name: 'TooLarge__c', identifierType: 'sobject' },
+    ]);
+
     expect(result.size).toBe(0);
   });
 

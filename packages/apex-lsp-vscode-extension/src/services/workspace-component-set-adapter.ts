@@ -13,6 +13,7 @@ import type {
   SObjectDescribeField,
   WireIdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
+import { isWithinSObjectWireLimit } from '@salesforce/apex-lsp-shared';
 import {
   type OrgArtifactServicesApi,
   type ServicesApiProvider,
@@ -81,14 +82,17 @@ export class WorkspaceComponentSetAdapter {
       if (!component) continue;
 
       if (type === 'CustomObject' && component.xml) {
-        resolutions.set(identifierKey(identifier), {
-          kind: 'sobject',
-          artifact: await composeWorkspaceArtifact(
-            identifier.name,
-            component,
-            components,
-          ),
-        });
+        const artifact = await composeWorkspaceArtifact(
+          identifier.name,
+          component,
+          components,
+        );
+        if (isWithinSObjectWireLimit(artifact)) {
+          resolutions.set(identifierKey(identifier), {
+            kind: 'sobject',
+            artifact,
+          });
+        }
       } else if (component.content) {
         resolutions.set(identifierKey(identifier), {
           kind: 'source',

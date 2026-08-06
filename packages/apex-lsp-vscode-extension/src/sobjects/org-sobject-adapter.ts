@@ -10,12 +10,12 @@ import type {
   SObjectDescribe,
   SObjectDescribeField,
 } from '@salesforce/apex-lsp-shared';
+import { MAX_SOBJECT_WIRE_BYTES } from '@salesforce/apex-lsp-shared';
+export { MAX_SOBJECT_WIRE_BYTES } from '@salesforce/apex-lsp-shared';
 import {
   type OrgArtifactFileSystem,
   type SObjectDocumentField,
 } from '../services/org-artifact-fs';
-
-export const MAX_SOBJECT_WIRE_BYTES = 5 * 1024 * 1024;
 
 export type SObjectAdaptationResult =
   | { readonly status: 'ok'; readonly describe: SObjectDescribe }

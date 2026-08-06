@@ -13,11 +13,24 @@ import type * as Stream from 'effect/Stream';
 import { getSalesforceServicesExtension } from './salesforce-services-extension';
 
 export const MAX_CONCURRENT_ORG_ARTIFACT_SEARCHES = 4;
+export const ORG_ARTIFACT_NOT_FOUND_TTL_MS = 3_000;
 
 export type OrgArtifactRequest =
-  | { readonly kind: 'sobject'; readonly name: string }
-  | { readonly kind: 'apex-class'; readonly name: string }
-  | { readonly kind: 'trigger'; readonly name: string };
+  | {
+      readonly kind: 'sobject';
+      readonly name: string;
+      readonly generation?: number;
+    }
+  | {
+      readonly kind: 'apex-class';
+      readonly name: string;
+      readonly generation?: number;
+    }
+  | {
+      readonly kind: 'trigger';
+      readonly name: string;
+      readonly generation?: number;
+    };
 
 export type OrgArtifactSearchResult =
   | {
@@ -149,6 +162,7 @@ export class OrgArtifactAdapter {
     string,
     Promise<OrgArtifactSearchResult>
   >();
+  private readonly notFoundUntil = new Map<string, number>();
   private readonly limiter: AsyncRequestLimiter;
 
   constructor(
@@ -168,8 +182,27 @@ export class OrgArtifactAdapter {
     const normalizedRequest: OrgArtifactRequest = {
       kind: request.kind,
       name: request.name.trim(),
+      generation: request.generation,
     };
-    const key = `${normalizedRequest.kind}:${normalizedRequest.name.toLowerCase()}`;
+    const normalizedName = normalizedRequest.name.toLowerCase();
+    const key = `${normalizedRequest.generation ?? 0}:${normalizedRequest.kind}:${normalizedName}`;
+    const now = Date.now();
+    for (const [cachedKey, expiresAt] of this.notFoundUntil) {
+      if (expiresAt <= now) {
+        this.notFoundUntil.delete(cachedKey);
+      }
+    }
+    const cachedUntil = this.notFoundUntil.get(key);
+    if (cachedUntil !== undefined) {
+      if (cachedUntil > now) {
+        return Promise.resolve({
+          kind: 'not-found',
+          artifactKind: normalizedRequest.kind,
+          name: normalizedRequest.name,
+        });
+      }
+      this.notFoundUntil.delete(key);
+    }
     const existing = this.inFlight.get(key);
     if (existing) {
       return existing;
@@ -178,6 +211,17 @@ export class OrgArtifactAdapter {
       Effect.runPromise(this.executeSearch(normalizedRequest)),
     );
     this.inFlight.set(key, started);
+    void started.then(
+      (result) => {
+        if (result.kind === 'not-found') {
+          this.notFoundUntil.set(
+            key,
+            Date.now() + ORG_ARTIFACT_NOT_FOUND_TTL_MS,
+          );
+        }
+      },
+      () => undefined,
+    );
     void started.finally(() => {
       if (this.inFlight.get(key) === started) {
         this.inFlight.delete(key);

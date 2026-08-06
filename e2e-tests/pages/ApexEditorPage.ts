@@ -365,9 +365,12 @@ export class ApexEditorPage extends BasePage {
    * can race the pool warm-up. The widget is left OPEN on success so callers
    * can select an action; dismiss it with Escape when done.
    *
+   * @param expectedTitleFragment - When provided, keep polling until an action
+   *   with this title fragment is present. VS Code can render built-in actions
+   *   such as "Modify" before the language server response arrives.
    * @returns The trimmed titles of the offered code actions.
    */
-  async openCodeActions(): Promise<string[]> {
+  async openCodeActions(expectedTitleFragment?: string): Promise<string[]> {
     const { expect } = await import('@playwright/test');
     // Monaco keeps more than one `.action-widget` in the DOM (e.g. a hidden
     // template alongside the live one), so an unscoped locator trips
@@ -409,6 +412,12 @@ export class ApexEditorPage extends BasePage {
       expect(found.length, 'Expected at least one code action').toBeGreaterThan(
         0,
       );
+      if (expectedTitleFragment) {
+        expect(
+          found.some((title) => title.includes(expectedTitleFragment)),
+          `Expected code action "${expectedTitleFragment}" but got: ${found.join(', ')}`,
+        ).toBe(true);
+      }
       titles = found;
     }).toPass({ timeout: this.defaultTimeout });
 

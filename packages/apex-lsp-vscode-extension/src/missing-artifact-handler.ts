@@ -267,6 +267,7 @@ async function resolveFromOrg(
     const request: OrgArtifactRequest = {
       kind: identifierType(identifier),
       name: identifier.name,
+      generation,
     };
     const result = await Effect.runPromise(
       dependencies.orgAdapter.search(request),
