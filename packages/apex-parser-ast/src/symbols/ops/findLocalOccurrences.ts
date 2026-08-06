@@ -57,9 +57,9 @@ const rangeKey = (r: OccurrenceMatch['identifierRange']): string =>
  *      {@link SymbolTable.resolveVariableAtPosition} (innermost enclosing scope
  *      wins, so a shadowing inner local resolves to itself, not the outer one);
  *   2. gather name+context candidates with {@link findOccurrencesInFile};
- *   3. keep a candidate only when re-resolving ITS position lands on the same
- *      declaring symbol id — a sibling-block `x` re-resolves to a different
- *      declaration and is dropped.
+ *   3. keep a candidate only when its parser-resolved `resolvedSymbolId` equals
+ *      the declaration's id — a sibling-block `x` resolved to a different
+ *      declaration is dropped.
  *
  * The declaration's own identifier range is always included (renameLocal edits
  * the declaration), de-duplicated against a usage that coincides with it.
@@ -102,11 +102,15 @@ export function findLocalOccurrences(
     kind: declaration.kind,
   });
 
-  // Stage 3: bind each candidate to the SAME declaring symbol. A usage whose
-  // position re-resolves to a different declaration (a shadowing sibling) is
-  // dropped. Comparing by symbol id is exact; `resolveVariableAtPosition` on the
-  // usage's own start position replays the same innermost-scope resolution the
-  // compiler used.
+  // Stage 3: bind each candidate to the SAME declaring symbol by its
+  // parser-resolved `resolvedSymbolId`, dropping a usage that belongs to a
+  // shadowing sibling. The parser resolves every genuine local reference to its
+  // declaration during compilation, and that id is byte-identical to the
+  // declaration's own `id` (same id space), so an O(1) id compare settles each
+  // candidate — reusing the parser's resolution rather than re-deriving it with
+  // a per-candidate scope walk. A candidate the parser left unresolved carries
+  // no `resolvedSymbolId` and is not renamed; for a well-formed local that never
+  // happens.
   const seen = new Set<string>();
   const identifierRanges: OccurrenceMatch['identifierRange'][] = [];
 
@@ -126,14 +130,8 @@ export function findLocalOccurrences(
   });
 
   for (const candidate of candidates) {
-    const ir = candidate.identifierRange;
-    const bound = table.resolveVariableAtPosition(
-      declaration.name,
-      ir.startLine,
-      ir.startColumn,
-    );
-    if (bound?.id === declaration.id) {
-      push(ir);
+    if (candidate.resolvedSymbolId === declaration.id) {
+      push(candidate.identifierRange);
     }
   }
 
