@@ -25,6 +25,14 @@ export interface OccurrenceMatch {
   };
   /** The reference context that matched (METHOD_CALL, CLASS_REFERENCE, …). */
   context: ReferenceContext;
+  /**
+   * The declaration this reference resolved to during parsing, if the parser
+   * bound it (`undefined` when it left the reference unresolved). Carried
+   * through so scope-aware consumers (renameLocal) can bind an occurrence to a
+   * specific declaration by id — the parser already did that work — instead of
+   * re-deriving it positionally. Never used for matching here.
+   */
+  resolvedSymbolId?: string;
 }
 
 /**
@@ -189,6 +197,7 @@ export function findOccurrencesInFile(
         endColumn: ir.endColumn,
       },
       context: ref.context,
+      resolvedSymbolId: ref.resolvedSymbolId,
     });
   }
 
