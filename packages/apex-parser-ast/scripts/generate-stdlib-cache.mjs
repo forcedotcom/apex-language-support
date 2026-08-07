@@ -67,6 +67,64 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
   ['DescribeSObjectResult.cls','Schema'],   // hand-crafted: correct Map/List return types on getters
 ]);
 
+// Target namespaces for full stub generation (.cls files)
+// All other namespaces fetched from API are included in TypeRegistry as "api-only" entries
+const TARGET_NAMESPACES = [
+  'ApexPages',
+  'AppLauncher',
+  'Approval',
+  'Auth',
+  'Cache',
+  'Canvas',
+  'ChatterAnswers',
+  'CommerceBuyGrp',
+  'CommerceExtension',
+  'CommercePayments',
+  'CommerceTax',
+  'Compression',
+  'DataSource',
+  'DataWeave',
+  'Database',
+  'Datacloud',
+  'Dom',
+  'EventBus',
+  'Flow',
+  'FormulaEval',
+  'Functions',
+  'Invocable',
+  'IsvPartners',
+  'KbManagement',
+  'LxScheduler',
+  'Messaging',
+  'Metadata',
+  'Pref_center',
+  'Process',
+  'QuickAction',
+  'Reports',
+  'RichMessaging',
+  'Schema',
+  'Search',
+  'Sfc',
+  'Sfdc_Checkout',
+  'Sfdc_Enablement',
+  'Sfdc_Surveys',
+  'Site',
+  'Slack',
+  'Support',
+  'System',
+  'TerritoryMgmt',
+  'TxnSecurity',
+  'UserProvisioning',
+  'VisualEditor',
+  'Wave',
+  'embeddedai',
+  'flowuiruntime',
+  'fsccashflow',
+  'industriesNlpSvc',
+  'ise_bots_apex',
+  'setup_flow_performance',
+];
+
 /**
  * Calculate SHA256 checksum of all source files
  */
@@ -296,6 +354,54 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
     }
   }
 
+  // Add non-bundled types from tracked minimal index
+  // These provide type awareness without full symbol data
+  const nonBundledIndexPath = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
+  if (existsSync(nonBundledIndexPath)) {
+    console.log('   Adding non-bundled namespace types from index...');
+    try {
+      const indexContent = readFileSync(nonBundledIndexPath, 'utf8');
+      const index = JSON.parse(indexContent);
+
+      let nonBundledCount = 0;
+
+      for (const [namespace, types] of Object.entries(index.namespaces)) {
+        for (const type of types) {
+          const { name, kind } = type;
+          const fqn = `${namespace}.${name}`.toLowerCase();
+          const fileUri = `apexlib://api-only/${namespace}/${name}.cls`;
+
+          // Map API kind string to TypeKind enum
+          let typeKind = TypeKind.CLASS;
+          if (kind === 'INTERFACE') {
+            typeKind = TypeKind.INTERFACE;
+          } else if (kind === 'ENUM') {
+            typeKind = TypeKind.ENUM;
+          }
+
+          entries.push(
+            TypeRegistryEntry.create({
+              fqn,
+              name,
+              namespace,
+              kind: typeKind,
+              symbolId: '', // No symbol table available
+              fileUri,
+              isStdlib: true, // Platform type, just not bundled
+            }),
+          );
+          nonBundledCount++;
+        }
+      }
+
+      if (nonBundledCount > 0) {
+        console.log(`   Added ${nonBundledCount} non-bundled types from ${Object.keys(index.namespaces).length} namespaces`);
+      }
+    } catch (error) {
+      console.warn(`   Warning: Failed to load non-bundled index: ${error.message}`);
+    }
+  }
+
   const registry = TypeRegistry.create({
     generatedAt: new Date().toISOString(),
     sourceChecksum,
@@ -370,6 +476,30 @@ async function generateFqnIndex(namespaceData, sourceChecksum) {
           allTypes.push({ namespace, className, symbolName, fqn: canonicalFqn });
         }
       }
+    }
+  }
+
+  // Also collect types from non-bundled namespaces (API-only)
+  const nonBundledIndexPath = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
+  if (existsSync(nonBundledIndexPath)) {
+    try {
+      const indexContent = readFileSync(nonBundledIndexPath, 'utf8');
+      const index = JSON.parse(indexContent);
+
+      for (const [namespace, types] of Object.entries(index.namespaces)) {
+        for (const type of types) {
+          const name = type.name;
+          const canonicalFqn = `${namespace}.${name}`;
+          allTypes.push({
+            namespace,
+            className: name,
+            symbolName: name,
+            fqn: canonicalFqn
+          });
+        }
+      }
+    } catch (error) {
+      // Silently skip - already logged in generateTypeRegistry
     }
   }
 

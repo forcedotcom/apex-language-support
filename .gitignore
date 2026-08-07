@@ -21,6 +21,7 @@ yarn-error.log*
 # Build output
 dist/
 out/
+build/
 
 # Bundled output
 bundle/

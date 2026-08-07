@@ -47,6 +47,7 @@ import {
   setResourceLoaderLayerFactory,
   setWorkerTracingHooks,
   setWarmRemoteStdlibNamespaceCache,
+  setFqnIndex,
   currentWorkerLogLevel,
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
@@ -226,20 +227,9 @@ async function warmRemoteStdlibNamespaceCache(): Promise<void> {
   }
 }
 
-async function makeResourceLoaderRemoteLayer(): Promise<
-  import('effect').Layer.Layer<
-    import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
-  >
-> {
-  const { ResourceLoaderService } =
-    await import('@salesforce/apex-lsp-parser-ast');
-  const { Layer: L } = await import('effect');
-
-  remoteStdlibNamespaceMap = new Map<string, Set<string>>();
-  const namespaceMap = remoteStdlibNamespaceMap;
-
-  // Load FQN index from embedded artifact for local stdlib class resolution
-  let fqnIndex: Map<string, string> | null = null;
+// Load FQN index at module level for worker use
+let fqnIndex: Map<string, string> | null = null;
+(async () => {
   try {
     const { getEmbeddedFqnIndexDataUrl, loadFqnIndexFromGzip } =
       await import('@salesforce/apex-lsp-parser-ast');
@@ -252,6 +242,19 @@ async function makeResourceLoaderRemoteLayer(): Promise<
   } catch {
     // Expected in unbundled/dev builds; fall through to IPC
   }
+})();
+
+async function makeResourceLoaderRemoteLayer(): Promise<
+  import('effect').Layer.Layer<
+    import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
+  >
+> {
+  const { ResourceLoaderService } =
+    await import('@salesforce/apex-lsp-parser-ast');
+  const { Layer: L } = await import('effect');
+
+  remoteStdlibNamespaceMap = new Map<string, Set<string>>();
+  const namespaceMap = remoteStdlibNamespaceMap;
 
   const impl: import('@salesforce/apex-lsp-parser-ast').ResourceLoaderServiceShape =
     {
@@ -364,6 +367,7 @@ setWorkerId(workerId);
 setAssistanceTransport(requestCoordinatorAssistancePromise);
 setResourceLoaderLayerFactory(makeResourceLoaderRemoteLayer);
 setWarmRemoteStdlibNamespaceCache(warmRemoteStdlibNamespaceCache);
+setFqnIndex(fqnIndex);
 setWorkerTracingHooks({
   initialize: initWorkerTracing,
   provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>

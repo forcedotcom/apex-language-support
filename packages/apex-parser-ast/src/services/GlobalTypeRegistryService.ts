@@ -107,6 +107,19 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
     hitCount: 0,
   };
 
+  /**
+   * Check if a type registry entry is resolvable.
+   * API-only types (fileUri starts with "apexlib://api-only/") are not resolvable
+   * until the runtime symbol fetch feature is implemented.
+   *
+   * @param entry The type registry entry to check
+   * @returns true if the entry can be resolved, false otherwise
+   */
+  private isResolvable(entry: TypeRegistryEntry): boolean {
+    // API-only types cannot be resolved until runtime fetch is implemented
+    return !entry.fileUri.startsWith('apexlib://api-only/');
+  }
+
   registerType = (
     entry: TypeRegistryEntry,
   ): Effect.Effect<void, never, never> =>
@@ -257,15 +270,27 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
       // Qualified name - direct lookup
       if (name.includes('.')) {
         const entry = this.fqnIndex.get(name.toLowerCase());
-        if (entry) this.stats.hitCount++;
-        return entry;
+        if (entry && this.isResolvable(entry)) {
+          this.stats.hitCount++;
+          return entry;
+        }
+        return undefined;
       }
 
       // Unqualified name - apply namespace resolution
       const candidateFqns = this.nameIndex.get(name) || [];
       if (candidateFqns.length === 0) return undefined;
-      if (candidateFqns.length === 1) {
-        const entry = this.fqnIndex.get(candidateFqns[0]);
+
+      // Filter to resolvable candidates only
+      const resolvableFqns = candidateFqns.filter((fqn) => {
+        const entry = this.fqnIndex.get(fqn);
+        return entry && this.isResolvable(entry);
+      });
+
+      if (resolvableFqns.length === 0) return undefined;
+
+      if (resolvableFqns.length === 1) {
+        const entry = this.fqnIndex.get(resolvableFqns[0]);
         if (entry) this.stats.hitCount++;
         return entry;
       }
@@ -281,15 +306,15 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
 
       for (const ns of priorityNamespaces) {
         const qualifiedName = `${ns.toLowerCase()}.${name.toLowerCase()}`;
-        if (candidateFqns.includes(qualifiedName)) {
+        if (resolvableFqns.includes(qualifiedName)) {
           const entry = this.fqnIndex.get(qualifiedName);
           if (entry) this.stats.hitCount++;
           return entry;
         }
       }
 
-      // Fallback to first candidate
-      const entry = this.fqnIndex.get(candidateFqns[0]);
+      // Fallback to first resolvable candidate
+      const entry = this.fqnIndex.get(resolvableFqns[0]);
       if (entry) this.stats.hitCount++;
       return entry;
     });
@@ -297,7 +322,14 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
   getType = (
     fqn: string,
   ): Effect.Effect<TypeRegistryEntry | undefined, never, never> =>
-    Effect.sync(() => this.fqnIndex.get(fqn.toLowerCase()));
+    Effect.sync(() => {
+      const entry = this.fqnIndex.get(fqn.toLowerCase());
+      // Return undefined if entry is not resolvable (api-only types)
+      if (entry && !this.isResolvable(entry)) {
+        return undefined;
+      }
+      return entry;
+    });
 
   getTypesInNamespace = (
     namespace: string,

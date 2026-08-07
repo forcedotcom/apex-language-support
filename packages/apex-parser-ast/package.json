@@ -24,6 +24,10 @@
     "README.md"
   ],
   "scripts": {
+    "fetch:api-stubs": "node scripts/fetch-api-stubs.mjs",
+    "generate:api-stubs": "node scripts/generate-api-stubs.mjs",
+    "generate:non-bundled-index": "node scripts/generate-non-bundled-index.mjs",
+    "update:stubs": "npm run fetch:api-stubs && npm run generate:api-stubs && npm run generate:non-bundled-index",
     "generate:stdlib-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",
@@ -54,6 +58,7 @@
       ],
       "files": [
         "src/resources/StandardApexLibrary/**/*.cls",
+        "src/resources/non-bundled-types.json",
         "scripts/generate-stdlib-cache.mjs"
       ]
     },

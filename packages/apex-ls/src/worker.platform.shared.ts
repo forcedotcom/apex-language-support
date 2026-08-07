@@ -339,6 +339,16 @@ export function setAssistanceTransport(fn: AssistanceTransport): void {
   _requestCoordinatorAssistancePromise = fn;
 }
 
+// ---------------------------------------------------------------------------
+// FQN Index (pre-built stdlib class name → FQN map)
+// ---------------------------------------------------------------------------
+
+let _fqnIndex: Map<string, string> | null = null;
+
+export function setFqnIndex(index: Map<string, string> | null): void {
+  _fqnIndex = index;
+}
+
 export function requestCoordinatorAssistancePromiseShared(
   method: string,
   params: unknown,
@@ -5326,6 +5336,25 @@ const untracedHandlers: SerializedWorkerHandlers = {
     guardRole('ResourceLoaderResolveClass').pipe(
       Effect.flatMap(() =>
         Effect.gen(function* () {
+          // Fast path: use pre-built FQN index if available
+          if (_fqnIndex) {
+            const normalizedInput = req.className.replace(/\.cls$/i, '');
+            const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
+
+            if (pathParts.length >= 2) {
+              // Qualified input: namespace.class
+              const qualifiedKey = pathParts.join('.').toLowerCase();
+              const fqn = _fqnIndex.get(qualifiedKey) ?? null;
+              return fqn !== null ? { found: true, fqn } : { found: false };
+            } else {
+              // Unqualified input: class only
+              const unqualifiedKey = pathParts[0].toLowerCase();
+              const fqn = _fqnIndex.get(unqualifiedKey) ?? null;
+              return fqn !== null ? { found: true, fqn } : { found: false };
+            }
+          }
+
+          // Fallback: use ResourceLoader (slower, requires ZIP/symbol data parsing)
           const { ResourceLoader } = yield* Effect.promise(
             () => import('@salesforce/apex-lsp-parser-ast'),
           );

@@ -1,0 +1,10 @@
+{
+  "apiVersion": "v67.0",
+  "generatedAt": "2026-08-05T00:00:00.000Z",
+  "description": "Minimal type index for non-bundled Salesforce platform namespaces. Used to populate TypeRegistry with api-only entries during build. This file is currently empty and will be populated when StandardApexLibrary stubs are updated via the stub capture workflow.",
+  "namespaces": {},
+  "stats": {
+    "totalNamespaces": 0,
+    "totalTypes": 0
+  }
+}
